@@ -8,7 +8,7 @@ image_resource:
 
 inputs:
 - name: gpbackup
-  path: go/src/gpbackup
+  path: go/src/github.com/greenplum-db/gpbackup
 
 run:
   path: bash
@@ -20,6 +20,6 @@ run:
     export GOPATH=$PWD/go
     export PATH=$GOPATH/bin:$PATH
 
-    cd $GOPATH/src/gpbackup
+    cd $GOPATH/src/github.com/greenplum-db/gpbackup
     make depend
     make unit

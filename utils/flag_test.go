@@ -2,8 +2,9 @@ package utils_test
 
 import (
 	"flag"
-	"gpbackup/testutils"
-	"gpbackup/utils"
+
+	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

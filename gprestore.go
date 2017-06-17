@@ -3,7 +3,7 @@
 package main
 
 import (
-	. "gpbackup/restore"
+	. "github.com/greenplum-db/gpbackup/restore"
 )
 
 func main() {

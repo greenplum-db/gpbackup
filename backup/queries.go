@@ -8,8 +8,9 @@ package backup
 
 import (
 	"fmt"
-	"gpbackup/utils"
 	"strings"
+
+	"github.com/greenplum-db/gpbackup/utils"
 
 	"github.com/pkg/errors"
 )

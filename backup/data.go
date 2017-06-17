@@ -6,7 +6,8 @@ package backup
 
 import (
 	"fmt"
-	"gpbackup/utils"
+
+	"github.com/greenplum-db/gpbackup/utils"
 )
 
 var (

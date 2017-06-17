@@ -1,11 +1,12 @@
 package integration
 
 import (
-	"gpbackup/backup"
-	"gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/testutils"
 
 	"bytes"
-	"gpbackup/utils"
+
+	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

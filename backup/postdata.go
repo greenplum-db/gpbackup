@@ -8,9 +8,10 @@ package backup
 
 import (
 	"fmt"
-	"gpbackup/utils"
 	"io"
 	"sort"
+
+	"github.com/greenplum-db/gpbackup/utils"
 )
 
 func GetIndexesForAllTables(connection *utils.DBConn, tables []utils.Relation) []string {

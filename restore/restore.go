@@ -3,7 +3,8 @@ package restore
 import (
 	"flag"
 	"fmt"
-	"gpbackup/utils"
+
+	"github.com/greenplum-db/gpbackup/utils"
 
 	"github.com/pkg/errors"
 )

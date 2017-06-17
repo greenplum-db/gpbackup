@@ -3,9 +3,10 @@ package integration
 import (
 	"testing"
 
-	"gpbackup/testutils"
-	"gpbackup/utils"
 	"os/exec"
+
+	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/utils"
 
 	"fmt"
 

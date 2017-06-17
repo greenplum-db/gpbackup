@@ -2,7 +2,8 @@ package utils_test
 
 import (
 	"fmt"
-	"gpbackup/utils"
+
+	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

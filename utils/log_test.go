@@ -2,12 +2,13 @@ package utils_test
 
 import (
 	"fmt"
-	"gpbackup/testutils"
-	"gpbackup/utils"
 	"os"
 	"os/user"
 	"reflect"
 	"time"
+
+	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

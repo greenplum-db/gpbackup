@@ -1,8 +1,9 @@
 package utils_test
 
 import (
-	"gpbackup/utils"
 	"time"
+
+	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

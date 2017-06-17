@@ -7,9 +7,10 @@ package backup
 
 import (
 	"fmt"
-	"gpbackup/utils"
 	"io"
 	"strings"
+
+	"github.com/greenplum-db/gpbackup/utils"
 )
 
 type ColumnDefinition struct {

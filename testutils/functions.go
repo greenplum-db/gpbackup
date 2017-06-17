@@ -2,10 +2,11 @@ package testutils
 
 import (
 	"fmt"
-	"gpbackup/backup"
-	"gpbackup/utils"
 	"regexp"
 	"strings"
+
+	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/utils"
 
 	"strconv"
 

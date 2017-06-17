@@ -1,10 +1,11 @@
 package utils_test
 
 import (
-	"gpbackup/testutils"
-	"gpbackup/utils"
 	"os"
 	"time"
+
+	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/utils"
 
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"

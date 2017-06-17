@@ -3,7 +3,8 @@ package backup
 import (
 	"flag"
 	"fmt"
-	"gpbackup/utils"
+
+	"github.com/greenplum-db/gpbackup/utils"
 )
 
 var (

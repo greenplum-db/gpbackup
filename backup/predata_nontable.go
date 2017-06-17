@@ -8,10 +8,11 @@ package backup
 
 import (
 	"fmt"
-	"gpbackup/utils"
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/greenplum-db/gpbackup/utils"
 )
 
 type SequenceDefinition struct {

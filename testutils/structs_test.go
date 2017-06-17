@@ -1,7 +1,7 @@
 package testutils
 
 import (
-	"gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/utils"
 
 	"testing"
 
