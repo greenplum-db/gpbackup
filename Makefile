@@ -19,6 +19,7 @@ dependencies :
 		go get github.com/pkg/errors
 		go get golang.org/x/tools/cmd/goimports
 		go get gopkg.in/DATA-DOG/go-sqlmock.v1
+		go get -u github.com/golang/lint/golint
 		go get github.com/alecthomas/gometalinter
 
 format :
