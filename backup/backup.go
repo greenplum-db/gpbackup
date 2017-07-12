@@ -8,8 +8,7 @@ import (
 )
 
 var (
-	connection *utils.DBConn
-	logger     *utils.Logger
+	logger *utils.Logger
 )
 
 var ( // Command-line flags
@@ -39,7 +38,7 @@ func DoValidation() {
 }
 
 // This function handles setup that must be done after parsing flags.
-func DoSetup() {
+func DoSetup() *utils.DBConn {
 	if *quiet {
 		logger.SetVerbosity(utils.LOGERROR)
 	} else if *debug {
@@ -47,7 +46,7 @@ func DoSetup() {
 	} else if *verbose {
 		logger.SetVerbosity(utils.LOGVERBOSE)
 	}
-	connection = utils.NewDBConn(*dbname)
+	connection := utils.NewDBConn(*dbname)
 	connection.Connect()
 	connection.Exec("SET application_name TO 'gpbackup'")
 
@@ -60,9 +59,10 @@ func DoSetup() {
 	segConfig := utils.GetSegmentConfiguration(connection)
 	utils.SetupSegmentConfiguration(segConfig)
 	utils.CreateDumpDirs()
+	return connection
 }
 
-func DoBackup() {
+func DoBackup(connection *utils.DBConn) {
 	logger.Info("Dump Key = %s", utils.DumpTimestamp)
 	logger.Info("Dump Database = %s", utils.QuoteIdent(connection.DBName))
 	logger.Info("Database Size = %s", connection.GetDBSize())
@@ -80,25 +80,25 @@ func DoBackup() {
 	extTableMap := GetExternalTablesMap(connection)
 
 	logger.Info("Writing global database metadata to %s", globalFilename)
-	backupGlobal(globalFilename)
+	backupGlobal(connection, globalFilename)
 	logger.Info("Global database metadata dump complete")
 
 	logger.Info("Writing pre-data metadata to %s", predataFilename)
-	backupPredata(predataFilename, tables, extTableMap)
+	backupPredata(connection, predataFilename, tables, extTableMap)
 	logger.Info("Pre-data metadata dump complete")
 
 	logger.Info("Writing data to file")
-	backupData(tables, extTableMap)
+	backupData(connection, tables, extTableMap)
 	logger.Info("Data dump complete")
 
 	logger.Info("Writing post-data metadata to %s", postdataFilename)
-	backupPostdata(postdataFilename, tables, extTableMap)
+	backupPostdata(connection, postdataFilename, tables, extTableMap)
 	logger.Info("Post-data metadata dump complete")
 
 	connection.Commit()
 }
 
-func backupGlobal(filename string) {
+func backupGlobal(connection *utils.DBConn, filename string) {
 	globalFile := utils.MustOpenFile(filename)
 
 	logger.Verbose("Writing session GUCs to global file")
@@ -106,7 +106,7 @@ func backupGlobal(filename string) {
 	PrintSessionGUCs(globalFile, gucs)
 
 	logger.Verbose("Writing CREATE DATABASE statement to global file")
-	PrintCreateDatabaseStatement(globalFile)
+	PrintCreateDatabaseStatement(globalFile, connection)
 
 	logger.Verbose("Writing database GUCs to global file")
 	databaseGucs := GetDatabaseGUCs(connection)
@@ -127,7 +127,7 @@ func backupGlobal(filename string) {
 	PrintCreateRoleStatements(globalFile, roles)
 }
 
-func backupPredata(filename string, tables []utils.Relation, extTableMap map[string]bool) {
+func backupPredata(connection *utils.DBConn, filename string, tables []utils.Relation, extTableMap map[string]bool) {
 	predataFile := utils.MustOpenFile(filename)
 	PrintConnectionString(predataFile, connection.DBName)
 
@@ -193,7 +193,7 @@ func backupPredata(filename string, tables []utils.Relation, extTableMap map[str
 
 }
 
-func backupData(tables []utils.Relation, extTableMap map[string]bool) {
+func backupData(connection *utils.DBConn, tables []utils.Relation, extTableMap map[string]bool) {
 	for _, table := range tables {
 		isExternal := extTableMap[table.ToString()]
 		if !isExternal {
@@ -208,7 +208,7 @@ func backupData(tables []utils.Relation, extTableMap map[string]bool) {
 	WriteTableMapFile(tables)
 }
 
-func backupPostdata(filename string, tables []utils.Relation, extTableMap map[string]bool) {
+func backupPostdata(connection *utils.DBConn, filename string, tables []utils.Relation, extTableMap map[string]bool) {
 	postdataFile := utils.MustOpenFile(filename)
 	PrintConnectionString(postdataFile, connection.DBName)
 
@@ -232,9 +232,6 @@ func backupPostdata(filename string, tables []utils.Relation, extTableMap map[st
 func DoTeardown() {
 	if r := recover(); r != nil {
 		fmt.Println(r)
-	}
-	if connection != nil {
-		connection.Close()
 	}
 	// TODO: Add logic for error codes based on whether we Abort()ed or not
 }

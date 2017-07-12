@@ -10,6 +10,11 @@ func main() {
 	defer DoTeardown()
 	DoInit()
 	DoValidation()
-	DoSetup()
-	DoBackup()
+	connection := DoSetup()
+	defer func() {
+		if connection != nil {
+			connection.Close()
+		}
+	}()
+	DoBackup(connection)
 }
