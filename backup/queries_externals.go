@@ -98,38 +98,53 @@ FROM pg_extprotocol p;
 	return results
 }
 
-type ExternalPartition struct {
-	Oid                 uint32
-	ParentOid           uint32
-	ParentSchema        string
-	ParentName          string
-	PartitionToExchange string
-	Rank                int `db:"partitionrank"` // "rank" is a reserved word
+type PartitionInfo struct {
+	PartitionRuleOid       uint32
+	PartitionParentRuleOid uint32
+	ParentRelationOid      uint32
+	ParentSchema           string
+	ParentRelationName     string
+	RelationOid            uint32
+	PartitionName          string
+	PartitionRank          int
+	IsExternal             bool
 }
 
-func GetExternalPartitionInfo(connection *utils.DBConn) []ExternalPartition {
-	results := make([]ExternalPartition, 0)
+func GetExternalPartitionInfo(connection *utils.DBConn) []PartitionInfo {
+	results := make([]PartitionInfo, 0)
 	query := `
 SELECT
-	oid,
-	parentoid,
+	partitionruleoid,
+	partitionparentruleoid,
+	parentrelationoid,
 	parentschema,
-	parentname,
-	partitiontoexchange,
-	partitionrank
+	parentrelationname,
+	relationoid,
+	partitionname,
+	partitionrank,
+	CASE
+		WHEN extoid IS NOT NULL then 't'
+		ELSE 'f'
+	END AS isexternal
 FROM (
 	SELECT
-		e.reloid AS oid,
-		cl.oid AS parentoid,
+		pr1.oid AS partitionruleoid,
+		pr1.parparentrule AS partitionparentruleoid,
+		cl.oid AS parentrelationoid,
 		quote_ident(n.nspname) AS parentschema,
-		quote_ident(cl.relname) AS parentname,
-		pr1.parname AS partitiontoexchange,
+		quote_ident(cl.relname) AS parentrelationname,
+		pr1.parchildrelid AS relationoid,
+		CASE
+			WHEN pr1.parname = '' THEN ''
+			ELSE quote_ident(pr1.parname)
+		END AS partitionname,
 		CASE
 			WHEN pp.parkind <> 'r'::"char" OR pr1.parisdefault THEN 0
 			ELSE pg_catalog.rank() OVER (
 				PARTITION BY pp.oid, cl.relname, pp.parlevel, cl3.relname
 				ORDER BY pr1.parisdefault, pr1.parruleord)
-		END AS partitionrank
+		END AS partitionrank,
+		e.reloid AS extoid
 	FROM pg_namespace n, pg_namespace n2, pg_class cl
 	LEFT JOIN pg_tablespace sp ON cl.reltablespace = sp.oid, pg_class cl2
 	LEFT JOIN pg_tablespace sp3 ON cl2.reltablespace = sp3.oid, pg_partition pp, pg_partition_rule pr1
@@ -142,8 +157,8 @@ FROM (
 	AND cl2.oid = pr1.parchildrelid
 	AND cl.relnamespace = n.oid
 	AND cl2.relnamespace = n2.oid
-) AS subquery
-WHERE oid IS NOT NULL;`
+) AS subquery;
+`
 	err := connection.Select(&results, query)
 	utils.CheckError(err)
 	return results

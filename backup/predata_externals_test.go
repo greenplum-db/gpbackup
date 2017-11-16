@@ -451,35 +451,138 @@ GRANT ALL ON PROTOCOL s3 TO testrole;`)
 			backup.Relation{Oid: 2, Schema: "public", Name: "partition_table"},
 		}
 		It("writes an alter statement for a named partition", func() {
-			externalPartition := backup.ExternalPartition{
-				Oid:                 1,
-				ParentOid:           2,
-				ParentSchema:        "public",
-				ParentName:          "partition_table",
-				PartitionToExchange: "partition_name",
-				Rank:                1,
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       1,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            1,
+				PartitionName:          "partition_name",
+				PartitionRank:          0,
+				IsExternal:             true,
 			}
-			externalPartitions := []backup.ExternalPartition{externalPartition}
+			externalPartitions := []backup.PartitionInfo{externalPartition}
 			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table EXCHANGE PARTITION partition_name WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
 DROP TABLE public.partition_table_ext_part_;`)
 		})
 		It("writes an alter statement using rank for an unnamed partition", func() {
-			externalPartition := backup.ExternalPartition{
-				Oid:                 1,
-				ParentOid:           2,
-				ParentSchema:        "public",
-				ParentName:          "partition_table",
-				PartitionToExchange: "",
-				Rank:                1,
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       1,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            1,
+				PartitionName:          "",
+				PartitionRank:          1,
+				IsExternal:             true,
 			}
-			externalPartitions := []backup.ExternalPartition{externalPartition}
+			externalPartitions := []backup.PartitionInfo{externalPartition}
 			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
 DROP TABLE public.partition_table_ext_part_;`)
 		})
+		It("writes an alter statement using rank for a two level partition", func() {
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       10,
+				PartitionParentRuleOid: 11,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            1,
+				PartitionName:          "",
+				PartitionRank:          1,
+				IsExternal:             true,
+			}
+			externalPartitionParent := backup.PartitionInfo{
+				PartitionRuleOid:       11,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            0,
+				PartitionName:          "",
+				PartitionRank:          3,
+				IsExternal:             false,
+			}
+			externalPartitions := []backup.PartitionInfo{externalPartition, externalPartitionParent}
+			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION FOR (RANK(3)) EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
+DROP TABLE public.partition_table_ext_part_;`)
+		})
+		It("writes an alter statement using partition name for a two level partition", func() {
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       10,
+				PartitionParentRuleOid: 11,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            1,
+				PartitionName:          "",
+				PartitionRank:          1,
+				IsExternal:             true,
+			}
+			externalPartitionParent := backup.PartitionInfo{
+				PartitionRuleOid:       11,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            3,
+				PartitionName:          "partition_name",
+				PartitionRank:          0,
+				IsExternal:             false,
+			}
+			externalPartitions := []backup.PartitionInfo{externalPartition, externalPartitionParent}
+			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION partition_name EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
+
+DROP TABLE public.partition_table_ext_part_;`)
+		})
+		It("writes an alter statement for a three level partition", func() {
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       10,
+				PartitionParentRuleOid: 11,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            1,
+				PartitionName:          "",
+				PartitionRank:          1,
+				IsExternal:             true,
+			}
+			externalPartitionParent1 := backup.PartitionInfo{
+				PartitionRuleOid:       11,
+				PartitionParentRuleOid: 12,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            0,
+				PartitionName:          "partition_name",
+				PartitionRank:          0,
+				IsExternal:             false,
+			}
+			externalPartitionParent2 := backup.PartitionInfo{
+				PartitionRuleOid:       12,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "partition_table",
+				RelationOid:            0,
+				PartitionName:          "",
+				PartitionRank:          3,
+				IsExternal:             false,
+			}
+			externalPartitions := []backup.PartitionInfo{externalPartition, externalPartitionParent1, externalPartitionParent2}
+			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION FOR (RANK(3)) ALTER PARTITION partition_name EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
+
+DROP TABLE public.partition_table_ext_part_;`)
+		})
 	})
 })

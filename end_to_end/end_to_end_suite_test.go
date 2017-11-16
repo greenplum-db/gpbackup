@@ -193,5 +193,31 @@ var _ = Describe("backup end to end integration tests", func() {
 			backupConn.Connect()
 			utils.ExecuteSQLFile(backupConn, "test_tables.sql")
 		})
+		It("runs gpbackup and gprestore on a database with a 3 level partition table with an external partition", func() {
+			testutils.AssertQueryRuns(backupConn, `
+CREATE TABLE part_tbl (id int, year int, month int, day int, region text)
+DISTRIBUTED BY (id)
+PARTITION BY RANGE (year)
+    SUBPARTITION BY RANGE (month)
+       SUBPARTITION TEMPLATE (
+        START (1) END (13) EVERY (1),
+        DEFAULT SUBPARTITION other_months )
+           SUBPARTITION BY LIST (region)
+             SUBPARTITION TEMPLATE (
+               SUBPARTITION usa VALUES ('usa'),
+               SUBPARTITION europe VALUES ('europe'),
+               SUBPARTITION asia VALUES ('asia'),
+               DEFAULT SUBPARTITION other_regions )
+( START (2002) END (2012) EVERY (1),
+  DEFAULT PARTITION outlying_years );
+`)
+			testutils.AssertQueryRuns(backupConn, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (like part_tbl_1_prt_10_2_prt_5_3_prt_europe) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
+			testutils.AssertQueryRuns(backupConn, `ALTER TABLE public.part_tbl ALTER PARTITION FOR (RANK(9)) ALTER PARTITION FOR (RANK(4)) EXCHANGE PARTITION europe WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
+
+			timestamp := gpbackup(gpbackupPath)
+			gprestore(gprestorePath, timestamp, "-redirect", "restoredb")
+			storageType := backup.SelectString(restoreConn, "SELECT relstorage AS string FROM pg_class WHERE relname='part_tbl_1_prt_10_2_prt_5_3_prt_europe'")
+			Expect(storageType).To(Equal("x"))
+		})
 	})
 })
