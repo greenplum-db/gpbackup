@@ -90,9 +90,9 @@ func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinit
 	tableDefs := ConstructDefinitionsForTables(connection, tables)
 	extPartInfo := GetExternalPartitionInfo(connection)
 	for _, partInfo := range extPartInfo {
-		tableDef := tableDefs[partInfo.ParentOid]
+		tableDef := tableDefs[partInfo.ParentRelationOid]
 		tableDef.IsExternal = true
-		tableDefs[partInfo.ParentOid] = tableDef
+		tableDefs[partInfo.ParentRelationOid] = tableDef
 	}
 	metadataTables, dataTables := SplitTablesByPartitionType(tables, tableDefs, userPassedIncludeTables)
 	objectCounts["Tables"] = len(metadataTables)
@@ -474,7 +474,7 @@ func BackupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 		if numExtParts > 1 {
 			s = "s"
 		}
-		logger.Warn("Skipped data backup of %d partition table%s.", numExtParts, s)
+		logger.Warn("Skipped data backup of %d partition table%s containing external partitions.", numExtParts, s)
 		logger.Warn("Set the --leaf-partition-data flag to back up data in those tables.")
 	}
 	if numExtTables > 0 || numExtParts > 0 {

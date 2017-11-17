@@ -158,63 +158,155 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {
 		tables := []backup.Relation{
-			backup.Relation{Oid: 1, Schema: "public", Name: "partition_table_ext_part_"},
-			backup.Relation{Oid: 2, Schema: "public", Name: "partition_table"},
+			backup.Relation{Oid: 1, Schema: "public", Name: "part_tbl_ext_part_"},
+			backup.Relation{Oid: 2, Schema: "public", Name: "part_tbl"},
 		}
 		AfterEach(func() {
-			testutils.AssertQueryRuns(connection, "DROP TABLE partition_table")
+			testutils.AssertQueryRuns(connection, "DROP TABLE part_tbl")
 		})
 		It("writes an alter statement for a named list partition", func() {
-			externalPartition := backup.ExternalPartition{
-				Oid:                 1,
-				ParentOid:           2,
-				ParentSchema:        "public",
-				ParentName:          "partition_table",
-				PartitionToExchange: "girls",
-				Rank:                0,
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       1,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "part_tbl",
+				RelationOid:            1,
+				PartitionName:          "girls",
+				PartitionRank:          0,
+				IsExternal:             true,
 			}
-			testutils.AssertQueryRuns(connection, `CREATE TABLE partition_table (id int, gender char(1))
+			testutils.AssertQueryRuns(connection, `
+CREATE TABLE part_tbl (id int, gender char(1))
 DISTRIBUTED BY (id)
 PARTITION BY LIST (gender)
 ( PARTITION girls VALUES ('F'),
   PARTITION boys VALUES ('M'),
   DEFAULT PARTITION other );`)
-			testutils.AssertQueryRuns(connection, `CREATE EXTERNAL WEB TABLE partition_table_ext_part_ (like partition_table_1_prt_girls)
+			testutils.AssertQueryRuns(connection, `
+CREATE EXTERNAL WEB TABLE part_tbl_ext_part_ (like part_tbl_1_prt_girls)
 EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
-			externalPartitions := []backup.ExternalPartition{externalPartition}
+			externalPartitions := []backup.PartitionInfo{externalPartition}
 
 			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
 			testutils.AssertQueryRuns(connection, buffer.String())
 
 			results := backup.GetExternalPartitionInfo(connection)
-			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&externalPartition, &results[0], "Oid", "ParentOid")
+			Expect(len(results)).To(Equal(3))
+			var resultExtPart backup.PartitionInfo
+			for _, res := range results {
+				if res.IsExternal {
+					resultExtPart = res
+					break
+				}
+			}
+			Expect(resultExtPart).ToNot(Equal(nil))
+			testutils.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPart, "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for an unnamed range partition", func() {
-			externalPartition := backup.ExternalPartition{
-				Oid:                 1,
-				ParentOid:           2,
-				ParentSchema:        "public",
-				ParentName:          "partition_table",
-				PartitionToExchange: "",
-				Rank:                1,
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       1,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "part_tbl",
+				RelationOid:            1,
+				PartitionName:          "",
+				PartitionRank:          1,
+				IsExternal:             true,
 			}
-			testutils.AssertQueryRuns(connection, `CREATE TABLE partition_table (a int) 
+			testutils.AssertQueryRuns(connection, `
+CREATE TABLE part_tbl (a int)
 DISTRIBUTED BY (a)
 PARTITION BY RANGE (a)
 (start(1) end(3) every(1));`)
-			testutils.AssertQueryRuns(connection, `CREATE EXTERNAL WEB TABLE partition_table_ext_part_ (like partition_table_1_prt_1)
+			testutils.AssertQueryRuns(connection, `
+CREATE EXTERNAL WEB TABLE part_tbl_ext_part_ (like part_tbl_1_prt_1)
 EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
-			externalPartitions := []backup.ExternalPartition{externalPartition}
+			externalPartitions := []backup.PartitionInfo{externalPartition}
 
 			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
 			testutils.AssertQueryRuns(connection, buffer.String())
 
 			results := backup.GetExternalPartitionInfo(connection)
-			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&externalPartition, &results[0], "Oid", "ParentOid")
+			Expect(len(results)).To(Equal(2))
+			var resultExtPart backup.PartitionInfo
+			for _, res := range results {
+				if res.IsExternal {
+					resultExtPart = res
+					break
+				}
+			}
+			Expect(resultExtPart).ToNot(Equal(nil))
+			testutils.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPart, "PartitionRuleOid", "RelationOid", "ParentRelationOid")
+		})
+		It("writes an alter statement for a two level partition", func() {
+			externalPartition := backup.PartitionInfo{
+				PartitionRuleOid:       10,
+				PartitionParentRuleOid: 11,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "part_tbl",
+				RelationOid:            1,
+				PartitionName:          "apj",
+				PartitionRank:          0,
+				IsExternal:             true,
+			}
+			externalPartitionParent := backup.PartitionInfo{
+				PartitionRuleOid:       11,
+				PartitionParentRuleOid: 0,
+				ParentRelationOid:      2,
+				ParentSchema:           "public",
+				ParentRelationName:     "part_tbl",
+				RelationOid:            0,
+				PartitionName:          "Dec16",
+				PartitionRank:          0,
+				IsExternal:             false,
+			}
+			testutils.AssertQueryRuns(connection, `
+CREATE TABLE part_tbl (a int,b date,c text,d int)
+DISTRIBUTED BY (a)
+PARTITION BY RANGE (b)
+SUBPARTITION BY LIST (c)
+SUBPARTITION TEMPLATE
+(SUBPARTITION usa values ('usa'),
+SUBPARTITION apj values ('apj'),
+SUBPARTITION eur values ('eur'))
+(PARTITION Jan16 START (date '2016-01-01') INCLUSIVE ,
+  PARTITION Feb16 START (date '2016-02-01') INCLUSIVE ,
+  PARTITION Mar16 START (date '2016-03-01') INCLUSIVE ,
+  PARTITION Apr16 START (date '2016-04-01') INCLUSIVE ,
+  PARTITION May16 START (date '2016-05-01') INCLUSIVE ,
+  PARTITION Jun16 START (date '2016-06-01') INCLUSIVE ,
+  PARTITION Jul16 START (date '2016-07-01') INCLUSIVE ,
+  PARTITION Aug16 START (date '2016-08-01') INCLUSIVE ,
+  PARTITION Sep16 START (date '2016-09-01') INCLUSIVE ,
+  PARTITION Oct16 START (date '2016-10-01') INCLUSIVE ,
+  PARTITION Nov16 START (date '2016-11-01') INCLUSIVE ,
+  PARTITION Dec16 START (date '2016-12-01') INCLUSIVE
+                  END (date '2017-01-01') EXCLUSIVE);
+`)
+
+			testutils.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (a int,b date,c text,d int) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
+			externalPartitions := []backup.PartitionInfo{externalPartition, externalPartitionParent}
+
+			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, tables)
+			testutils.AssertQueryRuns(connection, buffer.String())
+
+			results := backup.GetExternalPartitionInfo(connection)
+
+			externalPartition.RelationOid = testutils.OidFromObjectName(connection, "public", "part_tbl_1_prt_dec16_2_prt_apj", backup.TYPE_RELATION)
+			var resultExtPart backup.PartitionInfo
+			for _, res := range results {
+				if res.IsExternal {
+					resultExtPart = res
+					break
+				}
+			}
+			Expect(resultExtPart).ToNot(Equal(nil))
+			testutils.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPart, "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 	})
 })

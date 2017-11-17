@@ -247,23 +247,45 @@ func PrintCreateExternalProtocolStatements(predataFile *utils.FileWithByteCount,
 	}
 }
 
-func PrintExchangeExternalPartitionStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, externalPartitionInfo []ExternalPartition, tables []Relation) {
+func PrintExchangeExternalPartitionStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, partitionInfo []PartitionInfo, tables []Relation) {
 	tableNameMap := make(map[uint32]string, len(tables))
+	extPartitions := make([]PartitionInfo, 0)
+	partInfoMap := make(map[uint32]PartitionInfo, len(partitionInfo))
 	for _, table := range tables {
 		tableNameMap[table.Oid] = table.FQN()
 	}
-	for _, externalPartition := range externalPartitionInfo {
-		externalPartitionName := tableNameMap[externalPartition.Oid]
-		parentRelationName := utils.MakeFQN(externalPartition.ParentSchema, externalPartition.ParentName)
-		start := predataFile.ByteCount
-		predataFile.MustPrintf("\n\nALTER TABLE %s ", parentRelationName)
-		if externalPartition.PartitionToExchange == "" {
-			predataFile.MustPrintf("EXCHANGE PARTITION FOR (RANK(%d)) ", externalPartition.Rank)
-		} else {
-			predataFile.MustPrintf("EXCHANGE PARTITION %s ", externalPartition.PartitionToExchange)
+	for _, partInfo := range partitionInfo {
+		if partInfo.IsExternal {
+			extPartitions = append(extPartitions, partInfo)
 		}
-		predataFile.MustPrintf("WITH TABLE %s WITHOUT VALIDATION;", externalPartitionName)
-		predataFile.MustPrintf("\n\nDROP TABLE %s;", externalPartitionName)
-		toc.AddMetadataEntry(externalPartition.ParentSchema, externalPartition.ParentName, "EXCHANGE PARTITION", start, predataFile)
+		partInfoMap[partInfo.PartitionRuleOid] = partInfo
+	}
+	for _, externalPartition := range extPartitions {
+		extPartRelationName := tableNameMap[externalPartition.RelationOid]
+		if extPartRelationName == "" {
+			continue //Not included in the list of tables to back up
+		}
+		parentRelationName := utils.MakeFQN(externalPartition.ParentSchema, externalPartition.ParentRelationName)
+		start := predataFile.ByteCount
+		alterPartitionStr := ""
+		currentPartition := externalPartition
+		for currentPartition.PartitionParentRuleOid != 0 {
+			parent := partInfoMap[currentPartition.PartitionParentRuleOid]
+			if parent.PartitionName == "" {
+				alterPartitionStr = fmt.Sprintf("ALTER PARTITION FOR (RANK(%d)) ", parent.PartitionRank) + alterPartitionStr
+			} else {
+				alterPartitionStr = fmt.Sprintf("ALTER PARTITION %s ", parent.PartitionName) + alterPartitionStr
+			}
+			currentPartition = parent
+		}
+		predataFile.MustPrintf("\n\nALTER TABLE %s %s", parentRelationName, alterPartitionStr)
+		if externalPartition.PartitionName == "" {
+			predataFile.MustPrintf("EXCHANGE PARTITION FOR (RANK(%d)) ", externalPartition.PartitionRank)
+		} else {
+			predataFile.MustPrintf("EXCHANGE PARTITION %s ", externalPartition.PartitionName)
+		}
+		predataFile.MustPrintf("WITH TABLE %s WITHOUT VALIDATION;", extPartRelationName)
+		predataFile.MustPrintf("\n\nDROP TABLE %s;", extPartRelationName)
+		toc.AddMetadataEntry(externalPartition.ParentSchema, externalPartition.ParentRelationName, "EXCHANGE PARTITION", start, predataFile)
 	}
 }
