@@ -238,7 +238,9 @@ type Aggregate struct {
 	TransitionFunction  uint32 `db:"aggtransfn"`
 	PreliminaryFunction uint32 `db:"aggprelimfn"`
 	FinalFunction       uint32 `db:"aggfinalfn"`
+	FinalFuncExtra      bool
 	SortOperator        uint32 `db:"aggsortop"`
+	Hypothetical        bool
 	TransitionDataType  string
 	InitialValue        string
 	InitValIsNull       bool
@@ -246,20 +248,13 @@ type Aggregate struct {
 }
 
 func GetAggregates(connection *utils.DBConn) []Aggregate {
-	argStr := ""
-	if connection.Version.Before("5") {
-		argStr = `'' AS arguments,
-	'' AS identargs,`
-	} else {
-		argStr = `pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
-	pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,`
-	}
-	query := fmt.Sprintf(`
+	version4query := fmt.Sprintf(`
 SELECT
 	p.oid,
 	quote_ident(n.nspname) AS schema,
 	p.proname AS name,
-	%s
+	'' AS arguments,
+	'' AS identargs,
 	a.aggtransfn::regproc::oid,
 	a.aggprelimfn::regproc::oid,
 	a.aggfinalfn::regproc::oid,
@@ -271,9 +266,58 @@ SELECT
 FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE %s;`, argStr, SchemaFilterClause("n"))
+WHERE %s;`, SchemaFilterClause("n"))
+
+	version5query := fmt.Sprintf(`
+SELECT
+	p.oid,
+	quote_ident(n.nspname) AS schema,
+	p.proname AS name,
+	pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+	pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+	a.aggtransfn::regproc::oid,
+	a.aggprelimfn::regproc::oid,
+	a.aggfinalfn::regproc::oid,
+	a.aggsortop::regproc::oid,
+	format_type(a.aggtranstype, NULL) as transitiondatatype,
+	coalesce(a.agginitval, '') AS initialvalue,
+	(a.agginitval IS NULL) AS initvalisnull,
+	a.aggordered
+FROM pg_aggregate a
+LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
+LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE %s;`, SchemaFilterClause("n"))
+
+	masterQuery := fmt.Sprintf(`
+SELECT
+	p.oid,
+	quote_ident(n.nspname) AS schema,
+	p.proname AS name,
+	pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+	pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+	a.aggtransfn::regproc::oid,
+	a.aggprelimfn::regproc::oid,
+	a.aggfinalfn::regproc::oid,
+	a.aggfinalextra AS finalfuncextra,
+	a.aggsortop::regproc::oid,
+	(a.aggkind = 'h') AS hypothetical,
+	format_type(a.aggtranstype, NULL) as transitiondatatype,
+	coalesce(a.agginitval, '') AS initialvalue,
+	(a.agginitval IS NULL) AS initvalisnull
+FROM pg_aggregate a
+LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
+LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE %s;`, SchemaFilterClause("n"))
 
 	aggregates := make([]Aggregate, 0)
+	query := ""
+	if connection.Version.Before("5") {
+		query = version4query
+	} else if connection.Version.Before("6") {
+		query = version5query
+	} else {
+		query = masterQuery
+	}
 	err := connection.Select(&aggregates, query)
 	utils.CheckError(err)
 	if connection.Version.Before("5") {

@@ -234,6 +234,34 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 			Expect(len(result)).To(Equal(1))
 			testutils.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
 		})
+		It("returns a slice for a hypothetical ordered-set aggregate", func() {
+			testutils.SkipIfBefore6(connection)
+
+			testutils.AssertQueryRuns(connection, `
+CREATE AGGREGATE agg_hypo_ord (VARIADIC "any" ORDER BY VARIADIC "any")
+(
+	SFUNC = ordered_set_transition_multi,
+	STYPE = internal,
+	FINALFUNC = rank_final,
+	FINALFUNC_EXTRA,
+	HYPOTHETICAL
+);`)
+			defer testutils.AssertQueryRuns(connection, `DROP AGGREGATE agg_hypo_ord(VARIADIC "any" ORDER BY VARIADIC "any")`)
+
+			transitionOid := testutils.OidFromObjectName(connection, "pg_catalog", "ordered_set_transition_multi", backup.TYPE_FUNCTION)
+			finalOid := testutils.OidFromObjectName(connection, "pg_catalog", "rank_final", backup.TYPE_FUNCTION)
+
+			result := backup.GetAggregates(connection)
+
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
+				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: transitionOid, FinalFunction: finalOid,
+				TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
+			}
+
+			Expect(len(result)).To(Equal(1))
+			testutils.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
+		})
 	})
 	Describe("GetFunctionOidToInfoMap", func() {
 		It("returns map containing function information", func() {

@@ -234,16 +234,23 @@ $_$`)
 	})
 	Describe("PrintCreateAggregateStatements", func() {
 		aggDefs := make([]backup.Aggregate, 1)
-		aggDefault := backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, PreliminaryFunction: 0, FinalFunction: 0, SortOperator: 0, TransitionDataType: "integer", InitialValue: "", InitValIsNull: true, IsOrdered: false}
+		aggDefinition := backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true}
+		complexAggDefinition := backup.Aggregate{
+			Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
+			IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 5, FinalFunction: 6,
+			TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
+		}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc", Arguments: "integer"},
 			2: {QualifiedName: "public.mypfunc", Arguments: "numeric, numeric"},
 			3: {QualifiedName: "public.myffunc", Arguments: "text"},
 			4: {QualifiedName: "public.mysortop", Arguments: "bigint"},
+			5: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
+			6: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
 		}
 		aggMetadataMap := backup.MetadataMap{}
 		BeforeEach(func() {
-			aggDefs[0] = aggDefault
+			aggDefs[0] = aggDefinition
 			aggMetadataMap = backup.MetadataMap{}
 		})
 
@@ -318,6 +325,17 @@ $_$`)
 	STYPE = integer,
 	FINALFUNC = public.myffunc,
 	SORTOP = public.mysortop
+);`)
+		})
+		It("prints a hypothetical ordered-set aggregate", func() {
+			aggDefs[0] = complexAggDefinition
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_hypo_ord(VARIADIC "any" ORDER BY VARIADIC "any") (
+	SFUNC = pg_catalog.ordered_set_transition_multi,
+	STYPE = internal,
+	FINALFUNC = pg_catalog.rank_final,
+	FINALFUNC_EXTRA,
+	HYPOTHETICAL
 );`)
 		})
 		It("prints an aggregate with owner and comment", func() {

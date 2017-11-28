@@ -374,6 +374,12 @@ func SkipIfNot4(dbconn *utils.DBConn) {
 	}
 }
 
+func SkipIfBefore6(dbconn *utils.DBConn) {
+	if dbconn.Version.Before("6") {
+		Skip("Test only applicable to GPDB6 and above")
+	}
+}
+
 func InitializeTestTOC(buffer io.Writer, which string) (*utils.TOC, *utils.FileWithByteCount) {
 	toc := &utils.TOC{}
 	toc.InitializeEntryMap("global", "predata", "postdata", "statistics")

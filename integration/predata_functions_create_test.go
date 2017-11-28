@@ -132,14 +132,22 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateAggregateStatements", func() {
-		aggregateDef := backup.Aggregate{
+		emptyMetadataMap := backup.MetadataMap{}
+		basicAggregateDef := backup.Aggregate{
 			Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: "numeric, numeric",
-			IdentArgs: "numeric, numeric", TransitionFunction: 1, PreliminaryFunction: 2, FinalFunction: 0,
-			SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", IsOrdered: false,
+			IdentArgs: "numeric, numeric", TransitionFunction: 1, PreliminaryFunction: 2,
+			TransitionDataType: "numeric", InitialValue: "0",
+		}
+		complexAggregateDef := backup.Aggregate{
+			Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
+			IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 3, FinalFunction: 4,
+			TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 		}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc_accum", Arguments: "numeric, numeric, numeric"},
 			2: {QualifiedName: "public.mypre_accum", Arguments: "numeric, numeric"},
+			3: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
+			4: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
 		}
 		BeforeEach(func() {
 			//Run queries to set up the database state so we can successfully create an aggregate
@@ -160,26 +168,25 @@ var _ = Describe("backup integration create statement tests", func() {
 			   RETURNS NULL ON NULL INPUT;
 			`)
 		})
+		AfterEach(func() {
+			testutils.AssertQueryRuns(connection, "DROP FUNCTION mysfunc_accum(numeric, numeric, numeric)")
+			testutils.AssertQueryRuns(connection, "DROP FUNCTION mypre_accum(numeric, numeric)")
+		})
 		It("creates a basic aggregate", func() {
-			emptyMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggregateDef}, funcInfoMap, emptyMetadataMap)
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{basicAggregateDef}, funcInfoMap, emptyMetadataMap)
 
-			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION mysfunc_accum(numeric, numeric, numeric)")
-			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION mypre_accum(numeric, numeric)")
 			testutils.AssertQueryRuns(connection, buffer.String())
 			defer testutils.AssertQueryRuns(connection, "DROP AGGREGATE agg_prefunc(numeric, numeric)")
 
 			resultAggregates := backup.GetAggregates(connection)
 			Expect(len(resultAggregates)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
+			testutils.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
 		})
 		It("creates an aggregate with an owner and a comment", func() {
 			aggMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
 			aggMetadataMap := backup.MetadataMap{1: aggMetadata}
-			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggregateDef}, funcInfoMap, aggMetadataMap)
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{basicAggregateDef}, funcInfoMap, aggMetadataMap)
 
-			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION mysfunc_accum(numeric, numeric, numeric)")
-			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION mypre_accum(numeric, numeric)")
 			testutils.AssertQueryRuns(connection, buffer.String())
 			defer testutils.AssertQueryRuns(connection, "DROP AGGREGATE agg_prefunc(numeric, numeric)")
 
@@ -188,8 +195,20 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultAggregates)).To(Equal(1))
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_AGGREGATE)
 			resultMetadata := resultMetadataMap[oid]
-			testutils.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
+			testutils.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
 			testutils.ExpectStructsToMatch(&aggMetadata, &resultMetadata)
+		})
+		It("creates a hypothetical ordered-set aggregate", func() {
+			testutils.SkipIfBefore6(connection)
+
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{complexAggregateDef}, funcInfoMap, emptyMetadataMap)
+
+			testutils.AssertQueryRuns(connection, buffer.String())
+			defer testutils.AssertQueryRuns(connection, `DROP AGGREGATE agg_hypo_ord(VARIADIC "any" ORDER BY VARIADIC "any")`)
+			resultAggregates := backup.GetAggregates(connection)
+
+			Expect(len(resultAggregates)).To(Equal(1))
+			testutils.ExpectStructsToMatchExcluding(&complexAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction")
 		})
 	})
 	Describe("PrintCreateCastStatements", func() {
