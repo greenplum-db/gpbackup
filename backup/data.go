@@ -47,7 +47,7 @@ func CopyTableOut(connection *utils.DBConn, table Relation, backupFile string) {
 	tocFile := globalCluster.GetSegmentTOCFilePath("<SEG_DATA_DIR>", "<SEGID>")
 	helperCommand := fmt.Sprintf("$GPHOME/bin/gpbackup_helper --oid=%d --toc-file=%s", table.Oid, tocFile)
 	if *singleDataFile && usingCompression {
-		copyCommand = fmt.Sprintf("PROGRAM '%s | %s >> %s'", helperCommand, compressionProgram.CompressCommand, backupFile)
+		copyCommand = fmt.Sprintf("PROGRAM 'set -o pipefail; %s | %s >> %s'", helperCommand, compressionProgram.CompressCommand, backupFile)
 	} else if *singleDataFile {
 		copyCommand = fmt.Sprintf("PROGRAM '%s >> %s'", helperCommand, backupFile)
 	} else if usingCompression {

@@ -20,7 +20,7 @@ func CopyTableIn(connection *utils.DBConn, tableName string, tableAttributes str
 	helperCommand := fmt.Sprintf("$GPHOME/bin/gpbackup_helper --restore --toc-file=%s --oid=%d", tocFile, oid)
 	copyCommand := ""
 	if singleDataFile && usingCompression {
-		copyCommand = fmt.Sprintf("PROGRAM '%s %s | %s'", compressionProgram.DecompressCommand, backupFile, helperCommand)
+		copyCommand = fmt.Sprintf("PROGRAM 'set -o pipefail; %s %s | %s'", compressionProgram.DecompressCommand, backupFile, helperCommand)
 	} else if usingCompression {
 		copyCommand = fmt.Sprintf("PROGRAM '%s < %s'", compressionProgram.DecompressCommand, backupFile)
 	} else if singleDataFile {
