@@ -68,13 +68,15 @@ func DoSetup() {
 
 	InitializeConnection("postgres")
 	DoPostgresValidation()
-	if *restoreGlobals {
-		restoreGlobal()
-	} else if *createdb {
+	if *createdb {
 		createDatabase()
 	}
-
 	ConnectToRestoreDatabase()
+
+	if *restoreGlobals {
+		restoreGlobal()
+	}
+
 	/*
 	 * We don't need to validate anything if we're creating the database; we
 	 * should not error out for validation reasons once the restore database exists.
@@ -121,9 +123,10 @@ func createDatabase() {
 }
 
 func restoreGlobal() {
+	objectTypes := []string{"SESSION GUCS", "GPDB4 SESSION GUCS", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
 	globalFilename := globalCluster.GetGlobalFilePath()
-	logger.Info("Restoring global database metadata from %s", globalCluster.GetGlobalFilePath())
-	statements := GetRestoreMetadataStatements(globalFilename, []string{}, []string{}, []string{})
+	logger.Info("Restoring global metadata from %s", globalCluster.GetGlobalFilePath())
+	statements := GetRestoreMetadataStatements(globalFilename, objectTypes, []string{}, []string{})
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
