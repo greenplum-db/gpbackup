@@ -1,8 +1,6 @@
 package restore
 
 import (
-	"fmt"
-
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -29,7 +27,7 @@ func SetLoggerVerbosity() {
 
 func InitializeConnection(dbname string) {
 	connection = utils.NewDBConn(dbname)
-	connection.Connect()
+	connection.Connect(*numJobs)
 	_, err := connection.Exec("SET application_name TO 'gprestore'")
 	utils.CheckError(err)
 	connection.SetDatabaseVersion()
@@ -105,30 +103,36 @@ func GetRestoreMetadataStatements(filename string, objectTypes []string, include
 	return statements
 }
 
-func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, objectsTitle string, showProgressBar bool) {
+func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, objectsTitle string, showProgressBar bool, executeInParallel bool) {
 	var shouldExecute *utils.FilterSet
 	if connection.Version.AtLeast("5") {
 		shouldExecute = utils.NewExcludeSet([]string{"GPDB4 SESSION GUCS"})
 	} else {
 		shouldExecute = utils.NewEmptyIncludeSet()
 	}
-	ExecuteStatements(statements, objectsTitle, showProgressBar, shouldExecute)
+	ExecuteStatements(statements, objectsTitle, showProgressBar, shouldExecute, executeInParallel)
 }
 
-func setGUCsForConnection() {
-	objectTypes := []string{"SESSION GUCS"}
-	if connection.Version.Before("5") {
-		objectTypes = append(objectTypes, "GPDB4 SESSION GUCS")
+/*
+ * The first time this function is called, it retrieves the session GUCs from the
+ * predata file and processes them appropriately, then it returns them so they
+ * can be used in later calls without the file access and processing overhead.
+ */
+func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int) []utils.StatementWithType {
+	if gucStatements == nil {
+		objectTypes := []string{"SESSION GUCS"}
+		if connection.Version.Before("5") {
+			objectTypes = append(objectTypes, "GPDB4 SESSION GUCS")
+		}
+		gucStatements = GetRestoreMetadataStatements(globalCluster.GetPredataFilePath(), objectTypes, []string{}, []string{})
+		// We only need to set the following GUC for data restores, but it doesn't hurt if we set it for metadata restores as well.
+		gucStatements = append(gucStatements, utils.StatementWithType{ObjectType: "SESSION GUCS", Statement: "SET gp_enable_segment_copy_checking TO false;"})
 	}
-	gucStatements := GetRestoreMetadataStatements(globalCluster.GetPredataFilePath(), objectTypes, []string{}, []string{})
-	ExecuteRestoreMetadataStatements(gucStatements, "", false)
-
-	query := fmt.Sprintf("SET gp_enable_segment_copy_checking TO false;")
-	_, err := connection.Exec(query)
-	utils.CheckError(err)
+	ExecuteStatements(gucStatements, "", false, utils.NewEmptyIncludeSet(), false, whichConn)
+	return gucStatements
 }
 
-func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalTables int) {
+func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) {
 	name := utils.MakeFQN(entry.Schema, entry.Name)
 	if logger.GetVerbosity() > utils.LOGINFO {
 		// No progress bar at this log level, so we note table count here
@@ -137,5 +141,5 @@ func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalT
 		logger.Verbose("Reading data for table %s from file", name)
 	}
 	backupFile := globalCluster.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
-	CopyTableIn(connection, name, entry.AttributeString, backupFile, backupConfig.SingleDataFile, entry.Oid)
+	CopyTableIn(connection, name, entry.AttributeString, backupFile, backupConfig.SingleDataFile, entry.Oid, whichConn)
 }

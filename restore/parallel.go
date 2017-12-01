@@ -15,29 +15,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	executeInParallel bool
-)
-
-func setParallelRestore() {
-	executeInParallel = true
-	connection.Conn.SetMaxOpenConns(*numJobs)
-	connection.Conn.SetMaxIdleConns(*numJobs)
-}
-
-func setSerialRestore() {
-	executeInParallel = false
-	connection.Conn.SetMaxOpenConns(1)
-	connection.Conn.SetMaxIdleConns(1)
-}
-
 /*
  * The return value for this function is the number of errors encountered, not
  * an error code.
  */
-func executeStatement(statement utils.StatementWithType, showProgressBar bool, shouldExecute *utils.FilterSet) uint32 {
+func executeStatement(statement utils.StatementWithType, showProgressBar bool, shouldExecute *utils.FilterSet, whichConn int) uint32 {
+	whichConn = connection.ValidateConnNum(whichConn)
 	if shouldExecute.MatchesFilter(statement.ObjectType) {
-		_, err := connection.Exec(statement.Statement)
+		_, err := connection.Exec(statement.Statement, whichConn)
 		if err != nil {
 			if showProgressBar {
 				fmt.Println() // Move error message to its own line, since the cursor is currently at the end of the progress bar
@@ -56,27 +41,28 @@ func executeStatement(statement utils.StatementWithType, showProgressBar bool, s
  * This function creates a worker pool of N goroutines to be able to execute up
  * to N statements in parallel.
  */
-func ExecuteStatements(statements []utils.StatementWithType, objectsTitle string, showProgressBar bool, shouldExecute *utils.FilterSet) {
+func ExecuteStatements(statements []utils.StatementWithType, objectsTitle string, showProgressBar bool, shouldExecute *utils.FilterSet, executeInParallel bool, whichConn ...int) {
 	var numErrors uint32
 	progressBar := utils.NewProgressBar(len(statements), fmt.Sprintf("%s restored: ", objectsTitle), showProgressBar)
 	progressBar.Start()
 	if !executeInParallel {
+		connNum := connection.ValidateConnNum(whichConn...)
 		for _, statement := range statements {
-			atomic.AddUint32(&numErrors, executeStatement(statement, showProgressBar, shouldExecute))
+			numErrors += executeStatement(statement, showProgressBar, shouldExecute, connNum)
 			progressBar.Increment()
 		}
 	} else {
 		tasks := make(chan utils.StatementWithType, len(statements))
 		var workerPool sync.WaitGroup
-		for i := 0; i < *numJobs; i++ {
+		for i := 0; i < connection.NumConns; i++ {
 			workerPool.Add(1)
-			go func() {
+			go func(whichConn int) {
 				for statement := range tasks {
-					atomic.AddUint32(&numErrors, executeStatement(statement, showProgressBar, shouldExecute))
+					atomic.AddUint32(&numErrors, executeStatement(statement, showProgressBar, shouldExecute, whichConn))
 					progressBar.Increment()
 				}
 				workerPool.Done()
-			}()
+			}(i)
 		}
 		for _, statement := range statements {
 			tasks <- statement

@@ -19,9 +19,6 @@ var _ = Describe("utils/db tests", func() {
 	BeforeEach(func() {
 		utils.System.Now = func() time.Time { return time.Date(2017, time.January, 1, 1, 1, 1, 1, time.Local) }
 	})
-	AfterEach(func() {
-		connection, mock = testutils.CreateAndConnectMockDB()
-	})
 	Describe("NewDBConn", func() {
 		It("gets the DBName from the dbname flag if it is set", func() {
 			connection = utils.NewDBConn("testdb")
@@ -33,53 +30,94 @@ var _ = Describe("utils/db tests", func() {
 		})
 	})
 	Describe("DBConn.Connect", func() {
-		It("connects successfully if the database exists", func() {
-			var mockdb *sqlx.DB
+		var mockdb *sqlx.DB
+		BeforeEach(func() {
 			mockdb, mock = testutils.CreateMockDB()
-			driver := testutils.TestDriver{DB: mockdb, User: "testrole"}
+			if connection != nil {
+				connection.Close()
+			}
 			connection = utils.NewDBConn("testdb")
-			connection.Driver = driver
+			connection.Driver = testutils.TestDriver{DB: mockdb, User: "testrole"}
+		})
+		AfterEach(func() {
+			if connection != nil {
+				connection.Close()
+			}
+		})
+		It("makes a single connection successfully if the database exists", func() {
+			connection.Connect(1)
 			Expect(connection.DBName).To(Equal("testdb"))
-			connection.Connect()
+			Expect(connection.NumConns).To(Equal(1))
+			Expect(len(connection.ConnPool)).To(Equal(1))
+		})
+		It("makes multiple connections successfully if the database exists", func() {
+			connection.Connect(3)
+			Expect(connection.DBName).To(Equal("testdb"))
+			Expect(connection.NumConns).To(Equal(3))
+			Expect(len(connection.ConnPool)).To(Equal(3))
 		})
 		It("does not connect if the database exists but the connection is refused", func() {
-			var mockdb *sqlx.DB
-			mockdb, mock = testutils.CreateMockDB()
-			driver := testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: connection refused"), DB: mockdb, User: "testrole"}
-			connection = utils.NewDBConn("testdb")
-			connection.Driver = driver
+			connection.Driver = testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: connection refused"), DB: mockdb, User: "testrole"}
 			defer testutils.ShouldPanicWithMessage(`could not connect to server: Connection refused`)
-			connection.Connect()
+			connection.Connect(1)
+		})
+		It("fails if an invalid number of connections is given", func() {
+			defer testutils.ShouldPanicWithMessage("Must specify a connection pool size that is a positive integer")
+			connection.Connect(0)
 		})
 		It("fails if the database does not exist", func() {
-			var mockdb *sqlx.DB
-			mockdb, mock = testutils.CreateMockDB()
-			driver := testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: database \"testdb\" does not exist"), DB: mockdb, DBName: "testdb", User: "testrole"}
-			connection = utils.NewDBConn("testdb")
-			connection.Driver = driver
+			connection.Driver = testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: database \"testdb\" does not exist"), DB: mockdb, DBName: "testdb", User: "testrole"}
 			Expect(connection.DBName).To(Equal("testdb"))
 			defer testutils.ShouldPanicWithMessage("Database \"testdb\" does not exist, exiting")
-			connection.Connect()
+			connection.Connect(1)
 		})
 		It("fails if the role does not exist", func() {
-			var mockdb *sqlx.DB
-			mockdb, mock = testutils.CreateMockDB()
-			driver := testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: role \"nonexistent\" does not exist"), DB: mockdb, DBName: "testdb", User: "nonexistent"}
-
 			oldPgUser := os.Getenv("PGUSER")
 			os.Setenv("PGUSER", "nonexistent")
 			defer os.Setenv("PGUSER", oldPgUser)
 
 			connection = utils.NewDBConn("testdb")
-			connection.Driver = driver
+			connection.Driver = testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: role \"nonexistent\" does not exist"), DB: mockdb, DBName: "testdb", User: "nonexistent"}
 			Expect(connection.User).To(Equal("nonexistent"))
 			defer testutils.ShouldPanicWithMessage("Role \"nonexistent\" does not exist, exiting")
-			connection.Connect()
+			connection.Connect(1)
+		})
+	})
+	Describe("DBConn.Close", func() {
+		var mockdb *sqlx.DB
+		BeforeEach(func() {
+			mockdb, mock = testutils.CreateMockDB()
+			connection = utils.NewDBConn("testdb")
+			connection.Driver = testutils.TestDriver{DB: mockdb, User: "testrole"}
+		})
+		It("successfully closes a dbconn with a single open connection", func() {
+			connection.Connect(1)
+			Expect(connection.NumConns).To(Equal(1))
+			Expect(len(connection.ConnPool)).To(Equal(1))
+			connection.Close()
+			Expect(connection.NumConns).To(Equal(0))
+			Expect(connection.ConnPool).To(BeNil())
+		})
+		It("successfully closes a dbconn with multiple open connections", func() {
+			connection.Connect(3)
+			Expect(connection.NumConns).To(Equal(3))
+			Expect(len(connection.ConnPool)).To(Equal(3))
+			connection.Close()
+			Expect(connection.NumConns).To(Equal(0))
+			Expect(connection.ConnPool).To(BeNil())
+		})
+		It("does nothing if there are no open connections", func() {
+			connection.Connect(3)
+			connection.Close()
+			Expect(connection.NumConns).To(Equal(0))
+			Expect(connection.ConnPool).To(BeNil())
+			connection.Close()
+			Expect(connection.NumConns).To(Equal(0))
+			Expect(connection.ConnPool).To(BeNil())
 		})
 	})
 	Describe("DBConn.Exec", func() {
 		It("executes an INSERT outside of a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			fakeResult := testutils.TestResult{Rows: 1}
 			mock.ExpectExec("INSERT (.*)").WillReturnResult(fakeResult)
 
@@ -89,7 +127,6 @@ var _ = Describe("utils/db tests", func() {
 			Expect(rowsReturned).To(Equal(int64(1)))
 		})
 		It("executes an INSERT in a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			fakeResult := testutils.TestResult{Rows: 1}
 			testutils.ExpectBegin(mock)
 			mock.ExpectExec("INSERT (.*)").WillReturnResult(fakeResult)
@@ -105,7 +142,6 @@ var _ = Describe("utils/db tests", func() {
 	})
 	Describe("DBConn.Get", func() {
 		It("executes a GET outside of a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			two_col_single_row := sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("schema1", "table1")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_col_single_row)
@@ -122,7 +158,6 @@ var _ = Describe("utils/db tests", func() {
 			Expect(testRecord.Tablename).To(Equal("table1"))
 		})
 		It("executes a GET in a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			two_col_single_row := sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("schema1", "table1")
 			testutils.ExpectBegin(mock)
@@ -144,7 +179,6 @@ var _ = Describe("utils/db tests", func() {
 	})
 	Describe("DBConn.Select", func() {
 		It("executes a SELECT outside of a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			two_col_rows := sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("schema1", "table1").
 				AddRow("schema2", "table2")
@@ -165,7 +199,6 @@ var _ = Describe("utils/db tests", func() {
 			Expect(testSlice[1].Tablename).To(Equal("table2"))
 		})
 		It("executes a SELECT in a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			two_col_rows := sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("schema1", "table1").
 				AddRow("schema2", "table2")
@@ -192,13 +225,11 @@ var _ = Describe("utils/db tests", func() {
 	})
 	Describe("DBConn.Begin", func() {
 		It("successfully executes a BEGIN outside a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			testutils.ExpectBegin(mock)
 			connection.Begin()
 			Expect(connection.Tx).To(Not(BeNil()))
 		})
 		It("panics if it executes a BEGIN in a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			testutils.ExpectBegin(mock)
 			connection.Begin()
 			defer testutils.ShouldPanicWithMessage("Cannot begin transaction; there is already a transaction in progress")
@@ -207,7 +238,6 @@ var _ = Describe("utils/db tests", func() {
 	})
 	Describe("DBConn.Commit", func() {
 		It("successfully executes a COMMIT in a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			testutils.ExpectBegin(mock)
 			mock.ExpectCommit()
 			connection.Begin()
@@ -215,14 +245,12 @@ var _ = Describe("utils/db tests", func() {
 			Expect(connection.Tx).To(BeNil())
 		})
 		It("panics if it executes a COMMIT outside a transaction", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			defer testutils.ShouldPanicWithMessage("Cannot commit transaction; there is no transaction in progress")
 			connection.Commit()
 		})
 	})
 	Describe("Dbconn.SetDatabaseVersion", func() {
 		It("parses GPDB version string", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.3.23 (Greenplum Database 5.1.0-beta.5+dev.65.g2a47ec9bfa build dev) on x86_64-apple-darwin16.5.0, compiled by GCC Apple LLVM version 8.1.0 (clang-802.0.42) compiled on Aug  4 2017 11:36:54")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 
@@ -232,36 +260,60 @@ var _ = Describe("utils/db tests", func() {
 
 		})
 		It("panics if GPDB version is less than 4.3.17", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			defer testutils.ShouldPanicWithMessage("GPDB version 4.3.14.1+dev.83.ga57d1b7 build 1 is not supported. Please upgrade to GPDB 4.3.17.0 or later.")
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.2.15 (Greenplum Database 4.3.14.1+dev.83.ga57d1b7 build 1) on x86_64-unknown-linux-gnu, compiled by GCC gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-18) compiled on Sep 15 2017 17:31:20")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 			connection.SetDatabaseVersion()
 		})
 		It("panics if GPDB 5 version is less than 5.1.0", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			defer testutils.ShouldPanicWithMessage("GPDB version 5.0.0+dev.92.g010f702 build dev 1 is not supported. Please upgrade to GPDB 5.1.0 or later.")
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.3.23 (Greenplum Database 5.0.0+dev.92.g010f702 build dev 1) on x86_64-apple-darwin14.5.0, compiled by GCC Apple LLVM version 6.0 (clang-600.0.57) (based on LLVM 3.5svn) compiled on Sep 27 2017 14:40:25")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 			connection.SetDatabaseVersion()
 		})
 		It("does not panic if GPDB version is at least than 4.3.17", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.2.15 (Greenplum Database 4.3.17.1+dev.83.ga57d1b7 build 1) on x86_64-unknown-linux-gnu, compiled by GCC gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-18) compiled on Sep 15 2017 17:31:20")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 			connection.SetDatabaseVersion()
 		})
 		It("does not panic if GPDB version is at least 5.1.0", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.3.23 (Greenplum Database 5.1.0-beta.9+dev.129.g4bd4e41 build dev) on x86_64-apple-darwin14.5.0, compiled by GCC Apple LLVM version 6.0 (clang-600.0.57) (based on LLVM 3.5svn) compiled on Sep  1 2017 16:57:41")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 			connection.SetDatabaseVersion()
 		})
 		It("does not panic if GPDB version is at least 6.0.0", func() {
-			connection, mock = testutils.CreateAndConnectMockDB()
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.4.23 (Greenplum Database 6.0.0-beta.9+dev.129.g4bd4e41 build dev) on x86_64-apple-darwin14.5.0, compiled by GCC Apple LLVM version 6.0 (clang-600.0.57) (based on LLVM 3.5svn) compiled on Sep  1 2017 16:57:41")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 			connection.SetDatabaseVersion()
+		})
+	})
+	Describe("Dbconn.ValidateConnNum", func() {
+		BeforeEach(func() {
+			connection.Close()
+			connection.Connect(3)
+		})
+		AfterEach(func() {
+			connection.Close()
+		})
+		It("returns the connection number if it is valid", func() {
+			num := connection.ValidateConnNum(1)
+			Expect(num).To(Equal(1))
+		})
+		It("defaults to 0 with no argument", func() {
+			num := connection.ValidateConnNum()
+			Expect(num).To(Equal(0))
+		})
+		It("panics if given multiple arguments", func() {
+			defer testutils.ShouldPanicWithMessage("At most one connection number may be specified for a given connection")
+			connection.ValidateConnNum(1, 2)
+		})
+		It("panics if given a negative number", func() {
+			defer testutils.ShouldPanicWithMessage("Invalid connection number: -1")
+			connection.ValidateConnNum(-1)
+		})
+		It("panics if given a number greater than NumConns", func() {
+			defer testutils.ShouldPanicWithMessage("Invalid connection number: 4")
+			connection.ValidateConnNum(4)
 		})
 	})
 	Describe("SelectString", func() {

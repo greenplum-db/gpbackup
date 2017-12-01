@@ -84,10 +84,10 @@ func DoSetup() {
 	if !*createdb {
 		DoRestoreDatabaseValidation()
 	}
-	setSerialRestore()
 }
 
 func DoRestore() {
+	gucStatements := setGUCsForConnection(nil, 0)
 	if !backupConfig.DataOnly {
 		restorePredata()
 	}
@@ -98,7 +98,7 @@ func DoRestore() {
 			backupFileCount = len(globalTOC.DataEntries)
 		}
 		globalCluster.VerifyBackupFileCountOnSegments(backupFileCount)
-		restoreData()
+		restoreData(gucStatements)
 	}
 
 	if !backupConfig.DataOnly && !backupConfig.TableFiltered {
@@ -118,7 +118,7 @@ func createDatabase() {
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
-	ExecuteRestoreMetadataStatements(statements, "", false)
+	ExecuteRestoreMetadataStatements(statements, "", false, false)
 	logger.Info("Database creation complete")
 }
 
@@ -130,8 +130,7 @@ func restoreGlobal() {
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
-	setGUCsForConnection()
-	ExecuteRestoreMetadataStatements(statements, "Global objects", false)
+	ExecuteRestoreMetadataStatements(statements, "Global objects", false, false)
 	logger.Info("Global database metadata restore complete")
 }
 
@@ -139,18 +138,15 @@ func restorePredata() {
 	predataFilename := globalCluster.GetPredataFilePath()
 	logger.Info("Restoring pre-data metadata from %s", predataFilename)
 	statements := GetRestoreMetadataStatements(predataFilename, []string{}, includeSchemas, includeTables)
-	setGUCsForConnection()
-	ExecuteRestoreMetadataStatements(statements, "Pre-data objects", true)
+	ExecuteRestoreMetadataStatements(statements, "Pre-data objects", true, false)
 	logger.Info("Pre-data metadata restore complete")
 }
 
-func restoreData() {
+func restoreData(gucStatements []utils.StatementWithType) {
 	if backupConfig.SingleDataFile {
 		globalCluster.CopySegmentTOCs()
 		defer globalCluster.CleanUpSegmentTOCs()
 	}
-	setParallelRestore()
-	defer setSerialRestore()
 	logger.Info("Restoring data")
 
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
@@ -158,27 +154,26 @@ func restoreData() {
 	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", logger.GetVerbosity() == utils.LOGINFO)
 	dataProgressBar.Start()
 
-	if *numJobs == 1 {
-		setGUCsForConnection()
+	if connection.NumConns == 1 {
 		for i, entry := range filteredMasterDataEntries {
-			restoreSingleTableData(entry, uint32(i)+1, totalTables)
+			restoreSingleTableData(entry, uint32(i)+1, totalTables, 0)
 			dataProgressBar.Increment()
 		}
 	} else {
 		var tableNum uint32 = 1
 		tasks := make(chan utils.MasterDataEntry, totalTables)
 		var workerPool sync.WaitGroup
-		for i := 0; i < *numJobs; i++ {
+		for i := 0; i < connection.NumConns; i++ {
 			workerPool.Add(1)
-			go func() {
-				setGUCsForConnection()
+			go func(whichConn int) {
+				setGUCsForConnection(gucStatements, whichConn)
 				for entry := range tasks {
-					restoreSingleTableData(entry, tableNum, totalTables)
+					restoreSingleTableData(entry, tableNum, totalTables, whichConn)
 					atomic.AddUint32(&tableNum, 1)
 					dataProgressBar.Increment()
 				}
 				workerPool.Done()
-			}()
+			}(i)
 		}
 		for _, entry := range filteredMasterDataEntries {
 			tasks <- entry
@@ -194,8 +189,7 @@ func restorePostdata() {
 	postdataFilename := globalCluster.GetPostdataFilePath()
 	logger.Info("Restoring post-data metadata from %s", postdataFilename)
 	statements := GetRestoreMetadataStatements(postdataFilename, []string{}, includeSchemas, []string{})
-	setGUCsForConnection()
-	ExecuteRestoreMetadataStatements(statements, "Post-data objects", true)
+	ExecuteRestoreMetadataStatements(statements, "Post-data objects", true, false)
 	logger.Info("Post-data metadata restore complete")
 }
 
@@ -203,7 +197,7 @@ func restoreStatistics() {
 	statisticsFilename := globalCluster.GetStatisticsFilePath()
 	logger.Info("Restoring query planner statistics from %s", statisticsFilename)
 	statements := GetRestoreMetadataStatements(statisticsFilename, []string{}, includeSchemas, []string{})
-	ExecuteRestoreMetadataStatements(statements, "Table statistics", false)
+	ExecuteRestoreMetadataStatements(statements, "Table statistics", false, false)
 	logger.Info("Query planner statistics restore complete")
 }
 

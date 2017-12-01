@@ -30,7 +30,6 @@ var (
 	gpbackupPath = ""
 	toc          *utils.TOC
 	backupfile   *utils.FileWithByteCount
-	baseVersion  utils.GPDBVersion
 )
 
 /* This function is a helper function to execute gpbackup and return a session
@@ -51,11 +50,9 @@ func TestBackup(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	connection, mock, logger, stdout, stderr, logfile = testutils.SetupTestEnvironment()
-	baseVersion = connection.Version
 })
 
 var _ = BeforeEach(func() {
 	buffer = gbytes.NewBuffer()
-	connection, mock = testutils.CreateAndConnectMockDB()
-	connection.Version = baseVersion
+	connection, mock = testutils.CreateAndConnectMockDB(1)
 })

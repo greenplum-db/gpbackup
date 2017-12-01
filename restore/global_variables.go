@@ -62,6 +62,10 @@ func SetLogger(log *utils.Logger) {
 	logger = log
 }
 
+func SetOnErrorContinue(errContinue bool) {
+	onErrorContinue = &errContinue
+}
+
 func SetNumJobs(jobs int) {
 	numJobs = &jobs
 }

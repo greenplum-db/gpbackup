@@ -29,7 +29,7 @@ func SetLoggerVerbosity() {
 
 func InitializeConnection() {
 	connection = utils.NewDBConn(*dbname)
-	connection.Connect()
+	connection.Connect(1)
 	_, err := connection.Exec("SET application_name TO 'gpbackup'")
 	utils.CheckError(err)
 	connection.SetDatabaseVersion()
@@ -40,7 +40,6 @@ func InitializeConnection() {
 }
 
 func InitializeBackupReport() {
-
 	dbname := utils.SelectString(connection, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", connection.DBName))
 	config := utils.BackupConfig{
 		DatabaseName:    dbname,

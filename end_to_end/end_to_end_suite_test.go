@@ -84,9 +84,9 @@ var _ = Describe("backup end to end integration tests", func() {
 			Fail(fmt.Sprintf("%v", err))
 		}
 		backupConn = utils.NewDBConn("testdb")
-		backupConn.Connect()
+		backupConn.Connect(1)
 		restoreConn = utils.NewDBConn("restoredb")
-		restoreConn.Connect()
+		restoreConn.Connect(1)
 		testutils.ExecuteSQLFile(backupConn, "test_tables.sql")
 	})
 	AfterSuite(func() {
@@ -112,7 +112,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			}
 			gprestore(gprestorePath, timestamp, "-createdb")
 			backupConn = utils.NewDBConn("testdb")
-			backupConn.Connect()
+			backupConn.Connect(1)
 		})
 		It("runs basic gpbackup and gprestore with metadata and data-only flags", func() {
 			timestamp := gpbackup(gpbackupPath, "-metadata-only")

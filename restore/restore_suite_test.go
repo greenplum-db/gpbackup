@@ -50,3 +50,7 @@ var _ = BeforeSuite(func() {
 	connection, mock, logger, stdout, stderr, logfile = testutils.SetupTestEnvironment()
 	buffer = gbytes.NewBuffer()
 })
+
+var _ = BeforeEach(func() {
+	connection, mock = testutils.CreateAndConnectMockDB(1)
+})

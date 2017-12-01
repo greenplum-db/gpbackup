@@ -19,15 +19,32 @@ import (
 const MINIMUM_GPDB4_VERSION = "4.3.17"
 const MINIMUM_GPDB5_VERSION = "5.1.0"
 
+/*
+ * While the sqlx.DB struct (and indirectly the sql.DB struct) maintains its own
+ * connection pool, there is no guarantee of session-level consistency between
+ * queries and we require that level of control for e.g. setting certain GUCs on
+ * each connection before restoring data.  Also, while sql.Conn is a struct that
+ * represents a single session, there is no sqlx.Conn equivalent we could use.
+ *
+ * Thus, DBConn maintains its own connection pool of sqlx.DBs (all set to have
+ * exactly one database connection each) in an array, such that callers can
+ * create NumConns goroutines and assign each an index from 0 to NumConns to
+ * guarantee that each goroutine gets its own connection that exhibits single-
+ * session behavior.  The Exec, Select, and Get functions are set up to default
+ * to the first connection (index 0), so the DBConn will still exhibit session-
+ * like behavior if no connection is specified, and other functions that want to
+ * execute in serial should pass in a 0 wherever a connection number is needed.
+ */
 type DBConn struct {
-	Conn    *sqlx.DB
-	Driver  DBDriver
-	User    string
-	DBName  string
-	Host    string
-	Port    int
-	Tx      *sqlx.Tx
-	Version GPDBVersion
+	ConnPool []*sqlx.DB
+	NumConns int
+	Driver   DBDriver
+	User     string
+	DBName   string
+	Host     string
+	Port     int
+	Tx       *sqlx.Tx
+	Version  GPDBVersion
 }
 
 func NewDBConn(dbname string) *DBConn {
@@ -44,30 +61,39 @@ func NewDBConn(dbname string) *DBConn {
 	port, _ = strconv.Atoi(TryEnv("PGPORT", "5432"))
 
 	return &DBConn{
-		Conn:    nil,
-		Driver:  GPDBDriver{},
-		User:    username,
-		DBName:  dbname,
-		Host:    host,
-		Port:    port,
-		Tx:      nil,
-		Version: GPDBVersion{},
+		ConnPool: nil,
+		NumConns: 0,
+		Driver:   GPDBDriver{},
+		User:     username,
+		DBName:   dbname,
+		Host:     host,
+		Port:     port,
+		Tx:       nil,
+		Version:  GPDBVersion{},
 	}
 }
 
 /*
- * Wrapper functions for built-in sqlx and database/sql functionality; they will
- * automatically execute the query as part of an existing transaction if one is
- * in progress, to ensure that the whole backup process occurs in one transaction
- * without requiring that to be ensured at the call site.
+ * This function doesn't allow Begin()ing if there are multiple connections,
+ * since for example Connect()ing with a pool of 2 connections and trying to
+ * Select() on connection 1 doesn't really make sense given the "automatic
+ * transaction" behavior of Get/Exec/Select, as explained in the relevant
+ * comment below.
+ *
+ * TODO: Refactor transaction logic to allow starting multiple transactions
+ * on different connections while leaving other connections transaction-less,
+ * in such a way that one cannot easily accidentally execute a query intended
+ * to be part of a transaction on a transaction-less connection or vice versa.
  */
-
 func (dbconn *DBConn) Begin() {
+	if dbconn.NumConns > 1 {
+		logger.Fatal(errors.New("Cannot begin transaction; the connection was initialized with a connection pool size larger than 1"), "")
+	}
 	if dbconn.Tx != nil {
 		logger.Fatal(errors.New("Cannot begin transaction; there is already a transaction in progress"), "")
 	}
 	var err error
-	dbconn.Tx, err = dbconn.Conn.Beginx()
+	dbconn.Tx, err = dbconn.ConnPool[0].Beginx()
 	CheckError(err)
 	/*
 	 * This uses a SERIALIZABLE transaction so the backup can effectively take a
@@ -79,8 +105,14 @@ func (dbconn *DBConn) Begin() {
 }
 
 func (dbconn *DBConn) Close() {
-	if dbconn.Conn != nil {
-		dbconn.Conn.Close()
+	if dbconn.ConnPool != nil {
+		for _, conn := range dbconn.ConnPool {
+			if conn != nil {
+				conn.Close()
+			}
+		}
+		dbconn.ConnPool = nil
+		dbconn.NumConns = 0
 	}
 }
 
@@ -93,12 +125,28 @@ func (dbconn *DBConn) Commit() {
 	dbconn.Tx = nil
 }
 
-func (dbconn *DBConn) Connect() {
+func (dbconn *DBConn) Connect(numConns int) {
+	if numConns < 1 {
+		logger.Fatal(errors.Errorf("Must specify a connection pool size that is a positive integer"), "")
+	}
+	if dbconn.ConnPool != nil {
+		logger.Fatal(errors.Errorf("The database connection must be closed before reusing the connection"), "")
+	}
 	dbname := escapeConnectionParam(dbconn.DBName)
 	user := escapeConnectionParam(dbconn.User)
 	connStr := fmt.Sprintf(`user='%s' dbname='%s' host=%s port=%d sslmode=disable`, user, dbname, dbconn.Host, dbconn.Port)
-	var err error
-	dbconn.Conn, err = dbconn.Driver.Connect("postgres", connStr)
+	dbconn.ConnPool = make([]*sqlx.DB, numConns)
+	for i := 0; i < numConns; i++ {
+		conn, err := dbconn.Driver.Connect("postgres", connStr)
+		dbconn.handleConnectionError(err)
+		conn.SetMaxOpenConns(1)
+		conn.SetMaxIdleConns(1)
+		dbconn.ConnPool[i] = conn
+	}
+	dbconn.NumConns = numConns
+}
+
+func (dbconn *DBConn) handleConnectionError(err error) {
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist") {
 			if strings.Contains(err.Error(), "pq: role") {
@@ -115,25 +163,52 @@ func (dbconn *DBConn) Connect() {
 	CheckError(err)
 }
 
-func (dbconn *DBConn) Exec(query string) (sql.Result, error) {
+/*
+ * Wrapper functions for built-in sqlx and database/sql functionality; they will
+ * automatically execute the query as part of an existing transaction if one is
+ * in progress, to ensure that the whole backup process occurs in one transaction
+ * without requiring that to be ensured at the call site.
+ */
+
+func (dbconn *DBConn) Exec(query string, whichConn ...int) (sql.Result, error) {
 	if dbconn.Tx != nil {
 		return dbconn.Tx.Exec(query)
 	}
-	return dbconn.Conn.Exec(query)
+	connNum := dbconn.ValidateConnNum(whichConn...)
+	return dbconn.ConnPool[connNum].Exec(query)
 }
 
-func (dbconn *DBConn) Get(destination interface{}, query string) error {
+func (dbconn *DBConn) Get(destination interface{}, query string, whichConn ...int) error {
 	if dbconn.Tx != nil {
 		return dbconn.Tx.Get(destination, query)
 	}
-	return dbconn.Conn.Get(destination, query)
+	connNum := dbconn.ValidateConnNum(whichConn...)
+	return dbconn.ConnPool[connNum].Get(destination, query)
 }
 
-func (dbconn *DBConn) Select(destination interface{}, query string) error {
+func (dbconn *DBConn) Select(destination interface{}, query string, whichConn ...int) error {
 	if dbconn.Tx != nil {
 		return dbconn.Tx.Select(destination, query)
 	}
-	return dbconn.Conn.Select(destination, query)
+	connNum := dbconn.ValidateConnNum(whichConn...)
+	return dbconn.ConnPool[connNum].Select(destination, query)
+}
+
+/*
+ * Ensure there isn't a mismatch between the connection pool size and number of
+ * jobs, and default to using the first connection if no number is given.
+ */
+func (dbconn *DBConn) ValidateConnNum(whichConn ...int) int {
+	if len(whichConn) == 0 {
+		return 0
+	}
+	if len(whichConn) != 1 {
+		logger.Fatal(errors.Errorf("At most one connection number may be specified for a given connection"), "")
+	}
+	if whichConn[0] < 0 || whichConn[0] >= dbconn.NumConns {
+		logger.Fatal(errors.Errorf("Invalid connection number: %d", whichConn[0]), "")
+	}
+	return whichConn[0]
 }
 
 /*
@@ -172,9 +247,10 @@ func (dbconn *DBConn) validateGPDBVersionCompatibility() {
  * that may be NULL or not exist.  We can't use Get() because that expects exactly
  * one string and will panic if no rows are returned, even if using a sql.NullString.
  */
-func SelectString(connection *DBConn, query string) string {
+func SelectString(connection *DBConn, query string, whichConn ...int) string {
 	results := make([]struct{ String string }, 0)
-	err := connection.Select(&results, query)
+	connNum := connection.ValidateConnNum(whichConn...)
+	err := connection.Select(&results, query, connNum)
 	CheckError(err)
 	if len(results) == 1 {
 		return results[0].String
@@ -185,9 +261,10 @@ func SelectString(connection *DBConn, query string) string {
 }
 
 // This is a convenience function for Select() when we're selecting single strings.
-func SelectStringSlice(connection *DBConn, query string) []string {
+func SelectStringSlice(connection *DBConn, query string, whichConn ...int) []string {
 	results := make([]struct{ String string }, 0)
-	err := connection.Select(&results, query)
+	connNum := connection.ValidateConnNum(whichConn...)
+	err := connection.Select(&results, query, connNum)
 	CheckError(err)
 	retval := make([]string, 0)
 	for _, str := range results {

@@ -2,7 +2,6 @@ package utils_test
 
 import (
 	"github.com/blang/semver"
-	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -13,9 +12,6 @@ var _ = Describe("utils/version tests", func() {
 	fake43 := utils.GPDBVersion{VersionString: "4.3.0.0", SemVer: semver.MustParse("4.3.0")}
 	fake50 := utils.GPDBVersion{VersionString: "5.0.0", SemVer: semver.MustParse("5.0.0")}
 	fake51 := utils.GPDBVersion{VersionString: "5.1.0", SemVer: semver.MustParse("5.1.0")}
-	BeforeEach(func() {
-		connection, mock = testutils.CreateAndConnectMockDB()
-	})
 	Describe("StringToSemVerRange", func() {
 		v400 := semver.MustParse("4.0.0")
 		v500 := semver.MustParse("5.0.0")

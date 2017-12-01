@@ -35,6 +35,7 @@ var _ = BeforeSuite(func() {
 
 var _ = BeforeEach(func() {
 	logger, stdout, stderr, logfile = testutils.SetupTestLogger()
+	connection, mock = testutils.CreateAndConnectMockDB(1)
 	utils.System = utils.InitializeSystemFunctions()
 	buffer = gbytes.NewBuffer()
 })
