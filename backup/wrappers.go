@@ -76,6 +76,7 @@ func InitializeFilterLists() {
  */
 
 func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinition) {
+	logger.Info("Gathering list of tables for backup")
 	tables := GetAllUserTables(connection)
 	LockTables(connection, tables)
 

@@ -15,26 +15,48 @@ import (
 func tableAndSchemaFilterClause() string {
 	filterClause := SchemaFilterClause("n")
 	if len(excludeTables) > 0 {
-		filterClause += fmt.Sprintf("\nAND quote_ident(n.nspname) || '.' || quote_ident(c.relname) NOT IN (%s)", utils.SliceToQuotedString(excludeTables))
+		excludeOids := GetOidsFromTableList(connection, excludeTables)
+		filterClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", utils.SliceToQuotedString(excludeOids))
 	}
 	if len(includeTables) > 0 {
-		filterClause += fmt.Sprintf("\nAND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)", utils.SliceToQuotedString(includeTables))
+		includeOids := GetOidsFromTableList(connection, includeTables)
+		filterClause += fmt.Sprintf("\nAND c.oid IN (%s)", utils.SliceToQuotedString(includeOids))
 	}
 	return filterClause
 }
 
+func GetOidsFromTableList(connection *utils.DBConn, tableNames []string) []string {
+	tableList := utils.SliceToQuotedString(tableNames)
+	query := fmt.Sprintf(`
+SELECT
+	c.oid AS string
+FROM pg_class c
+JOIN pg_namespace n ON c.relnamespace = n.oid
+WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, tableList)
+	return utils.SelectStringSlice(connection, query)
+}
+
 func GetAllUserTables(connection *utils.DBConn) []Relation {
-	if *leafPartitionData && len(includeTables) > 0 {
-		return GetUserTablesWithLeafPartitionsAndIncludeFiltering(connection)
-	} else if *leafPartitionData {
-		return GetUserTablesWithLeafPartitions(connection)
-	} else if len(includeTables) > 0 {
+	if len(includeTables) > 0 {
 		return GetUserTablesWithIncludeFiltering(connection)
 	}
 	return GetUserTables(connection)
 }
 
 func GetUserTables(connection *utils.DBConn) []Relation {
+	childPartitionFilter := ""
+	if !*leafPartitionData {
+		//Filter out non-external child partitions
+		childPartitionFilter = `
+	AND c.oid NOT IN (
+		SELECT
+			p.parchildrelid
+		FROM pg_partition_rule p
+		LEFT JOIN pg_exttable e
+			ON p.parchildrelid = e.reloid
+		WHERE e.reloid IS NULL)`
+	}
+
 	query := fmt.Sprintf(`
 SELECT
 	n.oid AS schemaoid,
@@ -42,21 +64,12 @@ SELECT
 	quote_ident(n.nspname) AS schema,
 	quote_ident(c.relname) AS name
 FROM pg_class c
-LEFT JOIN pg_partition_rule pr
-	ON c.oid = pr.parchildrelid
-LEFT JOIN pg_partition p
-	ON pr.paroid = p.oid
-LEFT JOIN pg_namespace n
+JOIN pg_namespace n
 	ON c.relnamespace = n.oid
 WHERE %s
+%s
 AND relkind = 'r'
-AND c.oid NOT IN (SELECT
-	p.parchildrelid
-FROM pg_partition_rule p
-LEFT JOIN pg_exttable e
-	ON p.parchildrelid = e.reloid
-WHERE e.reloid IS NULL)
-ORDER BY n.nspname, c.relname;`, tableAndSchemaFilterClause())
+ORDER BY n.nspname, c.relname;`, tableAndSchemaFilterClause(), childPartitionFilter)
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
@@ -65,103 +78,33 @@ ORDER BY n.nspname, c.relname;`, tableAndSchemaFilterClause())
 }
 
 func GetUserTablesWithIncludeFiltering(connection *utils.DBConn) []Relation {
-	includeList := utils.SliceToQuotedString(includeTables)
-	query := fmt.Sprintf(`
-SELECT
-	n.oid AS schemaoid,
-	c.oid AS oid,
-	quote_ident(n.nspname) AS schema,
-	quote_ident(c.relname) AS name
-FROM pg_class c
-JOIN pg_namespace n
-	ON c.relnamespace = n.oid
-WHERE %s
-AND (
-	-- Get tables in the include list
-	quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
-	-- Get partition tables whose children are in the include list
-	OR (n.nspname, c.relname) IN (
+	includeOids := GetOidsFromTableList(connection, includeTables)
+	includeList := utils.SliceToQuotedString(includeOids)
+	childPartitionFilter := ""
+	if *leafPartitionData {
+		//Get all leaf partition tables whose parents are in the include list
+		childPartitionFilter = fmt.Sprintf(`
+	OR c.oid IN (
 		SELECT
-			n.nspname AS parentschema,
-			c.relname AS parentname
+			r.parchildrelid
 		FROM pg_partition p
 		JOIN pg_partition_rule r ON p.oid = r.paroid
-		JOIN pg_class c ON p.parrelid = c.oid
-		JOIN pg_class c2 ON c2.oid = r.parchildrelid
-		JOIN pg_namespace n2 ON c2.relnamespace = n2.oid
 		WHERE p.paristemplate = false
-		AND quote_ident(n2.nspname) || '.' || quote_ident(c2.relname) IN (%s)
-	)
-	-- Get partition tables whose parents are in the include list
-	OR (n.nspname, c.relname) IN (
+		AND p.parrelid IN (%s))`, includeList)
+	} else {
+		//Get only external partition tables whose parents are in the include list
+		childPartitionFilter = fmt.Sprintf(`
+	OR c.oid IN (
 		SELECT
-			n2.nspname AS childschema,
-			c2.relname AS childname
+			r.parchildrelid
 		FROM pg_partition p
 		JOIN pg_partition_rule r ON p.oid = r.paroid
-		JOIN pg_class c ON p.parrelid = c.oid
-		JOIN pg_class c2 ON c2.oid = r.parchildrelid
-		JOIN pg_namespace n2 ON c2.relnamespace = n2.oid
 		JOIN pg_exttable e ON r.parchildrelid = e.reloid
 		WHERE p.paristemplate = false
 		AND e.reloid IS NOT NULL
-		AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
-	)
-	-- Get external partition tables whose siblings are in the include list
-	OR (n.nspname, c.relname) IN (
-		SELECT
-			n2.nspname AS childschema,
-			c2.relname AS childname
-		FROM pg_partition_rule r
-		JOIN pg_class c2 ON c2.oid = r.parchildrelid
-		JOIN pg_namespace n2 ON c2.relnamespace = n2.oid
-		JOIN pg_exttable e ON r.parchildrelid = e.reloid
-		WHERE r.paroid IN (
-			SELECT
-				p.paroid
-			FROM pg_partition_rule p
-			JOIN pg_class c ON p.parchildrelid = c.oid
-			JOIN pg_namespace n ON c.relnamespace = n.oid
-			WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
-		)
-	)
-)
-AND relkind = 'r'
-ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"), includeList, includeList, includeList, includeList)
+		AND p.parrelid IN (%s))`, includeList)
+	}
 
-	results := make([]Relation, 0)
-	err := connection.Select(&results, query)
-	utils.CheckError(err)
-	return results
-}
-
-func GetUserTablesWithLeafPartitions(connection *utils.DBConn) []Relation {
-	query := fmt.Sprintf(`
-SELECT
-	n.oid AS schemaoid,
-	c.oid AS oid,
-	quote_ident(n.nspname) AS schema,
-	quote_ident(c.relname) AS name
-FROM pg_class c
-JOIN pg_namespace n
-	ON c.relnamespace = n.oid
-WHERE %s
-AND relkind = 'r'
-ORDER BY n.nspname, c.relname;`, tableAndSchemaFilterClause())
-
-	results := make([]Relation, 0)
-	err := connection.Select(&results, query)
-	utils.CheckError(err)
-	return results
-}
-
-func GetUserTablesWithLeafPartitionsAndIncludeFiltering(connection *utils.DBConn) []Relation {
-	/*
-	 * In this case, we need to retrieve the parent tables of any partition tables in
-	 * the filter, so that we can print the metadata for the parent tables, so we include
-	 * tables in the list of include tables OR parent tables of tables in the list.
-	 */
-	includeList := utils.SliceToQuotedString(includeTables)
 	query := fmt.Sprintf(`
 SELECT
 	n.oid AS schemaoid,
@@ -174,36 +117,33 @@ JOIN pg_namespace n
 WHERE %s
 AND (
 	-- Get tables in the include list
-	quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
-	-- Get partition tables whose children are in the include list
-	OR (n.nspname, c.relname) IN (
+	c.oid IN (%s)
+	-- Get parent partition tables whose children are in the include list
+	OR c.oid IN (
 		SELECT
-			n.nspname AS parentschema,
-			c.relname AS parentname
+			p.parrelid
 		FROM pg_partition p
 		JOIN pg_partition_rule r ON p.oid = r.paroid
-		JOIN pg_class c ON p.parrelid = c.oid
-		JOIN pg_class c2 ON c2.oid = r.parchildrelid
-		JOIN pg_namespace n2  ON c2.relnamespace = n2.oid
 		WHERE p.paristemplate = false
-		AND quote_ident(n2.nspname) || '.' || quote_ident(c2.relname) IN (%s)
+		AND r.parchildrelid IN (%s)
 	)
-	-- Get partition tables whose parents are in the include list
-	OR (n.nspname, c.relname) IN (
+	-- Get external partition tables whose siblings are in the include list
+	OR c.oid IN (
 		SELECT
-			n2.nspname AS childschema,
-			c2.relname AS childname
-		FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		JOIN pg_class c ON p.parrelid = c.oid
-		JOIN pg_class c2 ON c2.oid = r.parchildrelid
-		JOIN pg_namespace n2  ON c2.relnamespace = n2.oid
-		WHERE p.paristemplate = false
-		AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
+			r.parchildrelid
+		FROM pg_partition_rule r
+		JOIN pg_exttable e ON r.parchildrelid = e.reloid
+		WHERE r.paroid IN (
+			SELECT
+				pr.paroid
+			FROM pg_partition_rule pr
+			WHERE pr.parchildrelid IN (%s)
+		)
 	)
+	%s
 )
 AND relkind = 'r'
-ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"), includeList, includeList, includeList)
+ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"), includeList, includeList, includeList, childPartitionFilter)
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
