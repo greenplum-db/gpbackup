@@ -139,7 +139,7 @@ type TableDefinition struct {
 func ConstructDefinitionsForTables(connection *utils.DBConn, tables []Relation) map[uint32]TableDefinition {
 	tableDefinitionMap := make(map[uint32]TableDefinition, 0)
 
-	logger.Info("Gathering table metadata")
+	logger.Info("Gathering additional table metadata")
 	logger.Verbose("Retrieving column information")
 	columnDefs := GetColumnDefinitions(connection)
 	distributionPolicies := GetDistributionPolicies(connection, tables)
