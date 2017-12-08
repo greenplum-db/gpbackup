@@ -56,6 +56,8 @@ func DoFlagValidation() {
 // This function handles setup that must be done after parsing flags.
 func DoSetup() {
 	SetLoggerVerbosity()
+	timestamp := utils.CurrentTimestamp()
+	utils.CreateBackupLockFile(timestamp)
 	logger.Info("Starting backup of database %s", *dbname)
 	InitializeConnection()
 
@@ -64,9 +66,7 @@ func DoSetup() {
 	validateFilterLists()
 
 	segConfig := utils.GetSegmentConfiguration(connection)
-	timestamp := utils.CurrentTimestamp()
 	segPrefix := utils.GetSegPrefix(connection)
-	utils.CreateBackupLockFile(timestamp)
 	globalCluster = utils.NewCluster(segConfig, *backupDir, timestamp, segPrefix)
 	globalCluster.CreateBackupDirectoriesOnAllHosts()
 	globalTOC = &utils.TOC{}
