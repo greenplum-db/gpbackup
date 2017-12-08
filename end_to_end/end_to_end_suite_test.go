@@ -65,6 +65,10 @@ var _ = Describe("backup end to end integration tests", func() {
 		if err != nil {
 			Fail(fmt.Sprintf("%v", err))
 		}
+		err = exec.Command("createdb", "restoredb").Run()
+		if err != nil {
+			Fail(fmt.Sprintf("%v", err))
+		}
 		backupConn = utils.NewDBConn("testdb")
 		backupConn.Connect()
 		utils.ExecuteSQLFile(backupConn, "test_tables.sql")
@@ -83,13 +87,12 @@ var _ = Describe("backup end to end integration tests", func() {
 			if restoreConn != nil {
 				restoreConn.Close()
 			}
-			exec.Command("dropdb", "restoredb").Run()
-			err := exec.Command("createdb", "restoredb").Run()
+			restoreConn = utils.NewDBConn("restoredb")
+			restoreConn.Connect()
+			err := exec.Command("psql", "-d", "restoredb", "-c", "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;").Run()
 			if err != nil {
 				Fail(fmt.Sprintf("%v", err))
 			}
-			restoreConn = utils.NewDBConn("restoredb")
-			restoreConn.Connect()
 		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
 			timestamp := gpbackup(gpbackupPath)
@@ -197,8 +200,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		It("runs gpbackup and gprestore on database with all objects", func() {
 			backupConn.Close()
-			exec.Command("dropdb", "testdb").Run()
-			err := exec.Command("createdb", "testdb").Run()
+			err := exec.Command("psql", "-d", "testdb", "-c", "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;").Run()
 			if err != nil {
 				Fail(fmt.Sprintf("%v", err))
 			}
@@ -212,8 +214,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			timestamp := gpbackup(gpbackupPath)
 			gprestore(gprestorePath, timestamp, "-redirect", "restoredb")
 
-			exec.Command("dropdb", "testdb").Run()
-			err = exec.Command("createdb", "testdb").Run()
+			err = exec.Command("psql", "-d", "testdb", "-c", "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;").Run()
 			if err != nil {
 				Fail(fmt.Sprintf("%v", err))
 			}
