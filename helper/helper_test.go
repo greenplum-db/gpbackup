@@ -15,10 +15,10 @@ import (
 var _ = Describe("helper/helper", func() {
 	var stdout *gbytes.Buffer
 	var stdinRead, stdinWrite *os.File
-	var tocFileRead, tocFileWrite *os.File
+	var tocFileRead *os.File
 	BeforeEach(func() {
 		stdinRead, stdinWrite, _ = os.Pipe()
-		tocFileRead, tocFileWrite, _ = os.Pipe()
+		tocFileRead, _, _ = os.Pipe()
 		utils.System.Stdin = stdinRead
 		stdout = gbytes.NewBuffer()
 		utils.System.Stdout = stdout

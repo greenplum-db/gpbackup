@@ -1,8 +1,6 @@
 package restore_test
 
 import (
-	"bytes"
-
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -52,7 +50,6 @@ var _ = Describe("restore/validate tests", func() {
 		table2Len := uint64(len(table2.Statement))
 		var toc *utils.TOC
 		var backupfile *utils.FileWithByteCount
-		var predataFile *bytes.Reader
 		BeforeEach(func() {
 			toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			backupfile.ByteCount = table1Len
@@ -64,8 +61,6 @@ var _ = Describe("restore/validate tests", func() {
 			backupfile.ByteCount += sequenceLen
 			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", table1Len+table2Len, backupfile)
 			restore.SetTOC(toc)
-
-			predataFile = bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
 		})
 		It("schema exists in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
@@ -126,7 +121,6 @@ var _ = Describe("restore/validate tests", func() {
 		table2Len := uint64(len(table2.Statement))
 		var toc *utils.TOC
 		var backupfile *utils.FileWithByteCount
-		var predataFile *bytes.Reader
 		BeforeEach(func() {
 			toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			backupfile.ByteCount = table1Len
@@ -138,8 +132,6 @@ var _ = Describe("restore/validate tests", func() {
 			backupfile.ByteCount += sequenceLen
 			toc.AddMetadataEntry("schema1", "somesequence", "SEQUENCE", table1Len+table2Len, backupfile)
 			restore.SetTOC(toc)
-
-			predataFile = bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
 		})
 		It("table exists in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})

@@ -82,7 +82,7 @@ func DoBackup() {
 	metadataTables, dataTables, tableDefs := RetrieveAndProcessTables()
 	if !*dataOnly {
 		if isTableFiltered {
-			backupTablePredata(metadataTables, tableDefs, objectCounts)
+			backupTablePredata(metadataTables, tableDefs)
 		} else {
 			backupGlobal(objectCounts)
 			backupPredata(metadataTables, tableDefs, objectCounts)
@@ -182,7 +182,7 @@ func backupPredata(tables []Relation, tableDefs map[uint32]TableDefinition, obje
 	logger.Info("Pre-data metadata backup complete")
 }
 
-func backupTablePredata(tables []Relation, tableDefs map[uint32]TableDefinition, objectCounts map[string]int) {
+func backupTablePredata(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	predataFilename := globalCluster.GetPredataFilePath()
 	logger.Info("Writing table metadata to %s", predataFilename)
 	predataFile := utils.NewFileWithByteCountFromFile(predataFilename)
