@@ -35,6 +35,8 @@ func InitializeConnection(dbname string) {
 	utils.CheckError(err)
 	_, err = connection.Exec("SET gp_enable_segment_copy_checking TO false")
 	utils.CheckError(err)
+	_, err = connection.Exec("SET gp_default_storage_options='';")
+	utils.CheckError(err)
 }
 
 func InitializeBackupConfig() {
