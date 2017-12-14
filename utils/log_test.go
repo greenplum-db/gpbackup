@@ -387,5 +387,15 @@ var _ = Describe("utils/log tests", func() {
 			progressBar := utils.NewProgressBar(10, "test progress bar", false)
 			Expect(progressBar.NotPrint).To(Equal(true))
 		})
+		It("will not print with verbosity LOGERROR", func() {
+			logger.SetVerbosity(utils.LOGERROR)
+			progressBar := utils.NewProgressBar(10, "test progress bar", true)
+			Expect(progressBar.NotPrint).To(Equal(true))
+		})
+		It("will not print with verbosity LOGVERBOSE", func() {
+			logger.SetVerbosity(utils.LOGVERBOSE)
+			progressBar := utils.NewProgressBar(10, "test progress bar", true)
+			Expect(progressBar.NotPrint).To(Equal(true))
+		})
 	})
 })

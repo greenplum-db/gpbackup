@@ -59,12 +59,12 @@ func DoValidation() {
 	if !utils.IsValidTimestamp(*timestamp) {
 		logger.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", *timestamp), "")
 	}
-	logger.Info("Restore Key = %s", *timestamp)
 }
 
 // This function handles setup that must be done after parsing flags.
 func DoSetup() {
 	SetLoggerVerbosity()
+	logger.Info("Restore Key = %s", *timestamp)
 
 	InitializeConnection("postgres")
 	DoPostgresValidation()
@@ -151,7 +151,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
 	totalTables := len(filteredMasterDataEntries)
-	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", logger.GetVerbosity() == utils.LOGINFO)
+	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", true)
 	dataProgressBar.Start()
 
 	if connection.NumConns == 1 {

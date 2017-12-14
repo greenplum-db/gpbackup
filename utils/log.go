@@ -214,6 +214,6 @@ func NewProgressBar(count int, prefix string, showProgressBar bool) *pb.Progress
 	progressBar.ShowTimeLeft = false
 	progressBar.SetMaxWidth(100)
 	progressBar.SetRefreshRate(time.Millisecond * 200)
-	progressBar.NotPrint = !(showProgressBar && count > 0)
+	progressBar.NotPrint = !(showProgressBar && count > 0 && logger.GetVerbosity() == LOGINFO)
 	return progressBar
 }
