@@ -112,3 +112,15 @@ func printDataBackupWarnings(numExtTables int) {
 		logger.Warn("See %s for a complete list of skipped tables.", logger.GetLogFilePath())
 	}
 }
+
+func CheckTablesContainData(tables []Relation, tableDefs map[uint32]TableDefinition) {
+	if !backupReport.MetadataOnly {
+		for _, table := range tables {
+			if !tableDefs[table.Oid].IsExternal {
+				return
+			}
+		}
+		logger.Warn("No tables in backup set contain data. Performing metadata-only backup instead.")
+		backupReport.MetadataOnly = true
+	}
+}

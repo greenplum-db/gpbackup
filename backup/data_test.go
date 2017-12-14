@@ -80,4 +80,32 @@ var _ = Describe("backup/data tests", func() {
 			backup.CopyTableOut(connection, testTable, filename)
 		})
 	})
+	Describe("CheckDBContainsData", func() {
+		config := utils.BackupConfig{}
+		testTable := []backup.Relation{backup.BasicRelation("public", "testtable")}
+
+		BeforeEach(func() {
+			config.MetadataOnly = false
+			backup.SetReport(&utils.Report{BackupConfig: config})
+		})
+		It("changes backup type to metadata if no tables in DB", func() {
+			backup.CheckTablesContainData([]backup.Relation{}, map[uint32]backup.TableDefinition{})
+			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
+		})
+		It("changes backup type to metadata if only external tables in database", func() {
+			tableDef := backup.TableDefinition{IsExternal: true}
+			backup.CheckTablesContainData(testTable, map[uint32]backup.TableDefinition{0: tableDef})
+			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
+		})
+		It("does not change backup type if metadata-only backup", func() {
+			config.MetadataOnly = true
+			backup.SetReport(&utils.Report{BackupConfig: config})
+			backup.CheckTablesContainData([]backup.Relation{}, map[uint32]backup.TableDefinition{})
+			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
+		})
+		It("does not change backup type if tables present in database", func() {
+			backup.CheckTablesContainData(testTable, map[uint32]backup.TableDefinition{0: backup.TableDefinition{}})
+			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeFalse())
+		})
+	})
 })

@@ -81,6 +81,14 @@ func SetLogger(log *utils.Logger) {
 	logger = log
 }
 
+func SetReport(report *utils.Report) {
+	backupReport = report
+}
+
+func GetReport() *utils.Report {
+	return backupReport
+}
+
 func SetSingleDataFile(which bool) {
 	singleDataFile = &which
 }

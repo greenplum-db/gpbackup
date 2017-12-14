@@ -78,13 +78,14 @@ func DoBackup() {
 
 	objectCounts = make(map[string]int, 0)
 
-	isTableFiltered := len(includeTables) > 0 || len(excludeTables) > 0
 	metadataTables, dataTables, tableDefs := RetrieveAndProcessTables()
+	CheckTablesContainData(dataTables, tableDefs)
 	metadataFilename := globalCluster.GetMetadataFilePath()
 	logger.Verbose("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
 	defer metadataFile.Close()
 	if !*dataOnly {
+		isTableFiltered := len(includeTables) > 0 || len(excludeTables) > 0
 		if isTableFiltered {
 			backupTablePredata(metadataFile, metadataTables, tableDefs)
 		} else {
@@ -96,7 +97,7 @@ func DoBackup() {
 		BackupSessionGUCs(metadataFile)
 	}
 
-	if !*metadataOnly {
+	if !backupReport.MetadataOnly {
 		backupData(dataTables, tableDefs)
 	}
 
