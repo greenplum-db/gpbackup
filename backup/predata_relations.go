@@ -180,48 +180,48 @@ func ConstructDefinitionsForTables(connection *utils.DBConn, tables []Relation) 
  * the search_path; this will aid in later filtering to include or exclude certain tables during the
  * backup process, and allows customers to copy just the CREATE TABLE block in order to use it directly.
  */
-func PrintCreateTableStatement(predataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
-	start := predataFile.ByteCount
+func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
+	start := metadataFile.ByteCount
 	// We use an empty TOC below to keep count of the bytes for testing purposes.
 	if tableDef.IsExternal && tableDef.PartitionType != "p" {
-		PrintExternalTableCreateStatement(predataFile, nil, table, tableDef)
+		PrintExternalTableCreateStatement(metadataFile, nil, table, tableDef)
 	} else {
-		PrintRegularTableCreateStatement(predataFile, nil, table, tableDef)
+		PrintRegularTableCreateStatement(metadataFile, nil, table, tableDef)
 	}
-	PrintPostCreateTableStatements(predataFile, table, tableDef, tableMetadata)
-	toc.AddMetadataEntry(table.Schema, table.Name, "TABLE", start, predataFile)
+	PrintPostCreateTableStatements(metadataFile, table, tableDef, tableMetadata)
+	toc.AddPredataEntry(table.Schema, table.Name, "TABLE", start, metadataFile)
 }
 
-func PrintRegularTableCreateStatement(predataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
-	start := predataFile.ByteCount
-	predataFile.MustPrintf("\n\nCREATE TABLE %s (\n", table.ToString())
-	printColumnDefinitions(predataFile, tableDef.ColumnDefs)
-	predataFile.MustPrintf(") ")
+func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
+	start := metadataFile.ByteCount
+	metadataFile.MustPrintf("\n\nCREATE TABLE %s (\n", table.ToString())
+	printColumnDefinitions(metadataFile, tableDef.ColumnDefs)
+	metadataFile.MustPrintf(") ")
 	if len(table.Inherits) != 0 {
 		dependencyList := strings.Join(table.Inherits, ", ")
-		predataFile.MustPrintf("INHERITS (%s) ", dependencyList)
+		metadataFile.MustPrintf("INHERITS (%s) ", dependencyList)
 	}
 	if tableDef.StorageOpts != "" {
-		predataFile.MustPrintf("WITH (%s) ", tableDef.StorageOpts)
+		metadataFile.MustPrintf("WITH (%s) ", tableDef.StorageOpts)
 	}
 	if tableDef.TablespaceName != "" {
-		predataFile.MustPrintf("TABLESPACE %s ", tableDef.TablespaceName)
+		metadataFile.MustPrintf("TABLESPACE %s ", tableDef.TablespaceName)
 	}
-	predataFile.MustPrintf("%s", tableDef.DistPolicy)
+	metadataFile.MustPrintf("%s", tableDef.DistPolicy)
 	if tableDef.PartDef != "" {
-		predataFile.MustPrintf(" %s", strings.TrimSpace(tableDef.PartDef))
+		metadataFile.MustPrintf(" %s", strings.TrimSpace(tableDef.PartDef))
 	}
-	predataFile.MustPrintln(";")
+	metadataFile.MustPrintln(";")
 	if tableDef.PartTemplateDef != "" {
-		predataFile.MustPrintf("%s;\n", strings.TrimSpace(tableDef.PartTemplateDef))
+		metadataFile.MustPrintf("%s;\n", strings.TrimSpace(tableDef.PartTemplateDef))
 	}
-	printAlterColumnStatements(predataFile, table, tableDef.ColumnDefs)
+	printAlterColumnStatements(metadataFile, table, tableDef.ColumnDefs)
 	if toc != nil {
-		toc.AddMetadataEntry(table.Schema, table.Name, "TABLE", start, predataFile)
+		toc.AddPredataEntry(table.Schema, table.Name, "TABLE", start, metadataFile)
 	}
 }
 
-func printColumnDefinitions(predataFile *utils.FileWithByteCount, columnDefs []ColumnDefinition) {
+func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []ColumnDefinition) {
 	lines := make([]string, 0)
 	for _, column := range columnDefs {
 		line := fmt.Sprintf("\t%s %s", column.Name, column.Type)
@@ -237,17 +237,17 @@ func printColumnDefinitions(predataFile *utils.FileWithByteCount, columnDefs []C
 		lines = append(lines, line)
 	}
 	if len(lines) > 0 {
-		predataFile.MustPrintln(strings.Join(lines, ",\n"))
+		metadataFile.MustPrintln(strings.Join(lines, ",\n"))
 	}
 }
 
-func printAlterColumnStatements(predataFile *utils.FileWithByteCount, table Relation, columnDefs []ColumnDefinition) {
+func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Relation, columnDefs []ColumnDefinition) {
 	for _, column := range columnDefs {
 		if column.StatTarget > -1 {
-			predataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STATISTICS %d;", table.ToString(), column.Name, column.StatTarget)
+			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STATISTICS %d;", table.ToString(), column.Name, column.StatTarget)
 		}
 		if column.StorageType != "" {
-			predataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STORAGE %s;", table.ToString(), column.Name, column.StorageType)
+			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STORAGE %s;", table.ToString(), column.Name, column.StorageType)
 		}
 	}
 }
@@ -256,12 +256,12 @@ func printAlterColumnStatements(predataFile *utils.FileWithByteCount, table Rela
  * This function prints additional statements that come after the CREATE TABLE
  * statement for both regular and external tables.
  */
-func PrintPostCreateTableStatements(predataFile *utils.FileWithByteCount, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
-	PrintObjectMetadata(predataFile, tableMetadata, table.ToString(), "TABLE")
+func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
+	PrintObjectMetadata(metadataFile, tableMetadata, table.ToString(), "TABLE")
 
 	for _, att := range tableDef.ColumnDefs {
 		if att.Comment != "" {
-			predataFile.MustPrintf("\n\nCOMMENT ON COLUMN %s.%s IS '%s';\n", table.ToString(), att.Name, att.Comment)
+			metadataFile.MustPrintf("\n\nCOMMENT ON COLUMN %s.%s IS '%s';\n", table.ToString(), att.Name, att.Comment)
 		}
 	}
 }
@@ -286,61 +286,61 @@ func GetAllSequences(connection *utils.DBConn) []Sequence {
  * This function is largely derived from the dumpSequence() function in pg_dump.c.  The values of
  * minVal and maxVal come from SEQ_MINVALUE and SEQ_MAXVALUE, defined in include/commands/sequence.h.
  */
-func PrintCreateSequenceStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
+func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
 	maxVal := int64(9223372036854775807)
 	minVal := int64(-9223372036854775807)
 	for _, sequence := range sequences {
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		seqFQN := sequence.ToString()
-		predataFile.MustPrintln("\n\nCREATE SEQUENCE", seqFQN)
+		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", seqFQN)
 		if connection.Version.AtLeast("6") {
-			predataFile.MustPrintln("\tSTART WITH", sequence.StartVal)
+			metadataFile.MustPrintln("\tSTART WITH", sequence.StartVal)
 		} else if !sequence.IsCalled {
-			predataFile.MustPrintln("\tSTART WITH", sequence.LastVal)
+			metadataFile.MustPrintln("\tSTART WITH", sequence.LastVal)
 		}
-		predataFile.MustPrintln("\tINCREMENT BY", sequence.Increment)
+		metadataFile.MustPrintln("\tINCREMENT BY", sequence.Increment)
 
 		if !((sequence.MaxVal == maxVal && sequence.Increment > 0) || (sequence.MaxVal == -1 && sequence.Increment < 0)) {
-			predataFile.MustPrintln("\tMAXVALUE", sequence.MaxVal)
+			metadataFile.MustPrintln("\tMAXVALUE", sequence.MaxVal)
 		} else {
-			predataFile.MustPrintln("\tNO MAXVALUE")
+			metadataFile.MustPrintln("\tNO MAXVALUE")
 		}
 		if !((sequence.MinVal == minVal && sequence.Increment < 0) || (sequence.MinVal == 1 && sequence.Increment > 0)) {
-			predataFile.MustPrintln("\tMINVALUE", sequence.MinVal)
+			metadataFile.MustPrintln("\tMINVALUE", sequence.MinVal)
 		} else {
-			predataFile.MustPrintln("\tNO MINVALUE")
+			metadataFile.MustPrintln("\tNO MINVALUE")
 		}
 		cycleStr := ""
 		if sequence.IsCycled {
 			cycleStr = "\n\tCYCLE"
 		}
-		predataFile.MustPrintf("\tCACHE %d%s;", sequence.CacheVal, cycleStr)
+		metadataFile.MustPrintf("\tCACHE %d%s;", sequence.CacheVal, cycleStr)
 
-		predataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", seqFQN, sequence.LastVal, sequence.IsCalled)
+		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", seqFQN, sequence.LastVal, sequence.IsCalled)
 
-		PrintObjectMetadata(predataFile, sequenceMetadata[sequence.Oid], seqFQN, "SEQUENCE")
-		toc.AddMetadataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE", start, predataFile)
+		PrintObjectMetadata(metadataFile, sequenceMetadata[sequence.Oid], seqFQN, "SEQUENCE")
+		toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE", start, metadataFile)
 	}
 }
 
-func PrintAlterSequenceStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, sequences []Sequence, sequenceColumnOwners map[string]string) {
+func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, sequences []Sequence, sequenceColumnOwners map[string]string) {
 	for _, sequence := range sequences {
 		seqFQN := sequence.ToString()
 		// owningColumn is quoted when the map is constructed in GetSequenceColumnOwnerMap() and doesn't need to be quoted again
 		if owningColumn, hasColumnOwner := sequenceColumnOwners[seqFQN]; hasColumnOwner {
-			start := predataFile.ByteCount
-			predataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
-			toc.AddMetadataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", start, predataFile)
+			start := metadataFile.ByteCount
+			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
+			toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", start, metadataFile)
 		}
 	}
 }
 
-func PrintCreateViewStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, views []View, viewMetadata MetadataMap) {
+func PrintCreateViewStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, views []View, viewMetadata MetadataMap) {
 	for _, view := range views {
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		viewFQN := utils.MakeFQN(view.Schema, view.Name)
-		predataFile.MustPrintf("\n\nCREATE VIEW %s AS %s\n", viewFQN, view.Definition)
-		PrintObjectMetadata(predataFile, viewMetadata[view.Oid], viewFQN, "VIEW")
-		toc.AddMetadataEntry(view.Schema, view.Name, "VIEW", start, predataFile)
+		metadataFile.MustPrintf("\n\nCREATE VIEW %s AS %s\n", viewFQN, view.Definition)
+		PrintObjectMetadata(metadataFile, viewMetadata[view.Oid], viewFQN, "VIEW")
+		toc.AddPredataEntry(view.Schema, view.Name, "VIEW", start, metadataFile)
 	}
 }

@@ -146,125 +146,125 @@ func LogBackupInfo() {
 	logger.Info("Backup Type = %s", backupReport.BackupType)
 }
 
-func BackupSessionGUCs(postdataFile *utils.FileWithByteCount) {
+func BackupSessionGUCs(metadataFile *utils.FileWithByteCount) {
 	gucs := GetSessionGUCs(connection)
-	PrintSessionGUCs(postdataFile, globalTOC, gucs)
+	PrintSessionGUCs(metadataFile, globalTOC, gucs)
 }
 
 /*
  * Global metadata wrapper functions
  */
 
-func BackupTablespaces(globalFile *utils.FileWithByteCount) {
+func BackupTablespaces(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE TABLESPACE statements to global file")
 	tablespaces := GetTablespaces(connection)
 	objectCounts["Tablespaces"] = len(tablespaces)
 	tablespaceMetadata := GetMetadataForObjectType(connection, TYPE_TABLESPACE)
-	PrintCreateTablespaceStatements(globalFile, globalTOC, tablespaces, tablespaceMetadata)
+	PrintCreateTablespaceStatements(metadataFile, globalTOC, tablespaces, tablespaceMetadata)
 }
 
-func BackupCreateDatabase(globalFile *utils.FileWithByteCount) {
+func BackupCreateDatabase(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE DATABASE statement to global file")
 	db := GetDatabaseName(connection)
 	dbMetadata := GetMetadataForObjectType(connection, TYPE_DATABASE)
-	PrintCreateDatabaseStatement(globalFile, globalTOC, db, dbMetadata)
+	PrintCreateDatabaseStatement(metadataFile, globalTOC, db, dbMetadata)
 }
 
-func BackupDatabaseGUCs(globalFile *utils.FileWithByteCount) {
+func BackupDatabaseGUCs(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing database GUCs to global file")
 	databaseGucs := GetDatabaseGUCs(connection)
 	objectCounts["Database GUCs"] = len(databaseGucs)
-	PrintDatabaseGUCs(globalFile, globalTOC, databaseGucs, connection.DBName)
+	PrintDatabaseGUCs(metadataFile, globalTOC, databaseGucs, connection.DBName)
 }
 
-func BackupResourceQueues(globalFile *utils.FileWithByteCount) {
+func BackupResourceQueues(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE RESOURCE QUEUE statements to global file")
 	resQueues := GetResourceQueues(connection)
 	objectCounts["Resource Queues"] = len(resQueues)
 	resQueueMetadata := GetCommentsForObjectType(connection, TYPE_RESOURCEQUEUE)
-	PrintCreateResourceQueueStatements(globalFile, globalTOC, resQueues, resQueueMetadata)
+	PrintCreateResourceQueueStatements(metadataFile, globalTOC, resQueues, resQueueMetadata)
 }
 
-func BackupResourceGroups(globalFile *utils.FileWithByteCount) {
+func BackupResourceGroups(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE RESOURCE GROUP statements to global file")
 	resGroups := GetResourceGroups(connection)
 	objectCounts["Resource Groups"] = len(resGroups)
 	resGroupMetadata := GetCommentsForObjectType(connection, TYPE_RESOURCEGROUP)
-	PrintCreateResourceGroupStatements(globalFile, globalTOC, resGroups, resGroupMetadata)
+	PrintCreateResourceGroupStatements(metadataFile, globalTOC, resGroups, resGroupMetadata)
 }
 
-func BackupRoles(globalFile *utils.FileWithByteCount) {
+func BackupRoles(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE ROLE statements to global file")
 	roles := GetRoles(connection)
 	objectCounts["Roles"] = len(roles)
 	roleMetadata := GetCommentsForObjectType(connection, TYPE_ROLE)
-	PrintCreateRoleStatements(globalFile, globalTOC, roles, roleMetadata)
+	PrintCreateRoleStatements(metadataFile, globalTOC, roles, roleMetadata)
 }
 
-func BackupRoleGrants(globalFile *utils.FileWithByteCount) {
+func BackupRoleGrants(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing GRANT ROLE statements to global file")
 	roleMembers := GetRoleMembers(connection)
-	PrintRoleMembershipStatements(globalFile, globalTOC, roleMembers)
+	PrintRoleMembershipStatements(metadataFile, globalTOC, roleMembers)
 }
 
 /*
  * Predata wrapper functions
  */
 
-func BackupSchemas(predataFile *utils.FileWithByteCount) {
+func BackupSchemas(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE SCHEMA statements to predata file")
 	schemas := GetAllUserSchemas(connection)
 	objectCounts["Schemas"] = len(schemas)
 	schemaMetadata := GetMetadataForObjectType(connection, TYPE_SCHEMA)
-	PrintCreateSchemaStatements(predataFile, globalTOC, schemas, schemaMetadata)
+	PrintCreateSchemaStatements(metadataFile, globalTOC, schemas, schemaMetadata)
 }
 
-func BackupProceduralLanguages(predataFile *utils.FileWithByteCount, procLangs []ProceduralLanguage, langFuncs []Function, functionMetadata MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
+func BackupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs []ProceduralLanguage, langFuncs []Function, functionMetadata MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
 	logger.Verbose("Writing CREATE PROCEDURAL LANGUAGE statements to predata file")
 	objectCounts["Procedural Languages"] = len(procLangs)
 	for _, langFunc := range langFuncs {
-		PrintCreateFunctionStatement(predataFile, globalTOC, langFunc, functionMetadata[langFunc.Oid])
+		PrintCreateFunctionStatement(metadataFile, globalTOC, langFunc, functionMetadata[langFunc.Oid])
 	}
 	procLangMetadata := GetMetadataForObjectType(connection, TYPE_PROCLANGUAGE)
-	PrintCreateLanguageStatements(predataFile, globalTOC, procLangs, funcInfoMap, procLangMetadata)
+	PrintCreateLanguageStatements(metadataFile, globalTOC, procLangs, funcInfoMap, procLangMetadata)
 }
 
-func BackupShellTypes(predataFile *utils.FileWithByteCount, types []Type) {
+func BackupShellTypes(metadataFile *utils.FileWithByteCount, types []Type) {
 	logger.Verbose("Writing CREATE TYPE statements for shell types to predata file")
-	PrintCreateShellTypeStatements(predataFile, globalTOC, types)
+	PrintCreateShellTypeStatements(metadataFile, globalTOC, types)
 }
 
-func BackupEnumTypes(predataFile *utils.FileWithByteCount, typeMetadata MetadataMap) {
+func BackupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata MetadataMap) {
 	enums := GetEnumTypes(connection)
 	logger.Verbose("Writing CREATE TYPE statements for enum types to predata file")
 	objectCounts["Types"] += len(enums)
-	PrintCreateEnumTypeStatements(predataFile, globalTOC, enums, typeMetadata)
+	PrintCreateEnumTypeStatements(metadataFile, globalTOC, enums, typeMetadata)
 }
 
-func BackupCreateSequences(predataFile *utils.FileWithByteCount, sequences []Sequence, relationMetadata MetadataMap) {
+func BackupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Sequence, relationMetadata MetadataMap) {
 	logger.Verbose("Writing CREATE SEQUENCE statements to predata file")
 	objectCounts["Sequences"] = len(sequences)
-	PrintCreateSequenceStatements(predataFile, globalTOC, sequences, relationMetadata)
+	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
 }
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
-func BackupFunctionsAndTypesAndTables(predataFile *utils.FileWithByteCount, otherFuncs []Function, types []Type, tables []Relation, functionMetadata MetadataMap, typeMetadata MetadataMap, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
+func BackupFunctionsAndTypesAndTables(metadataFile *utils.FileWithByteCount, otherFuncs []Function, types []Type, tables []Relation, functionMetadata MetadataMap, typeMetadata MetadataMap, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
 	logger.Verbose("Writing CREATE FUNCTION statements to predata file")
 	logger.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to predata file")
 	logger.Verbose("Writing CREATE TABLE statements to predata file")
 	tables = ConstructTableDependencies(connection, tables, tableDefs, false)
 	sortedSlice := SortFunctionsAndTypesAndTablesInDependencyOrder(otherFuncs, types, tables)
 	filteredMetadata := ConstructFunctionAndTypeAndTableMetadataMap(functionMetadata, typeMetadata, relationMetadata)
-	PrintCreateDependentTypeAndFunctionAndTablesStatements(predataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
+	PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connection)
 	if len(extPartInfo) > 0 {
 		logger.Verbose("Writing EXCHANGE PARTITION statements to predata file")
-		PrintExchangeExternalPartitionStatements(predataFile, globalTOC, extPartInfo, partInfoMap, tables)
+		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
 	}
 }
 
 // This function should be used only with a table-only backup.  For an unfiltered backup, the above function is used.
-func BackupTables(predataFile *utils.FileWithByteCount, tables []Relation, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
+func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
 	logger.Verbose("Writing CREATE TABLE statements to predata file")
 	tables = ConstructTableDependencies(connection, tables, tableDefs, true)
 	sortable := make([]Sortable, 0)
@@ -272,149 +272,149 @@ func BackupTables(predataFile *utils.FileWithByteCount, tables []Relation, relat
 		sortable = append(sortable, table)
 	}
 	sortedSlice := TopologicalSort(sortable)
-	PrintCreateDependentTypeAndFunctionAndTablesStatements(predataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints)
+	PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connection)
 	if len(extPartInfo) > 0 {
 		logger.Verbose("Writing EXCHANGE PARTITION statements to predata file")
-		PrintExchangeExternalPartitionStatements(predataFile, globalTOC, extPartInfo, partInfoMap, tables)
+		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
 	}
 }
 
-func BackupAlterSequences(predataFile *utils.FileWithByteCount, sequences []Sequence) {
+func BackupAlterSequences(metadataFile *utils.FileWithByteCount, sequences []Sequence) {
 	logger.Verbose("Writing ALTER SEQUENCE statements to predata file")
 	sequenceColumnOwners := GetSequenceColumnOwnerMap(connection)
-	PrintAlterSequenceStatements(predataFile, globalTOC, sequences, sequenceColumnOwners)
+	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceColumnOwners)
 }
 
-func BackupProtocols(predataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
+func BackupProtocols(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
 	logger.Verbose("Writing CREATE PROTOCOL statements to predata file")
 	protocols := GetExternalProtocols(connection)
 	objectCounts["Protocols"] = len(protocols)
 	protoMetadata := GetMetadataForObjectType(connection, TYPE_PROTOCOL)
-	PrintCreateExternalProtocolStatements(predataFile, globalTOC, protocols, funcInfoMap, protoMetadata)
+	PrintCreateExternalProtocolStatements(metadataFile, globalTOC, protocols, funcInfoMap, protoMetadata)
 }
 
-func BackupTSParsers(predataFile *utils.FileWithByteCount) {
+func BackupTSParsers(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE TEXT SEARCH PARSER statements to predata file")
 	parsers := GetTextSearchParsers(connection)
 	objectCounts["Text Search Parsers"] = len(parsers)
 	parserMetadata := GetCommentsForObjectType(connection, TYPE_TSPARSER)
-	PrintCreateTextSearchParserStatements(predataFile, globalTOC, parsers, parserMetadata)
+	PrintCreateTextSearchParserStatements(metadataFile, globalTOC, parsers, parserMetadata)
 }
 
-func BackupTSTemplates(predataFile *utils.FileWithByteCount) {
+func BackupTSTemplates(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE TEXT SEARCH TEMPLATE statements to predata file")
 	templates := GetTextSearchTemplates(connection)
 	objectCounts["Text Search Templates"] = len(templates)
 	templateMetadata := GetCommentsForObjectType(connection, TYPE_TSTEMPLATE)
-	PrintCreateTextSearchTemplateStatements(predataFile, globalTOC, templates, templateMetadata)
+	PrintCreateTextSearchTemplateStatements(metadataFile, globalTOC, templates, templateMetadata)
 }
 
-func BackupTSDictionaries(predataFile *utils.FileWithByteCount) {
+func BackupTSDictionaries(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE TEXT SEARCH DICTIONARY statements to predata file")
 	dictionaries := GetTextSearchDictionaries(connection)
 	objectCounts["Text Search Dictionaries"] = len(dictionaries)
 	dictionaryMetadata := GetMetadataForObjectType(connection, TYPE_TSDICTIONARY)
-	PrintCreateTextSearchDictionaryStatements(predataFile, globalTOC, dictionaries, dictionaryMetadata)
+	PrintCreateTextSearchDictionaryStatements(metadataFile, globalTOC, dictionaries, dictionaryMetadata)
 }
 
-func BackupTSConfigurations(predataFile *utils.FileWithByteCount) {
+func BackupTSConfigurations(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE TEXT SEARCH CONFIGURATION statements to predata file")
 	configurations := GetTextSearchConfigurations(connection)
 	objectCounts["Text Search Configurations"] = len(configurations)
 	configurationMetadata := GetMetadataForObjectType(connection, TYPE_TSCONFIGURATION)
-	PrintCreateTextSearchConfigurationStatements(predataFile, globalTOC, configurations, configurationMetadata)
+	PrintCreateTextSearchConfigurationStatements(metadataFile, globalTOC, configurations, configurationMetadata)
 }
 
-func BackupConversions(predataFile *utils.FileWithByteCount) {
+func BackupConversions(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE CONVERSION statements to predata file")
 	conversions := GetConversions(connection)
 	objectCounts["Conversions"] = len(conversions)
 	convMetadata := GetMetadataForObjectType(connection, TYPE_CONVERSION)
-	PrintCreateConversionStatements(predataFile, globalTOC, conversions, convMetadata)
+	PrintCreateConversionStatements(metadataFile, globalTOC, conversions, convMetadata)
 }
 
-func BackupOperators(predataFile *utils.FileWithByteCount) {
+func BackupOperators(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE OPERATOR statements to predata file")
 	operators := GetOperators(connection)
 	objectCounts["Operators"] = len(operators)
 	operatorMetadata := GetMetadataForObjectType(connection, TYPE_OPERATOR)
-	PrintCreateOperatorStatements(predataFile, globalTOC, operators, operatorMetadata)
+	PrintCreateOperatorStatements(metadataFile, globalTOC, operators, operatorMetadata)
 }
 
-func BackupOperatorFamilies(predataFile *utils.FileWithByteCount) {
+func BackupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE OPERATOR FAMILY statements to predata file")
 	operatorFamilies := GetOperatorFamilies(connection)
 	objectCounts["Operator Families"] = len(operatorFamilies)
 	operatorFamilyMetadata := GetMetadataForObjectType(connection, TYPE_OPERATORFAMILY)
-	PrintCreateOperatorFamilyStatements(predataFile, globalTOC, operatorFamilies, operatorFamilyMetadata)
+	PrintCreateOperatorFamilyStatements(metadataFile, globalTOC, operatorFamilies, operatorFamilyMetadata)
 }
 
-func BackupOperatorClasses(predataFile *utils.FileWithByteCount) {
+func BackupOperatorClasses(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE OPERATOR CLASS statements to predata file")
 	operatorClasses := GetOperatorClasses(connection)
 	objectCounts["Operator Classes"] = len(operatorClasses)
 	operatorClassMetadata := GetMetadataForObjectType(connection, TYPE_OPERATORCLASS)
-	PrintCreateOperatorClassStatements(predataFile, globalTOC, operatorClasses, operatorClassMetadata)
+	PrintCreateOperatorClassStatements(metadataFile, globalTOC, operatorClasses, operatorClassMetadata)
 }
 
-func BackupAggregates(predataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
+func BackupAggregates(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
 	logger.Verbose("Writing CREATE AGGREGATE statements to predata file")
 	aggregates := GetAggregates(connection)
 	objectCounts["Aggregates"] = len(aggregates)
 	aggMetadata := GetMetadataForObjectType(connection, TYPE_AGGREGATE)
-	PrintCreateAggregateStatements(predataFile, globalTOC, aggregates, funcInfoMap, aggMetadata)
+	PrintCreateAggregateStatements(metadataFile, globalTOC, aggregates, funcInfoMap, aggMetadata)
 }
 
-func BackupCasts(predataFile *utils.FileWithByteCount) {
+func BackupCasts(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE CAST statements to predata file")
 	casts := GetCasts(connection)
 	objectCounts["Casts"] = len(casts)
 	castMetadata := GetCommentsForObjectType(connection, TYPE_CAST)
-	PrintCreateCastStatements(predataFile, globalTOC, casts, castMetadata)
+	PrintCreateCastStatements(metadataFile, globalTOC, casts, castMetadata)
 }
 
-func BackupViews(predataFile *utils.FileWithByteCount, relationMetadata MetadataMap) {
+func BackupViews(metadataFile *utils.FileWithByteCount, relationMetadata MetadataMap) {
 	logger.Verbose("Writing CREATE VIEW statements to predata file")
 	views := GetViews(connection)
 	objectCounts["Views"] = len(views)
 	views = ConstructViewDependencies(connection, views)
 	views = SortViews(views)
-	PrintCreateViewStatements(predataFile, globalTOC, views, relationMetadata)
+	PrintCreateViewStatements(metadataFile, globalTOC, views, relationMetadata)
 }
 
-func BackupConstraints(predataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
+func BackupConstraints(metadataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
 	logger.Verbose("Writing ADD CONSTRAINT statements to predata file")
-	PrintConstraintStatements(predataFile, globalTOC, constraints, conMetadata)
+	PrintConstraintStatements(metadataFile, globalTOC, constraints, conMetadata)
 }
 
 /*
  * Postdata wrapper functions
  */
 
-func BackupIndexes(postdataFile *utils.FileWithByteCount) {
+func BackupIndexes(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE INDEX statements to postdata file")
 	indexNameMap := ConstructImplicitIndexNames(connection)
 	indexes := GetIndexes(connection, indexNameMap)
 	objectCounts["Indexes"] = len(indexes)
 	indexMetadata := GetCommentsForObjectType(connection, TYPE_INDEX)
-	PrintCreateIndexStatements(postdataFile, globalTOC, indexes, indexMetadata)
+	PrintCreateIndexStatements(metadataFile, globalTOC, indexes, indexMetadata)
 }
 
-func BackupRules(postdataFile *utils.FileWithByteCount) {
+func BackupRules(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE RULE statements to postdata file")
 	rules := GetRules(connection)
 	objectCounts["Rules"] = len(rules)
 	ruleMetadata := GetCommentsForObjectType(connection, TYPE_RULE)
-	PrintCreateRuleStatements(postdataFile, globalTOC, rules, ruleMetadata)
+	PrintCreateRuleStatements(metadataFile, globalTOC, rules, ruleMetadata)
 }
 
-func BackupTriggers(postdataFile *utils.FileWithByteCount) {
+func BackupTriggers(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE TRIGGER statements to postdata file")
 	triggers := GetTriggers(connection)
 	objectCounts["Triggers"] = len(triggers)
 	triggerMetadata := GetCommentsForObjectType(connection, TYPE_TRIGGER)
-	PrintCreateTriggerStatements(postdataFile, globalTOC, triggers, triggerMetadata)
+	PrintCreateTriggerStatements(metadataFile, globalTOC, triggers, triggerMetadata)
 }
 
 /*

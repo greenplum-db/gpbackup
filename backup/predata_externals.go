@@ -46,8 +46,8 @@ type ExternalTableDefinition struct {
 	URIs            []string
 }
 
-func PrintExternalTableCreateStatement(predataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
-	start := predataFile.ByteCount
+func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
+	start := metadataFile.ByteCount
 	tableTypeStrMap := map[int]string{
 		READABLE:     "READABLE EXTERNAL",
 		READABLE_WEB: "READABLE EXTERNAL WEB",
@@ -56,16 +56,16 @@ func PrintExternalTableCreateStatement(predataFile *utils.FileWithByteCount, toc
 	}
 	extTableDef := tableDef.ExtTableDef
 	extTableDef.Type, extTableDef.Protocol = DetermineExternalTableCharacteristics(extTableDef)
-	predataFile.MustPrintf("\n\nCREATE %s TABLE %s (\n", tableTypeStrMap[extTableDef.Type], table.ToString())
-	printColumnDefinitions(predataFile, tableDef.ColumnDefs)
-	predataFile.MustPrintf(") ")
-	PrintExternalTableStatements(predataFile, table, extTableDef)
+	metadataFile.MustPrintf("\n\nCREATE %s TABLE %s (\n", tableTypeStrMap[extTableDef.Type], table.ToString())
+	printColumnDefinitions(metadataFile, tableDef.ColumnDefs)
+	metadataFile.MustPrintf(") ")
+	PrintExternalTableStatements(metadataFile, table, extTableDef)
 	if extTableDef.Writable {
-		predataFile.MustPrintf("\n%s", tableDef.DistPolicy)
+		metadataFile.MustPrintf("\n%s", tableDef.DistPolicy)
 	}
-	predataFile.MustPrintf(";")
+	metadataFile.MustPrintf(";")
 	if toc != nil {
-		toc.AddMetadataEntry(table.Schema, table.Name, "TABLE", start, predataFile)
+		toc.AddPredataEntry(table.Schema, table.Name, "TABLE", start, metadataFile)
 	}
 }
 
@@ -116,38 +116,38 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 	return tableType, tableProtocol
 }
 
-func PrintExternalTableStatements(predataFile *utils.FileWithByteCount, table Relation, extTableDef ExternalTableDefinition) {
+func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table Relation, extTableDef ExternalTableDefinition) {
 	if extTableDef.Type != WRITABLE_WEB {
 		if len(extTableDef.URIs) > 0 {
-			predataFile.MustPrintf("LOCATION (\n\t'%s'\n)", strings.Join(extTableDef.URIs, "',\n\t'"))
+			metadataFile.MustPrintf("LOCATION (\n\t'%s'\n)", strings.Join(extTableDef.URIs, "',\n\t'"))
 		}
 	}
 	if extTableDef.Type == READABLE || (extTableDef.Type == WRITABLE_WEB && extTableDef.Protocol == S3) {
 		if extTableDef.ExecLocation == "MASTER_ONLY" {
-			predataFile.MustPrintf(" ON MASTER")
+			metadataFile.MustPrintf(" ON MASTER")
 		}
 	}
 	if extTableDef.Type == READABLE_WEB || extTableDef.Type == WRITABLE_WEB {
 		if extTableDef.Command != "" {
 			extTableDef.Command = strings.Replace(extTableDef.Command, `'`, `''`, -1)
-			predataFile.MustPrintf("EXECUTE '%s'", extTableDef.Command)
+			metadataFile.MustPrintf("EXECUTE '%s'", extTableDef.Command)
 			execType := strings.Split(extTableDef.ExecLocation, ":")
 			switch execType[0] {
 			case "ALL_SEGMENTS": // Default case, don't print anything else
 			case "HOST":
-				predataFile.MustPrintf(" ON HOST '%s'", execType[1])
+				metadataFile.MustPrintf(" ON HOST '%s'", execType[1])
 			case "MASTER_ONLY":
-				predataFile.MustPrintf(" ON MASTER")
+				metadataFile.MustPrintf(" ON MASTER")
 			case "PER_HOST":
-				predataFile.MustPrintf(" ON HOST")
+				metadataFile.MustPrintf(" ON HOST")
 			case "SEGMENT_ID":
-				predataFile.MustPrintf(" ON SEGMENT %s", execType[1])
+				metadataFile.MustPrintf(" ON SEGMENT %s", execType[1])
 			case "TOTAL_SEGS":
-				predataFile.MustPrintf(" ON %s", execType[1])
+				metadataFile.MustPrintf(" ON %s", execType[1])
 			}
 		}
 	}
-	predataFile.MustPrintln()
+	metadataFile.MustPrintln()
 	formatType := ""
 	switch extTableDef.FormatType {
 	case "a":
@@ -161,7 +161,7 @@ func PrintExternalTableStatements(predataFile *utils.FileWithByteCount, table Re
 	case "t":
 		formatType = "text"
 	}
-	predataFile.MustPrintf("FORMAT '%s'", formatType)
+	metadataFile.MustPrintf("FORMAT '%s'", formatType)
 	if extTableDef.FormatOpts != "" {
 		formatStr := extTableDef.FormatOpts
 		if formatType == "custom" {
@@ -179,38 +179,38 @@ func PrintExternalTableStatements(predataFile *utils.FileWithByteCount, table Re
 				formatStr = formatStr[:fLen-2]
 			}
 		}
-		predataFile.MustPrintf(" (%s)", formatStr)
+		metadataFile.MustPrintf(" (%s)", formatStr)
 	}
-	predataFile.MustPrintln()
+	metadataFile.MustPrintln()
 	if extTableDef.Options != "" {
-		predataFile.MustPrintf("OPTIONS (\n\t%s\n)\n", extTableDef.Options)
+		metadataFile.MustPrintf("OPTIONS (\n\t%s\n)\n", extTableDef.Options)
 	}
-	predataFile.MustPrintf("ENCODING '%s'", extTableDef.Encoding)
+	metadataFile.MustPrintf("ENCODING '%s'", extTableDef.Encoding)
 	if extTableDef.Type == READABLE || extTableDef.Type == READABLE_WEB {
 		/*
 		 * If an external table is created using LOG ERRORS instead of LOG ERRORS INTO [tablename],
 		 * the value of pg_exttable.fmterrtbl will match the table's own name.
 		 */
 		if extTableDef.ErrTable == table.Name {
-			predataFile.MustPrintf("\nLOG ERRORS")
+			metadataFile.MustPrintf("\nLOG ERRORS")
 		} else if extTableDef.ErrTable != "" {
-			predataFile.MustPrintf("\nLOG ERRORS INTO %s", extTableDef.ErrTable)
+			metadataFile.MustPrintf("\nLOG ERRORS INTO %s", extTableDef.ErrTable)
 		}
 		if extTableDef.RejectLimit != 0 {
-			predataFile.MustPrintf("\nSEGMENT REJECT LIMIT %d ", extTableDef.RejectLimit)
+			metadataFile.MustPrintf("\nSEGMENT REJECT LIMIT %d ", extTableDef.RejectLimit)
 			switch extTableDef.RejectLimitType {
 			case "r":
-				predataFile.MustPrintf("ROWS")
+				metadataFile.MustPrintf("ROWS")
 			case "p":
-				predataFile.MustPrintf("PERCENT")
+				metadataFile.MustPrintf("PERCENT")
 			}
 		}
 	}
 }
 
-func PrintCreateExternalProtocolStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, protocols []ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata MetadataMap) {
+func PrintCreateExternalProtocolStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, protocols []ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata MetadataMap) {
 	for _, protocol := range protocols {
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		hasUserDefinedFunc := false
 		if function, ok := funcInfoMap[protocol.WriteFunction]; ok && !function.IsInternal {
 			hasUserDefinedFunc = true
@@ -237,17 +237,17 @@ func PrintCreateExternalProtocolStatements(predataFile *utils.FileWithByteCount,
 			protocolFunctions = append(protocolFunctions, fmt.Sprintf("validatorfunc = %s", funcInfoMap[protocol.Validator].QualifiedName))
 		}
 
-		predataFile.MustPrintf("\n\nCREATE ")
+		metadataFile.MustPrintf("\n\nCREATE ")
 		if protocol.Trusted {
-			predataFile.MustPrintf("TRUSTED ")
+			metadataFile.MustPrintf("TRUSTED ")
 		}
-		predataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
-		PrintObjectMetadata(predataFile, protoMetadata[protocol.Oid], protocol.Name, "PROTOCOL")
-		toc.AddMetadataEntry("", protocol.Name, "PROTOCOL", start, predataFile)
+		metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
+		PrintObjectMetadata(metadataFile, protoMetadata[protocol.Oid], protocol.Name, "PROTOCOL")
+		toc.AddPredataEntry("", protocol.Name, "PROTOCOL", start, metadataFile)
 	}
 }
 
-func PrintExchangeExternalPartitionStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Relation) {
+func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Relation) {
 	tableNameMap := make(map[uint32]string, len(tables))
 	for _, table := range tables {
 		tableNameMap[table.Oid] = table.FQN()
@@ -258,7 +258,7 @@ func PrintExchangeExternalPartitionStatements(predataFile *utils.FileWithByteCou
 			continue //Not included in the list of tables to back up
 		}
 		parentRelationName := utils.MakeFQN(externalPartition.ParentSchema, externalPartition.ParentRelationName)
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		alterPartitionStr := ""
 		currentPartition := externalPartition
 		for currentPartition.PartitionParentRuleOid != 0 {
@@ -270,14 +270,14 @@ func PrintExchangeExternalPartitionStatements(predataFile *utils.FileWithByteCou
 			}
 			currentPartition = parent
 		}
-		predataFile.MustPrintf("\n\nALTER TABLE %s %s", parentRelationName, alterPartitionStr)
+		metadataFile.MustPrintf("\n\nALTER TABLE %s %s", parentRelationName, alterPartitionStr)
 		if externalPartition.PartitionName == "" {
-			predataFile.MustPrintf("EXCHANGE PARTITION FOR (RANK(%d)) ", externalPartition.PartitionRank)
+			metadataFile.MustPrintf("EXCHANGE PARTITION FOR (RANK(%d)) ", externalPartition.PartitionRank)
 		} else {
-			predataFile.MustPrintf("EXCHANGE PARTITION %s ", externalPartition.PartitionName)
+			metadataFile.MustPrintf("EXCHANGE PARTITION %s ", externalPartition.PartitionName)
 		}
-		predataFile.MustPrintf("WITH TABLE %s WITHOUT VALIDATION;", extPartRelationName)
-		predataFile.MustPrintf("\n\nDROP TABLE %s;", extPartRelationName)
-		toc.AddMetadataEntry(externalPartition.ParentSchema, externalPartition.ParentRelationName, "EXCHANGE PARTITION", start, predataFile)
+		metadataFile.MustPrintf("WITH TABLE %s WITHOUT VALIDATION;", extPartRelationName)
+		metadataFile.MustPrintf("\n\nDROP TABLE %s;", extPartRelationName)
+		toc.AddPredataEntry(externalPartition.ParentSchema, externalPartition.ParentRelationName, "EXCHANGE PARTITION", start, metadataFile)
 	}
 }

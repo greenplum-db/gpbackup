@@ -40,7 +40,7 @@ func SchemaFromString(name string) Schema {
  * There's no built-in function to generate constraint definitions like there is for other types of
  * metadata, so this function constructs them.
  */
-func PrintConstraintStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, constraints []Constraint, conMetadata MetadataMap) {
+func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, constraints []Constraint, conMetadata MetadataMap) {
 	allConstraints := make([]Constraint, 0)
 	allFkConstraints := make([]Constraint, 0)
 	/*
@@ -59,7 +59,7 @@ func PrintConstraintStatements(predataFile *utils.FileWithByteCount, toc *utils.
 
 	alterStr := "\n\nALTER %s %s ADD CONSTRAINT %s %s;\n"
 	for _, constraint := range constraints {
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		if constraint.IsDomainConstraint {
 			continue
 		}
@@ -67,9 +67,9 @@ func PrintConstraintStatements(predataFile *utils.FileWithByteCount, toc *utils.
 		if constraint.IsPartitionParent {
 			objStr = "TABLE"
 		}
-		predataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef)
-		PrintObjectMetadata(predataFile, conMetadata[constraint.Oid], constraint.Name, "CONSTRAINT", constraint.OwningObject)
-		toc.AddMetadataEntry(constraint.Schema, constraint.Name, "CONSTRAINT", start, predataFile)
+		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef)
+		PrintObjectMetadata(metadataFile, conMetadata[constraint.Oid], constraint.Name, "CONSTRAINT", constraint.OwningObject)
+		toc.AddPredataEntry(constraint.Schema, constraint.Name, "CONSTRAINT", start, metadataFile)
 	}
 }
 
@@ -81,7 +81,7 @@ func PrintCreateSchemaStatements(backupfile *utils.FileWithByteCount, toc *utils
 			backupfile.MustPrintf("\nCREATE SCHEMA %s;", schema.Name)
 		}
 		PrintObjectMetadata(backupfile, schemaMetadata[schema.Oid], schema.Name, "SCHEMA")
-		toc.AddMetadataEntry(schema.Name, schema.Name, "SCHEMA", start, backupfile)
+		toc.AddPredataEntry(schema.Name, schema.Name, "SCHEMA", start, backupfile)
 	}
 }
 
@@ -410,7 +410,7 @@ func (obj ObjectMetadata) GetCommentStatement(objectName string, objectType stri
 	return commentStr
 }
 
-func PrintCreateDependentTypeAndFunctionAndTablesStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, tableDefsMap map[uint32]TableDefinition, constraints []Constraint) {
+func PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, tableDefsMap map[uint32]TableDefinition, constraints []Constraint) {
 	conMap := make(map[string][]Constraint)
 	for _, constraint := range constraints {
 		conMap[constraint.OwningObject] = append(conMap[constraint.OwningObject], constraint)
@@ -420,17 +420,17 @@ func PrintCreateDependentTypeAndFunctionAndTablesStatements(predataFile *utils.F
 		case Type:
 			switch obj.Type {
 			case "b":
-				PrintCreateBaseTypeStatement(predataFile, toc, obj, metadataMap[obj.Oid])
+				PrintCreateBaseTypeStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 			case "c":
-				PrintCreateCompositeTypeStatement(predataFile, toc, obj, metadataMap[obj.Oid])
+				PrintCreateCompositeTypeStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 			case "d":
 				domainName := utils.MakeFQN(obj.Schema, obj.Name)
-				PrintCreateDomainStatement(predataFile, toc, obj, metadataMap[obj.Oid], conMap[domainName])
+				PrintCreateDomainStatement(metadataFile, toc, obj, metadataMap[obj.Oid], conMap[domainName])
 			}
 		case Function:
-			PrintCreateFunctionStatement(predataFile, toc, obj, metadataMap[obj.Oid])
+			PrintCreateFunctionStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 		case Relation:
-			PrintCreateTableStatement(predataFile, toc, obj, tableDefsMap[obj.Oid], metadataMap[obj.Oid])
+			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], metadataMap[obj.Oid])
 		}
 	}
 }

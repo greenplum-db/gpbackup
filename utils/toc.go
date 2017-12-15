@@ -82,8 +82,8 @@ type StatementWithType struct {
 	Statement  string
 }
 
-func (toc *TOC) GetSQLStatementForObjectTypes(filename string, metadataFile io.ReaderAt, objectTypes []string, includeSchemas []string, includeTables []string) []StatementWithType {
-	entries := *toc.metadataEntryMap[filename]
+func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.ReaderAt, objectTypes []string, includeSchemas []string, includeTables []string) []StatementWithType {
+	entries := *toc.metadataEntryMap[section]
 	objectSet := NewIncludeSet(objectTypes)
 	schemaSet := NewIncludeSet(includeSchemas)
 	tableSet := NewIncludeSet(includeTables)
@@ -159,24 +159,32 @@ func SubstituteRedirectDatabaseInStatements(statements []StatementWithType, oldN
 	return statements
 }
 
-func (toc *TOC) InitializeEntryMap(global string, predata string, postdata string, statistics string) {
+func (toc *TOC) InitializeEntryMap() {
 	toc.metadataEntryMap = make(map[string]*[]MetadataEntry, 4)
-	toc.metadataEntryMap[global] = &toc.GlobalEntries
-	toc.metadataEntryMap[predata] = &toc.PredataEntries
-	toc.metadataEntryMap[postdata] = &toc.PostdataEntries
-	toc.metadataEntryMap[statistics] = &toc.StatisticsEntries
+	toc.metadataEntryMap["global"] = &toc.GlobalEntries
+	toc.metadataEntryMap["predata"] = &toc.PredataEntries
+	toc.metadataEntryMap["postdata"] = &toc.PostdataEntries
+	toc.metadataEntryMap["statistics"] = &toc.StatisticsEntries
 }
 
-func (toc *TOC) InitializeEntryMapFromCluster(cluster Cluster) {
-	globalFilename := cluster.GetGlobalFilePath()
-	predataFilename := cluster.GetPredataFilePath()
-	postdataFilename := cluster.GetPostdataFilePath()
-	statisticsFilename := cluster.GetStatisticsFilePath()
-	toc.InitializeEntryMap(globalFilename, predataFilename, postdataFilename, statisticsFilename)
+func (toc *TOC) AddMetadataEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount, section string) {
+	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], MetadataEntry{schema, name, objectType, start, file.ByteCount})
 }
 
-func (toc *TOC) AddMetadataEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
-	*toc.metadataEntryMap[file.Filename] = append(*toc.metadataEntryMap[file.Filename], MetadataEntry{schema, name, objectType, start, file.ByteCount})
+func (toc *TOC) AddGlobalEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
+	toc.AddMetadataEntry(schema, name, objectType, start, file, "global")
+}
+
+func (toc *TOC) AddPredataEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
+	toc.AddMetadataEntry(schema, name, objectType, start, file, "predata")
+}
+
+func (toc *TOC) AddPostdataEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
+	toc.AddMetadataEntry(schema, name, objectType, start, file, "postdata")
+}
+
+func (toc *TOC) AddStatisticsEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
+	toc.AddMetadataEntry(schema, name, objectType, start, file, "statistics")
 }
 
 func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string) {

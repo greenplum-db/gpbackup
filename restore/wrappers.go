@@ -71,7 +71,7 @@ func DoPostgresValidation() {
 
 	tocFilename := globalCluster.GetTOCFilePath()
 	globalTOC = utils.NewTOC(tocFilename)
-	globalTOC.InitializeEntryMapFromCluster(globalCluster)
+	globalTOC.InitializeEntryMap()
 
 	validateFilterListsInBackupSet()
 }
@@ -94,13 +94,13 @@ func DoRestoreDatabaseValidation() {
  * Metadata and/or data restore wrapper functions
  */
 
-func GetRestoreMetadataStatements(filename string, objectTypes []string, includeSchemas []string, includeTables []string) []utils.StatementWithType {
+func GetRestoreMetadataStatements(section string, filename string, objectTypes []string, includeSchemas []string, includeTables []string) []utils.StatementWithType {
 	metadataFile := utils.MustOpenFileForReading(filename)
 	var statements []utils.StatementWithType
 	if len(objectTypes) > 0 || len(includeSchemas) > 0 || len(includeTables) > 0 {
-		statements = globalTOC.GetSQLStatementForObjectTypes(filename, metadataFile, objectTypes, includeSchemas, includeTables)
+		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, objectTypes, includeSchemas, includeTables)
 	} else {
-		statements = globalTOC.GetAllSQLStatements(filename, metadataFile)
+		statements = globalTOC.GetAllSQLStatements(section, metadataFile)
 	}
 	return statements
 }
@@ -126,7 +126,7 @@ func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int
 		if connection.Version.Before("5") {
 			objectTypes = append(objectTypes, "GPDB4 SESSION GUCS")
 		}
-		gucStatements = GetRestoreMetadataStatements(globalCluster.GetPredataFilePath(), objectTypes, []string{}, []string{})
+		gucStatements = GetRestoreMetadataStatements("global", globalCluster.GetMetadataFilePath(), objectTypes, []string{}, []string{})
 		// We only need to set the following GUC for data restores, but it doesn't hurt if we set it for metadata restores as well.
 		gucStatements = append(gucStatements, utils.StatementWithType{ObjectType: "SESSION GUCS", Statement: "SET gp_enable_segment_copy_checking TO false;"})
 	}

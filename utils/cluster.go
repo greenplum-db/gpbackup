@@ -404,9 +404,7 @@ func (cluster *Cluster) GetTableBackupFilePathForCopyCommand(tableOid uint32, si
 
 var metadataFilenameMap = map[string]string{
 	"config":            "config.yaml",
-	"global":            "global.sql",
-	"predata":           "predata.sql",
-	"postdata":          "postdata.sql",
+	"metadata":          "metadata.sql",
 	"statistics":        "statistics.sql",
 	"table of contents": "toc.yaml",
 	"report":            "report",
@@ -416,16 +414,8 @@ func (cluster *Cluster) GetBackupFilePath(filetype string) string {
 	return path.Join(cluster.GetDirForContent(-1), fmt.Sprintf("gpbackup_%s_%s", cluster.Timestamp, metadataFilenameMap[filetype]))
 }
 
-func (cluster *Cluster) GetGlobalFilePath() string {
-	return cluster.GetBackupFilePath("global")
-}
-
-func (cluster *Cluster) GetPredataFilePath() string {
-	return cluster.GetBackupFilePath("predata")
-}
-
-func (cluster *Cluster) GetPostdataFilePath() string {
-	return cluster.GetBackupFilePath("postdata")
+func (cluster *Cluster) GetMetadataFilePath() string {
+	return cluster.GetBackupFilePath("metadata")
 }
 
 func (cluster *Cluster) GetStatisticsFilePath() string {
@@ -456,9 +446,7 @@ func (cluster *Cluster) VerifyMetadataFilePaths(dataOnly bool, withStats bool, t
 	filetypes := []string{"config", "table of contents"}
 	if !dataOnly {
 		if !tableFiltered {
-			filetypes = append(filetypes, []string{"global", "predata", "postdata"}...)
-		} else {
-			filetypes = append(filetypes, []string{"predata"}...)
+			filetypes = append(filetypes, "metadata")
 		}
 	}
 	missing := false

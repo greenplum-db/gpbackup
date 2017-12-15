@@ -14,9 +14,9 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateOperatorStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, operators []Operator, operatorMetadata MetadataMap) {
+func PrintCreateOperatorStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, operators []Operator, operatorMetadata MetadataMap) {
 	for _, operator := range operators {
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		// We do not use utils.MakeFQN here as the operator cannot be quoted
 		operatorFQN := utils.MakeFQN(operator.Schema, operator.Name)
 		optionalFields := make([]string, 0)
@@ -48,15 +48,15 @@ func PrintCreateOperatorStatements(predataFile *utils.FileWithByteCount, toc *ut
 		if operator.CanMerge {
 			optionalFields = append(optionalFields, "MERGES")
 		}
-		predataFile.MustPrintf(`
+		metadataFile.MustPrintf(`
 
 CREATE OPERATOR %s (
 	PROCEDURE = %s,
 	%s
 );`, operatorFQN, operator.Procedure, strings.Join(optionalFields, ",\n\t"))
 		operatorStr := fmt.Sprintf("%s (%s, %s)", operatorFQN, leftArg, rightArg)
-		PrintObjectMetadata(predataFile, operatorMetadata[operator.Oid], operatorStr, "OPERATOR")
-		toc.AddMetadataEntry(operator.Schema, operator.Name, "OPERATOR", start, predataFile)
+		PrintObjectMetadata(metadataFile, operatorMetadata[operator.Oid], operatorStr, "OPERATOR")
+		toc.AddPredataEntry(operator.Schema, operator.Name, "OPERATOR", start, metadataFile)
 	}
 }
 
@@ -64,22 +64,22 @@ CREATE OPERATOR %s (
  * Operator families are not supported in GPDB 4.3, so this function
  * is not used in a 4.3 backup.
  */
-func PrintCreateOperatorFamilyStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, operatorFamilies []OperatorFamily, operatorFamilyMetadata MetadataMap) {
+func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, operatorFamilies []OperatorFamily, operatorFamilyMetadata MetadataMap) {
 	for _, operatorFamily := range operatorFamilies {
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		operatorFamilyFQN := utils.MakeFQN(operatorFamily.Schema, operatorFamily.Name)
 		operatorFamilyStr := fmt.Sprintf("%s USING %s", operatorFamilyFQN, operatorFamily.IndexMethod)
-		predataFile.MustPrintf("\n\nCREATE OPERATOR FAMILY %s;", operatorFamilyStr)
-		PrintObjectMetadata(predataFile, operatorFamilyMetadata[operatorFamily.Oid], operatorFamilyStr, "OPERATOR FAMILY")
-		toc.AddMetadataEntry(operatorFamily.Schema, operatorFamily.Name, "OPERATOR FAMILY", start, predataFile)
+		metadataFile.MustPrintf("\n\nCREATE OPERATOR FAMILY %s;", operatorFamilyStr)
+		PrintObjectMetadata(metadataFile, operatorFamilyMetadata[operatorFamily.Oid], operatorFamilyStr, "OPERATOR FAMILY")
+		toc.AddPredataEntry(operatorFamily.Schema, operatorFamily.Name, "OPERATOR FAMILY", start, metadataFile)
 	}
 }
 
-func PrintCreateOperatorClassStatements(predataFile *utils.FileWithByteCount, toc *utils.TOC, operatorClasses []OperatorClass, operatorClassMetadata MetadataMap) {
+func PrintCreateOperatorClassStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, operatorClasses []OperatorClass, operatorClassMetadata MetadataMap) {
 	for _, operatorClass := range operatorClasses {
-		start := predataFile.ByteCount
+		start := metadataFile.ByteCount
 		operatorClassFQN := utils.MakeFQN(operatorClass.Schema, operatorClass.Name)
-		predataFile.MustPrintf("\n\nCREATE OPERATOR CLASS %s", operatorClassFQN)
+		metadataFile.MustPrintf("\n\nCREATE OPERATOR CLASS %s", operatorClassFQN)
 		forTypeStr := ""
 		if operatorClass.Default {
 			forTypeStr += "DEFAULT "
@@ -89,7 +89,7 @@ func PrintCreateOperatorClassStatements(predataFile *utils.FileWithByteCount, to
 			operatorFamilyFQN := utils.MakeFQN(operatorClass.FamilySchema, operatorClass.FamilyName)
 			forTypeStr += fmt.Sprintf(" FAMILY %s", operatorFamilyFQN)
 		}
-		predataFile.MustPrintf("\n\t%s", forTypeStr)
+		metadataFile.MustPrintf("\n\t%s", forTypeStr)
 		opClassClauses := []string{}
 		if len(operatorClass.Operators) != 0 {
 			for _, operator := range operatorClass.Operators {
@@ -112,10 +112,10 @@ func PrintCreateOperatorClassStatements(predataFile *utils.FileWithByteCount, to
 			}
 			opClassClauses = append(opClassClauses, fmt.Sprintf("STORAGE %s", storageType))
 		}
-		predataFile.MustPrintf(" AS\n\t%s;", strings.Join(opClassClauses, ",\n\t"))
+		metadataFile.MustPrintf(" AS\n\t%s;", strings.Join(opClassClauses, ",\n\t"))
 
 		operatorClassStr := fmt.Sprintf("%s USING %s", operatorClassFQN, operatorClass.IndexMethod)
-		PrintObjectMetadata(predataFile, operatorClassMetadata[operatorClass.Oid], operatorClassStr, "OPERATOR CLASS")
-		toc.AddMetadataEntry(operatorClass.Schema, operatorClass.Name, "OPERATOR CLASS", start, predataFile)
+		PrintObjectMetadata(metadataFile, operatorClassMetadata[operatorClass.Oid], operatorClassStr, "OPERATOR CLASS")
+		toc.AddPredataEntry(operatorClass.Schema, operatorClass.Name, "OPERATOR CLASS", start, metadataFile)
 	}
 }

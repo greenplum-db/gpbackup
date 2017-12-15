@@ -70,7 +70,7 @@ func DoSetup() {
 	globalCluster = utils.NewCluster(segConfig, *backupDir, timestamp, segPrefix)
 	globalCluster.CreateBackupDirectoriesOnAllHosts()
 	globalTOC = &utils.TOC{}
-	globalTOC.InitializeEntryMapFromCluster(globalCluster)
+	globalTOC.InitializeEntryMap()
 }
 
 func DoBackup() {
@@ -80,16 +80,20 @@ func DoBackup() {
 
 	isTableFiltered := len(includeTables) > 0 || len(excludeTables) > 0
 	metadataTables, dataTables, tableDefs := RetrieveAndProcessTables()
+	metadataFilename := globalCluster.GetMetadataFilePath()
+	logger.Info("Metadata will be written to %s", metadataFilename)
+	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
+	defer metadataFile.Close()
 	if !*dataOnly {
 		if isTableFiltered {
-			backupTablePredata(metadataTables, tableDefs)
+			backupTablePredata(metadataFile, metadataTables, tableDefs)
 		} else {
-			backupGlobal()
-			backupPredata(metadataTables, tableDefs)
-			backupPostdata()
+			backupGlobal(metadataFile)
+			backupPredata(metadataFile, metadataTables, tableDefs)
+			backupPostdata(metadataFile)
 		}
 	} else {
-		backupSessionGUCs()
+		BackupSessionGUCs(metadataFile)
 	}
 
 	if !*metadataOnly {
@@ -104,106 +108,90 @@ func DoBackup() {
 	connection.Commit()
 }
 
-func backupGlobal() {
-	globalFilename := globalCluster.GetGlobalFilePath()
-	logger.Info("Writing global database metadata to %s", globalFilename)
-	globalFile := utils.NewFileWithByteCountFromFile(globalFilename)
-	defer globalFile.Close()
+func backupGlobal(metadataFile *utils.FileWithByteCount) {
+	logger.Info("Writing global database metadata")
 
-	BackupSessionGUCs(globalFile)
-	BackupTablespaces(globalFile)
-	BackupCreateDatabase(globalFile)
-	BackupDatabaseGUCs(globalFile)
+	BackupSessionGUCs(metadataFile)
+	BackupTablespaces(metadataFile)
+	BackupCreateDatabase(metadataFile)
+	BackupDatabaseGUCs(metadataFile)
 
 	if len(includeSchemas) == 0 {
-		BackupResourceQueues(globalFile)
+		BackupResourceQueues(metadataFile)
 		if connection.Version.AtLeast("5") {
-			BackupResourceGroups(globalFile)
+			BackupResourceGroups(metadataFile)
 		}
-		BackupRoles(globalFile)
-		BackupRoleGrants(globalFile)
+		BackupRoles(metadataFile)
+		BackupRoleGrants(metadataFile)
 	}
 	logger.Info("Global database metadata backup complete")
 }
 
-func backupPredata(tables []Relation, tableDefs map[uint32]TableDefinition) {
-	predataFilename := globalCluster.GetPredataFilePath()
-	logger.Info("Writing pre-data metadata to %s", predataFilename)
-	predataFile := utils.NewFileWithByteCountFromFile(predataFilename)
-	defer predataFile.Close()
+func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
+	logger.Info("Writing pre-data metadata")
 
-	BackupSessionGUCs(predataFile)
-	BackupSchemas(predataFile)
+	BackupSessionGUCs(metadataFile)
+	BackupSchemas(metadataFile)
 
 	procLangs := GetProceduralLanguages(connection)
 	langFuncs, otherFuncs, functionMetadata := RetrieveFunctions(procLangs)
 	types, typeMetadata, funcInfoMap := RetrieveTypes()
 
 	if len(includeSchemas) == 0 {
-		BackupProceduralLanguages(predataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
+		BackupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
 	}
 
-	BackupShellTypes(predataFile, types)
+	BackupShellTypes(metadataFile, types)
 	if connection.Version.AtLeast("5") {
-		BackupEnumTypes(predataFile, typeMetadata)
+		BackupEnumTypes(metadataFile, typeMetadata)
 	}
 
 	relationMetadata := GetMetadataForObjectType(connection, TYPE_RELATION)
 	sequences := GetAllSequences(connection)
-	BackupCreateSequences(predataFile, sequences, relationMetadata)
+	BackupCreateSequences(metadataFile, sequences, relationMetadata)
 
 	constraints, conMetadata := RetrieveConstraints()
 
-	BackupFunctionsAndTypesAndTables(predataFile, otherFuncs, types, tables, functionMetadata, typeMetadata, relationMetadata, tableDefs, constraints)
-	BackupAlterSequences(predataFile, sequences)
+	BackupFunctionsAndTypesAndTables(metadataFile, otherFuncs, types, tables, functionMetadata, typeMetadata, relationMetadata, tableDefs, constraints)
+	BackupAlterSequences(metadataFile, sequences)
 
 	if len(includeSchemas) == 0 {
-		BackupProtocols(predataFile, funcInfoMap)
+		BackupProtocols(metadataFile, funcInfoMap)
 	}
 
 	if connection.Version.AtLeast("5") {
-		BackupTSParsers(predataFile)
-		BackupTSTemplates(predataFile)
-		BackupTSDictionaries(predataFile)
-		BackupTSConfigurations(predataFile)
+		BackupTSParsers(metadataFile)
+		BackupTSTemplates(metadataFile)
+		BackupTSDictionaries(metadataFile)
+		BackupTSConfigurations(metadataFile)
 	}
 
-	BackupOperators(predataFile)
+	BackupOperators(metadataFile)
 	if connection.Version.AtLeast("5") {
-		BackupOperatorFamilies(predataFile)
+		BackupOperatorFamilies(metadataFile)
 	}
-	BackupOperatorClasses(predataFile)
+	BackupOperatorClasses(metadataFile)
 
-	BackupConversions(predataFile)
-	BackupAggregates(predataFile, funcInfoMap)
-	BackupCasts(predataFile)
-	BackupViews(predataFile, relationMetadata)
-	BackupConstraints(predataFile, constraints, conMetadata)
+	BackupConversions(metadataFile)
+	BackupAggregates(metadataFile, funcInfoMap)
+	BackupCasts(metadataFile)
+	BackupViews(metadataFile, relationMetadata)
+	BackupConstraints(metadataFile, constraints, conMetadata)
 	logger.Info("Pre-data metadata backup complete")
 }
 
-func backupTablePredata(tables []Relation, tableDefs map[uint32]TableDefinition) {
-	predataFilename := globalCluster.GetPredataFilePath()
-	logger.Info("Writing table metadata to %s", predataFilename)
-	predataFile := utils.NewFileWithByteCountFromFile(predataFilename)
-	defer predataFile.Close()
+func backupTablePredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
+	logger.Info("Writing table metadata")
 
-	BackupSessionGUCs(predataFile)
+	BackupSessionGUCs(metadataFile)
 
 	relationMetadata := GetMetadataForObjectType(connection, TYPE_RELATION)
 
 	constraints, conMetadata := RetrieveConstraints(tables...)
 
-	BackupTables(predataFile, tables, relationMetadata, tableDefs, constraints)
-	BackupConstraints(predataFile, constraints, conMetadata)
+	BackupTables(metadataFile, tables, relationMetadata, tableDefs, constraints)
+	BackupConstraints(metadataFile, constraints, conMetadata)
 	logger.Info("Table metadata backup complete")
-}
-
-func backupSessionGUCs() {
-	predataFilename := globalCluster.GetPredataFilePath()
-	predataFile := utils.NewFileWithByteCountFromFile(predataFilename)
-	defer predataFile.Close()
-	BackupSessionGUCs(predataFile)
 }
 
 func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
@@ -216,16 +204,13 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	logger.Info("Data backup complete")
 }
 
-func backupPostdata() {
-	postdataFilename := globalCluster.GetPostdataFilePath()
-	logger.Info("Writing post-data metadata to %s", postdataFilename)
-	postdataFile := utils.NewFileWithByteCountFromFile(postdataFilename)
-	defer postdataFile.Close()
+func backupPostdata(metadataFile *utils.FileWithByteCount) {
+	logger.Info("Writing post-data metadata")
 
-	BackupSessionGUCs(postdataFile)
-	BackupIndexes(postdataFile)
-	BackupRules(postdataFile)
-	BackupTriggers(postdataFile)
+	BackupSessionGUCs(metadataFile)
+	BackupIndexes(metadataFile)
+	BackupRules(metadataFile)
+	BackupTriggers(metadataFile)
 	logger.Info("Post-data metadata backup complete")
 }
 
@@ -233,6 +218,7 @@ func backupStatistics(tables []Relation) {
 	statisticsFilename := globalCluster.GetStatisticsFilePath()
 	logger.Info("Writing query planner statistics to %s", statisticsFilename)
 	statisticsFile := utils.NewFileWithByteCountFromFile(statisticsFilename)
+	defer statisticsFile.Close()
 	BackupStatistics(statisticsFile, tables)
 	logger.Info("Query planner statistics backup complete")
 }
