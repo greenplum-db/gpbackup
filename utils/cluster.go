@@ -445,9 +445,7 @@ func (cluster *Cluster) GetSegmentTOCFilePath(topDir string, contentStr string) 
 func (cluster *Cluster) VerifyMetadataFilePaths(dataOnly bool, withStats bool, tableFiltered bool) {
 	filetypes := []string{"config", "table of contents"}
 	if !dataOnly {
-		if !tableFiltered {
-			filetypes = append(filetypes, "metadata")
-		}
+		filetypes = append(filetypes, "metadata")
 	}
 	missing := false
 	for _, filetype := range filetypes {

@@ -70,7 +70,7 @@ func DoSetup() {
 	DoPostgresValidation()
 	metadataFilename := globalCluster.GetMetadataFilePath()
 	if !backupConfig.DataOnly {
-		logger.Info("Metadata will be restored from %s", metadataFilename)
+		logger.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
 	if *createdb {
 		createDatabase(metadataFilename)

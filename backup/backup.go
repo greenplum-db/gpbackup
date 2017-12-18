@@ -81,7 +81,7 @@ func DoBackup() {
 	isTableFiltered := len(includeTables) > 0 || len(excludeTables) > 0
 	metadataTables, dataTables, tableDefs := RetrieveAndProcessTables()
 	metadataFilename := globalCluster.GetMetadataFilePath()
-	logger.Info("Metadata will be written to %s", metadataFilename)
+	logger.Verbose("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
 	defer metadataFile.Close()
 	if !*dataOnly {
