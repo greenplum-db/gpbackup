@@ -527,5 +527,4 @@ func LockTables(connection *utils.DBConn, tables []Relation) {
 		progressBar.Increment()
 	}
 	progressBar.Finish()
-	logger.Verbose("All table locks acquired")
 }

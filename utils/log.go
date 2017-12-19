@@ -209,11 +209,63 @@ func formatStackTrace(err error) string {
 /*
  * Progress bar functions
  */
-func NewProgressBar(count int, prefix string, showProgressBar bool) *pb.ProgressBar {
+func NewProgressBar(count int, prefix string, showInVerbose bool) ProgressBar {
+	if showInVerbose && logger.GetVerbosity() >= LOGVERBOSE {
+		return NewVerboseProgressBar(count, prefix)
+	}
 	progressBar := pb.New(count).Prefix(prefix)
 	progressBar.ShowTimeLeft = false
 	progressBar.SetMaxWidth(100)
 	progressBar.SetRefreshRate(time.Millisecond * 200)
-	progressBar.NotPrint = !(showProgressBar && count > 0 && logger.GetVerbosity() == LOGINFO)
+	progressBar.NotPrint = !(count > 0 && logger.GetVerbosity() == LOGINFO)
 	return progressBar
+}
+
+type ProgressBar interface {
+	Start() *pb.ProgressBar
+	Finish()
+	Increment() int
+}
+
+type VerboseProgressBar struct {
+	current            int
+	total              int
+	prefix             string
+	nextPercentToPrint int
+}
+
+func NewVerboseProgressBar(count int, prefix string) *VerboseProgressBar {
+	newPb := VerboseProgressBar{total: count, prefix: prefix, nextPercentToPrint: 10}
+	return &newPb
+}
+
+func (vpb *VerboseProgressBar) Start() *pb.ProgressBar {
+	return nil
+}
+
+func (vpb *VerboseProgressBar) Finish() {
+	return
+}
+
+func (vpb *VerboseProgressBar) Increment() int {
+	if vpb.current < vpb.total {
+		vpb.current += 1
+		vpb.checkPercent()
+	}
+	return vpb.current
+}
+
+/*
+ * If progress bar reaches a percentage that is a multiple of 10, log a message to stdout
+ * We increment nextPercentToPrint so the same percentage will not be printed multiple times
+ */
+func (vpb *VerboseProgressBar) checkPercent() {
+	currPercent := int(float64(vpb.current) / float64(vpb.total) * 100)
+	//closestMult is the nearest percentage <= currPercent that is a multiple of 10
+	closestMult := currPercent / 10 * 10
+	if closestMult >= vpb.nextPercentToPrint {
+		vpb.nextPercentToPrint = closestMult
+		logger.Verbose("%s %d%% (%d/%d)", vpb.prefix, vpb.nextPercentToPrint, vpb.current, vpb.total)
+		vpb.nextPercentToPrint += 10
+	}
 }

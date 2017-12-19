@@ -153,7 +153,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
 	totalTables := len(filteredMasterDataEntries)
-	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", true)
+	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", logger.GetVerbosity() == utils.LOGINFO)
 	dataProgressBar.Start()
 
 	if connection.NumConns == 1 {
