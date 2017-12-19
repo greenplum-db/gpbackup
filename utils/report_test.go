@@ -3,6 +3,7 @@ package utils_test
 import (
 	"io"
 	"os"
+	"time"
 
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -36,10 +37,15 @@ var _ = Describe("utils/report tests", func() {
 			DatabaseVersion: "5.0.0 build test",
 		}
 		backupReport := &utils.Report{}
+		endTime := time.Date(2017, 1, 1, 5, 4, 3, 2, time.Local)
 		objectCounts := map[string]int{"tables": 42, "sequences": 1, "types": 1000}
 		BeforeEach(func() {
 			backupReport = &utils.Report{
-				BackupType:   "Unfiltered Full Backup",
+				BackupParamsString: `Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Single Data File Per Segment`,
 				DatabaseSize: "42 MB",
 				BackupConfig: config,
 			}
@@ -49,7 +55,7 @@ var _ = Describe("utils/report tests", func() {
 		})
 
 		It("writes a report for a successful backup", func() {
-			backupReport.WriteReportFile("filename", timestamp, objectCounts, "")
+			backupReport.WriteReportFile("filename", timestamp, objectCounts, endTime, "")
 			Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
 
 Timestamp Key: 20170101010101
@@ -58,7 +64,16 @@ gpbackup Version: 0\.1\.0
 
 Database Name: testdb
 Command Line: .*
-Backup Type: Unfiltered Full Backup
+Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Single Data File Per Segment
+
+Start Time: 2017-01-01 01:01:01
+End Time: 2017-01-01 05:04:03
+Duration: 4:03:02
+
 Backup Status: Success
 
 Database Size: 42 MB
@@ -68,7 +83,7 @@ tables                       42
 types                        1000`))
 		})
 		It("writes a report for a failed backup", func() {
-			backupReport.WriteReportFile("filename", timestamp, objectCounts, "Cannot access /tmp/backups: Permission denied")
+			backupReport.WriteReportFile("filename", timestamp, objectCounts, endTime, "Cannot access /tmp/backups: Permission denied")
 			Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
 
 Timestamp Key: 20170101010101
@@ -77,7 +92,16 @@ gpbackup Version: 0\.1\.0
 
 Database Name: testdb
 Command Line: .*
-Backup Type: Unfiltered Full Backup
+Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Single Data File Per Segment
+
+Start Time: 2017-01-01 01:01:01
+End Time: 2017-01-01 05:04:03
+Duration: 4:03:02
+
 Backup Status: Failure
 Backup Error: Cannot access /tmp/backups: Permission denied
 
@@ -89,7 +113,7 @@ types                        1000`))
 		})
 		It("writes a report without database size information", func() {
 			backupReport.DatabaseSize = ""
-			backupReport.WriteReportFile("filename", timestamp, objectCounts, "")
+			backupReport.WriteReportFile("filename", timestamp, objectCounts, endTime, "")
 			Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
 
 Timestamp Key: 20170101010101
@@ -98,7 +122,16 @@ gpbackup Version: 0\.1\.0
 
 Database Name: testdb
 Command Line: .*
-Backup Type: Unfiltered Full Backup
+Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Single Data File Per Segment
+
+Start Time: 2017-01-01 01:01:01
+End Time: 2017-01-01 05:04:03
+Duration: 4:03:02
+
 Backup Status: Success
 
 Count of Database Objects in Backup:
@@ -107,42 +140,131 @@ tables                       42
 types                        1000`))
 		})
 	})
-	Describe("SetBackupTypeFromFlags", func() {
+	Describe("ConstructBackupParamStringFromFlags", func() {
 		var backupReport *utils.Report
 		BeforeEach(func() {
 			backupReport = &utils.Report{}
 		})
+		AfterEach(func() {
+			utils.InitializeCompressionParameters(false, 0)
+		})
 		DescribeTable("Backup type classification", func(dataOnly bool, ddlOnly bool, noCompression bool, isSchemaFiltered bool, isTableFiltered bool, singleDataFile bool, withStats bool, expectedType string) {
-			backupReport.SetBackupTypeFromFlags(dataOnly, ddlOnly, noCompression, isSchemaFiltered, isTableFiltered, singleDataFile, withStats)
-			Expect(backupReport.BackupType).To(Equal(expectedType))
+			utils.InitializeCompressionParameters(!noCompression, 0)
+			backupReport.ConstructBackupParamsStringFromFlags(dataOnly, ddlOnly, isSchemaFiltered, isTableFiltered, singleDataFile, withStats)
+			Expect(backupReport.BackupParamsString).To(Equal(expectedType))
 		},
 			Entry("classifies a default backup",
-				false, false, false, false, false, false, false, "Unfiltered Compressed Full Backup"),
+				false, false, false, false, false, false, false, `Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Multiple Data Files Per Segment`),
 			Entry("classifies a default backup with stats",
-				false, false, false, false, false, false, true, "Unfiltered Compressed Full Backup With Statistics"),
+				false, false, false, false, false, false, true, `Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: Yes
+Data File Format: Multiple Data Files Per Segment`),
 			Entry("classifies a default backup with a single data file",
-				false, false, false, false, false, true, false, "Unfiltered Compressed Full Backup With One Data File Per Segment"),
+				false, false, false, false, false, true, false, `Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Single Data File Per Segment`),
 			Entry("classifies a default backup with statistics and a single data file",
-				false, false, false, false, false, true, true, "Unfiltered Compressed Full Backup With One Data File Per Segment With Statistics"),
+				false, false, false, false, false, true, true, `Compression: gzip
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: Yes
+Data File Format: Single Data File Per Segment`),
 			Entry("classifies a metadata-only backup",
-				false, true, false, false, false, false, false, "Unfiltered Compressed Full Metadata-Only Backup"),
+				false, true, false, false, false, false, false, `Compression: gzip
+Backup Section: Metadata Only
+Object Filtering: None
+Includes Statistics: No
+Data File Format: No Data Files`),
 			Entry("classifies a data-only backup",
-				true, false, false, false, false, false, false, "Unfiltered Compressed Full Data-Only Backup"),
+				true, false, false, false, false, false, false, `Compression: gzip
+Backup Section: Data Only
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Multiple Data Files Per Segment`),
 			Entry("classifies an uncompressed backup",
-				false, false, true, false, false, false, false, "Unfiltered Uncompressed Full Backup"),
+				false, false, true, false, false, false, false, `Compression: None
+Backup Section: All Sections
+Object Filtering: None
+Includes Statistics: No
+Data File Format: Multiple Data Files Per Segment`),
 			Entry("classifies a schema-filtered backup",
-				false, false, false, true, false, false, false, "Schema-Filtered Compressed Full Backup"),
+				false, false, false, true, false, false, false, `Compression: gzip
+Backup Section: All Sections
+Object Filtering: Schema Filter
+Includes Statistics: No
+Data File Format: Multiple Data Files Per Segment`),
 			Entry("classifies a table-filtered backup",
-				false, false, false, false, true, false, false, "Table-Filtered Compressed Full Backup"),
+				false, false, false, false, true, false, false, `Compression: gzip
+Backup Section: All Sections
+Object Filtering: Table Filter
+Includes Statistics: No
+Data File Format: Multiple Data Files Per Segment`),
 		)
 		It("sets properties on the report struct with various flag combinations", func() {
-			backupReport.SetBackupTypeFromFlags(true, false, true, false, true, true, false)
+			utils.InitializeCompressionParameters(false, 0)
+			backupReport.ConstructBackupParamsStringFromFlags(true, false, false, true, true, false)
 			expectedBackupConfig := utils.BackupConfig{Compressed: false, DataOnly: true, SchemaFiltered: false, TableFiltered: true, MetadataOnly: false, SingleDataFile: true, WithStatistics: false}
 			testutils.ExpectStructsToMatch(expectedBackupConfig, backupReport.BackupConfig)
 			backupReport = &utils.Report{}
-			backupReport.SetBackupTypeFromFlags(false, true, false, true, false, false, true)
+			utils.InitializeCompressionParameters(true, 0)
+			backupReport.ConstructBackupParamsStringFromFlags(false, true, true, false, false, true)
 			expectedBackupConfig = utils.BackupConfig{Compressed: true, DataOnly: false, SchemaFiltered: true, TableFiltered: false, MetadataOnly: true, SingleDataFile: false, WithStatistics: true}
 			testutils.ExpectStructsToMatch(expectedBackupConfig, backupReport.BackupConfig)
+		})
+	})
+	Describe("GetBackupTimeInfo", func() {
+		timestamp := "20170101010101"
+		It("prints times and duration for a sub-minute backup", func() {
+			endTime := time.Date(2017, 1, 1, 1, 1, 3, 2, time.Local)
+			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
+			Expect(start).To(Equal("2017-01-01 01:01:01"))
+			Expect(end).To(Equal("2017-01-01 01:01:03"))
+			Expect(duration).To(Equal("0:00:02"))
+		})
+		It("prints times and duration for a sub-hour backup", func() {
+			endTime := time.Date(2017, 1, 1, 1, 4, 3, 2, time.Local)
+			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
+			Expect(start).To(Equal("2017-01-01 01:01:01"))
+			Expect(end).To(Equal("2017-01-01 01:04:03"))
+			Expect(duration).To(Equal("0:03:02"))
+		})
+		It("prints times and duration for a multiple-hour backup", func() {
+			endTime := time.Date(2017, 1, 1, 5, 4, 3, 2, time.Local)
+			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
+			Expect(start).To(Equal("2017-01-01 01:01:01"))
+			Expect(end).To(Equal("2017-01-01 05:04:03"))
+			Expect(duration).To(Equal("4:03:02"))
+		})
+		It("prints times and duration for a backup going past midnight", func() {
+			endTime := time.Date(2017, 1, 2, 1, 4, 3, 2, time.Local)
+			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
+			Expect(start).To(Equal("2017-01-01 01:01:01"))
+			Expect(end).To(Equal("2017-01-02 01:04:03"))
+			Expect(duration).To(Equal("24:03:02"))
+		})
+		It("prints times and duration for a backup during the spring time change", func() {
+			dst := "20170312010000"
+			endTime := time.Date(2017, 3, 12, 3, 0, 0, 0, time.Local)
+			start, end, duration := utils.GetBackupTimeInfo(dst, endTime)
+			Expect(start).To(Equal("2017-03-12 01:00:00"))
+			Expect(end).To(Equal("2017-03-12 03:00:00"))
+			Expect(duration).To(Equal("1:00:00"))
+		})
+		It("prints times and duration for a backup during the fall time change", func() {
+			dst := "20171105010000"
+			endTime := time.Date(2017, 11, 5, 3, 0, 0, 0, time.Local)
+			start, end, duration := utils.GetBackupTimeInfo(dst, endTime)
+			Expect(start).To(Equal("2017-11-05 01:00:00"))
+			Expect(end).To(Equal("2017-11-05 03:00:00"))
+			Expect(duration).To(Equal("3:00:00"))
 		})
 	})
 	Describe("EnsureBackupVersionCompatibility", func() {

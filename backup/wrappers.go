@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -58,7 +59,7 @@ func InitializeBackupReport() {
 	utils.InitializeCompressionParameters(!*noCompression, *compressionLevel)
 	isSchemaFiltered := len(includeSchemas) > 0 || len(excludeSchemas) > 0
 	isTableFiltered := len(includeTables) > 0 || len(excludeTables) > 0
-	backupReport.SetBackupTypeFromFlags(*dataOnly, *metadataOnly, *noCompression, isSchemaFiltered, isTableFiltered, *singleDataFile, *withStats)
+	backupReport.ConstructBackupParamsStringFromFlags(*dataOnly, *metadataOnly, isSchemaFiltered, isTableFiltered, *singleDataFile, *withStats)
 }
 
 func InitializeFilterLists() {
@@ -143,7 +144,10 @@ func RetrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
 func LogBackupInfo() {
 	logger.Info("Backup Timestamp = %s", globalCluster.Timestamp)
 	logger.Info("Backup Database = %s", connection.DBName)
-	logger.Info("Backup Type = %s", backupReport.BackupType)
+	params := strings.Split(backupReport.BackupParamsString, "\n")
+	for _, param := range params {
+		logger.Verbose(param)
+	}
 }
 
 func BackupSessionGUCs(metadataFile *utils.FileWithByteCount) {

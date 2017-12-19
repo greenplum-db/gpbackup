@@ -442,7 +442,7 @@ func (cluster *Cluster) GetSegmentTOCFilePath(topDir string, contentStr string) 
 	return path.Join(topDir, fmt.Sprintf("gpbackup_%s_%s_toc.yaml", contentStr, cluster.Timestamp))
 }
 
-func (cluster *Cluster) VerifyMetadataFilePaths(dataOnly bool, withStats bool, tableFiltered bool) {
+func (cluster *Cluster) VerifyMetadataFilePaths(dataOnly bool, withStats bool) {
 	filetypes := []string{"config", "table of contents"}
 	if !dataOnly {
 		filetypes = append(filetypes, "metadata")

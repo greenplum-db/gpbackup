@@ -2,11 +2,13 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -33,8 +35,8 @@ type BackupConfig struct {
  * file that we will want to read in for a restore.
  */
 type Report struct {
-	BackupType   string
-	DatabaseSize string
+	BackupParamsString string
+	DatabaseSize       string
 	BackupConfig
 }
 
@@ -49,41 +51,48 @@ func ParseErrorMessage(errStr string) (string, int) {
 	return errMsg, exitCode
 }
 
-func (report *Report) SetBackupTypeFromFlags(dataOnly bool, ddlOnly bool, noCompression bool, isSchemaFiltered bool, isTableFiltered bool, singleDataFile bool, withStats bool) {
-	filterStr := "Unfiltered"
+func (report *Report) ConstructBackupParamsStringFromFlags(dataOnly bool, ddlOnly bool, isSchemaFiltered bool, isTableFiltered bool, singleDataFile bool, withStats bool) {
+	filterStr := "None"
 	if isSchemaFiltered {
 		report.SchemaFiltered = true
-		filterStr = "Schema-Filtered"
+		filterStr = "Schema Filter"
 	} else if isTableFiltered {
 		report.TableFiltered = true
-		filterStr = "Table-Filtered"
+		filterStr = "Table Filter"
 	}
-	compressStr := "Compressed"
-	if noCompression {
-		compressStr = "Uncompressed"
-	} else {
+	compressStr := "None"
+	compressed, program := GetCompressionParameters()
+	if compressed {
 		report.Compressed = true
+		compressStr = program.Name
 	}
-	sectionStr := ""
+	sectionStr := "All Sections"
 	if dataOnly {
 		report.DataOnly = true
-		sectionStr = " Data-Only"
+		sectionStr = "Data Only"
 	}
 	if ddlOnly {
 		report.MetadataOnly = true
-		sectionStr = " Metadata-Only"
+		sectionStr = "Metadata Only"
 	}
-	filesStr := ""
-	if singleDataFile {
+	filesStr := "Multiple Data Files Per Segment"
+	if ddlOnly {
+		filesStr = "No Data Files"
+	} else if singleDataFile {
 		report.SingleDataFile = true
-		filesStr = " With One Data File Per Segment"
+		filesStr = "Single Data File Per Segment"
 	}
-	statsStr := ""
+	statsStr := "No"
 	if withStats {
 		report.WithStatistics = true
-		statsStr = " With Statistics"
+		statsStr = "Yes"
 	}
-	report.BackupType = fmt.Sprintf("%s %s Full%s Backup%s%s", filterStr, compressStr, sectionStr, filesStr, statsStr)
+	backupParamsTemplate := `Compression: %s
+Backup Section: %s
+Object Filtering: %s
+Includes Statistics: %s
+Data File Format: %s`
+	report.BackupParamsString = fmt.Sprintf(backupParamsTemplate, compressStr, sectionStr, filterStr, statsStr, filesStr)
 }
 
 func ReadConfigFile(filename string) *BackupConfig {
@@ -103,7 +112,7 @@ func (report *Report) WriteConfigFile(configFilename string) {
 	MustPrintBytes(configFile, configContents)
 }
 
-func (report *Report) WriteReportFile(reportFilename string, timestamp string, objectCounts map[string]int, errMsg string) {
+func (report *Report) WriteReportFile(reportFilename string, timestamp string, objectCounts map[string]int, endTime time.Time, errMsg string) {
 	reportFile := MustOpenFileForWriting(reportFilename)
 	defer System.Chmod(reportFilename, 0444)
 	reportFileTemplate := `Greenplum Database Backup Report
@@ -114,23 +123,59 @@ gpbackup Version: %s
 
 Database Name: %s
 Command Line: %s
-Backup Type: %s
+%s
+
+Start Time: %s
+End Time: %s
+Duration: %s
+
 Backup Status: %s
-%s%s`
+%s`
 
 	gpbackupCommandLine := strings.Join(os.Args, " ")
+	start, end, duration := GetBackupTimeInfo(timestamp, endTime)
+	backupStatus, dbSizeStr := getStatusAndSizeStrings(errMsg, report.DatabaseSize)
+
+	MustPrintf(reportFile, reportFileTemplate,
+		timestamp, report.DatabaseVersion, report.BackupVersion,
+		report.DatabaseName, gpbackupCommandLine, report.BackupParamsString,
+		start, end, duration,
+		backupStatus, dbSizeStr)
+
+	PrintObjectCounts(reportFile, objectCounts)
+}
+
+func GetBackupTimeInfo(timestamp string, endTime time.Time) (string, string, string) {
+	startTime, _ := time.ParseInLocation("20060102150405", timestamp, time.Local)
+	duration := reformatDuration(endTime.Sub(startTime))
+	startTimestamp := startTime.Format("2006-01-02 15:04:05")
+	endTimestamp := endTime.Format("2006-01-02 15:04:05")
+	return startTimestamp, endTimestamp, duration
+}
+
+// Turns "1h2m3.456s" into "1:02:03"
+func reformatDuration(duration time.Duration) string {
+	hour := duration / time.Hour
+	duration -= hour * time.Hour
+	min := duration / time.Minute
+	duration -= min * time.Minute
+	sec := duration / time.Second
+	return fmt.Sprintf("%d:%02d:%02d", hour, min, sec)
+}
+
+func getStatusAndSizeStrings(errMsg string, dbSize string) (string, string) {
 	backupStatus := "Success"
 	if errMsg != "" {
-		backupStatus = "Failure"
-		errMsg = fmt.Sprintf("Backup Error: %s\n", errMsg)
+		backupStatus = fmt.Sprintf("Failure\nBackup Error: %s", errMsg)
 	}
 	dbSizeStr := ""
-	if report.DatabaseSize != "" {
-		dbSizeStr = fmt.Sprintf("\nDatabase Size: %s", report.DatabaseSize)
+	if dbSize != "" {
+		dbSizeStr = fmt.Sprintf("\nDatabase Size: %s", dbSize)
 	}
-	MustPrintf(reportFile, reportFileTemplate, timestamp, report.DatabaseVersion, report.BackupVersion, report.DatabaseName,
-		gpbackupCommandLine, report.BackupType, backupStatus, errMsg, dbSizeStr)
+	return backupStatus, dbSizeStr
+}
 
+func PrintObjectCounts(reportFile io.WriteCloser, objectCounts map[string]int) {
 	objectStr := "\nCount of Database Objects in Backup:\n"
 	objectSlice := make([]string, 0)
 	for k := range objectCounts {

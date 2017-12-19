@@ -246,16 +246,18 @@ func DoTeardown() {
 		}
 		reportFilename := globalCluster.GetReportFilePath()
 		configFilename := globalCluster.GetConfigFilePath()
-		backupReport.WriteReportFile(reportFilename, globalCluster.Timestamp, objectCounts, errMsg)
-		backupReport.WriteConfigFile(configFilename)
-		utils.EmailReport(globalCluster)
-		// We sleep for 1 second to ensure multiple backups do not start within the same second.
-		time.Sleep(1000 * time.Millisecond)
+
+		time.Sleep(time.Second) // We sleep for 1 second to ensure multiple backups do not start within the same second.
 		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalCluster.Timestamp)
 		err := os.Remove(timestampLockFile)
 		if err != nil {
 			logger.Warn("Failed to remove lock file %s.", timestampLockFile)
 		}
+
+		endTime := time.Now()
+		backupReport.WriteConfigFile(configFilename)
+		backupReport.WriteReportFile(reportFilename, globalCluster.Timestamp, objectCounts, endTime, errMsg)
+		utils.EmailReport(globalCluster)
 	}
 
 	if exitCode == 0 {
