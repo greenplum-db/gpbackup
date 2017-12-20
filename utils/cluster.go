@@ -6,6 +6,7 @@ package utils
  */
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 	"path"
@@ -49,7 +50,7 @@ func SetCompressionParameters(compress bool, compression Compression) {
 
 type Executor interface {
 	ExecuteLocalCommand(commandStr string) error
-	ExecuteClusterCommand(commandMap map[int][]string) map[int]error
+	ExecuteClusterCommand(commandMap map[int][]string) *RemoteOutput
 }
 
 // This type only exists to allow us to mock Execute[...]Command functions for testing
@@ -69,6 +70,13 @@ type SegConfig struct {
 	ContentID int
 	Hostname  string
 	DataDir   string
+}
+
+type RemoteOutput struct {
+	NumErrors int
+	Stdouts   map[int]string
+	Stderrs   map[int]string
+	Errors    map[int]error
 }
 
 /*
@@ -120,128 +128,128 @@ func (cluster *Cluster) GenerateSSHCommandMapForSegments(generateCommand func(in
 	return cluster.GenerateSSHCommandMap(false, generateCommand)
 }
 
-func (cluster *Cluster) GenerateFileVerificationCommandMap(fileCount int) map[int][]string {
-	commandMap := cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
-		return fmt.Sprintf("find %s -type f | wc -l | grep %d", cluster.GetDirForContent(contentID), fileCount)
-	})
-	return commandMap
-}
-
 func (executor *GPDBExecutor) ExecuteLocalCommand(commandStr string) error {
 	_, err := exec.Command("bash", "-c", commandStr).CombinedOutput()
 	return err
 }
 
-func (executor *GPDBExecutor) ExecuteClusterCommand(commandMap map[int][]string) map[int]error {
-	errMap := make(map[int]error)
+func NewRemoteOutput(numIDs int) *RemoteOutput {
+	stdout := make(map[int]string, numIDs)
+	stderr := make(map[int]string, numIDs)
+	err := make(map[int]error, numIDs)
+	return &RemoteOutput{NumErrors: 0, Stdouts: stdout, Stderrs: stderr, Errors: err}
+}
+
+func (executor *GPDBExecutor) ExecuteClusterCommand(commandMap map[int][]string) *RemoteOutput {
+	length := len(commandMap)
 	finished := make(chan int)
-	contentIDs := make([]int, 0)
+	contentIDs := make([]int, length)
+	i := 0
 	for key := range commandMap {
-		contentIDs = append(contentIDs, key)
+		contentIDs[i] = key
+		i++
 	}
-	errorList := make([]error, len(contentIDs))
+	output := NewRemoteOutput(length)
+	stdouts := make([]string, length)
+	stderrs := make([]string, length)
+	errors := make([]error, length)
 	for i, contentID := range contentIDs {
 		go func(index int, segCommand []string) {
-			_, errorList[index] = exec.Command(segCommand[0], segCommand[1:]...).CombinedOutput()
+			var stderr bytes.Buffer
+			cmd := exec.Command(segCommand[0], segCommand[1:]...)
+			cmd.Stderr = &stderr
+			out, err := cmd.Output()
+			stdouts[index] = string(out)
+			stderrs[index] = stderr.String()
+			errors[index] = err
 			finished <- index
 		}(i, commandMap[contentID])
 	}
-	for i := 0; i < len(contentIDs); i++ {
+	for i := 0; i < length; i++ {
 		index := <-finished
-		hostErr := errorList[index]
-		if hostErr != nil {
-			errMap[contentIDs[index]] = hostErr
+		id := contentIDs[index]
+		output.Stdouts[id] = stdouts[index]
+		output.Stderrs[id] = stderrs[index]
+		output.Errors[id] = errors[index]
+		if output.Errors[id] != nil {
+			output.NumErrors++
 		}
 	}
-	return errMap
+	return output
 }
 
-func (cluster *Cluster) VerifyBackupFileCountOnSegments(fileCount int) {
-	commandMap := cluster.GenerateFileVerificationCommandMap(fileCount)
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
+/*
+ * GenerateAndExecuteCommand and CheckClusterError are generic wrapper functions
+ * to simplify execution of shell commands on remote hosts.
+ */
+func (cluster *Cluster) GenerateAndExecuteCommand(verboseMsg string, execFunc func(contentID int) string, entireCluster ...bool) *RemoteOutput {
+	logger.Verbose(verboseMsg)
+	var commandMap map[int][]string
+	if len(entireCluster) == 1 && entireCluster[0] == true {
+		commandMap = cluster.GenerateSSHCommandMapForCluster(execFunc)
+	} else {
+		commandMap = cluster.GenerateSSHCommandMapForSegments(execFunc)
+	}
+	return cluster.ExecuteClusterCommand(commandMap)
+}
+
+func (cluster *Cluster) CheckClusterError(remoteOutput *RemoteOutput, finalErrMsg string, messageFunc func(contentID int) string, noFatal ...bool) {
+	if remoteOutput.NumErrors == 0 {
 		return
 	}
-	s := ""
-	if fileCount != 1 {
-		s = "s"
+	for contentID, err := range remoteOutput.Errors {
+		if err != nil {
+			logger.Verbose("%s on segment %d on host %s", messageFunc(contentID), contentID, cluster.GetHostForContent(contentID))
+		}
 	}
-	for contentID := range errMap {
-		logger.Verbose("Expected to see %d backup file%s on segment %d, but some were missing.", fileCount, s, contentID)
+	if len(noFatal) == 1 && noFatal[0] == true {
+		logger.Error(finalErrMsg)
+	} else {
+		cluster.LogFatalError(finalErrMsg, remoteOutput.NumErrors)
 	}
-	cluster.LogFatalError("Backup files missing", numErrors)
 }
 
 func (cluster *Cluster) VerifyBackupDirectoriesExistOnAllHosts() {
-	commandMap := cluster.GenerateSSHCommandMapForCluster(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Verifying backup directories exist", func(contentID int) string {
 		return fmt.Sprintf("test -d %s", cluster.GetDirForContent(contentID))
+	}, true)
+	cluster.CheckClusterError(remoteOutput, "Backup directories missing or inaccessible", func(contentID int) string {
+		return fmt.Sprintf("Backup directory %s missing or inaccessible", cluster.GetDirForContent(contentID))
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID := range errMap {
-		logger.Verbose("Directory %s missing or inaccessible for segment %d on host %s", cluster.GetDirForContent(contentID), contentID, cluster.GetHostForContent(contentID))
-	}
-	cluster.LogFatalError("Directories missing or inaccessible", numErrors)
 }
 
 func (cluster *Cluster) CreateBackupDirectoriesOnAllHosts() {
-	logger.Verbose("Creating backup directories")
-	commandMap := cluster.GenerateSSHCommandMapForCluster(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Creating backup directories", func(contentID int) string {
 		return fmt.Sprintf("mkdir -p %s", cluster.GetDirForContent(contentID))
+	}, true)
+	cluster.CheckClusterError(remoteOutput, "Unable to create backup directories", func(contentID int) string {
+		return fmt.Sprintf("Unable to create backup directory %s", cluster.GetDirForContent(contentID))
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID := range errMap {
-		logger.Verbose("Unable to create directory %s for segment %d on host %s", cluster.GetDirForContent(contentID), contentID, cluster.GetHostForContent(contentID))
-	}
-	cluster.LogFatalError("Unable to create directories", numErrors)
 }
 
 func (cluster *Cluster) CreateSegmentPipesOnAllHosts() {
-	logger.Verbose("Creating segment data pipes")
-	commandMap := cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Creating segment data pipes", func(contentID int) string {
 		return fmt.Sprintf("mkfifo %s", cluster.GetSegmentPipeFilePath(contentID))
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID := range errMap {
-		logger.Verbose("Unable to create segment data pipe for segment %d on host %s", contentID, cluster.GetHostForContent(contentID))
-	}
-	cluster.LogFatalError("Unable to create segment data pipes", numErrors)
+	cluster.CheckClusterError(remoteOutput, "Unable to create segment data pipes", func(contentID int) string {
+		return "Unable to create segment data pipe"
+	})
 }
 
 func (cluster *Cluster) CleanUpSegmentPipesOnAllHosts() {
-	logger.Verbose("Cleaning up segment data pipes")
-	commandMap := cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Cleaning up segment data pipes", func(contentID int) string {
 		pipePath := cluster.GetSegmentPipeFilePath(contentID)
 		// This cleans up both the pipe itself as well as any gpbackup_helper process associated with it
 		return fmt.Sprintf("set -o pipefail; rm -f %s* && ps ux | grep %s | grep -v grep | awk '{print $2}' | xargs kill -9 || true", pipePath, pipePath)
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID := range errMap {
-		logger.Verbose("Unable to clean up segment data pipe for segment %d on host %s", contentID, cluster.GetHostForContent(contentID))
-	}
-	cluster.LogFatalError("Unable to clean up segment data pipes", numErrors)
+	cluster.CheckClusterError(remoteOutput, "Unable to clean up segment data pipes", func(contentID int) string {
+		return "Unable to clean up segment data pipe"
+	})
 }
 
 func (cluster *Cluster) ReadFromSegmentPipes() {
-	logger.Verbose("Reading from segment data pipes")
-	usingCompression, compressionProgram := GetCompressionParameters()
-	commandMap := cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Reading from segment data pipes", func(contentID int) string {
+		usingCompression, compressionProgram := GetCompressionParameters()
 		pipeFile := cluster.GetSegmentPipeFilePath(contentID)
 		compress := compressionProgram.CompressCommand
 		backupFile := cluster.GetTableBackupFilePath(contentID, 0, true)
@@ -250,94 +258,78 @@ func (cluster *Cluster) ReadFromSegmentPipes() {
 		}
 		return fmt.Sprintf("nohup tail -n +1 -f %s > %s &", pipeFile, backupFile)
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID := range errMap {
-		logger.Verbose("Unable to read from data pipe for segment %d on host %s", contentID, cluster.GetHostForContent(contentID))
-	}
-	cluster.LogFatalError("Unable to read from segment data pipes", numErrors)
+	cluster.CheckClusterError(remoteOutput, "Unable to read from segment data pipes", func(contentID int) string {
+		return "Unable to read from segment data pipe"
+	})
 }
 
 func (cluster *Cluster) CleanUpSegmentTailProcesses() {
-	logger.Verbose("Cleaning up segment tail processes")
-	commandMap := cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Cleaning up segment tail processes", func(contentID int) string {
 		filePattern := fmt.Sprintf("gpbackup_%d_%s", contentID, cluster.Timestamp) // Matches pipe name for backup and file name for restore
 		return fmt.Sprintf(`ps ux | grep "tail -n +1 -f" | grep "%s" | grep -v "grep" | awk '{print $2}' | xargs kill -9`, filePattern)
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID, err := range errMap {
-		logger.Verbose("Unable to clean up tail process for segment %d on host %s: %s", contentID, cluster.GetHostForContent(contentID), err.Error())
-	}
-	cluster.LogFatalError("Unable to clean up tail processes", numErrors)
+	cluster.CheckClusterError(remoteOutput, "Unable to clean up tail processes", func(contentID int) string {
+		return "Unable to clean up tail process"
+	})
 }
 
 func (cluster *Cluster) MoveSegmentTOCsAndMakeReadOnly() {
-	logger.Verbose("Setting permissions on segment table of contents files")
-	logger.Verbose("Moving segment table of contents files to user-specified backup directory")
-	var commandMap map[int][]string
-	commandMap = cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Setting permissions on segment table of contents files and moving to backup directories", func(contentID int) string {
 		tocFile := cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		str := fmt.Sprintf("chmod 444 %s; mv %s %s/.", tocFile, tocFile, cluster.GetDirForContent(contentID))
-		return str
+		return fmt.Sprintf("chmod 444 %s; mv %s %s/.", tocFile, tocFile, cluster.GetDirForContent(contentID))
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID := range errMap {
-		tocFile := cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		logger.Verbose("Unable to set permissions on or copy file %s on segment %d on host %s", tocFile, contentID, cluster.GetHostForContent(contentID))
-	}
-	cluster.LogFatalError("Unable to set permissions on or copy segment table of contents files", numErrors)
+	cluster.CheckClusterError(remoteOutput, "Unable to set permissions on or move segment table of contents files", func(contentID int) string {
+		return fmt.Sprintf("Unable to set permissions on or move file %s", cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID)))
+	})
 }
 
 func (cluster *Cluster) CopySegmentTOCs() {
-	logger.Verbose("Copying segment table of contents files from backup directories")
-	var commandMap map[int][]string
-	commandMap = cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Copying segment table of contents files from backup directories", func(contentID int) string {
 		tocFile := cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
 		tocFilename := fmt.Sprintf("gpbackup_%d_%s_toc.yaml", contentID, cluster.Timestamp)
-		str := fmt.Sprintf("cp -f %s/%s %s", cluster.GetDirForContent(contentID), tocFilename, tocFile)
-		return str
+		return fmt.Sprintf("cp -f %s/%s %s", cluster.GetDirForContent(contentID), tocFilename, tocFile)
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
+	cluster.CheckClusterError(remoteOutput, "Unable to copy segment table of contents files from backup directories", func(contentID int) string {
+		return fmt.Sprintf("Unable to copy file %s", cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID)))
+	})
+}
+
+func (cluster *Cluster) VerifyBackupFileCountOnSegments(fileCount int) {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Verifying backup file count", func(contentID int) string {
+		return fmt.Sprintf("find %s -type f | wc -l", cluster.GetDirForContent(contentID))
+	})
+	cluster.CheckClusterError(remoteOutput, "Could not verify backup file count", func(contentID int) string {
+		return "Could not verify backup file count"
+	})
+
+	s := ""
+	if fileCount != 1 {
+		s = "s"
 	}
-	for contentID := range errMap {
-		tocFile := cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		logger.Verbose("Unable to copy file %s on segment %d on host %s", tocFile, contentID, cluster.GetHostForContent(contentID))
+	numIncorrect := 0
+	for contentID := range remoteOutput.Stdouts {
+		numFound, _ := strconv.Atoi(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
+		if numFound != fileCount {
+			logger.Verbose("Expected to find %d file%s on segment %d on host %s, but found %d instead.", fileCount, s, contentID, cluster.GetHostForContent(contentID), numFound)
+			numIncorrect++
+		}
 	}
-	cluster.LogFatalError("Unable to copy segment table of contents files from backup directories", numErrors)
+	if numIncorrect > 0 {
+		cluster.LogFatalError("Found incorrect number of backup files", numIncorrect)
+	}
 }
 
 func (cluster *Cluster) CleanUpSegmentTOCs() {
-	logger.Verbose("Removing segment table of contents files from segment data directories")
-	var commandMap map[int][]string
-	commandMap = cluster.GenerateSSHCommandMapForSegments(func(contentID int) string {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Removing segment table of contents files from segment data directories", func(contentID int) string {
 		tocFile := cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		str := fmt.Sprintf("rm %s", tocFile)
-		return str
+		return fmt.Sprintf("rm %s", tocFile)
 	})
-	errMap := cluster.ExecuteClusterCommand(commandMap)
-	numErrors := len(errMap)
-	if numErrors == 0 {
-		return
-	}
-	for contentID := range errMap {
+	errMsg := fmt.Sprintf("Unable to remove segment table of contents file(s). See %s for a complete list of segments with errors and remove manually.",
+		logger.GetLogFilePath())
+	cluster.CheckClusterError(remoteOutput, errMsg, func(contentID int) string {
 		tocFile := cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		logger.Verbose("Unable to remove file %s on segment %d on host %s", tocFile, contentID, cluster.GetHostForContent(contentID))
-	}
-	logger.Error("Unable to remove segment table of contents file(s). See %s for a complete list of segments with errors and remove manually.", logger.GetLogFilePath())
+		return fmt.Sprintf("Unable to remove table of contents file %s on segment %d on host %s", tocFile, contentID, cluster.GetHostForContent(contentID))
+	}, true)
 }
 
 func (cluster *Cluster) LogFatalError(errMessage string, numErrors int) {

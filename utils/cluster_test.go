@@ -158,16 +158,6 @@ var _ = Describe("utils/cluster tests", func() {
 			Expect(commandMap[0]).To(Equal([]string{"ssh", "-o", "StrictHostKeyChecking=no", "testUser@localhost", "ls"}))
 		})
 	})
-	Describe("GenerateFileVerificationCommandMap", func() {
-		It("creates a command map for segments only", func() {
-			cluster := utils.NewCluster([]utils.SegConfig{masterSeg, localSegOne, remoteSegOne}, "", "20170101010101", "gpseg")
-			commandMap := cluster.GenerateFileVerificationCommandMap(13)
-
-			Expect(len(commandMap)).To(Equal(2))
-			Expect(commandMap[0]).To(Equal([]string{"ssh", "-o", "StrictHostKeyChecking=no", "testUser@localhost", "find /data/gpseg0/backups/20170101/20170101010101 -type f | wc -l | grep 13"}))
-			Expect(commandMap[1]).To(Equal([]string{"ssh", "-o", "StrictHostKeyChecking=no", "testUser@remotehost1", "find /data/gpseg1/backups/20170101/20170101010101 -type f | wc -l | grep 13"}))
-		})
-	})
 	Describe("ExecuteLocalCommand", func() {
 		BeforeEach(func() {
 			os.MkdirAll("/tmp/backup_and_restore_test", 0777)
@@ -218,11 +208,11 @@ var _ = Describe("utils/cluster tests", func() {
 				0:  {"some-non-existent-command"},
 			}
 			cluster.Executor = &utils.GPDBExecutor{}
-			errMap := cluster.ExecuteClusterCommand(commandMap)
+			clusterOutput := cluster.ExecuteClusterCommand(commandMap)
 
 			testutils.ExpectPathToExist("/tmp/backup_and_restore_test/foo")
-			Expect(len(errMap)).To(Equal(1))
-			Expect(errMap[0].Error()).To(Equal("exec: \"some-non-existent-command\": executable file not found in $PATH"))
+			Expect(clusterOutput.NumErrors).To(Equal(1))
+			Expect(clusterOutput.Errors[0].Error()).To(Equal("exec: \"some-non-existent-command\": executable file not found in $PATH"))
 		})
 	})
 	Describe("LogFatalError", func() {
@@ -323,70 +313,106 @@ var _ = Describe("utils/cluster tests", func() {
 	})
 	Describe("VerifyBackupFileCountOnSegments", func() {
 		It("successfully verifies all backup file counts", func() {
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 0,
+			}
 			testCluster.VerifyBackupFileCountOnSegments(2)
 			Expect((*testExecutor).NumExecutions).To(Equal(1))
 		})
-		It("panics if it cannot verify all backup file counts", func() {
-			testExecutor.ClusterError = map[int]error{
-				0: errors.Errorf("exit status 1"),
-				1: errors.Errorf("exit status 1"),
+		It("panics if backup file counts do not match on all segments", func() {
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				Stdouts: map[int]string{
+					0: "1",
+					1: "1",
+				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Backup files missing on 2 segments")
+			defer testutils.ShouldPanicWithMessage("Found incorrect number of backup files on 2 segments")
+			testCluster.VerifyBackupFileCountOnSegments(2)
+		})
+		It("panics if backup file counts do not match on some segments", func() {
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				Stdouts: map[int]string{
+					1: "1",
+				},
+			}
+			testCluster.Executor = testExecutor
+			defer testutils.ShouldPanicWithMessage("Found incorrect number of backup files on 1 segment")
 			testCluster.VerifyBackupFileCountOnSegments(2)
 		})
 		It("panics if it cannot verify some backup file counts", func() {
-			testExecutor.ClusterError = map[int]error{
-				1: errors.Errorf("exit status 1"),
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 1,
+				Errors: map[int]error{
+					1: errors.Errorf("exit status 1"),
+				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Backup files missing on 1 segment")
+			defer testutils.ShouldPanicWithMessage("Could not verify backup file count on 1 segment")
 			testCluster.VerifyBackupFileCountOnSegments(2)
 		})
 	})
 	Describe("VerifyBackupDirectoriesExistOnAllHosts", func() {
 		It("successfully verifies all directories", func() {
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 0,
+			}
 			testCluster.VerifyBackupDirectoriesExistOnAllHosts()
 			Expect((*testExecutor).NumExecutions).To(Equal(1))
 		})
 		It("panics if it cannot verify all directories", func() {
-			testExecutor.ClusterError = map[int]error{
-				0: errors.Errorf("exit status 1"),
-				1: errors.Errorf("exit status 1"),
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 2,
+				Errors: map[int]error{
+					0: errors.Errorf("exit status 1"),
+					1: errors.Errorf("exit status 1"),
+				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Directories missing or inaccessible on 2 segments")
+			defer testutils.ShouldPanicWithMessage("Backup directories missing or inaccessible on 2 segments")
 			testCluster.VerifyBackupDirectoriesExistOnAllHosts()
 		})
 		It("panics if it cannot verify some directories", func() {
-			testExecutor.ClusterError = map[int]error{
-				1: errors.Errorf("exit status 1"),
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 1,
+				Errors: map[int]error{
+					1: errors.Errorf("exit status 1"),
+				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Directories missing or inaccessible on 1 segment")
+			defer testutils.ShouldPanicWithMessage("Backup directories missing or inaccessible on 1 segment")
 			testCluster.VerifyBackupDirectoriesExistOnAllHosts()
 		})
 	})
 	Describe("CreateBackupDirectoriesOnAllHosts", func() {
 		It("successfully creates all directories", func() {
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 0,
+			}
 			testCluster.CreateBackupDirectoriesOnAllHosts()
 			Expect((*testExecutor).NumExecutions).To(Equal(1))
 		})
 		It("panics if it cannot create all directories", func() {
-			testExecutor.ClusterError = map[int]error{
-				0: errors.Errorf("exit status 1"),
-				1: errors.Errorf("exit status 1"),
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 2,
+				Errors: map[int]error{
+					0: errors.Errorf("exit status 1"),
+					1: errors.Errorf("exit status 1"),
+				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Unable to create directories on 2 segments")
+			defer testutils.ShouldPanicWithMessage("Unable to create backup directories on 2 segments")
 			testCluster.CreateBackupDirectoriesOnAllHosts()
 		})
 		It("panics if it cannot create some directories", func() {
-			testExecutor.ClusterError = map[int]error{
-				1: errors.Errorf("exit status 1"),
+			testExecutor.ClusterOutput = &utils.RemoteOutput{
+				NumErrors: 1,
+				Errors: map[int]error{
+					1: errors.Errorf("exit status 1"),
+				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Unable to create directories on 1 segment")
+			defer testutils.ShouldPanicWithMessage("Unable to create backup directories on 1 segment")
 			testCluster.CreateBackupDirectoriesOnAllHosts()
 		})
 	})

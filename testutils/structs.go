@@ -9,6 +9,7 @@ import (
 
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -43,7 +44,7 @@ func (result TestResult) RowsAffected() (int64, error) {
 type TestExecutor struct {
 	LocalError      error
 	LocalCommands   []string
-	ClusterError    map[int]error
+	ClusterOutput   *utils.RemoteOutput
 	ClusterCommands []map[int][]string
 	ErrorOnExecNum  int // Throw the specified error after this many executions of Execute[...]Command(); 0 means always return error
 	NumExecutions   int
@@ -58,11 +59,11 @@ func (executor *TestExecutor) ExecuteLocalCommand(commandStr string) error {
 	return nil
 }
 
-func (executor *TestExecutor) ExecuteClusterCommand(commandMap map[int][]string) map[int]error {
+func (executor *TestExecutor) ExecuteClusterCommand(commandMap map[int][]string) *utils.RemoteOutput {
 	executor.NumExecutions++
 	executor.ClusterCommands = append(executor.ClusterCommands, commandMap)
 	if executor.ErrorOnExecNum == 0 || executor.NumExecutions == executor.ErrorOnExecNum {
-		return executor.ClusterError
+		return executor.ClusterOutput
 	}
 	return nil
 }
