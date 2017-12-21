@@ -522,8 +522,7 @@ func LockTables(connection *utils.DBConn, tables []Relation) {
 	progressBar := utils.NewProgressBar(len(tables), "Locks acquired: ", true)
 	progressBar.Start()
 	for _, table := range tables {
-		_, err := connection.Exec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", table.ToString()))
-		utils.CheckError(err)
+		connection.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", table.ToString()))
 		progressBar.Increment()
 	}
 	progressBar.Finish()

@@ -100,8 +100,7 @@ func (dbconn *DBConn) Begin() {
 	 * "snapshot" of the database via MVCC, to keep backups consistent without
 	 * requiring a pg_class lock.
 	 */
-	_, err = dbconn.Exec("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-	CheckError(err)
+	dbconn.MustExec("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 }
 
 func (dbconn *DBConn) Close() {
@@ -176,6 +175,11 @@ func (dbconn *DBConn) Exec(query string, whichConn ...int) (sql.Result, error) {
 	}
 	connNum := dbconn.ValidateConnNum(whichConn...)
 	return dbconn.ConnPool[connNum].Exec(query)
+}
+
+func (dbconn *DBConn) MustExec(query string, whichConn ...int) {
+	_, err := dbconn.Exec(query, whichConn...)
+	CheckError(err)
 }
 
 func (dbconn *DBConn) Get(destination interface{}, query string, whichConn ...int) error {

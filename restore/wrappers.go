@@ -28,15 +28,11 @@ func SetLoggerVerbosity() {
 func InitializeConnection(dbname string) {
 	connection = utils.NewDBConn(dbname)
 	connection.Connect(*numJobs)
-	_, err := connection.Exec("SET application_name TO 'gprestore'")
-	utils.CheckError(err)
+	connection.MustExec("SET application_name TO 'gprestore'")
 	connection.SetDatabaseVersion()
-	_, err = connection.Exec("SET search_path TO pg_catalog")
-	utils.CheckError(err)
-	_, err = connection.Exec("SET gp_enable_segment_copy_checking TO false")
-	utils.CheckError(err)
-	_, err = connection.Exec("SET gp_default_storage_options='';")
-	utils.CheckError(err)
+	connection.MustExec("SET search_path TO pg_catalog")
+	connection.MustExec("SET gp_enable_segment_copy_checking TO false")
+	connection.MustExec("SET gp_default_storage_options='';")
 }
 
 func InitializeBackupConfig() {
