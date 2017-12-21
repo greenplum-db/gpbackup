@@ -412,13 +412,13 @@ var _ = Describe("utils/log tests", func() {
 				infoPb, _ := progressBar.(*pb.ProgressBar)
 				Expect(infoPb.NotPrint).To(Equal(true))
 			})
+		})
+		Context("PB_VERBOSE", func() {
 			It("will create a verboseProgressBar when passed a verbose value", func() {
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
 				_, ok := progressBar.(*utils.VerboseProgressBar)
 				Expect(ok).To(BeTrue())
 			})
-		})
-		Context("PB_VERBOSE", func() {
 			It("verboseProgressBar's infoPb will not print with verbosity LOGERROR", func() {
 				logger.SetVerbosity(utils.LOGERROR)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
