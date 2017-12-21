@@ -35,7 +35,20 @@ func InitializeConnection() {
 	connection.SetDatabaseVersion()
 	InitializeMetadataParams(connection)
 	connection.Begin()
+	SetSessionGUCs()
+}
+
+func SetSessionGUCs() {
+	// These GUCs ensure the dumps portability accross systems
 	connection.MustExec("SET search_path TO pg_catalog")
+	connection.MustExec("SET statement_timeout = 0")
+	connection.MustExec("SET DATESTYLE = ISO")
+	if connection.Version.AtLeast("5") {
+		connection.MustExec("SET synchronize_seqscans TO off")
+	}
+	if connection.Version.AtLeast("6") {
+		connection.MustExec("SET INTERVALSTYLE = POSTGRES")
+	}
 }
 
 func InitializeBackupReport() {
