@@ -31,14 +31,16 @@ type Database struct {
 	Oid        uint32
 	Name       string
 	Tablespace string
+	Encoding   string
 }
 
-func GetDatabaseName(connection *utils.DBConn) Database {
+func GetDatabaseInfo(connection *utils.DBConn) Database {
 	query := fmt.Sprintf(`
 SELECT
 	d.oid,
 	quote_ident(d.datname) AS name,
-	quote_ident(t.spcname) AS tablespace
+	quote_ident(t.spcname) AS tablespace,
+	pg_encoding_to_char(d.encoding) AS encoding
 FROM pg_database d
 JOIN pg_tablespace t
 ON d.dattablespace = t.oid

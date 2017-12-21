@@ -34,14 +34,14 @@ var _ = Describe("backup integration tests", func() {
 			Expect(results[2]).To(Equal(`SET lc_time TO "C"`))
 		})
 	})
-	Describe("GetDatabaseNames", func() {
-		It("returns a database name struct", func() {
+	Describe("GetDatabaseInfo", func() {
+		It("returns a database info struct", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace FILESPACE test_filespace")
 			defer testutils.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 
-			result := backup.GetDatabaseName(connection)
+			result := backup.GetDatabaseInfo(connection)
 
-			testdbExpected := backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default"}
+			testdbExpected := backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default", Encoding: "UTF8"}
 			testutils.ExpectStructsToMatchExcluding(&testdbExpected, &result, "Oid")
 		})
 	})

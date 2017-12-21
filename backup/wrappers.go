@@ -180,7 +180,7 @@ func BackupTablespaces(metadataFile *utils.FileWithByteCount) {
 
 func BackupCreateDatabase(metadataFile *utils.FileWithByteCount) {
 	logger.Verbose("Writing CREATE DATABASE statement to global file")
-	db := GetDatabaseName(connection)
+	db := GetDatabaseInfo(connection)
 	dbMetadata := GetMetadataForObjectType(connection, TYPE_DATABASE)
 	PrintCreateDatabaseStatement(metadataFile, globalTOC, db, dbMetadata)
 }

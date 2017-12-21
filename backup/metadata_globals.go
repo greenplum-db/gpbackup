@@ -59,6 +59,9 @@ func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	if db.Tablespace != "pg_default" {
 		metadataFile.MustPrintf(" TABLESPACE %s", db.Tablespace)
 	}
+	if db.Encoding != "" {
+		metadataFile.MustPrintf(" ENCODING '%s'", db.Encoding)
+	}
 	metadataFile.MustPrintf(";")
 	toc.AddGlobalEntry("", dbname, "DATABASE", start, metadataFile)
 	start = metadataFile.ByteCount
