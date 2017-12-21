@@ -105,7 +105,7 @@ func GetRestoreMetadataStatements(section string, filename string, objectTypes [
 	return statements
 }
 
-func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, objectsTitle string, showProgressBar bool, executeInParallel bool) {
+func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool) {
 	var shouldExecute *utils.FilterSet
 	if connection.Version.AtLeast("5") {
 		shouldExecute = utils.NewExcludeSet([]string{"GPDB4 SESSION GUCS"})
@@ -130,7 +130,7 @@ func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int
 		// We only need to set the following GUC for data restores, but it doesn't hurt if we set it for metadata restores as well.
 		gucStatements = append(gucStatements, utils.StatementWithType{ObjectType: "SESSION GUCS", Statement: "SET gp_enable_segment_copy_checking TO false;"})
 	}
-	ExecuteStatements(gucStatements, "", false, utils.NewEmptyIncludeSet(), false, whichConn)
+	ExecuteStatements(gucStatements, "", utils.PB_NONE, utils.NewEmptyIncludeSet(), false, whichConn)
 	return gucStatements
 }
 

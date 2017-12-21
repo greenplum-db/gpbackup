@@ -2,6 +2,7 @@ package utils_test
 
 import (
 	"fmt"
+	pb "gopkg.in/cheggaaa/pb.v1"
 	"io"
 	"os"
 	"os/user"
@@ -379,23 +380,114 @@ var _ = Describe("utils/log tests", func() {
 		})
 	})
 	Describe("NewProgressBar", func() {
-		It("will print when passed a value that the progress bar should show", func() {
-			progressBar := utils.NewProgressBar(10, "test progress bar", true)
-			Expect(progressBar.NotPrint).To(Equal(false))
+		Context("PB_NONE", func() {
+			It("will not print when passed a none value", func() {
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_NONE)
+				infoPb, ok := progressBar.(*pb.ProgressBar)
+				Expect(ok).To(BeTrue())
+				Expect(infoPb.NotPrint).To(Equal(true))
+			})
 		})
-		It("will not print when passed a value that the progress bar should not show", func() {
-			progressBar := utils.NewProgressBar(10, "test progress bar", false)
-			Expect(progressBar.NotPrint).To(Equal(true))
+		Context("PB_INFO", func() {
+			It("will create a pb.ProgressBar when passed an info value", func() {
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
+				_, ok := progressBar.(*pb.ProgressBar)
+				Expect(ok).To(BeTrue())
+			})
+			It("will not print with verbosity LOGERROR", func() {
+				logger.SetVerbosity(utils.LOGERROR)
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
+				infoPb, _ := progressBar.(*pb.ProgressBar)
+				Expect(infoPb.NotPrint).To(Equal(true))
+			})
+			It("will print with verbosity LOGINFO", func() {
+				logger.SetVerbosity(utils.LOGINFO)
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
+				infoPb, _ := progressBar.(*pb.ProgressBar)
+				Expect(infoPb.NotPrint).To(Equal(false))
+			})
+			It("will not print with verbosity LOGVERBOSE", func() {
+				logger.SetVerbosity(utils.LOGVERBOSE)
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
+				infoPb, _ := progressBar.(*pb.ProgressBar)
+				Expect(infoPb.NotPrint).To(Equal(true))
+			})
+			It("will create a verboseProgressBar when passed a verbose value", func() {
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
+				_, ok := progressBar.(*utils.VerboseProgressBar)
+				Expect(ok).To(BeTrue())
+			})
 		})
-		It("will not print with verbosity LOGERROR", func() {
-			logger.SetVerbosity(utils.LOGERROR)
-			progressBar := utils.NewProgressBar(10, "test progress bar", true)
-			Expect(progressBar.NotPrint).To(Equal(true))
+		Context("PB_VERBOSE", func() {
+			It("verboseProgressBar's infoPb will not print with verbosity LOGERROR", func() {
+				logger.SetVerbosity(utils.LOGERROR)
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
+				vPb, _ := progressBar.(*utils.VerboseProgressBar)
+				Expect(vPb.ProgressBar.NotPrint).To(Equal(true))
+			})
+			It("verboseProgressBar's infoPb will print with verbosity LOGINFO", func() {
+				logger.SetVerbosity(utils.LOGINFO)
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
+				vPb, _ := progressBar.(*utils.VerboseProgressBar)
+				Expect(vPb.ProgressBar.NotPrint).To(Equal(false))
+			})
+			It("verboseProgressBar's infoPb will not print with verbosity LOGVERBOSE", func() {
+				logger.SetVerbosity(utils.LOGVERBOSE)
+				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
+				vPb, _ := progressBar.(*utils.VerboseProgressBar)
+				Expect(vPb.ProgressBar.NotPrint).To(Equal(true))
+			})
 		})
-		It("will not print with verbosity LOGVERBOSE", func() {
-			logger.SetVerbosity(utils.LOGVERBOSE)
-			progressBar := utils.NewProgressBar(10, "test progress bar", true)
-			Expect(progressBar.NotPrint).To(Equal(true))
+	})
+	Describe("Increment", func() {
+		var vPb *utils.VerboseProgressBar
+		BeforeEach(func() {
+			progressBar := utils.NewProgressBar(10, "test progress bar:", utils.PB_VERBOSE)
+			vPb, _ = progressBar.(*utils.VerboseProgressBar)
+		})
+		It("writes to the log file at 10% increments", func() {
+			progressBar := utils.NewProgressBar(10, "test progress bar:", utils.PB_VERBOSE)
+			vPb, _ = progressBar.(*utils.VerboseProgressBar)
+			vPb.Increment()
+			expectedMessage := "test progress bar: 10% (1/10)"
+			testutils.ExpectRegexp(logfile, expectedMessage)
+			vPb.Increment()
+			expectedMessage = "test progress bar: 20% (2/10)"
+			testutils.ExpectRegexp(logfile, expectedMessage)
+		})
+		It("only logs when it hits a new % marker", func() {
+			progressBar := utils.NewProgressBar(20, "test progress bar:", utils.PB_VERBOSE)
+			vPb, _ = progressBar.(*utils.VerboseProgressBar)
+
+			expectedMessage := "test progress bar: 10% (2/20)"
+			vPb.Increment()
+			testutils.NotExpectRegexp(logfile, expectedMessage)
+			vPb.Increment()
+			testutils.ExpectRegexp(logfile, expectedMessage)
+			expectedMessage = "test progress bar: 20% (4/20)"
+			vPb.Increment()
+			testutils.NotExpectRegexp(logfile, expectedMessage)
+			vPb.Increment()
+			testutils.ExpectRegexp(logfile, expectedMessage)
+		})
+		It("writes accurate percentages if < 10 items", func() {
+			progressBar := utils.NewProgressBar(5, "test progress bar:", utils.PB_VERBOSE)
+			vPb, _ = progressBar.(*utils.VerboseProgressBar)
+			vPb.Increment()
+			expectedMessage := "test progress bar: 20% (1/5)"
+			testutils.ExpectRegexp(logfile, expectedMessage)
+			vPb.Increment()
+			expectedMessage = "test progress bar: 40% (2/5)"
+			testutils.ExpectRegexp(logfile, expectedMessage)
+		})
+		It("does not log if called again after hitting 100%", func() {
+			progressBar := utils.NewProgressBar(1, "test progress bar:", utils.PB_VERBOSE)
+			vPb, _ = progressBar.(*utils.VerboseProgressBar)
+			vPb.Increment()
+			expectedMessage := "test progress bar: 100% (1/1)"
+			testutils.ExpectRegexp(logfile, expectedMessage)
+			vPb.Increment()
+			testutils.NotExpectRegexp(logfile, expectedMessage)
 		})
 	})
 })
