@@ -65,7 +65,7 @@ resources:
       secret_access_key: {{tf-machine-secret-access-key}}
       region_name: {{aws-region}}
       bucket: gpdb5-pipeline-dynamic-terraform
-      bucket_path: {{tf-bucket-path}}
+      bucket_path: clusters/
 
 - name: boostfs_terraform
   type: terraform
@@ -78,7 +78,7 @@ resources:
       secret_access_key: {{gpdb4-tf-machine-secret-access-key}}
       region_name: {{aws-region}}
       bucket: pivotal-pa-toolsmiths-pipeline-dynamic-terraform
-      bucket_path: {{tf-bucket-path}}
+      bucket_path: clusters/
 
 - name: scale_schema
   type: s3
@@ -394,13 +394,13 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{aws-region}}
   BUCKET_NAME: gpdb5-pipeline-dynamic-terraform
-  BUCKET_PATH: {{tf-bucket-path}}
+  BUCKET_PATH: clusters/
 
 boostfs_ccp_gen_cluster_default_params_anchor: &boostfs_ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{gpdb4-tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{gpdb4-tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: {{tf-bucket-path}}
+  BUCKET_PATH: clusters/
   BUCKET_NAME: pivotal-pa-toolsmiths-pipeline-dynamic-terraform
 
 ccp_destroy_anchor: &ccp_destroy
@@ -446,7 +446,7 @@ set_failed_anchor: &set_failed
         AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
         AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
         AWS_DEFAULT_REGION: {{tf-machine-region}}
-        BUCKET_PATH: {{tf-bucket-path}}
+        BUCKET_PATH: clusters/
         BUCKET_NAME: {{tf-bucket-name}}
 
 boostfs_debug_sleep_anchor: &boostfs_debug_sleep
