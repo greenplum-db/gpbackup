@@ -71,11 +71,11 @@ REVOKE ALL ON DATABASE testdb FROM PUBLIC;
 REVOKE ALL ON DATABASE testdb FROM testrole;
 GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`)
 		})
-		It("prints a CREATE DATABASE statement with a TABLESPACE and ENCODING", func() {
-			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "test_tablespace", Encoding: "UTF8"}
+		It("prints a CREATE DATABASE statement with all modifiers", func() {
+			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "test_tablespace", Encoding: "UTF8", Collate: "en_US.utf-8", CType: "en_US.utf-8"}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, emptyMetadataMap)
-			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb TABLESPACE test_tablespace ENCODING 'UTF8';`)
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb TABLESPACE test_tablespace ENCODING 'UTF8' LC_COLLATE 'en_US.utf-8' LC_CTYPE 'en_US.utf-8';`)
 		})
 	})
 	Describe("PrintDatabaseGUCs", func() {

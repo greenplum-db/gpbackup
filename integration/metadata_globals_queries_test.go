@@ -41,7 +41,12 @@ var _ = Describe("backup integration tests", func() {
 
 			result := backup.GetDatabaseInfo(connection)
 
-			testdbExpected := backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default", Encoding: "UTF8"}
+			testdbExpected := backup.Database{}
+			if connection.Version.AtLeast("6") {
+				testdbExpected = backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default", Encoding: "UTF8", Collate: "en_US.utf-8", CType: "en_US.utf-8"}
+			} else {
+				testdbExpected = backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default", Encoding: "UTF8", Collate: "", CType: ""}
+			}
 			testutils.ExpectStructsToMatchExcluding(&testdbExpected, &result, "Oid")
 		})
 	})

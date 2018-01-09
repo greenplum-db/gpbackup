@@ -62,6 +62,12 @@ func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	if db.Encoding != "" {
 		metadataFile.MustPrintf(" ENCODING '%s'", db.Encoding)
 	}
+	if db.Collate != "" {
+		metadataFile.MustPrintf(" LC_COLLATE '%s'", db.Collate)
+	}
+	if db.CType != "" {
+		metadataFile.MustPrintf(" LC_CTYPE '%s'", db.CType)
+	}
 	metadataFile.MustPrintf(";")
 	toc.AddGlobalEntry("", dbname, "DATABASE", start, metadataFile)
 	start = metadataFile.ByteCount

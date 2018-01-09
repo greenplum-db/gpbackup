@@ -31,20 +31,27 @@ type Database struct {
 	Oid        uint32
 	Name       string
 	Tablespace string
+	Collate    string
+	CType      string
 	Encoding   string
 }
 
 func GetDatabaseInfo(connection *utils.DBConn) Database {
+	lcQuery := ""
+	if connection.Version.AtLeast("6") {
+		lcQuery = "datcollate AS collate, datctype AS ctype,"
+	}
 	query := fmt.Sprintf(`
 SELECT
 	d.oid,
 	quote_ident(d.datname) AS name,
 	quote_ident(t.spcname) AS tablespace,
+	%s
 	pg_encoding_to_char(d.encoding) AS encoding
 FROM pg_database d
 JOIN pg_tablespace t
 ON d.dattablespace = t.oid
-WHERE d.datname = '%s';`, connection.DBName)
+WHERE d.datname = '%s';`, lcQuery, connection.DBName)
 
 	result := Database{}
 	err := connection.Get(&result, query)
