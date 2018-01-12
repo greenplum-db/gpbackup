@@ -146,6 +146,11 @@ $_$`)
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testutils.ExpectRegexp(buffer, "SECURITY DEFINER")
 			})
+			It("print 'WINDOW' if IsWindow is set", func() {
+				funcDef.IsWindow = true
+				backup.PrintFunctionModifiers(backupfile, funcDef)
+				testutils.ExpectRegexp(buffer, "WINDOW")
+			})
 			Context("Cost cases", func() {
 				/*
 				 * The default COST values are 1 for C and internal functions and
@@ -223,13 +228,6 @@ $_$`)
 					funcDef.ReturnsSet = true
 					backup.PrintFunctionModifiers(backupfile, funcDef)
 					Expect(buffer.Contents()).To(Equal([]byte{}))
-				})
-			})
-			Context("Prints 'WINDOW' if IsWindow is set", func() {
-				It("print if window is returned true", func() {
-					funcDef.IsWindow = true
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "WINDOW")
 				})
 			})
 			It("prints config statements if any are set", func() {

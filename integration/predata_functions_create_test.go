@@ -30,7 +30,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.AssertQueryRuns(connection, buffer.String())
 				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION add(integer, integer)")
 
-				resultFunctions := backup.GetFunctions(connection)
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
@@ -47,7 +47,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.AssertQueryRuns(connection, buffer.String())
 				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION append(integer, integer)")
 
-				resultFunctions := backup.GetFunctions(connection)
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
@@ -64,7 +64,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.AssertQueryRuns(connection, buffer.String())
 				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION dup(integer)")
 
-				resultFunctions := backup.GetFunctions(connection)
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
@@ -88,7 +88,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.AssertQueryRuns(connection, buffer.String())
 				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION add(integer, integer)")
 
-				resultFunctions := backup.GetFunctions(connection)
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
@@ -106,7 +106,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.AssertQueryRuns(connection, buffer.String())
 				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION append(integer, integer)")
 
-				resultFunctions := backup.GetFunctions(connection)
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
@@ -124,7 +124,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.AssertQueryRuns(connection, buffer.String())
 				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION dup(integer)")
 
-				resultFunctions := backup.GetFunctions(connection)
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
@@ -148,7 +148,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.AssertQueryRuns(connection, buffer.String())
 				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION add(integer, integer)")
 
-				resultFunctions := backup.GetFunctions(connection)
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&windowFunction, &resultFunctions[0], "Oid")

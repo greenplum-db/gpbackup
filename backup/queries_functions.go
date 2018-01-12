@@ -41,7 +41,7 @@ type Function struct {
  * 5 or later but in GPDB 4.3 we must query pg_proc directly and construct
  * those values here.
  */
-func GetFunctions(connection *utils.DBConn) []Function {
+func GetFunctionsAllVersions(connection *utils.DBConn) []Function {
 	if connection.Version.Before("5") {
 		functions := GetFunctions4(connection)
 		arguments, tableArguments := GetFunctionArgsAndIdentArgs(connection)

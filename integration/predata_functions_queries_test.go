@@ -439,7 +439,7 @@ LANGUAGE SQL`)
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION add(composite_ints) RETURNS integer STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT ($1.one + $1.two);'")
 			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION add(composite_ints)")
 
-			allFunctions := backup.GetFunctions(connection)
+			allFunctions := backup.GetFunctionsAllVersions(connection)
 			function := backup.Function{}
 			for _, funct := range allFunctions {
 				if funct.Name == "add" {
@@ -459,7 +459,7 @@ LANGUAGE SQL`)
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION compose(integer, integer) RETURNS composite_ints STRICT IMMUTABLE LANGUAGE PLPGSQL AS 'DECLARE comp composite_ints; BEGIN SELECT $1, $2 INTO comp; RETURN comp; END;';")
 			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION compose(integer, integer)")
 
-			allFunctions := backup.GetFunctions(connection)
+			allFunctions := backup.GetFunctionsAllVersions(connection)
 			function := backup.Function{}
 			for _, funct := range allFunctions {
 				if funct.Name == "compose" {
@@ -484,7 +484,7 @@ LANGUAGE SQL`)
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION compose(base_type[], composite_ints) RETURNS composite_ints STRICT IMMUTABLE LANGUAGE PLPGSQL AS 'DECLARE comp composite_ints; BEGIN SELECT $1[0].one+$2.one, $1[0].two+$2.two INTO comp; RETURN comp; END;';")
 			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION compose(base_type[], composite_ints)")
 
-			allFunctions := backup.GetFunctions(connection)
+			allFunctions := backup.GetFunctionsAllVersions(connection)
 			function := backup.Function{}
 			for _, funct := range allFunctions {
 				if funct.Name == "compose" {

@@ -112,7 +112,7 @@ func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinit
 
 func RetrieveFunctions(procLangs []ProceduralLanguage) ([]Function, []Function, MetadataMap) {
 	logger.Verbose("Retrieving function information")
-	functions := GetFunctions(connection)
+	functions := GetFunctionsAllVersions(connection)
 	objectCounts["Functions"] = len(functions)
 	functionMetadata := GetMetadataForObjectType(connection, TYPE_FUNCTION)
 	functions = ConstructFunctionDependencies(connection, functions)
