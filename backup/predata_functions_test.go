@@ -225,12 +225,20 @@ $_$`)
 					Expect(buffer.Contents()).To(Equal([]byte{}))
 				})
 			})
+			Context("Prints 'WINDOW' if IsWindow is set", func() {
+				It("print if window is returned true", func() {
+					funcDef.IsWindow = true
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testutils.ExpectRegexp(buffer, "WINDOW")
+				})
+			})
 			It("prints config statements if any are set", func() {
 				funcDef.Config = "SET client_min_messages TO error"
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testutils.ExpectRegexp(buffer, "SET client_min_messages TO error")
 			})
 		})
+
 	})
 	Describe("PrintCreateAggregateStatements", func() {
 		aggDefs := make([]backup.Aggregate, 1)

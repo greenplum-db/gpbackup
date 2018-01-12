@@ -63,6 +63,9 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 		metadataFile.MustPrintf(" STABLE")
 	case "v": // Default case, don't print anything else
 	}
+	if funcDef.IsWindow {
+		metadataFile.MustPrintf(" WINDOW")
+	}
 	if funcDef.IsStrict {
 		metadataFile.MustPrintf(" STRICT")
 	}

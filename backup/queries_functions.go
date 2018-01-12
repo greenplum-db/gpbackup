@@ -31,6 +31,7 @@ type Function struct {
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
 	DependsUpon       []string
+	IsWindow          bool `db:"proiswindow"`
 }
 
 /*
@@ -58,10 +59,14 @@ func GetFunctions(connection *utils.DBConn) []Function {
 		}
 		return functions
 	}
-	return GetFunctions5(connection)
+	return GetFunctionsMaster(connection)
 }
 
-func GetFunctions5(connection *utils.DBConn) []Function {
+func GetFunctionsMaster(connection *utils.DBConn) []Function {
+	windowAtts := ""
+	if connection.Version.AtLeast("6") {
+		windowAtts = "proiswindow,"
+	}
 	query := fmt.Sprintf(`
 SELECT
 	p.oid,
@@ -76,6 +81,7 @@ SELECT
 	provolatile,
 	proisstrict,
 	prosecdef,
+	%s
 	(
 		coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
 		FROM pg_options_to_table(proconfig)), ' '), '')
@@ -89,7 +95,7 @@ LEFT JOIN pg_namespace n
 	ON p.pronamespace = n.oid
 WHERE %s
 AND proisagg = 'f'
-ORDER BY nspname, proname, identargs;`, SchemaFilterClause("n"))
+ORDER BY nspname, proname, identargs;`, windowAtts, SchemaFilterClause("n"))
 
 	results := make([]Function, 0)
 	err := connection.Select(&results, query)

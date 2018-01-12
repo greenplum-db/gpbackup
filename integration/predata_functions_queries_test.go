@@ -32,7 +32,7 @@ MODIFIES SQL DATA
 			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION append(integer, integer)")
 			testutils.AssertQueryRuns(connection, "COMMENT ON FUNCTION append(integer, integer) IS 'this is a function comment'")
 
-			results := backup.GetFunctions5(connection)
+			results := backup.GetFunctionsMaster(connection)
 
 			addFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -67,10 +67,28 @@ LANGUAGE SQL`)
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql"}
 			backup.SetIncludeSchemas([]string{"testschema"})
-			results := backup.GetFunctions5(connection)
+			results := backup.GetFunctionsMaster(connection)
 
 			Expect(len(results)).To(Equal(1))
 			testutils.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
+		})
+		It("returns a window function", func() {
+			testutils.SkipIfBefore6(connection)
+			testutils.AssertQueryRuns(connection, `CREATE FUNCTION add(integer, integer) RETURNS integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW`)
+			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION add(integer, integer)")
+
+			results := backup.GetFunctionsMaster(connection)
+
+			windowFunction := backup.Function{
+				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", IsWindow: true}
+
+			Expect(len(results)).To(Equal(1))
+			testutils.ExpectStructsToMatchExcluding(&results[0], &windowFunction, "Oid")
 		})
 	})
 	Describe("GetFunctions4", func() {
