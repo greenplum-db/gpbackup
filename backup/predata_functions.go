@@ -25,7 +25,7 @@ func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	nameStr := fmt.Sprintf("%s(%s)", funcFQN, funcDef.IdentArgs)
 	nameWithArgs := fmt.Sprintf("%s(%s)", funcDef.Name, funcDef.IdentArgs)
 	PrintObjectMetadata(metadataFile, funcMetadata, nameStr, "FUNCTION")
-	toc.AddPredataEntry(funcDef.Schema, nameWithArgs, "FUNCTION", start, metadataFile)
+	toc.AddPredataEntry(funcDef.Schema, nameWithArgs, "FUNCTION", "", start, metadataFile)
 }
 
 /*
@@ -126,7 +126,7 @@ func PrintCreateAggregateStatements(metadataFile *utils.FileWithByteCount, toc *
 		aggFQN = fmt.Sprintf("%s(%s)", aggFQN, identArgumentsStr)
 		aggWithArgs := fmt.Sprintf("%s(%s)", aggDef.Name, identArgumentsStr)
 		PrintObjectMetadata(metadataFile, aggMetadata[aggDef.Oid], aggFQN, "AGGREGATE")
-		toc.AddPredataEntry(aggDef.Schema, aggWithArgs, "AGGREGATE", start, metadataFile)
+		toc.AddPredataEntry(aggDef.Schema, aggWithArgs, "AGGREGATE", "", start, metadataFile)
 	}
 }
 
@@ -150,7 +150,7 @@ func PrintCreateCastStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		}
 		metadataFile.MustPrintf(";")
 		PrintObjectMetadata(metadataFile, castMetadata[castDef.Oid], castStr, "CAST")
-		toc.AddPredataEntry("pg_catalog", castStr, "CAST", start, metadataFile)
+		toc.AddPredataEntry("pg_catalog", castStr, "CAST", "", start, metadataFile)
 	}
 }
 
@@ -212,7 +212,7 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *u
 		}
 		PrintObjectMetadata(metadataFile, procLangMetadata[procLang.Oid], procLang.Name, "LANGUAGE")
 		metadataFile.MustPrintln()
-		toc.AddPredataEntry("", procLang.Name, "PROCEDURAL LANGUAGE", start, metadataFile)
+		toc.AddPredataEntry("", procLang.Name, "PROCEDURAL LANGUAGE", "", start, metadataFile)
 	}
 }
 
@@ -228,7 +228,7 @@ func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc 
 			defaultStr, convFQN, conversion.ForEncoding, conversion.ToEncoding, conversion.ConversionFunction)
 		PrintObjectMetadata(metadataFile, conversionMetadata[conversion.Oid], convFQN, "CONVERSION")
 		metadataFile.MustPrintln()
-		toc.AddPredataEntry(conversion.Schema, conversion.Name, "CONVERSION", start, metadataFile)
+		toc.AddPredataEntry(conversion.Schema, conversion.Name, "CONVERSION", "", start, metadataFile)
 	}
 }
 
@@ -245,7 +245,7 @@ func PrintCreateForeignDataWrapperStatements(metadataFile *utils.FileWithByteCou
 		}
 		metadataFile.MustPrintf(";")
 		PrintObjectMetadata(metadataFile, fdwMetadata[fdw.Oid], fdw.Name, "FOREIGN DATA WRAPPER")
-		toc.AddPredataEntry("", fdw.Name, "FOREIGN DATA WRAPPER", start, metadataFile)
+		toc.AddPredataEntry("", fdw.Name, "FOREIGN DATA WRAPPER", "", start, metadataFile)
 	}
 }
 
@@ -267,7 +267,7 @@ func PrintCreateServerStatements(metadataFile *utils.FileWithByteCount, toc *uti
 
 		//NOTE: We must specify SERVER when creating and dropping, but FOREIGN SERVER when granting and revoking
 		PrintObjectMetadata(metadataFile, serverMetadata[server.Oid], server.Name, "FOREIGN SERVER")
-		toc.AddPredataEntry("", server.Name, "FOREIGN SERVER", start, metadataFile)
+		toc.AddPredataEntry("", server.Name, "FOREIGN SERVER", "", start, metadataFile)
 	}
 }
 
@@ -281,6 +281,6 @@ func PrintCreateUserMappingStatements(metadataFile *utils.FileWithByteCount, toc
 		metadataFile.MustPrintf(";")
 		// User mappings don't have a unique name, so we construct an arbitrary identifier
 		mappingStr := fmt.Sprintf("%s ON %s", mapping.User, mapping.Server)
-		toc.AddPredataEntry("", mappingStr, "USER MAPPING", start, metadataFile)
+		toc.AddPredataEntry("", mappingStr, "USER MAPPING", "", start, metadataFile)
 	}
 }

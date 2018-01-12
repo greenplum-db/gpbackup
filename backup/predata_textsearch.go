@@ -30,7 +30,7 @@ func PrintCreateTextSearchParserStatements(metadataFile *utils.FileWithByteCount
 		}
 		metadataFile.MustPrintf("\n);")
 		PrintObjectMetadata(metadataFile, parserMetadata[parser.Oid], parserFQN, "TEXT SEARCH PARSER")
-		toc.AddPredataEntry(parser.Schema, parser.Name, "TEXT SEARCH PARSER", start, metadataFile)
+		toc.AddPredataEntry(parser.Schema, parser.Name, "TEXT SEARCH PARSER", "", start, metadataFile)
 	}
 }
 
@@ -45,7 +45,7 @@ func PrintCreateTextSearchTemplateStatements(metadataFile *utils.FileWithByteCou
 		metadataFile.MustPrintf("\n\tLEXIZE = %s", template.LexizeFunc)
 		metadataFile.MustPrintf("\n);")
 		PrintObjectMetadata(metadataFile, templateMetadata[template.Oid], templateFQN, "TEXT SEARCH TEMPLATE")
-		toc.AddPredataEntry(template.Schema, template.Name, "TEXT SEARCH TEMPLATE", start, metadataFile)
+		toc.AddPredataEntry(template.Schema, template.Name, "TEXT SEARCH TEMPLATE", "", start, metadataFile)
 	}
 }
 
@@ -60,7 +60,7 @@ func PrintCreateTextSearchDictionaryStatements(metadataFile *utils.FileWithByteC
 		}
 		metadataFile.MustPrintf("\n);")
 		PrintObjectMetadata(metadataFile, dictionaryMetadata[dictionary.Oid], dictionaryFQN, "TEXT SEARCH DICTIONARY")
-		toc.AddPredataEntry(dictionary.Schema, dictionary.Name, "TEXT SEARCH DICTIONARY", start, metadataFile)
+		toc.AddPredataEntry(dictionary.Schema, dictionary.Name, "TEXT SEARCH DICTIONARY", "", start, metadataFile)
 	}
 }
 
@@ -82,6 +82,6 @@ func PrintCreateTextSearchConfigurationStatements(metadataFile *utils.FileWithBy
 			metadataFile.MustPrintf("\n\tADD MAPPING FOR \"%s\" WITH %s;", token, strings.Join(dicts, ", "))
 		}
 		PrintObjectMetadata(metadataFile, configurationMetadata[configuration.Oid], configurationFQN, "TEXT SEARCH CONFIGURATION")
-		toc.AddPredataEntry(configuration.Schema, configuration.Name, "TEXT SEARCH CONFIGURATION", start, metadataFile)
+		toc.AddPredataEntry(configuration.Schema, configuration.Name, "TEXT SEARCH CONFIGURATION", "", start, metadataFile)
 	}
 }

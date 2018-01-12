@@ -22,7 +22,7 @@ var _ = Describe("backup/statistics tests", func() {
 			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
 			attStats = []backup.AttributeStatistic{}
 			backup.PrintStatisticsStatementsForTable(backupfile, toc, tableTestTable, attStats, tupleStats)
-			testutils.ExpectEntry(toc.StatisticsEntries, 0, "testschema", "testtable", "STATISTICS")
+			testutils.ExpectEntry(toc.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
 			testutils.AssertBufferContents(toc.StatisticsEntries, buffer, `UPDATE pg_class
 SET
 	relpages = 0::int,
@@ -39,7 +39,7 @@ AND relnamespace = 0;`)
 					Width: 10, Distinct: .5, Kind1: 20, Operator1: 10, Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})},
 			}
 			backup.PrintStatisticsStatementsForTable(backupfile, toc, tableTestTable, attStats, tupleStats)
-			testutils.ExpectEntry(toc.StatisticsEntries, 0, "testschema", "testtable", "STATISTICS")
+			testutils.ExpectEntry(toc.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
 			testutils.AssertBufferContents(toc.StatisticsEntries, buffer, `UPDATE pg_class
 SET
 	relpages = 0::int,

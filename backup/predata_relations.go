@@ -189,7 +189,7 @@ func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils
 		PrintRegularTableCreateStatement(metadataFile, nil, table, tableDef)
 	}
 	PrintPostCreateTableStatements(metadataFile, table, tableDef, tableMetadata)
-	toc.AddPredataEntry(table.Schema, table.Name, "TABLE", start, metadataFile)
+	toc.AddPredataEntry(table.Schema, table.Name, "TABLE", "", start, metadataFile)
 }
 
 func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
@@ -217,7 +217,7 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 	}
 	printAlterColumnStatements(metadataFile, table, tableDef.ColumnDefs)
 	if toc != nil {
-		toc.AddPredataEntry(table.Schema, table.Name, "TABLE", start, metadataFile)
+		toc.AddPredataEntry(table.Schema, table.Name, "TABLE", "", start, metadataFile)
 	}
 }
 
@@ -319,7 +319,7 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", seqFQN, sequence.LastVal, sequence.IsCalled)
 
 		PrintObjectMetadata(metadataFile, sequenceMetadata[sequence.Oid], seqFQN, "SEQUENCE")
-		toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE", start, metadataFile)
+		toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE", "", start, metadataFile)
 	}
 }
 
@@ -330,7 +330,7 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 		if owningColumn, hasColumnOwner := sequenceColumnOwners[seqFQN]; hasColumnOwner {
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
-			toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", start, metadataFile)
+			toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", "", start, metadataFile)
 		}
 	}
 }
@@ -341,6 +341,6 @@ func PrintCreateViewStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		viewFQN := utils.MakeFQN(view.Schema, view.Name)
 		metadataFile.MustPrintf("\n\nCREATE VIEW %s AS %s\n", viewFQN, view.Definition)
 		PrintObjectMetadata(metadataFile, viewMetadata[view.Oid], viewFQN, "VIEW")
-		toc.AddPredataEntry(view.Schema, view.Name, "VIEW", start, metadataFile)
+		toc.AddPredataEntry(view.Schema, view.Name, "VIEW", "", start, metadataFile)
 	}
 }

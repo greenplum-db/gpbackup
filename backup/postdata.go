@@ -17,8 +17,9 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *util
 		if index.Tablespace != "" {
 			metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", index.Name, index.Tablespace)
 		}
+		tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
 		PrintObjectMetadata(metadataFile, indexMetadata[index.Oid], index.Name, "INDEX")
-		toc.AddPostdataEntry(index.OwningSchema, index.Name, "INDEX", start, metadataFile)
+		toc.AddPostdataEntry(index.OwningSchema, index.Name, "INDEX", tableFQN, start, metadataFile)
 	}
 }
 
@@ -28,7 +29,7 @@ func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		metadataFile.MustPrintf("\n\n%s", rule.Def)
 		tableFQN := utils.MakeFQN(rule.OwningSchema, rule.OwningTable)
 		PrintObjectMetadata(metadataFile, ruleMetadata[rule.Oid], rule.Name, "RULE", tableFQN)
-		toc.AddPostdataEntry(rule.OwningSchema, rule.Name, "RULE", start, metadataFile)
+		toc.AddPostdataEntry(rule.OwningSchema, rule.Name, "RULE", tableFQN, start, metadataFile)
 	}
 }
 
@@ -38,6 +39,6 @@ func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *ut
 		metadataFile.MustPrintf("\n\n%s;", trigger.Def)
 		tableFQN := utils.MakeFQN(trigger.OwningSchema, trigger.OwningTable)
 		PrintObjectMetadata(metadataFile, triggerMetadata[trigger.Oid], trigger.Name, "TRIGGER", tableFQN)
-		toc.AddPostdataEntry(trigger.OwningSchema, trigger.Name, "TRIGGER", start, metadataFile)
+		toc.AddPostdataEntry(trigger.OwningSchema, trigger.Name, "TRIGGER", tableFQN, start, metadataFile)
 	}
 }

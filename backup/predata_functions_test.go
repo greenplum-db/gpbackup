@@ -28,7 +28,7 @@ var _ = Describe("backup/predata_functions tests", func() {
 			})
 			It("prints a function definition for an internal function without a binary path", func() {
 				backup.PrintCreateFunctionStatement(backupfile, toc, funcDef, funcMetadata)
-				testutils.ExpectEntry(toc.PredataEntries, 0, "public", "func_name(integer, integer)", "FUNCTION")
+				testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "func_name(integer, integer)", "FUNCTION")
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FUNCTION public.func_name(integer, integer) RETURNS integer AS
 $$add_two_ints$$
 LANGUAGE internal;`)
@@ -256,7 +256,7 @@ $_$`)
 
 		It("prints an aggregate definition for an unordered aggregate with no optional specifications", func() {
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer
@@ -374,7 +374,7 @@ ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;`)
 		It("prints an explicit cast with a function", func() {
 			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "src", TargetTypeFQN: "dst", FunctionSchema: "public", FunctionName: "cast_func", FunctionArgs: "integer, integer", CastContext: "e"}
 			backup.PrintCreateCastStatements(backupfile, toc, []backup.Cast{castDef}, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "pg_catalog", "(src AS dst)", "CAST")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "pg_catalog", "", "(src AS dst)", "CAST")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE CAST (src AS dst)
 	WITH FUNCTION public.cast_func(integer, integer);`)
 		})
@@ -466,7 +466,7 @@ COMMENT ON CAST (src AS dst) IS 'This is a cast comment.';`)
 			langs := []backup.ProceduralLanguage{plUntrustedHandlerOnly}
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "plpythonu", "PROCEDURAL LANGUAGE")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "plpythonu", "PROCEDURAL LANGUAGE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROCEDURAL LANGUAGE plpythonu;
 ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;`)
 		})
@@ -523,7 +523,7 @@ GRANT ALL ON LANGUAGE plpythonu TO testrole;`)
 		It("prints a non-default conversion", func() {
 			conversions := []backup.Conversion{convOne}
 			backup.PrintCreateConversionStatements(backupfile, toc, conversions, metadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "conv_one", "CONVERSION")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "conv_one", "CONVERSION")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE CONVERSION public.conv_one FOR 'UTF8' TO 'LATIN1' FROM public.converter;`)
 		})
 		It("prints a default conversion", func() {
@@ -557,27 +557,27 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 		It("prints a basic foreign data wrapper", func() {
 			foreignDataWrappers := []backup.ForeignDataWrapper{{Oid: 1, Name: "foreigndata"}}
 			backup.PrintCreateForeignDataWrapperStatements(backupfile, toc, foreignDataWrappers, funcInfoMap, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreigndata", "FOREIGN DATA WRAPPER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreigndata", "FOREIGN DATA WRAPPER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN DATA WRAPPER foreigndata;`)
 		})
 		It("prints a foreign data wrapper with a validator", func() {
 			foreignDataWrappers := []backup.ForeignDataWrapper{{Name: "foreigndata", Validator: 1}}
 			backup.PrintCreateForeignDataWrapperStatements(backupfile, toc, foreignDataWrappers, funcInfoMap, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreigndata", "FOREIGN DATA WRAPPER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreigndata", "FOREIGN DATA WRAPPER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN DATA WRAPPER foreigndata
 	VALIDATOR pg_catalog.postgresql_fdw_validator;`)
 		})
 		It("prints a foreign data wrapper with one option", func() {
 			foreignDataWrappers := []backup.ForeignDataWrapper{{Name: "foreigndata", Options: "debug 'true'"}}
 			backup.PrintCreateForeignDataWrapperStatements(backupfile, toc, foreignDataWrappers, funcInfoMap, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreigndata", "FOREIGN DATA WRAPPER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreigndata", "FOREIGN DATA WRAPPER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN DATA WRAPPER foreigndata
 	OPTIONS (debug 'true');`)
 		})
 		It("prints a foreign data wrapper with two options", func() {
 			foreignDataWrappers := []backup.ForeignDataWrapper{{Name: "foreigndata", Options: "debug 'true', host 'localhost'"}}
 			backup.PrintCreateForeignDataWrapperStatements(backupfile, toc, foreignDataWrappers, funcInfoMap, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreigndata", "FOREIGN DATA WRAPPER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreigndata", "FOREIGN DATA WRAPPER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN DATA WRAPPER foreigndata
 	OPTIONS (debug 'true', host 'localhost');`)
 		})
@@ -586,14 +586,14 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 		It("prints a basic foreign server", func() {
 			foreignServers := []backup.ForeignServer{{Oid: 1, Name: "foreignserver", ForeignDataWrapper: "foreignwrapper"}}
 			backup.PrintCreateServerStatements(backupfile, toc, foreignServers, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreignserver", "FOREIGN SERVER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreignserver", "FOREIGN SERVER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SERVER foreignserver
 	FOREIGN DATA WRAPPER foreignwrapper;`)
 		})
 		It("prints a foreign server with one option", func() {
 			foreignServers := []backup.ForeignServer{{Oid: 1, Name: "foreignserver", ForeignDataWrapper: "foreignwrapper", Options: "host 'localhost'"}}
 			backup.PrintCreateServerStatements(backupfile, toc, foreignServers, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreignserver", "FOREIGN SERVER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreignserver", "FOREIGN SERVER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SERVER foreignserver
 	FOREIGN DATA WRAPPER foreignwrapper
 	OPTIONS (host 'localhost');`)
@@ -601,7 +601,7 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 		It("prints a foreign server with two options", func() {
 			foreignServers := []backup.ForeignServer{{Oid: 1, Name: "foreignserver", ForeignDataWrapper: "foreignwrapper", Options: "host 'localhost', dbname 'testdb'"}}
 			backup.PrintCreateServerStatements(backupfile, toc, foreignServers, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreignserver", "FOREIGN SERVER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreignserver", "FOREIGN SERVER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SERVER foreignserver
 	FOREIGN DATA WRAPPER foreignwrapper
 	OPTIONS (host 'localhost', dbname 'testdb');`)
@@ -609,7 +609,7 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 		It("prints a foreign server with type and version", func() {
 			foreignServers := []backup.ForeignServer{{Oid: 1, Name: "foreignserver", Type: "server type", Version: "server version", ForeignDataWrapper: "foreignwrapper"}}
 			backup.PrintCreateServerStatements(backupfile, toc, foreignServers, backup.MetadataMap{})
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "foreignserver", "FOREIGN SERVER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreignserver", "FOREIGN SERVER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SERVER foreignserver
 	TYPE 'server type'
 	VERSION 'server version'
@@ -620,14 +620,14 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 		It("prints a basic user mapping", func() {
 			userMappings := []backup.UserMapping{{Oid: 1, User: "testrole", Server: "foreignserver"}}
 			backup.PrintCreateUserMappingStatements(backupfile, toc, userMappings)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "testrole ON foreignserver", "USER MAPPING")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "testrole ON foreignserver", "USER MAPPING")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE USER MAPPING FOR testrole
 	SERVER foreignserver;`)
 		})
 		It("prints a user mapping with one option", func() {
 			userMappings := []backup.UserMapping{{Oid: 1, User: "testrole", Server: "foreignserver", Options: "host 'localhost'"}}
 			backup.PrintCreateUserMappingStatements(backupfile, toc, userMappings)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "testrole ON foreignserver", "USER MAPPING")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "testrole ON foreignserver", "USER MAPPING")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE USER MAPPING FOR testrole
 	SERVER foreignserver
 	OPTIONS (host 'localhost');`)
@@ -635,7 +635,7 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 		It("prints a user mapping with two options", func() {
 			userMappings := []backup.UserMapping{{Oid: 1, User: "testrole", Server: "foreignserver", Options: "host 'localhost', dbname 'testdb'"}}
 			backup.PrintCreateUserMappingStatements(backupfile, toc, userMappings)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "testrole ON foreignserver", "USER MAPPING")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "testrole ON foreignserver", "USER MAPPING")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE USER MAPPING FOR testrole
 	SERVER foreignserver
 	OPTIONS (host 'localhost', dbname 'testdb');`)

@@ -53,13 +53,13 @@ var _ = Describe("restore/validate tests", func() {
 		BeforeEach(func() {
 			toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			backupfile.ByteCount = table1Len
-			toc.AddPredataEntry("schema1", "table1", "TABLE", 0, backupfile)
+			toc.AddPredataEntry("schema1", "table1", "", "TABLE", 0, backupfile)
 			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)")
 			backupfile.ByteCount += table2Len
-			toc.AddPredataEntry("schema2", "table2", "TABLE", table1Len, backupfile)
+			toc.AddPredataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile)
 			toc.AddMasterDataEntry("schema2", "table2", 2, "(j)")
 			backupfile.ByteCount += sequenceLen
-			toc.AddPredataEntry("schema", "somesequence", "SEQUENCE", table1Len+table2Len, backupfile)
+			toc.AddPredataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile)
 			restore.SetTOC(toc)
 		})
 		It("schema exists in normal backup", func() {
@@ -124,13 +124,13 @@ var _ = Describe("restore/validate tests", func() {
 		BeforeEach(func() {
 			toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			backupfile.ByteCount = table1Len
-			toc.AddPredataEntry("schema1", "table1", "TABLE", 0, backupfile)
+			toc.AddPredataEntry("schema1", "table1", "TABLE", "", 0, backupfile)
 			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)")
 			backupfile.ByteCount += table2Len
-			toc.AddPredataEntry("schema2", "table2", "TABLE", table1Len, backupfile)
+			toc.AddPredataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile)
 			toc.AddMasterDataEntry("schema2", "table2", 2, "(j)")
 			backupfile.ByteCount += sequenceLen
-			toc.AddPredataEntry("schema1", "somesequence", "SEQUENCE", table1Len+table2Len, backupfile)
+			toc.AddPredataEntry("schema1", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile)
 			restore.SetTOC(toc)
 		})
 		It("table exists in normal backup", func() {

@@ -23,11 +23,12 @@ type SegmentTOC struct {
 }
 
 type MetadataEntry struct {
-	Schema     string
-	Name       string
-	ObjectType string
-	StartByte  uint64
-	EndByte    uint64
+	Schema          string
+	Name            string
+	ObjectType      string
+	ReferenceObject string
+	StartByte       uint64
+	EndByte         uint64
 }
 
 type MasterDataEntry struct {
@@ -92,7 +93,7 @@ func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.Re
 		shouldIncludeObject := objectSet.MatchesFilter(entry.ObjectType)
 		shouldIncludeSchema := schemaSet.MatchesFilter(entry.Schema)
 		tableFQN := MakeFQN(entry.Schema, entry.Name)
-		shouldIncludeTable := len(includeTables) == 0 || (entry.ObjectType == "TABLE" && tableSet.MatchesFilter(tableFQN))
+		shouldIncludeTable := len(includeTables) == 0 || (entry.ObjectType == "TABLE" && tableSet.MatchesFilter(tableFQN)) || tableSet.MatchesFilter(entry.ReferenceObject)
 		if shouldIncludeObject && shouldIncludeSchema && shouldIncludeTable {
 			contents := make([]byte, entry.EndByte-entry.StartByte)
 			_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
@@ -167,24 +168,24 @@ func (toc *TOC) InitializeEntryMap() {
 	toc.metadataEntryMap["statistics"] = &toc.StatisticsEntries
 }
 
-func (toc *TOC) AddMetadataEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount, section string) {
-	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], MetadataEntry{schema, name, objectType, start, file.ByteCount})
+func (toc *TOC) AddMetadataEntry(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount, section string) {
+	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], MetadataEntry{schema, name, objectType, referenceObject, start, file.ByteCount})
 }
 
 func (toc *TOC) AddGlobalEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, start, file, "global")
+	toc.AddMetadataEntry(schema, name, objectType, "", start, file, "global")
 }
 
-func (toc *TOC) AddPredataEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, start, file, "predata")
+func (toc *TOC) AddPredataEntry(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount) {
+	toc.AddMetadataEntry(schema, name, objectType, referenceObject, start, file, "predata")
 }
 
-func (toc *TOC) AddPostdataEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, start, file, "postdata")
+func (toc *TOC) AddPostdataEntry(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount) {
+	toc.AddMetadataEntry(schema, name, objectType, referenceObject, start, file, "postdata")
 }
 
 func (toc *TOC) AddStatisticsEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, start, file, "statistics")
+	toc.AddMetadataEntry(schema, name, objectType, "", start, file, "statistics")
 }
 
 func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string) {

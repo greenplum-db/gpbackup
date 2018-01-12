@@ -16,7 +16,7 @@ var _ = Describe("backup/postdata tests", func() {
 			indexes := []backup.QuerySimpleDefinition{{Oid: 1, Name: "testindex", OwningSchema: "public", OwningTable: "testtable", Tablespace: "", Def: "CREATE INDEX testindex ON public.testtable USING btree(i)"}}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "testindex", "INDEX")
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testindex", "INDEX")
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE INDEX testindex ON public.testtable USING btree(i);`)
 		})
 		It("can print an index with a tablespace", func() {
@@ -40,7 +40,7 @@ COMMENT ON INDEX testindex IS 'This is an index comment.';`)
 			rules := []backup.QuerySimpleDefinition{{Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Tablespace: "", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "testrule", "RULE")
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testrule", "RULE")
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;`)
 		})
 		It("can print a rule with a comment", func() {
@@ -57,7 +57,7 @@ COMMENT ON RULE testrule ON public.testtable IS 'This is a rule comment.';`)
 			triggers := []backup.QuerySimpleDefinition{{Oid: 1, Name: "testtrigger", OwningSchema: "public", OwningTable: "testtable", Tablespace: "", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "testtrigger", "TRIGGER")
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testtrigger", "TRIGGER")
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger();`)
 		})
 		It("can print a trigger with a comment", func() {

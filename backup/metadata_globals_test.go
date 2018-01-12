@@ -43,14 +43,14 @@ SET default_with_oids = false;`)
 			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "pg_default"}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, emptyMetadataMap)
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "testdb", "DATABASE")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testdb", "DATABASE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb;`)
 		})
 		It("prints a CREATE DATABASE statement for a reserved keyword named database", func() {
 			db := backup.Database{Oid: 1, Name: `"table"`, Tablespace: "pg_default"}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, emptyMetadataMap)
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", `"table"`, "DATABASE")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", `"table"`, "DATABASE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE "table";`)
 		})
 		It("prints a CREATE DATABASE statement with privileges, an owner, and a comment", func() {
@@ -88,7 +88,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`)
 			gucs := []string{defaultOidGUC}
 
 			backup.PrintDatabaseGUCs(backupfile, toc, gucs, dbname)
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "testdb", "DATABASE GUC")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testdb", "DATABASE GUC")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `ALTER DATABASE testdb SET default_with_oids TO 'true';`)
 		})
 		It("prints multiple database GUCs", func() {
@@ -109,7 +109,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`)
 			resQueues := []backup.ResourceQueue{someQueue, maxCostQueue}
 
 			backup.PrintCreateResourceQueueStatements(backupfile, toc, resQueues, emptyResQueueMetadata)
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "some_queue", "RESOURCE QUEUE")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "some_queue", "RESOURCE QUEUE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`CREATE RESOURCE QUEUE some_queue WITH (ACTIVE_STATEMENTS=1);`,
 				`CREATE RESOURCE QUEUE "someMaxCostQueue" WITH (MAX_COST=99.9, COST_OVERCOMMIT=TRUE);`)
@@ -154,7 +154,7 @@ COMMENT ON RESOURCE QUEUE "commentQueue" IS 'This is a resource queue comment.';
 			resGroups := []backup.ResourceGroup{someGroup, someGroup2}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, resGroups, emptyResGroupMetadata)
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "some_group", "RESOURCE GROUP")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "some_group", "RESOURCE GROUP")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`CREATE RESOURCE GROUP some_group WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=15);`,
 				`CREATE RESOURCE GROUP some_group2 WITH (CPU_RATE_LIMIT=20, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=10, CONCURRENCY=25);`)
@@ -164,7 +164,7 @@ COMMENT ON RESOURCE QUEUE "commentQueue" IS 'This is a resource queue comment.';
 			resGroups := []backup.ResourceGroup{default_group}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, resGroups, emptyResGroupMetadata)
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "default_group", "RESOURCE GROUP")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "default_group", "RESOURCE GROUP")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`,
 				`ALTER RESOURCE GROUP default_group SET MEMORY_LIMIT 20;`,
 				`ALTER RESOURCE GROUP default_group SET MEMORY_SHARED_QUOTA 25;`,
@@ -230,7 +230,7 @@ COMMENT ON RESOURCE QUEUE "commentQueue" IS 'This is a resource queue comment.';
 			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
 			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, roleMetadataMap)
 
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "testrole1", "ROLE")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testrole1", "ROLE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE testrole1;
 ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default RESOURCE GROUP default_group;
 
@@ -265,7 +265,7 @@ ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:
 		roleWithout := backup.RoleMember{Role: "group", Member: "rolewithout", Grantor: "grantor", IsAdmin: false}
 		It("prints a role without ADMIN OPTION", func() {
 			backup.PrintRoleMembershipStatements(backupfile, toc, []backup.RoleMember{roleWithout})
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "rolewithout", "ROLE GRANT")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "rolewithout", "ROLE GRANT")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `GRANT group TO rolewithout GRANTED BY grantor;`)
 		})
 		It("prints a role WITH ADMIN OPTION", func() {
@@ -284,7 +284,7 @@ ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:
 		It("prints a basic tablespace", func() {
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "test_tablespace", "TABLESPACE")
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE TABLESPACE test_tablespace FILESPACE test_filespace;`)
 		})
 		It("prints a tablespace with privileges, an owner, and a comment", func() {

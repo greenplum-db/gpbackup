@@ -17,7 +17,7 @@ var _ = Describe("backup/predata_operators tests", func() {
 
 			backup.PrintCreateOperatorStatements(backupfile, toc, []backup.Operator{operator}, backup.MetadataMap{})
 
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "##", "OPERATOR")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "##", "OPERATOR")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR public.## (
 	PROCEDURE = public.path_inter,
 	LEFTARG = public.path,
@@ -89,7 +89,7 @@ ALTER OPERATOR public.## (NONE, public."PATH") OWNER TO testrole;`)
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, toc, []backup.OperatorFamily{operatorFamily}, backup.MetadataMap{})
 
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "testfam", "OPERATOR FAMILY")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "testfam", "OPERATOR FAMILY")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR FAMILY public.testfam USING hash;`)
 		})
 		It("prints an operator family with an owner and comment", func() {
@@ -113,7 +113,7 @@ ALTER OPERATOR FAMILY public.testfam USING hash OWNER TO testrole;`)
 
 			backup.PrintCreateOperatorClassStatements(backupfile, toc, []backup.OperatorClass{operatorClass}, backup.MetadataMap{})
 
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "testclass", "OPERATOR CLASS")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "testclass", "OPERATOR CLASS")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR CLASS public.testclass
 	FOR TYPE uuid USING hash AS
 	STORAGE uuid;`)

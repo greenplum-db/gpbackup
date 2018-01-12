@@ -99,7 +99,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 			extTableDef.URIs = []string{"file://host:port/path/file"}
 			tableDef.ExtTableDef = extTableDef
 			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "tablename", "TABLE")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "tablename", "TABLE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL TABLE public.tablename (
 ) LOCATION (
 	'file://host:port/path/file'
@@ -388,7 +388,7 @@ ENCODING 'UTF-8'`)
 			protos := []backup.ExternalProtocol{protocolUntrustedReadWrite}
 
 			backup.PrintCreateExternalProtocolStatements(backupfile, toc, protos, funcInfoMap, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "s3", "PROTOCOL")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "s3", "PROTOCOL")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);`)
 		})
 		It("prints untrusted protocol with read and validator", func() {

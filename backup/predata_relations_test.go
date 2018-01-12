@@ -61,7 +61,7 @@ SET SUBPARTITION TEMPLATE
 
 			tableDef.IsExternal = false
 			backup.PrintCreateTableStatement(backupfile, toc, testTable, tableDef, tableMetadata)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "tablename", "TABLE")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "tablename", "TABLE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
 ) DISTRIBUTED RANDOMLY;
 
@@ -499,7 +499,7 @@ COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 		It("can print a sequence with all default options", func() {
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, emptySequenceMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "seq_name", "SEQUENCE")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "seq_name", "SEQUENCE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
 	INCREMENT BY 1
 	NO MAXVALUE
@@ -640,7 +640,7 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;", DependsUpon: []string{}}
 			viewMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne, viewTwo}, viewMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", `"WowZa"`, "VIEW")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", `"WowZa"`, "VIEW")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
 				`CREATE VIEW public."WowZa" AS SELECT rolname FROM pg_role;`,
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;`)
@@ -677,7 +677,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 		It("can print an ALTER SEQUENCE statement for a sequence with an owning column", func() {
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintAlterSequenceStatements(backupfile, toc, sequences, columnOwnerMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "seq_name", "SEQUENCE OWNER")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "seq_name", "SEQUENCE OWNER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER SEQUENCE public.seq_name OWNED BY tablename.col_one;`)
 		})
 	})

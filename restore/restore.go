@@ -196,7 +196,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 
 func restorePostdata(metadataFilename string) {
 	logger.Info("Restoring post-data metadata")
-	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, includeSchemas, []string{})
+	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, includeSchemas, includeTables)
 	ExecuteRestoreMetadataStatements(statements, "Post-data objects", utils.PB_VERBOSE, false)
 	logger.Info("Post-data metadata restore complete")
 }
