@@ -22,7 +22,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				addFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: 0, Language: "sql",
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: 0, Language: "sql", ExecLocation: "a",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, toc, addFunction, funcMetadata)
@@ -39,7 +39,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				appendFunction := backup.Function{
 					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
-					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql",
+					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql", ExecLocation: "a",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, toc, appendFunction, funcMetadata)
@@ -56,7 +56,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				dupFunction := backup.Function{
 					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
 					BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "TABLE(f1 integer, f2 text)",
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql",
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql", ExecLocation: "a",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, toc, dupFunction, funcMetadata)
@@ -70,7 +70,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
 			})
 		})
-		Context("Tests for GPDB 5", func() {
+		Context("Tests for GPDB 5 and GPDB 6", func() {
 			BeforeEach(func() {
 				testutils.SkipIf4(connection)
 			})
@@ -80,7 +80,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql",
+					Language: "sql", ExecLocation: "a",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, toc, addFunction, funcMetadata)
@@ -91,6 +91,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
+
 				testutils.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
 			})
 			It("creates a function that returns a set", func() {
@@ -98,7 +99,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
 					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO pg_temp", Cost: 200,
-					NumRows: 200, DataAccess: "m", Language: "sql",
+					NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, toc, appendFunction, funcMetadata)
@@ -109,6 +110,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
+
 				testutils.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
 			})
 			It("creates a function that returns a table", func() {
@@ -116,7 +118,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
 					BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "TABLE(f1 integer, f2 text)",
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
-					Language: "sql",
+					Language: "sql", ExecLocation: "a",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, toc, dupFunction, funcMetadata)
@@ -135,12 +137,12 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.SkipIfBefore6(connection)
 			})
 			funcMetadata := backup.ObjectMetadata{}
-			It("creates a function with GPDB 6 features", func() {
+			It("creates a window function to execute on master", func() {
 				windowFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", IsWindow: true,
+					Language: "sql", IsWindow: true, ExecLocation: "m",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, toc, windowFunction, funcMetadata)
@@ -152,6 +154,24 @@ var _ = Describe("backup integration create statement tests", func() {
 
 				Expect(len(resultFunctions)).To(Equal(1))
 				testutils.ExpectStructsToMatchExcluding(&windowFunction, &resultFunctions[0], "Oid")
+			})
+			It("creates a function to execute on segments", func() {
+				segmentFunction := backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "sql", IsWindow: false, ExecLocation: "s",
+				}
+
+				backup.PrintCreateFunctionStatement(backupfile, toc, segmentFunction, funcMetadata)
+
+				testutils.AssertQueryRuns(connection, buffer.String())
+				defer testutils.AssertQueryRuns(connection, "DROP FUNCTION add(integer, integer)")
+
+				resultFunctions := backup.GetFunctionsAllVersions(connection)
+
+				Expect(len(resultFunctions)).To(Equal(1))
+				testutils.ExpectStructsToMatchExcluding(&segmentFunction, &resultFunctions[0], "Oid")
 			})
 		})
 	})

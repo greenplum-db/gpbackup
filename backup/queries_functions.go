@@ -31,7 +31,8 @@ type Function struct {
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
 	DependsUpon       []string
-	IsWindow          bool `db:"proiswindow"`
+	IsWindow          bool   `db:"proiswindow"`
+	ExecLocation      string `db:"proexeclocation"`
 }
 
 /*
@@ -63,9 +64,11 @@ func GetFunctionsAllVersions(connection *utils.DBConn) []Function {
 }
 
 func GetFunctionsMaster(connection *utils.DBConn) []Function {
-	windowAtts := ""
+	masterAtts := ""
 	if connection.Version.AtLeast("6") {
-		windowAtts = "proiswindow,"
+		masterAtts = "proiswindow,proexeclocation,"
+	} else {
+		masterAtts = "'a' AS proexeclocation,"
 	}
 	query := fmt.Sprintf(`
 SELECT
@@ -95,7 +98,7 @@ LEFT JOIN pg_namespace n
 	ON p.pronamespace = n.oid
 WHERE %s
 AND proisagg = 'f'
-ORDER BY nspname, proname, identargs;`, windowAtts, SchemaFilterClause("n"))
+ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"))
 
 	results := make([]Function, 0)
 	err := connection.Select(&results, query)
@@ -122,6 +125,7 @@ SELECT
 	provolatile,
 	proisstrict,
 	prosecdef,
+	'a' AS proexeclocation,
 	(SELECT lanname FROM pg_catalog.pg_language WHERE oid = prolang) AS language
 FROM pg_proc p
 LEFT JOIN pg_namespace n

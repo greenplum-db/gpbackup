@@ -14,7 +14,7 @@ var _ = Describe("backup/predata_functions tests", func() {
 	})
 	Describe("Functions involved in printing CREATE FUNCTION statements", func() {
 		var funcDef backup.Function
-		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", DependsUpon: nil}
+		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", DependsUpon: nil, ExecLocation: "a"}
 		BeforeEach(func() {
 			funcDef = funcDefault
 		})
@@ -150,6 +150,23 @@ $_$`)
 				funcDef.IsWindow = true
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testutils.ExpectRegexp(buffer, "WINDOW")
+			})
+			Context("Execlocation cases", func() {
+				It("Default", func() {
+					funcDef.ExecLocation = "a"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					Expect(buffer.Contents()).To(Equal([]byte{}))
+				})
+				It("print 'm' as EXECUTE ON MASTER", func() {
+					funcDef.ExecLocation = "m"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testutils.ExpectRegexp(buffer, "EXECUTE ON MASTER")
+				})
+				It("print 's' as EXECUTE ON ALL SEGMENTS", func() {
+					funcDef.ExecLocation = "s"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testutils.ExpectRegexp(buffer, "EXECUTE ON ALL SEGMENTS")
+				})
 			})
 			Context("Cost cases", func() {
 				/*

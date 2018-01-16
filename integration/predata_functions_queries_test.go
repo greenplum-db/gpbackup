@@ -38,12 +38,12 @@ MODIFIES SQL DATA
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql"}
+				Language: "sql", ExecLocation: "a"}
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
 				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO pg_temp", Cost: 200,
-				NumRows: 200, DataAccess: "m", Language: "sql"}
+				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
 
 			Expect(len(results)).To(Equal(2))
 			testutils.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
@@ -65,7 +65,7 @@ LANGUAGE SQL`)
 				Schema: "testschema", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql"}
+				Language: "sql", ExecLocation: "a"}
 			backup.SetIncludeSchemas([]string{"testschema"})
 			results := backup.GetFunctionsMaster(connection)
 
@@ -85,10 +85,40 @@ LANGUAGE SQL WINDOW`)
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true}
+				Language: "sql", IsWindow: true, ExecLocation: "a"}
 
 			Expect(len(results)).To(Equal(1))
 			testutils.ExpectStructsToMatchExcluding(&results[0], &windowFunction, "Oid")
+		})
+		It("returns a function to execute on master and all segments", func() {
+			testutils.SkipIfBefore6(connection)
+			testutils.AssertQueryRuns(connection, `CREATE FUNCTION srf_on_master(integer, integer) RETURNS integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON MASTER;`)
+			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION srf_on_master(integer, integer)")
+			testutils.AssertQueryRuns(connection, `CREATE FUNCTION srf_on_all_segments(integer, integer) RETURNS integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON ALL SEGMENTS;`)
+			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION srf_on_all_segments(integer, integer)")
+
+			results := backup.GetFunctionsMaster(connection)
+
+			srfOnMasterFunction := backup.Function{
+				Schema: "public", Name: "srf_on_master", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", IsWindow: true, ExecLocation: "m"}
+			srfOnAllSegmentsFunction := backup.Function{
+				Schema: "public", Name: "srf_on_all_segments", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", IsWindow: true, ExecLocation: "s"}
+
+			Expect(len(results)).To(Equal(2))
+			testutils.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
+			testutils.ExpectStructsToMatchExcluding(&results[1], &srfOnMasterFunction, "Oid")
 		})
 	})
 	Describe("GetFunctions4", func() {
@@ -118,15 +148,15 @@ STABLE
 			addFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, NumRows: 0, Language: "sql"}
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, NumRows: 0, Language: "sql", ExecLocation: "a"}
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
-				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql"}
+				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql", ExecLocation: "a"}
 			specCharFunction := backup.Function{
 				Schema: "public", Name: `"specChar"`, ReturnsSet: false, FunctionBody: "BEGIN RETURN precision + 1; END;",
 				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, NumRows: 0, Language: "plpgsql"}
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, NumRows: 0, Language: "plpgsql", ExecLocation: "a"}
 
 			Expect(len(results)).To(Equal(3))
 			testutils.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
@@ -148,7 +178,7 @@ LANGUAGE SQL`)
 			addFunction := backup.Function{
 				Schema: "testschema", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql"}
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql", ExecLocation: "a"}
 			backup.SetIncludeSchemas([]string{"testschema"})
 			results := backup.GetFunctions4(connection)
 
