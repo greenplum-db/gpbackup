@@ -155,7 +155,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 		globalCluster.WriteOidListToSegments(filteredMasterDataEntries)
 		defer globalCluster.CleanUpHelperFilesOnAllHosts()
 		firstOid := filteredMasterDataEntries[0].Oid
-		globalCluster.CreateSegmentPipesOnAllHosts(firstOid)
+		globalCluster.CreateSegmentPipesOnAllHostsForRestore(firstOid)
 		globalCluster.WriteToSegmentPipes()
 	}
 

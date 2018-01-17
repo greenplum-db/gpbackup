@@ -1,6 +1,8 @@
 package restore
 
 import (
+	"fmt"
+
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -144,7 +146,7 @@ func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalT
 	}
 	backupFile := ""
 	if backupConfig.SingleDataFile {
-		backupFile = globalCluster.GetSegmentPipePathForCopyCommand()
+		backupFile = fmt.Sprintf("%s_%d", globalCluster.GetSegmentPipePathForCopyCommand(), globalCluster.PID)
 	} else {
 		backupFile = globalCluster.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
 	}
