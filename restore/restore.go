@@ -102,7 +102,7 @@ func DoRestore() {
 		if !backupConfig.SingleDataFile {
 			backupFileCount = len(globalTOC.DataEntries)
 		}
-		globalCluster.VerifyBackupFileCountOnSegments(backupFileCount)
+		VerifyBackupFileCountOnSegments(globalCluster, backupFileCount)
 		restoreData(gucStatements)
 	}
 
@@ -149,14 +149,14 @@ func restoreData(gucStatements []utils.StatementWithType) {
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
 	if backupConfig.SingleDataFile {
 		logger.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
-		globalCluster.VerifyHelperVersionOnSegments(version)
-		globalCluster.CopySegmentTOCs()
-		defer globalCluster.CleanUpSegmentTOCs()
-		globalCluster.WriteOidListToSegments(filteredMasterDataEntries)
-		defer globalCluster.CleanUpHelperFilesOnAllHosts()
+		VerifyHelperVersionOnSegments(globalCluster, version)
+		CopySegmentTOCs(globalCluster)
+		defer CleanUpSegmentTOCs(globalCluster)
+		WriteOidListToSegments(globalCluster, filteredMasterDataEntries)
+		defer CleanUpHelperFilesOnAllHosts(globalCluster)
 		firstOid := filteredMasterDataEntries[0].Oid
-		globalCluster.CreateSegmentPipesOnAllHostsForRestore(firstOid)
-		globalCluster.WriteToSegmentPipes()
+		CreateSegmentPipesOnAllHostsForRestore(globalCluster, firstOid)
+		WriteToSegmentPipes(globalCluster)
 	}
 
 	totalTables := len(filteredMasterDataEntries)

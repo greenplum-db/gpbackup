@@ -70,7 +70,7 @@ func DoSetup() {
 	segConfig := utils.GetSegmentConfiguration(connection)
 	segPrefix := utils.GetSegPrefix(connection)
 	globalCluster = utils.NewCluster(segConfig, *backupDir, timestamp, segPrefix)
-	globalCluster.CreateBackupDirectoriesOnAllHosts()
+	CreateBackupDirectoriesOnAllHosts(globalCluster)
 	globalTOC = &utils.TOC{}
 	globalTOC.InitializeEntryMap()
 }
@@ -203,7 +203,7 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	BackupData(tables, tableDefs)
 	AddTableDataEntriesToTOC(tables, tableDefs)
 	if *singleDataFile {
-		globalCluster.MoveSegmentTOCsAndMakeReadOnly()
+		MoveSegmentTOCsAndMakeReadOnly(globalCluster)
 	}
 	logger.Info("Data backup complete")
 }

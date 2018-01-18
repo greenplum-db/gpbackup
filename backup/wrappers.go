@@ -461,10 +461,10 @@ func BackupTriggers(metadataFile *utils.FileWithByteCount) {
 
 func BackupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	if *singleDataFile {
-		globalCluster.CreateSegmentPipesOnAllHostsForBackup()
-		defer globalCluster.CleanUpSegmentPipesOnAllHosts()
-		globalCluster.ReadFromSegmentPipes()
-		defer globalCluster.CleanUpSegmentTailProcesses()
+		CreateSegmentPipesOnAllHostsForBackup(globalCluster)
+		defer CleanUpSegmentPipesOnAllHosts(globalCluster)
+		ReadFromSegmentPipes(globalCluster)
+		defer CleanUpSegmentTailProcesses(globalCluster)
 	}
 	BackupDataForAllTables(tables, tableDefs)
 }

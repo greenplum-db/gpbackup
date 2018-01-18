@@ -61,11 +61,11 @@ func DoPostgresValidation() {
 	segConfig := utils.GetSegmentConfiguration(connection)
 	globalCluster = utils.NewCluster(segConfig, *backupDir, *timestamp, "")
 	globalCluster.UserSpecifiedSegPrefix = utils.ParseSegPrefix(*backupDir)
-	globalCluster.VerifyBackupDirectoriesExistOnAllHosts()
+	VerifyBackupDirectoriesExistOnAllHosts(globalCluster)
 
 	InitializeBackupConfig()
 	ValidateBackupFlagCombinations()
-	globalCluster.VerifyMetadataFilePaths(backupConfig.DataOnly, *withStats)
+	VerifyMetadataFilePaths(globalCluster, backupConfig.DataOnly, *withStats)
 
 	tocFilename := globalCluster.GetTOCFilePath()
 	globalTOC = utils.NewTOC(tocFilename)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/pkg/errors"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -215,16 +214,14 @@ var _ = Describe("utils/cluster tests", func() {
 			Expect(clusterOutput.Errors[0].Error()).To(Equal("exec: \"some-non-existent-command\": executable file not found in $PATH"))
 		})
 	})
-	Describe("LogFatalError", func() {
+	Describe("LogFatalClusterError", func() {
 		It("logs an error for 1 segment", func() {
-			cluster := utils.NewCluster(nil, "", "20170101010101", "gpseg")
 			defer testutils.ShouldPanicWithMessage("Error occurred on 1 segment. See gbytes.Buffer for a complete list of segments with errors.")
-			cluster.LogFatalError("Error occurred", 1)
+			utils.LogFatalClusterError("Error occurred", 1)
 		})
 		It("logs an error for more than 1 segment", func() {
-			cluster := utils.NewCluster(nil, "", "20170101010101", "gpseg")
 			defer testutils.ShouldPanicWithMessage("Error occurred on 2 segments. See gbytes.Buffer for a complete list of segments with errors.")
-			cluster.LogFatalError("Error occurred", 2)
+			utils.LogFatalClusterError("Error occurred", 2)
 		})
 	})
 	Describe("cluster setup and accessor functions", func() {
@@ -311,111 +308,6 @@ var _ = Describe("utils/cluster tests", func() {
 			Expect(cluster.GetTableBackupFilePath(-1, 1234, true)).To(Equal("/foo/bar/gpseg-1/backups/20170101/20170101010101/gpbackup_-1_20170101010101"))
 		})
 	})
-	Describe("VerifyBackupFileCountOnSegments", func() {
-		It("successfully verifies all backup file counts", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 0,
-			}
-			testCluster.VerifyBackupFileCountOnSegments(2)
-			Expect((*testExecutor).NumExecutions).To(Equal(1))
-		})
-		It("panics if backup file counts do not match on all segments", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				Stdouts: map[int]string{
-					0: "1",
-					1: "1",
-				},
-			}
-			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Found incorrect number of backup files on 2 segments")
-			testCluster.VerifyBackupFileCountOnSegments(2)
-		})
-		It("panics if backup file counts do not match on some segments", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				Stdouts: map[int]string{
-					1: "1",
-				},
-			}
-			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Found incorrect number of backup files on 1 segment")
-			testCluster.VerifyBackupFileCountOnSegments(2)
-		})
-		It("panics if it cannot verify some backup file counts", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 1,
-				Errors: map[int]error{
-					1: errors.Errorf("exit status 1"),
-				},
-			}
-			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Could not verify backup file count on 1 segment")
-			testCluster.VerifyBackupFileCountOnSegments(2)
-		})
-	})
-	Describe("VerifyBackupDirectoriesExistOnAllHosts", func() {
-		It("successfully verifies all directories", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 0,
-			}
-			testCluster.VerifyBackupDirectoriesExistOnAllHosts()
-			Expect((*testExecutor).NumExecutions).To(Equal(1))
-		})
-		It("panics if it cannot verify all directories", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 2,
-				Errors: map[int]error{
-					0: errors.Errorf("exit status 1"),
-					1: errors.Errorf("exit status 1"),
-				},
-			}
-			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Backup directories missing or inaccessible on 2 segments")
-			testCluster.VerifyBackupDirectoriesExistOnAllHosts()
-		})
-		It("panics if it cannot verify some directories", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 1,
-				Errors: map[int]error{
-					1: errors.Errorf("exit status 1"),
-				},
-			}
-			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Backup directories missing or inaccessible on 1 segment")
-			testCluster.VerifyBackupDirectoriesExistOnAllHosts()
-		})
-	})
-	Describe("CreateBackupDirectoriesOnAllHosts", func() {
-		It("successfully creates all directories", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 0,
-			}
-			testCluster.CreateBackupDirectoriesOnAllHosts()
-			Expect((*testExecutor).NumExecutions).To(Equal(1))
-		})
-		It("panics if it cannot create all directories", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 2,
-				Errors: map[int]error{
-					0: errors.Errorf("exit status 1"),
-					1: errors.Errorf("exit status 1"),
-				},
-			}
-			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Unable to create backup directories on 2 segments")
-			testCluster.CreateBackupDirectoriesOnAllHosts()
-		})
-		It("panics if it cannot create some directories", func() {
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
-				NumErrors: 1,
-				Errors: map[int]error{
-					1: errors.Errorf("exit status 1"),
-				},
-			}
-			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Unable to create backup directories on 1 segment")
-			testCluster.CreateBackupDirectoriesOnAllHosts()
-		})
-	})
 	Describe("ParseSegPrefix", func() {
 		AfterEach(func() {
 			utils.System.Glob = filepath.Glob
@@ -438,50 +330,6 @@ var _ = Describe("utils/cluster tests", func() {
 			}
 			defer testutils.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
 			Expect(utils.ParseSegPrefix("/tmp/foo")).To(Equal("gpseg"))
-		})
-	})
-	Describe("InitializeCompressionParameters", func() {
-		It("initializes properly when passed no compression", func() {
-			useCompress, compression := utils.GetCompressionParameters()
-			defer utils.SetCompressionParameters(useCompress, compression)
-			expectedCompress := utils.Compression{
-				Name:              "gzip",
-				CompressCommand:   "gzip -c -3",
-				DecompressCommand: "gzip -d -c",
-				Extension:         ".gz",
-			}
-			utils.InitializeCompressionParameters(false, 3)
-			resultUseCompress, resultCompression := utils.GetCompressionParameters()
-			Expect(resultUseCompress).To(BeFalse())
-			testutils.ExpectStructsToMatch(&expectedCompress, &resultCompression)
-		})
-		It("initializes properly when passed compression", func() {
-			useCompress, compression := utils.GetCompressionParameters()
-			defer utils.SetCompressionParameters(useCompress, compression)
-			expectedCompress := utils.Compression{
-				Name:              "gzip",
-				CompressCommand:   "gzip -c -7",
-				DecompressCommand: "gzip -d -c",
-				Extension:         ".gz",
-			}
-			utils.InitializeCompressionParameters(true, 7)
-			resultUseCompress, resultCompression := utils.GetCompressionParameters()
-			Expect(resultUseCompress).To(BeTrue())
-			testutils.ExpectStructsToMatch(&expectedCompress, &resultCompression)
-		})
-		It("uses default gzip command when passed compression level 0", func() {
-			useCompress, compression := utils.GetCompressionParameters()
-			defer utils.SetCompressionParameters(useCompress, compression)
-			expectedCompress := utils.Compression{
-				Name:              "gzip",
-				CompressCommand:   "gzip -c -1",
-				DecompressCommand: "gzip -d -c",
-				Extension:         ".gz",
-			}
-			utils.InitializeCompressionParameters(true, 0)
-			resultUseCompress, resultCompression := utils.GetCompressionParameters()
-			Expect(resultUseCompress).To(BeTrue())
-			testutils.ExpectStructsToMatch(&expectedCompress, &resultCompression)
 		})
 	})
 })

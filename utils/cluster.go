@@ -1,8 +1,9 @@
 package utils
 
 /*
- * This file contains structs and functions related to interacting with files
- * and directories, both locally and remotely over SSH.
+ * This file contains structs and functions used in both backup and restore
+ * related to interacting with files and directories, both locally and
+ * remotely over SSH.
  */
 
 import (
@@ -16,38 +17,6 @@ import (
 
 	"github.com/pkg/errors"
 )
-
-var (
-	usingCompression   = true
-	compressionProgram Compression
-)
-
-type Compression struct {
-	Name              string
-	CompressCommand   string
-	DecompressCommand string
-	Extension         string
-}
-
-func InitializeCompressionParameters(compress bool, compressionLevel int) {
-	usingCompression = compress
-	compressCommand := ""
-	if compressionLevel == 0 {
-		compressCommand = "gzip -c -1"
-	} else {
-		compressCommand = fmt.Sprintf("gzip -c -%d", compressionLevel)
-	}
-	compressionProgram = Compression{Name: "gzip", CompressCommand: compressCommand, DecompressCommand: "gzip -d -c", Extension: ".gz"}
-}
-
-func GetCompressionParameters() (bool, Compression) {
-	return usingCompression, compressionProgram
-}
-
-func SetCompressionParameters(compress bool, compression Compression) {
-	usingCompression = compress
-	compressionProgram = compression
-}
 
 type Executor interface {
 	ExecuteLocalCommand(commandStr string) error
@@ -82,12 +51,8 @@ type RemoteOutput struct {
 }
 
 /*
- * Cluster functions
+ * Base cluster functions
  */
-
-func (cluster *Cluster) IsUserSpecifiedBackupDir() bool {
-	return cluster.UserSpecifiedBackupDir != ""
-}
 
 func NewCluster(segConfigs []SegConfig, userSpecifiedBackupDir string, timestamp string, userSegPrefix string) Cluster {
 	cluster := Cluster{}
@@ -136,7 +101,7 @@ func (executor *GPDBExecutor) ExecuteLocalCommand(commandStr string) error {
 	return err
 }
 
-func NewRemoteOutput(numIDs int) *RemoteOutput {
+func newRemoteOutput(numIDs int) *RemoteOutput {
 	stdout := make(map[int]string, numIDs)
 	stderr := make(map[int]string, numIDs)
 	err := make(map[int]error, numIDs)
@@ -152,7 +117,7 @@ func (executor *GPDBExecutor) ExecuteClusterCommand(commandMap map[int][]string)
 		contentIDs[i] = key
 		i++
 	}
-	output := NewRemoteOutput(length)
+	output := newRemoteOutput(length)
 	stdouts := make([]string, length)
 	stderrs := make([]string, length)
 	errors := make([]error, length)
@@ -208,225 +173,11 @@ func (cluster *Cluster) CheckClusterError(remoteOutput *RemoteOutput, finalErrMs
 	if len(noFatal) == 1 && noFatal[0] == true {
 		logger.Error(finalErrMsg)
 	} else {
-		cluster.LogFatalError(finalErrMsg, remoteOutput.NumErrors)
+		LogFatalClusterError(finalErrMsg, remoteOutput.NumErrors)
 	}
 }
 
-func (cluster *Cluster) VerifyBackupDirectoriesExistOnAllHosts() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Verifying backup directories exist", func(contentID int) string {
-		return fmt.Sprintf("test -d %s", cluster.GetDirForContent(contentID))
-	}, true)
-	cluster.CheckClusterError(remoteOutput, "Backup directories missing or inaccessible", func(contentID int) string {
-		return fmt.Sprintf("Backup directory %s missing or inaccessible", cluster.GetDirForContent(contentID))
-	})
-}
-
-func (cluster *Cluster) CreateBackupDirectoriesOnAllHosts() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Creating backup directories", func(contentID int) string {
-		return fmt.Sprintf("mkdir -p %s", cluster.GetDirForContent(contentID))
-	}, true)
-	cluster.CheckClusterError(remoteOutput, "Unable to create backup directories", func(contentID int) string {
-		return fmt.Sprintf("Unable to create backup directory %s", cluster.GetDirForContent(contentID))
-	})
-}
-
-/*
- * This is used to create a pipe file during backup without an oid in the name
- */
-func (cluster *Cluster) CreateSegmentPipesOnAllHostsForBackup() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Creating segment data pipes", func(contentID int) string {
-		pipeName := cluster.GetSegmentPipeFilePath(contentID)
-		return fmt.Sprintf("mkfifo %s", pipeName)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to create segment data pipes", func(contentID int) string {
-		return "Unable to create segment data pipe"
-	})
-}
-
-/*
- * This is used to create the first table pipe for the restore agent with an oid in the name.
- */
-func (cluster *Cluster) CreateSegmentPipesOnAllHostsForRestore(oid uint32) {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Creating segment data pipes", func(contentID int) string {
-		pipeName := cluster.GetSegmentPipeFilePathWithPID(contentID)
-		pipeName = fmt.Sprintf("%s_%d", pipeName, oid)
-		return fmt.Sprintf("mkfifo %s", pipeName)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to create segment data pipes", func(contentID int) string {
-		return "Unable to create segment data pipe"
-	})
-}
-
-func (cluster *Cluster) CleanUpSegmentPipesOnAllHosts() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Cleaning up segment data pipes", func(contentID int) string {
-		pipePath := cluster.GetSegmentPipeFilePath(contentID)
-		scriptPath := cluster.GetSegmentHelperFilePath(contentID, "script")
-		// This cleans up both the pipe itself as well as any gpbackup_helper process associated with it
-		return fmt.Sprintf("set -o pipefail; rm -f %s* && ps ux | grep %s | grep -v grep | awk '{print $2}' | xargs kill -9 || true", pipePath, scriptPath)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to clean up segment data pipes", func(contentID int) string {
-		return "Unable to clean up segment data pipe"
-	})
-}
-
-func (cluster *Cluster) ReadFromSegmentPipes() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Reading from segment data pipes", func(contentID int) string {
-		usingCompression, compressionProgram := GetCompressionParameters()
-		pipeFile := cluster.GetSegmentPipeFilePath(contentID)
-		compress := compressionProgram.CompressCommand
-		backupFile := cluster.GetTableBackupFilePath(contentID, 0, true)
-		if usingCompression {
-			return fmt.Sprintf("set -o pipefail; nohup tail -n +1 -f %s | %s > %s &", pipeFile, compress, backupFile)
-		}
-		return fmt.Sprintf("nohup tail -n +1 -f %s > %s &", pipeFile, backupFile)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to read from segment data pipes", func(contentID int) string {
-		return "Unable to read from segment data pipe"
-	})
-}
-
-func (cluster *Cluster) CleanUpSegmentTailProcesses() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Cleaning up segment tail processes", func(contentID int) string {
-		filePattern := fmt.Sprintf("gpbackup_%d_%s", contentID, cluster.Timestamp) // Matches pipe name for backup and file name for restore
-		return fmt.Sprintf(`ps ux | grep "tail -n +1 -f" | grep "%s" | grep -v "grep" | awk '{print $2}' | xargs kill -9`, filePattern)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to clean up tail processes", func(contentID int) string {
-		return "Unable to clean up tail process"
-	})
-}
-
-func (cluster *Cluster) WriteToSegmentPipes() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Writing to segment data pipes", func(contentID int) string {
-		tocFile := cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		oidFile := cluster.GetSegmentHelperFilePath(contentID, "oid")
-		scriptFile := cluster.GetSegmentHelperFilePath(contentID, "script")
-		pipeFile := cluster.GetSegmentPipeFilePathWithPID(contentID)
-		backupFile := cluster.GetTableBackupFilePath(contentID, 0, true)
-		gphomePath := System.Getenv("GPHOME")
-		return fmt.Sprintf(`cat << HEREDOC > %s
-#!/bin/bash
-%s/bin/gpbackup_helper --restore-agent --toc-file %s --oid-file %s --pipe-file %s --data-file %s --content %d
-HEREDOC
-
-chmod +x %s; (nohup %s > /dev/null 2>&1 &) &`, scriptFile, gphomePath, tocFile, oidFile, pipeFile, backupFile, contentID, scriptFile, scriptFile)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to write to segment data pipes", func(contentID int) string {
-		return fmt.Sprintf("Unable to write to data pipe for segment %d on host %s", contentID, cluster.GetHostForContent(contentID))
-	})
-}
-
-func (cluster *Cluster) WriteOidListToSegments(filteredEntries []MasterDataEntry) {
-	filteredOids := make([]string, len(filteredEntries))
-	for i, entry := range filteredEntries {
-		filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
-	}
-	oidStr := strings.Join(filteredOids, "\n")
-	remoteOutput := cluster.GenerateAndExecuteCommand("Writing filtered oid list to segments", func(contentID int) string {
-		oidFile := cluster.GetSegmentHelperFilePath(contentID, "oid")
-		return fmt.Sprintf(`echo "%s" > %s`, oidStr, oidFile)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to write oid list to segments", func(contentID int) string {
-		return fmt.Sprintf("Unable to write oid list for segment %d on host %s", contentID, cluster.GetHostForContent(contentID))
-	})
-}
-
-func (cluster *Cluster) CleanUpHelperFilesOnAllHosts() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", func(contentID int) string {
-		oidFile := cluster.GetSegmentHelperFilePath(contentID, "oid")
-		scriptFile := cluster.GetSegmentHelperFilePath(contentID, "script")
-		return fmt.Sprintf("rm %s && rm %s", oidFile, scriptFile)
-	})
-	errMsg := fmt.Sprintf("Unable to remove segment helper file(s). See %s for a complete list of segments with errors and remove manually.",
-		logger.GetLogFilePath())
-	cluster.CheckClusterError(remoteOutput, errMsg, func(contentID int) string {
-		tocFile := cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		return fmt.Sprintf("Unable to remove helper file %s on segment %d on host %s", tocFile, contentID, cluster.GetHostForContent(contentID))
-	}, true)
-}
-
-func (cluster *Cluster) MoveSegmentTOCsAndMakeReadOnly() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Setting permissions on segment table of contents files and moving to backup directories", func(contentID int) string {
-		tocFile := cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		return fmt.Sprintf("chmod 444 %s; mv %s %s/.", tocFile, tocFile, cluster.GetDirForContent(contentID))
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to set permissions on or move segment table of contents files", func(contentID int) string {
-		return fmt.Sprintf("Unable to set permissions on or move file %s", cluster.GetSegmentTOCFilePath(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID)))
-	})
-}
-
-func (cluster *Cluster) CopySegmentTOCs() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Copying segment table of contents files from backup directories", func(contentID int) string {
-		tocFile := cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		tocFilename := fmt.Sprintf("gpbackup_%d_%s_toc.yaml", contentID, cluster.Timestamp)
-		return fmt.Sprintf("cp -f %s/%s %s", cluster.GetDirForContent(contentID), tocFilename, tocFile)
-	})
-	cluster.CheckClusterError(remoteOutput, "Unable to copy segment table of contents files from backup directories", func(contentID int) string {
-		return fmt.Sprintf("Unable to copy segment table of contents file to %s", cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID)))
-	})
-}
-
-func (cluster *Cluster) VerifyBackupFileCountOnSegments(fileCount int) {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Verifying backup file count", func(contentID int) string {
-		return fmt.Sprintf("find %s -type f | wc -l", cluster.GetDirForContent(contentID))
-	})
-	cluster.CheckClusterError(remoteOutput, "Could not verify backup file count", func(contentID int) string {
-		return "Could not verify backup file count"
-	})
-
-	s := ""
-	if fileCount != 1 {
-		s = "s"
-	}
-	numIncorrect := 0
-	for contentID := range remoteOutput.Stdouts {
-		numFound, _ := strconv.Atoi(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
-		if numFound != fileCount {
-			logger.Verbose("Expected to find %d file%s on segment %d on host %s, but found %d instead.", fileCount, s, contentID, cluster.GetHostForContent(contentID), numFound)
-			numIncorrect++
-		}
-	}
-	if numIncorrect > 0 {
-		cluster.LogFatalError("Found incorrect number of backup files", numIncorrect)
-	}
-}
-
-func (cluster *Cluster) VerifyHelperVersionOnSegments(version string) {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Verifying gpbackup_helper version", func(contentID int) string {
-		gphome := System.Getenv("GPHOME")
-		return fmt.Sprintf("%s/bin/gpbackup_helper --version", gphome)
-	})
-	cluster.CheckClusterError(remoteOutput, "Could not verify gpbackup_helper version", func(contentID int) string {
-		return "Could not verify gpbackup_helper version"
-	})
-
-	numIncorrect := 0
-	for contentID := range remoteOutput.Stdouts {
-		segVersion := strings.TrimSpace(remoteOutput.Stdouts[contentID])
-		segVersion = strings.Split(segVersion, " ")[1] // Format is "gpbackup_helper [version string]"
-		if segVersion != version {
-			logger.Verbose("Version mismatch for gpbackup_helper on segment %d on host %s: Expected version %s, found version %s.", contentID, cluster.GetHostForContent(contentID), version, segVersion)
-			numIncorrect++
-		}
-	}
-	if numIncorrect > 0 {
-		cluster.LogFatalError("The version of gpbackup_helper must match the version of gprestore, but found gpbackup_helper binaries with invalid version", numIncorrect)
-	}
-}
-
-func (cluster *Cluster) CleanUpSegmentTOCs() {
-	remoteOutput := cluster.GenerateAndExecuteCommand("Removing segment table of contents files from segment data directories", func(contentID int) string {
-		tocFile := cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		return fmt.Sprintf("rm %s", tocFile)
-	})
-	errMsg := fmt.Sprintf("Unable to remove segment table of contents file(s). See %s for a complete list of segments with errors and remove manually.",
-		logger.GetLogFilePath())
-	cluster.CheckClusterError(remoteOutput, errMsg, func(contentID int) string {
-		tocFile := cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		return fmt.Sprintf("Unable to remove table of contents file %s on segment %d on host %s", tocFile, contentID, cluster.GetHostForContent(contentID))
-	}, true)
-}
-
-func (cluster *Cluster) LogFatalError(errMessage string, numErrors int) {
+func LogFatalClusterError(errMessage string, numErrors int) {
 	s := ""
 	if numErrors != 1 {
 		s = "s"
@@ -434,12 +185,20 @@ func (cluster *Cluster) LogFatalError(errMessage string, numErrors int) {
 	logger.Fatal(errors.Errorf("%s on %d segment%s. See %s for a complete list of segments with errors.", errMessage, numErrors, s, logger.GetLogFilePath()), "")
 }
 
+/*
+ * Shared cluster functions that are used in both backup and restore
+ */
+
 func (cluster *Cluster) GetContentList() []int {
 	return cluster.ContentIDs
 }
 
 func (cluster *Cluster) GetHostForContent(contentID int) string {
 	return cluster.SegHostMap[contentID]
+}
+
+func (cluster *Cluster) IsUserSpecifiedBackupDir() bool {
+	return cluster.UserSpecifiedBackupDir != ""
 }
 
 func (cluster *Cluster) GetDirForContent(contentID int) string {
@@ -488,10 +247,6 @@ func (cluster *Cluster) GetTableBackupFilePathForCopyCommand(tableOid uint32, si
 	return path.Join(baseDir, "backups", cluster.Timestamp[0:8], cluster.Timestamp, backupFilePath)
 }
 
-/*
- * Backup and restore filename functions
- */
-
 var metadataFilenameMap = map[string]string{
 	"config":            "config.yaml",
 	"metadata":          "metadata.sql",
@@ -538,32 +293,6 @@ func (cluster *Cluster) GetSegmentTOCFilePathWithPID(topDir string, contentStr s
 
 func (cluster *Cluster) GetSegmentHelperFilePath(contentID int, suffix string) string {
 	return path.Join(cluster.SegDirMap[contentID], fmt.Sprintf("gpbackup_%d_%s_%s_%d", contentID, cluster.Timestamp, suffix, cluster.PID))
-}
-
-func (cluster *Cluster) VerifyMetadataFilePaths(dataOnly bool, withStats bool) {
-	filetypes := []string{"config", "table of contents"}
-	if !dataOnly {
-		filetypes = append(filetypes, "metadata")
-	}
-	missing := false
-	for _, filetype := range filetypes {
-		filepath := cluster.GetBackupFilePath(filetype)
-		if !FileExistsAndIsReadable(filepath) {
-			missing = true
-			logger.Error("Cannot access %s file %s", filetype, filepath)
-		}
-	}
-	if withStats {
-		filepath := cluster.GetStatisticsFilePath()
-		if !FileExistsAndIsReadable(filepath) {
-			missing = true
-			logger.Error("Cannot access statistics file %s", filepath)
-			logger.Error(`Note that the "-with-stats" flag must be passed to gpbackup to generate a statistics file.`)
-		}
-	}
-	if missing {
-		logger.Fatal(errors.Errorf("One or more metadata files do not exist or are not readable."), "Cannot proceed with restore")
-	}
 }
 
 /*
