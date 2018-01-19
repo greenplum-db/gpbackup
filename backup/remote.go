@@ -32,9 +32,7 @@ func CreateSegmentPipesOnAllHostsForBackup(cluster utils.Cluster) {
 func CleanUpSegmentPipesOnAllHosts(cluster utils.Cluster) {
 	remoteOutput := cluster.GenerateAndExecuteCommand("Cleaning up segment data pipes", func(contentID int) string {
 		pipePath := cluster.GetSegmentPipeFilePath(contentID)
-		scriptPath := cluster.GetSegmentHelperFilePath(contentID, "script")
-		// This cleans up both the pipe itself as well as any gpbackup_helper process associated with it
-		return fmt.Sprintf("set -o pipefail; rm -f %s* && ps ux | grep %s | grep -v grep | awk '{print $2}' | xargs kill -9 || true", pipePath, scriptPath)
+		return fmt.Sprintf("rm -f %s", pipePath)
 	})
 	cluster.CheckClusterError(remoteOutput, "Unable to clean up segment data pipes", func(contentID int) string {
 		return "Unable to clean up segment data pipe"
