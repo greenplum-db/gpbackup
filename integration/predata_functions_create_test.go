@@ -263,7 +263,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			castMetadataMap = backup.MetadataMap{}
 		})
 		It("prints a basic cast with a function", func() {
-			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.money", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "money_to_text", FunctionArgs: "money", CastContext: "a"}
+			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.money", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "money_to_text", FunctionArgs: "money", CastContext: "a", CastMethod: "f"}
 
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION money_to_text(money) RETURNS TEXT AS $$ SELECT textin(cash_out($1)) $$ LANGUAGE SQL;")
 			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION money_to_text(money)")
@@ -278,7 +278,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid", "FunctionOid")
 		})
 		It("prints a basic cast without a function", func() {
-			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "public.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i"}
+			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "public.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i", CastMethod: "b"}
 
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION cast_in(cstring) RETURNS casttesttype AS $$textin$$ LANGUAGE internal STRICT NO SQL")
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION cast_out(casttesttype) RETURNS cstring AS $$textout$$ LANGUAGE internal STRICT NO SQL")
@@ -295,7 +295,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid")
 		})
 		It("prints a cast with a comment", func() {
-			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "pg_catalog.money", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "money_to_text", FunctionArgs: "money", CastContext: "a"}
+			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "pg_catalog.money", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "money_to_text", FunctionArgs: "money", CastContext: "a", CastMethod: "f"}
 			castMetadataMap = testutils.DefaultMetadataMap("CAST", false, false, true)
 			castMetadata := castMetadataMap[1]
 
@@ -313,6 +313,21 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadata := resultMetadataMap[resultCasts[0].Oid]
 			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid", "FunctionOid")
 			testutils.ExpectStructsToMatchExcluding(&resultMetadata, &castMetadata, "Oid")
+		})
+		It("prints an inout cast ", func() {
+			testutils.SkipIfBefore6(connection)
+			castDef := backup.Cast{Oid: 0, SourceTypeFQN: `pg_catalog."varchar"`, TargetTypeFQN: "public.custom_numeric", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "a", CastMethod: "i"}
+			testutils.AssertQueryRuns(connection, "CREATE TYPE custom_numeric AS (i numeric)")
+			defer testutils.AssertQueryRuns(connection, "DROP TYPE custom_numeric")
+
+			backup.PrintCreateCastStatements(backupfile, toc, []backup.Cast{castDef}, castMetadataMap)
+			defer testutils.AssertQueryRuns(connection, "DROP CAST (varchar AS custom_numeric)")
+
+			testutils.AssertQueryRuns(connection, buffer.String())
+
+			resultCasts := backup.GetCasts(connection)
+			Expect(len(resultCasts)).To(Equal(1))
+			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid")
 		})
 	})
 	Describe("PrintCreateLanguageStatements", func() {

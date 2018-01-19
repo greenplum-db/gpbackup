@@ -406,6 +406,7 @@ type Cast struct {
 	FunctionName   string
 	FunctionArgs   string
 	CastContext    string
+	CastMethod     string
 }
 
 func GetCasts(connection *utils.DBConn) []Cast {
@@ -419,6 +420,12 @@ func GetCasts(connection *utils.DBConn) []Cast {
 	} else {
 		argStr = `coalesce(pg_get_function_arguments(p.oid), '') AS functionargs,`
 	}
+	methodStr := ""
+	if connection.Version.AtLeast("6") {
+		methodStr = "castmethod,"
+	} else {
+		methodStr = "CASE WHEN c.castfunc = 0 THEN 'b' ELSE 'f' END AS castmethod,"
+	}
 	query := fmt.Sprintf(`
 SELECT
 	c.oid,
@@ -426,6 +433,7 @@ SELECT
 	quote_ident(tn.nspname) || '.' || quote_ident(tt.typname) AS targettypefqn,
 	coalesce(quote_ident(n.nspname), '') AS functionschema,
 	coalesce(quote_ident(p.proname), '') AS functionname,
+	%s
 	%s
 	c.castcontext
 FROM pg_cast c
@@ -438,7 +446,7 @@ LEFT JOIN pg_description d ON c.oid = d.objoid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE (%s) OR (%s) OR (%s)
 ORDER BY 1, 2;
-`, argStr, SchemaFilterClause("sn"), SchemaFilterClause("tn"), SchemaFilterClause("n"))
+`, argStr, methodStr, SchemaFilterClause("sn"), SchemaFilterClause("tn"), SchemaFilterClause("n"))
 
 	casts := make([]Cast, 0)
 	err := connection.Select(&casts, query)

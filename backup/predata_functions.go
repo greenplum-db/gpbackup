@@ -145,11 +145,14 @@ func PrintCreateCastStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		start := metadataFile.ByteCount
 		castStr := fmt.Sprintf("(%s AS %s)", castDef.SourceTypeFQN, castDef.TargetTypeFQN)
 		metadataFile.MustPrintf("\n\nCREATE CAST %s\n", castStr)
-		if castDef.FunctionSchema != "" {
+		switch castDef.CastMethod {
+		case "i":
+			metadataFile.MustPrintf("\tWITH INOUT")
+		case "b":
+			metadataFile.MustPrintf("\tWITHOUT FUNCTION")
+		case "f":
 			funcFQN := utils.MakeFQN(castDef.FunctionSchema, castDef.FunctionName)
 			metadataFile.MustPrintf("\tWITH FUNCTION %s(%s)", funcFQN, castDef.FunctionArgs)
-		} else {
-			metadataFile.MustPrintf("\tWITHOUT FUNCTION")
 		}
 		switch castDef.CastContext {
 		case "a":

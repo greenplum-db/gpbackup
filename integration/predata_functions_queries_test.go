@@ -344,12 +344,12 @@ LANGUAGE SQL`)
 
 			results := backup.GetCasts(connection)
 
-			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.bool", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "casttotext", FunctionArgs: "boolean", CastContext: "a"}
+			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.bool", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "casttotext", FunctionArgs: "boolean", CastContext: "a", CastMethod: "f"}
 
 			Expect(len(results)).To(Equal(1))
 			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid", "FunctionOid")
 		})
-		It("returns a slice for a basic cast with a function in 5", func() {
+		It("returns a slice for a basic cast with a function in 5 and 6", func() {
 			testutils.SkipIf4(connection)
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION casttoint(text) RETURNS integer STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT cast($1 as integer);'")
 			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION casttoint(text)")
@@ -358,7 +358,7 @@ LANGUAGE SQL`)
 
 			results := backup.GetCasts(connection)
 
-			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "pg_catalog.int4", FunctionSchema: "public", FunctionName: "casttoint", FunctionArgs: "text", CastContext: "a"}
+			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "pg_catalog.int4", FunctionSchema: "public", FunctionName: "casttoint", FunctionArgs: "text", CastContext: "a", CastMethod: "f"}
 
 			Expect(len(results)).To(Equal(1))
 			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
@@ -373,7 +373,7 @@ LANGUAGE SQL`)
 
 			results := backup.GetCasts(connection)
 
-			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "public.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i"}
+			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "public.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i", CastMethod: "b"}
 
 			Expect(len(results)).To(Equal(1))
 			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
@@ -393,12 +393,26 @@ LANGUAGE SQL`)
 
 			results := backup.GetCasts(connection)
 
-			castDefTarget := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "testschema1.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i"}
-			castDefSource := backup.Cast{Oid: 0, SourceTypeFQN: "testschema1.casttesttype", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i"}
+			castDefTarget := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "testschema1.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i", CastMethod: "b"}
+			castDefSource := backup.Cast{Oid: 0, SourceTypeFQN: "testschema1.casttesttype", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i", CastMethod: "b"}
 
 			Expect(len(results)).To(Equal(2))
 			testutils.ExpectStructsToMatchExcluding(&castDefTarget, &results[0], "Oid")
 			testutils.ExpectStructsToMatchExcluding(&castDefSource, &results[1], "Oid")
+		})
+		It("returns a slice for an inout cast", func() {
+			testutils.SkipIfBefore6(connection)
+			testutils.AssertQueryRuns(connection, "CREATE TYPE custom_numeric AS (i numeric)")
+			defer testutils.AssertQueryRuns(connection, "DROP TYPE custom_numeric")
+			testutils.AssertQueryRuns(connection, "CREATE CAST (varchar AS custom_numeric) WITH INOUT")
+			defer testutils.AssertQueryRuns(connection, "DROP CAST (varchar AS custom_numeric)")
+
+			results := backup.GetCasts(connection)
+
+			castDef := backup.Cast{Oid: 0, SourceTypeFQN: `pg_catalog."varchar"`, TargetTypeFQN: "public.custom_numeric", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "e", CastMethod: "i"}
+
+			Expect(len(results)).To(Equal(1))
+			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
 		})
 	})
 	Describe("GetProceduralLanguages", func() {
