@@ -72,7 +72,7 @@ func CleanUpHelperFilesOnAllHosts(cluster utils.Cluster) {
 	remoteOutput := cluster.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", func(contentID int) string {
 		oidFile := cluster.GetSegmentHelperFilePath(contentID, "oid")
 		scriptFile := cluster.GetSegmentHelperFilePath(contentID, "script")
-		return fmt.Sprintf("rm %s && rm %s", oidFile, scriptFile)
+		return fmt.Sprintf("rm -f %s && rm -f %s", oidFile, scriptFile)
 	})
 	errMsg := fmt.Sprintf("Unable to remove segment helper file(s). See %s for a complete list of segments with errors and remove manually.",
 		logger.GetLogFilePath())
@@ -141,10 +141,26 @@ func VerifyHelperVersionOnSegments(cluster utils.Cluster, version string) {
 	}
 }
 
+func CleanUpSegmentHelperProcesses(cluster utils.Cluster) {
+	remoteOutput := cluster.GenerateAndExecuteCommand("Cleaning up segment restore agent processes", func(contentID int) string {
+		tocFile := cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
+		procPattern := fmt.Sprintf("gpbackup_helper --restore-agent --toc-file %s", tocFile)
+		/*
+		 * We try to avoid erroring out if no gpbackup_helper processes are found,
+		 * as it's possible that all gpbackup_helper processes have finished by
+		 * the time DoCleanup is called.
+		 */
+		return fmt.Sprintf("PIDS=`ps ux | grep \"%s\" | grep \"%s\" | grep -v grep | awk '{print $2}'`; if [[ ! -z \"$PIDS\" ]]; then kill -9 $PIDS; fi", procPattern)
+	})
+	cluster.CheckClusterError(remoteOutput, "Unable to clean up restore agent processes", func(contentID int) string {
+		return "Unable to clean up restore agent process"
+	})
+}
+
 func CleanUpSegmentTOCs(cluster utils.Cluster) {
 	remoteOutput := cluster.GenerateAndExecuteCommand("Removing segment table of contents files from segment data directories", func(contentID int) string {
 		tocFile := cluster.GetSegmentTOCFilePathWithPID(cluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
-		return fmt.Sprintf("rm %s", tocFile)
+		return fmt.Sprintf("rm -f %s", tocFile)
 	})
 	errMsg := fmt.Sprintf("Unable to remove segment table of contents file(s). See %s for a complete list of segments with errors and remove manually.",
 		logger.GetLogFilePath())

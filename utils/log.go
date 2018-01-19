@@ -20,6 +20,14 @@ var (
 
 	defaultLogDir   = "gpAdminLogs"
 	headerFormatStr = "%s:%s:%s:%06d-[%s]:-" // PROGRAMNAME:USERNAME:HOSTNAME:PID-[LOGLEVEL]:-, to match gpcrondump
+
+	/*
+	 * Error code key:
+	 *   0: Completed successfully (default value)
+	 *   1: Completed, but encountered a non-fatal error (set by logger.Error)
+	 *   2: Did not complete, encountered a fatal error (set by logger.Fatal)
+	 */
+	errorCode = 0
 )
 
 /*
@@ -174,12 +182,14 @@ func (logger *Logger) Debug(s string, v ...interface{}) {
 
 func (logger *Logger) Error(s string, v ...interface{}) {
 	message := logger.GetLogPrefix("ERROR") + fmt.Sprintf(s, v...)
+	errorCode = 1
 	logger.logFile.Output(1, message)
 	logger.logStderr.Output(1, message)
 }
 
 func (logger *Logger) Fatal(err error, s string, v ...interface{}) {
 	message := logger.GetLogPrefix("CRITICAL") + fmt.Sprintf(s, v...)
+	errorCode = 2
 	stackTraceStr := ""
 	if err != nil {
 		if s != "" {
@@ -204,6 +214,10 @@ func formatStackTrace(err error) string {
 	st := err.(stackTracer).StackTrace()
 	message := fmt.Sprintf("%+v", st[1:len(st)-2])
 	return message
+}
+
+func GetErrorCode() int {
+	return errorCode
 }
 
 /*

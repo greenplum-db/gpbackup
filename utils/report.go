@@ -40,15 +40,14 @@ type Report struct {
 	BackupConfig
 }
 
-func ParseErrorMessage(errStr string) (string, int) {
+func ParseErrorMessage(errStr string) string {
 	if errStr == "" {
-		return "", 0
+		return ""
 	}
 	errLevelStr := "[CRITICAL]:-"
 	headerIndex := strings.Index(errStr, errLevelStr)
 	errMsg := errStr[headerIndex+len(errLevelStr):]
-	exitCode := 1 // TODO: Define different error codes for different kinds of errors
-	return errMsg, exitCode
+	return errMsg
 }
 
 func (report *Report) ConstructBackupParamsStringFromFlags(dataOnly bool, ddlOnly bool, isSchemaFiltered bool, isTableFiltered bool, singleDataFile bool, withStats bool) {

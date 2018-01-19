@@ -76,6 +76,14 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 	}
 
 	for _, table := range tables {
+		/*
+		* We break when an interrupt is received and rely on
+		* TerminateHangingCopySessions to kill any COPY statements
+		* in progress if they don't finish on their own.
+		 */
+		if wasTerminated {
+			break
+		}
 		tableDef := tableDefs[table.Oid]
 		isExternal := tableDef.IsExternal
 		if !isExternal {

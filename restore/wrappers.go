@@ -2,6 +2,8 @@ package restore
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -30,11 +32,30 @@ func SetLoggerVerbosity() {
 func InitializeConnection(dbname string) {
 	connection = utils.NewDBConn(dbname)
 	connection.Connect(*numJobs)
-	connection.MustExec("SET application_name TO 'gprestore'")
 	connection.SetDatabaseVersion()
-	connection.MustExec("SET search_path TO pg_catalog")
-	connection.MustExec("SET gp_enable_segment_copy_checking TO false")
-	connection.MustExec("SET gp_default_storage_options='';")
+	setupQuery := `
+SET application_name TO 'gprestore';
+SET search_path TO pg_catalog;
+SET gp_enable_segment_copy_checking TO false;
+SET gp_default_storage_options='';
+`
+	for i := 0; i < connection.NumConns; i++ {
+		connection.MustExec(setupQuery, i)
+	}
+}
+
+func InitializeSignalHandler() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+		for _ = range signalChan {
+			fmt.Println() // Add newline after "^C" is printed
+			logger.Warn("Received an interrupt, aborting restore process")
+			wasTerminated = true
+			DoCleanup()
+			os.Exit(2)
+		}
+	}()
 }
 
 func InitializeBackupConfig() {

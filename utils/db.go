@@ -278,3 +278,15 @@ func SelectStringSlice(connection *DBConn, query string, whichConn ...int) []str
 	}
 	return retval
 }
+
+// TODO: Uniquely identify COPY commands in the multiple data file case to allow terminating sessions
+func TerminateHangingCopySessions(connection *DBConn, cluster Cluster, appName string) {
+	copyFileName := fmt.Sprintf("%s_%d", cluster.GetSegmentPipePathForCopyCommand(), cluster.PID)
+	query := fmt.Sprintf(`SELECT
+	pg_terminate_backend(procpid)
+FROM pg_stat_activity
+WHERE application_name = '%s'
+AND current_query LIKE '%%%s%%'
+AND procpid <> pg_backend_pid()`, appName, copyFileName)
+	connection.MustExec(query)
+}

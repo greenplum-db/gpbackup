@@ -3,12 +3,14 @@ package end_to_end_test
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -86,11 +88,11 @@ var _ = Describe("backup end to end integration tests", func() {
 		exec.Command("dropdb", "testdb").Run()
 		err = exec.Command("createdb", "testdb").Run()
 		if err != nil {
-			Fail(fmt.Sprintf("%v", err))
+			Fail(fmt.Sprintf("Could not create testdb: %v", err))
 		}
 		err = exec.Command("createdb", "restoredb").Run()
 		if err != nil {
-			Fail(fmt.Sprintf("%v", err))
+			Fail(fmt.Sprintf("Could not create restoredb: %v", err))
 		}
 		backupConn = utils.NewDBConn("testdb")
 		backupConn.Connect(1)
@@ -100,11 +102,21 @@ var _ = Describe("backup end to end integration tests", func() {
 		gpbackupPath, gprestorePath = buildAndInstallBinaries()
 	})
 	AfterSuite(func() {
-		backupConn.Close()
-		restoreConn.Close()
+		if backupConn != nil {
+			backupConn.Close()
+		}
+		if restoreConn != nil {
+			restoreConn.Close()
+		}
 		gexec.CleanupBuildArtifacts()
-		exec.Command("dropdb", "testdb").Run()
-		exec.Command("dropdb", "restoredb").Run()
+		err := exec.Command("dropdb", "testdb").Run()
+		if err != nil {
+			fmt.Printf("Could not drop testdb: %v\n", err)
+		}
+		err = exec.Command("dropdb", "restoredb").Run()
+		if err != nil {
+			fmt.Printf("Could not drop restoredb: %v\n", err)
+		}
 	})
 
 	Describe("end to end gpbackup and gprestore tests", func() {
@@ -317,6 +329,55 @@ var _ = Describe("backup end to end integration tests", func() {
 
 			testutils.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
 			testutils.ExecuteSQLFile(backupConn, "test_tables.sql")
+		})
+		It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {
+			backupdir := "/tmp/signals"
+			args := []string{"-dbname", "testdb", "-backupdir", backupdir, "-single-data-file", "-verbose"}
+			cmd := exec.Command(gpbackupPath, args...)
+			go func() {
+				/*
+				 * We use a random delay for the sleep in this test (between
+				 * 0.5s and 1.5s) so that gpbackup will be interrupted at a
+				 * different point in the backup process every time to help
+				 * catch timing issues with the cleanup.
+				 */
+				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
+				cmd.Process.Signal(os.Interrupt)
+			}()
+			output, _ := cmd.CombinedOutput()
+			stdout := string(output)
+
+			Expect(stdout).To(ContainSubstring("Received an interrupt, aborting backup process"))
+			Expect(stdout).To(ContainSubstring("Cleanup complete"))
+			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+
+			os.RemoveAll(backupdir)
+		})
+		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
+			backupdir := "/tmp/signals"
+			timestamp := gpbackup(gpbackupPath, "-backupdir", backupdir, "-single-data-file")
+			args := []string{"-timestamp", timestamp, "-redirect", "restoredb", "-backupdir", backupdir, "-include-schema", "schema2", "-verbose"}
+			cmd := exec.Command(gprestorePath, args...)
+			go func() {
+				/*
+				 * We use a random delay for the sleep in this test (between
+				 * 0.5s and 1.5s) so that gprestore will be interrupted at a
+				 * different point in the backup process every time to help
+				 * catch timing issues with the cleanup.
+				 */
+				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
+				cmd.Process.Signal(os.Interrupt)
+			}()
+			output, _ := cmd.CombinedOutput()
+			stdout := string(output)
+
+			Expect(stdout).To(ContainSubstring("Received an interrupt, aborting restore process"))
+			Expect(stdout).To(ContainSubstring("Cleanup complete"))
+			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+
+			os.RemoveAll(backupdir)
 		})
 	})
 })

@@ -2,6 +2,8 @@ package backup
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/greenplum-db/gpbackup/utils"
@@ -36,6 +38,20 @@ func InitializeConnection() {
 	InitializeMetadataParams(connection)
 	connection.Begin()
 	SetSessionGUCs()
+}
+
+func InitializeSignalHandler() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+		for _ = range signalChan {
+			fmt.Println() // Add newline after "^C" is printed
+			logger.Warn("Received an interrupt, aborting backup process")
+			wasTerminated = true
+			DoCleanup()
+			os.Exit(2)
+		}
+	}()
 }
 
 func SetSessionGUCs() {
@@ -462,9 +478,7 @@ func BackupTriggers(metadataFile *utils.FileWithByteCount) {
 func BackupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	if *singleDataFile {
 		CreateSegmentPipesOnAllHostsForBackup(globalCluster)
-		defer CleanUpSegmentPipesOnAllHosts(globalCluster)
 		ReadFromSegmentPipes(globalCluster)
-		defer CleanUpSegmentTailProcesses(globalCluster)
 	}
 	BackupDataForAllTables(tables, tableDefs)
 }

@@ -58,7 +58,12 @@ func ReadFromSegmentPipes(cluster utils.Cluster) {
 func CleanUpSegmentTailProcesses(cluster utils.Cluster) {
 	remoteOutput := cluster.GenerateAndExecuteCommand("Cleaning up segment tail processes", func(contentID int) string {
 		filePattern := fmt.Sprintf("gpbackup_%d_%s", contentID, cluster.Timestamp) // Matches pipe name for backup and file name for restore
-		return fmt.Sprintf(`ps ux | grep "tail -n +1 -f" | grep "%s" | grep -v "grep" | awk '{print $2}' | xargs kill -9`, filePattern)
+		/*
+		 * We try to avoid erroring out if no tail processes are found, as this
+		 * function is called in DoCleanup and it's possible no tail processes
+		 * were started yet if cleanup occurs due to an interrupt.
+		 */
+		return fmt.Sprintf("PIDS=`ps ux | grep \"%s\" | grep -v grep | awk '{print $2}'`; if [[ ! -z \"$PIDS\" ]]; then kill -9 $PIDS; fi", filePattern)
 	})
 	cluster.CheckClusterError(remoteOutput, "Unable to clean up tail processes", func(contentID int) string {
 		return "Unable to clean up tail process"

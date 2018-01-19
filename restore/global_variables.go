@@ -1,6 +1,10 @@
 package restore
 
-import "github.com/greenplum-db/gpbackup/utils"
+import (
+	"sync"
+
+	"github.com/greenplum-db/gpbackup/utils"
+)
 
 /*
  * This file contains global variables and setter functions for those variables
@@ -18,6 +22,14 @@ var (
 	globalTOC     *utils.TOC
 	logger        *utils.Logger
 	version       string
+	wasTerminated bool
+
+	/*
+	 * Used for synchronizing DoCleanup.  In DoInit() we increment the group
+	 * and then wait for at least one DoCleanup to finish, either in DoTeardown
+	 * or the signal handler.
+	 */
+	CleanupGroup *sync.WaitGroup
 )
 
 /*

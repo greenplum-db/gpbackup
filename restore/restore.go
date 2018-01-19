@@ -36,8 +36,11 @@ func initializeFlags() {
 
 // This function handles setup that can be done before parsing flags.
 func DoInit() {
+	CleanupGroup = &sync.WaitGroup{}
+	CleanupGroup.Add(1)
 	SetLogger(utils.InitializeLogging("gprestore", ""))
 	initializeFlags()
+	InitializeSignalHandler()
 }
 
 /*
@@ -151,9 +154,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 		logger.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		VerifyHelperVersionOnSegments(globalCluster, version)
 		CopySegmentTOCs(globalCluster)
-		defer CleanUpSegmentTOCs(globalCluster)
 		WriteOidListToSegments(globalCluster, filteredMasterDataEntries)
-		defer CleanUpHelperFilesOnAllHosts(globalCluster)
 		firstOid := filteredMasterDataEntries[0].Oid
 		CreateSegmentPipesOnAllHostsForRestore(globalCluster, firstOid)
 		WriteToSegmentPipes(globalCluster)
@@ -163,8 +164,16 @@ func restoreData(gucStatements []utils.StatementWithType) {
 	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", utils.PB_INFO)
 	dataProgressBar.Start()
 
+	/*
+	 * In both the serial and parallel cases, we break when an interrupt is
+	 * received and rely on TerminateHangingCopySessions to kill any COPY
+	 * statements in progress if they don't finish on their own.
+	 */
 	if connection.NumConns == 1 {
 		for i, entry := range filteredMasterDataEntries {
+			if wasTerminated {
+				break
+			}
 			restoreSingleTableData(entry, uint32(i)+1, totalTables, 0)
 			dataProgressBar.Increment()
 		}
@@ -177,6 +186,9 @@ func restoreData(gucStatements []utils.StatementWithType) {
 			go func(whichConn int) {
 				setGUCsForConnection(gucStatements, whichConn)
 				for entry := range tasks {
+					if wasTerminated {
+						break
+					}
 					restoreSingleTableData(entry, tableNum, totalTables, whichConn)
 					atomic.AddUint32(&tableNum, 1)
 					dataProgressBar.Increment()
@@ -225,12 +237,45 @@ func DoTeardown() {
 				errStr = fmt.Sprintf(`%s.  Run gprestore again without the --createdb flag.`, errStr)
 			}
 		}
+	}
+	if wasTerminated {
+		/*
+		 * Don't print an error if the restore was canceled, as the signal handler
+		 * will take care of cleanup and return codes.  Just wait until the signal
+		 * handler's DoCleanup completes so the main goroutine doesn't exit while
+		 * cleanup is still in progress.
+		 */
+		CleanupGroup.Wait()
+		return
+	}
+	if errStr != "" {
 		fmt.Println(errStr)
 	}
-	_, exitCode := utils.ParseErrorMessage(errStr)
+	errorCode := utils.GetErrorCode()
+
+	DoCleanup()
+
+	os.Exit(errorCode)
+}
+
+func DoCleanup() {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Warn("Encountered error during cleanup: %v", err)
+		}
+		logger.Verbose("Cleanup complete")
+		CleanupGroup.Done()
+	}()
+	logger.Verbose("Beginning cleanup")
+	if backupConfig.SingleDataFile {
+		CleanUpSegmentTOCs(globalCluster)
+		CleanUpHelperFilesOnAllHosts(globalCluster)
+		if wasTerminated { // These should all end on their own in a successful restore
+			CleanUpSegmentHelperProcesses(globalCluster)
+			utils.TerminateHangingCopySessions(connection, globalCluster, "gprestore")
+		}
+	}
 	if connection != nil {
 		connection.Close()
 	}
-
-	os.Exit(exitCode)
 }

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/greenplum-db/gpbackup/utils"
@@ -37,8 +38,11 @@ func initializeFlags() {
 
 // This function handles setup that can be done before parsing flags.
 func DoInit() {
+	CleanupGroup = &sync.WaitGroup{}
+	CleanupGroup.Add(1)
 	SetLogger(utils.InitializeLogging("gpbackup", ""))
 	initializeFlags()
+	InitializeSignalHandler()
 }
 
 func DoFlagValidation() {
@@ -230,12 +234,22 @@ func DoTeardown() {
 	errStr := ""
 	if err := recover(); err != nil {
 		errStr = fmt.Sprintf("%v", err)
-		fmt.Println(err)
 	}
-	errMsg, exitCode := utils.ParseErrorMessage(errStr)
-	if connection != nil {
-		connection.Close()
+	if wasTerminated {
+		/*
+		 * Don't print an error or create a report file if the backup was canceled,
+		 * as the signal handler will take care of cleanup and return codes.  Just
+		 * wait until the signal handler's DoCleanup completes so the main goroutine
+		 * doesn't exit while cleanup is still in progress.
+		 */
+		CleanupGroup.Wait()
+		return
 	}
+	if errStr != "" {
+		fmt.Println(errStr)
+	}
+	errMsg := utils.ParseErrorMessage(errStr)
+	errorCode := utils.GetErrorCode()
 
 	/*
 	 * Only create a report file if we fail after the cluster is initialized
@@ -244,7 +258,7 @@ func DoTeardown() {
 	if globalCluster.Timestamp != "" {
 		_, statErr := os.Stat(globalCluster.GetDirForContent(-1))
 		if statErr != nil { // Even if this isn't os.IsNotExist, don't try to write a report file in case of further errors
-			os.Exit(exitCode)
+			os.Exit(errorCode)
 		}
 		reportFilename := globalCluster.GetReportFilePath()
 		configFilename := globalCluster.GetConfigFilePath()
@@ -262,8 +276,35 @@ func DoTeardown() {
 		utils.EmailReport(globalCluster)
 	}
 
-	if exitCode == 0 {
+	DoCleanup()
+
+	if errorCode == 0 {
 		logger.Info("Backup completed successfully")
 	}
-	os.Exit(exitCode)
+	os.Exit(errorCode)
+}
+
+func DoCleanup() {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Warn("Encountered error during cleanup: %v", err)
+		}
+		logger.Verbose("Cleanup complete")
+		CleanupGroup.Done()
+	}()
+	logger.Verbose("Beginning cleanup")
+	if *singleDataFile {
+		CleanUpSegmentPipesOnAllHosts(globalCluster)
+		CleanUpSegmentTailProcesses(globalCluster)
+		if wasTerminated { // These should all end on their own in a successful backup
+			utils.TerminateHangingCopySessions(connection, globalCluster, "gpbackup")
+		}
+	}
+	if globalCluster.Timestamp != "" {
+		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalCluster.Timestamp)
+		os.Remove(timestampLockFile) // Don't check error, as DoTeardown may have removed it already
+	}
+	if connection != nil {
+		connection.Close()
+	}
 }
