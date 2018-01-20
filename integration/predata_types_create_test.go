@@ -29,14 +29,14 @@ var _ = Describe("backup integration create statement tests", func() {
 			baseType = backup.Type{
 				Type: "b", Schema: "public", Name: "base_type", Input: "base_fn_in", Output: "base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 4, IsPassedByValue: true, Alignment: "i", Storage: "p",
-				DefaultVal: "default", Element: "text", Delimiter: ";",
+				DefaultVal: "default", Element: "text", Category: "U", Preferred: false, Delimiter: ";",
 			}
 			atts := pq.StringArray{"\tatt1 text", "\tatt2 integer"}
 			compositeType = backup.Type{
 				Type: "c", Schema: "public", Name: "composite_type",
-				Attributes: atts,
+				Attributes: atts, Category: "U",
 			}
-			enumType = backup.Type{Type: "e", Schema: "public", Name: "enum_type", EnumLabels: "'enum_labels'"}
+			enumType = backup.Type{Type: "e", Schema: "public", Name: "enum_type", EnumLabels: "'enum_labels'", Category: "U"}
 			domainType = testutils.DefaultTypeDefinition("d", "domain_type")
 			domainType.BaseType = `"numeric"`
 			domainType.DefaultVal = "5"
@@ -88,6 +88,10 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 
 		It("creates base types", func() {
+			if connection.Version.AtLeast("6") {
+				baseType.Category = "N"
+				baseType.Preferred = true
+			}
 			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseType, typeMetadata)
 
 			//Run queries to set up the database state so we can successfully create base types

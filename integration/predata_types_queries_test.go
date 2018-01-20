@@ -25,12 +25,12 @@ var _ = Describe("backup integration tests", func() {
 			baseTypeDefault = backup.Type{
 				Oid: 1, Type: "b", Schema: "public", Name: "base_type", Input: "base_fn_in", Output: "base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "i", Storage: "p",
-				DefaultVal: "", Element: "", Delimiter: ",",
+				DefaultVal: "", Element: "", Delimiter: ",", Category: "U",
 			}
 			baseTypeCustom = backup.Type{
 				Oid: 1, Type: "b", Schema: "public", Name: "base_type", Input: "base_fn_in", Output: "base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 8, IsPassedByValue: true, Alignment: "d", Storage: "p",
-				DefaultVal: "0", Element: "integer", Delimiter: ";",
+				DefaultVal: "0", Element: "integer", Delimiter: ";", Category: "U",
 			}
 			compositeType = backup.Type{
 				Oid: 1, Type: "c", Schema: "public", Name: "composite_type",
@@ -79,14 +79,22 @@ var _ = Describe("backup integration tests", func() {
 			defer testutils.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';')")
+			if connection.Version.Before("6") {
+				testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';')")
+			} else {
+				testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';', CATEGORY='N', PREFERRED=true)")
+			}
 
 			results := backup.GetBaseTypes(connection)
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
 				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid", "ModIn", "ModOut")
+			} else if connection.Version.Before("6") {
+				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid")
 			} else {
+				baseTypeCustom.Category = "N"
+				baseTypeCustom.Preferred = true
 				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid")
 			}
 		})

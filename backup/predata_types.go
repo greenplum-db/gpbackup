@@ -108,6 +108,12 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	if base.Delimiter != "" {
 		metadataFile.MustPrintf(",\n\tDELIMITER = '%s'", base.Delimiter)
 	}
+	if base.Category != "U" {
+		metadataFile.MustPrintf(",\n\tCATEGORY = '%s'", base.Category)
+	}
+	if base.Preferred {
+		metadataFile.MustPrintf(",\n\tPREFERRED = true")
+	}
 	metadataFile.MustPrintln("\n);")
 	PrintObjectMetadata(metadataFile, typeMetadata, typeFQN, "TYPE")
 	toc.AddPredataEntry(base.Schema, base.Name, "TYPE", "", start, metadataFile)

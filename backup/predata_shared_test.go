@@ -397,9 +397,9 @@ GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 			objects = []backup.Sortable{
 				backup.Function{Oid: 1, Schema: "public", Name: "function", FunctionBody: "SELECT $1 + $2",
 					Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Language: "sql"},
-				backup.Type{Oid: 2, Schema: "public", Name: "base", Type: "b", Input: "typin", Output: "typout"},
-				backup.Type{Oid: 3, Schema: "public", Name: "composite", Type: "c", Attributes: pq.StringArray{"\tfoo integer"}},
-				backup.Type{Oid: 4, Schema: "public", Name: "domain", Type: "d", BaseType: "numeric"},
+				backup.Type{Oid: 2, Schema: "public", Name: "base", Type: "b", Input: "typin", Output: "typout", Category: "U"},
+				backup.Type{Oid: 3, Schema: "public", Name: "composite", Type: "c", Attributes: pq.StringArray{"\tfoo integer"}, Category: "U"},
+				backup.Type{Oid: 4, Schema: "public", Name: "domain", Type: "d", BaseType: "numeric", Category: "U"},
 				backup.Relation{Oid: 5, Schema: "public", Name: "relation"},
 			}
 			metadataMap = backup.MetadataMap{

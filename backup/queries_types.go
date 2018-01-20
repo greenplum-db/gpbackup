@@ -102,6 +102,8 @@ type Type struct {
 	Storage         string `db:"typstorage"`
 	DefaultVal      string
 	Element         string
+	Category        string `db:"typcategory"`
+	Preferred       bool   `db:"typispreferred"`
 	Delimiter       string `db:"typdelim"`
 	EnumLabels      string
 	BaseType        string
@@ -121,6 +123,13 @@ func GetBaseTypes(connection *utils.DBConn) []Type {
 	CASE WHEN t.typmodin = '-'::regproc THEN '' ELSE t.typmodin::regproc::text END AS modin,
 	CASE WHEN t.typmodout = '-'::regproc THEN '' ELSE t.typmodout::regproc::text END AS modout,`
 	}
+
+	typCategoryClause := ""
+	if connection.Version.Before("6") {
+		typCategoryClause = "'U' AS typcategory,"
+	} else {
+		typCategoryClause = "t.typcategory, t.typispreferred,"
+	}
 	selectClause := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -136,14 +145,18 @@ SELECT
 	t.typstorage,
 	coalesce(t.typdefault, '') AS defaultval,
 	CASE WHEN t.typelem != 0::regproc THEN pg_catalog.format_type(t.typelem, NULL) ELSE '' END AS element,
+	%s
 	t.typdelim
 FROM pg_type t
-JOIN pg_namespace n ON t.typnamespace = n.oid`, typModClause)
+JOIN pg_namespace n ON t.typnamespace = n.oid`, typModClause, typCategoryClause)
 	groupBy := "t.oid, schema, name, t.typtype, t.typinput, t.typoutput, receive, send,%st.typlen, t.typbyval, alignment, t.typstorage, defaultval, element, t.typdelim"
 	if connection.Version.Before("5") {
 		groupBy = fmt.Sprintf(groupBy, " ")
-	} else {
+	} else if connection.Version.Before("6") {
 		groupBy = fmt.Sprintf(groupBy, " modin, modout, ")
+	} else {
+		groupBy = fmt.Sprintf(groupBy, " modin, modout, t.typcategory, t.typispreferred, ")
+
 	}
 	query := getTypeQuery(connection, selectClause, groupBy, "b")
 
