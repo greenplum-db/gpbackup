@@ -65,7 +65,7 @@ func DoPostgresValidation() {
 
 	InitializeBackupConfig()
 	ValidateBackupFlagCombinations()
-	VerifyMetadataFilePaths(globalCluster, backupConfig.DataOnly, *withStats)
+	VerifyMetadataFilePaths(globalCluster, *withStats)
 
 	tocFilename := globalCluster.GetTOCFilePath()
 	globalTOC = utils.NewTOC(tocFilename)

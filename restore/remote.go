@@ -154,7 +154,7 @@ func CleanUpSegmentTOCs(cluster utils.Cluster) {
 	}, true)
 }
 
-func VerifyMetadataFilePaths(cluster utils.Cluster, dataOnly bool, withStats bool) {
+func VerifyMetadataFilePaths(cluster utils.Cluster, withStats bool) {
 	filetypes := []string{"config", "table of contents", "metadata"}
 	missing := false
 	for _, filetype := range filetypes {
