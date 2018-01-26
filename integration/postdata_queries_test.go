@@ -142,6 +142,22 @@ PARTITION BY RANGE (date)
 
 			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
+		It("returns a slice for an index used for clustering", func() {
+			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int, j int, k int)")
+			defer testutils.AssertQueryRuns(connection, "DROP TABLE simple_table")
+			testutils.AssertQueryRuns(connection, "CREATE INDEX simple_table_idx1 ON simple_table(i)")
+			defer testutils.AssertQueryRuns(connection, "DROP INDEX simple_table_idx1")
+			testutils.AssertQueryRuns(connection, "ALTER TABLE public.simple_table CLUSTER ON simple_table_idx1")
+
+			index1 := backup.QuerySimpleDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Tablespace: "", Def: "CREATE INDEX simple_table_idx1 ON simple_table USING btree (i)", IsClustered: true}
+
+			results := backup.GetIndexes(connection, indexNameSet)
+
+			Expect(len(results)).To(Equal(1))
+			results[0].Oid = testutils.OidFromObjectName(connection, "", "simple_table_idx1", backup.TYPE_INDEX)
+
+			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+		})
 	})
 	Describe("GetRules", func() {
 		It("returns no slice when no rule exists", func() {

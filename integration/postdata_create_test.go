@@ -36,6 +36,20 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultIndexes)).To(Equal(1))
 			testutils.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
+		It("creates an index used for clustering", func() {
+			indexes := []backup.QuerySimpleDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "", Def: "CREATE INDEX index1 ON testtable USING btree (i)", IsClustered: true}}
+			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
+
+			//Create table whose columns we can index
+			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+
+			testutils.AssertQueryRuns(connection, buffer.String())
+
+			resultIndexes := backup.GetIndexes(connection, indexNameSet)
+			Expect(len(resultIndexes)).To(Equal(1))
+			testutils.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
+		})
 		It("creates an index with a comment", func() {
 			indexes := []backup.QuerySimpleDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "", Def: "CREATE INDEX index1 ON testtable USING btree (i)"}}
 			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true)
