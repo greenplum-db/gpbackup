@@ -18,6 +18,9 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *util
 			metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", index.Name, index.Tablespace)
 		}
 		tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
+		if index.IsClustered {
+			metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
+		}
 		PrintObjectMetadata(metadataFile, indexMetadata[index.Oid], index.Name, "INDEX")
 		toc.AddPostdataEntry(index.OwningSchema, index.Name, "INDEX", tableFQN, start, metadataFile)
 	}

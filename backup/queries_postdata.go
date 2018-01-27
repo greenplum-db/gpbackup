@@ -56,6 +56,7 @@ type QuerySimpleDefinition struct {
 	OwningTable  string
 	Tablespace   string
 	Def          string
+	IsClustered  bool
 }
 
 func GetIndexes(connection *utils.DBConn, indexNameSet *utils.FilterSet) []QuerySimpleDefinition {
@@ -66,7 +67,8 @@ SELECT DISTINCT
 	quote_ident(n.nspname) AS owningschema,
 	quote_ident(t.relname) AS owningtable,
 	coalesce(quote_ident(s.spcname), '') AS tablespace,
-	pg_get_indexdef(i.indexrelid) AS def
+	pg_get_indexdef(i.indexrelid) AS def,
+	i.indisclustered AS isclustered
 FROM pg_index i
 JOIN pg_class c
 	ON (c.oid = i.indexrelid)

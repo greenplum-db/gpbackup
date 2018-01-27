@@ -19,6 +19,14 @@ var _ = Describe("backup/postdata tests", func() {
 			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testindex", "INDEX")
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE INDEX testindex ON public.testtable USING btree(i);`)
 		})
+		It("can print an index used for clustering", func() {
+			indexes := []backup.QuerySimpleDefinition{{Oid: 1, Name: "testindex", OwningSchema: "public", OwningTable: "testtable", Tablespace: "", Def: "CREATE INDEX testindex ON public.testtable USING btree(i)", IsClustered: true}}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateIndexStatements(backupfile, toc, indexes, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testindex", "INDEX")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE INDEX testindex ON public.testtable USING btree(i);
+ALTER TABLE public.testtable CLUSTER ON testindex;`)
+		})
 		It("can print an index with a tablespace", func() {
 			indexes := []backup.QuerySimpleDefinition{{Oid: 1, Name: "testindex", OwningSchema: "public", OwningTable: "testtable", Tablespace: "test_tablespace", Def: "CREATE INDEX testindex ON public.testtable USING btree(i)"}}
 			emptyMetadataMap := backup.MetadataMap{}
