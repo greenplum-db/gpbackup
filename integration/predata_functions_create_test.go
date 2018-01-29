@@ -371,6 +371,30 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.ExpectStructsToMatch(&langMetadata, &resultMetadata)
 		})
 	})
+	Describe("PrintCreateExtensions", func() {
+		It("creates extensions", func() {
+			testutils.SkipIf4(connection)
+			extension := backup.Extension{Oid: 1, Name: "plperl", Schema: "pg_catalog"}
+			extensions := []backup.Extension{extension}
+			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
+			extensionMetadata := extensionMetadataMap[1]
+
+			backup.PrintCreateExtensionStatements(backupfile, toc, extensions, extensionMetadataMap)
+
+			testutils.AssertQueryRuns(connection, buffer.String())
+			defer testutils.AssertQueryRuns(connection, "DROP EXTENSION plperl; SET search_path=public,pg_catalog")
+
+			resultExtensions := backup.GetExtensions(connection)
+			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_EXTENSION)
+
+			extension.Oid = testutils.OidFromObjectName(connection, "", "plperl", backup.TYPE_EXTENSION)
+			Expect(len(resultExtensions)).To(Equal(1))
+			resultMetadata := resultMetadataMap[extension.Oid]
+			testutils.ExpectStructsToMatch(&extension, &resultExtensions[0])
+			testutils.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
+
+		})
+	})
 	Describe("PrintCreateConversionStatements", func() {
 		It("creates conversions", func() {
 			convOne := backup.Conversion{Oid: 1, Schema: "public", Name: "conv_one", ForEncoding: "LATIN1", ToEncoding: "MULE_INTERNAL", ConversionFunction: "pg_catalog.latin1_to_mic", IsDefault: false}

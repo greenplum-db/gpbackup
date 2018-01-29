@@ -428,6 +428,14 @@ func BackupCasts(metadataFile *utils.FileWithByteCount) {
 	PrintCreateCastStatements(metadataFile, globalTOC, casts, castMetadata)
 }
 
+func BackupExtensions(metadataFile *utils.FileWithByteCount) {
+	logger.Verbose("Writing CREATE EXTENSIONS statements to metadata file")
+	extensions := GetExtensions(connection)
+	objectCounts["Extensions"] = len(extensions)
+	extensionMetadata := GetCommentsForObjectType(connection, TYPE_EXTENSION)
+	PrintCreateExtensionStatements(metadataFile, globalTOC, extensions, extensionMetadata)
+}
+
 func BackupViews(metadataFile *utils.FileWithByteCount, relationMetadata MetadataMap) {
 	logger.Verbose("Writing CREATE VIEW statements to metadata file")
 	views := GetViews(connection)

@@ -61,7 +61,8 @@ SELECT
 	oprcanhash AS canhash
 FROM pg_operator o
 JOIN pg_namespace n on n.oid = o.oprnamespace
-WHERE %s AND oprcode != 0`, SchemaFilterClause("n"))
+WHERE %s AND oprcode != 0
+AND o.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("n"))
 
 	var err error
 	if connection.Version.Before("5") {
@@ -95,7 +96,8 @@ SELECT
 	(SELECT quote_ident(amname) FROM pg_am WHERE oid = opfmethod) AS indexMethod
 FROM pg_opfamily o
 JOIN pg_namespace n on n.oid = o.opfnamespace
-WHERE %s`, SchemaFilterClause("n"))
+WHERE %s
+AND o.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("n"))
 	err := connection.Select(&results, query)
 	utils.CheckError(err)
 	return results
@@ -153,7 +155,8 @@ FROM pg_catalog.pg_opclass c
 LEFT JOIN pg_catalog.pg_opfamily f ON f.oid = opcfamily
 JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
 JOIN pg_catalog.pg_namespace fam_ns ON fam_ns.oid = opfnamespace
-WHERE %s`, SchemaFilterClause("cls_ns"))
+WHERE %s
+AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("cls_ns"))
 
 	var err error
 	if connection.Version.Before("5") {

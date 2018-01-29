@@ -975,6 +975,22 @@ LANGUAGE SQL`)
 				resultMetadata := resultMetadataMap[oid]
 				testutils.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
 			})
+			It("returns a slice of default metadata for an extension", func() {
+				testutils.SkipIf4(connection)
+				extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
+				extensionMetadata := extensionMetadataMap[1]
+
+				testutils.AssertQueryRuns(connection, "CREATE EXTENSION plperl;")
+				defer testutils.AssertQueryRuns(connection, "DROP EXTENSION plperl")
+				testutils.AssertQueryRuns(connection, "COMMENT ON EXTENSION plperl IS 'This is an extension comment.'")
+
+				oid := testutils.OidFromObjectName(connection, "", "plperl", backup.TYPE_EXTENSION)
+				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_EXTENSION)
+
+				Expect(len(resultMetadataMap)).To(Equal(1))
+				resultMetadata := resultMetadataMap[oid]
+				testutils.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
+			})
 		})
 		Context("comments for objects in a specific schema", func() {
 			It("returns a slice of default metadata for an index in a specific schema", func() {

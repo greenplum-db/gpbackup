@@ -137,6 +137,9 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	logger.Info("Writing pre-data metadata")
 
 	BackupSchemas(metadataFile)
+	if len(includeSchemas) == 0 && connection.Version.AtLeast("5") {
+		BackupExtensions(metadataFile)
+	}
 
 	procLangs := GetProceduralLanguages(connection)
 	langFuncs, otherFuncs, functionMetadata := RetrieveFunctions(procLangs)

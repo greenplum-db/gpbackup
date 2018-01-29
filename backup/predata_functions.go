@@ -167,6 +167,15 @@ func PrintCreateCastStatements(metadataFile *utils.FileWithByteCount, toc *utils
 	}
 }
 
+func PrintCreateExtensionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extensionDefs []Extension, extensionMetadata MetadataMap) {
+	for _, extensionDef := range extensionDefs {
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintf("\n\nSET search_path=%s,pg_catalog;\nCREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;\nSET search_path=pg_catalog;", extensionDef.Schema, extensionDef.Name, extensionDef.Schema)
+		PrintObjectMetadata(metadataFile, extensionMetadata[extensionDef.Oid], extensionDef.Name, "EXTENSION")
+		toc.AddPredataEntry("", extensionDef.Name, "EXTENSION", "", start, metadataFile)
+	}
+}
+
 /*
  * This function separates out functions related to procedural languages from
  * any other functions, so that language-related functions can be backed up before

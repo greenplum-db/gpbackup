@@ -451,6 +451,26 @@ AS ASSIGNMENT;`)
 COMMENT ON CAST (src AS dst) IS 'This is a cast comment.';`)
 		})
 	})
+	Describe("PrintCreateExtensionStatement", func() {
+		emptyMetadataMap := backup.MetadataMap{}
+		It("prints a create extension statement", func() {
+			extensionDef := backup.Extension{Oid: 1, Name: "extension1", Schema: "schema1"}
+			backup.PrintCreateExtensionStatements(backupfile, toc, []backup.Extension{extensionDef}, emptyMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
+CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
+SET search_path=pg_catalog;`)
+		})
+		It("prints a create extension statement with a comment", func() {
+			extensionDef := backup.Extension{Oid: 1, Name: "extension1", Schema: "schema1"}
+			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
+			backup.PrintCreateExtensionStatements(backupfile, toc, []backup.Extension{extensionDef}, extensionMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
+CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
+SET search_path=pg_catalog;
+
+COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';`)
+		})
+	})
 	Describe("ExtractLanguageFunctions", func() {
 		customLang := backup.ProceduralLanguage{Oid: 1, Name: "custom_language", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: 3, Inline: 4, Validator: 5}
 		procLangs := []backup.ProceduralLanguage{customLang}

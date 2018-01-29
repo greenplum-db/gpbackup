@@ -65,6 +65,7 @@ GROUP BY %s`, selectClause, groupBy)
 	 */
 	tableTypesClause := fmt.Sprintf(`
 %s
+AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
 JOIN pg_class c ON t.typrelid = c.oid AND c.relkind IN ('r', 'S', 'v')
 GROUP BY %s
 UNION ALL
@@ -246,6 +247,7 @@ JOIN pg_namespace n ON t.typnamespace = n.oid
 JOIN pg_type b ON t.typbasetype = b.oid
 WHERE %s
 AND t.typtype = 'd'
+AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
 ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 
 	results := make([]Type, 0)
@@ -269,6 +271,7 @@ LEFT JOIN (
 	) e ON t.oid = e.enumtypid
 WHERE %s
 AND t.typtype = 'e'
+AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
 ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 
 	results := make([]Type, 0)
@@ -288,6 +291,7 @@ FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
 WHERE %s
 AND t.typtype = 'p'
+AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
 ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 
 	results := make([]Type, 0)

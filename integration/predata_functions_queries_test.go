@@ -415,6 +415,21 @@ LANGUAGE SQL`)
 			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
 		})
 	})
+	Describe("GetExtensions", func() {
+		It("returns a slice of extension", func() {
+			testutils.SkipIf4(connection)
+			testutils.AssertQueryRuns(connection, "CREATE EXTENSION plperl")
+			defer testutils.AssertQueryRuns(connection, "DROP EXTENSION plperl")
+
+			results := backup.GetExtensions(connection)
+
+			Expect(len(results)).To(Equal(1))
+
+			extensionDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
+			testutils.ExpectStructsToMatchExcluding(&extensionDef, &results[0], "Oid")
+
+		})
+	})
 	Describe("GetProceduralLanguages", func() {
 		It("returns a slice of procedural languages", func() {
 			testutils.AssertQueryRuns(connection, "CREATE LANGUAGE plpythonu")

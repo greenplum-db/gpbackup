@@ -39,6 +39,7 @@ SELECT
 	quote_ident(nspname) AS name
 FROM pg_namespace n
 WHERE %s
+AND oid NOT IN (select objid from pg_depend where deptype = 'e')
 ORDER BY name;`, SchemaFilterClause("n"))
 
 	results := make([]Schema, 0)
@@ -143,6 +144,7 @@ var (
 	TYPE_CONSTRAINT         MetadataQueryParams
 	TYPE_CONVERSION         MetadataQueryParams
 	TYPE_DATABASE           MetadataQueryParams
+	TYPE_EXTENSION          MetadataQueryParams
 	TYPE_FOREIGNDATAWRAPPER MetadataQueryParams
 	TYPE_FOREIGNSERVER      MetadataQueryParams
 	TYPE_FUNCTION           MetadataQueryParams
@@ -173,6 +175,7 @@ func InitializeMetadataParams(connection *utils.DBConn) {
 	TYPE_CONSTRAINT = MetadataQueryParams{NameField: "conname", SchemaField: "connamespace", OidField: "oid", CatalogTable: "pg_constraint"}
 	TYPE_CONVERSION = MetadataQueryParams{NameField: "conname", OidField: "oid", SchemaField: "connamespace", OwnerField: "conowner", CatalogTable: "pg_conversion"}
 	TYPE_DATABASE = MetadataQueryParams{NameField: "datname", ACLField: "datacl", OwnerField: "datdba", CatalogTable: "pg_database", Shared: true}
+	TYPE_EXTENSION = MetadataQueryParams{NameField: "extname", OidField: "oid", CatalogTable: "pg_extension"}
 	TYPE_FOREIGNDATAWRAPPER = MetadataQueryParams{NameField: "fdwname", ACLField: "fdwacl", OwnerField: "fdwowner", CatalogTable: "pg_foreign_data_wrapper"}
 	TYPE_FOREIGNSERVER = MetadataQueryParams{NameField: "srvname", ACLField: "srvacl", OwnerField: "srvowner", CatalogTable: "pg_foreign_server"}
 	TYPE_FUNCTION = MetadataQueryParams{NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
