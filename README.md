@@ -7,15 +7,15 @@ gpbackup and gprestore are Go utilities for performing backups and restores of a
 gpbackup requires Go version 1.8 or higher.
 Follow the directions [here](https://golang.org/doc/) to get the language set up.
 
-## Installing
+## Downloading
 
 ```bash
-go get github.com/greenplum-db/gpbackup
+go get github.com/greenplum-db/gpbackup/...
 ```
 
 This will place the code in `$GOPATH/github.com/greenplum-db/gpbackup`.
 
-## Building binaries
+## Building and installing binaries
 
 cd into the gpbackup directory and run
 
@@ -134,7 +134,7 @@ We accept contributions via [Github Pull requests](https://help.github.com/artic
 
 Follow the steps below to contribute to gpbackup:
 1. Fork the project’s repository.
-1. Run `go get github/com/greenplum-db/gpbackup` and add your fork as a remote.
+1. Run `go get github.com/greenplum-db/gpbackup/...` and add your fork as a remote.
 1. Run `make depend` to install required dependencies
 1. Create your own feature branch (e.g. `git checkout -b gpbackup_branch`) and make changes on this branch.
     * Follow the previous sections on this page to setup and build in your environment.
