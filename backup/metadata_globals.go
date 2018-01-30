@@ -14,42 +14,12 @@ import (
  * such as roles and database configuration.
  */
 
-/*
- * Session GUCs are printed to global, predata, and postdata files so we
- * will use the correct settings when the files are run during restore
- */
 func PrintSessionGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gucs SessionGUCs) {
-	printUniversalSessionGUCs(metadataFile, toc, gucs)
-	if connection.Version.Before("5") {
-		print4OnlySessionGUCs(metadataFile, toc)
-	}
-}
-
-func printUniversalSessionGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gucs SessionGUCs) {
 	start := metadataFile.ByteCount
-	metadataFile.MustPrintf(`SET statement_timeout = 0;
-SET check_function_bodies = false;
-SET client_min_messages = error;
+	metadataFile.MustPrintf(`
 SET client_encoding = '%s';
-SET standard_conforming_strings = on;
-SET default_with_oids = %s;
-`, gucs.ClientEncoding, gucs.DefaultWithOids)
+`, gucs.ClientEncoding)
 	toc.AddGlobalEntry("", "", "SESSION GUCS", start, metadataFile)
-}
-
-/*
- * We print GPDB4-specific GUCs separately, with a different TOC entry type, so
- * that we can easily ignore them when restoring to a GPDB5 cluster.
- */
-func print4OnlySessionGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC) {
-	start := metadataFile.ByteCount
-	/*
-	 * We always want to turn off strict XML parsing for restore, regardless of
-	 * its current value.
-	 */
-	metadataFile.MustPrintf(`SET gp_strict_xml_parse = off;
-`)
-	toc.AddGlobalEntry("", "", "GPDB4 SESSION GUCS", start, metadataFile)
 }
 
 func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, db Database, dbMetadata MetadataMap) {

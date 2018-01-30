@@ -12,30 +12,13 @@ var _ = Describe("backup/metadata_globals tests", func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "global")
 	})
 	Describe("PrintSessionGUCs", func() {
-		It("prints session GUCs for GPDB4", func() {
+		It("prints session GUCs", func() {
 			testutils.SetDBVersion(connection, "4.3.0")
-			gucs := backup.SessionGUCs{ClientEncoding: "UTF8", DefaultWithOids: "false"}
+			gucs := backup.SessionGUCs{ClientEncoding: "UTF8"}
 
 			backup.PrintSessionGUCs(backupfile, toc, gucs)
-			testutils.ExpectRegexp(buffer, `SET statement_timeout = 0;
-SET check_function_bodies = false;
-SET client_min_messages = error;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SET default_with_oids = false;
-SET gp_strict_xml_parse = off;`)
-		})
-		It("prints session GUCs for GPDB5", func() {
-			testutils.SetDBVersion(connection, "5.0.0")
-			gucs := backup.SessionGUCs{ClientEncoding: "UTF8", DefaultWithOids: "false"}
-
-			backup.PrintSessionGUCs(backupfile, toc, gucs)
-			testutils.ExpectRegexp(buffer, `SET statement_timeout = 0;
-SET check_function_bodies = false;
-SET client_min_messages = error;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SET default_with_oids = false;`)
+			testutils.ExpectRegexp(buffer, `SET client_encoding = 'UTF8';
+`)
 		})
 	})
 	Describe("PrintCreateDatabaseStatement", func() {

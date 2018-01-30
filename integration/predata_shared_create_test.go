@@ -160,7 +160,7 @@ PARTITION BY RANGE (year)
 		})
 	})
 	Describe("GUC-printing functions", func() {
-		gucs := backup.SessionGUCs{ClientEncoding: "UTF8", DefaultWithOids: "off"}
+		gucs := backup.SessionGUCs{ClientEncoding: "UTF8"}
 		Describe("PrintSessionGUCs", func() {
 			It("prints the default session GUCs", func() {
 				backup.PrintSessionGUCs(backupfile, toc, gucs)

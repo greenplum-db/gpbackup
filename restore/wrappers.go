@@ -38,7 +38,15 @@ SET application_name TO 'gprestore';
 SET search_path TO pg_catalog;
 SET gp_enable_segment_copy_checking TO false;
 SET gp_default_storage_options='';
+SET statement_timeout = 0;
+SET check_function_bodies = false;
+SET client_min_messages = error;
+SET standard_conforming_strings = on;
+SET default_with_oids = off;
 `
+	if connection.Version.Before("5") {
+		setupQuery += "SET gp_strict_xml_parse = off;\n"
+	}
 	for i := 0; i < connection.NumConns; i++ {
 		connection.MustExec(setupQuery, i)
 	}
@@ -125,12 +133,7 @@ func GetRestoreMetadataStatements(section string, filename string, objectTypes [
 }
 
 func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) {
-	var shouldExecute *utils.FilterSet
-	if connection.Version.AtLeast("5") {
-		shouldExecute = utils.NewExcludeSet([]string{"GPDB4 SESSION GUCS"})
-	} else {
-		shouldExecute = utils.NewEmptyIncludeSet()
-	}
+	shouldExecute := utils.NewEmptyIncludeSet()
 	if progressBar == nil {
 		ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, shouldExecute, executeInParallel)
 	} else {
@@ -146,12 +149,7 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int) []utils.StatementWithType {
 	if gucStatements == nil {
 		objectTypes := []string{"SESSION GUCS"}
-		if connection.Version.Before("5") {
-			objectTypes = append(objectTypes, "GPDB4 SESSION GUCS")
-		}
 		gucStatements = GetRestoreMetadataStatements("global", globalCluster.GetMetadataFilePath(), objectTypes, []string{}, []string{})
-		// We only need to set the following GUC for data restores, but it doesn't hurt if we set it for metadata restores as well.
-		gucStatements = append(gucStatements, utils.StatementWithType{ObjectType: "SESSION GUCS", Statement: "SET gp_enable_segment_copy_checking TO false;"})
 	}
 	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, utils.NewEmptyIncludeSet(), false, whichConn)
 	return gucStatements

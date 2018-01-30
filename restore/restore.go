@@ -119,7 +119,7 @@ func DoRestore() {
 }
 
 func createDatabase(metadataFilename string) {
-	objectTypes := []string{"SESSION GUCS", "GPDB4 SESSION GUCS", "DATABASE GUC", "DATABASE", "DATABASE METADATA"}
+	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE", "DATABASE METADATA"}
 	logger.Info("Creating database")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{})
 	if *redirect != "" {
@@ -130,7 +130,7 @@ func createDatabase(metadataFilename string) {
 }
 
 func restoreGlobal(metadataFilename string) {
-	objectTypes := []string{"SESSION GUCS", "GPDB4 SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
+	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
 	logger.Info("Restoring global metadata")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{})
 	if *redirect != "" {
