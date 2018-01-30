@@ -30,7 +30,7 @@ var _ = Describe("backup integration tests", func() {
 			baseTypeCustom = backup.Type{
 				Oid: 1, Type: "b", Schema: "public", Name: "base_type", Input: "base_fn_in", Output: "base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 8, IsPassedByValue: true, Alignment: "d", Storage: "p",
-				DefaultVal: "0", Element: "integer", Delimiter: ";", Category: "U",
+				DefaultVal: "0", Element: "integer", Delimiter: ";", Category: "U", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768",
 			}
 			compositeType = backup.Type{
 				Oid: 1, Type: "c", Schema: "public", Name: "composite_type",
@@ -84,6 +84,7 @@ var _ = Describe("backup integration tests", func() {
 			} else {
 				testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';', CATEGORY='N', PREFERRED=true)")
 			}
+			testutils.AssertQueryRuns(connection, "ALTER TYPE base_type SET DEFAULT ENCODING (compresstype=zlib)")
 
 			results := backup.GetBaseTypes(connection)
 

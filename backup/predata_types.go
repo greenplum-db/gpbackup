@@ -115,6 +115,9 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *ut
 		metadataFile.MustPrintf(",\n\tPREFERRED = true")
 	}
 	metadataFile.MustPrintln("\n);")
+	if base.StorageOptions != "" {
+		metadataFile.MustPrintf("\nALTER TYPE %s\n\tSET DEFAULT ENCODING (%s);", typeFQN, base.StorageOptions)
+	}
 	PrintObjectMetadata(metadataFile, typeMetadata, typeFQN, "TYPE")
 	toc.AddPredataEntry(base.Schema, base.Name, "TYPE", "", start, metadataFile)
 }

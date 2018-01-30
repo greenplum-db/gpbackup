@@ -110,6 +110,7 @@ type Type struct {
 	NotNull         bool `db:"typnotnull"`
 	Attributes      pq.StringArray
 	DependsUpon     []string
+	StorageOptions  string
 }
 
 func GetBaseTypes(connection *utils.DBConn) []Type {
@@ -146,10 +147,12 @@ SELECT
 	coalesce(t.typdefault, '') AS defaultval,
 	CASE WHEN t.typelem != 0::regproc THEN pg_catalog.format_type(t.typelem, NULL) ELSE '' END AS element,
 	%s
-	t.typdelim
+	t.typdelim,
+	coalesce(array_to_string(typoptions, ', '), '') AS storageoptions
 FROM pg_type t
-JOIN pg_namespace n ON t.typnamespace = n.oid`, typModClause, typCategoryClause)
-	groupBy := "t.oid, schema, name, t.typtype, t.typinput, t.typoutput, receive, send,%st.typlen, t.typbyval, alignment, t.typstorage, defaultval, element, t.typdelim"
+JOIN pg_namespace n ON t.typnamespace = n.oid
+LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typModClause, typCategoryClause)
+	groupBy := "t.oid, schema, name, t.typtype, t.typinput, t.typoutput, receive, send,%st.typlen, t.typbyval, alignment, t.typstorage, defaultval, element, t.typdelim, storageoptions"
 	if connection.Version.Before("5") {
 		groupBy = fmt.Sprintf(groupBy, " ")
 	} else if connection.Version.Before("6") {

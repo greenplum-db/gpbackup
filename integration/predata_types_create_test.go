@@ -29,7 +29,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			baseType = backup.Type{
 				Type: "b", Schema: "public", Name: "base_type", Input: "base_fn_in", Output: "base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 4, IsPassedByValue: true, Alignment: "i", Storage: "p",
-				DefaultVal: "default", Element: "text", Category: "U", Preferred: false, Delimiter: ";",
+				DefaultVal: "default", Element: "text", Category: "U", Preferred: false, Delimiter: ";", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768",
 			}
 			atts := pq.StringArray{"\tatt1 text", "\tatt2 integer"}
 			compositeType = backup.Type{

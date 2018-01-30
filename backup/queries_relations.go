@@ -354,7 +354,7 @@ func GetPartitionTemplates(connection *utils.DBConn) map[uint32]string {
 }
 
 func GetStorageOptions(connection *utils.DBConn) map[uint32]string {
-	query := ` SELECT oid, array_to_string(reloptions, ', ') AS value FROM pg_class WHERE reloptions IS NOT NULL;`
+	query := `SELECT oid, array_to_string(reloptions, ', ') AS value FROM pg_class WHERE reloptions IS NOT NULL;`
 	return SelectAsOidToStringMap(connection, query)
 }
 
