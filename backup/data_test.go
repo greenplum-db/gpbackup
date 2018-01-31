@@ -106,7 +106,7 @@ var _ = Describe("backup/data tests", func() {
 			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
 		})
 		It("does not change backup type if tables present in database", func() {
-			backup.CheckTablesContainData(testTable, map[uint32]backup.TableDefinition{0: backup.TableDefinition{}})
+			backup.CheckTablesContainData(testTable, map[uint32]backup.TableDefinition{0: {}})
 			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeFalse())
 		})
 	})

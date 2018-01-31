@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
@@ -70,7 +71,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTypes := backup.GetCompositeTypes(connection)
 
 			Expect(len(resultTypes)).To(Equal(1))
-			testutils.ExpectStructsToMatchIncluding(&compositeType, &resultTypes[0], "Type", "Schema", "Name", "Comment", "Owner", "Attributes")
+			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &resultTypes[0], "Type", "Schema", "Name", "Comment", "Owner", "Attributes")
 		})
 
 		It("creates enum types", func() {
@@ -84,7 +85,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTypes := backup.GetEnumTypes(connection)
 
 			Expect(len(resultTypes)).To(Equal(1))
-			testutils.ExpectStructsToMatchIncluding(&resultTypes[0], &enumType, "Type", "Schema", "Name", "Comment", "Owner", "EnumLabels")
+			structmatcher.ExpectStructsToMatchIncluding(&resultTypes[0], &enumType, "Type", "Schema", "Name", "Comment", "Owner", "EnumLabels")
 		})
 
 		It("creates base types", func() {
@@ -105,7 +106,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTypes := backup.GetBaseTypes(connection)
 
 			Expect(len(resultTypes)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&baseType, &resultTypes[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&baseType, &resultTypes[0], "Oid")
 		})
 		It("creates domain types", func() {
 			constraints := []backup.Constraint{}
@@ -117,7 +118,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTypes := backup.GetDomainTypes(connection)
 
 			Expect(len(resultTypes)).To(Equal(1))
-			testutils.ExpectStructsToMatchIncluding(&domainType, &resultTypes[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
+			structmatcher.ExpectStructsToMatchIncluding(&domainType, &resultTypes[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
 		})
 	})
 })

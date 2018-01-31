@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -33,7 +34,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
 			})
 			It("creates a function that returns a set", func() {
 				appendFunction := backup.Function{
@@ -50,7 +51,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
 			})
 			It("creates a function that returns a table", func() {
 				dupFunction := backup.Function{
@@ -67,7 +68,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
 			})
 		})
 		Context("Tests for GPDB 5 and GPDB 6", func() {
@@ -92,7 +93,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 				Expect(len(resultFunctions)).To(Equal(1))
 
-				testutils.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
 			})
 			It("creates a function that returns a set", func() {
 				appendFunction := backup.Function{
@@ -111,7 +112,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 				Expect(len(resultFunctions)).To(Equal(1))
 
-				testutils.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
 			})
 			It("creates a function that returns a table", func() {
 				dupFunction := backup.Function{
@@ -129,7 +130,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
 			})
 		})
 		Context("Tests for GPDB 6", func() {
@@ -153,7 +154,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&windowFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&windowFunction, &resultFunctions[0], "Oid")
 			})
 			It("creates a function to execute on segments", func() {
 				segmentFunction := backup.Function{
@@ -171,7 +172,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				resultFunctions := backup.GetFunctionsAllVersions(connection)
 
 				Expect(len(resultFunctions)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&segmentFunction, &resultFunctions[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&segmentFunction, &resultFunctions[0], "Oid")
 			})
 		})
 	})
@@ -224,7 +225,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultAggregates := backup.GetAggregates(connection)
 			Expect(len(resultAggregates)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
+			structmatcher.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
 		})
 		It("creates an aggregate with an owner and a comment", func() {
 			aggMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
@@ -239,8 +240,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultAggregates)).To(Equal(1))
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_AGGREGATE)
 			resultMetadata := resultMetadataMap[oid]
-			testutils.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
-			testutils.ExpectStructsToMatch(&aggMetadata, &resultMetadata)
+			structmatcher.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction")
+			structmatcher.ExpectStructsToMatch(&aggMetadata, &resultMetadata)
 		})
 		It("creates a hypothetical ordered-set aggregate", func() {
 			testutils.SkipIfBefore6(connection)
@@ -252,7 +253,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultAggregates := backup.GetAggregates(connection)
 
 			Expect(len(resultAggregates)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&complexAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction")
+			structmatcher.ExpectStructsToMatchExcluding(&complexAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction")
 		})
 	})
 	Describe("PrintCreateCastStatements", func() {
@@ -275,7 +276,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultCasts := backup.GetCasts(connection)
 			Expect(len(resultCasts)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid", "FunctionOid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid", "FunctionOid")
 		})
 		It("prints a basic cast without a function", func() {
 			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "public.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i", CastMethod: "b"}
@@ -292,7 +293,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultCasts := backup.GetCasts(connection)
 			Expect(len(resultCasts)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid")
 		})
 		It("prints a cast with a comment", func() {
 			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "pg_catalog.money", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "money_to_text", FunctionArgs: "money", CastContext: "a", CastMethod: "f"}
@@ -311,8 +312,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultCasts)).To(Equal(1))
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_CAST)
 			resultMetadata := resultMetadataMap[resultCasts[0].Oid]
-			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid", "FunctionOid")
-			testutils.ExpectStructsToMatchExcluding(&resultMetadata, &castMetadata, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid", "FunctionOid")
+			structmatcher.ExpectStructsToMatchExcluding(&resultMetadata, &castMetadata, "Oid")
 		})
 		It("prints an inout cast ", func() {
 			testutils.SkipIfBefore6(connection)
@@ -327,7 +328,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultCasts := backup.GetCasts(connection)
 			Expect(len(resultCasts)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid")
 		})
 	})
 	Describe("PrintCreateLanguageStatements", func() {
@@ -366,9 +367,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			plpgsqlInfo.Oid = testutils.OidFromObjectName(connection, "", "plpgsql", backup.TYPE_PROCLANGUAGE)
 			Expect(len(resultProcLangs)).To(Equal(2))
 			resultMetadata := resultMetadataMap[plpgsqlInfo.Oid]
-			testutils.ExpectStructsToMatchIncluding(&plpgsqlInfo, &resultProcLangs[0], "IsPl", "PlTrusted")
-			testutils.ExpectStructsToMatchIncluding(&plpythonInfo, &resultProcLangs[1], "IsPl", "PlTrusted")
-			testutils.ExpectStructsToMatch(&langMetadata, &resultMetadata)
+			structmatcher.ExpectStructsToMatchIncluding(&plpgsqlInfo, &resultProcLangs[0], "IsPl", "PlTrusted")
+			structmatcher.ExpectStructsToMatchIncluding(&plpythonInfo, &resultProcLangs[1], "IsPl", "PlTrusted")
+			structmatcher.ExpectStructsToMatch(&langMetadata, &resultMetadata)
 		})
 	})
 	Describe("PrintCreateExtensions", func() {
@@ -390,8 +391,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			extension.Oid = testutils.OidFromObjectName(connection, "", "plperl", backup.TYPE_EXTENSION)
 			Expect(len(resultExtensions)).To(Equal(1))
 			resultMetadata := resultMetadataMap[extension.Oid]
-			testutils.ExpectStructsToMatch(&extension, &resultExtensions[0])
-			testutils.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
+			structmatcher.ExpectStructsToMatch(&extension, &resultExtensions[0])
+			structmatcher.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
 
 		})
 	})
@@ -416,9 +417,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			convTwo.Oid = testutils.OidFromObjectName(connection, "public", "conv_two", backup.TYPE_CONVERSION)
 			Expect(len(resultConversions)).To(Equal(2))
 			resultMetadata := resultMetadataMap[convOne.Oid]
-			testutils.ExpectStructsToMatch(&convOne, &resultConversions[0])
-			testutils.ExpectStructsToMatch(&convTwo, &resultConversions[1])
-			testutils.ExpectStructsToMatch(&convMetadata, &resultMetadata)
+			structmatcher.ExpectStructsToMatch(&convOne, &resultConversions[0])
+			structmatcher.ExpectStructsToMatch(&convTwo, &resultConversions[1])
+			structmatcher.ExpectStructsToMatch(&convMetadata, &resultMetadata)
 		})
 	})
 	Describe("PrintCreateForeignDataWrapperStatements", func() {
@@ -438,7 +439,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultWrappers := backup.GetForeignDataWrappers(connection)
 
 			Expect(len(resultWrappers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&foreignDataWrapper, &resultWrappers[0], "Oid", "Validator")
+			structmatcher.ExpectStructsToMatchExcluding(&foreignDataWrapper, &resultWrappers[0], "Oid", "Validator")
 		})
 	})
 	Describe("PrintCreateServerStatements", func() {
@@ -456,7 +457,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultServers := backup.GetForeignServers(connection)
 
 			Expect(len(resultServers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&foreignServer, &resultServers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&foreignServer, &resultServers[0], "Oid")
 		})
 	})
 	Describe("PrintCreateUserMappingStatements", func() {
@@ -474,7 +475,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMappings := backup.GetUserMappings(connection)
 
 			Expect(len(resultMappings)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&userMapping, &resultMappings[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&userMapping, &resultMappings[0], "Oid")
 		})
 		It("creates a user mapping for PUBLIC", func() {
 			testutils.SkipIfBefore6(connection)
@@ -490,7 +491,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMappings := backup.GetUserMappings(connection)
 
 			Expect(len(resultMappings)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&userMapping, &resultMappings[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&userMapping, &resultMappings[0], "Oid")
 		})
 	})
 })

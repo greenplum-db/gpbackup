@@ -3,6 +3,7 @@ package backup_test
 import (
 	"database/sql"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
@@ -400,45 +401,45 @@ GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 			aclStr := "GRANTEE=/GRANTOR"
 			expected := backup.ACL{Grantee: "GRANTEE"}
 			result := backup.ParseACL(aclStr)
-			testutils.ExpectStructsToMatch(&expected, result)
+			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 		It("parses an ACL string containing a role with multiple privileges", func() {
 			aclStr := "testrole=arwdDxt/gpadmin"
 			expected := testutils.DefaultACLForType("testrole", "TABLE")
 			result := backup.ParseACL(aclStr)
-			testutils.ExpectStructsToMatch(&expected, result)
+			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 		It("parses an ACL string containing a role with one privilege", func() {
 			aclStr := "testrole=a/gpadmin"
 			expected := backup.ACL{Grantee: "testrole", Insert: true}
 			result := backup.ParseACL(aclStr)
-			testutils.ExpectStructsToMatch(&expected, result)
+			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 		It("parses an ACL string containing a role name with special characters", func() {
 			aclStr := `"test|role"=a/gpadmin`
 			expected := backup.ACL{Grantee: `test|role`, Insert: true}
 			result := backup.ParseACL(aclStr)
-			testutils.ExpectStructsToMatch(&expected, result)
+			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 		It("parses an ACL string containing a role with some privileges with GRANT and some without including GRANT", func() {
 			aclStr := "testrole=ar*w*d*tXUCTc/gpadmin"
 			expected := backup.ACL{Grantee: "testrole", Insert: true, SelectWithGrant: true, UpdateWithGrant: true,
 				DeleteWithGrant: true, Trigger: true, Execute: true, Usage: true, Create: true, Temporary: true, Connect: true}
 			result := backup.ParseACL(aclStr)
-			testutils.ExpectStructsToMatch(&expected, result)
+			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 		It("parses an ACL string containing a role with all privileges including GRANT", func() {
 			aclStr := "testrole=a*D*x*t*X*U*C*T*c*/gpadmin"
 			expected := backup.ACL{Grantee: "testrole", InsertWithGrant: true, TruncateWithGrant: true, ReferencesWithGrant: true,
 				TriggerWithGrant: true, ExecuteWithGrant: true, UsageWithGrant: true, CreateWithGrant: true, TemporaryWithGrant: true, ConnectWithGrant: true}
 			result := backup.ParseACL(aclStr)
-			testutils.ExpectStructsToMatch(&expected, result)
+			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 		It("parses an ACL string granting privileges to PUBLIC", func() {
 			aclStr := "=a/gpadmin"
 			expected := backup.ACL{Grantee: "", Insert: true}
 			result := backup.ParseACL(aclStr)
-			testutils.ExpectStructsToMatch(&expected, result)
+			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 	})
 	Describe("PrintCreateDependentTypeAndFunctionAndTablesStatements", func() {

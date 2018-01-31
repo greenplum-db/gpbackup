@@ -4,8 +4,8 @@ import (
 	"database/sql/driver"
 	"regexp"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/testutils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -95,8 +95,8 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 			resultOne := resultMetadataMap[1]
 			resultTwo := resultMetadataMap[2]
 			Expect(len(resultMetadataMap)).To(Equal(2))
-			testutils.ExpectStructsToMatch(&expectedOne, &resultOne)
-			testutils.ExpectStructsToMatch(&expectedTwo, &resultTwo)
+			structmatcher.ExpectStructsToMatch(&expectedOne, &resultOne)
+			structmatcher.ExpectStructsToMatch(&expectedTwo, &resultTwo)
 		})
 	})
 	Describe("GetCommentsForObjectType", func() {
@@ -142,8 +142,8 @@ FROM table o JOIN pg_shdescription d ON (d.objoid = oid AND d.classoid = 'table'
 			resultOne := resultMetadataMap[1]
 			resultTwo := resultMetadataMap[2]
 			Expect(len(resultMetadataMap)).To(Equal(2))
-			testutils.ExpectStructsToMatch(&expectedOne, &resultOne)
-			testutils.ExpectStructsToMatch(&expectedTwo, &resultTwo)
+			structmatcher.ExpectStructsToMatch(&expectedOne, &resultOne)
+			structmatcher.ExpectStructsToMatch(&expectedTwo, &resultTwo)
 		})
 	})
 })

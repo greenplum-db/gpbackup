@@ -3,6 +3,7 @@ package utils_test
 import (
 	"os/user"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
@@ -40,7 +41,7 @@ var _ = Describe("utils/compression tests", func() {
 			utils.InitializeCompressionParameters(false, 3)
 			resultUseCompress, resultCompression := utils.GetCompressionParameters()
 			Expect(resultUseCompress).To(BeFalse())
-			testutils.ExpectStructsToMatch(&expectedCompress, &resultCompression)
+			structmatcher.ExpectStructsToMatch(&expectedCompress, &resultCompression)
 		})
 		It("initializes properly when passed compression", func() {
 			useCompress, compression := utils.GetCompressionParameters()
@@ -54,7 +55,7 @@ var _ = Describe("utils/compression tests", func() {
 			utils.InitializeCompressionParameters(true, 7)
 			resultUseCompress, resultCompression := utils.GetCompressionParameters()
 			Expect(resultUseCompress).To(BeTrue())
-			testutils.ExpectStructsToMatch(&expectedCompress, &resultCompression)
+			structmatcher.ExpectStructsToMatch(&expectedCompress, &resultCompression)
 		})
 		It("uses default gzip command when passed compression level 0", func() {
 			useCompress, compression := utils.GetCompressionParameters()
@@ -68,7 +69,7 @@ var _ = Describe("utils/compression tests", func() {
 			utils.InitializeCompressionParameters(true, 0)
 			resultUseCompress, resultCompression := utils.GetCompressionParameters()
 			Expect(resultUseCompress).To(BeTrue())
-			testutils.ExpectStructsToMatch(&expectedCompress, &resultCompression)
+			structmatcher.ExpectStructsToMatch(&expectedCompress, &resultCompression)
 		})
 	})
 })

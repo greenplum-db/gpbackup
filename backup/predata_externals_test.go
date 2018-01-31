@@ -447,8 +447,8 @@ GRANT ALL ON PROTOCOL s3 TO testrole;`)
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {
 		tables := []backup.Relation{
-			backup.Relation{Oid: 1, Schema: "public", Name: "partition_table_ext_part_"},
-			backup.Relation{Oid: 2, Schema: "public", Name: "partition_table"},
+			{Oid: 1, Schema: "public", Name: "partition_table_ext_part_"},
+			{Oid: 2, Schema: "public", Name: "partition_table"},
 		}
 		emptyPartInfoMap := make(map[uint32]backup.PartitionInfo, 0)
 		It("writes an alter statement for a named partition", func() {

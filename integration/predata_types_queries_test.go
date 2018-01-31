@@ -3,6 +3,7 @@ package integration
 import (
 	"sort"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
@@ -47,7 +48,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetShellTypes(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchIncluding(&shellType, &results[0], "Schema", "Name", "Type")
+			structmatcher.ExpectStructsToMatchIncluding(&shellType, &results[0], "Schema", "Name", "Type")
 		})
 		It("returns a slice of composite types", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TYPE composite_type AS (name int4, name2 int, name1 text);")
@@ -56,7 +57,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetCompositeTypes(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name")
+			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name")
 		})
 		It("returns a slice for a base type with default values", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type")
@@ -69,9 +70,9 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeDefault, "Oid", "ModIn", "ModOut")
+				structmatcher.ExpectStructsToMatchExcluding(&results[0], &baseTypeDefault, "Oid", "ModIn", "ModOut")
 			} else {
-				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeDefault, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&results[0], &baseTypeDefault, "Oid")
 			}
 		})
 		It("returns a slice for a base type with custom configuration", func() {
@@ -90,13 +91,13 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid", "ModIn", "ModOut")
+				structmatcher.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid", "ModIn", "ModOut")
 			} else if connection.Version.Before("6") {
-				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid")
 			} else {
 				baseTypeCustom.Category = "N"
 				baseTypeCustom.Preferred = true
-				testutils.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&results[0], &baseTypeCustom, "Oid")
 			}
 		})
 		It("returns a slice for an enum type", func() {
@@ -107,7 +108,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetEnumTypes(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&results[0], &enumType, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &enumType, "Oid")
 		})
 		It("does not return types for sequences or views", func() {
 			testutils.AssertQueryRuns(connection, "CREATE SEQUENCE my_sequence START 10")
@@ -140,7 +141,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetDomainTypes(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchIncluding(&results[0], &domainType, "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
+			structmatcher.ExpectStructsToMatchIncluding(&results[0], &domainType, "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
 		})
 		It("returns a slice for a type in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TYPE shell_type")
@@ -155,7 +156,7 @@ var _ = Describe("backup integration tests", func() {
 			shellTypeOtherSchema := backup.Type{Type: "p", Schema: "testschema", Name: "shell_type"}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchIncluding(&shellTypeOtherSchema, &results[0], "Schema", "Name", "Type")
+			structmatcher.ExpectStructsToMatchIncluding(&shellTypeOtherSchema, &results[0], "Schema", "Name", "Type")
 		})
 	})
 	Describe("ConstructCompositeTypeDependencies", func() {

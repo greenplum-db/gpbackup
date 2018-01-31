@@ -2,12 +2,13 @@ package utils_test
 
 import (
 	"fmt"
-	pb "gopkg.in/cheggaaa/pb.v1"
 	"io"
 	"os"
 	"os/user"
 	"reflect"
 	"time"
+
+	pb "gopkg.in/cheggaaa/pb.v1"
 
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"

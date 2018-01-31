@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"sort"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -724,14 +725,14 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 				{Oid: 8, Schema: "public", Name: "test_table"},
 			}
 			tableDefs = map[uint32]backup.TableDefinition{
-				1: backup.TableDefinition{PartitionType: "p"},
-				2: backup.TableDefinition{PartitionType: "p"},
-				3: backup.TableDefinition{PartitionType: "i"},
-				4: backup.TableDefinition{PartitionType: "l"},
-				5: backup.TableDefinition{PartitionType: "l"},
-				6: backup.TableDefinition{PartitionType: "l"},
-				7: backup.TableDefinition{PartitionType: "l"},
-				8: backup.TableDefinition{PartitionType: "n"},
+				1: {PartitionType: "p"},
+				2: {PartitionType: "p"},
+				3: {PartitionType: "i"},
+				4: {PartitionType: "l"},
+				5: {PartitionType: "l"},
+				6: {PartitionType: "l"},
+				7: {PartitionType: "l"},
+				8: {PartitionType: "n"},
 			}
 		})
 		Context("leafPartitionData and includeTables", func() {
@@ -798,14 +799,14 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			It("gets the same table list for both metadata and data", func() {
 				includeList = []string{}
 				tables = []backup.Relation{
-					backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1"},
-					backup.Relation{Oid: 2, Schema: "public", Name: "part_parent2"},
-					backup.Relation{Oid: 8, Schema: "public", Name: "test_table"},
+					{Oid: 1, Schema: "public", Name: "part_parent1"},
+					{Oid: 2, Schema: "public", Name: "part_parent2"},
+					{Oid: 8, Schema: "public", Name: "test_table"},
 				}
 				tableDefs = map[uint32]backup.TableDefinition{
-					1: backup.TableDefinition{PartitionType: "p"},
-					2: backup.TableDefinition{PartitionType: "p"},
-					8: backup.TableDefinition{PartitionType: "n"},
+					1: {PartitionType: "p"},
+					2: {PartitionType: "p"},
+					8: {PartitionType: "n"},
 				}
 				backup.SetLeafPartitionData(false)
 				backup.SetIncludeTables([]string{})
@@ -826,24 +827,24 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			It("adds a suffix to external partition tables", func() {
 				includeList = []string{}
 				tables = []backup.Relation{
-					backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1_prt_1"},
-					backup.Relation{Oid: 2, Schema: "public", Name: "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame"},
+					{Oid: 1, Schema: "public", Name: "part_parent1_prt_1"},
+					{Oid: 2, Schema: "public", Name: "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame"},
 				}
 				tableDefs = map[uint32]backup.TableDefinition{
-					1: backup.TableDefinition{PartitionType: "l", IsExternal: true},
-					2: backup.TableDefinition{PartitionType: "l", IsExternal: true},
+					1: {PartitionType: "l", IsExternal: true},
+					2: {PartitionType: "l", IsExternal: true},
 				}
 				backup.SetLeafPartitionData(false)
 				backup.SetIncludeTables([]string{})
 				metadataTables, _ := backup.SplitTablesByPartitionType(tables, tableDefs, includeList)
 
 				expectedTables := []backup.Relation{
-					backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1_prt_1_ext_part_"},
-					backup.Relation{Oid: 2, Schema: "public", Name: "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_ext_part_"},
+					{Oid: 1, Schema: "public", Name: "part_parent1_prt_1_ext_part_"},
+					{Oid: 2, Schema: "public", Name: "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_ext_part_"},
 				}
 				Expect(len(metadataTables)).To(Equal(2))
-				testutils.ExpectStructsToMatch(&expectedTables[0], &metadataTables[0])
-				testutils.ExpectStructsToMatch(&expectedTables[1], &metadataTables[1])
+				structmatcher.ExpectStructsToMatch(&expectedTables[0], &metadataTables[0])
+				structmatcher.ExpectStructsToMatch(&expectedTables[1], &metadataTables[1])
 			})
 		})
 	})

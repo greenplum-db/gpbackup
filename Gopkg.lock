@@ -8,6 +8,12 @@
   version = "v3.5.1"
 
 [[projects]]
+  branch = "add_packages"
+  name = "github.com/greenplum-db/gp-common-go-libs"
+  packages = ["structmatcher"]
+  revision = "c47801be32b033df45748b1c7cf438466dc3b640"
+
+[[projects]]
   branch = "master"
   name = "github.com/jmoiron/sqlx"
   packages = [
@@ -98,7 +104,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "af9a21289d0040306ecc55fa668c95246f1f8425"
+  revision = "3dbebcf8efb6a5011a60c2b4591c1022a759af8a"
 
 [[projects]]
   branch = "master"
@@ -145,6 +151,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "792ead55abc2f44416935430219e0957701b840a3f7d02cf12f321aaa5375490"
+  inputs-digest = "fc9801710a784b49450642c2bf33dc986a6f7f5556bc43db7f8c6d4df2796816"
   solver-name = "gps-cdcl"
   solver-version = 1

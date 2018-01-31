@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -19,7 +20,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetOperators(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 		It("returns a slice of operators with a full-featured operator", func() {
 			testutils.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
@@ -50,9 +51,9 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&version4expectedOperator, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&version4expectedOperator, &results[0], "Oid")
 			} else {
-				testutils.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 			}
 		})
 		It("returns a slice of operators from a specific schema", func() {
@@ -69,7 +70,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetOperators(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 	})
 	Describe("GetOperatorFamilies", func() {
@@ -85,7 +86,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetOperatorFamilies(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 		It("returns a slice of operator families in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testfam USING hash;")
@@ -101,7 +102,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetOperatorFamilies(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 	})
 	Describe("GetOperatorClasses", func() {
@@ -120,9 +121,9 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
 			} else {
-				testutils.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
 			}
 		})
 		It("returns a slice of operator classes with an operator family", func() {
@@ -139,7 +140,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetOperatorClasses(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
 		})
 		It("returns a slice of operator classes with different type and storage type", func() {
 			testutils.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
@@ -159,9 +160,9 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
 			} else {
-				testutils.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
 			}
 		})
 		It("returns a slice of operator classes with operators and functions", func() {
@@ -191,9 +192,9 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid", "Operators.ClassOid", "Functions.ClassOid")
+				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid", "Operators.ClassOid", "Functions.ClassOid")
 			} else {
-				testutils.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid", "Operators.ClassOid", "Functions.ClassOid")
+				structmatcher.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid", "Operators.ClassOid", "Functions.ClassOid")
 			}
 		})
 		It("returns a slice of operator classes for a specific schema", func() {
@@ -220,9 +221,9 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
 			} else {
-				testutils.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
 			}
 		})
 	})

@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -23,8 +24,8 @@ var _ = Describe("backup integration tests", func() {
 			schemaPublic := backup.Schema{Oid: 2200, Name: "public"}
 
 			Expect(len(schemas)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&schemaBar, &schemas[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&schemaPublic, &schemas[1], "Owner")
+			structmatcher.ExpectStructsToMatchExcluding(&schemaBar, &schemas[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&schemaPublic, &schemas[1], "Owner")
 		})
 
 		It("returns schema information for single specific schema", func() {
@@ -36,7 +37,7 @@ var _ = Describe("backup integration tests", func() {
 			schemaBar := backup.Schema{Oid: 0, Name: "bar"}
 
 			Expect(len(schemas)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&schemaBar, &schemas[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&schemaBar, &schemas[0], "Oid")
 
 		})
 
@@ -50,8 +51,8 @@ var _ = Describe("backup integration tests", func() {
 			schemaPublic := backup.Schema{Oid: 2200, Name: "public"}
 
 			Expect(len(schemas)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&schemaBar, &schemas[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&schemaPublic, &schemas[1], "Owner")
+			structmatcher.ExpectStructsToMatchExcluding(&schemaBar, &schemas[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&schemaPublic, &schemas[1], "Owner")
 
 		})
 	})
@@ -84,7 +85,7 @@ var _ = Describe("backup integration tests", func() {
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &uniqueConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &uniqueConstraint, "Oid")
 			})
 			It("returns a constraint array for a table with one PRIMARY KEY constraint and a comment", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE constraints_table(a int, b text, c float)")
@@ -95,7 +96,7 @@ var _ = Describe("backup integration tests", func() {
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &pkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &pkConstraint, "Oid")
 			})
 			It("returns a constraint array for a table with one FOREIGN KEY constraint", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE constraints_table(a int, b text, c float)")
@@ -108,8 +109,8 @@ var _ = Describe("backup integration tests", func() {
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(2))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &fkConstraint, "Oid")
-				testutils.ExpectStructsToMatchExcluding(&constraints[1], &pkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &fkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[1], &pkConstraint, "Oid")
 			})
 			It("returns a constraint array for a table with one CHECK constraint", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE constraints_table(a int, b text, c float)")
@@ -119,7 +120,7 @@ var _ = Describe("backup integration tests", func() {
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
 			})
 			It("returns a constraint array for a parent partition table with one CHECK constraint", func() {
 				testutils.AssertQueryRuns(connection, `CREATE TABLE part (id int, date date, amt decimal(10,2) default 0.0) DISTRIBUTED BY (id)
@@ -134,7 +135,7 @@ PARTITION BY RANGE (date)
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &partitionCheckConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &partitionCheckConstraint, "Oid")
 			})
 			It("returns a constraint array for a domain", func() {
 				testutils.AssertQueryRuns(connection, "CREATE DOMAIN constraint_domain AS int")
@@ -144,7 +145,7 @@ PARTITION BY RANGE (date)
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &domainConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &domainConstraint, "Oid")
 			})
 			It("does not return a constraint array for a table that inherits a constraint from another table", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE constraints_table(a int, b text, c float)")
@@ -157,7 +158,7 @@ PARTITION BY RANGE (date)
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
 			})
 			It("returns a constraint array for a table that inherits from another table and has an additional constraint", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE parent_table(a int, b text, c float)")
@@ -171,7 +172,7 @@ PARTITION BY RANGE (date)
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
 			})
 			It("returns a constraint array for a table in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE constraints_table(a int, b text, c float)")
@@ -188,7 +189,7 @@ PARTITION BY RANGE (date)
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &constraintInSchema, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &constraintInSchema, "Oid")
 			})
 			It("returns a constraint array for only the tables in the backup set", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE public.constraints_table(a int, b text, c float)")
@@ -203,7 +204,7 @@ PARTITION BY RANGE (date)
 				tables := []backup.Relation{{Oid: constraintsOid, Schema: "public", Name: "constraints_table"}}
 				constraints := backup.GetConstraints(connection, tables...)
 				Expect(len(constraints)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &uniqueConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &uniqueConstraint, "Oid")
 
 				tables = []backup.Relation{{Oid: otherOid, Schema: "public", Name: "other_table"}}
 				constraints = backup.GetConstraints(connection, tables...)
@@ -226,10 +227,10 @@ PARTITION BY RANGE (date)
 				constraints := backup.GetConstraints(connection)
 
 				Expect(len(constraints)).To(Equal(4))
-				testutils.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
-				testutils.ExpectStructsToMatchExcluding(&constraints[1], &fkConstraint, "Oid")
-				testutils.ExpectStructsToMatchExcluding(&constraints[2], &pkConstraint, "Oid")
-				testutils.ExpectStructsToMatchExcluding(&constraints[3], &uniqueConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[1], &fkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[2], &pkConstraint, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&constraints[3], &uniqueConstraint, "Oid")
 			})
 		})
 	})
@@ -258,9 +259,9 @@ PARTITION BY RANGE (date)
 				resultFoo := resultMetadataMap[fooOid]
 				resultBar := resultMetadataMap[barOid]
 				resultBaz := resultMetadataMap[bazOid]
-				testutils.ExpectStructsToMatch(&resultFoo, &expectedFoo)
-				testutils.ExpectStructsToMatch(&resultBar, &expectedBar)
-				testutils.ExpectStructsToMatch(&resultBaz, &expectedBaz)
+				structmatcher.ExpectStructsToMatch(&resultFoo, &expectedFoo)
+				structmatcher.ExpectStructsToMatch(&resultBar, &expectedBar)
+				structmatcher.ExpectStructsToMatch(&resultBaz, &expectedBaz)
 			})
 			It("returns a slice of default metadata for a database", func() {
 				testutils.AssertQueryRuns(connection, "GRANT ALL ON DATABASE testdb TO anothertestrole")
@@ -275,7 +276,7 @@ PARTITION BY RANGE (date)
 
 				oid := testutils.OidFromObjectName(connection, "", "testdb", backup.TYPE_DATABASE)
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a table", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
@@ -289,7 +290,7 @@ PARTITION BY RANGE (date)
 				expectedMetadata := testutils.DefaultMetadataMap("TABLE", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a sequence", func() {
 				testutils.AssertQueryRuns(connection, "CREATE SEQUENCE testsequence")
@@ -303,7 +304,7 @@ PARTITION BY RANGE (date)
 				expectedMetadata := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a function", func() {
 				testutils.AssertQueryRuns(connection, `CREATE FUNCTION add(integer, integer) RETURNS integer
@@ -320,7 +321,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadataMap("FUNCTION", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a view", func() {
 				testutils.AssertQueryRuns(connection, `CREATE VIEW testview AS SELECT * FROM pg_class`)
@@ -334,7 +335,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadataMap("VIEW", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a schema", func() {
 				testutils.AssertQueryRuns(connection, `CREATE SCHEMA testschema`)
@@ -347,7 +348,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "testschema", backup.TYPE_SCHEMA)
 				expectedMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an aggregate", func() {
 				testutils.AssertQueryRuns(connection, `
@@ -382,7 +383,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "agg_prefunc", backup.TYPE_AGGREGATE)
 				expectedMetadata := testutils.DefaultMetadataMap("AGGREGATE", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a type", func() {
 				testutils.AssertQueryRuns(connection, `CREATE TYPE testtype AS (name text, num numeric)`)
@@ -394,7 +395,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "testtype", backup.TYPE_TYPE)
 				expectedMetadata := testutils.DefaultMetadataMap("TYPE", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a domain", func() {
 				testutils.AssertQueryRuns(connection, `CREATE DOMAIN domain_type AS numeric`)
@@ -406,7 +407,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "domain_type", backup.TYPE_TYPE)
 				expectedMetadata := testutils.DefaultMetadataMap("DOMAIN", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an external protocol", func() {
 				testutils.AssertQueryRuns(connection, `CREATE OR REPLACE FUNCTION read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;`)
@@ -420,7 +421,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "s3_read", backup.TYPE_PROTOCOL)
 				expectedMetadata := testutils.DefaultMetadataMap("PROTOCOL", true, true, false)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a tablespace", func() {
 				if connection.Version.Before("6") {
@@ -437,7 +438,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "test_tablespace", backup.TYPE_TABLESPACE)
 				expectedMetadata := testutils.DefaultMetadataMap("TABLESPACE", true, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator", func() {
 				testutils.AssertQueryRuns(connection, "CREATE OPERATOR #### (LEFTARG = bigint, PROCEDURE = numeric_fac)")
@@ -450,7 +451,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "####", backup.TYPE_OPERATOR)
 				expectedMetadata := testutils.DefaultMetadataMap("OPERATOR", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator family", func() {
 				testutils.SkipIf4(connection)
@@ -464,7 +465,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "public", "testfam", backup.TYPE_OPERATORFAMILY)
 				expectedMetadata := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator class", func() {
 				testutils.AssertQueryRuns(connection, "CREATE OPERATOR CLASS testclass FOR TYPE int USING hash AS STORAGE int")
@@ -480,7 +481,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "public", "testclass", backup.TYPE_OPERATORCLASS)
 				expectedMetadata := testutils.DefaultMetadataMap("OPERATOR CLASS", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search dictionary", func() {
 				testutils.SkipIf4(connection)
@@ -495,7 +496,7 @@ LANGUAGE SQL`)
 				dictionaryMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH DICTIONARY", false, true, true)
 				dictionaryMetadata := dictionaryMetadataMap[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration", func() {
 				testutils.SkipIf4(connection)
@@ -512,7 +513,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&configurationMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&configurationMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a foreign data wrapper", func() {
 				testutils.SkipIfBefore6(connection)
@@ -526,7 +527,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "foreignwrapper", backup.TYPE_FOREIGNDATAWRAPPER)
 				expectedMetadata := testutils.DefaultMetadataMap("FOREIGN DATA WRAPPER", true, true, false)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a foreign server", func() {
 				testutils.SkipIfBefore6(connection)
@@ -541,7 +542,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "foreignserver", backup.TYPE_FOREIGNSERVER)
 				expectedMetadata := testutils.DefaultMetadataMap("FOREIGN SERVER", true, true, false)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 		})
 		Context("metadata for objects in a specific schema", func() {
@@ -562,7 +563,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadataMap("TABLE", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a table not in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
@@ -581,7 +582,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadataMap("TABLE", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a function in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, `CREATE FUNCTION add(integer, integer) RETURNS integer
@@ -605,7 +606,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadataMap("FUNCTION", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a view in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, `CREATE VIEW testview AS SELECT * FROM pg_class`)
@@ -624,7 +625,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadataMap("VIEW", true, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an aggregate in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, `
@@ -671,7 +672,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadataMap("AGGREGATE", false, true, true)[1]
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a type in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, `CREATE TYPE public.testtype`)
@@ -695,7 +696,7 @@ LANGUAGE SQL`)
 					// In 5, creating testtype generates 2 entries in pg_type, "testtype" and "_testtype"
 					Expect(len(resultMetadataMap)).To(Equal(2))
 				}
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, "CREATE OPERATOR public.#### (LEFTARG = bigint, PROCEDURE = numeric_fac)")
@@ -713,7 +714,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "testschema", "####", backup.TYPE_OPERATOR)
 				expectedMetadata := testutils.DefaultMetadataMap("OPERATOR", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator family in a specific schema", func() {
 				testutils.SkipIf4(connection)
@@ -732,7 +733,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "testschema", "testfam", backup.TYPE_OPERATORFAMILY)
 				expectedMetadata := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator class in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, "CREATE OPERATOR CLASS public.testclass FOR TYPE int4 USING hash AS STORAGE int4")
@@ -758,7 +759,7 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "testschema", "testclass", backup.TYPE_OPERATORCLASS)
 				expectedMetadata := testutils.DefaultMetadataMap("OPERATOR CLASS", false, true, true)[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search dictionary in a specific schema", func() {
 				testutils.SkipIf4(connection)
@@ -778,7 +779,7 @@ LANGUAGE SQL`)
 				dictionaryMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH DICTIONARY", false, true, true)
 				dictionaryMetadata := dictionaryMetadataMap[1]
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration in a specific schema", func() {
 				testutils.SkipIf4(connection)
@@ -800,7 +801,7 @@ LANGUAGE SQL`)
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				oid := testutils.OidFromObjectName(connection, "testschema", "testconfiguration", backup.TYPE_TSCONFIGURATION)
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&configurationMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&configurationMetadata, &resultMetadata)
 			})
 		})
 	})
@@ -823,7 +824,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(numIndexes + 1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a rule", func() {
 				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_RULE)
@@ -842,7 +843,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(numRules + 1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a trigger", func() {
 				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_TRIGGER)
@@ -861,7 +862,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(numTriggers + 1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a cast in 4.3", func() {
 				testutils.SkipIfNot4(connection)
@@ -883,7 +884,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(numCasts + 1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a cast in 5", func() {
 				testutils.SkipIf4(connection)
@@ -905,7 +906,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(numCasts + 1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a resource queue", func() {
 				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_RESOURCEQUEUE)
@@ -923,7 +924,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(numResQueues + 1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a role", func() {
 				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_ROLE)
@@ -941,7 +942,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(numRoles + 1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search parser", func() {
 				testutils.SkipIf4(connection)
@@ -957,7 +958,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search template", func() {
 				testutils.SkipIf4(connection)
@@ -973,7 +974,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for an extension", func() {
 				testutils.SkipIf4(connection)
@@ -989,7 +990,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
 			})
 		})
 		Context("comments for objects in a specific schema", func() {
@@ -1013,7 +1014,7 @@ LANGUAGE SQL`)
 				expectedMetadata := expectedMetadataMap[1]
 
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a constraint in a specific schema", func() {
 				testutils.AssertQueryRuns(connection, `CREATE TABLE testtable(i int UNIQUE)`)
@@ -1035,7 +1036,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search parser in a specific schema", func() {
 				testutils.SkipIf4(connection)
@@ -1056,7 +1057,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search template in a specific schema", func() {
 				testutils.SkipIf4(connection)
@@ -1077,7 +1078,7 @@ LANGUAGE SQL`)
 
 				Expect(len(resultMetadataMap)).To(Equal(1))
 				resultMetadata := resultMetadataMap[oid]
-				testutils.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
+				structmatcher.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
 			})
 		})
 	})

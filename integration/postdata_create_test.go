@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -34,7 +35,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultIndexes := backup.GetIndexes(connection, indexNameSet)
 			Expect(len(resultIndexes)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index used for clustering", func() {
 			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON testtable USING btree (i)", IsClustered: true}}
@@ -48,7 +49,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultIndexes := backup.GetIndexes(connection, indexNameSet)
 			Expect(len(resultIndexes)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index with a comment", func() {
 			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON testtable USING btree (i)"}}
@@ -67,8 +68,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_INDEX)
 			resultMetadata := resultMetadataMap[indexes[0].Oid]
 			Expect(len(resultIndexes)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
-			testutils.ExpectStructsToMatch(&resultMetadata, &indexMetadata)
+			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
+			structmatcher.ExpectStructsToMatch(&resultMetadata, &indexMetadata)
 		})
 		It("creates an index in a non-default tablespace", func() {
 			if connection.Version.Before("6") {
@@ -88,7 +89,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultIndexes := backup.GetIndexes(connection, indexNameSet)
 			Expect(len(resultIndexes)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 	})
 	Describe("PrintCreateRuleStatements", func() {
@@ -109,7 +110,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultRules := backup.GetRules(connection)
 			Expect(len(resultRules)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 		})
 		It("creates a rule with a comment", func() {
 			rules := []backup.QuerySimpleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}}
@@ -127,8 +128,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_RULE)
 			resultMetadata := resultMetadataMap[rules[0].Oid]
 			Expect(len(resultRules)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
-			testutils.ExpectStructsToMatch(&resultMetadata, &ruleMetadata)
+			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
+			structmatcher.ExpectStructsToMatch(&resultMetadata, &ruleMetadata)
 		})
 	})
 	Describe("PrintCreateTriggerStatements", func() {
@@ -149,7 +150,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTriggers := backup.GetTriggers(connection)
 			Expect(len(resultTriggers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 		})
 		It("creates a trigger with a comment", func() {
 			triggers := []backup.QuerySimpleDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}}
@@ -167,8 +168,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_TRIGGER)
 			resultMetadata := resultMetadataMap[triggers[0].Oid]
 			Expect(len(resultTriggers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
-			testutils.ExpectStructsToMatch(&resultMetadata, &triggerMetadata)
+			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
+			structmatcher.ExpectStructsToMatch(&resultMetadata, &triggerMetadata)
 		})
 	})
 })

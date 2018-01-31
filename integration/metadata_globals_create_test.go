@@ -3,6 +3,7 @@ package integration
 import (
 	"regexp"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -34,11 +35,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			resQueueOid := testutils.OidFromObjectName(connection, "", "basicQueue", backup.TYPE_RESOURCEQUEUE)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_RESOURCEQUEUE)
 			resultMetadata := resultMetadataMap[resQueueOid]
-			testutils.ExpectStructsToMatch(&resultMetadata, &resQueueMetadata)
+			structmatcher.ExpectStructsToMatch(&resultMetadata, &resQueueMetadata)
 
 			for _, resultQueue := range resultResourceQueues {
 				if resultQueue.Name == `"basicQueue"` {
-					testutils.ExpectStructsToMatchExcluding(&basicQueue, &resultQueue, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&basicQueue, &resultQueue, "Oid")
 					return
 				}
 			}
@@ -56,7 +57,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			for _, resultQueue := range resultResourceQueues {
 				if resultQueue.Name == `"everythingQueue"` {
-					testutils.ExpectStructsToMatchExcluding(&everythingQueue, &resultQueue, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&everythingQueue, &resultQueue, "Oid")
 					return
 				}
 			}
@@ -80,7 +81,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			for _, resultGroup := range resultResourceGroups {
 				if resultGroup.Name == "some_group" {
-					testutils.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "Oid")
 					return
 				}
 			}
@@ -100,7 +101,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			for _, resultGroup := range resultResourceGroups {
 				if resultGroup.Name == "default_group" {
-					testutils.ExpectStructsToMatchExcluding(&defaultGroup, &resultGroup, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&defaultGroup, &resultGroup, "Oid")
 					return
 				}
 			}
@@ -143,7 +144,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultRoles := backup.GetRoles(connection)
 			for _, role := range resultRoles {
 				if role.Name == "role1" {
-					testutils.ExpectStructsToMatch(&role1, role)
+					structmatcher.ExpectStructsToMatch(&role1, role)
 					return
 				}
 			}
@@ -198,7 +199,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultRoles := backup.GetRoles(connection)
 			for _, role := range resultRoles {
 				if role.Name == "role1" {
-					testutils.ExpectStructsToMatchExcluding(&role1, role, "TimeConstraints.Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&role1, role, "TimeConstraints.Oid")
 					return
 				}
 			}
@@ -225,7 +226,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultRoleMembers)).To(Equal(numRoleMembers + 1))
 			for _, roleMember := range resultRoleMembers {
 				if roleMember.Role == "usergroup" {
-					testutils.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
+					structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
 					return
 				}
 			}
@@ -242,7 +243,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultRoleMembers)).To(Equal(numRoleMembers + 1))
 			for _, roleMember := range resultRoleMembers {
 				if roleMember.Role == "usergroup" {
-					testutils.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
+					structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
 					return
 				}
 			}
@@ -270,7 +271,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultTablespaces)).To(Equal(numTablespaces + 1))
 			for _, tablespace := range resultTablespaces {
 				if tablespace.Tablespace == "test_tablespace" {
-					testutils.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
 					return
 				}
 			}
@@ -303,11 +304,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_TABLESPACE)
 			oid := testutils.OidFromObjectName(connection, "", "test_tablespace", backup.TYPE_TABLESPACE)
 			resultMetadata := resultMetadataMap[oid]
-			testutils.ExpectStructsToMatchExcluding(&tablespaceMetadata, &resultMetadata, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&tablespaceMetadata, &resultMetadata, "Oid")
 			Expect(len(resultTablespaces)).To(Equal(numTablespaces + 1))
 			for _, tablespace := range resultTablespaces {
 				if tablespace.Tablespace == "test_tablespace" {
-					testutils.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
 					return
 				}
 			}

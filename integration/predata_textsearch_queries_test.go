@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -21,7 +22,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedParser := backup.TextSearchParser{Oid: 1, Schema: "public", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: ""}
 
 			Expect(len(parsers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
 		})
 		It("returns a text search parser with a headline", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TEXT SEARCH PARSER testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype, HEADLINE = prsd_headline);")
@@ -31,7 +32,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedParser := backup.TextSearchParser{Oid: 1, Schema: "public", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: "prsd_headline"}
 
 			Expect(len(parsers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
 		})
 		It("returns a text search parser from a specific schema ", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TEXT SEARCH PARSER testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
@@ -47,7 +48,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedParser := backup.TextSearchParser{Oid: 1, Schema: "testschema", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: ""}
 
 			Expect(len(parsers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
 		})
 	})
 	Describe("GetTextSearchTemplates", func() {
@@ -62,7 +63,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "public", Name: "testtemplate", InitFunc: "", LexizeFunc: "dsimple_lexize"}
 
 			Expect(len(templates)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
 		})
 		It("returns a text search template with an init function", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TEXT SEARCH TEMPLATE testtemplate(INIT = dsimple_init, LEXIZE = dsimple_lexize);")
@@ -72,7 +73,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "public", Name: "testtemplate", InitFunc: "dsimple_init", LexizeFunc: "dsimple_lexize"}
 
 			Expect(len(templates)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
 		})
 		It("returns a text search template from a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TEXT SEARCH TEMPLATE testtemplate(LEXIZE = dsimple_lexize);")
@@ -88,7 +89,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "testschema", Name: "testtemplate", InitFunc: "", LexizeFunc: "dsimple_lexize"}
 
 			Expect(len(templates)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
 		})
 	})
 	Describe("GetTextSearchDictionaries", func() {
@@ -102,7 +103,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "public", Name: "testdictionary", Template: "pg_catalog.snowball", InitOption: "language = 'russian', stopwords = 'russian'"}
 			Expect(len(dictionaries)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
 		})
 		It("returns a text search dictionary without init options", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TEXT SEARCH DICTIONARY testdictionary (TEMPLATE = 'simple');")
@@ -111,7 +112,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "public", Name: "testdictionary", Template: "pg_catalog.simple", InitOption: ""}
 			Expect(len(dictionaries)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
 		})
 		It("returns a text search dictionary from a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TEXT SEARCH DICTIONARY testdictionary (TEMPLATE = 'simple');")
@@ -126,7 +127,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "testschema", Name: "testdictionary", Template: "pg_catalog.simple", InitOption: ""}
 			Expect(len(dictionaries)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
 		})
 	})
 	Describe("GetTextSearchConfigurations", func() {
@@ -141,7 +142,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 
 			Expect(len(configurations)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 		It("returns a text search configuration with an init function", func() {
 			testutils.AssertQueryRuns(connection, `CREATE TEXT SEARCH CONFIGURATION testconfiguration ( PARSER = pg_catalog."default");`)
@@ -151,7 +152,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 
 			Expect(len(configurations)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 		It("returns a text search configuration with mappings", func() {
 			testutils.AssertQueryRuns(connection, `CREATE TEXT SEARCH CONFIGURATION testconfiguration ( PARSER = pg_catalog."default");`)
@@ -166,7 +167,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedConfiguration.TokenToDicts = map[string][]string{"uint": {"simple"}, "asciiword": {"danish_stem"}}
 
 			Expect(len(configurations)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 		It("returns a text search configuration from a specific schema", func() {
 			testutils.AssertQueryRuns(connection, `CREATE TEXT SEARCH CONFIGURATION testconfiguration (PARSER = pg_catalog."default");`)
@@ -182,7 +183,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "testschema", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 
 			Expect(len(configurations)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 	})
 })

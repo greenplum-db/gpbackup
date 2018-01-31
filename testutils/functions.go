@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/helper"
 	"github.com/greenplum-db/gpbackup/restore"
@@ -302,7 +303,7 @@ func AssertBufferContents(entries []utils.MetadataEntry, buffer *gbytes.Buffer, 
 
 func ExpectEntry(entries []utils.MetadataEntry, index int, schema, referenceObject, name, objectType string) {
 	Expect(len(entries)).To(BeNumerically(">", index))
-	ExpectStructsToMatchExcluding(entries[index], utils.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
+	structmatcher.ExpectStructsToMatchExcluding(entries[index], utils.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
 }
 
 func ExpectPathToExist(path string) {

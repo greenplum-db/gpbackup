@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -27,7 +28,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(len(resultSchemas)).To(Equal(2))
 			Expect(resultSchemas[0].Name).To(Equal("public"))
 
-			testutils.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[1], "Oid")
 		})
 
 		It("modifies the public schema", func() {
@@ -43,7 +44,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultSchemas := backup.GetAllUserSchemas(connection)
 
 			Expect(len(resultSchemas)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[0])
+			structmatcher.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[0])
 		})
 	})
 	Describe("PrintConstraintStatements", func() {
@@ -76,7 +77,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultConstraints := backup.GetConstraints(connection)
 
 			Expect(len(resultConstraints)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates a primary key constraint", func() {
 			constraints := []backup.Constraint{}
@@ -89,7 +90,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultConstraints := backup.GetConstraints(connection)
 
 			Expect(len(resultConstraints)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates a foreign key constraint", func() {
 			constraints := []backup.Constraint{fkConstraint}
@@ -102,8 +103,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultConstraints := backup.GetConstraints(connection)
 
 			Expect(len(resultConstraints)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[1], "Oid")
 		})
 		It("creates a check constraint", func() {
 			constraints := []backup.Constraint{checkConstraint}
@@ -114,7 +115,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultConstraints := backup.GetConstraints(connection)
 
 			Expect(len(resultConstraints)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&checkConstraint, &resultConstraints[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&checkConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates multiple constraints on one table", func() {
 			constraints := []backup.Constraint{checkConstraint, uniqueConstraint, fkConstraint}
@@ -127,10 +128,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultConstraints := backup.GetConstraints(connection)
 
 			Expect(len(resultConstraints)).To(Equal(4))
-			testutils.ExpectStructsToMatchExcluding(&checkConstraint, &resultConstraints[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[1], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[2], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[3], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&checkConstraint, &resultConstraints[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[2], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[3], "Oid")
 		})
 		It("doesn't create a check constraint on a domain", func() {
 			testutils.AssertQueryRuns(connection, "CREATE DOMAIN domain1 AS numeric")
@@ -156,7 +157,7 @@ PARTITION BY RANGE (year)
 			resultConstraints := backup.GetConstraints(connection)
 
 			Expect(len(resultConstraints)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&partitionCheckConstraint, &resultConstraints[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&partitionCheckConstraint, &resultConstraints[0], "Oid")
 		})
 	})
 	Describe("GUC-printing functions", func() {

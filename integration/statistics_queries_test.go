@@ -3,6 +3,7 @@ package integration
 import (
 	"sort"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	. "github.com/onsi/ginkgo"
@@ -60,13 +61,13 @@ var _ = Describe("backup integration tests", func() {
 			sort.Strings(tableAttStatsJ.Values1)
 			sort.Strings(tableAttStatsK.Values1)
 			if connection.Version.Before("5") {
-				testutils.ExpectStructsToMatchExcluding(&expectedStats4I, &tableAttStatsI, "Numbers2")
-				testutils.ExpectStructsToMatchExcluding(&expectedStats4J, &tableAttStatsJ, "Numbers2")
-				testutils.ExpectStructsToMatchExcluding(&expectedStats4K, &tableAttStatsK, "Numbers2")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedStats4I, &tableAttStatsI, "Numbers2")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedStats4J, &tableAttStatsJ, "Numbers2")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedStats4K, &tableAttStatsK, "Numbers2")
 			} else {
-				testutils.ExpectStructsToMatchExcluding(&expectedStats5I, &tableAttStatsI, "Numbers2")
-				testutils.ExpectStructsToMatchExcluding(&expectedStats5J, &tableAttStatsJ, "Numbers2")
-				testutils.ExpectStructsToMatchExcluding(&expectedStats5K, &tableAttStatsK, "Numbers2")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedStats5I, &tableAttStatsI, "Numbers2")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedStats5J, &tableAttStatsJ, "Numbers2")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedStats5K, &tableAttStatsK, "Numbers2")
 			}
 		})
 	})
@@ -79,7 +80,7 @@ var _ = Describe("backup integration tests", func() {
 			// Tuple statistics will not vary by GPDB version. Relpages may vary based on the hardware.
 			expectedStats := backup.TupleStatistic{Oid: tableOid, Schema: "public", Table: "foo", RelTuples: 2}
 
-			testutils.ExpectStructsToMatchExcluding(&expectedStats, &tableTupleStats, "RelPages")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedStats, &tableTupleStats, "RelPages")
 		})
 	})
 })

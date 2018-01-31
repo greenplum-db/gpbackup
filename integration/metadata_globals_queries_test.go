@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -45,7 +46,7 @@ var _ = Describe("backup integration tests", func() {
 			result := backup.GetDatabaseInfo(connection)
 
 			testdbExpected := backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default", Encoding: "UTF8"}
-			testutils.ExpectStructsToMatchExcluding(&testdbExpected, &result, "Oid", "Collate", "CType")
+			structmatcher.ExpectStructsToMatchExcluding(&testdbExpected, &result, "Oid", "Collate", "CType")
 		})
 	})
 	Describe("GetResourceQueues", func() {
@@ -60,7 +61,7 @@ var _ = Describe("backup integration tests", func() {
 			//Since resource queues are global, we can't be sure this is the only one
 			for _, resultQueue := range results {
 				if resultQueue.Name == `"statementsQueue"` {
-					testutils.ExpectStructsToMatchExcluding(&statementsQueue, &resultQueue, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&statementsQueue, &resultQueue, "Oid")
 					return
 				}
 			}
@@ -76,7 +77,7 @@ var _ = Describe("backup integration tests", func() {
 
 			for _, resultQueue := range results {
 				if resultQueue.Name == `"maxCostQueue"` {
-					testutils.ExpectStructsToMatchExcluding(&maxCostQueue, &resultQueue, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&maxCostQueue, &resultQueue, "Oid")
 					return
 				}
 			}
@@ -92,7 +93,7 @@ var _ = Describe("backup integration tests", func() {
 
 			for _, resultQueue := range results {
 				if resultQueue.Name == `"everyQueue"` {
-					testutils.ExpectStructsToMatchExcluding(&everyQueue, &resultQueue, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&everyQueue, &resultQueue, "Oid")
 					return
 				}
 			}
@@ -114,7 +115,7 @@ var _ = Describe("backup integration tests", func() {
 
 			for _, resultGroup := range results {
 				if resultGroup.Name == `"someGroup"` {
-					testutils.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "Oid")
 					return
 				}
 			}
@@ -154,7 +155,7 @@ var _ = Describe("backup integration tests", func() {
 			}
 			for _, role := range results {
 				if role.Name == "role1" {
-					testutils.ExpectStructsToMatch(&expectedRole, role)
+					structmatcher.ExpectStructsToMatch(&expectedRole, role)
 					return
 				}
 			}
@@ -219,7 +220,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 
 			for _, role := range results {
 				if role.Name == "role1" {
-					testutils.ExpectStructsToMatchExcluding(&expectedRole, role, "TimeConstraints.Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&expectedRole, role, "TimeConstraints.Oid")
 					return
 				}
 			}
@@ -243,7 +244,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 
 			for _, roleMember := range roleMembers {
 				if roleMember.Role == "usergroup" {
-					testutils.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
+					structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
 					return
 				}
 			}
@@ -257,7 +258,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 
 			for _, roleMember := range roleMembers {
 				if roleMember.Role == "usergroup" {
-					testutils.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
+					structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
 					return
 				}
 			}
@@ -280,7 +281,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 
 			for _, tablespace := range resultTablespaces {
 				if tablespace.Tablespace == "test_tablespace" {
-					testutils.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
 					return
 				}
 			}

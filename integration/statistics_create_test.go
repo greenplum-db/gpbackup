@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -49,11 +50,11 @@ var _ = Describe("backup integration tests", func() {
 
 			// Ensure the statistics match
 			Expect(len(afterTupleStats)).To(Equal(len(beforeTupleStats)))
-			testutils.ExpectStructsToMatchExcluding(&beforeTupleStat, &afterTupleStat, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&beforeTupleStat, &afterTupleStat, "Oid")
 			Expect(len(oldAtts)).To(Equal(3))
 			Expect(len(newAtts)).To(Equal(3))
 			for i := range oldAtts {
-				testutils.ExpectStructsToMatchExcluding(&oldAtts[i], &newAtts[i], "Oid", "Relid")
+				structmatcher.ExpectStructsToMatchExcluding(&oldAtts[i], &newAtts[i], "Oid", "Relid")
 			}
 		})
 	})

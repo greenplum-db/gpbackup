@@ -3,6 +3,7 @@ package integration
 import (
 	"sort"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -28,8 +29,8 @@ var _ = Describe("backup integration tests", func() {
 			tableTestTable := backup.BasicRelation("testschema", "testtable")
 
 			Expect(len(tables)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
-			testutils.ExpectStructsToMatchExcluding(&tableTestTable, &tables[1], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&tableTestTable, &tables[1], "SchemaOid", "Oid")
 		})
 		Context("Retrieving external partitions", func() {
 			It("returns parent and external leaf partition table if the filter includes a leaf table and leaf-partition-data is set", func() {
@@ -131,7 +132,7 @@ PARTITION BY LIST (gender)
 				tableRank := backup.BasicRelation("public", "rank")
 
 				Expect(len(tables)).To(Equal(1))
-				testutils.ExpectStructsToMatchExcluding(&tableRank, &tables[0], "SchemaOid", "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&tableRank, &tables[0], "SchemaOid", "Oid")
 			})
 			It("returns both parent and leaf partition tables if the leaf-partition-data flag is set and there are no include tables", func() {
 				backup.SetLeafPartitionData(true)
@@ -236,7 +237,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.BasicRelation("testschema", "foo")
 
 			Expect(len(tables)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 		It("returns user table information for tables in includeTables", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE foo(i int)")
@@ -252,7 +253,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.BasicRelation("testschema", "foo")
 
 			Expect(len(tables)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 		It("returns user table information for tables not in excludeTables", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE foo(i int)")
@@ -268,7 +269,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.BasicRelation("public", "foo")
 
 			Expect(len(tables)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 		It("returns user table information for tables in includeSchema but not in excludeTables", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE foo(i int)")
@@ -287,7 +288,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.BasicRelation("testschema", "bar")
 
 			Expect(len(tables)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 	})
 	Describe("GetPartitionTableMap", func() {
@@ -355,10 +356,10 @@ PARTITION BY RANGE (year)
 
 			Expect(len(tableAtts)).To(Equal(4))
 
-			testutils.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&columnC, &tableAtts[1], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&columnD, &tableAtts[2], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&columnE, &tableAtts[3], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&columnC, &tableAtts[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&columnD, &tableAtts[2], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&columnE, &tableAtts[3], "Oid")
 		})
 		It("returns table attributes including encoding for a column oriented table", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE co_atttable(a float, b text ENCODING(blocksize=65536)) WITH (appendonly=true, orientation=column)")
@@ -372,8 +373,8 @@ PARTITION BY RANGE (year)
 
 			Expect(len(tableAtts)).To(Equal(2))
 
-			testutils.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&columnB, &tableAtts[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&columnB, &tableAtts[1], "Oid")
 		})
 		It("returns an empty attribute array for a table with no columns", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE nocol_atttable()")
@@ -569,8 +570,8 @@ SET SUBPARTITION TEMPLATE
 			mySequence2 := backup.BasicRelation("testschema", "my_sequence2")
 
 			Expect(len(sequences)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
-			testutils.ExpectStructsToMatchExcluding(&mySequence2, &sequences[1], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&mySequence2, &sequences[1], "SchemaOid", "Oid")
 		})
 		It("returns a slice of all sequences in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE SEQUENCE my_sequence START 10")
@@ -585,7 +586,7 @@ SET SUBPARTITION TEMPLATE
 			sequences := backup.GetAllSequenceRelations(connection)
 
 			Expect(len(sequences)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
 		})
 	})
 	Describe("GetSequenceDefinition", func() {
@@ -603,7 +604,7 @@ SET SUBPARTITION TEMPLATE
 				expectedSequence.StartVal = 1
 			}
 
-			testutils.ExpectStructsToMatch(&expectedSequence, &resultSequenceDef)
+			structmatcher.ExpectStructsToMatch(&expectedSequence, &resultSequenceDef)
 		})
 		It("returns sequence information for a complex sequence", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE with_sequence(a int, b char(20))")
@@ -626,7 +627,7 @@ SET SUBPARTITION TEMPLATE
 				expectedSequence.StartVal = 100
 			}
 
-			testutils.ExpectStructsToMatch(&expectedSequence, &resultSequenceDef)
+			structmatcher.ExpectStructsToMatch(&expectedSequence, &resultSequenceDef)
 		})
 	})
 	Describe("GetSequenceOwnerMap", func() {
@@ -670,10 +671,10 @@ SET SUBPARTITION TEMPLATE
 
 			results := backup.GetAllSequences(connection)
 
-			testutils.ExpectStructsToMatchExcluding(&seqOneRelation, &results[0].Relation, "SchemaOid", "Oid")
-			testutils.ExpectStructsToMatchExcluding(&seqOneDef, &results[0].SequenceDefinition)
-			testutils.ExpectStructsToMatchExcluding(&seqTwoRelation, &results[1].Relation, "SchemaOid", "Oid")
-			testutils.ExpectStructsToMatchExcluding(&seqTwoDef, &results[1].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&seqOneRelation, &results[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&seqOneDef, &results[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&seqTwoRelation, &results[1].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&seqTwoDef, &results[1].SequenceDefinition)
 		})
 	})
 	Describe("GetViews", func() {
@@ -686,7 +687,7 @@ SET SUBPARTITION TEMPLATE
 			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: "SELECT pg_roles.rolname FROM pg_roles;", DependsUpon: nil}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
 		})
 		It("returns a slice for view in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE VIEW simpleview AS SELECT rolname FROM pg_roles")
@@ -702,7 +703,7 @@ SET SUBPARTITION TEMPLATE
 			viewDef := backup.View{Oid: 1, Schema: "testschema", Name: "simpleview", Definition: "SELECT pg_roles.rolname FROM pg_roles;", DependsUpon: nil}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
 		})
 	})
 	Describe("ConstructTableDependencies", func() {
@@ -814,7 +815,7 @@ FORMAT 'csv';`)
 			partition := backup.BasicRelation("public", "partition_table_ext_part_")
 			partition.Oid = testutils.OidFromObjectName(connection, "public", "partition_table_ext_part_", backup.TYPE_RELATION)
 			tables := []backup.Relation{partition}
-			partTableDefs := map[uint32]backup.TableDefinition{partition.Oid: backup.TableDefinition{IsExternal: true, PartitionType: "l"}}
+			partTableDefs := map[uint32]backup.TableDefinition{partition.Oid: {IsExternal: true, PartitionType: "l"}}
 
 			tables = backup.ConstructTableDependencies(connection, tables, partTableDefs, false)
 

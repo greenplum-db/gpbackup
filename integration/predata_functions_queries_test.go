@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	. "github.com/onsi/ginkgo"
@@ -46,8 +47,8 @@ MODIFIES SQL DATA
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
 
 			Expect(len(results)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
-			testutils.ExpectStructsToMatchExcluding(&results[1], &appendFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[1], &appendFunction, "Oid")
 		})
 		It("returns a slice of functions in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, `CREATE FUNCTION add(integer, integer) RETURNS integer
@@ -70,7 +71,7 @@ LANGUAGE SQL`)
 			results := backup.GetFunctionsMaster(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
 		})
 		It("returns a window function", func() {
 			testutils.SkipIfBefore6(connection)
@@ -88,7 +89,7 @@ LANGUAGE SQL WINDOW`)
 				Language: "sql", IsWindow: true, ExecLocation: "a"}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&results[0], &windowFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &windowFunction, "Oid")
 		})
 		It("returns a function to execute on master and all segments", func() {
 			testutils.SkipIfBefore6(connection)
@@ -117,8 +118,8 @@ EXECUTE ON ALL SEGMENTS;`)
 				Language: "sql", IsWindow: true, ExecLocation: "s"}
 
 			Expect(len(results)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
-			testutils.ExpectStructsToMatchExcluding(&results[1], &srfOnMasterFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[1], &srfOnMasterFunction, "Oid")
 		})
 	})
 	Describe("GetFunctions4", func() {
@@ -159,9 +160,9 @@ STABLE
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, NumRows: 0, Language: "plpgsql", ExecLocation: "a"}
 
 			Expect(len(results)).To(Equal(3))
-			testutils.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
-			testutils.ExpectStructsToMatchExcluding(&results[1], &appendFunction, "Oid")
-			testutils.ExpectStructsToMatchExcluding(&results[2], &specCharFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[1], &appendFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[2], &specCharFunction, "Oid")
 		})
 		It("returns a slice of functions in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, `CREATE FUNCTION add(numeric, integer) RETURNS numeric
@@ -183,7 +184,7 @@ LANGUAGE SQL`)
 			results := backup.GetFunctions4(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
 		})
 	})
 	Describe("GetAggregates", func() {
@@ -227,7 +228,7 @@ CREATE AGGREGATE agg_prefunc(numeric, numeric) (
 			}
 
 			Expect(len(result)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
 		})
 		It("returns a slice of aggregates in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, `
@@ -279,7 +280,7 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 			result := backup.GetAggregates(connection)
 
 			Expect(len(result)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
 		})
 		It("returns a slice for a hypothetical ordered-set aggregate", func() {
 			testutils.SkipIfBefore6(connection)
@@ -307,7 +308,7 @@ CREATE AGGREGATE agg_hypo_ord (VARIADIC "any" ORDER BY VARIADIC "any")
 			}
 
 			Expect(len(result)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
 		})
 	})
 	Describe("GetFunctionOidToInfoMap", func() {
@@ -347,7 +348,7 @@ LANGUAGE SQL`)
 			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.bool", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "casttotext", FunctionArgs: "boolean", CastContext: "a", CastMethod: "f"}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid", "FunctionOid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid", "FunctionOid")
 		})
 		It("returns a slice for a basic cast with a function in 5 and 6", func() {
 			testutils.SkipIf4(connection)
@@ -361,7 +362,7 @@ LANGUAGE SQL`)
 			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "pg_catalog.int4", FunctionSchema: "public", FunctionName: "casttoint", FunctionArgs: "text", CastContext: "a", CastMethod: "f"}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
 		})
 		It("returns a slice for a basic cast without a function", func() {
 			testutils.AssertQueryRuns(connection, "CREATE FUNCTION cast_in(cstring) RETURNS casttesttype AS $$textin$$ LANGUAGE internal STRICT NO SQL")
@@ -376,7 +377,7 @@ LANGUAGE SQL`)
 			castDef := backup.Cast{Oid: 0, SourceTypeFQN: "pg_catalog.text", TargetTypeFQN: "public.casttesttype", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i", CastMethod: "b"}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
 		})
 		It("returns a slice of casts with the source and target types in a different schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE SCHEMA testschema1")
@@ -397,8 +398,8 @@ LANGUAGE SQL`)
 			castDefSource := backup.Cast{Oid: 0, SourceTypeFQN: "testschema1.casttesttype", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "i", CastMethod: "b"}
 
 			Expect(len(results)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&castDefTarget, &results[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&castDefSource, &results[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDefTarget, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDefSource, &results[1], "Oid")
 		})
 		It("returns a slice for an inout cast", func() {
 			testutils.SkipIfBefore6(connection)
@@ -412,7 +413,7 @@ LANGUAGE SQL`)
 			castDef := backup.Cast{Oid: 0, SourceTypeFQN: `pg_catalog."varchar"`, TargetTypeFQN: "public.custom_numeric", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "e", CastMethod: "i"}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid")
 		})
 	})
 	Describe("GetExtensions", func() {
@@ -426,7 +427,7 @@ LANGUAGE SQL`)
 			Expect(len(results)).To(Equal(1))
 
 			extensionDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
-			testutils.ExpectStructsToMatchExcluding(&extensionDef, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extensionDef, &results[0], "Oid")
 
 		})
 	})
@@ -454,8 +455,8 @@ LANGUAGE SQL`)
 			resultProcLangs := backup.GetProceduralLanguages(connection)
 
 			Expect(len(resultProcLangs)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&expectedPlpgsqlInfo, &resultProcLangs[0], "Oid", "Owner")
-			testutils.ExpectStructsToMatchExcluding(&expectedPlpythonInfo, &resultProcLangs[1], "Oid", "Owner")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedPlpgsqlInfo, &resultProcLangs[0], "Oid", "Owner")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedPlpythonInfo, &resultProcLangs[1], "Oid", "Owner")
 		})
 	})
 	Describe("GetConversions", func() {
@@ -468,7 +469,7 @@ LANGUAGE SQL`)
 			resultConversions := backup.GetConversions(connection)
 
 			Expect(len(resultConversions)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedConversion, &resultConversions[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedConversion, &resultConversions[0], "Oid")
 		})
 		It("returns a slice of conversions in a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE CONVERSION testconv FOR 'LATIN1' TO 'MULE_INTERNAL' FROM latin1_to_mic")
@@ -484,7 +485,7 @@ LANGUAGE SQL`)
 			resultConversions := backup.GetConversions(connection)
 
 			Expect(len(resultConversions)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedConversion, &resultConversions[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedConversion, &resultConversions[0], "Oid")
 		})
 	})
 	Describe("ConstructFunctionDependencies", func() {
@@ -573,7 +574,7 @@ LANGUAGE SQL`)
 			resultForeignDataWrapper := backup.GetForeignDataWrappers(connection)
 
 			Expect(len(resultForeignDataWrapper)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrapper[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrapper[0], "Oid")
 		})
 		It("returns a slice of foreign data wrappers with a validator", func() {
 			testutils.SkipIfBefore6(connection)
@@ -586,7 +587,7 @@ LANGUAGE SQL`)
 			resultForeignDataWrapper := backup.GetForeignDataWrappers(connection)
 
 			Expect(len(resultForeignDataWrapper)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrapper[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrapper[0], "Oid")
 		})
 		It("returns a slice of foreign data wrappers with options", func() {
 			testutils.SkipIfBefore6(connection)
@@ -598,7 +599,7 @@ LANGUAGE SQL`)
 			resultForeignDataWrappers := backup.GetForeignDataWrappers(connection)
 
 			Expect(len(resultForeignDataWrappers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrappers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrappers[0], "Oid")
 		})
 	})
 	Describe("GetForeignServers", func() {
@@ -613,7 +614,7 @@ LANGUAGE SQL`)
 			resultServers := backup.GetForeignServers(connection)
 
 			Expect(len(resultServers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
 		})
 		It("returns a slice of foreign servers with a type and version", func() {
 			testutils.SkipIfBefore6(connection)
@@ -626,7 +627,7 @@ LANGUAGE SQL`)
 			resultServers := backup.GetForeignServers(connection)
 
 			Expect(len(resultServers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
 		})
 		It("returns a slice of foreign servers with options", func() {
 			testutils.SkipIfBefore6(connection)
@@ -639,7 +640,7 @@ LANGUAGE SQL`)
 			resultServers := backup.GetForeignServers(connection)
 
 			Expect(len(resultServers)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
 		})
 	})
 	Describe("GetUserMappings", func() {
@@ -655,7 +656,7 @@ LANGUAGE SQL`)
 			resultMappings := backup.GetUserMappings(connection)
 
 			Expect(len(resultMappings)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedMapping, &resultMappings[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedMapping, &resultMappings[0], "Oid")
 		})
 		It("returns a slice of user mappings with options", func() {
 			testutils.SkipIfBefore6(connection)
@@ -669,7 +670,7 @@ LANGUAGE SQL`)
 			resultMappings := backup.GetUserMappings(connection)
 
 			Expect(len(resultMappings)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&expectedMapping, &resultMappings[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedMapping, &resultMappings[0], "Oid")
 		})
 	})
 })

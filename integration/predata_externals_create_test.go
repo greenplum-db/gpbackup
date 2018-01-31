@@ -3,6 +3,7 @@ package integration
 import (
 	"os"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -51,7 +52,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTableDef := resultTableDefs[oid]
 			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
 
-			testutils.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
 		})
 		It("creates a READABLE EXTERNAL table with LOG ERRORS INTO", func() {
 			testutils.SkipIfNot4(connection)
@@ -71,7 +72,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTableDef := resultTableDefs[oid]
 			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
 
-			testutils.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
 		})
 		It("creates a WRITABLE EXTERNAL table", func() {
 			extTable.Type = backup.WRITABLE
@@ -90,7 +91,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTableDef := resultTableDefs[oid]
 			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
 
-			testutils.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
 		})
 	})
 	Describe("PrintCreateExternalProtocolStatements", func() {
@@ -118,7 +119,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultExternalProtocols := backup.GetExternalProtocols(connection)
 
 			Expect(len(resultExternalProtocols)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&protocolReadOnly, &resultExternalProtocols[0], "Oid", "ReadFunction")
+			structmatcher.ExpectStructsToMatchExcluding(&protocolReadOnly, &resultExternalProtocols[0], "Oid", "ReadFunction")
 		})
 		It("creates a protocol with a write function", func() {
 			externalProtocols := []backup.ExternalProtocol{protocolWriteOnly}
@@ -134,7 +135,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultExternalProtocols := backup.GetExternalProtocols(connection)
 
 			Expect(len(resultExternalProtocols)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&protocolWriteOnly, &resultExternalProtocols[0], "Oid", "WriteFunction")
+			structmatcher.ExpectStructsToMatchExcluding(&protocolWriteOnly, &resultExternalProtocols[0], "Oid", "WriteFunction")
 		})
 		It("creates a protocol with a read and write function", func() {
 			externalProtocols := []backup.ExternalProtocol{protocolReadWrite}
@@ -153,13 +154,13 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultExternalProtocols := backup.GetExternalProtocols(connection)
 
 			Expect(len(resultExternalProtocols)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&protocolReadWrite, &resultExternalProtocols[0], "Oid", "ReadFunction", "WriteFunction")
+			structmatcher.ExpectStructsToMatchExcluding(&protocolReadWrite, &resultExternalProtocols[0], "Oid", "ReadFunction", "WriteFunction")
 		})
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {
 		tables := []backup.Relation{
-			backup.Relation{Oid: 1, Schema: "public", Name: "part_tbl_ext_part_"},
-			backup.Relation{Oid: 2, Schema: "public", Name: "part_tbl"},
+			{Oid: 1, Schema: "public", Name: "part_tbl_ext_part_"},
+			{Oid: 2, Schema: "public", Name: "part_tbl"},
 		}
 		emptyPartInfoMap := make(map[uint32]backup.PartitionInfo, 0)
 		AfterEach(func() {
@@ -196,7 +197,7 @@ FORMAT 'csv';`)
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
 			Expect(len(resultExtPartitions)).To(Equal(1))
 			Expect(len(resultPartInfoMap)).To(Equal(3))
-			testutils.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for an unnamed range partition", func() {
 			externalPartition := backup.PartitionInfo{
@@ -227,7 +228,7 @@ FORMAT 'csv';`)
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
 			Expect(len(resultExtPartitions)).To(Equal(1))
 			Expect(len(resultPartInfoMap)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a two level partition", func() {
 			testutils.SkipIf4(connection)
@@ -279,7 +280,7 @@ SUBPARTITION eur values ('eur'))
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 			externalPartition.RelationOid = testutils.OidFromObjectName(connection, "public", "part_tbl_1_prt_dec16_2_prt_apj", backup.TYPE_RELATION)
 			Expect(len(resultExtPartitions)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a three level partition", func() {
 			testutils.SkipIf4(connection)
@@ -342,7 +343,7 @@ PARTITION BY RANGE (year)
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 			externalPartition.RelationOid = testutils.OidFromObjectName(connection, "public", "part_tbl_1_prt_3_2_prt_1_3_prt_europe", backup.TYPE_RELATION)
 			Expect(len(resultExtPartitions)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 	})
 })

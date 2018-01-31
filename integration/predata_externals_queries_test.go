@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -26,7 +27,7 @@ FORMAT 'TEXT'`)
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
 				Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTable: "", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
-			testutils.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 		It("returns a slice for a basic external web table definition", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int)")
@@ -45,7 +46,7 @@ FORMAT 'TEXT'`)
 				Options: "", Command: "hostname", RejectLimit: 0, RejectLimitType: "", ErrTable: "", Encoding: "UTF8",
 				Writable: false, URIs: nil}
 
-			testutils.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 		It("returns a slice for a complex external table definition", func() {
 			testutils.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
@@ -65,7 +66,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 				Options: "", Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTable: "ext_table", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
 
-			testutils.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 		It("returns a slice for a complex external table definition with options", func() {
 			testutils.SkipIf4(connection)
@@ -87,7 +88,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 				Options: "foo 'bar'", Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTable: "ext_table", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
 
-			testutils.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 	})
 	Describe("GetExternalProtocols", func() {
@@ -107,7 +108,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 			protocolDef := backup.ExternalProtocol{Oid: 1, Name: "s3", Owner: "testrole", Trusted: false, ReadFunction: readFunctionOid, WriteFunction: writeFunctionOid, Validator: 0}
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&protocolDef, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&protocolDef, &results[0], "Oid")
 		})
 	})
 	Describe("GetExternalPartitionInfo", func() {
@@ -144,7 +145,7 @@ FORMAT 'csv';`)
 				PartitionRank:          0,
 				IsExternal:             true,
 			}
-			testutils.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("returns a slice of external partition info for an unnamed range partition", func() {
 			testutils.AssertQueryRuns(connection, `
@@ -173,7 +174,7 @@ FORMAT 'csv';`)
 				PartitionRank:          1,
 				IsExternal:             true,
 			}
-			testutils.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("returns a slice of info for a two level partition", func() {
 			testutils.SkipIf4(connection)
@@ -210,7 +211,7 @@ SUBPARTITION eur values ('eur'))
 				PartitionRank:          0,
 				IsExternal:             true,
 			}
-			testutils.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 		It("returns a slice of info for a three level partition", func() {
 			testutils.SkipIf4(connection)
@@ -248,7 +249,7 @@ PARTITION BY RANGE (year)
 				IsExternal:             true,
 			}
 			expectedExternalPartition.RelationOid = testutils.OidFromObjectName(connection, "public", "part_tbl_1_prt_3_2_prt_1_3_prt_europe", backup.TYPE_RELATION)
-			testutils.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
+			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 	})
 })

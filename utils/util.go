@@ -93,7 +93,7 @@ func InitializeSignalHandler(cleanupFunc func(), procDesc string, termFlag *bool
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		for _ = range signalChan {
+		for range signalChan {
 			fmt.Println() // Add newline after "^C" is printed
 			logger.Warn("Received a termination signal, aborting %s", procDesc)
 			*termFlag = true

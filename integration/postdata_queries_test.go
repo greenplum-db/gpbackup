@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -59,8 +60,8 @@ var _ = Describe("backup integration tests", func() {
 			results[0].Oid = testutils.OidFromObjectName(connection, "", "simple_table_idx1", backup.TYPE_INDEX)
 			results[1].Oid = testutils.OidFromObjectName(connection, "", "simple_table_idx2", backup.TYPE_INDEX)
 
-			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&index2, &results[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index2, &results[1], "Oid")
 		})
 		It("returns a slice of multiple indexes, excluding implicit indexes", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int UNIQUE, j int, k int)")
@@ -77,8 +78,8 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetIndexes(connection, indexNameSet)
 
 			Expect(len(results)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&index2, &results[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index2, &results[1], "Oid")
 		})
 		It("returns a slice of indexes for only partition parent tables", func() {
 			testutils.AssertQueryRuns(connection, `CREATE TABLE part (id int, date date, amt decimal(10,2)) DISTRIBUTED BY (id)
@@ -97,7 +98,7 @@ PARTITION BY RANGE (date)
 			results := backup.GetIndexes(connection, indexNameSet)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
 		It("returns a slice containing an index in a non-default tablespace", func() {
 			if connection.Version.Before("6") {
@@ -118,7 +119,7 @@ PARTITION BY RANGE (date)
 			Expect(len(results)).To(Equal(1))
 			results[0].Oid = testutils.OidFromObjectName(connection, "", "simple_table_idx", backup.TYPE_INDEX)
 
-			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
 		It("returns a slice for an index in specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int, j int, k int)")
@@ -140,7 +141,7 @@ PARTITION BY RANGE (date)
 			Expect(len(results)).To(Equal(1))
 			results[0].Oid = testutils.OidFromObjectName(connection, "", "simple_table_idx1", backup.TYPE_INDEX)
 
-			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
 		It("returns a slice for an index used for clustering", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int, j int, k int)")
@@ -156,7 +157,7 @@ PARTITION BY RANGE (date)
 			Expect(len(results)).To(Equal(1))
 			results[0].Oid = testutils.OidFromObjectName(connection, "", "simple_table_idx1", backup.TYPE_INDEX)
 
-			testutils.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
 	})
 	Describe("GetRules", func() {
@@ -182,8 +183,8 @@ PARTITION BY RANGE (date)
 			results := backup.GetRules(connection)
 
 			Expect(len(results)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&rule1, &results[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&rule2, &results[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&rule1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&rule2, &results[1], "Oid")
 		})
 		It("returns a slice of rules for a specific schema", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE rule_table1(i int)")
@@ -203,7 +204,7 @@ PARTITION BY RANGE (date)
 			results := backup.GetRules(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&rule1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&rule1, &results[0], "Oid")
 		})
 	})
 	Describe("GetTriggers", func() {
@@ -229,8 +230,8 @@ PARTITION BY RANGE (date)
 			results := backup.GetTriggers(connection)
 
 			Expect(len(results)).To(Equal(2))
-			testutils.ExpectStructsToMatchExcluding(&trigger1, &results[0], "Oid")
-			testutils.ExpectStructsToMatchExcluding(&trigger2, &results[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&trigger1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&trigger2, &results[1], "Oid")
 		})
 		It("does not include constraint triggers", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE trigger_table1(i int PRIMARY KEY)")
@@ -261,7 +262,7 @@ PARTITION BY RANGE (date)
 			results := backup.GetTriggers(connection)
 
 			Expect(len(results)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&trigger1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&trigger1, &results[0], "Oid")
 		})
 	})
 })

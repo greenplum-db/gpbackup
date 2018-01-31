@@ -3,6 +3,7 @@ package integration
 import (
 	"sort"
 
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -83,7 +84,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a basic heap table", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
@@ -95,7 +96,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a complex heap table", func() {
 			rowOneDefault := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "42", Comment: "", ACL: emptyACL}
@@ -109,7 +110,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a basic append-optimized column-oriented table", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "compresstype=zlib,blocksize=32768,compresslevel=1", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
@@ -122,7 +123,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a one-level partition table", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "region", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
@@ -136,7 +137,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a two-level partition table", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "region", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
@@ -151,7 +152,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a table with a non-default tablespace", func() {
 			testTable = backup.BasicRelation("public", "testtable2")
@@ -169,7 +170,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable2", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a table that inherits from one table", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE public.parent (i int)")
@@ -244,9 +245,9 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultMetadata := backup.GetMetadataForObjectType(connection, backup.TYPE_RELATION)
 			resultTableMetadata := resultMetadata[testTable.Oid]
-			testutils.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
+			structmatcher.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
 		})
 		It("prints table comment, table owner, and column comments for a table with all three", func() {
 			tableMetadata.Owner = "testrole"
@@ -257,10 +258,10 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testutils.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
-			testutils.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
 			resultMetadata := backup.GetMetadataForObjectType(connection, backup.TYPE_RELATION)
 			resultTableMetadata := resultMetadata[testTable.Oid]
-			testutils.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
+			structmatcher.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
 		})
 		It("prints column level privileges", func() {
 			testutils.SkipIfBefore6(connection)
@@ -273,7 +274,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
 			resultColumnOne := resultTableDef.ColumnDefs[0]
-			testutils.ExpectStructsToMatchExcluding(privilegesColumnOne, resultColumnOne, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(privilegesColumnOne, resultColumnOne, "Oid")
 		})
 	})
 	Describe("PrintCreateViewStatements", func() {
@@ -293,8 +294,8 @@ SET SUBPARTITION TEMPLATE  ` + `
 			viewDef.Oid = testutils.OidFromObjectName(connection, "public", "simpleview", backup.TYPE_RELATION)
 			Expect(len(resultViews)).To(Equal(1))
 			resultMetadata := resultMetadataMap[viewDef.Oid]
-			testutils.ExpectStructsToMatch(&viewDef, &resultViews[0])
-			testutils.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
+			structmatcher.ExpectStructsToMatch(&viewDef, &resultViews[0])
+			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
 		})
 	})
 	Describe("PrintCreateSequenceStatements", func() {
@@ -325,8 +326,8 @@ SET SUBPARTITION TEMPLATE  ` + `
 			resultSequences := backup.GetAllSequences(connection)
 
 			Expect(len(resultSequences)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
-			testutils.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
 		})
 		It("creates a complex sequence", func() {
 			startValue := int64(0)
@@ -342,8 +343,8 @@ SET SUBPARTITION TEMPLATE  ` + `
 			resultSequences := backup.GetAllSequences(connection)
 
 			Expect(len(resultSequences)).To(Equal(1))
-			testutils.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
-			testutils.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
 		})
 		It("creates a sequence with privileges, owner, and comment", func() {
 			startValue := int64(0)
@@ -367,9 +368,9 @@ SET SUBPARTITION TEMPLATE  ` + `
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_RELATION)
 			oid := testutils.OidFromObjectName(connection, "public", "my_sequence", backup.TYPE_RELATION)
 			resultMetadata := resultMetadataMap[oid]
-			testutils.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
-			testutils.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
-			testutils.ExpectStructsToMatch(&sequenceMetadata, &resultMetadata)
+			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatch(&sequenceMetadata, &resultMetadata)
 		})
 	})
 	Describe("PrintAlterSequenceStatements", func() {

@@ -1,11 +1,18 @@
 package testutils
 
 import (
+	"testing"
+
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 )
+
+func TestTestUtils(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "testutils tests")
+}
 
 var _ = Describe("testutils/functions", func() {
 	var buffer *gbytes.Buffer
