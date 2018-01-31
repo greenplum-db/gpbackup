@@ -150,7 +150,7 @@ func ConstructDefinitionsForTables(connection *utils.DBConn, tables []Relation) 
 	partitionDefs := GetPartitionDefinitions(connection)
 	partTemplateDefs := GetPartitionTemplates(connection)
 	logger.Verbose("Retrieving storage information")
-	storageOptions := GetStorageOptions(connection)
+	tableStorageOptions := GetTableStorageOptions(connection)
 	tablespaceNames := GetTablespaceNames(connection)
 	logger.Verbose("Retrieving external table information")
 	extTableDefs := GetExternalTableDefinitions(connection)
@@ -163,7 +163,7 @@ func ConstructDefinitionsForTables(connection *utils.DBConn, tables []Relation) 
 			distributionPolicies[oid],
 			partitionDefs[oid],
 			partTemplateDefs[oid],
-			storageOptions[oid],
+			tableStorageOptions[oid],
 			tablespaceNames[oid],
 			columnDefs[oid],
 			(extTableDefs[oid].Oid != 0),

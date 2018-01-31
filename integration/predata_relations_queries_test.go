@@ -533,13 +533,13 @@ SET SUBPARTITION TEMPLATE
 			Expect(result).To(Equal(expectedResult))
 		})
 	})
-	Describe("GetStorageOptions", func() {
+	Describe("GetTableStorageOptions", func() {
 		It("returns an empty string when no table storage options exist ", func() {
 			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int)")
 			defer testutils.AssertQueryRuns(connection, "DROP TABLE simple_table")
 			oid := testutils.OidFromObjectName(connection, "public", "simple_table", backup.TYPE_RELATION)
 
-			result := backup.GetStorageOptions(connection)[oid]
+			result := backup.GetTableStorageOptions(connection)[oid]
 
 			Expect(result).To(Equal(""))
 		})
@@ -548,7 +548,7 @@ SET SUBPARTITION TEMPLATE
 			defer testutils.AssertQueryRuns(connection, "DROP TABLE ao_table")
 			oid := testutils.OidFromObjectName(connection, "public", "ao_table", backup.TYPE_RELATION)
 
-			result := backup.GetStorageOptions(connection)[oid]
+			result := backup.GetTableStorageOptions(connection)[oid]
 
 			Expect(result).To(Equal("appendonly=true"))
 		})
