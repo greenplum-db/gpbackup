@@ -10,8 +10,11 @@
 [[projects]]
   branch = "add_packages"
   name = "github.com/greenplum-db/gp-common-go-libs"
-  packages = ["structmatcher"]
-  revision = "c47801be32b033df45748b1c7cf438466dc3b640"
+  packages = [
+    "gplog",
+    "structmatcher"
+  ]
+  revision = "9087040e7290a6ae36a1384d60cdc6ef7b98f266"
 
 [[projects]]
   branch = "master"
@@ -29,7 +32,7 @@
     ".",
     "oid"
   ]
-  revision = "19c8e9ad00952ce0c64489b60e8df88bb16dd514"
+  revision = "88edab0803230a3898347e77b474f8c1820a1f20"
 
 [[projects]]
   name = "github.com/mattn/go-runewidth"
@@ -98,13 +101,13 @@
     "html/atom",
     "html/charset"
   ]
-  revision = "0ed95abb35c445290478a5348a7b38bb154135fd"
+  revision = "b417086c80e91bfa321ef761574721644b8b9f61"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "3dbebcf8efb6a5011a60c2b4591c1022a759af8a"
+  revision = "8f27ce8a604014414f8dfffc25cbcde83a3f2216"
 
 [[projects]]
   branch = "master"
@@ -151,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fc9801710a784b49450642c2bf33dc986a6f7f5556bc43db7f8c6d4df2796816"
+  inputs-digest = "92f647909317adf1e6982f485e1d4e3637cf00bbcfcacd20c9f3feed1590319b"
   solver-name = "gps-cdcl"
   solver-version = 1

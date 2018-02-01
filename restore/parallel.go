@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -23,7 +24,7 @@ func executeStatement(statement utils.StatementWithType, showProgressBar int, sh
 	if shouldExecute.MatchesFilter(statement.ObjectType) {
 		_, err := connection.Exec(statement.Statement, whichConn)
 		if err != nil {
-			if showProgressBar >= utils.PB_INFO && logger.GetVerbosity() == utils.LOGINFO {
+			if showProgressBar >= utils.PB_INFO && logger.GetVerbosity() == gplog.LOGINFO {
 				fmt.Println() // Move error message to its own line, since the cursor is currently at the end of the progress bar
 			}
 			logger.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())

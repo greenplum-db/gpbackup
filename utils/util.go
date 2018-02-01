@@ -16,26 +16,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-/*
- * Abort() is for handling critical errors.  It panic()s to unwind the call stack
- * until the panic is caught by the recover() in DoTeardown() in backup.go, at
- * which point any necessary cleanup is performed.
- *
- * log.Fatal() calls Abort() after logging its arguments, so generally that function
- * should be used instead of calling Abort() directly.
- */
-
-func Abort(output ...interface{}) {
-	errStr := ""
-	if len(output) > 0 {
-		errStr = fmt.Sprintf("%v", output[0])
-		if len(output) > 1 {
-			errStr = fmt.Sprintf(errStr, output[1:]...)
-		}
-	}
-	panic(errStr)
-}
-
 func CheckError(err error) {
 	if err != nil {
 		logger.Fatal(err, "")

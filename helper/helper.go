@@ -13,13 +13,14 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
 var ( // Shared globals
 	content      *int
 	dataFile     *string
-	logger       *utils.Logger
+	logger       *gplog.Logger
 	oid          *uint
 	oidFile      *string
 	pipeFile     *string
@@ -82,7 +83,7 @@ func SetFilename(name string) {
 	tocFile = &name
 }
 
-func SetLogger(log *utils.Logger) {
+func SetLogger(log *gplog.Logger) {
 	logger = log
 }
 
@@ -241,7 +242,7 @@ func DoTeardown() {
 		return
 	}
 	DoCleanup()
-	os.Exit(utils.GetErrorCode())
+	os.Exit(gplog.GetErrorCode())
 }
 
 func DoCleanup() {

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -252,7 +253,7 @@ func DoTeardown() {
 		fmt.Println(errStr)
 	}
 	errMsg := utils.ParseErrorMessage(errStr)
-	errorCode := utils.GetErrorCode()
+	errorCode := gplog.GetErrorCode()
 
 	/*
 	 * Only create a report file if we fail after the cluster is initialized

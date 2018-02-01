@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	"github.com/pkg/errors"
@@ -260,7 +261,7 @@ func DoTeardown() {
 	if errStr != "" {
 		fmt.Println(errStr)
 	}
-	errorCode := utils.GetErrorCode()
+	errorCode := gplog.GetErrorCode()
 
 	DoCleanup()
 

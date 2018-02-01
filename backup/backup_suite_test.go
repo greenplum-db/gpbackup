@@ -11,6 +11,7 @@ import (
 
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -22,7 +23,7 @@ import (
 var (
 	connection   *utils.DBConn
 	mock         sqlmock.Sqlmock
-	logger       *utils.Logger
+	logger       *gplog.Logger
 	stdout       *gbytes.Buffer
 	stderr       *gbytes.Buffer
 	logfile      *gbytes.Buffer

@@ -3,6 +3,7 @@ package restore
 import (
 	"sync"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -20,7 +21,7 @@ var (
 	connection    *utils.DBConn
 	globalCluster utils.Cluster
 	globalTOC     *utils.TOC
-	logger        *utils.Logger
+	logger        *gplog.Logger
 	version       string
 	wasTerminated bool
 
@@ -70,7 +71,7 @@ func SetCluster(cluster utils.Cluster) {
 	globalCluster = cluster
 }
 
-func SetLogger(log *utils.Logger) {
+func SetLogger(log *gplog.Logger) {
 	logger = log
 }
 

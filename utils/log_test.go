@@ -10,6 +10,7 @@ import (
 
 	pb "gopkg.in/cheggaaa/pb.v1"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
@@ -20,8 +21,7 @@ import (
 
 var _ = Describe("utils/log tests", func() {
 	var (
-		testLogger   *utils.Logger
-		sampleLogger *utils.Logger
+		sampleLogger *gplog.Logger
 		fakeInfo     os.FileInfo
 	)
 
@@ -46,16 +46,12 @@ var _ = Describe("utils/log tests", func() {
 
 	Describe("InitializeLogging", func() {
 		BeforeEach(func() {
-			sampleLogger = utils.NewLogger(os.Stdout, os.Stderr, buffer, "testDir/gpAdminLogs/testProgram_20170101.log",
-				utils.LOGINFO, "testProgram:testUser:testHost:000000-[%s]:-")
+			sampleLogger = gplog.NewLogger(os.Stdout, os.Stderr, buffer, "testDir/gpAdminLogs/testProgram_20170101.log",
+				gplog.LOGINFO, "testProgram")
 		})
 		Context("Logger initialized with default log directory and Info log level", func() {
 			It("creates a new logger writing to gpAdminLogs and sets utils.logger to this new logger", func() {
 				newLogger := utils.InitializeLogging("testProgram", "")
-				testLogger = utils.GetLogger()
-				if testLogger == nil || !(newLogger == testLogger) {
-					Fail("Created logger was not assigned to utils.logger")
-				}
 				if !reflect.DeepEqual(newLogger, sampleLogger) {
 					Fail(fmt.Sprintf("Created logger does not match sample logger:\n%v\n%v", newLogger, sampleLogger))
 				}
@@ -63,13 +59,9 @@ var _ = Describe("utils/log tests", func() {
 		})
 		Context("Logger initialized with a specified log directory and Info log level", func() {
 			It("creates a new logger writing to the specified log directory and sets utils.logger to this new logger", func() {
-				sampleLogger = utils.NewLogger(os.Stdout, os.Stderr, buffer, "/tmp/log_dir/testProgram_20170101.log",
-					utils.LOGINFO, "testProgram:testUser:testHost:000000-[%s]:-")
+				sampleLogger = gplog.NewLogger(os.Stdout, os.Stderr, buffer, "/tmp/log_dir/testProgram_20170101.log",
+					gplog.LOGINFO, "testProgram")
 				newLogger := utils.InitializeLogging("testProgram", "/tmp/log_dir")
-				testLogger = utils.GetLogger()
-				if testLogger == nil || !(newLogger == testLogger) {
-					Fail("Created logger was not assigned to utils.logger")
-				}
 				if !reflect.DeepEqual(newLogger, sampleLogger) {
 					Fail(fmt.Sprintf("Created logger does not match sample logger:\n%v\n%v", newLogger, sampleLogger))
 				}
@@ -111,275 +103,6 @@ var _ = Describe("utils/log tests", func() {
 			})
 		})
 	})
-	Describe("GetLogPrefix", func() {
-		It("returns a prefix for the current time", func() {
-			expectedMessage := "20170101:01:01:01 testProgram:testUser:testHost:000000-[INFO]:-"
-			prefix := logger.GetLogPrefix("INFO")
-			Expect(expectedMessage).To(Equal(prefix))
-		})
-	})
-	Describe("Output function tests", func() {
-		patternExpected := "20170101:01:01:01 testProgram:testUser:testHost:000000-[%s]:-"
-		infoExpected := fmt.Sprintf(patternExpected, "INFO")
-		warnExpected := fmt.Sprintf(patternExpected, "WARNING")
-		verboseExpected := fmt.Sprintf(patternExpected, "DEBUG")
-		debugExpected := fmt.Sprintf(patternExpected, "DEBUG")
-		errorExpected := fmt.Sprintf(patternExpected, "ERROR")
-		fatalExpected := fmt.Sprintf(patternExpected, "CRITICAL")
-
-		Describe("Verbosity set to Error", func() {
-			BeforeEach(func() {
-				logger.SetVerbosity(utils.LOGERROR)
-			})
-
-			Context("Info", func() {
-				It("prints to the log file", func() {
-					expectedMessage := "error info"
-					logger.Info(expectedMessage)
-					testutils.NotExpectRegexp(stdout, infoExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, infoExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, infoExpected+expectedMessage)
-				})
-			})
-			Context("Warn", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "error warn"
-					logger.Warn(expectedMessage)
-					testutils.ExpectRegexp(stdout, warnExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, warnExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, warnExpected+expectedMessage)
-				})
-			})
-			Context("Verbose", func() {
-				It("prints to the log file", func() {
-					expectedMessage := "error verbose"
-					logger.Verbose(expectedMessage)
-					testutils.NotExpectRegexp(stdout, verboseExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, verboseExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, verboseExpected+expectedMessage)
-				})
-			})
-			Context("Debug", func() {
-				It("prints to the log file", func() {
-					expectedMessage := "error debug"
-					logger.Debug(expectedMessage)
-					testutils.NotExpectRegexp(stdout, debugExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, debugExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, debugExpected+expectedMessage)
-				})
-			})
-			Context("Error", func() {
-				It("prints to stderr and the log file", func() {
-					expectedMessage := "error error"
-					logger.Error(expectedMessage)
-					testutils.NotExpectRegexp(stdout, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(stderr, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, errorExpected+expectedMessage)
-				})
-			})
-			Context("Fatal", func() {
-				It("prints to the log file, then panics", func() {
-					expectedMessage := "error fatal"
-					defer func() {
-						testutils.NotExpectRegexp(stdout, fatalExpected+expectedMessage)
-						testutils.NotExpectRegexp(stderr, fatalExpected+expectedMessage)
-						testutils.ExpectRegexp(logfile, fatalExpected+expectedMessage)
-					}()
-					defer testutils.ShouldPanicWithMessage(expectedMessage)
-					logger.Fatal(errors.New(expectedMessage), "")
-				})
-			})
-		})
-		Describe("Verbosity set to Info", func() {
-			BeforeEach(func() {
-				logger.SetVerbosity(utils.LOGINFO)
-			})
-
-			Context("Info", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "info info"
-					logger.Info(expectedMessage)
-					testutils.ExpectRegexp(stdout, infoExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, infoExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, infoExpected+expectedMessage)
-				})
-			})
-			Context("Warn", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "info warn"
-					logger.Warn(expectedMessage)
-					testutils.ExpectRegexp(stdout, warnExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, warnExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, warnExpected+expectedMessage)
-				})
-			})
-			Context("Verbose", func() {
-				It("prints to the log file", func() {
-					expectedMessage := "info verbose"
-					logger.Verbose(expectedMessage)
-					testutils.NotExpectRegexp(stdout, verboseExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, verboseExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, verboseExpected+expectedMessage)
-				})
-			})
-			Context("Debug", func() {
-				It("prints to the log file", func() {
-					expectedMessage := "info debug"
-					logger.Debug(expectedMessage)
-					testutils.NotExpectRegexp(stdout, debugExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, debugExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, debugExpected+expectedMessage)
-				})
-			})
-			Context("Error", func() {
-				It("prints to stderr and the log file", func() {
-					expectedMessage := "info error"
-					logger.Error(expectedMessage)
-					testutils.NotExpectRegexp(stdout, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(stderr, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, errorExpected+expectedMessage)
-				})
-			})
-			Context("Fatal", func() {
-				It("prints to the log file, then panics", func() {
-					expectedMessage := "info fatal"
-					defer func() {
-						testutils.NotExpectRegexp(stdout, fatalExpected+expectedMessage)
-						testutils.NotExpectRegexp(stderr, fatalExpected+expectedMessage)
-						testutils.ExpectRegexp(logfile, fatalExpected+expectedMessage)
-					}()
-					defer testutils.ShouldPanicWithMessage(expectedMessage)
-					logger.Fatal(errors.New(expectedMessage), "")
-				})
-			})
-		})
-		Describe("Verbosity set to Verbose", func() {
-			BeforeEach(func() {
-				logger.SetVerbosity(utils.LOGVERBOSE)
-			})
-
-			Context("Info", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "verbose info"
-					logger.Info(expectedMessage)
-					testutils.ExpectRegexp(stdout, infoExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, infoExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, infoExpected+expectedMessage)
-				})
-			})
-			Context("Warn", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "verbose warn"
-					logger.Warn(expectedMessage)
-					testutils.ExpectRegexp(stdout, warnExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, warnExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, warnExpected+expectedMessage)
-				})
-			})
-			Context("Verbose", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "verbose verbose"
-					logger.Verbose(expectedMessage)
-					testutils.ExpectRegexp(stdout, verboseExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, verboseExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, verboseExpected+expectedMessage)
-				})
-			})
-			Context("Debug", func() {
-				It("prints to the log file", func() {
-					expectedMessage := "verbose debug"
-					logger.Debug(expectedMessage)
-					testutils.NotExpectRegexp(stdout, debugExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, debugExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, debugExpected+expectedMessage)
-				})
-			})
-			Context("Error", func() {
-				It("prints to stderr and the log file", func() {
-					expectedMessage := "verbose error"
-					logger.Error(expectedMessage)
-					testutils.NotExpectRegexp(stdout, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(stderr, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, errorExpected+expectedMessage)
-				})
-			})
-			Context("Fatal", func() {
-				It("prints to the log file, then panics", func() {
-					expectedMessage := "verbose fatal"
-					defer func() {
-						testutils.NotExpectRegexp(stdout, fatalExpected+expectedMessage)
-						testutils.NotExpectRegexp(stderr, fatalExpected+expectedMessage)
-						testutils.ExpectRegexp(logfile, fatalExpected+expectedMessage)
-					}()
-					defer testutils.ShouldPanicWithMessage(expectedMessage)
-					logger.Fatal(errors.New(expectedMessage), "")
-				})
-			})
-		})
-		Describe("Verbosity set to Debug", func() {
-			BeforeEach(func() {
-				logger.SetVerbosity(utils.LOGDEBUG)
-			})
-
-			Context("Info", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "debug info"
-					logger.Info(expectedMessage)
-					testutils.ExpectRegexp(stdout, infoExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, infoExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, infoExpected+expectedMessage)
-				})
-			})
-			Context("Warn", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "debug warn"
-					logger.Warn(expectedMessage)
-					testutils.ExpectRegexp(stdout, warnExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, warnExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, warnExpected+expectedMessage)
-				})
-			})
-			Context("Verbose", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "debug verbose"
-					logger.Verbose(expectedMessage)
-					testutils.ExpectRegexp(stdout, verboseExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, verboseExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, verboseExpected+expectedMessage)
-				})
-			})
-			Context("Debug", func() {
-				It("prints to stdout and the log file", func() {
-					expectedMessage := "debug debug"
-					logger.Debug(expectedMessage)
-					testutils.ExpectRegexp(stdout, debugExpected+expectedMessage)
-					testutils.NotExpectRegexp(stderr, debugExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, debugExpected+expectedMessage)
-				})
-			})
-			Context("Error", func() {
-				It("prints to stderr and the log file", func() {
-					expectedMessage := "debug error"
-					logger.Error(expectedMessage)
-					testutils.NotExpectRegexp(stdout, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(stderr, errorExpected+expectedMessage)
-					testutils.ExpectRegexp(logfile, errorExpected+expectedMessage)
-				})
-			})
-			Context("Fatal", func() {
-				It("prints to the log file, then panics", func() {
-					expectedMessage := "debug fatal"
-					defer func() {
-						testutils.NotExpectRegexp(stdout, fatalExpected+expectedMessage)
-						testutils.NotExpectRegexp(stderr, fatalExpected+expectedMessage)
-						testutils.ExpectRegexp(logfile, fatalExpected+expectedMessage)
-					}()
-					defer testutils.ShouldPanicWithMessage(expectedMessage)
-					logger.Fatal(errors.New(expectedMessage), "")
-				})
-			})
-		})
-	})
 	Describe("NewProgressBar", func() {
 		Context("PB_NONE", func() {
 			It("will not print when passed a none value", func() {
@@ -396,19 +119,19 @@ var _ = Describe("utils/log tests", func() {
 				Expect(ok).To(BeTrue())
 			})
 			It("will not print with verbosity LOGERROR", func() {
-				logger.SetVerbosity(utils.LOGERROR)
+				logger.SetVerbosity(gplog.LOGERROR)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
 				infoPb, _ := progressBar.(*pb.ProgressBar)
 				Expect(infoPb.NotPrint).To(Equal(true))
 			})
 			It("will print with verbosity LOGINFO", func() {
-				logger.SetVerbosity(utils.LOGINFO)
+				logger.SetVerbosity(gplog.LOGINFO)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
 				infoPb, _ := progressBar.(*pb.ProgressBar)
 				Expect(infoPb.NotPrint).To(Equal(false))
 			})
 			It("will not print with verbosity LOGVERBOSE", func() {
-				logger.SetVerbosity(utils.LOGVERBOSE)
+				logger.SetVerbosity(gplog.LOGVERBOSE)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
 				infoPb, _ := progressBar.(*pb.ProgressBar)
 				Expect(infoPb.NotPrint).To(Equal(true))
@@ -421,19 +144,19 @@ var _ = Describe("utils/log tests", func() {
 				Expect(ok).To(BeTrue())
 			})
 			It("verboseProgressBar's infoPb will not print with verbosity LOGERROR", func() {
-				logger.SetVerbosity(utils.LOGERROR)
+				logger.SetVerbosity(gplog.LOGERROR)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
 				vPb, _ := progressBar.(*utils.VerboseProgressBar)
 				Expect(vPb.ProgressBar.NotPrint).To(Equal(true))
 			})
 			It("verboseProgressBar's infoPb will print with verbosity LOGINFO", func() {
-				logger.SetVerbosity(utils.LOGINFO)
+				logger.SetVerbosity(gplog.LOGINFO)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
 				vPb, _ := progressBar.(*utils.VerboseProgressBar)
 				Expect(vPb.ProgressBar.NotPrint).To(Equal(false))
 			})
 			It("verboseProgressBar's infoPb will not print with verbosity LOGVERBOSE", func() {
-				logger.SetVerbosity(utils.LOGVERBOSE)
+				logger.SetVerbosity(gplog.LOGVERBOSE)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
 				vPb, _ := progressBar.(*utils.VerboseProgressBar)
 				Expect(vPb.ProgressBar.NotPrint).To(Equal(true))

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -91,7 +92,7 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 		tableDef := tableDefs[table.Oid]
 		isExternal := tableDef.IsExternal
 		if !isExternal {
-			if logger.GetVerbosity() > utils.LOGINFO {
+			if logger.GetVerbosity() > gplog.LOGINFO {
 				// No progress bar at this log level, so we note table count here
 				logger.Verbose("Writing data for table %s to file (table %d of %d)", table.ToString(), numRegTables, totalRegTables)
 			} else {

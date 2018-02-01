@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -21,11 +22,11 @@ import (
 
 func SetLoggerVerbosity() {
 	if *quiet {
-		logger.SetVerbosity(utils.LOGERROR)
+		logger.SetVerbosity(gplog.LOGERROR)
 	} else if *debug {
-		logger.SetVerbosity(utils.LOGDEBUG)
+		logger.SetVerbosity(gplog.LOGDEBUG)
 	} else if *verbose {
-		logger.SetVerbosity(utils.LOGVERBOSE)
+		logger.SetVerbosity(gplog.LOGVERBOSE)
 	}
 }
 

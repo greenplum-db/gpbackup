@@ -7,6 +7,7 @@ package restore
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -37,7 +38,7 @@ func CopyTableIn(connection *utils.DBConn, tableName string, tableAttributes str
 
 func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) {
 	name := utils.MakeFQN(entry.Schema, entry.Name)
-	if logger.GetVerbosity() > utils.LOGINFO {
+	if logger.GetVerbosity() > gplog.LOGINFO {
 		// No progress bar at this log level, so we note table count here
 		logger.Verbose("Reading data for table %s from file (table %d of %d)", name, tableNum, totalTables)
 	} else {

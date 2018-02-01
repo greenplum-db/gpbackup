@@ -3,6 +3,7 @@ package backup
 import (
 	"sync"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -19,7 +20,7 @@ var (
 	connection    *utils.DBConn
 	globalCluster utils.Cluster
 	globalTOC     *utils.TOC
-	logger        *utils.Logger
+	logger        *gplog.Logger
 	objectCounts  map[string]int
 	version       string
 	wasTerminated bool
@@ -89,7 +90,7 @@ func SetLeafPartitionData(which bool) {
 	leafPartitionData = &which
 }
 
-func SetLogger(log *utils.Logger) {
+func SetLogger(log *gplog.Logger) {
 	logger = log
 }
 

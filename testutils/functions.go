@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/helper"
@@ -26,7 +27,7 @@ import (
  * Functions for setting up the test environment and mocking out variables
  */
 
-func SetupTestEnvironment() (*utils.DBConn, sqlmock.Sqlmock, *utils.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
+func SetupTestEnvironment() (*utils.DBConn, sqlmock.Sqlmock, *gplog.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
 	testLogger, testStdout, testStderr, testLogfile := SetupTestLogger()
 	connection, mock := CreateAndConnectMockDB(1)
 	SetupTestCluster()
@@ -53,11 +54,11 @@ func CreateAndConnectMockDB(numConns int) (*utils.DBConn, sqlmock.Sqlmock) {
  * so no assignment to those variables in the tests is necessary.  The logger and gbytes.buffers
  * are returned to allow checking for output written to those buffers during tests if desired.
  */
-func SetupTestLogger() (*utils.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
+func SetupTestLogger() (*gplog.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
 	testStdout := gbytes.NewBuffer()
 	testStderr := gbytes.NewBuffer()
 	testLogfile := gbytes.NewBuffer()
-	testLogger := utils.NewLogger(testStdout, testStderr, testLogfile, "gbytes.Buffer", utils.LOGINFO, "testProgram:testUser:testHost:000000-[%s]:-")
+	testLogger := gplog.NewLogger(testStdout, testStderr, testLogfile, "gbytes.Buffer", gplog.LOGINFO, "testProgram")
 	backup.SetLogger(testLogger)
 	restore.SetLogger(testLogger)
 	utils.SetLogger(testLogger)
