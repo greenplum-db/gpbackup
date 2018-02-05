@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -72,7 +73,7 @@ func InitializeGlobals() {
 		fmt.Printf("gpbackup_helper %s\n", version)
 		os.Exit(0)
 	}
-	utils.InitializeSystemFunctions()
+	operating.InitializeSystemFunctions()
 }
 
 func SetContent(id int) {
@@ -119,8 +120,8 @@ func ReadOrCreateTOC() (*utils.SegmentTOC, uint64) {
 }
 
 func ReadAndCountBytes() uint64 {
-	reader := bufio.NewReader(utils.System.Stdin)
-	numBytes, _ := io.Copy(utils.System.Stdout, reader)
+	reader := bufio.NewReader(operating.System.Stdin)
+	numBytes, _ := io.Copy(operating.System.Stdout, reader)
 	return uint64(numBytes)
 }
 
@@ -129,7 +130,7 @@ func ReadAndCountBytes() uint64 {
  */
 
 func getOidListFromFile() []int {
-	oidStr, err := utils.System.ReadFile(*oidFile)
+	oidStr, err := operating.System.ReadFile(*oidFile)
 	utils.CheckError(err)
 	oidStrList := strings.Split(strings.TrimSpace(fmt.Sprintf("%s", oidStr)), "\n")
 	oidList := make([]int, len(oidStrList))
@@ -218,7 +219,7 @@ func flushAndCloseWriter() {
 }
 
 func fileExists(filename string) bool {
-	_, err := utils.System.Stat(filename)
+	_, err := operating.System.Stat(filename)
 	return err == nil
 }
 

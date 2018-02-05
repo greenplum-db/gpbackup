@@ -1,6 +1,7 @@
 package restore_test
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -29,7 +30,7 @@ var _ = Describe("restore/validate tests", func() {
 				AddRow("schema1")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(single_schema_row)
 			filterList = []string{"schema1"}
-			defer testutils.ShouldPanicWithMessage("Schema schema1 already exists")
+			defer testhelper.ShouldPanicWithMessage("Schema schema1 already exists")
 			restore.ValidateFilterSchemasInRestoreDatabase(connection, filterList)
 		})
 		It("panics if multiple schemas are present in database", func() {
@@ -37,7 +38,7 @@ var _ = Describe("restore/validate tests", func() {
 				AddRow("schema1").AddRow("schema2")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_schema_rows)
 			filterList = []string{"schema1", "schema2"}
-			defer testutils.ShouldPanicWithMessage("Schema schema1 already exists")
+			defer testhelper.ShouldPanicWithMessage("Schema schema1 already exists")
 			restore.ValidateFilterSchemasInRestoreDatabase(connection, filterList)
 		})
 	})
@@ -70,7 +71,7 @@ var _ = Describe("restore/validate tests", func() {
 		It("schema does not exist in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema3"}
-			defer testutils.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
+			defer testhelper.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
 			restore.ValidateFilterSchemasInBackupSet(filterList)
 		})
 		It("schema exists in data-only backup", func() {
@@ -81,7 +82,7 @@ var _ = Describe("restore/validate tests", func() {
 		It("schema does not exist in data-only backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{DataOnly: true})
 			filterList = []string{"schema3"}
-			defer testutils.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
+			defer testhelper.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
 			restore.ValidateFilterSchemasInBackupSet(filterList)
 		})
 	})
@@ -100,7 +101,7 @@ var _ = Describe("restore/validate tests", func() {
 				AddRow("public.table1")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(single_table_row)
 			filterList = []string{"public.table1"}
-			defer testutils.ShouldPanicWithMessage("Table public.table1 already exists")
+			defer testhelper.ShouldPanicWithMessage("Table public.table1 already exists")
 			restore.ValidateFilterTablesInRestoreDatabase(connection, filterList)
 		})
 		It("panics if multiple tables are present in database", func() {
@@ -108,7 +109,7 @@ var _ = Describe("restore/validate tests", func() {
 				AddRow("public.table1").AddRow("public.table2")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_table_rows)
 			filterList = []string{"public.table1", "public.table2"}
-			defer testutils.ShouldPanicWithMessage("Table public.table1 already exists")
+			defer testhelper.ShouldPanicWithMessage("Table public.table1 already exists")
 			restore.ValidateFilterTablesInRestoreDatabase(connection, filterList)
 		})
 	})
@@ -141,13 +142,13 @@ var _ = Describe("restore/validate tests", func() {
 		It("table does not exist in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.table3"}
-			defer testutils.ShouldPanicWithMessage("Could not find the following table(s) in the backup set: schema1.table3")
+			defer testhelper.ShouldPanicWithMessage("Could not find the following table(s) in the backup set: schema1.table3")
 			restore.ValidateFilterTablesInBackupSet(filterList)
 		})
 		It("table does not exist in normal backup but sequence with same name exists", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.somesequence"}
-			defer testutils.ShouldPanicWithMessage("Could not find the following table(s) in the backup set: schema1.somesequence")
+			defer testhelper.ShouldPanicWithMessage("Could not find the following table(s) in the backup set: schema1.somesequence")
 			restore.ValidateFilterTablesInBackupSet(filterList)
 		})
 		It("table exists in data-only backup", func() {
@@ -158,7 +159,7 @@ var _ = Describe("restore/validate tests", func() {
 		It("table does not exist in data-only backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{DataOnly: true})
 			filterList = []string{"schema1.table3"}
-			defer testutils.ShouldPanicWithMessage("Could not find the following table(s) in the backup set: schema1.table3")
+			defer testhelper.ShouldPanicWithMessage("Could not find the following table(s) in the backup set: schema1.table3")
 			restore.ValidateFilterTablesInBackupSet(filterList)
 		})
 	})

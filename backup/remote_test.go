@@ -3,6 +3,8 @@ package backup_test
 import (
 	"os/user"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -22,8 +24,8 @@ var _ = Describe("backup/remote tests", func() {
 	)
 
 	BeforeEach(func() {
-		utils.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
-		utils.System.Hostname = func() (string, error) { return "testHost", nil }
+		operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
+		operating.System.Hostname = func() (string, error) { return "testHost", nil }
 		testExecutor = &testutils.TestExecutor{}
 		testCluster = utils.NewCluster([]utils.SegConfig{masterSeg, localSegOne, remoteSegOne}, "", "20170101010101", "gpseg")
 		testCluster.Executor = testExecutor
@@ -45,7 +47,7 @@ var _ = Describe("backup/remote tests", func() {
 				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Unable to create backup directories on 2 segments")
+			defer testhelper.ShouldPanicWithMessage("Unable to create backup directories on 2 segments")
 			backup.CreateBackupDirectoriesOnAllHosts(testCluster)
 		})
 		It("panics if it cannot create some directories", func() {
@@ -56,7 +58,7 @@ var _ = Describe("backup/remote tests", func() {
 				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Unable to create backup directories on 1 segment")
+			defer testhelper.ShouldPanicWithMessage("Unable to create backup directories on 1 segment")
 			backup.CreateBackupDirectoriesOnAllHosts(testCluster)
 		})
 	})

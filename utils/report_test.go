@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -50,7 +52,7 @@ Data File Format: Single Data File Per Segment`,
 				DatabaseSize: "42 MB",
 				BackupConfig: config,
 			}
-			utils.System.OpenFileWrite = func(name string, flag int, perm os.FileMode) (io.WriteCloser, error) {
+			operating.System.OpenFileWrite = func(name string, flag int, perm os.FileMode) (io.WriteCloser, error) {
 				return buffer, nil
 			}
 		})
@@ -230,49 +232,49 @@ Data File Format: Multiple Data Files Per Segment`),
 	Describe("GetBackupTimeInfo", func() {
 		timestamp := "20170101010101"
 		AfterEach(func() {
-			utils.System.Local = time.Local
+			operating.System.Local = time.Local
 		})
 		It("prints times and duration for a sub-minute backup", func() {
-			endTime := time.Date(2017, 1, 1, 1, 1, 3, 2, utils.System.Local)
+			endTime := time.Date(2017, 1, 1, 1, 1, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
 			Expect(start).To(Equal("2017-01-01 01:01:01"))
 			Expect(end).To(Equal("2017-01-01 01:01:03"))
 			Expect(duration).To(Equal("0:00:02"))
 		})
 		It("prints times and duration for a sub-hour backup", func() {
-			endTime := time.Date(2017, 1, 1, 1, 4, 3, 2, utils.System.Local)
+			endTime := time.Date(2017, 1, 1, 1, 4, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
 			Expect(start).To(Equal("2017-01-01 01:01:01"))
 			Expect(end).To(Equal("2017-01-01 01:04:03"))
 			Expect(duration).To(Equal("0:03:02"))
 		})
 		It("prints times and duration for a multiple-hour backup", func() {
-			endTime := time.Date(2017, 1, 1, 5, 4, 3, 2, utils.System.Local)
+			endTime := time.Date(2017, 1, 1, 5, 4, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
 			Expect(start).To(Equal("2017-01-01 01:01:01"))
 			Expect(end).To(Equal("2017-01-01 05:04:03"))
 			Expect(duration).To(Equal("4:03:02"))
 		})
 		It("prints times and duration for a backup going past midnight", func() {
-			endTime := time.Date(2017, 1, 2, 1, 4, 3, 2, utils.System.Local)
+			endTime := time.Date(2017, 1, 2, 1, 4, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetBackupTimeInfo(timestamp, endTime)
 			Expect(start).To(Equal("2017-01-01 01:01:01"))
 			Expect(end).To(Equal("2017-01-02 01:04:03"))
 			Expect(duration).To(Equal("24:03:02"))
 		})
 		It("prints times and duration for a backup during the spring time change", func() {
-			utils.System.Local, _ = time.LoadLocation("America/Los_Angeles") // Ensure test works regardless of time zone of test machine
+			operating.System.Local, _ = time.LoadLocation("America/Los_Angeles") // Ensure test works regardless of time zone of test machine
 			dst := "20170312010000"
-			endTime := time.Date(2017, 3, 12, 3, 0, 0, 0, utils.System.Local)
+			endTime := time.Date(2017, 3, 12, 3, 0, 0, 0, operating.System.Local)
 			start, end, duration := utils.GetBackupTimeInfo(dst, endTime)
 			Expect(start).To(Equal("2017-03-12 01:00:00"))
 			Expect(end).To(Equal("2017-03-12 03:00:00"))
 			Expect(duration).To(Equal("1:00:00"))
 		})
 		It("prints times and duration for a backup during the fall time change", func() {
-			utils.System.Local, _ = time.LoadLocation("America/Los_Angeles") // Ensure test works regardless of time zone of test machine
+			operating.System.Local, _ = time.LoadLocation("America/Los_Angeles") // Ensure test works regardless of time zone of test machine
 			dst := "20171105010000"
-			endTime := time.Date(2017, 11, 5, 3, 0, 0, 0, utils.System.Local)
+			endTime := time.Date(2017, 11, 5, 3, 0, 0, 0, operating.System.Local)
 			start, end, duration := utils.GetBackupTimeInfo(dst, endTime)
 			Expect(start).To(Equal("2017-11-05 01:00:00"))
 			Expect(end).To(Equal("2017-11-05 03:00:00"))
@@ -281,7 +283,7 @@ Data File Format: Multiple Data Files Per Segment`),
 	})
 	Describe("EnsureBackupVersionCompatibility", func() {
 		It("Panics if gpbackup version is greater than gprestore version", func() {
-			defer testutils.ShouldPanicWithMessage("gprestore 0.1.0 cannot restore a backup taken with gpbackup 0.2.0; please use gprestore 0.2.0 or later.")
+			defer testhelper.ShouldPanicWithMessage("gprestore 0.1.0 cannot restore a backup taken with gpbackup 0.2.0; please use gprestore 0.2.0 or later.")
 			utils.EnsureBackupVersionCompatibility("0.2.0", "0.1.0")
 		})
 		It("Does not panic if gpbackup version is less than gprestore version", func() {
@@ -301,7 +303,7 @@ Data File Format: Multiple Data Files Per Segment`),
 			}
 		})
 		It("Panics if backup database major version is greater than restore major version", func() {
-			defer testutils.ShouldPanicWithMessage("Cannot restore from GPDB version 6.0.0-beta.9+dev.129.g4bd4e41 build dev to 5.0.0-beta.9+dev.129.g4bd4e41 build dev due to catalog incompatibilities.")
+			defer testhelper.ShouldPanicWithMessage("Cannot restore from GPDB version 6.0.0-beta.9+dev.129.g4bd4e41 build dev to 5.0.0-beta.9+dev.129.g4bd4e41 build dev due to catalog incompatibilities.")
 			utils.EnsureDatabaseVersionCompatibility("6.0.0-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
 		})
 		It("Does not panic if backup database major version is greater than restore major version", func() {
@@ -337,10 +339,10 @@ Timestamp Key: 20170101010101`)
 		BeforeEach(func() {
 			r, w, _ = os.Pipe()
 			testCluster = testutils.SetDefaultSegmentConfiguration()
-			utils.System.OpenFileRead = func(name string, flag int, perm os.FileMode) (utils.ReadCloserAt, error) { return r, nil }
-			utils.System.ReadFile = func(filename string) ([]byte, error) { return ioutil.ReadAll(r) }
-			utils.System.Hostname = func() (string, error) { return "localhost", nil }
-			utils.System.Getenv = func(key string) string {
+			operating.System.OpenFileRead = func(name string, flag int, perm os.FileMode) (operating.ReadCloserAt, error) { return r, nil }
+			operating.System.ReadFile = func(filename string) ([]byte, error) { return ioutil.ReadAll(r) }
+			operating.System.Hostname = func() (string, error) { return "localhost", nil }
+			operating.System.Getenv = func(key string) string {
 				if key == "HOME" {
 					return "home"
 				} else {
@@ -352,7 +354,7 @@ Timestamp Key: 20170101010101`)
 			testCluster.Executor = testExecutor
 		})
 		AfterEach(func() {
-			utils.InitializeSystemFunctions()
+			operating.InitializeSystemFunctions()
 		})
 		Context("GetContacts", func() {
 			contactsFilename := fmt.Sprintf("%s/bin/gp_email_contacts.yaml", utils.System.Getenv("GPHOME"))

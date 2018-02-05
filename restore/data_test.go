@@ -4,6 +4,8 @@ import (
 	"os/user"
 	"regexp"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -58,8 +60,8 @@ var _ = Describe("restore/data tests", func() {
 			name               = "public.foo"
 		)
 		BeforeEach(func() {
-			utils.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
-			utils.System.Hostname = func() (string, error) { return "testHost", nil }
+			operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
+			operating.System.Hostname = func() (string, error) { return "testHost", nil }
 			testExecutor = &testutils.TestExecutor{}
 			testCluster = utils.NewCluster([]utils.SegConfig{masterSeg, localSegOne, remoteSegOne}, "", "20170101010101", "gpseg")
 			testCluster.Executor = testExecutor
@@ -82,7 +84,7 @@ var _ = Describe("restore/data tests", func() {
 			defer func() {
 				Expect(stderr).To(gbytes.Say("Expected to restore 10 rows to table public.foo, but restored 5 instead"))
 			}()
-			defer testutils.ShouldPanicWithMessage("Encountered errors with 1 restore agent(s).  See gbytes.Buffer for a complete list of segments with errors, and see testDir/gpAdminLogs/gpbackup_helper_20170101.log on the corresponding hosts for detailed error messages.")
+			defer testhelper.ShouldPanicWithMessage("Encountered errors with 1 restore agent(s).  See gbytes.Buffer for a complete list of segments with errors, and see testDir/gpAdminLogs/gpbackup_helper_20170101.log on the corresponding hosts for detailed error messages.")
 			restore.CheckRowsRestored(5, expectedRows, name)
 		})
 		It("panics if the numbers of rows do not match and there is no error with a segment agent", func() {
@@ -94,7 +96,7 @@ var _ = Describe("restore/data tests", func() {
 			}
 			testCluster.Executor = testExecutor
 			restore.SetCluster(testCluster)
-			defer testutils.ShouldPanicWithMessage("Expected to restore 10 rows to table public.foo, but restored 5 instead")
+			defer testhelper.ShouldPanicWithMessage("Expected to restore 10 rows to table public.foo, but restored 5 instead")
 			restore.CheckRowsRestored(5, expectedRows, name)
 		})
 		It("prints an error if the numbers of rows do not match and onErrorContinue is set", func() {

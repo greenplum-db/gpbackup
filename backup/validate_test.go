@@ -1,8 +1,8 @@
 package backup_test
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/testutils"
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
@@ -36,7 +36,7 @@ var _ = Describe("backup/validate tests", func() {
 				AddRow("schema1")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_schema_rows)
 			filterList = []string{"schema1", "schema2"}
-			defer testutils.ShouldPanicWithMessage("Schema schema2 does not exist")
+			defer testhelper.ShouldPanicWithMessage("Schema schema2 does not exist")
 			backup.ValidateFilterSchemas(connection, filterList)
 		})
 	})
@@ -72,7 +72,7 @@ var _ = Describe("backup/validate tests", func() {
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(tableRows)
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(partitionTables)
 				filterList = []string{"public.table1", "public.table2"}
-				defer testutils.ShouldPanicWithMessage("Table public.table2 does not exist")
+				defer testhelper.ShouldPanicWithMessage("Table public.table2 does not exist")
 				backup.ValidateFilterTables(connection, filterList)
 			})
 		})
@@ -104,7 +104,7 @@ var _ = Describe("backup/validate tests", func() {
 				partitionTables.AddRow("1", "i")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(partitionTables)
 				filterList = []string{"public.table1"}
-				defer testutils.ShouldPanicWithMessage("Cannot filter on public.table1, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.")
+				defer testhelper.ShouldPanicWithMessage("Cannot filter on public.table1, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.")
 				backup.ValidateFilterTables(connection, filterList)
 			})
 			It("panics if given an intermediate partition table and --leaf-partition-data is not set", func() {
@@ -113,7 +113,7 @@ var _ = Describe("backup/validate tests", func() {
 				partitionTables.AddRow("1", "i")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(partitionTables)
 				filterList = []string{"public.table1"}
-				defer testutils.ShouldPanicWithMessage("Cannot filter on public.table1, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.")
+				defer testhelper.ShouldPanicWithMessage("Cannot filter on public.table1, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.")
 				backup.ValidateFilterTables(connection, filterList)
 			})
 		})
@@ -125,12 +125,12 @@ var _ = Describe("backup/validate tests", func() {
 		})
 		It("panics if given a compression level < 0", func() {
 			compressLevel := -2
-			defer testutils.ShouldPanicWithMessage("Compression level must be between 1 and 9")
+			defer testhelper.ShouldPanicWithMessage("Compression level must be between 1 and 9")
 			backup.ValidateCompressionLevel(compressLevel)
 		})
 		It("panics if given a compression level > 9", func() {
 			compressLevel := 11
-			defer testutils.ShouldPanicWithMessage("Compression level must be between 1 and 9")
+			defer testhelper.ShouldPanicWithMessage("Compression level must be between 1 and 9")
 			backup.ValidateCompressionLevel(compressLevel)
 		})
 	})

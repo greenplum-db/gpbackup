@@ -3,6 +3,8 @@ package restore_test
 import (
 	"os/user"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -22,8 +24,8 @@ var _ = Describe("restore/remote tests", func() {
 	)
 
 	BeforeEach(func() {
-		utils.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
-		utils.System.Hostname = func() (string, error) { return "testHost", nil }
+		operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
+		operating.System.Hostname = func() (string, error) { return "testHost", nil }
 		testExecutor = &testutils.TestExecutor{}
 		testCluster = utils.NewCluster([]utils.SegConfig{masterSeg, localSegOne, remoteSegOne}, "", "20170101010101", "gpseg")
 		testCluster.Executor = testExecutor
@@ -45,7 +47,7 @@ var _ = Describe("restore/remote tests", func() {
 				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Found incorrect number of backup files on 2 segments")
+			defer testhelper.ShouldPanicWithMessage("Found incorrect number of backup files on 2 segments")
 			restore.VerifyBackupFileCountOnSegments(testCluster, 2)
 		})
 		It("panics if backup file counts do not match on some segments", func() {
@@ -55,7 +57,7 @@ var _ = Describe("restore/remote tests", func() {
 				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Found incorrect number of backup files on 1 segment")
+			defer testhelper.ShouldPanicWithMessage("Found incorrect number of backup files on 1 segment")
 			restore.VerifyBackupFileCountOnSegments(testCluster, 2)
 		})
 		It("panics if it cannot verify some backup file counts", func() {
@@ -66,7 +68,7 @@ var _ = Describe("restore/remote tests", func() {
 				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Could not verify backup file count on 1 segment")
+			defer testhelper.ShouldPanicWithMessage("Could not verify backup file count on 1 segment")
 			restore.VerifyBackupFileCountOnSegments(testCluster, 2)
 		})
 	})
@@ -88,7 +90,7 @@ var _ = Describe("restore/remote tests", func() {
 				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Backup directories missing or inaccessible on 2 segments")
+			defer testhelper.ShouldPanicWithMessage("Backup directories missing or inaccessible on 2 segments")
 			restore.VerifyBackupDirectoriesExistOnAllHosts(testCluster)
 		})
 		It("panics if it cannot verify some directories", func() {
@@ -99,7 +101,7 @@ var _ = Describe("restore/remote tests", func() {
 				},
 			}
 			testCluster.Executor = testExecutor
-			defer testutils.ShouldPanicWithMessage("Backup directories missing or inaccessible on 1 segment")
+			defer testhelper.ShouldPanicWithMessage("Backup directories missing or inaccessible on 1 segment")
 			restore.VerifyBackupDirectoriesExistOnAllHosts(testCluster)
 		})
 	})

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
@@ -40,7 +41,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 			It("doesn't print anything", func() {
 				constraints := []backup.Constraint{}
 				backup.PrintConstraintStatements(backupfile, toc, constraints, emptyMetadataMap)
-				testutils.NotExpectRegexp(buffer, `CONSTRAINT`)
+				testhelper.NotExpectRegexp(buffer, `CONSTRAINT`)
 			})
 		})
 		Context("Constraints involving different columns", func() {
@@ -136,7 +137,7 @@ COMMENT ON CONSTRAINT tablename_i_key ON public.tablename IS 'This is a constrai
 				domainCheckConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42::numeric)", OwningObject: "public.domain1", IsDomainConstraint: true, IsPartitionParent: false}
 				constraints := []backup.Constraint{domainCheckConstraint}
 				backup.PrintConstraintStatements(backupfile, toc, constraints, emptyMetadataMap)
-				testutils.NotExpectRegexp(buffer, `ALTER DOMAIN`)
+				testhelper.NotExpectRegexp(buffer, `ALTER DOMAIN`)
 			})
 			It("prints an ADD CONSTRAINT statement for a parent partition table", func() {
 				uniqueOne.IsPartitionParent = true
@@ -188,7 +189,7 @@ GRANT ALL ON SCHEMA schemaname TO testrole;`)
 		})
 		It("panics if given an invalid string", func() {
 			testString := `schema.name`
-			defer testutils.ShouldPanicWithMessage(`schema.name is not a valid identifier`)
+			defer testhelper.ShouldPanicWithMessage(`schema.name is not a valid identifier`)
 			backup.SchemaFromString(testString)
 		})
 	})
@@ -231,21 +232,21 @@ GRANT ALL ON SCHEMA schemaname TO testrole;`)
 		It("prints a block with a table comment", func() {
 			tableMetadata := backup.ObjectMetadata{Comment: "This is a table comment."}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';`)
 		})
 		It("prints an ALTER TABLE ... OWNER TO statement to set the table owner", func() {
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole"}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;`)
 		})
 		It("prints a block of REVOKE and GRANT statements", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 REVOKE ALL ON TABLE public.tablename FROM PUBLIC;
 GRANT ALL ON TABLE public.tablename TO anothertestrole;
@@ -255,7 +256,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 		It("prints a block of REVOKE and GRANT statements WITH GRANT OPTION", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privilegesWithGrant}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 REVOKE ALL ON TABLE public.tablename FROM PUBLIC;
 GRANT ALL ON TABLE public.tablename TO anothertestrole WITH GRANT OPTION;
@@ -265,7 +266,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC WITH GRANT OPTION;`)
 		It("prints a block of REVOKE and GRANT statements, some with WITH GRANT OPTION, some without", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{hasAllPrivileges, hasMostPrivilegesWithGrant}}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 REVOKE ALL ON TABLE public.tablename FROM PUBLIC;
 GRANT ALL ON TABLE public.tablename TO anothertestrole;
@@ -274,7 +275,7 @@ GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES ON TABLE public.tablename 
 		It("prints both an ALTER TABLE ... OWNER TO statement and a table comment", func() {
 			tableMetadata := backup.ObjectMetadata{Comment: "This is a table comment.", Owner: "testrole"}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
 
@@ -284,7 +285,7 @@ ALTER TABLE public.tablename OWNER TO testrole;`)
 		It("prints both a block of REVOKE and GRANT statements and an ALTER TABLE ... OWNER TO statement", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges, Owner: "testrole"}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;
 
@@ -298,7 +299,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 		It("prints both a block of REVOKE and GRANT statements and a table comment", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges, Comment: "This is a table comment."}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
 
@@ -311,7 +312,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 		It("prints REVOKE and GRANT statements, an ALTER TABLE ... OWNER TO statement, and comments", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges, Owner: "testrole", Comment: "This is a table comment."}
 			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
 
@@ -329,7 +330,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 			serverPrivileges := testutils.DefaultACLForType("testrole", "FOREIGN SERVER")
 			serverMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{serverPrivileges}, Owner: "testrole"}
 			backup.PrintObjectMetadata(backupfile, serverMetadata, "foreignserver", "FOREIGN SERVER")
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 ALTER SERVER foreignserver OWNER TO testrole;
 
@@ -473,7 +474,7 @@ GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 				{Name: "check_constraint", ConDef: "CHECK (VALUE > 2)", OwningObject: "public.domain"},
 			}
 			backup.PrintCreateDependentTypeAndFunctionAndTablesStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
 LANGUAGE sql;
@@ -514,7 +515,7 @@ COMMENT ON TABLE public.relation IS 'relation';
 		It("prints create statements for dependent types, functions, and tables (no domain constraint)", func() {
 			constraints := []backup.Constraint{}
 			backup.PrintCreateDependentTypeAndFunctionAndTablesStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
 LANGUAGE sql;

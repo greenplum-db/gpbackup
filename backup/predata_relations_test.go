@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -435,7 +436,7 @@ SET SUBPARTITION TEMPLATE
 			tableDef.ColumnDefs = col
 			tableMetadata := backup.ObjectMetadata{Comment: "This is a table comment."}
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';`)
 		})
@@ -443,7 +444,7 @@ COMMENT ON TABLE public.tablename IS 'This is a table comment.';`)
 			col := []backup.ColumnDefinition{rowCommentOne}
 			tableDef.ColumnDefs = col
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, noMetadata)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';`)
 		})
@@ -451,7 +452,7 @@ COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';`)
 			col := []backup.ColumnDefinition{rowCommentOne, rowCommentTwo}
 			tableDef.ColumnDefs = col
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, noMetadata)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';
 
@@ -463,7 +464,7 @@ COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 			tableDef.ColumnDefs = col
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole"}
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;`)
 		})
@@ -472,7 +473,7 @@ ALTER TABLE public.tablename OWNER TO testrole;`)
 			tableDef.ColumnDefs = col
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole", Comment: "This is a table comment."}
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
 
@@ -492,7 +493,7 @@ COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 			tableDef.ColumnDefs = col
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole"}
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
-			testutils.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;
 
@@ -695,7 +696,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintAlterSequenceStatements(backupfile, toc, sequences, emptyColumnOwnerMap)
 			Expect(len(toc.PredataEntries)).To(Equal(0))
-			testutils.NotExpectRegexp(buffer, `ALTER SEQUENCE`)
+			testhelper.NotExpectRegexp(buffer, `ALTER SEQUENCE`)
 		})
 		It("can print an ALTER SEQUENCE statement for a sequence with an owning column", func() {
 			sequences := []backup.Sequence{seqDefault}

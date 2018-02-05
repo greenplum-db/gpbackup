@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -26,5 +27,5 @@ func TestUtils(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	logger, stdout, stderr, logfile = testutils.SetupTestLogger()
-	utils.System = utils.InitializeSystemFunctions()
+	operating.System = operating.InitializeSystemFunctions()
 })

@@ -1,6 +1,7 @@
 package backup_test
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -17,7 +18,7 @@ var _ = Describe("backup/metadata_globals tests", func() {
 			gucs := backup.SessionGUCs{ClientEncoding: "UTF8"}
 
 			backup.PrintSessionGUCs(backupfile, toc, gucs)
-			testutils.ExpectRegexp(buffer, `SET client_encoding = 'UTF8';
+			testhelper.ExpectRegexp(buffer, `SET client_encoding = 'UTF8';
 `)
 		})
 	})

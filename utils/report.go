@@ -12,6 +12,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
 
@@ -99,7 +100,7 @@ Data File Format: %s`
 
 func ReadConfigFile(filename string) *BackupConfig {
 	config := &BackupConfig{}
-	contents, err := System.ReadFile(filename)
+	contents, err := operating.System.ReadFile(filename)
 	CheckError(err)
 	err = yaml.Unmarshal(contents, config)
 	CheckError(err)
@@ -108,7 +109,7 @@ func ReadConfigFile(filename string) *BackupConfig {
 
 func (report *Report) WriteConfigFile(configFilename string) {
 	configFile := MustOpenFileForWriting(configFilename)
-	defer System.Chmod(configFilename, 0444)
+	defer operating.System.Chmod(configFilename, 0444)
 	config := report.BackupConfig
 	configContents, _ := yaml.Marshal(config)
 	MustPrintBytes(configFile, configContents)
@@ -116,7 +117,7 @@ func (report *Report) WriteConfigFile(configFilename string) {
 
 func (report *Report) WriteReportFile(reportFilename string, timestamp string, objectCounts map[string]int, endTime time.Time, errMsg string) {
 	reportFile := MustOpenFileForWriting(reportFilename)
-	defer System.Chmod(reportFilename, 0444)
+	defer operating.System.Chmod(reportFilename, 0444)
 	reportFileTemplate := `Greenplum Database Backup Report
 
 Timestamp Key: %s
@@ -148,7 +149,7 @@ Backup Status: %s
 }
 
 func GetBackupTimeInfo(timestamp string, endTime time.Time) (string, string, string) {
-	startTime, _ := time.ParseInLocation("20060102150405", timestamp, System.Local)
+	startTime, _ := time.ParseInLocation("20060102150405", timestamp, operating.System.Local)
 	duration := reformatDuration(endTime.Sub(startTime))
 	startTimestamp := startTime.Format("2006-01-02 15:04:05")
 	endTimestamp := endTime.Format("2006-01-02 15:04:05")
@@ -232,7 +233,7 @@ type EmailContact struct {
 
 func GetContacts(filename string, utility string) string {
 	contactFile := &ContactFile{}
-	contents, err := System.ReadFile(filename)
+	contents, err := operating.System.ReadFile(filename)
 	CheckError(err)
 	err = yaml.Unmarshal(contents, contactFile)
 	if err != nil {
@@ -248,7 +249,7 @@ func GetContacts(filename string, utility string) string {
 }
 
 func ConstructEmailMessage(cluster Cluster, contactList string) string {
-	hostname, _ := System.Hostname()
+	hostname, _ := operating.System.Hostname()
 	emailHeader := fmt.Sprintf(`To: %s
 Subject: gpbackup %s on %s completed
 Content-Type: text/html
@@ -267,8 +268,8 @@ Content-Disposition: inline
 
 func EmailReport(cluster Cluster) {
 	contactsFilename := "gp_email_contacts.yaml"
-	gphomeFile := fmt.Sprintf("%s/bin/%s", System.Getenv("GPHOME"), contactsFilename)
-	homeFile := fmt.Sprintf("%s/%s", System.Getenv("HOME"), contactsFilename)
+	gphomeFile := fmt.Sprintf("%s/bin/%s", operating.System.Getenv("GPHOME"), contactsFilename)
+	homeFile := fmt.Sprintf("%s/%s", operating.System.Getenv("HOME"), contactsFilename)
 	_, homeErr := cluster.ExecuteLocalCommand(fmt.Sprintf("test -f %s", homeFile))
 	if homeErr != nil {
 		_, gphomeErr := cluster.ExecuteLocalCommand(fmt.Sprintf("test -f %s", gphomeFile))

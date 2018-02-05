@@ -3,6 +3,7 @@ package utils_test
 import (
 	"os/user"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -21,8 +22,8 @@ var _ = Describe("utils/compression tests", func() {
 	)
 
 	BeforeEach(func() {
-		utils.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
-		utils.System.Hostname = func() (string, error) { return "testHost", nil }
+		operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
+		operating.System.Hostname = func() (string, error) { return "testHost", nil }
 		testExecutor = &testutils.TestExecutor{}
 		testCluster = utils.NewCluster([]utils.SegConfig{masterSeg, localSegOne, remoteSegOne}, "", "20170101010101", "gpseg")
 		testCluster.Executor = testExecutor

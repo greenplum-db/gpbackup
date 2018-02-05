@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
@@ -17,7 +19,7 @@ import (
 
 var _ = Describe("utils/db tests", func() {
 	BeforeEach(func() {
-		utils.System.Now = func() time.Time { return time.Date(2017, time.January, 1, 1, 1, 1, 1, time.Local) }
+		operating.System.Now = func() time.Time { return time.Date(2017, time.January, 1, 1, 1, 1, 1, time.Local) }
 	})
 	Describe("NewDBConn", func() {
 		It("gets the DBName from the dbname flag if it is set", func() {
@@ -25,7 +27,7 @@ var _ = Describe("utils/db tests", func() {
 			Expect(connection.DBName).To(Equal("testdb"))
 		})
 		It("fails if no database is given with the dbname flag", func() {
-			defer testutils.ShouldPanicWithMessage("No database provided")
+			defer testhelper.ShouldPanicWithMessage("No database provided")
 			connection = utils.NewDBConn("")
 		})
 	})
@@ -58,17 +60,17 @@ var _ = Describe("utils/db tests", func() {
 		})
 		It("does not connect if the database exists but the connection is refused", func() {
 			connection.Driver = testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: connection refused"), DB: mockdb, User: "testrole"}
-			defer testutils.ShouldPanicWithMessage(`could not connect to server: Connection refused`)
+			defer testhelper.ShouldPanicWithMessage(`could not connect to server: Connection refused`)
 			connection.Connect(1)
 		})
 		It("fails if an invalid number of connections is given", func() {
-			defer testutils.ShouldPanicWithMessage("Must specify a connection pool size that is a positive integer")
+			defer testhelper.ShouldPanicWithMessage("Must specify a connection pool size that is a positive integer")
 			connection.Connect(0)
 		})
 		It("fails if the database does not exist", func() {
 			connection.Driver = testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: database \"testdb\" does not exist"), DB: mockdb, DBName: "testdb", User: "testrole"}
 			Expect(connection.DBName).To(Equal("testdb"))
-			defer testutils.ShouldPanicWithMessage("Database \"testdb\" does not exist, exiting")
+			defer testhelper.ShouldPanicWithMessage("Database \"testdb\" does not exist, exiting")
 			connection.Connect(1)
 		})
 		It("fails if the role does not exist", func() {
@@ -79,7 +81,7 @@ var _ = Describe("utils/db tests", func() {
 			connection = utils.NewDBConn("testdb")
 			connection.Driver = testutils.TestDriver{ErrToReturn: fmt.Errorf("pq: role \"nonexistent\" does not exist"), DB: mockdb, DBName: "testdb", User: "nonexistent"}
 			Expect(connection.User).To(Equal("nonexistent"))
-			defer testutils.ShouldPanicWithMessage("Role \"nonexistent\" does not exist, exiting")
+			defer testhelper.ShouldPanicWithMessage("Role \"nonexistent\" does not exist, exiting")
 			connection.Connect(1)
 		})
 	})
@@ -232,7 +234,7 @@ var _ = Describe("utils/db tests", func() {
 		It("panics if it executes a BEGIN in a transaction", func() {
 			testutils.ExpectBegin(mock)
 			connection.Begin()
-			defer testutils.ShouldPanicWithMessage("Cannot begin transaction; there is already a transaction in progress")
+			defer testhelper.ShouldPanicWithMessage("Cannot begin transaction; there is already a transaction in progress")
 			connection.Begin()
 		})
 	})
@@ -245,7 +247,7 @@ var _ = Describe("utils/db tests", func() {
 			Expect(connection.Tx).To(BeNil())
 		})
 		It("panics if it executes a COMMIT outside a transaction", func() {
-			defer testutils.ShouldPanicWithMessage("Cannot commit transaction; there is no transaction in progress")
+			defer testhelper.ShouldPanicWithMessage("Cannot commit transaction; there is no transaction in progress")
 			connection.Commit()
 		})
 	})
@@ -260,13 +262,13 @@ var _ = Describe("utils/db tests", func() {
 
 		})
 		It("panics if GPDB version is less than 4.3.17", func() {
-			defer testutils.ShouldPanicWithMessage("GPDB version 4.3.14.1+dev.83.ga57d1b7 build 1 is not supported. Please upgrade to GPDB 4.3.17.0 or later.")
+			defer testhelper.ShouldPanicWithMessage("GPDB version 4.3.14.1+dev.83.ga57d1b7 build 1 is not supported. Please upgrade to GPDB 4.3.17.0 or later.")
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.2.15 (Greenplum Database 4.3.14.1+dev.83.ga57d1b7 build 1) on x86_64-unknown-linux-gnu, compiled by GCC gcc (GCC) 4.4.7 20120313 (Red Hat 4.4.7-18) compiled on Sep 15 2017 17:31:20")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 			connection.SetDatabaseVersion()
 		})
 		It("panics if GPDB 5 version is less than 5.1.0", func() {
-			defer testutils.ShouldPanicWithMessage("GPDB version 5.0.0+dev.92.g010f702 build dev 1 is not supported. Please upgrade to GPDB 5.1.0 or later.")
+			defer testhelper.ShouldPanicWithMessage("GPDB version 5.0.0+dev.92.g010f702 build dev 1 is not supported. Please upgrade to GPDB 5.1.0 or later.")
 			versionString := sqlmock.NewRows([]string{"versionstring"}).AddRow(" PostgreSQL 8.3.23 (Greenplum Database 5.0.0+dev.92.g010f702 build dev 1) on x86_64-apple-darwin14.5.0, compiled by GCC Apple LLVM version 6.0 (clang-600.0.57) (based on LLVM 3.5svn) compiled on Sep 27 2017 14:40:25")
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(versionString)
 			connection.SetDatabaseVersion()
@@ -304,15 +306,15 @@ var _ = Describe("utils/db tests", func() {
 			Expect(num).To(Equal(0))
 		})
 		It("panics if given multiple arguments", func() {
-			defer testutils.ShouldPanicWithMessage("At most one connection number may be specified for a given connection")
+			defer testhelper.ShouldPanicWithMessage("At most one connection number may be specified for a given connection")
 			connection.ValidateConnNum(1, 2)
 		})
 		It("panics if given a negative number", func() {
-			defer testutils.ShouldPanicWithMessage("Invalid connection number: -1")
+			defer testhelper.ShouldPanicWithMessage("Invalid connection number: -1")
 			connection.ValidateConnNum(-1)
 		})
 		It("panics if given a number greater than NumConns", func() {
-			defer testutils.ShouldPanicWithMessage("Invalid connection number: 4")
+			defer testhelper.ShouldPanicWithMessage("Invalid connection number: 4")
 			connection.ValidateConnNum(4)
 		})
 	})
@@ -336,7 +338,7 @@ var _ = Describe("utils/db tests", func() {
 		It("panics if the query selects multiple strings", func() {
 			fakeResult := sqlmock.NewRows(header).AddRow(rowOne...).AddRow(rowTwo...)
 			mock.ExpectQuery("SELECT (.*)").WillReturnRows(fakeResult)
-			defer testutils.ShouldPanicWithMessage("Too many rows returned from query: got 2 rows, expected 1 row")
+			defer testhelper.ShouldPanicWithMessage("Too many rows returned from query: got 2 rows, expected 1 row")
 			utils.SelectString(connection, "SELECT foo FROM bar")
 		})
 	})

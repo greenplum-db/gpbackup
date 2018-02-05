@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -40,7 +41,7 @@ func WriteToSegmentPipes(cluster utils.Cluster) {
 		scriptFile := cluster.GetSegmentHelperFilePath(contentID, "script")
 		pipeFile := cluster.GetSegmentPipeFilePathWithPID(contentID)
 		backupFile := cluster.GetTableBackupFilePath(contentID, 0, true)
-		gphomePath := utils.System.Getenv("GPHOME")
+		gphomePath := operating.System.Getenv("GPHOME")
 		return fmt.Sprintf(`cat << HEREDOC > %s
 #!/bin/bash
 %s/bin/gpbackup_helper --restore-agent --toc-file %s --oid-file %s --pipe-file %s --data-file %s --content %d
@@ -121,7 +122,7 @@ func VerifyBackupFileCountOnSegments(cluster utils.Cluster, fileCount int) {
 
 func VerifyHelperVersionOnSegments(cluster utils.Cluster, version string) {
 	remoteOutput := cluster.GenerateAndExecuteCommand("Verifying gpbackup_helper version", func(contentID int) string {
-		gphome := utils.System.Getenv("GPHOME")
+		gphome := operating.System.Getenv("GPHOME")
 		return fmt.Sprintf("%s/bin/gpbackup_helper --version", gphome)
 	})
 	cluster.CheckClusterError(remoteOutput, "Could not verify gpbackup_helper version", func(contentID int) string {

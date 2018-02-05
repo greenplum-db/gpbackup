@@ -5,8 +5,6 @@ package utils
  */
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -14,8 +12,7 @@ import (
 )
 
 var (
-	logger        *gplog.Logger
-	defaultLogDir = "gpAdminLogs"
+	logger *gplog.Logger
 )
 
 /*
@@ -23,24 +20,7 @@ var (
  * and then returns it so the same logger can be used in backup/ and restore/.
  */
 func InitializeLogging(program string, logdir string) *gplog.Logger {
-
-	// Create a temporary logger to start in case there are fatal errors during initialization
-	nullFile, _ := os.Open("/dev/null")
-	tempLogger := gplog.NewLogger(os.Stdout, os.Stderr, nullFile, "/dev/null", gplog.LOGINFO, program)
-	SetLogger(tempLogger)
-
-	currentUser, _ := System.CurrentUser()
-	if logdir == "" {
-		logdir = fmt.Sprintf("%s/%s", currentUser.HomeDir, defaultLogDir)
-	}
-
-	CreateDirectoryOnMaster(logdir)
-
-	logfile := fmt.Sprintf("%s/%s_%s.log", logdir, program, CurrentTimestamp()[0:8])
-	logFileHandle := MustOpenFileForWriting(logfile, true)
-
-	logger := gplog.NewLogger(os.Stdout, os.Stderr, logFileHandle, logfile, gplog.LOGINFO, program)
-	SetLogger(logger)
+	logger = gplog.InitializeLogging(program, logdir)
 	return logger
 }
 

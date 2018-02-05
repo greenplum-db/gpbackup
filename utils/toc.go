@@ -5,6 +5,7 @@ import (
 	"io"
 	"regexp"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -46,7 +47,7 @@ type SegmentDataEntry struct {
 
 func NewTOC(filename string) *TOC {
 	toc := &TOC{}
-	contents, err := System.ReadFile(filename)
+	contents, err := operating.System.ReadFile(filename)
 	CheckError(err)
 	err = yaml.Unmarshal(contents, toc)
 	CheckError(err)
@@ -55,7 +56,7 @@ func NewTOC(filename string) *TOC {
 
 func NewSegmentTOC(filename string) *SegmentTOC {
 	toc := &SegmentTOC{}
-	contents, err := System.ReadFile(filename)
+	contents, err := operating.System.ReadFile(filename)
 	CheckError(err)
 	err = yaml.Unmarshal(contents, toc)
 	CheckError(err)
@@ -63,7 +64,7 @@ func NewSegmentTOC(filename string) *SegmentTOC {
 }
 
 func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
-	defer System.Chmod(filename, 0444)
+	defer operating.System.Chmod(filename, 0444)
 	toc.WriteToFile(filename)
 }
 

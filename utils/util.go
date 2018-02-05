@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
 
@@ -27,11 +28,11 @@ func CheckError(err error) {
  */
 
 func CurrentTimestamp() string {
-	return System.Now().Format("20060102150405")
+	return operating.System.Now().Format("20060102150405")
 }
 
 func TryEnv(varname string, defval string) string {
-	val := System.Getenv(varname)
+	val := operating.System.Getenv(varname)
 	if val == "" {
 		return defval
 	}

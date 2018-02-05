@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
 
@@ -46,15 +47,15 @@ func MustOpenFileForWriting(filename string, allowAppend ...bool) io.WriteCloser
 	if len(allowAppend) == 1 && allowAppend[0] {
 		flags = os.O_APPEND | flags
 	}
-	fileHandle, err := System.OpenFileWrite(filename, flags, 0644)
+	fileHandle, err := operating.System.OpenFileWrite(filename, flags, 0644)
 	if err != nil {
 		logger.Fatal(err, "Unable to create or open file for writing")
 	}
 	return fileHandle
 }
 
-func MustOpenFileForReading(filename string) ReadCloserAt {
-	fileHandle, err := System.OpenFileRead(filename, os.O_RDONLY, 0644)
+func MustOpenFileForReading(filename string) operating.ReadCloserAt {
+	fileHandle, err := operating.System.OpenFileRead(filename, os.O_RDONLY, 0644)
 	if err != nil {
 		logger.Fatal(err, "Unable to open file for reading")
 	}
@@ -62,10 +63,10 @@ func MustOpenFileForReading(filename string) ReadCloserAt {
 }
 
 func FileExistsAndIsReadable(filename string) bool {
-	_, err := System.Stat(filename)
+	_, err := operating.System.Stat(filename)
 	if err == nil {
 		var fileHandle io.ReadCloser
-		fileHandle, err = System.OpenFileRead(filename, os.O_RDONLY, 0644)
+		fileHandle, err = operating.System.OpenFileRead(filename, os.O_RDONLY, 0644)
 		fileHandle.Close()
 		if err == nil {
 			return true
@@ -76,17 +77,17 @@ func FileExistsAndIsReadable(filename string) bool {
 
 func CreateBackupLockFile(timestamp string) {
 	timestampLockFile := fmt.Sprintf("/tmp/%s.lck", timestamp)
-	_, err := System.OpenFileWrite(timestampLockFile, os.O_CREATE|os.O_EXCL, 0644)
+	_, err := operating.System.OpenFileWrite(timestampLockFile, os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		logger.Fatal(errors.Errorf("A backup with timestamp %s is already in progress. Wait 1 second and try the backup again.", timestamp), "")
 	}
 }
 
 func GetUserAndHostInfo() (string, string, string) {
-	currentUser, _ := System.CurrentUser()
+	currentUser, _ := operating.System.CurrentUser()
 	userName := currentUser.Username
 	userDir := currentUser.HomeDir
-	hostname, _ := System.Hostname()
+	hostname, _ := operating.System.Hostname()
 	return userName, userDir, hostname
 }
 
@@ -119,10 +120,10 @@ func MustPrintBytes(file io.Writer, bytes []byte) uint64 {
  */
 
 func CreateDirectoryOnMaster(dirname string) {
-	info, err := System.Stat(dirname)
+	info, err := operating.System.Stat(dirname)
 	if err != nil {
-		if System.IsNotExist(err) {
-			err = System.MkdirAll(dirname, 0755)
+		if operating.System.IsNotExist(err) {
+			err = operating.System.MkdirAll(dirname, 0755)
 			if err != nil {
 				logger.Fatal(err, "Cannot create directory %s", dirname)
 			}
@@ -164,7 +165,7 @@ func (file *FileWithByteCount) Close() {
 	if file.closer != nil {
 		file.closer.Close()
 		if file.Filename != "" {
-			System.Chmod(file.Filename, 0444)
+			operating.System.Chmod(file.Filename, 0444)
 		}
 	}
 }

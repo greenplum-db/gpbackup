@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
 
@@ -347,7 +348,7 @@ func GetSegPrefix(connection *DBConn) string {
 func ParseSegPrefix(backupDir string) string {
 	segPrefix := ""
 	if len(backupDir) > 0 {
-		masterDir, err := System.Glob(fmt.Sprintf("%s/*-1", backupDir))
+		masterDir, err := operating.System.Glob(fmt.Sprintf("%s/*-1", backupDir))
 		if err != nil || len(masterDir) == 0 {
 			logger.Fatal(err, "Master backup directory in %s missing or inaccessible", backupDir)
 		}

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/helper"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -18,16 +19,16 @@ var _ = Describe("helper/helper", func() {
 	BeforeEach(func() {
 		stdinRead, stdinWrite, _ = os.Pipe()
 		tocFileRead, _, _ = os.Pipe()
-		utils.System.Stdin = stdinRead
+		operating.System.Stdin = stdinRead
 		stdout = gbytes.NewBuffer()
-		utils.System.Stdout = stdout
+		operating.System.Stdout = stdout
 	})
 	AfterEach(func() {
-		utils.System.OpenFileRead = utils.OpenFileRead
-		utils.System.Stat = os.Stat
-		utils.System.Stdin = os.Stdin
-		utils.System.Stdout = os.Stdout
-		utils.System.ReadFile = ioutil.ReadFile
+		operating.System.OpenFileRead = operating.OpenFileRead
+		operating.System.Stat = os.Stat
+		operating.System.Stdin = os.Stdin
+		operating.System.Stdout = os.Stdout
+		operating.System.ReadFile = ioutil.ReadFile
 	})
 	Describe("ReadAndCountBytes", func() {
 		It("Returns correct number of bytes read", func() {
@@ -46,11 +47,11 @@ var _ = Describe("helper/helper", func() {
 		Describe("ReadOrCreateTOC", func() {
 			It("returns contents of TOC when a TOC file exists", func() {
 				helper.SetFilename("filename")
-				utils.System.Stat = func(name string) (os.FileInfo, error) {
+				operating.System.Stat = func(name string) (os.FileInfo, error) {
 					return nil, nil
 				}
-				utils.System.OpenFileRead = func(name string, flag int, perm os.FileMode) (utils.ReadCloserAt, error) { return tocFileRead, nil }
-				utils.System.ReadFile = func(filename string) ([]byte, error) {
+				operating.System.OpenFileRead = func(name string, flag int, perm os.FileMode) (operating.ReadCloserAt, error) { return tocFileRead, nil }
+				operating.System.ReadFile = func(filename string) ([]byte, error) {
 					return []byte(`lastbyteread: 15
 dataentries:
   1:
@@ -74,7 +75,7 @@ dataentries:
 			})
 			It("returns a new TOC when no TOC file exists", func() {
 				helper.SetFilename("filename")
-				utils.System.Stat = func(name string) (os.FileInfo, error) {
+				operating.System.Stat = func(name string) (os.FileInfo, error) {
 					return nil, os.ErrNotExist
 				}
 				toc, lastRead := helper.ReadOrCreateTOC()

@@ -5,12 +5,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/helper"
 	"github.com/greenplum-db/gpbackup/restore"
@@ -31,7 +32,7 @@ func SetupTestEnvironment() (*utils.DBConn, sqlmock.Sqlmock, *gplog.Logger, *gby
 	testLogger, testStdout, testStderr, testLogfile := SetupTestLogger()
 	connection, mock := CreateAndConnectMockDB(1)
 	SetupTestCluster()
-	utils.System = utils.InitializeSystemFunctions()
+	operating.System = operating.InitializeSystemFunctions()
 	backup.SetVersion("0.1.0")
 	return connection, mock, testLogger, testStdout, testStderr, testLogfile
 }
@@ -55,14 +56,11 @@ func CreateAndConnectMockDB(numConns int) (*utils.DBConn, sqlmock.Sqlmock) {
  * are returned to allow checking for output written to those buffers during tests if desired.
  */
 func SetupTestLogger() (*gplog.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
-	testStdout := gbytes.NewBuffer()
-	testStderr := gbytes.NewBuffer()
-	testLogfile := gbytes.NewBuffer()
-	testLogger := gplog.NewLogger(testStdout, testStderr, testLogfile, "gbytes.Buffer", gplog.LOGINFO, "testProgram")
+	testLogger, testStdout, testStderr, testLogfile := testhelper.SetupTestLogger()
 	backup.SetLogger(testLogger)
 	restore.SetLogger(testLogger)
-	utils.SetLogger(testLogger)
 	helper.SetLogger(testLogger)
+	utils.SetLogger(testLogger)
 	return testLogger, testStdout, testStderr, testLogfile
 }
 
@@ -229,18 +227,6 @@ func ExpectBegin(mock sqlmock.Sqlmock) {
 	mock.ExpectExec("SET TRANSACTION(.*)").WillReturnResult(fakeResult)
 }
 
-func ExpectRegexp(buffer *gbytes.Buffer, testStr string) {
-	Expect(buffer).Should(gbytes.Say(regexp.QuoteMeta(testStr)))
-}
-
-func NotExpectRegexp(buffer *gbytes.Buffer, testStr string) {
-	Expect(buffer).ShouldNot(gbytes.Say(regexp.QuoteMeta(testStr)))
-}
-
-func ExpectRegex(result string, testStr string) {
-	Expect(result).Should(MatchRegexp(regexp.QuoteMeta(testStr)))
-}
-
 func SliceBufferByEntries(entries []utils.MetadataEntry, buffer *gbytes.Buffer) ([]string, string) {
 	contents := buffer.Contents()
 	hunks := []string{}
@@ -310,17 +296,6 @@ func ExpectEntry(entries []utils.MetadataEntry, index int, schema, referenceObje
 func ExpectPathToExist(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		Fail(fmt.Sprintf("Expected %s to exist", path))
-	}
-}
-
-func ShouldPanicWithMessage(message string) {
-	if r := recover(); r != nil {
-		errorMessage := strings.TrimSpace(fmt.Sprintf("%v", r))
-		if !strings.Contains(errorMessage, message) {
-			Fail(fmt.Sprintf("Expected panic message '%s', got '%s'", message, errorMessage))
-		}
-	} else {
-		Fail("Function did not panic as expected")
 	}
 }
 

@@ -3,7 +3,7 @@ package utils_test
 import (
 	"flag"
 
-	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -44,7 +44,7 @@ var _ = Describe("utils/flag tests", func() {
 		})
 		It("panics when given a relative path", func() {
 			path := "this/is/a/relative/path"
-			defer testutils.ShouldPanicWithMessage("Absolute path required for backupdir")
+			defer testhelper.ShouldPanicWithMessage("Absolute path required for backupdir")
 			utils.ValidateBackupDir(path)
 		})
 	})
@@ -62,7 +62,7 @@ var _ = Describe("utils/flag tests", func() {
 			})
 			It("panics if a mandatory flag is not set", func() {
 				flag.CommandLine.Parse([]string{})
-				defer testutils.ShouldPanicWithMessage("Flag stringFlag must be set")
+				defer testhelper.ShouldPanicWithMessage("Flag stringFlag must be set")
 				utils.CheckMandatoryFlags("stringFlag")
 			})
 		})
@@ -81,7 +81,7 @@ var _ = Describe("utils/flag tests", func() {
 			})
 			It("panics if two or more flags in the argument list are set", func() {
 				flag.CommandLine.Parse([]string{"-stringFlag", "foo", "-boolFlag"})
-				defer testutils.ShouldPanicWithMessage("The following flags may not be specified together: stringFlag, boolFlag")
+				defer testhelper.ShouldPanicWithMessage("The following flags may not be specified together: stringFlag, boolFlag")
 				utils.CheckExclusiveFlags("stringFlag", "boolFlag")
 			})
 		})

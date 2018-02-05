@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -56,7 +57,7 @@ func buildAndInstallBinaries() (string, string) {
 		Fail(fmt.Sprintf("%v", err))
 	}
 	os.Chdir("end_to_end")
-	binDir := fmt.Sprintf("%s/go/bin", utils.System.Getenv("HOME"))
+	binDir := fmt.Sprintf("%s/go/bin", operating.System.Getenv("HOME"))
 	return fmt.Sprintf("%s/gpbackup", binDir), fmt.Sprintf("%s/gprestore", binDir)
 }
 

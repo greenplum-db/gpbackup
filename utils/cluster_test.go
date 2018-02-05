@@ -9,6 +9,8 @@ import (
 
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
@@ -27,8 +29,8 @@ var _ = Describe("utils/cluster tests", func() {
 	)
 
 	BeforeEach(func() {
-		utils.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
-		utils.System.Hostname = func() (string, error) { return "testHost", nil }
+		operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
+		operating.System.Hostname = func() (string, error) { return "testHost", nil }
 		testExecutor = &testutils.TestExecutor{}
 		testCluster = utils.NewCluster([]utils.SegConfig{masterSeg, localSegOne, remoteSegOne}, "", "20170101010101", "gpseg")
 		testCluster.Executor = testExecutor
@@ -217,11 +219,11 @@ var _ = Describe("utils/cluster tests", func() {
 	})
 	Describe("LogFatalClusterError", func() {
 		It("logs an error for 1 segment", func() {
-			defer testutils.ShouldPanicWithMessage("Error occurred on 1 segment. See gbytes.Buffer for a complete list of segments with errors.")
+			defer testhelper.ShouldPanicWithMessage("Error occurred on 1 segment. See gbytes.Buffer for a complete list of segments with errors.")
 			utils.LogFatalClusterError("Error occurred", 1)
 		})
 		It("logs an error for more than 1 segment", func() {
-			defer testutils.ShouldPanicWithMessage("Error occurred on 2 segments. See gbytes.Buffer for a complete list of segments with errors.")
+			defer testhelper.ShouldPanicWithMessage("Error occurred on 2 segments. See gbytes.Buffer for a complete list of segments with errors.")
 			utils.LogFatalClusterError("Error occurred", 2)
 		})
 	})
@@ -311,25 +313,25 @@ var _ = Describe("utils/cluster tests", func() {
 	})
 	Describe("ParseSegPrefix", func() {
 		AfterEach(func() {
-			utils.System.Glob = filepath.Glob
+			operating.System.Glob = filepath.Glob
 		})
 		It("returns segment prefix from directory path if master backup directory exists", func() {
-			utils.System.Glob = func(pattern string) (matches []string, err error) { return []string{"/tmp/foo/gpseg-1"}, nil }
+			operating.System.Glob = func(pattern string) (matches []string, err error) { return []string{"/tmp/foo/gpseg-1"}, nil }
 			Expect(utils.ParseSegPrefix("/tmp/foo")).To(Equal("gpseg"))
 		})
 		It("returns empty string if backup directory is empty", func() {
 			Expect(utils.ParseSegPrefix("")).To(Equal(""))
 		})
 		It("panics if master backup directory does not exist", func() {
-			utils.System.Glob = func(pattern string) (matches []string, err error) { return []string{}, nil }
-			defer testutils.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
+			operating.System.Glob = func(pattern string) (matches []string, err error) { return []string{}, nil }
+			defer testhelper.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
 			Expect(utils.ParseSegPrefix("/tmp/foo")).To(Equal("gpseg"))
 		})
 		It("panics if there is an error accessing master backup directory", func() {
-			utils.System.Glob = func(pattern string) (matches []string, err error) {
+			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{""}, os.ErrPermission
 			}
-			defer testutils.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
+			defer testhelper.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
 			Expect(utils.ParseSegPrefix("/tmp/foo")).To(Equal("gpseg"))
 		})
 	})

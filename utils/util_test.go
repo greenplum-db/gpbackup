@@ -3,7 +3,8 @@ package utils_test
 import (
 	"time"
 
-	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -13,7 +14,7 @@ import (
 var _ = Describe("utils/util tests", func() {
 	Context("CurrentTimestamp", func() {
 		It("returns the current timestamp", func() {
-			utils.System.Now = func() time.Time { return time.Date(2017, time.January, 1, 1, 1, 1, 1, time.Local) }
+			operating.System.Now = func() time.Time { return time.Date(2017, time.January, 1, 1, 1, 1, 1, time.Local) }
 			expected := "20170101010101"
 			actual := utils.CurrentTimestamp()
 			Expect(actual).To(Equal(expected))
@@ -64,22 +65,22 @@ var _ = Describe("utils/util tests", func() {
 		})
 		It("panics if given a string without a schema", func() {
 			testStrings := []string{`tablename`}
-			defer testutils.ShouldPanicWithMessage(`tablename is not correctly fully-qualified.`)
+			defer testhelper.ShouldPanicWithMessage(`tablename is not correctly fully-qualified.`)
 			utils.ValidateFQNs(testStrings)
 		})
 		It("panics if given an invalid string", func() {
 			testStrings := []string{`schema"name.table.name`}
-			defer testutils.ShouldPanicWithMessage(`schema"name.table.name is not correctly fully-qualified.`)
+			defer testhelper.ShouldPanicWithMessage(`schema"name.table.name is not correctly fully-qualified.`)
 			utils.ValidateFQNs(testStrings)
 		})
 		It("panics if given a string with preceding whitespace", func() {
 			testStrings := []string{`  schemaname.tablename`}
-			defer testutils.ShouldPanicWithMessage(`  schemaname.tablename is not correctly fully-qualified.`)
+			defer testhelper.ShouldPanicWithMessage(`  schemaname.tablename is not correctly fully-qualified.`)
 			utils.ValidateFQNs(testStrings)
 		})
 		It("panics if given a string with trailing whitespace", func() {
 			testStrings := []string{`schemaname.tablename  `}
-			defer testutils.ShouldPanicWithMessage(`schemaname.tablename   is not correctly fully-qualified.`)
+			defer testhelper.ShouldPanicWithMessage(`schemaname.tablename   is not correctly fully-qualified.`)
 			utils.ValidateFQNs(testStrings)
 		})
 	})

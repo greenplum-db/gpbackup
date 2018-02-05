@@ -1,6 +1,7 @@
 package backup_test
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -64,14 +65,14 @@ GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`)
 			It("prints a function definition for an internal function with 'NULL' binary path using '-'", func() {
 				funcDef.BinaryPath = "-"
 				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, `
+				testhelper.ExpectRegexp(buffer, `
 $$add_two_ints$$
 `)
 			})
 			It("prints a function definition for an internal function with a binary path", func() {
 				funcDef.BinaryPath = "$libdir/binary"
 				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, `
+				testhelper.ExpectRegexp(buffer, `
 '$libdir/binary', 'add_two_ints'
 `)
 			})
@@ -79,7 +80,7 @@ $$add_two_ints$$
 				funcDef.FunctionBody = "SELECT $1+$2"
 				funcDef.Language = "sql"
 				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, `$_$SELECT $1+$2$_$`)
+				testhelper.ExpectRegexp(buffer, `$_$SELECT $1+$2$_$`)
 			})
 			It("prints a function definition for a function with a multi-line function definition", func() {
 				funcDef.FunctionBody = `
@@ -89,7 +90,7 @@ END
 `
 				funcDef.Language = "sql"
 				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, `$_$
+				testhelper.ExpectRegexp(buffer, `$_$
 BEGIN
 	SELECT $1 + $2
 END
@@ -101,22 +102,22 @@ $_$`)
 				It("prints 'c' as CONTAINS SQL", func() {
 					funcDef.DataAccess = "c"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "CONTAINS SQL")
+					testhelper.ExpectRegexp(buffer, "CONTAINS SQL")
 				})
 				It("prints 'm' as MODIFIES SQL DATA", func() {
 					funcDef.DataAccess = "m"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "MODIFIES SQL DATA")
+					testhelper.ExpectRegexp(buffer, "MODIFIES SQL DATA")
 				})
 				It("prints 'n' as NO SQL", func() {
 					funcDef.DataAccess = "n"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "NO SQL")
+					testhelper.ExpectRegexp(buffer, "NO SQL")
 				})
 				It("prints 'r' as READS SQL DATA", func() {
 					funcDef.DataAccess = "r"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "READS SQL DATA")
+					testhelper.ExpectRegexp(buffer, "READS SQL DATA")
 				})
 			})
 			Context("Volatility cases", func() {
@@ -128,28 +129,28 @@ $_$`)
 				It("prints 's' as STABLE", func() {
 					funcDef.Volatility = "s"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "STABLE")
+					testhelper.ExpectRegexp(buffer, "STABLE")
 				})
 				It("prints 'i' as IMMUTABLE", func() {
 					funcDef.Volatility = "i"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "IMMUTABLE")
+					testhelper.ExpectRegexp(buffer, "IMMUTABLE")
 				})
 			})
 			It("prints 'STRICT' if IsStrict is set", func() {
 				funcDef.IsStrict = true
 				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, "STRICT")
+				testhelper.ExpectRegexp(buffer, "STRICT")
 			})
 			It("prints 'SECURITY DEFINER' if IsSecurityDefiner is set", func() {
 				funcDef.IsSecurityDefiner = true
 				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, "SECURITY DEFINER")
+				testhelper.ExpectRegexp(buffer, "SECURITY DEFINER")
 			})
 			It("print 'WINDOW' if IsWindow is set", func() {
 				funcDef.IsWindow = true
 				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, "WINDOW")
+				testhelper.ExpectRegexp(buffer, "WINDOW")
 			})
 			Context("Execlocation cases", func() {
 				It("Default", func() {
@@ -160,12 +161,12 @@ $_$`)
 				It("print 'm' as EXECUTE ON MASTER", func() {
 					funcDef.ExecLocation = "m"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "EXECUTE ON MASTER")
+					testhelper.ExpectRegexp(buffer, "EXECUTE ON MASTER")
 				})
 				It("print 's' as EXECUTE ON ALL SEGMENTS", func() {
 					funcDef.ExecLocation = "s"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "EXECUTE ON ALL SEGMENTS")
+					testhelper.ExpectRegexp(buffer, "EXECUTE ON ALL SEGMENTS")
 				})
 			})
 			Context("Cost cases", func() {
@@ -177,13 +178,13 @@ $_$`)
 				It("prints 'COST 5' if Cost is set to 5", func() {
 					funcDef.Cost = 5
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "COST 5")
+					testhelper.ExpectRegexp(buffer, "COST 5")
 				})
 				It("prints 'COST 1' if Cost is set to 1 and language is not c or internal", func() {
 					funcDef.Cost = 1
 					funcDef.Language = "sql"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "COST 1")
+					testhelper.ExpectRegexp(buffer, "COST 1")
 				})
 				It("does not print 'COST 1' if Cost is set to 1 and language is c", func() {
 					funcDef.Cost = 1
@@ -201,13 +202,13 @@ $_$`)
 					funcDef.Cost = 100
 					funcDef.Language = "c"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "COST 100")
+					testhelper.ExpectRegexp(buffer, "COST 100")
 				})
 				It("prints 'COST 100' if Cost is set to 100 and language is internal", func() {
 					funcDef.Cost = 100
 					funcDef.Language = "internal"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "COST 100")
+					testhelper.ExpectRegexp(buffer, "COST 100")
 				})
 				It("does not print 'COST 100' if Cost is set to 100 and language is not c or internal", func() {
 					funcDef.Cost = 100
@@ -226,7 +227,7 @@ $_$`)
 					funcDef.NumRows = 5
 					funcDef.ReturnsSet = true
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testutils.ExpectRegexp(buffer, "ROWS 5")
+					testhelper.ExpectRegexp(buffer, "ROWS 5")
 				})
 				It("does not print 'ROWS' if Rows is set but ReturnsSet is false", func() {
 					funcDef.NumRows = 100
@@ -250,7 +251,7 @@ $_$`)
 			It("prints config statements if any are set", func() {
 				funcDef.Config = "SET client_min_messages TO error"
 				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testutils.ExpectRegexp(buffer, "SET client_min_messages TO error")
+				testhelper.ExpectRegexp(buffer, "SET client_min_messages TO error")
 			})
 		})
 
