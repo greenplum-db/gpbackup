@@ -2,10 +2,8 @@ package utils_test
 
 import (
 	"os"
-	"os/user"
 	"path/filepath"
 
-	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -15,21 +13,6 @@ import (
 )
 
 var _ = Describe("utils/cluster tests", func() {
-	masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
-	localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
-	remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
-	var (
-		testCluster  cluster.Cluster
-		testExecutor *testhelper.TestExecutor
-	)
-
-	BeforeEach(func() {
-		operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
-		operating.System.Hostname = func() (string, error) { return "testHost", nil }
-		testExecutor = &testhelper.TestExecutor{}
-		testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
-		testCluster.Executor = testExecutor
-	})
 	Describe("Backup Filepath setup and accessors", func() {
 		var segDirMap map[int]string
 		masterDir := "/data/gpseg-1"

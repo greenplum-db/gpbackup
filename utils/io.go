@@ -119,22 +119,6 @@ func MustPrintBytes(file io.Writer, bytes []byte) uint64 {
  * Generic file/directory manipulation functions
  */
 
-func CreateDirectoryOnMaster(dirname string) {
-	info, err := operating.System.Stat(dirname)
-	if err != nil {
-		if operating.System.IsNotExist(err) {
-			err = operating.System.MkdirAll(dirname, 0755)
-			if err != nil {
-				logger.Fatal(err, "Cannot create directory %s", dirname)
-			}
-		} else {
-			logger.Fatal(err, "Cannot stat directory %s", dirname)
-		}
-	} else if !(info.IsDir()) {
-		logger.Fatal(errors.Errorf("%s is a file, not a directory", dirname), "")
-	}
-}
-
 func ReadLinesFromFile(filename string) []string {
 	file := MustOpenFileForReading(filename)
 	contents := make([]string, 0)

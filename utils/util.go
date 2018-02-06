@@ -25,14 +25,6 @@ func CurrentTimestamp() string {
 	return operating.System.Now().Format("20060102150405")
 }
 
-func TryEnv(varname string, defval string) string {
-	val := operating.System.Getenv(varname)
-	if val == "" {
-		return defval
-	}
-	return val
-}
-
 // Dollar-quoting logic is based on appendStringLiteralDQ() in pg_dump.
 func DollarQuoteString(literal string) string {
 	delimStr := "_XXXXXXX"

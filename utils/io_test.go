@@ -27,21 +27,6 @@ var _ = Describe("utils/io tests", func() {
 			Expect(resultString).To(Equal(""))
 		})
 	})
-	Describe("CreateDirectoryOnMaster", func() {
-		It("does nothing if the directory exists", func() {
-			fakeInfo, _ := os.Stat("/tmp/log_dir")
-			operating.System.Stat = func(name string) (os.FileInfo, error) { return fakeInfo, nil }
-			defer func() { operating.System.Stat = os.Stat }()
-			utils.CreateDirectoryOnMaster("dirname")
-		})
-		It("panics if the directory does not exist", func() {
-			operating.System.Stat = func(name string) (os.FileInfo, error) { return nil, errors.New("No such file or directory") }
-			defer func() { operating.System.Stat = os.Stat }()
-			defer testhelper.ShouldPanicWithMessage("Cannot stat directory dirname: No such file or directory")
-			utils.CreateDirectoryOnMaster("dirname")
-		})
-	})
-
 	Describe("MustOpenFileForWriting", func() {
 		It("creates or opens the file for writing", func() {
 			operating.System.OpenFileWrite = func(name string, flag int, perm os.FileMode) (io.WriteCloser, error) { return os.Stdout, nil }
