@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
@@ -300,7 +301,7 @@ func (cluster *Cluster) GetSegmentHelperFilePath(contentID int, suffix string) s
  * Helper functions
  */
 
-func GetSegmentConfiguration(connection *DBConn) []SegConfig {
+func GetSegmentConfiguration(connection *dbconn.DBConn) []SegConfig {
 	query := ""
 	if connection.Version.Before("6") {
 		query = `
@@ -330,7 +331,7 @@ ORDER BY content;`
 	return results
 }
 
-func GetSegPrefix(connection *DBConn) string {
+func GetSegPrefix(connection *dbconn.DBConn) string {
 	query := ""
 	if connection.Version.Before("6") {
 		query = "SELECT fselocation FROM pg_filespace_entry WHERE fsedbid = 1;"

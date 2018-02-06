@@ -3,6 +3,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -18,11 +19,11 @@ func validateFilterLists() {
 	ValidateFilterTables(connection, includeTables)
 }
 
-func ValidateFilterSchemas(connection *utils.DBConn, schemaList utils.ArrayFlags) {
+func ValidateFilterSchemas(connection *dbconn.DBConn, schemaList utils.ArrayFlags) {
 	if len(schemaList) > 0 {
 		quotedSchemasStr := utils.SliceToQuotedString(schemaList)
 		query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
-		resultSchemas := utils.SelectStringSlice(connection, query)
+		resultSchemas := dbconn.MustSelectStringSlice(connection, query)
 		if len(resultSchemas) < len(schemaList) {
 			schemaSet := utils.NewIncludeSet(resultSchemas)
 			for _, schema := range schemaList {
@@ -34,7 +35,7 @@ func ValidateFilterSchemas(connection *utils.DBConn, schemaList utils.ArrayFlags
 	}
 }
 
-func ValidateFilterTables(connection *utils.DBConn, tableList utils.ArrayFlags) {
+func ValidateFilterTables(connection *dbconn.DBConn, tableList utils.ArrayFlags) {
 	if len(tableList) > 0 {
 		utils.ValidateFQNs(tableList)
 		quotedTablesStr := utils.SliceToQuotedString(tableList)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -294,10 +295,10 @@ Data File Format: Multiple Data Files Per Segment`),
 		})
 	})
 	Describe("EnsureDatabaseVersionCompatibility", func() {
-		var restoreVersion utils.GPDBVersion
+		var restoreVersion dbconn.GPDBVersion
 		BeforeEach(func() {
 			semver, _ := semver.Make("5.0.0")
-			restoreVersion = utils.GPDBVersion{
+			restoreVersion = dbconn.GPDBVersion{
 				VersionString: "5.0.0-beta.9+dev.129.g4bd4e41 build dev",
 				SemVer:        semver,
 			}

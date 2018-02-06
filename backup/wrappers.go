@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -32,12 +33,12 @@ func SetLoggerVerbosity() {
 }
 
 func InitializeConnection() {
-	connection = utils.NewDBConn(*dbname)
-	connection.Connect(1)
+	connection = dbconn.NewDBConn(*dbname)
+	connection.MustConnect(1)
 	connection.MustExec("SET application_name TO 'gpbackup'")
-	connection.SetDatabaseVersion()
+	utils.SetDatabaseVersion(connection)
 	InitializeMetadataParams(connection)
-	connection.Begin()
+	connection.MustBegin()
 	SetSessionGUCs()
 }
 
@@ -69,7 +70,7 @@ func SetSessionGUCs() {
 }
 
 func InitializeBackupReport() {
-	dbname := utils.SelectString(connection, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", connection.DBName))
+	dbname := dbconn.MustSelectString(connection, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", connection.DBName))
 	config := utils.BackupConfig{
 		DatabaseName:    dbname,
 		DatabaseVersion: connection.Version.VersionString,
@@ -77,7 +78,7 @@ func InitializeBackupReport() {
 	}
 	dbSize := ""
 	if !*metadataOnly {
-		dbSize = connection.GetDBSize()
+		dbSize = utils.GetDBSize(connection)
 	}
 
 	backupReport = &utils.Report{

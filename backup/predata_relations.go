@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -138,7 +139,7 @@ type TableDefinition struct {
  * single table and assembles the metadata into ColumnDef and TableDef structs
  * for more convenient handling in the PrintCreateTableStatement() function.
  */
-func ConstructDefinitionsForTables(connection *utils.DBConn, tables []Relation) map[uint32]TableDefinition {
+func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation) map[uint32]TableDefinition {
 	tableDefinitionMap := make(map[uint32]TableDefinition, 0)
 
 	logger.Info("Gathering additional table metadata")
@@ -320,7 +321,7 @@ type Sequence struct {
 	SequenceDefinition
 }
 
-func GetAllSequences(connection *utils.DBConn) []Sequence {
+func GetAllSequences(connection *dbconn.DBConn) []Sequence {
 	sequenceRelations := GetAllSequenceRelations(connection)
 	sequences := make([]Sequence, 0)
 	for _, seqRelation := range sequenceRelations {

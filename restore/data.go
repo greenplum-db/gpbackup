@@ -7,6 +7,7 @@ package restore
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
@@ -16,7 +17,7 @@ var (
 	tableDelim = ","
 )
 
-func CopyTableIn(connection *utils.DBConn, tableName string, tableAttributes string, backupFile string, singleDataFile bool, whichConn int, oid uint32) int64 {
+func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes string, backupFile string, singleDataFile bool, whichConn int, oid uint32) int64 {
 	whichConn = connection.ValidateConnNum(whichConn)
 	usingCompression, compressionProgram := utils.GetCompressionParameters()
 	copyCommand := ""

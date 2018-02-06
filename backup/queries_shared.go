@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -27,7 +28,7 @@ import (
  * package (especially Table and Schema) are intended for more general use.
  */
 
-func GetAllUserSchemas(connection *utils.DBConn) []Schema {
+func GetAllUserSchemas(connection *dbconn.DBConn) []Schema {
 	/*
 	 * This query is constructed from scratch, but the list of schemas to exclude
 	 * is copied from gpcrondump so that gpbackup exhibits similar behavior regarding
@@ -60,7 +61,7 @@ type Constraint struct {
 	IsPartitionParent  bool
 }
 
-func GetConstraints(connection *utils.DBConn, tables ...Relation) []Constraint {
+func GetConstraints(connection *dbconn.DBConn, tables ...Relation) []Constraint {
 	// This query is adapted from the queries underlying \d in psql.
 	tableQuery := `
 SELECT
@@ -169,7 +170,7 @@ var (
 	TYPE_TYPE               MetadataQueryParams
 )
 
-func InitializeMetadataParams(connection *utils.DBConn) {
+func InitializeMetadataParams(connection *dbconn.DBConn) {
 	TYPE_AGGREGATE = MetadataQueryParams{NameField: "proname", SchemaField: "pronamespace", OwnerField: "proowner", CatalogTable: "pg_proc"}
 	TYPE_CAST = MetadataQueryParams{NameField: "typname", OidField: "oid", OidTable: "pg_type", CatalogTable: "pg_cast"}
 	TYPE_CONSTRAINT = MetadataQueryParams{NameField: "conname", SchemaField: "connamespace", OidField: "oid", CatalogTable: "pg_constraint"}
@@ -225,7 +226,7 @@ type MetadataQueryStruct struct {
 	Comment    string
 }
 
-func GetMetadataForObjectType(connection *utils.DBConn, params MetadataQueryParams) MetadataMap {
+func GetMetadataForObjectType(connection *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
 	aclStr := "''"
 	kindStr := "''"
 	schemaStr := ""
@@ -279,7 +280,7 @@ func sortACLs(privileges []ACL) []ACL {
 	return privileges
 }
 
-func GetCommentsForObjectType(connection *utils.DBConn, params MetadataQueryParams) MetadataMap {
+func GetCommentsForObjectType(connection *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
 	schemaStr := ""
 	if params.SchemaField != "" {
 		schemaStr = fmt.Sprintf(` JOIN pg_namespace n ON o.%s = n.oid

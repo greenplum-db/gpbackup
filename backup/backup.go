@@ -113,7 +113,7 @@ func DoBackup() {
 	}
 
 	globalTOC.WriteToFileAndMakeReadOnly(globalCluster.GetTOCFilePath())
-	connection.Commit()
+	connection.MustCommit()
 }
 
 func backupGlobal(metadataFile *utils.FileWithByteCount) {

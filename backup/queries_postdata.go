@@ -8,6 +8,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -21,7 +22,7 @@ import (
  * to get indexes, but multiple unique indexes can be created on the
  * same column so we only want to filter out the implicit ones.
  */
-func ConstructImplicitIndexNames(connection *utils.DBConn) *utils.FilterSet {
+func ConstructImplicitIndexNames(connection *dbconn.DBConn) *utils.FilterSet {
 	query := `
 SELECT DISTINCT
 	n.nspname || '.' || t.relname || '_' || a.attname || '_key' AS string
@@ -38,7 +39,7 @@ WHERE a.attnum > 0
 AND i.indisunique = 't'
 AND i.indisprimary = 'f';
 `
-	indexNames := utils.SelectStringSlice(connection, query)
+	indexNames := dbconn.MustSelectStringSlice(connection, query)
 	indexNameSet := utils.NewExcludeSet(indexNames)
 	return indexNameSet
 }
@@ -53,7 +54,7 @@ type IndexDefinition struct {
 	IsClustered  bool
 }
 
-func GetIndexes(connection *utils.DBConn, indexNameSet *utils.FilterSet) []IndexDefinition {
+func GetIndexes(connection *dbconn.DBConn, indexNameSet *utils.FilterSet) []IndexDefinition {
 	query := fmt.Sprintf(`
 SELECT DISTINCT
 	i.indexrelid AS oid,
@@ -112,7 +113,7 @@ type QuerySimpleDefinition struct {
  * built-in rules and we don't want to back them up. We use two `%` to
  * prevent Go from interpolating the % symbol.
  */
-func GetRules(connection *utils.DBConn) []QuerySimpleDefinition {
+func GetRules(connection *dbconn.DBConn) []QuerySimpleDefinition {
 	query := fmt.Sprintf(`
 SELECT
 	r.oid,
@@ -136,7 +137,7 @@ ORDER BY rulename;`, SchemaFilterClause("n"))
 	return results
 }
 
-func GetTriggers(connection *utils.DBConn) []QuerySimpleDefinition {
+func GetTriggers(connection *dbconn.DBConn) []QuerySimpleDefinition {
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,

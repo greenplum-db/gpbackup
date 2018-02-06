@@ -12,6 +12,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
@@ -213,7 +214,7 @@ func EnsureBackupVersionCompatibility(backupVersion string, restoreVersion strin
 	}
 }
 
-func EnsureDatabaseVersionCompatibility(backupGPDBVersion string, restoreGPDBVersion GPDBVersion) {
+func EnsureDatabaseVersionCompatibility(backupGPDBVersion string, restoreGPDBVersion dbconn.GPDBVersion) {
 	pattern := regexp.MustCompile(`\d+\.\d+\.\d+`)
 	threeDigitVersion := pattern.FindStringSubmatch(backupGPDBVersion)[0]
 	backupGPDBSemVer, err := semver.Make(threeDigitVersion)

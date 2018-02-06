@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -22,11 +23,11 @@ func validateFilterListsInBackupSet() {
 	ValidateFilterTablesInBackupSet(includeTables)
 }
 
-func ValidateFilterSchemasInRestoreDatabase(connection *utils.DBConn, schemaList utils.ArrayFlags) {
+func ValidateFilterSchemasInRestoreDatabase(connection *dbconn.DBConn, schemaList utils.ArrayFlags) {
 	if len(schemaList) > 0 {
 		quotedSchemasStr := utils.SliceToQuotedString(schemaList)
 		query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
-		resultSchemas := utils.SelectStringSlice(connection, query)
+		resultSchemas := dbconn.MustSelectStringSlice(connection, query)
 		if len(resultSchemas) > 0 {
 			logger.Fatal(nil, "Schema %s already exists", resultSchemas[0])
 		}
@@ -71,7 +72,7 @@ func ValidateFilterSchemasInBackupSet(schemaList utils.ArrayFlags) {
 	logger.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
 }
 
-func ValidateFilterTablesInRestoreDatabase(connection *utils.DBConn, tableList utils.ArrayFlags) {
+func ValidateFilterTablesInRestoreDatabase(connection *dbconn.DBConn, tableList utils.ArrayFlags) {
 	if len(tableList) > 0 {
 		utils.ValidateFQNs(tableList)
 		quotedTablesStr := utils.SliceToQuotedString(tableList)
@@ -81,7 +82,7 @@ SELECT
 FROM pg_namespace n
 JOIN pg_class c ON n.oid = c.relnamespace
 WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTablesStr)
-		resultTables := utils.SelectStringSlice(connection, query)
+		resultTables := dbconn.MustSelectStringSlice(connection, query)
 		if len(resultTables) > 0 {
 			logger.Fatal(nil, "Table %s already exists", resultTables[0])
 		}

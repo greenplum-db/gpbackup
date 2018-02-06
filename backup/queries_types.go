@@ -8,6 +8,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/lib/pq"
 )
@@ -19,7 +20,7 @@ import (
  * in an EXCEPT clause to exclude them in larger base and composite type retrieval
  * queries that are constructed in their respective functions.
  */
-func getTypeQuery(connection *utils.DBConn, selectClause string, groupBy string, typeType string) string {
+func getTypeQuery(connection *dbconn.DBConn, selectClause string, groupBy string, typeType string) string {
 	arrayTypesClause := ""
 	if connection.Version.Before("5") {
 		/*
@@ -114,7 +115,7 @@ type Type struct {
 	StorageOptions  string
 }
 
-func GetBaseTypes(connection *utils.DBConn) []Type {
+func GetBaseTypes(connection *dbconn.DBConn) []Type {
 	typModClause := ""
 	if connection.Version.Before("5") {
 		typModClause = `t.typreceive AS receive,
@@ -185,7 +186,7 @@ LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typModClause, typCategoryClaus
 	return results
 }
 
-func GetCompositeTypes(connection *utils.DBConn) []Type {
+func GetCompositeTypes(connection *dbconn.DBConn) []Type {
 	selectClause := `
 SELECT
 	t.oid,
@@ -214,7 +215,7 @@ type Attributes struct {
 	Attributes pq.StringArray
 }
 
-func getCompositeTypeAttributes(connection *utils.DBConn) map[uint32]pq.StringArray {
+func getCompositeTypeAttributes(connection *dbconn.DBConn) map[uint32]pq.StringArray {
 	query := `
 SELECT
 	t.oid AS typeoid,
@@ -235,7 +236,7 @@ GROUP BY t.oid`
 	return attributeMap
 }
 
-func GetDomainTypes(connection *utils.DBConn) []Type {
+func GetDomainTypes(connection *dbconn.DBConn) []Type {
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -259,7 +260,7 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 	return results
 }
 
-func GetEnumTypes(connection *utils.DBConn) []Type {
+func GetEnumTypes(connection *dbconn.DBConn) []Type {
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -283,7 +284,7 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 	return results
 }
 
-func GetShellTypes(connection *utils.DBConn) []Type {
+func GetShellTypes(connection *dbconn.DBConn) []Type {
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -309,7 +310,7 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
  * functions is a built-in function (and therefore should not be considered a
  * dependency for dependency sorting purposes).
  */
-func ConstructBaseTypeDependencies4(connection *utils.DBConn, types []Type, funcInfoMap map[uint32]FunctionInfo) []Type {
+func ConstructBaseTypeDependencies4(connection *dbconn.DBConn, types []Type, funcInfoMap map[uint32]FunctionInfo) []Type {
 	query := fmt.Sprintf(`
 SELECT DISTINCT
     t.oid,
@@ -342,7 +343,7 @@ AND d.deptype = 'n';`, SchemaFilterClause("n"))
 	return types
 }
 
-func ConstructBaseTypeDependencies5(connection *utils.DBConn, types []Type) []Type {
+func ConstructBaseTypeDependencies5(connection *dbconn.DBConn, types []Type) []Type {
 	query := fmt.Sprintf(`
 SELECT DISTINCT
     t.oid,
@@ -375,7 +376,7 @@ AND d.deptype = 'n';`, SchemaFilterClause("n"))
  * we need to query pg_type to determine whether the base type is built in (and
  * therefore should not be considered a dependency for dependency sorting purposes).
  */
-func ConstructDomainDependencies(connection *utils.DBConn, types []Type) []Type {
+func ConstructDomainDependencies(connection *dbconn.DBConn, types []Type) []Type {
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -406,7 +407,7 @@ AND bt.typnamespace != (
 	return types
 }
 
-func ConstructCompositeTypeDependencies(connection *utils.DBConn, types []Type) []Type {
+func ConstructCompositeTypeDependencies(connection *dbconn.DBConn, types []Type) []Type {
 	query := fmt.Sprintf(`
 SELECT DISTINCT
 	tc.oid,

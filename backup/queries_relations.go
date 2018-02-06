@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -26,7 +27,7 @@ func tableAndSchemaFilterClause() string {
 	return filterClause
 }
 
-func GetOidsFromTableList(connection *utils.DBConn, tableNames []string) []string {
+func GetOidsFromTableList(connection *dbconn.DBConn, tableNames []string) []string {
 	tableList := utils.SliceToQuotedString(tableNames)
 	query := fmt.Sprintf(`
 SELECT
@@ -34,10 +35,10 @@ SELECT
 FROM pg_class c
 JOIN pg_namespace n ON c.relnamespace = n.oid
 WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, tableList)
-	return utils.SelectStringSlice(connection, query)
+	return dbconn.MustSelectStringSlice(connection, query)
 }
 
-func GetAllUserTables(connection *utils.DBConn) []Relation {
+func GetAllUserTables(connection *dbconn.DBConn) []Relation {
 	if len(includeTables) > 0 {
 		return GetUserTablesWithIncludeFiltering(connection)
 	}
@@ -48,7 +49,7 @@ func GetAllUserTables(connection *utils.DBConn) []Relation {
  * This function also handles exclude table filtering since the way we do
  * it is currently much simpler than the include case.
  */
-func GetUserTables(connection *utils.DBConn) []Relation {
+func GetUserTables(connection *dbconn.DBConn) []Relation {
 	childPartitionFilter := ""
 	if !*leafPartitionData {
 		//Filter out non-external child partitions
@@ -83,7 +84,7 @@ ORDER BY c.oid;`, tableAndSchemaFilterClause(), childPartitionFilter)
 	return results
 }
 
-func GetUserTablesWithIncludeFiltering(connection *utils.DBConn) []Relation {
+func GetUserTablesWithIncludeFiltering(connection *dbconn.DBConn) []Relation {
 	includeOids := GetOidsFromTableList(connection, includeTables)
 	oidStr := strings.Join(includeOids, ", ")
 	childPartitionFilter := ""
@@ -163,7 +164,7 @@ ORDER BY c.oid;`, SchemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitio
  * "p" indicates a parent table, "l" indicates a leaf table, and "i" indicates
  * an intermediate table.
  */
-func GetPartitionTableMap(connection *utils.DBConn) map[uint32]string {
+func GetPartitionTableMap(connection *dbconn.DBConn) map[uint32]string {
 	query := `
 SELECT
 	pc.oid AS oid,
@@ -214,7 +215,7 @@ var storageTypeCodes = map[string]string{
 	"x": "EXTENDED",
 }
 
-func GetColumnDefinitions(connection *utils.DBConn, columnMetadata map[uint32]map[string][]ACL) map[uint32][]ColumnDefinition {
+func GetColumnDefinitions(connection *dbconn.DBConn, columnMetadata map[uint32]map[string][]ACL) map[uint32][]ColumnDefinition {
 	// This query is adapted from the getTableAttrs() function in pg_dump.c.
 	query := fmt.Sprintf(`
 SELECT
@@ -264,7 +265,7 @@ type ColumnPrivilegesQueryStruct struct {
 	Kind       string
 }
 
-func GetPrivilegesForColumns(connection *utils.DBConn) map[uint32]map[string][]ACL {
+func GetPrivilegesForColumns(connection *dbconn.DBConn) map[uint32]map[string][]ACL {
 	metadataMap := make(map[uint32]map[string][]ACL)
 	if connection.Version.Before("6") {
 		return metadataMap
@@ -304,7 +305,7 @@ type DistributionPolicy struct {
 	Policy string
 }
 
-func SelectAsOidToStringMap(connection *utils.DBConn, query string) map[uint32]string {
+func SelectAsOidToStringMap(connection *dbconn.DBConn, query string) map[uint32]string {
 	var results []struct {
 		Oid   uint32
 		Value string
@@ -318,7 +319,7 @@ func SelectAsOidToStringMap(connection *utils.DBConn, query string) map[uint32]s
 	return resultMap
 }
 
-func GetDistributionPolicies(connection *utils.DBConn, tables []Relation) map[uint32]string {
+func GetDistributionPolicies(connection *dbconn.DBConn, tables []Relation) map[uint32]string {
 	// This query is adapted from the addDistributedBy() function in pg_dump.c.
 	query := `
 SELECT
@@ -345,22 +346,22 @@ GROUP BY a.attrelid ORDER BY a.attrelid;`
 	return resultMap
 }
 
-func GetPartitionDefinitions(connection *utils.DBConn) map[uint32]string {
+func GetPartitionDefinitions(connection *dbconn.DBConn) map[uint32]string {
 	query := `SELECT parrelid AS oid, pg_get_partition_def(parrelid, true, true) AS value FROM pg_partition`
 	return SelectAsOidToStringMap(connection, query)
 }
 
-func GetPartitionTemplates(connection *utils.DBConn) map[uint32]string {
+func GetPartitionTemplates(connection *dbconn.DBConn) map[uint32]string {
 	query := fmt.Sprintf("SELECT parrelid AS oid, pg_get_partition_template_def(parrelid, true, true) AS value FROM pg_partition")
 	return SelectAsOidToStringMap(connection, query)
 }
 
-func GetTableStorageOptions(connection *utils.DBConn) map[uint32]string {
+func GetTableStorageOptions(connection *dbconn.DBConn) map[uint32]string {
 	query := `SELECT oid, array_to_string(reloptions, ', ') AS value FROM pg_class WHERE reloptions IS NOT NULL;`
 	return SelectAsOidToStringMap(connection, query)
 }
 
-func GetTablespaceNames(connection *utils.DBConn) map[uint32]string {
+func GetTablespaceNames(connection *dbconn.DBConn) map[uint32]string {
 	query := `SELECT c.oid, quote_ident(t.spcname) AS value FROM pg_class c JOIN pg_tablespace t ON t.oid = c.reltablespace`
 	return SelectAsOidToStringMap(connection, query)
 }
@@ -370,7 +371,7 @@ type Dependency struct {
 	ReferencedObject string
 }
 
-func ConstructTableDependencies(connection *utils.DBConn, tables []Relation, tableDefs map[uint32]TableDefinition, isTableFiltered bool) []Relation {
+func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, tableDefs map[uint32]TableDefinition, isTableFiltered bool) []Relation {
 	var tableNameSet *utils.FilterSet
 	var tableOidList []string
 	if isTableFiltered {
@@ -438,7 +439,7 @@ AND p.oid NOT IN (select objid from pg_depend where deptype = 'e')`
 	return tables
 }
 
-func GetAllSequenceRelations(connection *utils.DBConn) []Relation {
+func GetAllSequenceRelations(connection *dbconn.DBConn) []Relation {
 	query := fmt.Sprintf(`SELECT
 	n.oid AS schemaoid,
 	c.oid AS oid,
@@ -471,7 +472,7 @@ type SequenceDefinition struct {
 	IsCalled  bool   `db:"is_called"`
 }
 
-func GetSequenceDefinition(connection *utils.DBConn, seqName string) SequenceDefinition {
+func GetSequenceDefinition(connection *dbconn.DBConn, seqName string) SequenceDefinition {
 	query := fmt.Sprintf("SELECT * FROM %s", seqName)
 	result := SequenceDefinition{}
 	err := connection.Get(&result, query)
@@ -479,7 +480,7 @@ func GetSequenceDefinition(connection *utils.DBConn, seqName string) SequenceDef
 	return result
 }
 
-func GetSequenceColumnOwnerMap(connection *utils.DBConn) map[string]string {
+func GetSequenceColumnOwnerMap(connection *dbconn.DBConn) map[string]string {
 	query := `SELECT
 	quote_ident(n.nspname) AS schema,
 	quote_ident(s.relname) AS name,
@@ -525,7 +526,7 @@ func (v View) ToString() string {
 	return utils.MakeFQN(v.Schema, v.Name)
 }
 
-func GetViews(connection *utils.DBConn) []View {
+func GetViews(connection *dbconn.DBConn) []View {
 	results := make([]View, 0)
 
 	query := fmt.Sprintf(`
@@ -543,7 +544,7 @@ AND c.oid NOT IN (select objid from pg_depend where deptype = 'e');`, SchemaFilt
 	return results
 }
 
-func ConstructViewDependencies(connection *utils.DBConn, views []View) []View {
+func ConstructViewDependencies(connection *dbconn.DBConn, views []View) []View {
 	query := fmt.Sprintf(`
 SELECT DISTINCT
 	v2.oid,
@@ -573,7 +574,7 @@ ORDER BY v2.oid, referencedobject;`, SchemaFilterClause("n"))
 	return views
 }
 
-func LockTables(connection *utils.DBConn, tables []Relation) {
+func LockTables(connection *dbconn.DBConn, tables []Relation) {
 	logger.Info("Acquiring ACCESS SHARE locks on tables")
 	progressBar := utils.NewProgressBar(len(tables), "Locks acquired: ", utils.PB_VERBOSE)
 	progressBar.Start()

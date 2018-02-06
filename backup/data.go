@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -36,7 +37,7 @@ func AddTableDataEntriesToTOC(tables []Relation, tableDefs map[uint32]TableDefin
 	}
 }
 
-func CopyTableOut(connection *utils.DBConn, table Relation, backupFile string) int64 {
+func CopyTableOut(connection *dbconn.DBConn, table Relation, backupFile string) int64 {
 	usingCompression, compressionProgram := utils.GetCompressionParameters()
 	copyCommand := ""
 	if *singleDataFile {

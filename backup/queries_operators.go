@@ -8,6 +8,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -26,7 +27,7 @@ type Operator struct {
 	CanMerge         bool
 }
 
-func GetOperators(connection *utils.DBConn) []Operator {
+func GetOperators(connection *dbconn.DBConn) []Operator {
 	results := make([]Operator, 0)
 	version4query := fmt.Sprintf(`
 SELECT
@@ -86,7 +87,7 @@ type OperatorFamily struct {
 	IndexMethod string
 }
 
-func GetOperatorFamilies(connection *utils.DBConn) []OperatorFamily {
+func GetOperatorFamilies(connection *dbconn.DBConn) []OperatorFamily {
 	results := make([]OperatorFamily, 0)
 	query := fmt.Sprintf(`
 SELECT
@@ -117,7 +118,7 @@ type OperatorClass struct {
 	Functions    []OperatorClassFunction
 }
 
-func GetOperatorClasses(connection *utils.DBConn) []OperatorClass {
+func GetOperatorClasses(connection *dbconn.DBConn) []OperatorClass {
 	results := make([]OperatorClass, 0)
 	/*
 	 * In the GPDB 4.3 query, we assign the class schema and name to both the
@@ -185,7 +186,7 @@ type OperatorClassOperator struct {
 	Recheck        bool
 }
 
-func GetOperatorClassOperators(connection *utils.DBConn) map[uint32][]OperatorClassOperator {
+func GetOperatorClassOperators(connection *dbconn.DBConn) map[uint32][]OperatorClassOperator {
 	results := make([]OperatorClassOperator, 0)
 	version4query := fmt.Sprintf(`
 SELECT
@@ -244,7 +245,7 @@ type OperatorClassFunction struct {
 	FunctionName  string
 }
 
-func GetOperatorClassFunctions(connection *utils.DBConn) map[uint32][]OperatorClassFunction {
+func GetOperatorClassFunctions(connection *dbconn.DBConn) map[uint32][]OperatorClassFunction {
 	results := make([]OperatorClassFunction, 0)
 	version4query := fmt.Sprintf(`
 SELECT

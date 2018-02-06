@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -31,9 +32,9 @@ func SetLoggerVerbosity() {
 }
 
 func InitializeConnection(dbname string) {
-	connection = utils.NewDBConn(dbname)
-	connection.Connect(*numJobs)
-	connection.SetDatabaseVersion()
+	connection = dbconn.NewDBConn(dbname)
+	connection.MustConnect(*numJobs)
+	utils.SetDatabaseVersion(connection)
 	setupQuery := `
 SET application_name TO 'gprestore';
 SET search_path TO pg_catalog;

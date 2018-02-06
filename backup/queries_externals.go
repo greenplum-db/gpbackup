@@ -8,10 +8,11 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func GetExternalTableDefinitions(connection *utils.DBConn) map[uint32]ExternalTableDefinition {
+func GetExternalTableDefinitions(connection *dbconn.DBConn) map[uint32]ExternalTableDefinition {
 	execOptions := "'ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'"
 	version4query := fmt.Sprintf(`
 SELECT
@@ -83,7 +84,7 @@ type ExternalProtocol struct {
 	Validator     uint32 `db:"ptcvalidatorfn"`
 }
 
-func GetExternalProtocols(connection *utils.DBConn) []ExternalProtocol {
+func GetExternalProtocols(connection *dbconn.DBConn) []ExternalProtocol {
 	results := make([]ExternalProtocol, 0)
 	query := `
 SELECT
@@ -113,7 +114,7 @@ type PartitionInfo struct {
 	IsExternal             bool
 }
 
-func GetExternalPartitionInfo(connection *utils.DBConn) ([]PartitionInfo, map[uint32]PartitionInfo) {
+func GetExternalPartitionInfo(connection *dbconn.DBConn) ([]PartitionInfo, map[uint32]PartitionInfo) {
 	results := make([]PartitionInfo, 0)
 	query := `
 SELECT

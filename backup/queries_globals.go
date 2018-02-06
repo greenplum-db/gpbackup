@@ -8,6 +8,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -15,7 +16,7 @@ type SessionGUCs struct {
 	ClientEncoding string `db:"client_encoding"`
 }
 
-func GetSessionGUCs(connection *utils.DBConn) SessionGUCs {
+func GetSessionGUCs(connection *dbconn.DBConn) SessionGUCs {
 	result := SessionGUCs{}
 	query := "SHOW client_encoding;"
 	err := connection.Get(&result, query)
@@ -32,7 +33,7 @@ type Database struct {
 	Encoding   string
 }
 
-func GetDatabaseInfo(connection *utils.DBConn) Database {
+func GetDatabaseInfo(connection *dbconn.DBConn) Database {
 	lcQuery := ""
 	if connection.Version.AtLeast("6") {
 		lcQuery = "datcollate AS collate, datctype AS ctype,"
@@ -55,7 +56,7 @@ WHERE d.datname = '%s';`, lcQuery, connection.DBName)
 	return result
 }
 
-func GetDatabaseGUCs(connection *utils.DBConn) []string {
+func GetDatabaseGUCs(connection *dbconn.DBConn) []string {
 	//We do not want to quote list type config settings such as search_path and DateStyle
 	query := fmt.Sprintf(`
 SELECT CASE
@@ -66,7 +67,7 @@ END AS string
 FROM pg_options_to_table(
 	(SELECT datconfig FROM pg_database WHERE datname = '%s')
 );`, connection.DBName)
-	return utils.SelectStringSlice(connection, query)
+	return dbconn.MustSelectStringSlice(connection, query)
 }
 
 type ResourceQueue struct {
@@ -80,7 +81,7 @@ type ResourceQueue struct {
 	MemoryLimit      string
 }
 
-func GetResourceQueues(connection *utils.DBConn) []ResourceQueue {
+func GetResourceQueues(connection *dbconn.DBConn) []ResourceQueue {
 	/*
 	 * maxcost and mincost are represented as real types in the database, but we round to two decimals
 	 * and cast them as text for more consistent formatting. pg_dumpall does this as well.
@@ -120,7 +121,7 @@ type ResourceGroup struct {
 	MemorySpillRatio  int
 }
 
-func GetResourceGroups(connection *utils.DBConn) []ResourceGroup {
+func GetResourceGroups(connection *dbconn.DBConn) []ResourceGroup {
 	query := `
 SELECT g.oid,
 	quote_ident(g.rsgname) AS name,
@@ -181,7 +182,7 @@ type Role struct {
  * we standardize times to UTC but do not lose time zone information
  * in the timestamp.
  */
-func GetRoles(connection *utils.DBConn) []Role {
+func GetRoles(connection *dbconn.DBConn) []Role {
 	resgroupQuery := ""
 	if connection.Version.AtLeast("5") {
 		resgroupQuery = "(SELECT quote_ident(rsgname) FROM pg_resgroup WHERE pg_resgroup.oid = rolresgroup) AS resgroup,"
@@ -221,7 +222,7 @@ FROM
 	return roles
 }
 
-func getTimeConstraintsByRole(connection *utils.DBConn) map[uint32][]TimeConstraint {
+func getTimeConstraintsByRole(connection *dbconn.DBConn) map[uint32][]TimeConstraint {
 	timeConstraints := make([]TimeConstraint, 0)
 	query := `
 SELECT
@@ -256,7 +257,7 @@ type RoleMember struct {
 	IsAdmin bool
 }
 
-func GetRoleMembers(connection *utils.DBConn) []RoleMember {
+func GetRoleMembers(connection *dbconn.DBConn) []RoleMember {
 	query := `
 SELECT
 	pg_get_userbyid(roleid) AS role,
@@ -278,7 +279,7 @@ type Tablespace struct {
 	FileLocation string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
 }
 
-func GetTablespaces(connection *utils.DBConn) []Tablespace {
+func GetTablespaces(connection *dbconn.DBConn) []Tablespace {
 	query := ""
 	if connection.Version.Before("6") {
 		query = `

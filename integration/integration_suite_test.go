@@ -7,6 +7,7 @@ import (
 
 	"os/exec"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -18,7 +19,7 @@ import (
 
 var (
 	buffer     *bytes.Buffer
-	connection *utils.DBConn
+	connection *dbconn.DBConn
 	toc        *utils.TOC
 	backupfile *utils.FileWithByteCount
 	cluster    utils.Cluster
@@ -37,12 +38,12 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(err).To(BeNil())
 	testutils.SetupTestLogger()
-	connection = utils.NewDBConn("testdb")
-	connection.Connect(1)
+	connection = dbconn.NewDBConn("testdb")
+	connection.MustConnect(1)
 	// We can't use AssertQueryRuns since if a role already exists it will error
 	connection.Exec("CREATE ROLE testrole SUPERUSER")
 	connection.Exec("CREATE ROLE anothertestrole SUPERUSER")
-	connection.SetDatabaseVersion()
+	utils.SetDatabaseVersion(connection)
 	backup.InitializeMetadataParams(connection)
 	backup.SetConnection(connection)
 	testutils.AssertQueryRuns(connection, "SET ROLE testrole")
@@ -88,8 +89,8 @@ var _ = AfterSuite(func() {
 		err := exec.Command("dropdb", "testdb").Run()
 		Expect(err).To(BeNil())
 	}
-	connection1 := utils.NewDBConn("template1")
-	connection1.Connect(1)
+	connection1 := dbconn.NewDBConn("template1")
+	connection1.MustConnect(1)
 	testutils.AssertQueryRuns(connection1, "DROP ROLE testrole")
 	testutils.AssertQueryRuns(connection1, "DROP ROLE anothertestrole")
 	connection1.Close()
@@ -113,14 +114,14 @@ func setupTestFilespace(cluster utils.Cluster) {
 	if err != nil {
 		Fail(fmt.Sprintf("Cannot create test filespace: %s: %s", out, err.Error()))
 	}
-	filespaceName := utils.SelectString(connection, "SELECT fsname AS string FROM pg_filespace WHERE fsname = 'test_dir';")
+	filespaceName := dbconn.MustSelectString(connection, "SELECT fsname AS string FROM pg_filespace WHERE fsname = 'test_dir';")
 	if filespaceName != "test_dir" {
 		Fail("Filespace test_dir was not successfully created")
 	}
 }
 
 func destroyTestFilespace() {
-	filespaceName := utils.SelectString(connection, "SELECT fsname AS string FROM pg_filespace WHERE fsname = 'test_dir';")
+	filespaceName := dbconn.MustSelectString(connection, "SELECT fsname AS string FROM pg_filespace WHERE fsname = 'test_dir';")
 	if filespaceName != "test_dir" {
 		return
 	}

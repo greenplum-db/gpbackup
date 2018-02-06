@@ -8,6 +8,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/lib/pq"
 )
@@ -41,7 +42,7 @@ type AttributeStatistic struct {
 	Values4      pq.StringArray `db:"stavalues4"`
 }
 
-func GetAttributeStatistics(connection *utils.DBConn, tables []Relation) map[uint32][]AttributeStatistic {
+func GetAttributeStatistics(connection *dbconn.DBConn, tables []Relation) map[uint32][]AttributeStatistic {
 	tablenames := make([]string, 0)
 	for _, table := range tables {
 		tablenames = append(tablenames, table.ToString())
@@ -101,7 +102,7 @@ type TupleStatistic struct {
 	RelTuples float64
 }
 
-func GetTupleStatistics(connection *utils.DBConn, tables []Relation) map[uint32]TupleStatistic {
+func GetTupleStatistics(connection *dbconn.DBConn, tables []Relation) map[uint32]TupleStatistic {
 	tablenames := make([]string, 0)
 	for _, table := range tables {
 		tablenames = append(tablenames, table.ToString())

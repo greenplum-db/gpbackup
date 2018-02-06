@@ -3,6 +3,7 @@ package backup
 import (
 	"sync"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -17,7 +18,7 @@ import (
  */
 var (
 	backupReport  *utils.Report
-	connection    *utils.DBConn
+	connection    *dbconn.DBConn
 	globalCluster utils.Cluster
 	globalTOC     *utils.TOC
 	logger        *gplog.Logger
@@ -62,7 +63,7 @@ var (
  * Setter functions
  */
 
-func SetConnection(conn *utils.DBConn) {
+func SetConnection(conn *dbconn.DBConn) {
 	connection = conn
 }
 

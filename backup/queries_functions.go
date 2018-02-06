@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -42,7 +43,7 @@ type Function struct {
  * 5 or later but in GPDB 4.3 we must query pg_proc directly and construct
  * those values here.
  */
-func GetFunctionsAllVersions(connection *utils.DBConn) []Function {
+func GetFunctionsAllVersions(connection *dbconn.DBConn) []Function {
 	if connection.Version.Before("5") {
 		functions := GetFunctions4(connection)
 		arguments, tableArguments := GetFunctionArgsAndIdentArgs(connection)
@@ -63,7 +64,7 @@ func GetFunctionsAllVersions(connection *utils.DBConn) []Function {
 	return GetFunctionsMaster(connection)
 }
 
-func GetFunctionsMaster(connection *utils.DBConn) []Function {
+func GetFunctionsMaster(connection *dbconn.DBConn) []Function {
 	masterAtts := ""
 	if connection.Version.AtLeast("6") {
 		masterAtts = "proiswindow,proexeclocation,"
@@ -111,7 +112,7 @@ ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"))
  * In addition to lacking the pg_get_function_* functions, GPDB 4.3 lacks
  * several columns in pg_proc compared to GPDB 5, so we don't retrieve those.
  */
-func GetFunctions4(connection *utils.DBConn) []Function {
+func GetFunctions4(connection *dbconn.DBConn) []Function {
 	query := fmt.Sprintf(`
 SELECT
 	p.oid,
@@ -146,7 +147,7 @@ ORDER BY nspname, proname;`, SchemaFilterClause("n"))
  * difference between a function's "arguments" and "identity arguments" and
  * we can use the same map for both fields.
  */
-func GetFunctionArgsAndIdentArgs(connection *utils.DBConn) (map[uint32]string, map[uint32]string) {
+func GetFunctionArgsAndIdentArgs(connection *dbconn.DBConn) (map[uint32]string, map[uint32]string) {
 	query := `
 SELECT
     p.oid,
@@ -215,7 +216,7 @@ ON p.pronamespace = n.oid;`
 	return argMap, tableArgMap
 }
 
-func GetFunctionReturnTypes(connection *utils.DBConn) map[uint32]Function {
+func GetFunctionReturnTypes(connection *dbconn.DBConn) map[uint32]Function {
 	query := fmt.Sprintf(`
 SELECT
     p.oid,
@@ -258,7 +259,7 @@ type Aggregate struct {
 	IsOrdered           bool `db:"aggordered"`
 }
 
-func GetAggregates(connection *utils.DBConn) []Aggregate {
+func GetAggregates(connection *dbconn.DBConn) []Aggregate {
 	version4query := fmt.Sprintf(`
 SELECT
 	p.oid,
@@ -350,7 +351,7 @@ type FunctionInfo struct {
 	IsInternal    bool
 }
 
-func GetFunctionOidToInfoMap(connection *utils.DBConn) map[uint32]FunctionInfo {
+func GetFunctionOidToInfoMap(connection *dbconn.DBConn) map[uint32]FunctionInfo {
 	version4query := `
 SELECT
 	p.oid,
@@ -412,7 +413,7 @@ type Cast struct {
 	CastMethod     string
 }
 
-func GetCasts(connection *utils.DBConn) []Cast {
+func GetCasts(connection *dbconn.DBConn) []Cast {
 	/* This query retrieves all casts where either the source type, the target
 	 * type, or the cast function is user-defined.
 	 */
@@ -471,7 +472,7 @@ type Extension struct {
 	Schema string
 }
 
-func GetExtensions(connection *utils.DBConn) []Extension {
+func GetExtensions(connection *dbconn.DBConn) []Extension {
 	results := make([]Extension, 0)
 
 	query := `
@@ -498,7 +499,7 @@ type ProceduralLanguage struct {
 	Validator uint32 `db:"lanvalidator"`
 }
 
-func GetProceduralLanguages(connection *utils.DBConn) []ProceduralLanguage {
+func GetProceduralLanguages(connection *dbconn.DBConn) []ProceduralLanguage {
 	results := make([]ProceduralLanguage, 0)
 	// Languages are owned by the bootstrap superuser, OID 10
 	version4query := `
@@ -547,7 +548,7 @@ type Conversion struct {
 	IsDefault          bool `db:"condefault"`
 }
 
-func GetConversions(connection *utils.DBConn) []Conversion {
+func GetConversions(connection *dbconn.DBConn) []Conversion {
 	results := make([]Conversion, 0)
 	query := fmt.Sprintf(`
 SELECT
@@ -578,7 +579,7 @@ ORDER BY n.nspname, c.conname;`, SchemaFilterClause("n"))
  * of the backup and so do not need to consider those dependencies when sorting
  * functions and types.
  */
-func ConstructFunctionDependencies(connection *utils.DBConn, functions []Function) []Function {
+func ConstructFunctionDependencies(connection *dbconn.DBConn, functions []Function) []Function {
 	modStr := ""
 	if connection.Version.AtLeast("5") {
 		modStr = `
@@ -620,7 +621,7 @@ type ForeignDataWrapper struct {
 	Options   string
 }
 
-func GetForeignDataWrappers(connection *utils.DBConn) []ForeignDataWrapper {
+func GetForeignDataWrappers(connection *dbconn.DBConn) []ForeignDataWrapper {
 	results := make([]ForeignDataWrapper, 0)
 	query := fmt.Sprintf(`
 SELECT
@@ -651,7 +652,7 @@ type ForeignServer struct {
 	Options            string
 }
 
-func GetForeignServers(connection *utils.DBConn) []ForeignServer {
+func GetForeignServers(connection *dbconn.DBConn) []ForeignServer {
 	results := make([]ForeignServer, 0)
 	query := fmt.Sprintf(`
 SELECT
@@ -681,7 +682,7 @@ type UserMapping struct {
 	Options string
 }
 
-func GetUserMappings(connection *utils.DBConn) []UserMapping {
+func GetUserMappings(connection *dbconn.DBConn) []UserMapping {
 	results := make([]UserMapping, 0)
 	query := fmt.Sprintf(`
 SELECT

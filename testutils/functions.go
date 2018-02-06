@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -17,7 +17,6 @@ import (
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 
-	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -28,21 +27,19 @@ import (
  * Functions for setting up the test environment and mocking out variables
  */
 
-func SetupTestEnvironment() (*utils.DBConn, sqlmock.Sqlmock, *gplog.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
-	testLogger, testStdout, testStderr, testLogfile := SetupTestLogger()
-	connection, mock := CreateAndConnectMockDB(1)
+func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *gplog.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
+	connection, mock, testLogger, testStdout, testStderr, testLogfile := testhelper.SetupTestEnvironment()
 	SetupTestCluster()
-	operating.System = operating.InitializeSystemFunctions()
 	backup.SetVersion("0.1.0")
+	backup.SetLogger(testLogger)
+	restore.SetLogger(testLogger)
+	helper.SetLogger(testLogger)
+	utils.SetLogger(testLogger)
 	return connection, mock, testLogger, testStdout, testStderr, testLogfile
 }
 
-func CreateAndConnectMockDB(numConns int) (*utils.DBConn, sqlmock.Sqlmock) {
-	mockdb, mock := CreateMockDB()
-	driver := TestDriver{DB: mockdb, DBName: "testdb", User: "testrole"}
-	connection := utils.NewDBConn("testdb")
-	connection.Driver = driver
-	connection.Connect(numConns)
+func CreateAndConnectMockDB(numConns int) (*dbconn.DBConn, sqlmock.Sqlmock) {
+	connection, mock := testhelper.CreateAndConnectMockDB(numConns)
 	SetDBVersion(connection, "5.1.0")
 	backup.SetConnection(connection)
 	restore.SetConnection(connection)
@@ -68,15 +65,6 @@ func SetupTestCluster() {
 	testCluster := SetDefaultSegmentConfiguration()
 	backup.SetCluster(testCluster)
 	restore.SetCluster(testCluster)
-}
-
-func CreateMockDB() (*sqlx.DB, sqlmock.Sqlmock) {
-	db, mock, err := sqlmock.New()
-	mockdb := sqlx.NewDb(db, "sqlmock")
-	if err != nil {
-		Fail("Could not create mock database connection")
-	}
-	return mockdb, mock
 }
 
 func SetDefaultSegmentConfiguration() utils.Cluster {
@@ -221,12 +209,6 @@ func DefaultTypeDefinition(typeType string, typeName string) backup.Type {
  * Wrapper functions around gomega operators for ease of use in tests
  */
 
-func ExpectBegin(mock sqlmock.Sqlmock) {
-	fakeResult := TestResult{Rows: 0}
-	mock.ExpectBegin()
-	mock.ExpectExec("SET TRANSACTION(.*)").WillReturnResult(fakeResult)
-}
-
 func SliceBufferByEntries(entries []utils.MetadataEntry, buffer *gbytes.Buffer) ([]string, string) {
 	contents := buffer.Contents()
 	hunks := []string{}
@@ -299,17 +281,17 @@ func ExpectPathToExist(path string) {
 	}
 }
 
-func AssertQueryRuns(dbconn *utils.DBConn, query string) {
-	_, err := dbconn.Exec(query)
+func AssertQueryRuns(connection *dbconn.DBConn, query string) {
+	_, err := connection.Exec(query)
 	Expect(err).To(BeNil(), "%s", query)
 }
 
-func ExecuteSQLFile(dbconn *utils.DBConn, filename string) {
+func ExecuteSQLFile(connection *dbconn.DBConn, filename string) {
 	connStr := []string{
-		"-U", dbconn.User,
-		"-d", dbconn.DBName,
-		"-h", dbconn.Host,
-		"-p", fmt.Sprintf("%d", dbconn.Port),
+		"-U", connection.User,
+		"-d", connection.DBName,
+		"-h", connection.Host,
+		"-p", fmt.Sprintf("%d", connection.Port),
 		"-f", filename,
 		"-v", "ON_ERROR_STOP=1",
 		"-q",
@@ -324,7 +306,7 @@ func BufferLength(buffer *gbytes.Buffer) uint64 {
 	return uint64(len(buffer.Contents()))
 }
 
-func OidFromCast(connection *utils.DBConn, castSource uint32, castTarget uint32) uint32 {
+func OidFromCast(connection *dbconn.DBConn, castSource uint32, castTarget uint32) uint32 {
 	query := fmt.Sprintf("SELECT c.oid FROM pg_cast c WHERE castsource = '%d' AND casttarget = '%d'", castSource, castTarget)
 	result := struct {
 		Oid uint32
@@ -334,7 +316,7 @@ func OidFromCast(connection *utils.DBConn, castSource uint32, castTarget uint32)
 	return result.Oid
 }
 
-func OidFromObjectName(dbconn *utils.DBConn, schemaName string, objectName string, params backup.MetadataQueryParams) uint32 {
+func OidFromObjectName(connection *dbconn.DBConn, schemaName string, objectName string, params backup.MetadataQueryParams) uint32 {
 	catalogTable := params.CatalogTable
 	if params.OidTable != "" {
 		catalogTable = params.OidTable
@@ -347,29 +329,29 @@ func OidFromObjectName(dbconn *utils.DBConn, schemaName string, objectName strin
 	result := struct {
 		Oid uint32
 	}{}
-	err := dbconn.Get(&result, query)
+	err := connection.Get(&result, query)
 	utils.CheckError(err)
 	return result.Oid
 }
 
-func GetUserByID(dbconn *utils.DBConn, oid uint32) string {
-	return utils.SelectString(dbconn, fmt.Sprintf("SELECT rolname AS string FROM pg_roles WHERE oid = %d", oid))
+func GetUserByID(connection *dbconn.DBConn, oid uint32) string {
+	return dbconn.MustSelectString(connection, fmt.Sprintf("SELECT rolname AS string FROM pg_roles WHERE oid = %d", oid))
 }
 
-func SkipIf4(dbconn *utils.DBConn) {
-	if dbconn.Version.Before("5") {
+func SkipIf4(connection *dbconn.DBConn) {
+	if connection.Version.Before("5") {
 		Skip("Test not applicable to GPDB4")
 	}
 }
 
-func SkipIfNot4(dbconn *utils.DBConn) {
-	if dbconn.Version.AtLeast("5") {
+func SkipIfNot4(connection *dbconn.DBConn) {
+	if connection.Version.AtLeast("5") {
 		Skip("Test only applicable to GPDB4")
 	}
 }
 
-func SkipIfBefore6(dbconn *utils.DBConn) {
-	if dbconn.Version.Before("6") {
+func SkipIfBefore6(connection *dbconn.DBConn) {
+	if connection.Version.Before("6") {
 		Skip("Test only applicable to GPDB6 and above")
 	}
 }
@@ -382,6 +364,6 @@ func InitializeTestTOC(buffer io.Writer, which string) (*utils.TOC, *utils.FileW
 	return toc, backupfile
 }
 
-func SetDBVersion(dbconn *utils.DBConn, versionStr string) {
-	dbconn.Version = utils.GPDBVersion{VersionString: versionStr, SemVer: semver.MustParse(versionStr)}
+func SetDBVersion(connection *dbconn.DBConn, versionStr string) {
+	connection.Version = dbconn.GPDBVersion{VersionString: versionStr, SemVer: semver.MustParse(versionStr)}
 }

@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -11,10 +12,10 @@ import (
 
 var _ = Describe("backup, utils, and restore integration tests related to parallelism", func() {
 	Describe("Connection pooling tests", func() {
-		var tempConn *utils.DBConn
+		var tempConn *dbconn.DBConn
 		BeforeEach(func() {
-			tempConn = utils.NewDBConn("testdb")
-			tempConn.Connect(2)
+			tempConn = dbconn.NewDBConn("testdb")
+			tempConn.MustConnect(2)
 		})
 		AfterEach(func() {
 			tempConn.Close()
@@ -25,8 +26,8 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			 * The default value of client_min_messages is "notice", so now connection 1
 			 * should have it set to "error" and 0 should still have it set to "notice".
 			 */
-			notInSession := utils.SelectString(tempConn, "SELECT setting AS string FROM pg_settings WHERE name = 'client_min_messages';", 0)
-			inSession := utils.SelectString(tempConn, "SELECT setting AS string FROM pg_settings WHERE name = 'client_min_messages';", 1)
+			notInSession := dbconn.MustSelectString(tempConn, "SELECT setting AS string FROM pg_settings WHERE name = 'client_min_messages';", 0)
+			inSession := dbconn.MustSelectString(tempConn, "SELECT setting AS string FROM pg_settings WHERE name = 'client_min_messages';", 1)
 			Expect(notInSession).To(Equal("notice"))
 			Expect(inSession).To(Equal("error"))
 		})
@@ -61,12 +62,12 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 		 * We use a separate connection even for serial runs to avoid losing the
 		 * configuration of the main connection variable.
 		 */
-		var tempConn *utils.DBConn
+		var tempConn *dbconn.DBConn
 		createQuery := "CREATE TABLE public.timestamps(exec_index int, exec_time timestamp);"
 		orderQuery := "SELECT exec_index AS string FROM public.timestamps ORDER BY exec_time;"
 		BeforeEach(func() {
 			restore.SetOnErrorContinue(false)
-			tempConn = utils.NewDBConn("testdb")
+			tempConn = dbconn.NewDBConn("testdb")
 			restore.SetConnection(tempConn)
 		})
 		AfterEach(func() {
@@ -77,7 +78,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 		})
 		Context("Serial execution", func() {
 			BeforeEach(func() {
-				tempConn.Connect(1)
+				tempConn.MustConnect(1)
 				testutils.AssertQueryRuns(tempConn, "SET ROLE testrole")
 				testutils.AssertQueryRuns(tempConn, createQuery)
 			})
@@ -85,20 +86,20 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 				shouldExecute := utils.NewEmptyIncludeSet()
 				expectedOrderArray := []string{"1", "2", "3", "4"}
 				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, false)
-				resultOrderArray := utils.SelectStringSlice(tempConn, orderQuery)
+				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})
 			It("can execute all statements in the list that are not of the specified object type serially", func() {
 				shouldExecute := utils.NewExcludeSet([]string{"DATABASE"})
 				expectedOrderArray := []string{"1", "3"}
 				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, false)
-				resultOrderArray := utils.SelectStringSlice(tempConn, orderQuery)
+				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})
 		})
 		Context("Parallel execution", func() {
 			BeforeEach(func() {
-				tempConn.Connect(3)
+				tempConn.MustConnect(3)
 				testutils.AssertQueryRuns(tempConn, "SET ROLE testrole")
 				testutils.AssertQueryRuns(tempConn, createQuery)
 			})
@@ -106,14 +107,14 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 				shouldExecute := utils.NewEmptyIncludeSet()
 				expectedOrderArray := []string{"3", "1", "4", "2"}
 				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, true)
-				resultOrderArray := utils.SelectStringSlice(tempConn, orderQuery)
+				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})
 			It("can execute all statements in the list that are not of the specified object type in parallel", func() {
 				shouldExecute := utils.NewExcludeSet([]string{"DATABASE"})
 				expectedOrderArray := []string{"3", "1"}
 				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, true)
-				resultOrderArray := utils.SelectStringSlice(tempConn, orderQuery)
+				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})
 		})

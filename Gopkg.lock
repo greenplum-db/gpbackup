@@ -11,12 +11,13 @@
   branch = "add_packages"
   name = "github.com/greenplum-db/gp-common-go-libs"
   packages = [
+    "dbconn",
     "gplog",
     "operating",
     "structmatcher",
     "testhelper"
   ]
-  revision = "99b623f43d3b5865fda81f1a4bc6c7e311eeba31"
+  revision = "6ddf6ade96aff77d7643ba869694db1f3a0cd76d"
 
 [[projects]]
   branch = "master"
@@ -156,6 +157,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "df3833448f55ffb55e398daf4cdc575bae95a8018553afbf46bb24beb52482a2"
+  inputs-digest = "626a48e11223332ba4871726bcafa79cdf79741975958288b297c363e7e4df9a"
   solver-name = "gps-cdcl"
   solver-version = 1

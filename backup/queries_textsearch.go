@@ -11,6 +11,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -25,7 +26,7 @@ type TextSearchParser struct {
 	HeadlineFunc string
 }
 
-func GetTextSearchParsers(connection *utils.DBConn) []TextSearchParser {
+func GetTextSearchParsers(connection *dbconn.DBConn) []TextSearchParser {
 	query := fmt.Sprintf(`
 SELECT
 	p.oid,
@@ -56,7 +57,7 @@ type TextSearchTemplate struct {
 	LexizeFunc string
 }
 
-func GetTextSearchTemplates(connection *utils.DBConn) []TextSearchTemplate {
+func GetTextSearchTemplates(connection *dbconn.DBConn) []TextSearchTemplate {
 	query := fmt.Sprintf(`
 SELECT
 	p.oid,
@@ -84,7 +85,7 @@ type TextSearchDictionary struct {
 	InitOption string
 }
 
-func GetTextSearchDictionaries(connection *utils.DBConn) []TextSearchDictionary {
+func GetTextSearchDictionaries(connection *dbconn.DBConn) []TextSearchDictionary {
 	query := fmt.Sprintf(`
 SELECT
 	d.oid,
@@ -114,7 +115,7 @@ type TextSearchConfiguration struct {
 	TokenToDicts map[string][]string
 }
 
-func GetTextSearchConfigurations(connection *utils.DBConn) []TextSearchConfiguration {
+func GetTextSearchConfigurations(connection *dbconn.DBConn) []TextSearchConfiguration {
 	query := fmt.Sprintf(`
 SELECT
 	c.oid AS configoid,
@@ -175,7 +176,7 @@ func NewParserTokenTypes() *ParserTokenTypes {
 	return &ParserTokenTypes{map[uint32][]ParserTokenType{}}
 }
 
-func (tokenTypes *ParserTokenTypes) TokenName(connection *utils.DBConn, parserOid uint32, tokenTypeID uint32) string {
+func (tokenTypes *ParserTokenTypes) TokenName(connection *dbconn.DBConn, parserOid uint32, tokenTypeID uint32) string {
 	typesForParser, ok := tokenTypes.forParser[parserOid]
 	if !ok {
 		typesForParser = make([]ParserTokenType, 0)
@@ -199,7 +200,7 @@ type TypeMapping struct {
 	Dictionary string
 }
 
-func getTypeMappings(connection *utils.DBConn) map[uint32][]TypeMapping {
+func getTypeMappings(connection *dbconn.DBConn) map[uint32][]TypeMapping {
 	query := `
 SELECT
 	mapcfg,

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -61,16 +62,16 @@ func buildAndInstallBinaries() (string, string) {
 	return fmt.Sprintf("%s/gpbackup", binDir), fmt.Sprintf("%s/gprestore", binDir)
 }
 
-func assertDataRestored(conn *utils.DBConn, tableToTupleCount map[string]int) {
+func assertDataRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
 	for name, numTuples := range tableToTupleCount {
-		tupleCount := utils.SelectString(conn, fmt.Sprintf("SELECT count(*) AS string from %s", name))
+		tupleCount := dbconn.MustSelectString(conn, fmt.Sprintf("SELECT count(*) AS string from %s", name))
 		Expect(tupleCount).To(Equal(strconv.Itoa(numTuples)))
 	}
 }
 
-func assertTablesCreated(conn *utils.DBConn, numTables int) {
+func assertTablesCreated(conn *dbconn.DBConn, numTables int) {
 	countQuery := `SELECT count(*) AS string FROM pg_tables WHERE schemaname IN ('public','schema2')`
-	tableCount := utils.SelectString(conn, countQuery)
+	tableCount := dbconn.MustSelectString(conn, countQuery)
 	Expect(tableCount).To(Equal(strconv.Itoa(numTables)))
 }
 
@@ -81,7 +82,7 @@ func TestEndToEnd(t *testing.T) {
 
 var _ = Describe("backup end to end integration tests", func() {
 
-	var backupConn, restoreConn *utils.DBConn
+	var backupConn, restoreConn *dbconn.DBConn
 	var gpbackupPath, gprestorePath string
 	BeforeSuite(func() {
 		var err error
@@ -95,10 +96,10 @@ var _ = Describe("backup end to end integration tests", func() {
 		if err != nil {
 			Fail(fmt.Sprintf("Could not create restoredb: %v", err))
 		}
-		backupConn = utils.NewDBConn("testdb")
-		backupConn.Connect(1)
-		restoreConn = utils.NewDBConn("restoredb")
-		restoreConn.Connect(1)
+		backupConn = dbconn.NewDBConn("testdb")
+		backupConn.MustConnect(1)
+		restoreConn = dbconn.NewDBConn("restoredb")
+		restoreConn.MustConnect(1)
 		testutils.ExecuteSQLFile(backupConn, "test_tables.sql")
 		gpbackupPath, gprestorePath = buildAndInstallBinaries()
 	})
@@ -134,8 +135,8 @@ var _ = Describe("backup end to end integration tests", func() {
 				Fail(fmt.Sprintf("%v", err))
 			}
 			gprestore(gprestorePath, timestamp, "-createdb")
-			backupConn = utils.NewDBConn("testdb")
-			backupConn.Connect(1)
+			backupConn = dbconn.NewDBConn("testdb")
+			backupConn.MustConnect(1)
 		})
 		It("runs basic gpbackup and gprestore with metadata and data-only flags", func() {
 			timestamp := gpbackup(gpbackupPath, "-metadata-only")
