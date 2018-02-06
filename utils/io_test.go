@@ -2,7 +2,6 @@ package utils_test
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 
@@ -14,66 +13,6 @@ import (
 )
 
 var _ = Describe("utils/io tests", func() {
-	Describe("QuoteIdent", func() {
-		It("does not quote a string that contains no special characters", func() {
-			name := `_tablename1`
-			output := utils.QuoteIdent(name)
-			Expect(output).To(Equal(`_tablename1`))
-		})
-		It("replaces double quotes with pairs of double quotes", func() {
-			name := `table"name`
-			output := utils.QuoteIdent(name)
-			Expect(output).To(Equal(`"table""name"`))
-		})
-		It("replaces backslashes with pairs of backslashes", func() {
-			name := `table\name`
-			output := utils.QuoteIdent(name)
-			Expect(output).To(Equal(`"table\\name"`))
-		})
-		It("properly escapes capital letters", func() {
-			names := []string{"Relationname", "TABLENAME", "TaBlEnAmE"}
-			expected := []string{`"Relationname"`, `"TABLENAME"`, `"TaBlEnAmE"`}
-			for i := range names {
-				output := utils.QuoteIdent(names[i])
-				Expect(output).To(Equal(expected[i]))
-			}
-		})
-		It("properly escapes shell-significant special characters", func() {
-			special := `.,!$/` + "`"
-			for _, spec := range special {
-				name := fmt.Sprintf(`table%cname`, spec)
-				expected := fmt.Sprintf(`"table%cname"`, spec)
-				output := utils.QuoteIdent(name)
-				Expect(output).To(Equal(expected))
-			}
-		})
-		It("properly escapes whitespace", func() {
-			names := []string{"table name", "table\tname", "table\nname"}
-			expected := []string{`"table name"`, "\"table\tname\"", "\"table\nname\""}
-			for i := range names {
-				output := utils.QuoteIdent(names[i])
-				Expect(output).To(Equal(expected[i]))
-			}
-		})
-		It("properly escapes all other punctuation", func() {
-			special := `'~@#$%^&*()-+[]{}><|;:?`
-			for _, spec := range special {
-				name := fmt.Sprintf(`table%cname`, spec)
-				expected := fmt.Sprintf(`"table%cname"`, spec)
-				output := utils.QuoteIdent(name)
-				Expect(output).To(Equal(expected))
-			}
-		})
-		It("properly escapes Unicode characters", func() {
-			special := `Ää表`
-			for _, spec := range special {
-				name := fmt.Sprintf(`table%cname`, spec)
-				expected := fmt.Sprintf(`"table%cname"`, spec)
-				output := utils.QuoteIdent(name)
-				Expect(output).To(Equal(expected))
-			}
-		})
-	})
 	Describe("SliceToQuotedString", func() {
 		It("quotes and joins a slice of strings into a single string", func() {
 			inputStrings := []string{"string1", "string2", "string3"}

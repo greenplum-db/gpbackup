@@ -29,15 +29,6 @@ var (
 	ReplacerUnescape = strings.NewReplacer(`""`, `"`, `\\`, `\`)
 )
 
-// This function quotes an unquoted identifier like quote_ident() in Postgres.
-func QuoteIdent(ident string) string {
-	if !UnquotedIdentifier.MatchString(ident) {
-		ident = ReplacerEscape.Replace(ident)
-		ident = fmt.Sprintf(`"%s"`, ident)
-	}
-	return ident
-}
-
 func SliceToQuotedString(slice []string) string {
 	quotedStrings := make([]string, len(slice))
 	for i, str := range slice {
