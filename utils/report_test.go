@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -311,14 +312,20 @@ Data File Format: Multiple Data Files Per Segment`),
 			utils.EnsureDatabaseVersionCompatibility("5.0.6-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
 		})
 	})
+
 	Describe("Email-related functions", func() {
 		reportFileContents := []byte(`Greenplum Database Backup Report
 
 Timestamp Key: 20170101010101`)
-		contactsFileContents, _ := yaml.Marshal(utils.ContactList{
-			Backup: []utils.EmailContact{
-				{Address: "contact1@example.com"},
-				{Address: "contact2@example.org"},
+		contactsFileContents, _ := yaml.Marshal(utils.ContactFile{
+			Contacts: map[string][]utils.EmailContact{
+				"gpbackup": []utils.EmailContact{
+					{Address: "contact1@example.com"},
+					{Address: "contact2@example.org"},
+				},
+				"gprestore": []utils.EmailContact{
+					{Address: "contact3@example.com"},
+				},
 			}})
 		contactsList := "contact1@example.com contact2@example.org"
 
@@ -347,6 +354,23 @@ Timestamp Key: 20170101010101`)
 		})
 		AfterEach(func() {
 			utils.InitializeSystemFunctions()
+		})
+		Context("GetContacts", func() {
+			contactsFilename := fmt.Sprintf("%s/bin/gp_email_contacts.yaml", utils.System.Getenv("GPHOME"))
+			It("Gets a list of gpbackup contacts", func() {
+				w.Write(contactsFileContents)
+				w.Close()
+
+				contacts := utils.GetContacts(contactsFilename, "gpbackup")
+				Expect(contacts).To(Equal("contact1@example.com contact2@example.org"))
+			})
+			It("Gets a list of gprestore contacts", func() {
+				w.Write(contactsFileContents)
+				w.Close()
+
+				contacts := utils.GetContacts(contactsFilename, "gprestore")
+				Expect(contacts).To(Equal("contact3@example.com"))
+			})
 		})
 		Context("ConstructEmailMessage", func() {
 			It("adds HTML formatting to the contents of the report file", func() {

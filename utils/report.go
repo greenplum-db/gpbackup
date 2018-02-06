@@ -222,26 +222,26 @@ func EnsureDatabaseVersionCompatibility(backupGPDBVersion string, restoreGPDBVer
 	}
 }
 
-type ContactList struct {
-	Backup []EmailContact `yaml:"gpbackup"`
+type ContactFile struct {
+	Contacts map[string][]EmailContact
 }
 
 type EmailContact struct {
 	Address string
 }
 
-func GetBackupContacts(filename string) string {
-	contacts := &ContactList{}
+func GetContacts(filename string, utility string) string {
+	contactFile := &ContactFile{}
 	contents, err := System.ReadFile(filename)
 	CheckError(err)
-	err = yaml.Unmarshal(contents, contacts)
+	err = yaml.Unmarshal(contents, contactFile)
 	if err != nil {
 		logger.Warn("Unable to send email report: Error reading email contacts file.")
 		logger.Warn("Please ensure that the email contacts file is in valid YAML format.")
 		return ""
 	}
-	contactList := make([]string, len(contacts.Backup))
-	for i, contact := range contacts.Backup {
+	contactList := make([]string, len(contactFile.Contacts[utility]))
+	for i, contact := range contactFile.Contacts[utility] {
 		contactList[i] = contact.Address
 	}
 	return strings.Join(contactList, " ")
@@ -282,7 +282,7 @@ func EmailReport(cluster Cluster) {
 		contactsFilename = homeFile
 	}
 	logger.Info("%s list found, %s will be sent", contactsFilename, cluster.GetReportFilePath())
-	contactList := GetBackupContacts(contactsFilename)
+	contactList := GetContacts(contactsFilename, "gpbackup")
 	if contactList == "" {
 		return
 	}
