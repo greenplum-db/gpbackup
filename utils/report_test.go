@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -151,7 +150,7 @@ types                        1000`))
 			backupReport = &utils.Report{}
 			utils.InitializeCompressionParameters(true, 0)
 			backupReport.SetBackupParamsFromFlags(true, true, true, true, true, true)
-			structmatcher.ExpectStructsToMatch(backupReport.BackupConfig, utils.BackupConfig{
+			testutils.ExpectStructsToMatch(backupReport.BackupConfig, utils.BackupConfig{
 				BackupVersion: "", DatabaseName: "", DatabaseVersion: "",
 				Compressed: true, DataOnly: true, SchemaFiltered: true, TableFiltered: true,
 				MetadataOnly: true, WithStatistics: true, SingleDataFile: true,
