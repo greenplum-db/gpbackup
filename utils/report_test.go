@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -332,14 +333,16 @@ Timestamp Key: 20170101010101`)
 		contactsList := "contact1@example.com contact2@example.org"
 
 		var (
-			testExecutor *testutils.TestExecutor
-			testCluster  utils.Cluster
+			testExecutor *testhelper.TestExecutor
+			testCluster  cluster.Cluster
+			testFPInfo   utils.FilePathInfo
 			w            *os.File
 			r            *os.File
 		)
 		BeforeEach(func() {
 			r, w, _ = os.Pipe()
 			testCluster = testutils.SetDefaultSegmentConfiguration()
+			testFPInfo = utils.NewFilePathInfo(testCluster.SegDirMap, "", "20170101010101", "gpseg")
 			operating.System.OpenFileRead = func(name string, flag int, perm os.FileMode) (operating.ReadCloserAt, error) { return r, nil }
 			operating.System.ReadFile = func(filename string) ([]byte, error) { return ioutil.ReadAll(r) }
 			operating.System.Hostname = func() (string, error) { return "localhost", nil }
@@ -350,8 +353,7 @@ Timestamp Key: 20170101010101`)
 					return "gphome"
 				}
 			}
-			testExecutor = &testutils.TestExecutor{}
-			testCluster.Timestamp = "20170101010101"
+			testExecutor = &testhelper.TestExecutor{}
 			testCluster.Executor = testExecutor
 		})
 		AfterEach(func() {
@@ -379,7 +381,7 @@ Timestamp Key: 20170101010101`)
 				w.Write(reportFileContents)
 				w.Close()
 
-				message := utils.ConstructEmailMessage(testCluster, contactsList)
+				message := utils.ConstructEmailMessage(testFPInfo, contactsList)
 				expectedMessage := `To: contact1@example.com contact2@example.org
 Subject: gpbackup 20170101010101 on localhost completed
 Content-Type: text/html
@@ -418,7 +420,7 @@ Content-Disposition: inline
 
 				testExecutor.LocalError = errors.Errorf("exit status 2")
 
-				utils.EmailReport(testCluster)
+				utils.EmailReport(testCluster, testFPInfo)
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedGpHomeCmd}))
 				Expect(stdout).To(gbytes.Say("Found neither gphome/bin/gp_email_contacts.yaml nor home/gp_email_contacts.yaml"))
@@ -430,7 +432,7 @@ Content-Disposition: inline
 				testExecutor.ErrorOnExecNum = 2 // Shouldn't hit this case, as it shouldn't be executed a second time
 				testExecutor.LocalError = errors.Errorf("exit status 2")
 
-				utils.EmailReport(testCluster)
+				utils.EmailReport(testCluster, testFPInfo)
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedMessage}))
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com contact2@example.org"))
@@ -442,7 +444,7 @@ Content-Disposition: inline
 				testExecutor.ErrorOnExecNum = 1
 				testExecutor.LocalError = errors.Errorf("exit status 2")
 
-				utils.EmailReport(testCluster)
+				utils.EmailReport(testCluster, testFPInfo)
 				Expect(testExecutor.NumExecutions).To(Equal(3))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedGpHomeCmd, expectedMessage}))
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com contact2@example.org"))
@@ -451,7 +453,7 @@ Content-Disposition: inline
 				w.Write(contactsFileContents)
 				w.Close()
 
-				utils.EmailReport(testCluster)
+				utils.EmailReport(testCluster, testFPInfo)
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedMessage}))
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com contact2@example.org"))

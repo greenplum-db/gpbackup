@@ -12,6 +12,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
@@ -249,7 +250,7 @@ func GetContacts(filename string, utility string) string {
 	return strings.Join(contactList, " ")
 }
 
-func ConstructEmailMessage(cluster Cluster, contactList string) string {
+func ConstructEmailMessage(backupFPInfo FilePathInfo, contactList string) string {
 	hostname, _ := operating.System.Hostname()
 	emailHeader := fmt.Sprintf(`To: %s
 Subject: gpbackup %s on %s completed
@@ -258,16 +259,16 @@ Content-Disposition: inline
 <html>
 <body>
 <pre style=\"font: monospace\">
-`, contactList, cluster.Timestamp, hostname)
+`, contactList, backupFPInfo.Timestamp, hostname)
 	emailFooter := `
 </pre>
 </body>
 </html>`
-	fileContents := strings.Join(ReadLinesFromFile(cluster.GetReportFilePath()), "\n")
+	fileContents := strings.Join(ReadLinesFromFile(backupFPInfo.GetReportFilePath()), "\n")
 	return emailHeader + fileContents + emailFooter
 }
 
-func EmailReport(cluster Cluster) {
+func EmailReport(cluster cluster.Cluster, backupFPInfo FilePathInfo) {
 	contactsFilename := "gp_email_contacts.yaml"
 	gphomeFile := fmt.Sprintf("%s/bin/%s", operating.System.Getenv("GPHOME"), contactsFilename)
 	homeFile := fmt.Sprintf("%s/%s", operating.System.Getenv("HOME"), contactsFilename)
@@ -276,19 +277,19 @@ func EmailReport(cluster Cluster) {
 		_, gphomeErr := cluster.ExecuteLocalCommand(fmt.Sprintf("test -f %s", gphomeFile))
 		if gphomeErr != nil {
 			logger.Info("Found neither %s nor %s", gphomeFile, homeFile)
-			logger.Info("Email containing backup report %s will not be sent", cluster.GetReportFilePath())
+			logger.Info("Email containing backup report %s will not be sent", backupFPInfo.GetReportFilePath())
 			return
 		}
 		contactsFilename = gphomeFile
 	} else {
 		contactsFilename = homeFile
 	}
-	logger.Info("%s list found, %s will be sent", contactsFilename, cluster.GetReportFilePath())
+	logger.Info("%s list found, %s will be sent", contactsFilename, backupFPInfo.GetReportFilePath())
 	contactList := GetContacts(contactsFilename, "gpbackup")
 	if contactList == "" {
 		return
 	}
-	message := ConstructEmailMessage(cluster, contactList)
+	message := ConstructEmailMessage(backupFPInfo, contactList)
 	logger.Verbose("Sending email report to the following addresses: %s", contactList)
 	output, sendErr := cluster.ExecuteLocalCommand(fmt.Sprintf(`echo "%s" | sendmail -t`, message))
 	if sendErr != nil {

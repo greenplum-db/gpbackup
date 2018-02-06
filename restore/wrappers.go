@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -69,7 +70,7 @@ func InitializeSignalHandler() {
 }
 
 func InitializeBackupConfig() {
-	backupConfig = utils.ReadConfigFile(globalCluster.GetConfigFilePath())
+	backupConfig = utils.ReadConfigFile(globalFPInfo.GetConfigFilePath())
 	utils.InitializeCompressionParameters(backupConfig.Compressed, 0)
 	utils.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
 	utils.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connection.Version)
@@ -89,16 +90,17 @@ func DoPostgresValidation() {
 	InitializeFilterLists()
 
 	logger.Verbose("Gathering information on backup directories")
-	segConfig := utils.GetSegmentConfiguration(connection)
-	globalCluster = utils.NewCluster(segConfig, *backupDir, *timestamp, "")
-	globalCluster.UserSpecifiedSegPrefix = utils.ParseSegPrefix(*backupDir)
-	VerifyBackupDirectoriesExistOnAllHosts(globalCluster)
+	segConfig := cluster.GetSegmentConfiguration(connection)
+	globalCluster = cluster.NewCluster(segConfig)
+	segPrefix := utils.ParseSegPrefix(*backupDir)
+	globalFPInfo = utils.NewFilePathInfo(globalCluster.SegDirMap, *backupDir, *timestamp, segPrefix)
+	VerifyBackupDirectoriesExistOnAllHosts()
 
 	InitializeBackupConfig()
 	ValidateBackupFlagCombinations()
-	VerifyMetadataFilePaths(globalCluster, *withStats)
+	VerifyMetadataFilePaths(*withStats)
 
-	tocFilename := globalCluster.GetTOCFilePath()
+	tocFilename := globalFPInfo.GetTOCFilePath()
 	globalTOC = utils.NewTOC(tocFilename)
 	globalTOC.InitializeEntryMap()
 
@@ -151,7 +153,7 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int) []utils.StatementWithType {
 	if gucStatements == nil {
 		objectTypes := []string{"SESSION GUCS"}
-		gucStatements = GetRestoreMetadataStatements("global", globalCluster.GetMetadataFilePath(), objectTypes, []string{}, []string{})
+		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{}, []string{})
 	}
 	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, utils.NewEmptyIncludeSet(), false, whichConn)
 	return gucStatements

@@ -7,6 +7,7 @@ import (
 
 	"os/exec"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -18,11 +19,11 @@ import (
 )
 
 var (
-	buffer     *bytes.Buffer
-	connection *dbconn.DBConn
-	toc        *utils.TOC
-	backupfile *utils.FileWithByteCount
-	cluster    utils.Cluster
+	buffer      *bytes.Buffer
+	connection  *dbconn.DBConn
+	toc         *utils.TOC
+	backupfile  *utils.FileWithByteCount
+	testCluster cluster.Cluster
 )
 
 func TestQueries(t *testing.T) {
@@ -37,7 +38,8 @@ var _ = BeforeSuite(func() {
 		Fail("Cannot create database testdb; is GPDB running?")
 	}
 	Expect(err).To(BeNil())
-	testutils.SetupTestLogger()
+	logger, _, _, _ := testutils.SetupTestLogger()
+	cluster.SetLogger(logger)
 	connection = dbconn.NewDBConn("testdb")
 	connection.MustConnect(1)
 	// We can't use AssertQueryRuns since if a role already exists it will error
@@ -51,12 +53,12 @@ var _ = BeforeSuite(func() {
 	testutils.AssertQueryRuns(connection, "ALTER SCHEMA public OWNER TO anothertestrole")
 	testutils.AssertQueryRuns(connection, "DROP PROTOCOL IF EXISTS gphdfs")
 	testutils.AssertQueryRuns(connection, `SET standard_conforming_strings TO "on"`)
-	segConfig := utils.GetSegmentConfiguration(connection)
-	cluster = utils.NewCluster(segConfig, "/tmp/test_dir", "20170101010101", "gpseg")
+	segConfig := cluster.GetSegmentConfiguration(connection)
+	testCluster = cluster.NewCluster(segConfig)
 	if connection.Version.Before("6") {
-		setupTestFilespace(cluster)
+		setupTestFilespace(testCluster)
 	} else {
-		remoteOutput := cluster.GenerateAndExecuteCommand("Creating /tmp/test_dir directory on all hosts", func(contentID int) string {
+		remoteOutput := testCluster.GenerateAndExecuteCommand("Creating /tmp/test_dir directory on all hosts", func(contentID int) string {
 			return fmt.Sprintf("mkdir -p /tmp/test_dir")
 		}, true)
 		if remoteOutput.NumErrors != 0 {
@@ -77,7 +79,7 @@ var _ = AfterSuite(func() {
 	if connection.Version.Before("6") {
 		destroyTestFilespace()
 	} else {
-		remoteOutput := cluster.GenerateAndExecuteCommand("Removing /tmp/test_dir directory on all hosts", func(contentID int) string {
+		remoteOutput := testCluster.GenerateAndExecuteCommand("Removing /tmp/test_dir directory on all hosts", func(contentID int) string {
 			return fmt.Sprintf("rm -rf /tmp/test_dir")
 		}, true)
 		if remoteOutput.NumErrors != 0 {
@@ -96,8 +98,8 @@ var _ = AfterSuite(func() {
 	connection1.Close()
 })
 
-func setupTestFilespace(cluster utils.Cluster) {
-	backup.CreateBackupDirectoriesOnAllHosts(cluster)
+func setupTestFilespace(testCluster cluster.Cluster) {
+	backup.CreateBackupDirectoriesOnAllHosts()
 	// Construct a filespace config like the one that gpfilespace generates
 	filespaceConfigQuery := `COPY (SELECT hostname || ':' || dbid || ':/tmp/test_dir/' || preferred_role || content FROM gp_segment_configuration AS subselect) TO '/tmp/temp_filespace_config';`
 	testutils.AssertQueryRuns(connection, filespaceConfigQuery)

@@ -47,7 +47,7 @@ func CopyTableOut(connection *dbconn.DBConn, table Relation, backupFile string) 
 		 * drive.  It will be copied to a user-specified directory, if any, once all
 		 * of the data is backed up.
 		 */
-		tocFile := globalCluster.GetSegmentTOCFilePath("<SEG_DATA_DIR>", "<SEGID>")
+		tocFile := globalFPInfo.GetSegmentTOCFilePath("<SEG_DATA_DIR>", "<SEGID>")
 		helperCommand := fmt.Sprintf("$GPHOME/bin/gpbackup_helper --oid=%d --toc-file=%s --content=<SEGID>", table.Oid, tocFile)
 		checkPipeExistsCommand := fmt.Sprintf("([[ -p %s ]] || (echo \"Pipe not found\">&2; exit 1))", backupFile)
 		copyCommand = fmt.Sprintf("PROGRAM '%s && %s >> %s'", checkPipeExistsCommand, helperCommand, backupFile)
@@ -77,7 +77,7 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 	dataProgressBar.Start()
 	backupFile := ""
 	if *singleDataFile {
-		backupFile = globalCluster.GetSegmentPipePathForCopyCommand()
+		backupFile = globalFPInfo.GetSegmentPipePathForCopyCommand()
 	}
 
 	rowsCopiedMap := make(map[uint32]int64, 0)
@@ -100,7 +100,7 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 				logger.Verbose("Writing data for table %s to file", table.ToString())
 			}
 			if !*singleDataFile {
-				backupFile = globalCluster.GetTableBackupFilePathForCopyCommand(table.Oid, false)
+				backupFile = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, false)
 			}
 			rowsCopied := CopyTableOut(connection, table, backupFile)
 			rowsCopiedMap[table.Oid] = rowsCopied

@@ -72,7 +72,7 @@ func DoSetup() {
 
 	InitializeConnection("postgres")
 	DoPostgresValidation()
-	metadataFilename := globalCluster.GetMetadataFilePath()
+	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	if !backupConfig.DataOnly {
 		logger.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
@@ -96,7 +96,7 @@ func DoSetup() {
 
 func DoRestore() {
 	gucStatements := setGUCsForConnection(nil, 0)
-	metadataFilename := globalCluster.GetMetadataFilePath()
+	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	if !backupConfig.DataOnly {
 		restorePredata(metadataFilename)
 	}
@@ -106,7 +106,7 @@ func DoRestore() {
 		if !backupConfig.SingleDataFile {
 			backupFileCount = len(globalTOC.DataEntries)
 		}
-		VerifyBackupFileCountOnSegments(globalCluster, backupFileCount)
+		VerifyBackupFileCountOnSegments(backupFileCount)
 		restoreData(gucStatements)
 	}
 
@@ -153,12 +153,12 @@ func restoreData(gucStatements []utils.StatementWithType) {
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
 	if backupConfig.SingleDataFile {
 		logger.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
-		VerifyHelperVersionOnSegments(globalCluster, version)
-		CopySegmentTOCs(globalCluster)
-		WriteOidListToSegments(globalCluster, filteredMasterDataEntries)
+		VerifyHelperVersionOnSegments(version)
+		CopySegmentTOCs()
+		WriteOidListToSegments(filteredMasterDataEntries)
 		firstOid := filteredMasterDataEntries[0].Oid
-		CreateSegmentPipesOnAllHostsForRestore(globalCluster, firstOid)
-		WriteToSegmentPipes(globalCluster)
+		CreateSegmentPipesOnAllHostsForRestore(firstOid)
+		WriteToSegmentPipes()
 	}
 
 	totalTables := len(filteredMasterDataEntries)
@@ -204,7 +204,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 		workerPool.Wait()
 	}
 	dataProgressBar.Finish()
-	err := CheckAgentErrorsOnSegments(globalCluster)
+	err := CheckAgentErrorsOnSegments()
 	if err != nil {
 		errMsg := "Error restoring data for one or more tables"
 		if *onErrorContinue {
@@ -229,7 +229,7 @@ func restorePostdata(metadataFilename string) {
 }
 
 func restoreStatistics() {
-	statisticsFilename := globalCluster.GetStatisticsFilePath()
+	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	logger.Info("Restoring query planner statistics from %s", statisticsFilename)
 	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, includeSchemas, []string{})
 	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
@@ -278,11 +278,11 @@ func DoCleanup() {
 	}()
 	logger.Verbose("Beginning cleanup")
 	if backupConfig.SingleDataFile {
-		CleanUpSegmentTOCs(globalCluster)
-		CleanUpHelperFilesOnAllHosts(globalCluster)
-		CleanUpSegmentHelperProcesses(globalCluster)
+		CleanUpSegmentTOCs()
+		CleanUpHelperFilesOnAllHosts()
+		CleanUpSegmentHelperProcesses()
 		if wasTerminated { // These should all end on their own in a successful restore
-			utils.TerminateHangingCopySessions(connection, globalCluster, "gprestore")
+			utils.TerminateHangingCopySessions(connection, globalFPInfo, "gprestore")
 		}
 	}
 	if connection != nil {

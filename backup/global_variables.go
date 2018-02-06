@@ -3,6 +3,7 @@ package backup
 import (
 	"sync"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -19,7 +20,8 @@ import (
 var (
 	backupReport  *utils.Report
 	connection    *dbconn.DBConn
-	globalCluster utils.Cluster
+	globalCluster cluster.Cluster
+	globalFPInfo  utils.FilePathInfo
 	globalTOC     *utils.TOC
 	logger        *gplog.Logger
 	objectCounts  map[string]int
@@ -67,12 +69,16 @@ func SetConnection(conn *dbconn.DBConn) {
 	connection = conn
 }
 
-func SetCluster(cluster utils.Cluster) {
+func SetCluster(cluster cluster.Cluster) {
 	globalCluster = cluster
 }
 
 func SetExcludeSchemas(schemas []string) {
 	excludeSchemas = schemas
+}
+
+func SetFPInfo(fpInfo utils.FilePathInfo) {
+	globalFPInfo = fpInfo
 }
 
 func SetIncludeSchemas(schemas []string) {

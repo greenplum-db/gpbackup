@@ -3,11 +3,11 @@ package testutils
 import (
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/blang/semver"
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
@@ -65,13 +65,16 @@ func SetupTestCluster() {
 	testCluster := SetDefaultSegmentConfiguration()
 	backup.SetCluster(testCluster)
 	restore.SetCluster(testCluster)
+	testFPInfo := utils.NewFilePathInfo(testCluster.SegDirMap, "", "20170101010101", "gpseg")
+	backup.SetFPInfo(testFPInfo)
+	restore.SetFPInfo(testFPInfo)
 }
 
-func SetDefaultSegmentConfiguration() utils.Cluster {
-	configMaster := utils.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
-	configSegOne := utils.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "gpseg0"}
-	configSegTwo := utils.SegConfig{ContentID: 1, Hostname: "localhost", DataDir: "gpseg1"}
-	cluster := utils.NewCluster([]utils.SegConfig{configMaster, configSegOne, configSegTwo}, "", "20170101010101", "gpseg")
+func SetDefaultSegmentConfiguration() cluster.Cluster {
+	configMaster := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
+	configSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "gpseg0"}
+	configSegTwo := cluster.SegConfig{ContentID: 1, Hostname: "localhost", DataDir: "gpseg1"}
+	cluster := cluster.NewCluster([]cluster.SegConfig{configMaster, configSegOne, configSegTwo})
 	return cluster
 }
 
@@ -273,12 +276,6 @@ func AssertBufferContents(entries []utils.MetadataEntry, buffer *gbytes.Buffer, 
 func ExpectEntry(entries []utils.MetadataEntry, index int, schema, referenceObject, name, objectType string) {
 	Expect(len(entries)).To(BeNumerically(">", index))
 	structmatcher.ExpectStructsToMatchExcluding(entries[index], utils.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
-}
-
-func ExpectPathToExist(path string) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		Fail(fmt.Sprintf("Expected %s to exist", path))
-	}
 }
 
 func AssertQueryRuns(connection *dbconn.DBConn, query string) {

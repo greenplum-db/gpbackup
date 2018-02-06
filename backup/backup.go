@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -72,10 +73,11 @@ func DoSetup() {
 	InitializeBackupReport()
 	validateFilterLists()
 
-	segConfig := utils.GetSegmentConfiguration(connection)
+	segConfig := cluster.GetSegmentConfiguration(connection)
 	segPrefix := utils.GetSegPrefix(connection)
-	globalCluster = utils.NewCluster(segConfig, *backupDir, timestamp, segPrefix)
-	CreateBackupDirectoriesOnAllHosts(globalCluster)
+	globalCluster = cluster.NewCluster(segConfig)
+	globalFPInfo = utils.NewFilePathInfo(globalCluster.SegDirMap, *backupDir, timestamp, segPrefix)
+	CreateBackupDirectoriesOnAllHosts()
 	globalTOC = &utils.TOC{}
 	globalTOC.InitializeEntryMap()
 }
@@ -87,7 +89,7 @@ func DoBackup() {
 
 	metadataTables, dataTables, tableDefs := RetrieveAndProcessTables()
 	CheckTablesContainData(dataTables, tableDefs)
-	metadataFilename := globalCluster.GetMetadataFilePath()
+	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	logger.Info("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
 	defer metadataFile.Close()
@@ -112,7 +114,7 @@ func DoBackup() {
 		backupStatistics(metadataTables)
 	}
 
-	globalTOC.WriteToFileAndMakeReadOnly(globalCluster.GetTOCFilePath())
+	globalTOC.WriteToFileAndMakeReadOnly(globalFPInfo.GetTOCFilePath())
 	connection.MustCommit()
 }
 
@@ -211,7 +213,7 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	rowsCopiedMap := BackupData(tables, tableDefs)
 	AddTableDataEntriesToTOC(tables, tableDefs, rowsCopiedMap)
 	if *singleDataFile {
-		MoveSegmentTOCsAndMakeReadOnly(globalCluster)
+		MoveSegmentTOCsAndMakeReadOnly()
 	}
 	logger.Info("Data backup complete")
 }
@@ -226,7 +228,7 @@ func backupPostdata(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupStatistics(tables []Relation) {
-	statisticsFilename := globalCluster.GetStatisticsFilePath()
+	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	logger.Info("Writing query planner statistics to %s", statisticsFilename)
 	statisticsFile := utils.NewFileWithByteCountFromFile(statisticsFilename)
 	defer statisticsFile.Close()
@@ -259,16 +261,16 @@ func DoTeardown() {
 	 * Only create a report file if we fail after the cluster is initialized
 	 * and a backup directory exists in which to create the report file.
 	 */
-	if globalCluster.Timestamp != "" {
-		_, statErr := os.Stat(globalCluster.GetDirForContent(-1))
+	if globalFPInfo.Timestamp != "" {
+		_, statErr := os.Stat(globalFPInfo.GetDirForContent(-1))
 		if statErr != nil { // Even if this isn't os.IsNotExist, don't try to write a report file in case of further errors
 			os.Exit(errorCode)
 		}
-		reportFilename := globalCluster.GetReportFilePath()
-		configFilename := globalCluster.GetConfigFilePath()
+		reportFilename := globalFPInfo.GetReportFilePath()
+		configFilename := globalFPInfo.GetConfigFilePath()
 
 		time.Sleep(time.Second) // We sleep for 1 second to ensure multiple backups do not start within the same second.
-		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalCluster.Timestamp)
+		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalFPInfo.Timestamp)
 		err := os.Remove(timestampLockFile)
 		if err != nil {
 			logger.Warn("Failed to remove lock file %s.", timestampLockFile)
@@ -277,8 +279,8 @@ func DoTeardown() {
 		endTime := time.Now()
 		backupReport.ConstructBackupParamsString()
 		backupReport.WriteConfigFile(configFilename)
-		backupReport.WriteReportFile(reportFilename, globalCluster.Timestamp, objectCounts, endTime, errMsg)
-		utils.EmailReport(globalCluster)
+		backupReport.WriteReportFile(reportFilename, globalFPInfo.Timestamp, objectCounts, endTime, errMsg)
+		utils.EmailReport(globalCluster, globalFPInfo)
 	}
 
 	DoCleanup()
@@ -299,14 +301,14 @@ func DoCleanup() {
 	}()
 	logger.Verbose("Beginning cleanup")
 	if *singleDataFile {
-		CleanUpSegmentPipesOnAllHosts(globalCluster)
-		CleanUpSegmentTailProcesses(globalCluster)
+		CleanUpSegmentPipesOnAllHosts()
+		CleanUpSegmentTailProcesses()
 		if wasTerminated { // These should all end on their own in a successful backup
-			utils.TerminateHangingCopySessions(connection, globalCluster, "gpbackup")
+			utils.TerminateHangingCopySessions(connection, globalFPInfo, "gpbackup")
 		}
 	}
-	if globalCluster.Timestamp != "" {
-		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalCluster.Timestamp)
+	if globalFPInfo.Timestamp != "" {
+		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalFPInfo.Timestamp)
 		os.Remove(timestampLockFile) // Don't check error, as DoTeardown may have removed it already
 	}
 	if connection != nil {

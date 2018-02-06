@@ -171,7 +171,7 @@ func RetrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
  */
 
 func LogBackupInfo() {
-	logger.Info("Backup Timestamp = %s", globalCluster.Timestamp)
+	logger.Info("Backup Timestamp = %s", globalFPInfo.Timestamp)
 	logger.Info("Backup Database = %s", connection.DBName)
 	params := strings.Split(backupReport.BackupParamsString, "\n")
 	for _, param := range params {
@@ -487,8 +487,8 @@ func BackupTriggers(metadataFile *utils.FileWithByteCount) {
 
 func BackupData(tables []Relation, tableDefs map[uint32]TableDefinition) map[uint32]int64 {
 	if *singleDataFile {
-		CreateSegmentPipesOnAllHostsForBackup(globalCluster)
-		ReadFromSegmentPipes(globalCluster)
+		CreateSegmentPipesOnAllHostsForBackup()
+		ReadFromSegmentPipes()
 	}
 	return BackupDataForAllTables(tables, tableDefs)
 }

@@ -4,10 +4,11 @@ import (
 	"os/user"
 	"regexp"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/restore"
-	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -17,13 +18,6 @@ import (
 )
 
 var _ = Describe("restore/data tests", func() {
-	masterSeg := utils.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
-	localSegOne := utils.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
-	remoteSegOne := utils.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
-	var (
-		testCluster  utils.Cluster
-		testExecutor *testutils.TestExecutor
-	)
 	Describe("CopyTableIn", func() {
 		It("will restore a table from its own file with compression", func() {
 			utils.SetCompressionParameters(true, utils.Compression{Name: "gzip", CompressCommand: "gzip -c -1", DecompressCommand: "gzip -d -c", Extension: ".gz"})
@@ -55,16 +49,25 @@ var _ = Describe("restore/data tests", func() {
 		})
 	})
 	Describe("CheckRowsRestored", func() {
+		masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
+		localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
+		remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
 		var (
+			testCluster  cluster.Cluster
+			testExecutor *testhelper.TestExecutor
+			testFPInfo   utils.FilePathInfo
+
 			expectedRows int64 = 10
 			name               = "public.foo"
 		)
 		BeforeEach(func() {
 			operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
 			operating.System.Hostname = func() (string, error) { return "testHost", nil }
-			testExecutor = &testutils.TestExecutor{}
-			testCluster = utils.NewCluster([]utils.SegConfig{masterSeg, localSegOne, remoteSegOne}, "", "20170101010101", "gpseg")
+			testExecutor = &testhelper.TestExecutor{}
+			testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
 			testCluster.Executor = testExecutor
+			testFPInfo = utils.NewFilePathInfo(testCluster.SegDirMap, "", "20170101010101", "gpseg")
+			backup.SetFPInfo(testFPInfo)
 		})
 		AfterEach(func() {
 			restore.SetOnErrorContinue(false)
@@ -74,7 +77,7 @@ var _ = Describe("restore/data tests", func() {
 		})
 		It("panics if the numbers of rows do not match and there is an error with a segment agent", func() {
 			restore.SetOnErrorContinue(false)
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
+			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				Stdouts: map[int]string{
 					1: "error",
 				},
@@ -89,7 +92,7 @@ var _ = Describe("restore/data tests", func() {
 		})
 		It("panics if the numbers of rows do not match and there is no error with a segment agent", func() {
 			restore.SetOnErrorContinue(false)
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
+			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				Stdouts: map[int]string{
 					1: "",
 				},
@@ -101,7 +104,7 @@ var _ = Describe("restore/data tests", func() {
 		})
 		It("prints an error if the numbers of rows do not match and onErrorContinue is set", func() {
 			restore.SetOnErrorContinue(true)
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
+			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				Stdouts: map[int]string{
 					1: "",
 				},
@@ -111,7 +114,7 @@ var _ = Describe("restore/data tests", func() {
 			restore.CheckRowsRestored(5, expectedRows, name)
 			Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Expected to restore 10 rows to table public.foo, but restored 5 instead")))
 
-			testExecutor.ClusterOutput = &utils.RemoteOutput{
+			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				Stdouts: map[int]string{
 					1: "error",
 				},

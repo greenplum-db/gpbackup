@@ -47,9 +47,9 @@ func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalT
 	}
 	backupFile := ""
 	if backupConfig.SingleDataFile {
-		backupFile = fmt.Sprintf("%s_%d", globalCluster.GetSegmentPipePathForCopyCommand(), globalCluster.PID)
+		backupFile = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), globalFPInfo.PID)
 	} else {
-		backupFile = globalCluster.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
+		backupFile = globalFPInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
 	}
 	numRowsRestored := CopyTableIn(connection, name, entry.AttributeString, backupFile, backupConfig.SingleDataFile, whichConn, entry.Oid)
 	numRowsBackedUp := entry.RowsCopied
@@ -62,7 +62,7 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 		if *onErrorContinue {
 			logger.Error(rowsErrMsg)
 		} else {
-			agentErr := CheckAgentErrorsOnSegments(globalCluster)
+			agentErr := CheckAgentErrorsOnSegments()
 			if agentErr != nil {
 				logger.Error(rowsErrMsg)
 				logger.Fatal(agentErr, "")
