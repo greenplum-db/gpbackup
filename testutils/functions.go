@@ -304,7 +304,9 @@ func OidFromCast(connection *dbconn.DBConn, castSource uint32, castTarget uint32
 		Oid uint32
 	}{}
 	err := connection.Get(&result, query)
-	utils.CheckError(err)
+	if err != nil {
+		Fail(fmt.Sprintf("Execution of query failed: %v", err))
+	}
 	return result.Oid
 }
 
@@ -322,7 +324,9 @@ func OidFromObjectName(connection *dbconn.DBConn, schemaName string, objectName 
 		Oid uint32
 	}{}
 	err := connection.Get(&result, query)
-	utils.CheckError(err)
+	if err != nil {
+		Fail(fmt.Sprintf("Execution of query failed: %v", err))
+	}
 	return result.Oid
 }
 

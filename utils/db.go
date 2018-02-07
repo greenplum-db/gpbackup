@@ -20,7 +20,7 @@ func GetDBSize(connection *dbconn.DBConn) string {
 	size := struct{ DBSize string }{}
 	sizeQuery := fmt.Sprintf("SELECT pg_size_pretty(sodddatsize) as dbsize FROM gp_toolkit.gp_size_of_database WHERE sodddatname=E'%s'", dbconn.EscapeConnectionParam(connection.DBName))
 	err := connection.Get(&size, sizeQuery)
-	CheckError(err)
+	logger.FatalOnError(err)
 	return size.DBSize
 }
 

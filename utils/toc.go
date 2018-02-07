@@ -48,18 +48,18 @@ type SegmentDataEntry struct {
 func NewTOC(filename string) *TOC {
 	toc := &TOC{}
 	contents, err := operating.System.ReadFile(filename)
-	CheckError(err)
+	logger.FatalOnError(err)
 	err = yaml.Unmarshal(contents, toc)
-	CheckError(err)
+	logger.FatalOnError(err)
 	return toc
 }
 
 func NewSegmentTOC(filename string) *SegmentTOC {
 	toc := &SegmentTOC{}
 	contents, err := operating.System.ReadFile(filename)
-	CheckError(err)
+	logger.FatalOnError(err)
 	err = yaml.Unmarshal(contents, toc)
-	CheckError(err)
+	logger.FatalOnError(err)
 	return toc
 }
 
@@ -100,7 +100,7 @@ func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.Re
 		if shouldIncludeObject && shouldIncludeSchema && shouldIncludeTable {
 			contents := make([]byte, entry.EndByte-entry.StartByte)
 			_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
-			CheckError(err)
+			logger.FatalOnError(err)
 			statements = append(statements, StatementWithType{ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
 		}
 	}
@@ -113,7 +113,7 @@ func (toc *TOC) GetAllSQLStatements(section string, metadataFile io.ReaderAt) []
 	for _, entry := range entries {
 		contents := make([]byte, entry.EndByte-entry.StartByte)
 		_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
-		CheckError(err)
+		logger.FatalOnError(err)
 		statements = append(statements, StatementWithType{ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
 	}
 	return statements

@@ -103,9 +103,9 @@ Data File Format: %s`
 func ReadConfigFile(filename string) *BackupConfig {
 	config := &BackupConfig{}
 	contents, err := operating.System.ReadFile(filename)
-	CheckError(err)
+	logger.FatalOnError(err)
 	err = yaml.Unmarshal(contents, config)
-	CheckError(err)
+	logger.FatalOnError(err)
 	return config
 }
 
@@ -206,9 +206,9 @@ func PrintObjectCounts(reportFile io.WriteCloser, objectCounts map[string]int) {
  */
 func EnsureBackupVersionCompatibility(backupVersion string, restoreVersion string) {
 	backupSemVer, err := semver.Make(backupVersion)
-	CheckError(err)
+	logger.FatalOnError(err)
 	restoreSemVer, err := semver.Make(restoreVersion)
-	CheckError(err)
+	logger.FatalOnError(err)
 	if backupSemVer.GT(restoreSemVer) {
 		logger.Fatal(errors.Errorf("gprestore %s cannot restore a backup taken with gpbackup %s; please use gprestore %s or later.",
 			restoreVersion, backupVersion, backupVersion), "")
@@ -219,7 +219,7 @@ func EnsureDatabaseVersionCompatibility(backupGPDBVersion string, restoreGPDBVer
 	pattern := regexp.MustCompile(`\d+\.\d+\.\d+`)
 	threeDigitVersion := pattern.FindStringSubmatch(backupGPDBVersion)[0]
 	backupGPDBSemVer, err := semver.Make(threeDigitVersion)
-	CheckError(err)
+	logger.FatalOnError(err)
 	if backupGPDBSemVer.Major > restoreGPDBVersion.SemVer.Major {
 		logger.Fatal(errors.Errorf("Cannot restore from GPDB version %s to %s due to catalog incompatibilities.", backupGPDBVersion, restoreGPDBVersion.VersionString), "")
 	}
@@ -236,7 +236,7 @@ type EmailContact struct {
 func GetContacts(filename string, utility string) string {
 	contactFile := &ContactFile{}
 	contents, err := operating.System.ReadFile(filename)
-	CheckError(err)
+	logger.FatalOnError(err)
 	err = yaml.Unmarshal(contents, contactFile)
 	if err != nil {
 		logger.Warn("Unable to send email report: Error reading email contacts file.")

@@ -86,7 +86,7 @@ ORDER BY n.nspname, c.relname, a.attnum;`, SchemaFilterClause("n"), utils.SliceT
 
 	results := make([]AttributeStatistic, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	stats := make(map[uint32][]AttributeStatistic, 0)
 	for _, stat := range results {
 		stats[stat.Oid] = append(stats[stat.Oid], stat)
@@ -122,7 +122,7 @@ ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"), utils.SliceToQuotedStr
 
 	results := make([]TupleStatistic, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	stats := make(map[uint32]TupleStatistic, 0)
 	for _, stat := range results {
 		stats[stat.Oid] = stat

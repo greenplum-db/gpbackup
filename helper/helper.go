@@ -131,7 +131,7 @@ func ReadAndCountBytes() uint64 {
 
 func getOidListFromFile() []int {
 	oidStr, err := operating.System.ReadFile(*oidFile)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	oidStrList := strings.Split(strings.TrimSpace(fmt.Sprintf("%s", oidStr)), "\n")
 	oidList := make([]int, len(oidStrList))
 	for i, oid := range oidStrList {
@@ -172,7 +172,7 @@ func doRestoreAgent() {
 		log(fmt.Sprintf("Discarded %d bytes", start-lastByte))
 		bytesRead, err := io.CopyN(writer, reader, int64(end-start))
 		log(fmt.Sprintf("Read %d bytes", bytesRead))
-		utils.CheckError(err)
+		logger.FatalOnError(err)
 		log(fmt.Sprintf("Closing pipe for oid %d", oid))
 		flushAndCloseWriter()
 		lastByte = end
@@ -181,16 +181,16 @@ func doRestoreAgent() {
 
 func createNextPipe() {
 	err := syscall.Mkfifo(nextPipe, 0777)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 }
 
 func getPipeReader() *bufio.Reader {
 	readHandle, err := os.Open(*dataFile)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	var reader *bufio.Reader
 	if strings.HasSuffix(*dataFile, ".gz") {
 		gzipReader, err := gzip.NewReader(readHandle)
-		utils.CheckError(err)
+		logger.FatalOnError(err)
 		reader = bufio.NewReader(gzipReader)
 	} else {
 		reader = bufio.NewReader(readHandle)
@@ -200,7 +200,7 @@ func getPipeReader() *bufio.Reader {
 
 func getPipeWriter(currentPipe string) (*bufio.Writer, *os.File) {
 	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY, os.ModeNamedPipe)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	pipeWriter := bufio.NewWriter(fileHandle)
 	return pipeWriter, fileHandle
 }
@@ -208,12 +208,12 @@ func getPipeWriter(currentPipe string) (*bufio.Writer, *os.File) {
 func flushAndCloseWriter() {
 	if writer != nil {
 		err := writer.Flush()
-		utils.CheckError(err)
+		logger.FatalOnError(err)
 		writer = nil
 	}
 	if writeHandle != nil {
 		err := writeHandle.Close()
-		utils.CheckError(err)
+		logger.FatalOnError(err)
 		writeHandle = nil
 	}
 }
@@ -226,7 +226,7 @@ func fileExists(filename string) bool {
 func removeFileIfExists(filename string) {
 	if fileExists(filename) {
 		err := os.Remove(filename)
-		utils.CheckError(err)
+		logger.FatalOnError(err)
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/lib/pq"
 )
 
@@ -167,7 +166,7 @@ LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typModClause, typCategoryClaus
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	/*
 	 * GPDB 4.3 has no built-in regproc-to-text cast and uses "-" in place of
 	 * NULL for several fields, so to avoid dealing with hyphens later on we
@@ -200,7 +199,7 @@ JOIN pg_namespace n ON t.typnamespace = n.oid`
 
 	compTypes := make([]Type, 0)
 	err := connection.Select(&compTypes, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	attributeMap := getCompositeTypeAttributes(connection)
 
@@ -227,7 +226,7 @@ GROUP BY t.oid`
 
 	results := make([]Attributes, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	attributeMap := make(map[uint32]pq.StringArray, 0)
 	for _, att := range results {
@@ -256,7 +255,7 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -280,7 +279,7 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -300,7 +299,7 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -329,7 +328,7 @@ AND d.deptype = 'n';`, SchemaFilterClause("n"))
 	}, 0)
 	dependencyMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	for _, dependency := range results {
 		referencedFunc := funcInfoMap[dependency.ReferencedOid]
 		dependencyStr := fmt.Sprintf("%s(%s)", referencedFunc.QualifiedName, referencedFunc.Arguments)
@@ -359,7 +358,7 @@ AND d.deptype = 'n';`, SchemaFilterClause("n"))
 	results := make([]Dependency, 0)
 	dependencyMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	for _, dependency := range results {
 		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
 	}
@@ -395,7 +394,7 @@ AND bt.typnamespace != (
 	results := make([]Dependency, 0)
 	dependencyMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	for _, dependency := range results {
 		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
 	}
@@ -426,7 +425,7 @@ AND d.deptype = 'n';`, SchemaFilterClause("n"))
 	results := make([]Dependency, 0)
 	dependencyMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	for _, dependency := range results {
 		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
 	}

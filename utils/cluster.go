@@ -149,7 +149,7 @@ func GetSegPrefix(connection *dbconn.DBConn) string {
 	}
 	result := ""
 	err := connection.Get(&result, query)
-	CheckError(err)
+	logger.FatalOnError(err)
 	_, segPrefix := path.Split(result)
 	segPrefix = segPrefix[:len(segPrefix)-2] // Remove "-1" segment ID from string
 	return segPrefix

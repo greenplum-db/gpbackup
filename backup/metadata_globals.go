@@ -63,7 +63,7 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 			attributes = append(attributes, fmt.Sprintf("ACTIVE_STATEMENTS=%d", resQueue.ActiveStatements))
 		}
 		maxCostFloat, maxCostErr := strconv.ParseFloat(resQueue.MaxCost, 64)
-		utils.CheckError(maxCostErr)
+		logger.FatalOnError(maxCostErr)
 		if maxCostFloat > -1 {
 			attributes = append(attributes, fmt.Sprintf("MAX_COST=%s", resQueue.MaxCost))
 		}
@@ -71,7 +71,7 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 			attributes = append(attributes, "COST_OVERCOMMIT=TRUE")
 		}
 		minCostFloat, minCostErr := strconv.ParseFloat(resQueue.MinCost, 64)
-		utils.CheckError(minCostErr)
+		logger.FatalOnError(minCostErr)
 		if minCostFloat > 0 {
 			attributes = append(attributes, fmt.Sprintf("MIN_COST=%s", resQueue.MinCost))
 		}

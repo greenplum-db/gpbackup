@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gpbackup/utils"
 )
 
 type SessionGUCs struct {
@@ -20,7 +19,7 @@ func GetSessionGUCs(connection *dbconn.DBConn) SessionGUCs {
 	result := SessionGUCs{}
 	query := "SHOW client_encoding;"
 	err := connection.Get(&result, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return result
 }
 
@@ -52,7 +51,7 @@ WHERE d.datname = '%s';`, lcQuery, connection.DBName)
 
 	result := Database{}
 	err := connection.Get(&result, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return result
 }
 
@@ -107,7 +106,7 @@ FROM
 `
 	results := make([]ResourceQueue, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -144,7 +143,7 @@ WHERE t1.reslimittype = 1 AND
 
 	results := make([]ResourceGroup, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -211,7 +210,7 @@ FROM
 
 	roles := make([]Role, 0)
 	err := connection.Select(&roles, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	constraintsByRole := getTimeConstraintsByRole(connection)
 
@@ -236,7 +235,7 @@ FROM
 	`
 
 	err := connection.Select(&timeConstraints, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	constraintsByRole := make(map[uint32][]TimeConstraint, 0)
 	for _, constraint := range timeConstraints {
@@ -269,7 +268,7 @@ ORDER BY roleid, member;`
 
 	results := make([]RoleMember, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -305,6 +304,6 @@ AND spcname != 'pg_global';`
 
 	results := make([]Tablespace, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }

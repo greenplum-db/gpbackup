@@ -51,7 +51,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 			Name string
 		}, 0)
 		err := connection.Select(&resultTables, query)
-		utils.CheckError(err)
+		logger.FatalOnError(err)
 		tableMap := make(map[string]uint32)
 		for _, table := range resultTables {
 			tableMap[table.Name] = table.Oid

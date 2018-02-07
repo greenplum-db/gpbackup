@@ -104,7 +104,7 @@ ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"))
 
 	results := make([]Function, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -138,7 +138,7 @@ ORDER BY nspname, proname;`, SchemaFilterClause("n"))
 
 	results := make([]Function, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -174,7 +174,7 @@ ON p.pronamespace = n.oid;`
 		Mode string
 	}, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	argMap := make(map[uint32]string, 0)
 	tableArgMap := make(map[uint32]string, 0)
@@ -232,7 +232,7 @@ WHERE %s`, SchemaFilterClause("n"))
 
 	results := make([]Function, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	returnMap := make(map[uint32]Function, 0)
 	for _, result := range results {
@@ -333,7 +333,7 @@ AND p.oid NOT IN (select objid from pg_depend where deptype = 'e');`, SchemaFilt
 		query = masterQuery
 	}
 	err := connection.Select(&aggregates, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	if connection.Version.Before("5") {
 		arguments, _ := GetFunctionArgsAndIdentArgs(connection)
 		for i := range aggregates {
@@ -387,7 +387,7 @@ LEFT JOIN pg_namespace n ON p.pronamespace = n.oid;
 	} else {
 		err = connection.Select(&results, query)
 	}
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	for _, function := range results {
 		fqn := utils.MakeFQN(function.Schema, function.Name)
 
@@ -455,7 +455,7 @@ ORDER BY 1, 2;
 
 	casts := make([]Cast, 0)
 	err := connection.Select(&casts, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	if connection.Version.Before("5") {
 		arguments, _ := GetFunctionArgsAndIdentArgs(connection)
 		for i := range casts {
@@ -484,7 +484,7 @@ FROM pg_extension e
 JOIN pg_namespace n ON e.extnamespace = n.oid;
 `
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -534,7 +534,7 @@ AND l.oid NOT IN (select objid from pg_depend where deptype = 'e');`
 	} else {
 		err = connection.Select(&results, query)
 	}
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -568,7 +568,7 @@ AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
 ORDER BY n.nspname, c.conname;`, SchemaFilterClause("n"))
 
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -604,7 +604,7 @@ AND t.typsend != p.oid%s;`, SchemaFilterClause("n"), modStr)
 	results := make([]Dependency, 0)
 	dependencyMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	for _, dependency := range results {
 		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
 	}
@@ -639,7 +639,7 @@ WHERE oid NOT IN (select objid from pg_depend where deptype = 'e')
 ;`)
 
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -671,7 +671,7 @@ LEFT JOIN pg_foreign_data_wrapper fdw ON fdw.oid = srvfdw
 WHERE fs.oid NOT IN (select objid from pg_depend where deptype = 'e');`)
 
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -699,6 +699,6 @@ JOIN pg_foreign_server fs
 ON um.umserver = fs.oid;`)
 
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }

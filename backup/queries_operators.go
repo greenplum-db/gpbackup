@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gpbackup/utils"
 )
 
 type Operator struct {
@@ -71,7 +70,7 @@ AND o.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilte
 	} else {
 		err = connection.Select(&results, masterQuery)
 	}
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -100,7 +99,7 @@ JOIN pg_namespace n on n.oid = o.opfnamespace
 WHERE %s
 AND o.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("n"))
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -165,7 +164,7 @@ AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilte
 	} else {
 		err = connection.Select(&results, masterQuery)
 	}
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	operators := GetOperatorClassOperators(connection)
 	for i := range results {
@@ -230,7 +229,7 @@ ORDER BY amopstrategy
 	} else {
 		err = connection.Select(&results, masterQuery)
 	}
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	operators := make(map[uint32][]OperatorClassOperator, 0)
 	for _, result := range results {
@@ -274,7 +273,7 @@ ORDER BY amprocnum
 	} else {
 		err = connection.Select(&results, masterQuery)
 	}
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	functions := make(map[uint32][]OperatorClassFunction, 0)
 	for _, result := range results {

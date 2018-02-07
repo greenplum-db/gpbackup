@@ -17,12 +17,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CheckError(err error) {
-	if err != nil {
-		logger.Fatal(err, "")
-	}
-}
-
 /*
  * General helper functions
  */

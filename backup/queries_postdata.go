@@ -82,7 +82,7 @@ ORDER BY name;`, SchemaFilterClause("n"))
 
 	results := make([]IndexDefinition, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	filteredIndexes := make([]IndexDefinition, 0)
 	for _, index := range results {
 		// We don't want to quote the index name to use it as a map key, just prepend the schema
@@ -133,7 +133,7 @@ ORDER BY rulename;`, SchemaFilterClause("n"))
 
 	results := make([]QuerySimpleDefinition, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -157,6 +157,6 @@ ORDER BY tgname;`, SchemaFilterClause("n"))
 
 	results := make([]QuerySimpleDefinition, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }

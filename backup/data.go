@@ -58,7 +58,7 @@ func CopyTableOut(connection *dbconn.DBConn, table Relation, backupFile string) 
 	}
 	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.ToString(), copyCommand, tableDelim)
 	result, err := connection.Exec(query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	numRows, _ := result.RowsAffected()
 	return numRows
 }

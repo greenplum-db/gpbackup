@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gpbackup/utils"
 )
 
 func GetExternalTableDefinitions(connection *dbconn.DBConn) map[uint32]ExternalTableDefinition {
@@ -57,7 +56,7 @@ FROM pg_exttable;`
 	} else {
 		err = connection.Select(&results, query)
 	}
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	resultMap := make(map[uint32]ExternalTableDefinition)
 	var extTableDef ExternalTableDefinition
 	for _, result := range results {
@@ -98,7 +97,7 @@ SELECT
 FROM pg_extprotocol p;
 `
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -164,7 +163,7 @@ FROM (
 ) AS subquery;
 `
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	extPartitions := make([]PartitionInfo, 0)
 	partInfoMap := make(map[uint32]PartitionInfo, len(results))

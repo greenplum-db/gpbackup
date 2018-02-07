@@ -46,7 +46,7 @@ ORDER BY name;`, SchemaFilterClause("n"))
 	results := make([]Schema, 0)
 
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -119,7 +119,7 @@ ORDER BY name;
 	}
 	results := make([]Constraint, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return results
 }
 
@@ -269,7 +269,7 @@ ORDER BY o.oid;
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 	return ConstructMetadataMap(results)
 }
 
@@ -308,7 +308,7 @@ SELECT
 		Comment string
 	}, 0)
 	err := connection.Select(&results, query)
-	utils.CheckError(err)
+	logger.FatalOnError(err)
 
 	metadataMap := make(MetadataMap)
 	if len(results) > 0 {
