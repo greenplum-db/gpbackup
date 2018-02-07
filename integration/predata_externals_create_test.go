@@ -232,7 +232,7 @@ FORMAT 'csv';`)
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a two level partition", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			externalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       10,
 				PartitionParentRuleOid: 11,
@@ -284,7 +284,7 @@ SUBPARTITION eur values ('eur'))
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a three level partition", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			externalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       10,
 				PartitionParentRuleOid: 11,

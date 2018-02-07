@@ -455,7 +455,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator family", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testfam USING hash")
 				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testfam USING hash")
 
@@ -485,7 +485,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search dictionary", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH DICTIONARY testdictionary(TEMPLATE = snowball, LANGUAGE = 'russian', STOPWORDS = 'russian');")
 				defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH DICTIONARY testdictionary")
 				testhelper.AssertQueryRuns(connection, "COMMENT ON TEXT SEARCH DICTIONARY testdictionary IS 'This is a text search dictionary comment.'")
@@ -500,7 +500,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_TSCONFIGURATION)
 				configurationMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH CONFIGURATION", false, true, true)
 				configurationMetadata := configurationMetadataMap[1]
@@ -718,7 +718,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator family in a specific schema", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY public.testfam USING hash")
 				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY public.testfam USING hash")
 				testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
@@ -763,7 +763,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search dictionary in a specific schema", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH DICTIONARY public.testdictionary(TEMPLATE = snowball, LANGUAGE = 'russian', STOPWORDS = 'russian');")
 				defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
 				testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
@@ -783,7 +783,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration in a specific schema", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_TSCONFIGURATION)
 				configurationMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH CONFIGURATION", false, true, true)
 				configurationMetadata := configurationMetadataMap[1]
@@ -888,7 +888,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a cast in 5", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_CAST)
 				numCasts := len(resultMetadataMap)
 
@@ -946,7 +946,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search parser", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				parserMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH PARSER", false, false, true)
 				parserMetadata := parserMetadataMap[1]
 
@@ -962,7 +962,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search template", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				templateMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH TEMPLATE", false, false, true)
 				templateMetadata := templateMetadataMap[1]
 
@@ -978,7 +978,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for an extension", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
 				extensionMetadata := extensionMetadataMap[1]
 
@@ -1040,7 +1040,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search parser in a specific schema", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				parserMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH PARSER", false, false, true)
 				parserMetadata := parserMetadataMap[1]
 
@@ -1061,7 +1061,7 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search template in a specific schema", func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 				templateMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH TEMPLATE", false, false, true)
 				templateMetadata := templateMetadataMap[1]
 

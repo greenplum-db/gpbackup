@@ -76,7 +76,7 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetOperatorFamilies", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a slice of operator families", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testfam USING hash;")
@@ -128,7 +128,7 @@ var _ = Describe("backup integration tests", func() {
 			}
 		})
 		It("returns a slice of operator classes with an operator family", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema CASCADE")
 

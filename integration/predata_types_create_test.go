@@ -76,7 +76,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 
 		It("creates enum types", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			enums := []backup.Type{enumType}
 			backup.PrintCreateEnumTypeStatements(backupfile, toc, enums, typeMetadataMap)
 

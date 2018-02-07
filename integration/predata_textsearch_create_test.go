@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
-		testutils.SkipIf4(connection)
+		testutils.SkipIfBefore5(connection)
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateTextSearchParserStatements", func() {

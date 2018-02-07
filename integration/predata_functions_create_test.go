@@ -74,7 +74,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		Context("Tests for GPDB 5 and GPDB 6", func() {
 			BeforeEach(func() {
-				testutils.SkipIf4(connection)
+				testutils.SkipIfBefore5(connection)
 			})
 			funcMetadata := backup.ObjectMetadata{}
 			It("creates a function with a simple return type", func() {
@@ -375,7 +375,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateExtensions", func() {
 		It("creates extensions", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			extension := backup.Extension{Oid: 1, Name: "plperl", Schema: "pg_catalog"}
 			extensions := []backup.Extension{extension}
 			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)

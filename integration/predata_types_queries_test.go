@@ -102,7 +102,7 @@ var _ = Describe("backup integration tests", func() {
 			}
 		})
 		It("returns a slice for an enum type", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE TYPE enum_type AS ENUM ('label1','label2','label3')")
 			defer testhelper.AssertQueryRuns(connection, "DROP TYPE enum_type")
 
@@ -249,7 +249,7 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("ConstructBaseTypeDependencies5", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
 			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
 		})

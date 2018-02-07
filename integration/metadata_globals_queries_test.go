@@ -104,7 +104,7 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetResourceGroups", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a slice for a resource group with everything", func() {
 			testhelper.AssertQueryRuns(connection, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=15);`)

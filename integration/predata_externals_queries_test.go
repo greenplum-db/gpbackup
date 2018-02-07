@@ -70,7 +70,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 		It("returns a slice for a complex external table definition with options", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
 LOCATION ('file://tmp/myfile.txt')
 FORMAT 'TEXT'
@@ -178,7 +178,7 @@ FORMAT 'csv';`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("returns a slice of info for a two level partition", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, `
 CREATE TABLE part_tbl (a int,b date,c text,d int)
 DISTRIBUTED BY (a)
@@ -215,7 +215,7 @@ SUBPARTITION eur values ('eur'))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 		It("returns a slice of info for a three level partition", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, `
 CREATE TABLE part_tbl (id int, year int, month int, day int, region text)
 DISTRIBUTED BY (id)

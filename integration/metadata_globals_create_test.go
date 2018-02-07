@@ -67,7 +67,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateResourceGroupStatements", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("creates a basic resource group", func() {
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30}

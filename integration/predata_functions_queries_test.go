@@ -12,7 +12,7 @@ import (
 var _ = Describe("backup integration tests", func() {
 	Describe("GetFunctions5", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a slice of functions", func() {
 			testhelper.AssertQueryRuns(connection, `CREATE FUNCTION add(integer, integer) RETURNS integer
@@ -352,7 +352,7 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&castDef, &results[0], "Oid", "FunctionOid")
 		})
 		It("returns a slice for a basic cast with a function in 5 and 6", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION casttoint(text) RETURNS integer STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT cast($1 as integer);'")
 			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION casttoint(text)")
 			testhelper.AssertQueryRuns(connection, "CREATE CAST (text AS integer) WITH FUNCTION casttoint(text) AS ASSIGNMENT")
@@ -419,7 +419,7 @@ LANGUAGE SQL`)
 	})
 	Describe("GetExtensions", func() {
 		It("returns a slice of extension", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE EXTENSION plperl")
 			defer testhelper.AssertQueryRuns(connection, "DROP EXTENSION plperl")
 

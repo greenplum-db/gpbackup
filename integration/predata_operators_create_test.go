@@ -60,7 +60,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateOperatorFamilyStatements", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("creates operator family", func() {
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
@@ -116,7 +116,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&operatorClass, &resultOperatorClasses[0], "Oid")
 		})
 		It("creates complex operator class", func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 			operatorClass := backup.OperatorClass{Oid: 0, Schema: "public", Name: "testclass", FamilySchema: "public", FamilyName: "testfam", IndexMethod: "gist", Type: "integer", Default: true, StorageType: "-", Operators: nil, Functions: nil}
 			if connection.Version.Before("5") { // Operator families do not exist prior to GPDB5
 				operatorClass.FamilySchema = ""

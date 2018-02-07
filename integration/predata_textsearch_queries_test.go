@@ -13,7 +13,7 @@ import (
 var _ = Describe("backup integration tests", func() {
 	Describe("GetTextSearchParsers", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a text search parser without a headline", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH PARSER testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
@@ -54,7 +54,7 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetTextSearchTemplates", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a text search template without an init function", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH TEMPLATE testtemplate(LEXIZE = dsimple_lexize);")
@@ -95,7 +95,7 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetTextSearchDictionaries", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a text search dictionary with init options", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH DICTIONARY testdictionary(TEMPLATE = snowball, LANGUAGE = 'russian', STOPWORDS = 'russian');")
@@ -133,7 +133,7 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetTextSearchConfigurations", func() {
 		BeforeEach(func() {
-			testutils.SkipIf4(connection)
+			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a text search configuration without an init function", func() {
 			testhelper.AssertQueryRuns(connection, `CREATE TEXT SEARCH CONFIGURATION testconfiguration (PARSER = pg_catalog."default");`)

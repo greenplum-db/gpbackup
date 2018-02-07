@@ -330,15 +330,15 @@ func GetUserByID(connection *dbconn.DBConn, oid uint32) string {
 	return dbconn.MustSelectString(connection, fmt.Sprintf("SELECT rolname AS string FROM pg_roles WHERE oid = %d", oid))
 }
 
-func SkipIf4(connection *dbconn.DBConn) {
-	if connection.Version.Before("5") {
-		Skip("Test not applicable to GPDB4")
-	}
-}
-
 func SkipIfNot4(connection *dbconn.DBConn) {
 	if connection.Version.AtLeast("5") {
 		Skip("Test only applicable to GPDB4")
+	}
+}
+
+func SkipIfBefore5(connection *dbconn.DBConn) {
+	if connection.Version.Before("5") {
+		Skip("Test only applicable to GPDB5 and above")
 	}
 }
 
