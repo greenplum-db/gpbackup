@@ -4,6 +4,7 @@ import (
 	"regexp"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -27,9 +28,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			// CREATE RESOURCE QUEUE statements can not be part of a multi-command statement, so
 			// feed the CREATE RESOURCE QUEUE and COMMENT ON statements separately.
 			hunks := regexp.MustCompile(";\n\n").Split(buffer.String(), 2)
-			testutils.AssertQueryRuns(connection, hunks[0])
-			defer testutils.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "basicQueue"`)
-			testutils.AssertQueryRuns(connection, hunks[1])
+			testhelper.AssertQueryRuns(connection, hunks[0])
+			defer testhelper.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "basicQueue"`)
+			testhelper.AssertQueryRuns(connection, hunks[1])
 
 			resultResourceQueues := backup.GetResourceQueues(connection)
 			resQueueOid := testutils.OidFromObjectName(connection, "", "basicQueue", backup.TYPE_RESOURCEQUEUE)
@@ -50,8 +51,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			backup.PrintCreateResourceQueueStatements(backupfile, toc, []backup.ResourceQueue{everythingQueue}, emptyMetadataMap)
 
-			testutils.AssertQueryRuns(connection, buffer.String())
-			defer testutils.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "everythingQueue"`)
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "everythingQueue"`)
 
 			resultResourceQueues := backup.GetResourceQueues(connection)
 
@@ -74,8 +75,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{someGroup}, emptyMetadataMap)
 
-			testutils.AssertQueryRuns(connection, buffer.String())
-			defer testutils.AssertQueryRuns(connection, `DROP RESOURCE GROUP some_group`)
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP RESOURCE GROUP some_group`)
 
 			resultResourceGroups := backup.GetResourceGroups(connection)
 
@@ -95,7 +96,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			hunks := regexp.MustCompile(";\n\n").Split(buffer.String(), 5)
 			for i := 0; i < 5; i++ {
-				testutils.AssertQueryRuns(connection, hunks[i])
+				testhelper.AssertQueryRuns(connection, hunks[i])
 			}
 			resultResourceGroups := backup.GetResourceGroups(connection)
 
@@ -137,8 +138,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyMetadataMap)
 
-			testutils.AssertQueryRuns(connection, buffer.String())
-			defer testutils.AssertQueryRuns(connection, `DROP ROLE "role1"`)
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP ROLE "role1"`)
 			role1.Oid = testutils.OidFromObjectName(connection, "", "role1", backup.TYPE_ROLE)
 
 			resultRoles := backup.GetRoles(connection)
@@ -192,8 +193,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, metadataMap)
 
-			testutils.AssertQueryRuns(connection, buffer.String())
-			defer testutils.AssertQueryRuns(connection, `DROP ROLE "role1"`)
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP ROLE "role1"`)
 			role1.Oid = testutils.OidFromObjectName(connection, "", "role1", backup.TYPE_ROLE)
 
 			resultRoles := backup.GetRoles(connection)
@@ -208,19 +209,19 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintRoleMembershipStatements", func() {
 		BeforeEach(func() {
-			testutils.AssertQueryRuns(connection, `CREATE ROLE usergroup`)
-			testutils.AssertQueryRuns(connection, `CREATE ROLE testuser`)
+			testhelper.AssertQueryRuns(connection, `CREATE ROLE usergroup`)
+			testhelper.AssertQueryRuns(connection, `CREATE ROLE testuser`)
 		})
 		AfterEach(func() {
-			defer testutils.AssertQueryRuns(connection, `DROP ROLE usergroup`)
-			defer testutils.AssertQueryRuns(connection, `DROP ROLE testuser`)
+			defer testhelper.AssertQueryRuns(connection, `DROP ROLE usergroup`)
+			defer testhelper.AssertQueryRuns(connection, `DROP ROLE testuser`)
 		})
 		It("grants a role without ADMIN OPTION", func() {
 			numRoleMembers := len(backup.GetRoleMembers(connection))
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: false}
 			backup.PrintRoleMembershipStatements(backupfile, toc, []backup.RoleMember{expectedRoleMember})
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultRoleMembers := backup.GetRoleMembers(connection)
 			Expect(len(resultRoleMembers)).To(Equal(numRoleMembers + 1))
@@ -237,7 +238,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: true}
 			backup.PrintRoleMembershipStatements(backupfile, toc, []backup.RoleMember{expectedRoleMember})
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultRoleMembers := backup.GetRoleMembers(connection)
 			Expect(len(resultRoleMembers)).To(Equal(numRoleMembers + 1))
@@ -264,8 +265,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
 
-			testutils.AssertQueryRuns(connection, buffer.String())
-			defer testutils.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 
 			resultTablespaces := backup.GetTablespaces(connection)
 			Expect(len(resultTablespaces)).To(Equal(numTablespaces + 1))
@@ -292,12 +293,12 @@ var _ = Describe("backup integration create statement tests", func() {
 				entries, _ := testutils.SliceBufferByEntries(toc.GlobalEntries, gbuffer)
 				Expect(len(entries)).To(Equal(2))
 				create, metadata := entries[0], entries[1]
-				testutils.AssertQueryRuns(connection, create)
-				defer testutils.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
-				testutils.AssertQueryRuns(connection, metadata)
+				testhelper.AssertQueryRuns(connection, create)
+				defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
+				testhelper.AssertQueryRuns(connection, metadata)
 			} else {
-				testutils.AssertQueryRuns(connection, buffer.String())
-				defer testutils.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
+				testhelper.AssertQueryRuns(connection, buffer.String())
+				defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 			}
 
 			resultTablespaces := backup.GetTablespaces(connection)

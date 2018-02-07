@@ -9,6 +9,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -48,11 +49,11 @@ var _ = BeforeSuite(func() {
 	utils.SetDatabaseVersion(connection)
 	backup.InitializeMetadataParams(connection)
 	backup.SetConnection(connection)
-	testutils.AssertQueryRuns(connection, "SET ROLE testrole")
-	testutils.AssertQueryRuns(connection, "ALTER DATABASE testdb OWNER TO anothertestrole")
-	testutils.AssertQueryRuns(connection, "ALTER SCHEMA public OWNER TO anothertestrole")
-	testutils.AssertQueryRuns(connection, "DROP PROTOCOL IF EXISTS gphdfs")
-	testutils.AssertQueryRuns(connection, `SET standard_conforming_strings TO "on"`)
+	testhelper.AssertQueryRuns(connection, "SET ROLE testrole")
+	testhelper.AssertQueryRuns(connection, "ALTER DATABASE testdb OWNER TO anothertestrole")
+	testhelper.AssertQueryRuns(connection, "ALTER SCHEMA public OWNER TO anothertestrole")
+	testhelper.AssertQueryRuns(connection, "DROP PROTOCOL IF EXISTS gphdfs")
+	testhelper.AssertQueryRuns(connection, `SET standard_conforming_strings TO "on"`)
 	segConfig := cluster.GetSegmentConfiguration(connection)
 	testCluster = cluster.NewCluster(segConfig)
 	if connection.Version.Before("6") {
@@ -93,8 +94,8 @@ var _ = AfterSuite(func() {
 	}
 	connection1 := dbconn.NewDBConn("template1")
 	connection1.MustConnect(1)
-	testutils.AssertQueryRuns(connection1, "DROP ROLE testrole")
-	testutils.AssertQueryRuns(connection1, "DROP ROLE anothertestrole")
+	testhelper.AssertQueryRuns(connection1, "DROP ROLE testrole")
+	testhelper.AssertQueryRuns(connection1, "DROP ROLE anothertestrole")
 	connection1.Close()
 })
 
@@ -102,7 +103,7 @@ func setupTestFilespace(testCluster cluster.Cluster) {
 	backup.CreateBackupDirectoriesOnAllHosts()
 	// Construct a filespace config like the one that gpfilespace generates
 	filespaceConfigQuery := `COPY (SELECT hostname || ':' || dbid || ':/tmp/test_dir/' || preferred_role || content FROM gp_segment_configuration AS subselect) TO '/tmp/temp_filespace_config';`
-	testutils.AssertQueryRuns(connection, filespaceConfigQuery)
+	testhelper.AssertQueryRuns(connection, filespaceConfigQuery)
 	out, err := exec.Command("bash", "-c", "echo \"filespace:test_dir\" > /tmp/filespace_config").CombinedOutput()
 	if err != nil {
 		Fail(fmt.Sprintf("Cannot create test filespace configuration: %s: %s", out, err.Error()))
@@ -127,7 +128,7 @@ func destroyTestFilespace() {
 	if filespaceName != "test_dir" {
 		return
 	}
-	testutils.AssertQueryRuns(connection, "DROP FILESPACE test_dir")
+	testhelper.AssertQueryRuns(connection, "DROP FILESPACE test_dir")
 	out, err := exec.Command("bash", "-c", "rm -rf /tmp/test_dir /tmp/filespace_config /tmp/temp_filespace_config").CombinedOutput()
 	if err != nil {
 		Fail(fmt.Sprintf("Could not remove test filespace directory and configuration files: %s: %s", out, err.Error()))

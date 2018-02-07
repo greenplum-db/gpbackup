@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
@@ -42,8 +43,8 @@ var _ = Describe("backup integration tests", func() {
 			}
 		})
 		It("returns a slice for a shell type", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE shell_type")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE shell_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE shell_type")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE shell_type")
 
 			results := backup.GetShellTypes(connection)
 
@@ -51,8 +52,8 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchIncluding(&shellType, &results[0], "Schema", "Name", "Type")
 		})
 		It("returns a slice of composite types", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE composite_type AS (name int4, name2 int, name1 text);")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE composite_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE composite_type AS (name int4, name2 int, name1 text);")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE composite_type")
 
 			results := backup.GetCompositeTypes(connection)
 
@@ -60,11 +61,11 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name")
 		})
 		It("returns a slice for a base type with default values", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
 
 			results := backup.GetBaseTypes(connection)
 
@@ -76,16 +77,16 @@ var _ = Describe("backup integration tests", func() {
 			}
 		})
 		It("returns a slice for a base type with custom configuration", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
 			if connection.Version.Before("6") {
-				testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';')")
+				testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';')")
 			} else {
-				testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';', CATEGORY='N', PREFERRED=true)")
+				testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';', CATEGORY='N', PREFERRED=true)")
 			}
-			testutils.AssertQueryRuns(connection, "ALTER TYPE base_type SET DEFAULT ENCODING (compresstype=zlib)")
+			testhelper.AssertQueryRuns(connection, "ALTER TYPE base_type SET DEFAULT ENCODING (compresstype=zlib)")
 
 			results := backup.GetBaseTypes(connection)
 
@@ -102,8 +103,8 @@ var _ = Describe("backup integration tests", func() {
 		})
 		It("returns a slice for an enum type", func() {
 			testutils.SkipIf4(connection)
-			testutils.AssertQueryRuns(connection, "CREATE TYPE enum_type AS ENUM ('label1','label2','label3')")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE enum_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE enum_type AS ENUM ('label1','label2','label3')")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE enum_type")
 
 			results := backup.GetEnumTypes(connection)
 
@@ -111,19 +112,19 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &enumType, "Oid")
 		})
 		It("does not return types for sequences or views", func() {
-			testutils.AssertQueryRuns(connection, "CREATE SEQUENCE my_sequence START 10")
-			defer testutils.AssertQueryRuns(connection, "DROP SEQUENCE my_sequence")
-			testutils.AssertQueryRuns(connection, "CREATE VIEW simpleview AS SELECT rolname FROM pg_roles")
-			defer testutils.AssertQueryRuns(connection, "DROP VIEW simpleview")
+			testhelper.AssertQueryRuns(connection, "CREATE SEQUENCE my_sequence START 10")
+			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE my_sequence")
+			testhelper.AssertQueryRuns(connection, "CREATE VIEW simpleview AS SELECT rolname FROM pg_roles")
+			defer testhelper.AssertQueryRuns(connection, "DROP VIEW simpleview")
 
 			results := backup.GetCompositeTypes(connection)
 
 			Expect(len(results)).To(Equal(0))
 		})
 		It("does not return implicit base or composite types for tables with length > NAMEDATALEN", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TABLE looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong(i int)")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong(i int)")
 			// The table's name will be truncated to 63 characters upon creation, as will the names of its implicit types
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo;")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo;")
 
 			bases := backup.GetBaseTypes(connection)
 			composites := backup.GetCompositeTypes(connection)
@@ -135,8 +136,8 @@ var _ = Describe("backup integration tests", func() {
 			domainType := backup.Type{
 				Oid: 1, Type: "d", Schema: "public", Name: "domain1", DefaultVal: "4", BaseType: `"numeric"`, NotNull: false,
 			}
-			testutils.AssertQueryRuns(connection, "CREATE DOMAIN domain1 AS numeric DEFAULT 4")
-			defer testutils.AssertQueryRuns(connection, "DROP DOMAIN domain1")
+			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN domain1 AS numeric DEFAULT 4")
+			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN domain1")
 
 			results := backup.GetDomainTypes(connection)
 
@@ -144,12 +145,12 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchIncluding(&results[0], &domainType, "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
 		})
 		It("returns a slice for a type in a specific schema", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE shell_type")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE shell_type")
-			testutils.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
-			defer testutils.AssertQueryRuns(connection, "DROP SCHEMA testschema")
-			testutils.AssertQueryRuns(connection, "CREATE TYPE testschema.shell_type")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE testschema.shell_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE shell_type")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE shell_type")
+			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
+			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE testschema.shell_type")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE testschema.shell_type")
 			backup.SetIncludeSchemas([]string{"testschema"})
 
 			results := backup.GetShellTypes(connection)
@@ -161,20 +162,20 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("ConstructCompositeTypeDependencies", func() {
 		BeforeEach(func() {
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in2(cstring) RETURNS base_type2 AS 'boolin' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out2(base_type2) RETURNS cstring AS 'boolout' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type2(INPUT=base_fn_in2, OUTPUT=base_fn_out2)")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in2(cstring) RETURNS base_type2 AS 'boolin' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out2(base_type2) RETURNS cstring AS 'boolout' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type2(INPUT=base_fn_in2, OUTPUT=base_fn_out2)")
 		})
 		AfterEach(func() {
-			testutils.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
-			testutils.AssertQueryRuns(connection, "DROP TYPE base_type2 CASCADE")
+			testhelper.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
+			testhelper.AssertQueryRuns(connection, "DROP TYPE base_type2 CASCADE")
 		})
 		It("constructs dependencies correctly for a composite type dependent on one user-defined type", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE comp_type AS (base base_type, builtin integer)")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE comp_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE comp_type AS (base base_type, builtin integer)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE comp_type")
 
 			composites := backup.GetCompositeTypes(connection)
 			compTypes := backup.ConstructCompositeTypeDependencies(connection, composites)
@@ -184,8 +185,8 @@ var _ = Describe("backup integration tests", func() {
 			Expect(compTypes[0].DependsUpon[0]).To(Equal("public.base_type"))
 		})
 		It("constructs dependencies correctly for a composite type dependent on multiple user-defined types", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE comp_type AS (base base_type, base2 base_type2)")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE comp_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE comp_type AS (base base_type, base2 base_type2)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE comp_type")
 
 			composites := backup.GetCompositeTypes(connection)
 			compTypes := backup.ConstructCompositeTypeDependencies(connection, composites)
@@ -196,8 +197,8 @@ var _ = Describe("backup integration tests", func() {
 			Expect(compTypes[0].DependsUpon).To(Equal([]string{"public.base_type", "public.base_type2"}))
 		})
 		It("constructs dependencies correctly for a composite type dependent on the same user-defined type multiple times", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE comp_type AS (base base_type, base2 base_type)")
-			defer testutils.AssertQueryRuns(connection, "DROP TYPE comp_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE comp_type AS (base base_type, base2 base_type)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE comp_type")
 
 			composites := backup.GetCompositeTypes(connection)
 			compTypes := backup.ConstructCompositeTypeDependencies(connection, composites)
@@ -211,18 +212,18 @@ var _ = Describe("backup integration tests", func() {
 		funcInfoMap := map[uint32]backup.FunctionInfo{}
 		BeforeEach(func() {
 			testutils.SkipIfNot4(connection)
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
 			inOid := testutils.OidFromObjectName(connection, "public", "base_fn_in", backup.TYPE_FUNCTION)
 			outOid := testutils.OidFromObjectName(connection, "public", "base_fn_out", backup.TYPE_FUNCTION)
 			funcInfoMap[inOid] = backup.FunctionInfo{QualifiedName: "public.base_fn_in", Arguments: "cstring"}
 			funcInfoMap[outOid] = backup.FunctionInfo{QualifiedName: "public.base_fn_out", Arguments: "base_type"}
 		})
 		AfterEach(func() {
-			testutils.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
+			testhelper.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
 		})
 		It("constructs dependencies on user-defined functions", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
 
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies4(connection, bases, funcInfoMap)
@@ -234,7 +235,7 @@ var _ = Describe("backup integration tests", func() {
 			Expect(baseTypes[0].DependsUpon[1]).To(Equal("public.base_fn_out(base_type)"))
 		})
 		It("doesn't construct dependencies on built-in functions", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, TYPMOD_IN=numerictypmodin, TYPMOD_OUT=numerictypmodout)")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, TYPMOD_IN=numerictypmodin, TYPMOD_OUT=numerictypmodout)")
 
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies4(connection, bases, funcInfoMap)
@@ -249,14 +250,14 @@ var _ = Describe("backup integration tests", func() {
 	Describe("ConstructBaseTypeDependencies5", func() {
 		BeforeEach(func() {
 			testutils.SkipIf4(connection)
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
-			testutils.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_in(cstring) RETURNS base_type AS 'boolin' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connection, "CREATE FUNCTION base_fn_out(base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
 		})
 		AfterEach(func() {
-			testutils.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
+			testhelper.AssertQueryRuns(connection, "DROP TYPE base_type CASCADE")
 		})
 		It("constructs dependencies on user-defined functions", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out)")
 
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies5(connection, bases)
@@ -268,7 +269,7 @@ var _ = Describe("backup integration tests", func() {
 			Expect(baseTypes[0].DependsUpon[1]).To(Equal("public.base_fn_out(base_type)"))
 		})
 		It("doesn't construct dependencies on built-in functions", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, TYPMOD_IN=numerictypmodin, TYPMOD_OUT=numerictypmodout)")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE base_type(INPUT=base_fn_in, OUTPUT=base_fn_out, TYPMOD_IN=numerictypmodin, TYPMOD_OUT=numerictypmodout)")
 
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies5(connection, bases)
@@ -282,10 +283,10 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("ConstructDomainDependencies", func() {
 		It("constructs dependencies on user-defined types", func() {
-			testutils.AssertQueryRuns(connection, "CREATE DOMAIN parent_domain AS integer")
-			defer testutils.AssertQueryRuns(connection, "DROP DOMAIN parent_domain")
-			testutils.AssertQueryRuns(connection, "CREATE DOMAIN domain_type AS parent_domain")
-			defer testutils.AssertQueryRuns(connection, "DROP DOMAIN domain_type")
+			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN parent_domain AS integer")
+			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN parent_domain")
+			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN domain_type AS parent_domain")
+			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN domain_type")
 
 			domains := backup.GetDomainTypes(connection)
 			domains = backup.ConstructDomainDependencies(connection, domains)
@@ -295,8 +296,8 @@ var _ = Describe("backup integration tests", func() {
 			Expect(domains[0].DependsUpon[0]).To(Equal("public.parent_domain"))
 		})
 		It("doesn't construct dependencies on built-in types", func() {
-			testutils.AssertQueryRuns(connection, "CREATE DOMAIN parent_domain AS integer")
-			defer testutils.AssertQueryRuns(connection, "DROP DOMAIN parent_domain")
+			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN parent_domain AS integer")
+			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN parent_domain")
 
 			domains := backup.GetDomainTypes(connection)
 			domains = backup.ConstructDomainDependencies(connection, domains)

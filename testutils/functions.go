@@ -278,11 +278,6 @@ func ExpectEntry(entries []utils.MetadataEntry, index int, schema, referenceObje
 	structmatcher.ExpectStructsToMatchExcluding(entries[index], utils.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
 }
 
-func AssertQueryRuns(connection *dbconn.DBConn, query string) {
-	_, err := connection.Exec(query)
-	Expect(err).To(BeNil(), "%s", query)
-}
-
 func ExecuteSQLFile(connection *dbconn.DBConn, filename string) {
 	connStr := []string{
 		"-U", connection.User,

@@ -2,6 +2,7 @@ package integration
 
 import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -22,11 +23,11 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetDatabaseGUCs", func() {
 		It("returns a slice of values for database level GUCs", func() {
-			testutils.AssertQueryRuns(connection, "ALTER DATABASE testdb SET default_with_oids TO true")
-			defer testutils.AssertQueryRuns(connection, "ALTER DATABASE testdb SET default_with_oids TO false")
-			testutils.AssertQueryRuns(connection, "ALTER DATABASE testdb SET search_path TO public,pg_catalog")
-			defer testutils.AssertQueryRuns(connection, "ALTER DATABASE testdb SET search_path TO pg_catalog,public")
-			testutils.AssertQueryRuns(connection, "ALTER DATABASE testdb SET lc_time TO 'C'")
+			testhelper.AssertQueryRuns(connection, "ALTER DATABASE testdb SET default_with_oids TO true")
+			defer testhelper.AssertQueryRuns(connection, "ALTER DATABASE testdb SET default_with_oids TO false")
+			testhelper.AssertQueryRuns(connection, "ALTER DATABASE testdb SET search_path TO public,pg_catalog")
+			defer testhelper.AssertQueryRuns(connection, "ALTER DATABASE testdb SET search_path TO pg_catalog,public")
+			testhelper.AssertQueryRuns(connection, "ALTER DATABASE testdb SET lc_time TO 'C'")
 			results := backup.GetDatabaseGUCs(connection)
 			Expect(len(results)).To(Equal(3))
 			Expect(results[0]).To(Equal(`SET default_with_oids TO "true"`))
@@ -37,11 +38,11 @@ var _ = Describe("backup integration tests", func() {
 	Describe("GetDatabaseInfo", func() {
 		It("returns a database info struct", func() {
 			if connection.Version.Before("6") {
-				testutils.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
+				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
 			} else {
-				testutils.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
+				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 			}
-			defer testutils.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 
 			result := backup.GetDatabaseInfo(connection)
 
@@ -51,8 +52,8 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetResourceQueues", func() {
 		It("returns a slice for a resource queue with only ACTIVE_STATEMENTS", func() {
-			testutils.AssertQueryRuns(connection, `CREATE RESOURCE QUEUE "statementsQueue" WITH (ACTIVE_STATEMENTS=7);`)
-			defer testutils.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "statementsQueue"`)
+			testhelper.AssertQueryRuns(connection, `CREATE RESOURCE QUEUE "statementsQueue" WITH (ACTIVE_STATEMENTS=7);`)
+			defer testhelper.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "statementsQueue"`)
 
 			results := backup.GetResourceQueues(connection)
 
@@ -68,8 +69,8 @@ var _ = Describe("backup integration tests", func() {
 			Fail("Resource queue 'statementsQueue' was not found.")
 		})
 		It("returns a slice for a resource queue with only MAX_COST", func() {
-			testutils.AssertQueryRuns(connection, `CREATE RESOURCE QUEUE "maxCostQueue" WITH (MAX_COST=32.8);`)
-			defer testutils.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "maxCostQueue"`)
+			testhelper.AssertQueryRuns(connection, `CREATE RESOURCE QUEUE "maxCostQueue" WITH (MAX_COST=32.8);`)
+			defer testhelper.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "maxCostQueue"`)
 
 			results := backup.GetResourceQueues(connection)
 
@@ -84,8 +85,8 @@ var _ = Describe("backup integration tests", func() {
 			Fail("Resource queue 'maxCostQueue' was not found.")
 		})
 		It("returns a slice for a resource queue with everything", func() {
-			testutils.AssertQueryRuns(connection, `CREATE RESOURCE QUEUE "everyQueue" WITH (ACTIVE_STATEMENTS=7, MAX_COST=3e+4, COST_OVERCOMMIT=TRUE, MIN_COST=22.53, PRIORITY=LOW, MEMORY_LIMIT='2GB');`)
-			defer testutils.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "everyQueue"`)
+			testhelper.AssertQueryRuns(connection, `CREATE RESOURCE QUEUE "everyQueue" WITH (ACTIVE_STATEMENTS=7, MAX_COST=3e+4, COST_OVERCOMMIT=TRUE, MIN_COST=22.53, PRIORITY=LOW, MEMORY_LIMIT='2GB');`)
+			defer testhelper.AssertQueryRuns(connection, `DROP RESOURCE QUEUE "everyQueue"`)
 
 			results := backup.GetResourceQueues(connection)
 
@@ -106,8 +107,8 @@ var _ = Describe("backup integration tests", func() {
 			testutils.SkipIf4(connection)
 		})
 		It("returns a slice for a resource group with everything", func() {
-			testutils.AssertQueryRuns(connection, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=15);`)
-			defer testutils.AssertQueryRuns(connection, `DROP RESOURCE GROUP "someGroup"`)
+			testhelper.AssertQueryRuns(connection, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=15);`)
+			defer testhelper.AssertQueryRuns(connection, `DROP RESOURCE GROUP "someGroup"`)
 
 			results := backup.GetResourceGroups(connection)
 
@@ -124,8 +125,8 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetDatabaseRoles", func() {
 		It("returns a role with default properties", func() {
-			testutils.AssertQueryRuns(connection, "CREATE ROLE role1 SUPERUSER NOINHERIT")
-			defer testutils.AssertQueryRuns(connection, "DROP ROLE role1")
+			testhelper.AssertQueryRuns(connection, "CREATE ROLE role1 SUPERUSER NOINHERIT")
+			defer testhelper.AssertQueryRuns(connection, "DROP ROLE role1")
 
 			results := backup.GetRoles(connection)
 
@@ -162,9 +163,9 @@ var _ = Describe("backup integration tests", func() {
 			Fail("Role 'role1' was not found")
 		})
 		It("returns a role with all properties specified", func() {
-			testutils.AssertQueryRuns(connection, "CREATE ROLE role1")
-			defer testutils.AssertQueryRuns(connection, "DROP ROLE role1")
-			testutils.AssertQueryRuns(connection, `
+			testhelper.AssertQueryRuns(connection, "CREATE ROLE role1")
+			defer testhelper.AssertQueryRuns(connection, "DROP ROLE role1")
+			testhelper.AssertQueryRuns(connection, `
 ALTER ROLE role1 WITH NOSUPERUSER INHERIT CREATEROLE CREATEDB LOGIN
 CONNECTION LIMIT 4 PASSWORD 'swordfish' VALID UNTIL '2099-01-01 00:00:00-08'
 CREATEEXTTABLE (protocol='http')
@@ -172,9 +173,9 @@ CREATEEXTTABLE (protocol='gpfdist', type='readable')
 CREATEEXTTABLE (protocol='gpfdist', type='writable')
 CREATEEXTTABLE (protocol='gphdfs', type='readable')
 CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
-			testutils.AssertQueryRuns(connection, "ALTER ROLE role1 DENY BETWEEN DAY 'Sunday' TIME '1:30 PM' AND DAY 'Wednesday' TIME '14:30:00'")
-			testutils.AssertQueryRuns(connection, "ALTER ROLE role1 DENY DAY 'Friday'")
-			testutils.AssertQueryRuns(connection, "COMMENT ON ROLE role1 IS 'this is a role comment'")
+			testhelper.AssertQueryRuns(connection, "ALTER ROLE role1 DENY BETWEEN DAY 'Sunday' TIME '1:30 PM' AND DAY 'Wednesday' TIME '14:30:00'")
+			testhelper.AssertQueryRuns(connection, "ALTER ROLE role1 DENY DAY 'Friday'")
+			testhelper.AssertQueryRuns(connection, "COMMENT ON ROLE role1 IS 'this is a role comment'")
 
 			results := backup.GetRoles(connection)
 
@@ -229,15 +230,15 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 	})
 	Describe("GetRoleMembers", func() {
 		BeforeEach(func() {
-			testutils.AssertQueryRuns(connection, `CREATE ROLE usergroup`)
-			testutils.AssertQueryRuns(connection, `CREATE ROLE testuser`)
+			testhelper.AssertQueryRuns(connection, `CREATE ROLE usergroup`)
+			testhelper.AssertQueryRuns(connection, `CREATE ROLE testuser`)
 		})
 		AfterEach(func() {
-			defer testutils.AssertQueryRuns(connection, `DROP ROLE usergroup`)
-			defer testutils.AssertQueryRuns(connection, `DROP ROLE testuser`)
+			defer testhelper.AssertQueryRuns(connection, `DROP ROLE usergroup`)
+			defer testhelper.AssertQueryRuns(connection, `DROP ROLE testuser`)
 		})
 		It("returns a role without ADMIN OPTION", func() {
-			testutils.AssertQueryRuns(connection, "GRANT usergroup TO testuser")
+			testhelper.AssertQueryRuns(connection, "GRANT usergroup TO testuser")
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: false}
 
 			roleMembers := backup.GetRoleMembers(connection)
@@ -251,7 +252,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 			Fail("Role 'testuser' is not a member of role 'usergroup'")
 		})
 		It("returns a role WITH ADMIN OPTION", func() {
-			testutils.AssertQueryRuns(connection, "GRANT usergroup TO testuser WITH ADMIN OPTION GRANTED BY testrole")
+			testhelper.AssertQueryRuns(connection, "GRANT usergroup TO testuser WITH ADMIN OPTION GRANTED BY testrole")
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: true}
 
 			roleMembers := backup.GetRoleMembers(connection)
@@ -269,13 +270,13 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 		It("returns a tablespace", func() {
 			var expectedTablespace backup.Tablespace
 			if connection.Version.Before("6") {
-				testutils.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
+				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
 				expectedTablespace = backup.Tablespace{Oid: 0, Tablespace: "test_tablespace", FileLocation: "test_dir"}
 			} else {
-				testutils.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
+				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 				expectedTablespace = backup.Tablespace{Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'"}
 			}
-			defer testutils.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 
 			resultTablespaces := backup.GetTablespaces(connection)
 

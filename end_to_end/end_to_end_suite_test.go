@@ -14,6 +14,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -125,7 +126,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		publicSchemaTupleCounts := map[string]int{"public.foo": 40000, "public.holds": 50000, "public.sales": 13}
 		schema2TupleCounts := map[string]int{"schema2.returns": 6, "schema2.foo2": 0, "schema2.foo3": 100}
 		BeforeEach(func() {
-			testutils.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
 		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
 			timestamp := gpbackup(gpbackupPath)
@@ -321,7 +322,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and gprestore on database with all objects", func() {
-			testutils.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
 			/* We do not check the error code since there are some objects we
 			 * expect to fail during creation between DB versions
 			 */
@@ -329,7 +330,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			timestamp := gpbackup(gpbackupPath)
 			gprestore(gprestorePath, timestamp, "-redirect", "restoredb")
 
-			testutils.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
 			testutils.ExecuteSQLFile(backupConn, "test_tables.sql")
 		})
 		It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {

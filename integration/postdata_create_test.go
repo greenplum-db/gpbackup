@@ -2,6 +2,7 @@ package integration
 
 import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -28,10 +29,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultIndexes := backup.GetIndexes(connection, indexNameSet)
 			Expect(len(resultIndexes)).To(Equal(1))
@@ -42,10 +43,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultIndexes := backup.GetIndexes(connection, indexNameSet)
 			Expect(len(resultIndexes)).To(Equal(1))
@@ -58,10 +59,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			indexes[0].Oid = testutils.OidFromObjectName(connection, "", "index1", backup.TYPE_INDEX)
 			resultIndexes := backup.GetIndexes(connection, indexNameSet)
@@ -73,19 +74,19 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates an index in a non-default tablespace", func() {
 			if connection.Version.Before("6") {
-				testutils.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
+				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
 			} else {
-				testutils.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
+				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 			}
-			defer testutils.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "test_tablespace", Def: "CREATE INDEX index1 ON testtable USING btree (i)"}}
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultIndexes := backup.GetIndexes(connection, indexNameSet)
 			Expect(len(resultIndexes)).To(Equal(1))
@@ -103,10 +104,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			rules := []backup.QuerySimpleDefinition{{Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}}
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultRules := backup.GetRules(connection)
 			Expect(len(resultRules)).To(Equal(1))
@@ -118,10 +119,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			ruleMetadata := ruleMetadataMap[1]
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			rules[0].Oid = testutils.OidFromObjectName(connection, "", "update_notify", backup.TYPE_RULE)
 			resultRules := backup.GetRules(connection)
@@ -143,10 +144,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggers := []backup.QuerySimpleDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}}
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultTriggers := backup.GetTriggers(connection)
 			Expect(len(resultTriggers)).To(Equal(1))
@@ -158,10 +159,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggerMetadata := triggerMetadataMap[1]
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 
-			testutils.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
 
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			triggers[0].Oid = testutils.OidFromObjectName(connection, "", "sync_testtable", backup.TYPE_TRIGGER)
 			resultTriggers := backup.GetTriggers(connection)

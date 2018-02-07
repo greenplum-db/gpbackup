@@ -2,6 +2,7 @@ package integration
 
 import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -18,11 +19,11 @@ var _ = Describe("backup integration tests", func() {
 			tables := []backup.Relation{{SchemaOid: 2200, Schema: "public", Name: "foo"}}
 
 			// Create and ANALYZE a table to generate statistics
-			testutils.AssertQueryRuns(connection, "CREATE TABLE foo(i int, j text, k bool)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE foo")
-			testutils.AssertQueryRuns(connection, "INSERT INTO foo VALUES (1, 'a', 't')")
-			testutils.AssertQueryRuns(connection, "INSERT INTO foo VALUES (2, 'b', 'f')")
-			testutils.AssertQueryRuns(connection, "ANALYZE foo")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE foo(i int, j text, k bool)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE foo")
+			testhelper.AssertQueryRuns(connection, "INSERT INTO foo VALUES (1, 'a', 't')")
+			testhelper.AssertQueryRuns(connection, "INSERT INTO foo VALUES (2, 'b', 'f')")
+			testhelper.AssertQueryRuns(connection, "ANALYZE foo")
 
 			oldTableOid := testutils.OidFromObjectName(connection, "public", "foo", backup.TYPE_RELATION)
 			tables[0].Oid = oldTableOid
@@ -32,12 +33,12 @@ var _ = Describe("backup integration tests", func() {
 			beforeTupleStat := beforeTupleStats[oldTableOid]
 
 			// Drop and recreate the table to clear the statistics
-			testutils.AssertQueryRuns(connection, "DROP TABLE foo")
-			testutils.AssertQueryRuns(connection, "CREATE TABLE foo(i int, j text, k bool)")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE foo")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE foo(i int, j text, k bool)")
 
 			// Reload the retrieved statistics into the new table
 			backup.PrintStatisticsStatements(backupfile, toc, tables, beforeAttStats, beforeTupleStats)
-			testutils.AssertQueryRuns(connection, buffer.String())
+			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			newTableOid := testutils.OidFromObjectName(connection, "public", "foo", backup.TYPE_RELATION)
 			tables[0].Oid = newTableOid

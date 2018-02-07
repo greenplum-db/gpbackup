@@ -2,8 +2,8 @@ package integration
 
 import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/restore"
-	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -71,7 +71,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			restore.SetConnection(tempConn)
 		})
 		AfterEach(func() {
-			testutils.AssertQueryRuns(tempConn, "DROP TABLE public.timestamps;")
+			testhelper.AssertQueryRuns(tempConn, "DROP TABLE public.timestamps;")
 			tempConn.Close()
 			tempConn = nil
 			restore.SetConnection(connection)
@@ -79,8 +79,8 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 		Context("Serial execution", func() {
 			BeforeEach(func() {
 				tempConn.MustConnect(1)
-				testutils.AssertQueryRuns(tempConn, "SET ROLE testrole")
-				testutils.AssertQueryRuns(tempConn, createQuery)
+				testhelper.AssertQueryRuns(tempConn, "SET ROLE testrole")
+				testhelper.AssertQueryRuns(tempConn, createQuery)
 			})
 			It("can execute all statements in the list serially", func() {
 				shouldExecute := utils.NewEmptyIncludeSet()
@@ -100,8 +100,8 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 		Context("Parallel execution", func() {
 			BeforeEach(func() {
 				tempConn.MustConnect(3)
-				testutils.AssertQueryRuns(tempConn, "SET ROLE testrole")
-				testutils.AssertQueryRuns(tempConn, createQuery)
+				testhelper.AssertQueryRuns(tempConn, "SET ROLE testrole")
+				testhelper.AssertQueryRuns(tempConn, createQuery)
 			})
 			It("can execute all statements in the list in parallel", func() {
 				shouldExecute := utils.NewEmptyIncludeSet()

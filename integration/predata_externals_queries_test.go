@@ -2,6 +2,7 @@ package integration
 
 import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -12,12 +13,12 @@ import (
 var _ = Describe("backup integration tests", func() {
 	Describe("GetExternalTableDefinitions", func() {
 		It("returns a slice for a basic external table definition", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE simple_table")
-			testutils.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE simple_table")
+			testhelper.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
 LOCATION ('file://tmp/myfile.txt')
 FORMAT 'TEXT'`)
-			defer testutils.AssertQueryRuns(connection, "DROP EXTERNAL TABLE ext_table")
+			defer testhelper.AssertQueryRuns(connection, "DROP EXTERNAL TABLE ext_table")
 			oid := testutils.OidFromObjectName(connection, "public", "ext_table", backup.TYPE_RELATION)
 
 			results := backup.GetExternalTableDefinitions(connection)
@@ -30,12 +31,12 @@ FORMAT 'TEXT'`)
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 		It("returns a slice for a basic external web table definition", func() {
-			testutils.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int)")
-			defer testutils.AssertQueryRuns(connection, "DROP TABLE simple_table")
-			testutils.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL WEB TABLE ext_table(i int)
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE simple_table")
+			testhelper.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL WEB TABLE ext_table(i int)
 EXECUTE 'hostname'
 FORMAT 'TEXT'`)
-			defer testutils.AssertQueryRuns(connection, "DROP EXTERNAL WEB TABLE ext_table")
+			defer testhelper.AssertQueryRuns(connection, "DROP EXTERNAL WEB TABLE ext_table")
 			oid := testutils.OidFromObjectName(connection, "public", "ext_table", backup.TYPE_RELATION)
 
 			results := backup.GetExternalTableDefinitions(connection)
@@ -49,13 +50,13 @@ FORMAT 'TEXT'`)
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 		It("returns a slice for a complex external table definition", func() {
-			testutils.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
+			testhelper.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
 LOCATION ('file://tmp/myfile.txt')
 FORMAT 'TEXT'
 LOG ERRORS
 SEGMENT REJECT LIMIT 10 PERCENT
 `)
-			defer testutils.AssertQueryRuns(connection, "DROP EXTERNAL TABLE ext_table")
+			defer testhelper.AssertQueryRuns(connection, "DROP EXTERNAL TABLE ext_table")
 			oid := testutils.OidFromObjectName(connection, "public", "ext_table", backup.TYPE_RELATION)
 
 			results := backup.GetExternalTableDefinitions(connection)
@@ -70,14 +71,14 @@ SEGMENT REJECT LIMIT 10 PERCENT
 		})
 		It("returns a slice for a complex external table definition with options", func() {
 			testutils.SkipIf4(connection)
-			testutils.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
+			testhelper.AssertQueryRuns(connection, `CREATE READABLE EXTERNAL TABLE ext_table(i int)
 LOCATION ('file://tmp/myfile.txt')
 FORMAT 'TEXT'
 OPTIONS (foo 'bar')
 LOG ERRORS
 SEGMENT REJECT LIMIT 10 PERCENT
 `)
-			defer testutils.AssertQueryRuns(connection, "DROP EXTERNAL TABLE ext_table")
+			defer testhelper.AssertQueryRuns(connection, "DROP EXTERNAL TABLE ext_table")
 			oid := testutils.OidFromObjectName(connection, "public", "ext_table", backup.TYPE_RELATION)
 
 			results := backup.GetExternalTableDefinitions(connection)
@@ -93,12 +94,12 @@ SEGMENT REJECT LIMIT 10 PERCENT
 	})
 	Describe("GetExternalProtocols", func() {
 		It("returns a slice for a protocol", func() {
-			testutils.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION write_to_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_export' LANGUAGE C STABLE;")
-			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION write_to_s3()")
-			testutils.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
-			defer testutils.AssertQueryRuns(connection, "DROP FUNCTION read_from_s3()")
-			testutils.AssertQueryRuns(connection, "CREATE PROTOCOL s3 (writefunc = write_to_s3, readfunc = read_from_s3);")
-			defer testutils.AssertQueryRuns(connection, "DROP PROTOCOL s3")
+			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION write_to_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_export' LANGUAGE C STABLE;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION write_to_s3()")
+			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION read_from_s3()")
+			testhelper.AssertQueryRuns(connection, "CREATE PROTOCOL s3 (writefunc = write_to_s3, readfunc = read_from_s3);")
+			defer testhelper.AssertQueryRuns(connection, "DROP PROTOCOL s3")
 
 			readFunctionOid := testutils.OidFromObjectName(connection, "public", "read_from_s3", backup.TYPE_FUNCTION)
 			writeFunctionOid := testutils.OidFromObjectName(connection, "public", "write_to_s3", backup.TYPE_FUNCTION)
@@ -113,22 +114,22 @@ SEGMENT REJECT LIMIT 10 PERCENT
 	})
 	Describe("GetExternalPartitionInfo", func() {
 		AfterEach(func() {
-			testutils.AssertQueryRuns(connection, "DROP TABLE part_tbl")
-			testutils.AssertQueryRuns(connection, "DROP TABLE part_tbl_ext_part_")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE part_tbl")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE part_tbl_ext_part_")
 		})
 		It("returns a slice of external partition info for a named list partition", func() {
-			testutils.AssertQueryRuns(connection, `
+			testhelper.AssertQueryRuns(connection, `
 CREATE TABLE part_tbl (id int, gender char(1))
 DISTRIBUTED BY (id)
 PARTITION BY LIST (gender)
 ( PARTITION girls VALUES ('F'),
   PARTITION boys VALUES ('M'),
   DEFAULT PARTITION other );`)
-			testutils.AssertQueryRuns(connection, `
+			testhelper.AssertQueryRuns(connection, `
 CREATE EXTERNAL WEB TABLE part_tbl_ext_part_ (like part_tbl_1_prt_girls)
 EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
-			testutils.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl EXCHANGE PARTITION girls WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
+			testhelper.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl EXCHANGE PARTITION girls WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
 
@@ -148,16 +149,16 @@ FORMAT 'csv';`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("returns a slice of external partition info for an unnamed range partition", func() {
-			testutils.AssertQueryRuns(connection, `
+			testhelper.AssertQueryRuns(connection, `
 CREATE TABLE part_tbl (a int)
 DISTRIBUTED BY (a)
 PARTITION BY RANGE (a)
 (start(1) end(3) every(1));`)
-			testutils.AssertQueryRuns(connection, `
+			testhelper.AssertQueryRuns(connection, `
 CREATE EXTERNAL WEB TABLE part_tbl_ext_part_ (like part_tbl_1_prt_1)
 EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
-			testutils.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
+			testhelper.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
 
@@ -178,7 +179,7 @@ FORMAT 'csv';`)
 		})
 		It("returns a slice of info for a two level partition", func() {
 			testutils.SkipIf4(connection)
-			testutils.AssertQueryRuns(connection, `
+			testhelper.AssertQueryRuns(connection, `
 CREATE TABLE part_tbl (a int,b date,c text,d int)
 DISTRIBUTED BY (a)
 PARTITION BY RANGE (b)
@@ -194,8 +195,8 @@ SUBPARTITION eur values ('eur'))
                   END (date '2017-01-01') EXCLUSIVE);
 `)
 
-			testutils.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (a int,b date,c text,d int) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
-			testutils.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl ALTER PARTITION Dec16 EXCHANGE PARTITION apj WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
+			testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (a int,b date,c text,d int) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
+			testhelper.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl ALTER PARTITION Dec16 EXCHANGE PARTITION apj WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 
@@ -215,7 +216,7 @@ SUBPARTITION eur values ('eur'))
 		})
 		It("returns a slice of info for a three level partition", func() {
 			testutils.SkipIf4(connection)
-			testutils.AssertQueryRuns(connection, `
+			testhelper.AssertQueryRuns(connection, `
 CREATE TABLE part_tbl (id int, year int, month int, day int, region text)
 DISTRIBUTED BY (id)
 PARTITION BY RANGE (year)
@@ -231,8 +232,8 @@ PARTITION BY RANGE (year)
 ( START (2002) END (2005) EVERY (1));
 `)
 
-			testutils.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (like part_tbl_1_prt_3_2_prt_1_3_prt_europe) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
-			testutils.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl ALTER PARTITION FOR (RANK(3)) ALTER PARTITION FOR (RANK(1)) EXCHANGE PARTITION europe WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
+			testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (like part_tbl_1_prt_3_2_prt_1_3_prt_europe) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
+			testhelper.AssertQueryRuns(connection, `ALTER TABLE public.part_tbl ALTER PARTITION FOR (RANK(3)) ALTER PARTITION FOR (RANK(1)) EXCHANGE PARTITION europe WITH TABLE public.part_tbl_ext_part_ WITHOUT VALIDATION;`)
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 
