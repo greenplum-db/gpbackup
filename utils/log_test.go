@@ -38,7 +38,6 @@ var _ = Describe("utils/log tests", func() {
 	})
 	AfterEach(func() {
 		operating.System = operating.InitializeSystemFunctions()
-		gplog.SetLogger(logger)
 	})
 
 	Describe("NewProgressBar", func() {
@@ -57,19 +56,19 @@ var _ = Describe("utils/log tests", func() {
 				Expect(ok).To(BeTrue())
 			})
 			It("will not print with verbosity LOGERROR", func() {
-				logger.SetVerbosity(gplog.LOGERROR)
+				gplog.SetVerbosity(gplog.LOGERROR)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
 				infoPb, _ := progressBar.(*pb.ProgressBar)
 				Expect(infoPb.NotPrint).To(Equal(true))
 			})
 			It("will print with verbosity LOGINFO", func() {
-				logger.SetVerbosity(gplog.LOGINFO)
+				gplog.SetVerbosity(gplog.LOGINFO)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
 				infoPb, _ := progressBar.(*pb.ProgressBar)
 				Expect(infoPb.NotPrint).To(Equal(false))
 			})
 			It("will not print with verbosity LOGVERBOSE", func() {
-				logger.SetVerbosity(gplog.LOGVERBOSE)
+				gplog.SetVerbosity(gplog.LOGVERBOSE)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_INFO)
 				infoPb, _ := progressBar.(*pb.ProgressBar)
 				Expect(infoPb.NotPrint).To(Equal(true))
@@ -82,19 +81,19 @@ var _ = Describe("utils/log tests", func() {
 				Expect(ok).To(BeTrue())
 			})
 			It("verboseProgressBar's infoPb will not print with verbosity LOGERROR", func() {
-				logger.SetVerbosity(gplog.LOGERROR)
+				gplog.SetVerbosity(gplog.LOGERROR)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
 				vPb, _ := progressBar.(*utils.VerboseProgressBar)
 				Expect(vPb.ProgressBar.NotPrint).To(Equal(true))
 			})
 			It("verboseProgressBar's infoPb will print with verbosity LOGINFO", func() {
-				logger.SetVerbosity(gplog.LOGINFO)
+				gplog.SetVerbosity(gplog.LOGINFO)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
 				vPb, _ := progressBar.(*utils.VerboseProgressBar)
 				Expect(vPb.ProgressBar.NotPrint).To(Equal(false))
 			})
 			It("verboseProgressBar's infoPb will not print with verbosity LOGVERBOSE", func() {
-				logger.SetVerbosity(gplog.LOGVERBOSE)
+				gplog.SetVerbosity(gplog.LOGVERBOSE)
 				progressBar := utils.NewProgressBar(10, "test progress bar", utils.PB_VERBOSE)
 				vPb, _ := progressBar.(*utils.VerboseProgressBar)
 				Expect(vPb.ProgressBar.NotPrint).To(Equal(true))

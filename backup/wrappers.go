@@ -24,11 +24,11 @@ import (
 
 func SetLoggerVerbosity() {
 	if *quiet {
-		logger.SetVerbosity(gplog.LOGERROR)
+		gplog.SetVerbosity(gplog.LOGERROR)
 	} else if *debug {
-		logger.SetVerbosity(gplog.LOGDEBUG)
+		gplog.SetVerbosity(gplog.LOGDEBUG)
 	} else if *verbose {
-		logger.SetVerbosity(gplog.LOGVERBOSE)
+		gplog.SetVerbosity(gplog.LOGVERBOSE)
 	}
 }
 
@@ -48,7 +48,7 @@ func InitializeSignalHandler() {
 	go func() {
 		for range signalChan {
 			fmt.Println() // Add newline after "^C" is printed
-			logger.Warn("Received an interrupt, aborting backup process")
+			gplog.Warn("Received an interrupt, aborting backup process")
 			wasTerminated = true
 			DoCleanup()
 			os.Exit(2)
@@ -105,7 +105,7 @@ func InitializeFilterLists() {
  */
 
 func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinition) {
-	logger.Info("Gathering list of tables for backup")
+	gplog.Info("Gathering list of tables for backup")
 	tables := GetAllUserTables(connection)
 	LockTables(connection, tables)
 
@@ -129,7 +129,7 @@ func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinit
 }
 
 func RetrieveFunctions(procLangs []ProceduralLanguage) ([]Function, []Function, MetadataMap) {
-	logger.Verbose("Retrieving function information")
+	gplog.Verbose("Retrieving function information")
 	functions := GetFunctionsAllVersions(connection)
 	objectCounts["Functions"] = len(functions)
 	functionMetadata := GetMetadataForObjectType(connection, TYPE_FUNCTION)
@@ -139,7 +139,7 @@ func RetrieveFunctions(procLangs []ProceduralLanguage) ([]Function, []Function, 
 }
 
 func RetrieveTypes() ([]Type, MetadataMap, map[uint32]FunctionInfo) {
-	logger.Verbose("Retrieving type information")
+	gplog.Verbose("Retrieving type information")
 	shells := GetShellTypes(connection)
 	bases := GetBaseTypes(connection)
 	funcInfoMap := GetFunctionOidToInfoMap(connection)
@@ -171,11 +171,11 @@ func RetrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
  */
 
 func LogBackupInfo() {
-	logger.Info("Backup Timestamp = %s", globalFPInfo.Timestamp)
-	logger.Info("Backup Database = %s", connection.DBName)
+	gplog.Info("Backup Timestamp = %s", globalFPInfo.Timestamp)
+	gplog.Info("Backup Database = %s", connection.DBName)
 	params := strings.Split(backupReport.BackupParamsString, "\n")
 	for _, param := range params {
-		logger.Verbose(param)
+		gplog.Verbose(param)
 	}
 }
 
@@ -189,7 +189,7 @@ func BackupSessionGUCs(metadataFile *utils.FileWithByteCount) {
  */
 
 func BackupTablespaces(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE TABLESPACE statements to metadata file")
+	gplog.Verbose("Writing CREATE TABLESPACE statements to metadata file")
 	tablespaces := GetTablespaces(connection)
 	objectCounts["Tablespaces"] = len(tablespaces)
 	tablespaceMetadata := GetMetadataForObjectType(connection, TYPE_TABLESPACE)
@@ -197,21 +197,21 @@ func BackupTablespaces(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupCreateDatabase(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE DATABASE statement to metadata file")
+	gplog.Verbose("Writing CREATE DATABASE statement to metadata file")
 	db := GetDatabaseInfo(connection)
 	dbMetadata := GetMetadataForObjectType(connection, TYPE_DATABASE)
 	PrintCreateDatabaseStatement(metadataFile, globalTOC, db, dbMetadata)
 }
 
 func BackupDatabaseGUCs(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing database GUCs to metadata file")
+	gplog.Verbose("Writing database GUCs to metadata file")
 	databaseGucs := GetDatabaseGUCs(connection)
 	objectCounts["Database GUCs"] = len(databaseGucs)
 	PrintDatabaseGUCs(metadataFile, globalTOC, databaseGucs, connection.DBName)
 }
 
 func BackupResourceQueues(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE RESOURCE QUEUE statements to metadata file")
+	gplog.Verbose("Writing CREATE RESOURCE QUEUE statements to metadata file")
 	resQueues := GetResourceQueues(connection)
 	objectCounts["Resource Queues"] = len(resQueues)
 	resQueueMetadata := GetCommentsForObjectType(connection, TYPE_RESOURCEQUEUE)
@@ -219,7 +219,7 @@ func BackupResourceQueues(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupResourceGroups(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE RESOURCE GROUP statements to metadata file")
+	gplog.Verbose("Writing CREATE RESOURCE GROUP statements to metadata file")
 	resGroups := GetResourceGroups(connection)
 	objectCounts["Resource Groups"] = len(resGroups)
 	resGroupMetadata := GetCommentsForObjectType(connection, TYPE_RESOURCEGROUP)
@@ -227,7 +227,7 @@ func BackupResourceGroups(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupRoles(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE ROLE statements to metadata file")
+	gplog.Verbose("Writing CREATE ROLE statements to metadata file")
 	roles := GetRoles(connection)
 	objectCounts["Roles"] = len(roles)
 	roleMetadata := GetCommentsForObjectType(connection, TYPE_ROLE)
@@ -235,7 +235,7 @@ func BackupRoles(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupRoleGrants(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing GRANT ROLE statements to metadata file")
+	gplog.Verbose("Writing GRANT ROLE statements to metadata file")
 	roleMembers := GetRoleMembers(connection)
 	PrintRoleMembershipStatements(metadataFile, globalTOC, roleMembers)
 }
@@ -245,7 +245,7 @@ func BackupRoleGrants(metadataFile *utils.FileWithByteCount) {
  */
 
 func BackupSchemas(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE SCHEMA statements to metadata file")
+	gplog.Verbose("Writing CREATE SCHEMA statements to metadata file")
 	schemas := GetAllUserSchemas(connection)
 	objectCounts["Schemas"] = len(schemas)
 	schemaMetadata := GetMetadataForObjectType(connection, TYPE_SCHEMA)
@@ -253,7 +253,7 @@ func BackupSchemas(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs []ProceduralLanguage, langFuncs []Function, functionMetadata MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
-	logger.Verbose("Writing CREATE PROCEDURAL LANGUAGE statements to metadata file")
+	gplog.Verbose("Writing CREATE PROCEDURAL LANGUAGE statements to metadata file")
 	objectCounts["Procedural Languages"] = len(procLangs)
 	for _, langFunc := range langFuncs {
 		PrintCreateFunctionStatement(metadataFile, globalTOC, langFunc, functionMetadata[langFunc.Oid])
@@ -263,7 +263,7 @@ func BackupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs 
 }
 
 func BackupForeignDataWrappers(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
-	logger.Verbose("Writing CREATE FOREIGN DATA WRAPPER statements to metadata file")
+	gplog.Verbose("Writing CREATE FOREIGN DATA WRAPPER statements to metadata file")
 	wrappers := GetForeignDataWrappers(connection)
 	objectCounts["Foreign Data Wrappers"] = len(wrappers)
 	fdwMetadata := GetMetadataForObjectType(connection, TYPE_FOREIGNDATAWRAPPER)
@@ -271,7 +271,7 @@ func BackupForeignDataWrappers(metadataFile *utils.FileWithByteCount, funcInfoMa
 }
 
 func BackupForeignServers(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE SERVER statements to metadata file")
+	gplog.Verbose("Writing CREATE SERVER statements to metadata file")
 	servers := GetForeignServers(connection)
 	objectCounts["Foreign Servers"] = len(servers)
 	serverMetadata := GetMetadataForObjectType(connection, TYPE_FOREIGNSERVER)
@@ -279,49 +279,49 @@ func BackupForeignServers(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupUserMappings(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE USER MAPPING statements to metadata file")
+	gplog.Verbose("Writing CREATE USER MAPPING statements to metadata file")
 	mappings := GetUserMappings(connection)
 	objectCounts["User Mappings"] = len(mappings)
 	PrintCreateUserMappingStatements(metadataFile, globalTOC, mappings)
 }
 
 func BackupShellTypes(metadataFile *utils.FileWithByteCount, types []Type) {
-	logger.Verbose("Writing CREATE TYPE statements for shell types to metadata file")
+	gplog.Verbose("Writing CREATE TYPE statements for shell types to metadata file")
 	PrintCreateShellTypeStatements(metadataFile, globalTOC, types)
 }
 
 func BackupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata MetadataMap) {
 	enums := GetEnumTypes(connection)
-	logger.Verbose("Writing CREATE TYPE statements for enum types to metadata file")
+	gplog.Verbose("Writing CREATE TYPE statements for enum types to metadata file")
 	objectCounts["Types"] += len(enums)
 	PrintCreateEnumTypeStatements(metadataFile, globalTOC, enums, typeMetadata)
 }
 
 func BackupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Sequence, relationMetadata MetadataMap) {
-	logger.Verbose("Writing CREATE SEQUENCE statements to metadata file")
+	gplog.Verbose("Writing CREATE SEQUENCE statements to metadata file")
 	objectCounts["Sequences"] = len(sequences)
 	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
 }
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
 func BackupFunctionsAndTypesAndTables(metadataFile *utils.FileWithByteCount, otherFuncs []Function, types []Type, tables []Relation, functionMetadata MetadataMap, typeMetadata MetadataMap, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
-	logger.Verbose("Writing CREATE FUNCTION statements to metadata file")
-	logger.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
-	logger.Verbose("Writing CREATE TABLE statements to metadata file")
+	gplog.Verbose("Writing CREATE FUNCTION statements to metadata file")
+	gplog.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
+	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
 	tables = ConstructTableDependencies(connection, tables, tableDefs, false)
 	sortedSlice := SortFunctionsAndTypesAndTablesInDependencyOrder(otherFuncs, types, tables)
 	filteredMetadata := ConstructFunctionAndTypeAndTableMetadataMap(functionMetadata, typeMetadata, relationMetadata)
 	PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connection)
 	if len(extPartInfo) > 0 {
-		logger.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
+		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
 		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
 	}
 }
 
 // This function should be used only with a table-only backup.  For an unfiltered backup, the above function is used.
 func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
-	logger.Verbose("Writing CREATE TABLE statements to metadata file")
+	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
 	tables = ConstructTableDependencies(connection, tables, tableDefs, true)
 	sortable := make([]Sortable, 0)
 	for _, table := range tables {
@@ -331,19 +331,19 @@ func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, rela
 	PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connection)
 	if len(extPartInfo) > 0 {
-		logger.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
+		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
 		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
 	}
 }
 
 func BackupAlterSequences(metadataFile *utils.FileWithByteCount, sequences []Sequence) {
-	logger.Verbose("Writing ALTER SEQUENCE statements to metadata file")
+	gplog.Verbose("Writing ALTER SEQUENCE statements to metadata file")
 	sequenceColumnOwners := GetSequenceColumnOwnerMap(connection)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceColumnOwners)
 }
 
 func BackupProtocols(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
-	logger.Verbose("Writing CREATE PROTOCOL statements to metadata file")
+	gplog.Verbose("Writing CREATE PROTOCOL statements to metadata file")
 	protocols := GetExternalProtocols(connection)
 	objectCounts["Protocols"] = len(protocols)
 	protoMetadata := GetMetadataForObjectType(connection, TYPE_PROTOCOL)
@@ -351,7 +351,7 @@ func BackupProtocols(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint
 }
 
 func BackupTSParsers(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE TEXT SEARCH PARSER statements to metadata file")
+	gplog.Verbose("Writing CREATE TEXT SEARCH PARSER statements to metadata file")
 	parsers := GetTextSearchParsers(connection)
 	objectCounts["Text Search Parsers"] = len(parsers)
 	parserMetadata := GetCommentsForObjectType(connection, TYPE_TSPARSER)
@@ -359,7 +359,7 @@ func BackupTSParsers(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupTSTemplates(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE TEXT SEARCH TEMPLATE statements to metadata file")
+	gplog.Verbose("Writing CREATE TEXT SEARCH TEMPLATE statements to metadata file")
 	templates := GetTextSearchTemplates(connection)
 	objectCounts["Text Search Templates"] = len(templates)
 	templateMetadata := GetCommentsForObjectType(connection, TYPE_TSTEMPLATE)
@@ -367,7 +367,7 @@ func BackupTSTemplates(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupTSDictionaries(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE TEXT SEARCH DICTIONARY statements to metadata file")
+	gplog.Verbose("Writing CREATE TEXT SEARCH DICTIONARY statements to metadata file")
 	dictionaries := GetTextSearchDictionaries(connection)
 	objectCounts["Text Search Dictionaries"] = len(dictionaries)
 	dictionaryMetadata := GetMetadataForObjectType(connection, TYPE_TSDICTIONARY)
@@ -375,7 +375,7 @@ func BackupTSDictionaries(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupTSConfigurations(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE TEXT SEARCH CONFIGURATION statements to metadata file")
+	gplog.Verbose("Writing CREATE TEXT SEARCH CONFIGURATION statements to metadata file")
 	configurations := GetTextSearchConfigurations(connection)
 	objectCounts["Text Search Configurations"] = len(configurations)
 	configurationMetadata := GetMetadataForObjectType(connection, TYPE_TSCONFIGURATION)
@@ -383,7 +383,7 @@ func BackupTSConfigurations(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupConversions(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE CONVERSION statements to metadata file")
+	gplog.Verbose("Writing CREATE CONVERSION statements to metadata file")
 	conversions := GetConversions(connection)
 	objectCounts["Conversions"] = len(conversions)
 	convMetadata := GetMetadataForObjectType(connection, TYPE_CONVERSION)
@@ -391,7 +391,7 @@ func BackupConversions(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupOperators(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE OPERATOR statements to metadata file")
+	gplog.Verbose("Writing CREATE OPERATOR statements to metadata file")
 	operators := GetOperators(connection)
 	objectCounts["Operators"] = len(operators)
 	operatorMetadata := GetMetadataForObjectType(connection, TYPE_OPERATOR)
@@ -399,7 +399,7 @@ func BackupOperators(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE OPERATOR FAMILY statements to metadata file")
+	gplog.Verbose("Writing CREATE OPERATOR FAMILY statements to metadata file")
 	operatorFamilies := GetOperatorFamilies(connection)
 	objectCounts["Operator Families"] = len(operatorFamilies)
 	operatorFamilyMetadata := GetMetadataForObjectType(connection, TYPE_OPERATORFAMILY)
@@ -407,7 +407,7 @@ func BackupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupOperatorClasses(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE OPERATOR CLASS statements to metadata file")
+	gplog.Verbose("Writing CREATE OPERATOR CLASS statements to metadata file")
 	operatorClasses := GetOperatorClasses(connection)
 	objectCounts["Operator Classes"] = len(operatorClasses)
 	operatorClassMetadata := GetMetadataForObjectType(connection, TYPE_OPERATORCLASS)
@@ -415,7 +415,7 @@ func BackupOperatorClasses(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupAggregates(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
-	logger.Verbose("Writing CREATE AGGREGATE statements to metadata file")
+	gplog.Verbose("Writing CREATE AGGREGATE statements to metadata file")
 	aggregates := GetAggregates(connection)
 	objectCounts["Aggregates"] = len(aggregates)
 	aggMetadata := GetMetadataForObjectType(connection, TYPE_AGGREGATE)
@@ -423,7 +423,7 @@ func BackupAggregates(metadataFile *utils.FileWithByteCount, funcInfoMap map[uin
 }
 
 func BackupCasts(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE CAST statements to metadata file")
+	gplog.Verbose("Writing CREATE CAST statements to metadata file")
 	casts := GetCasts(connection)
 	objectCounts["Casts"] = len(casts)
 	castMetadata := GetCommentsForObjectType(connection, TYPE_CAST)
@@ -431,7 +431,7 @@ func BackupCasts(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupExtensions(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE EXTENSIONS statements to metadata file")
+	gplog.Verbose("Writing CREATE EXTENSIONS statements to metadata file")
 	extensions := GetExtensions(connection)
 	objectCounts["Extensions"] = len(extensions)
 	extensionMetadata := GetCommentsForObjectType(connection, TYPE_EXTENSION)
@@ -439,7 +439,7 @@ func BackupExtensions(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupViews(metadataFile *utils.FileWithByteCount, relationMetadata MetadataMap) {
-	logger.Verbose("Writing CREATE VIEW statements to metadata file")
+	gplog.Verbose("Writing CREATE VIEW statements to metadata file")
 	views := GetViews(connection)
 	objectCounts["Views"] = len(views)
 	views = ConstructViewDependencies(connection, views)
@@ -448,7 +448,7 @@ func BackupViews(metadataFile *utils.FileWithByteCount, relationMetadata Metadat
 }
 
 func BackupConstraints(metadataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
-	logger.Verbose("Writing ADD CONSTRAINT statements to metadata file")
+	gplog.Verbose("Writing ADD CONSTRAINT statements to metadata file")
 	PrintConstraintStatements(metadataFile, globalTOC, constraints, conMetadata)
 }
 
@@ -457,7 +457,7 @@ func BackupConstraints(metadataFile *utils.FileWithByteCount, constraints []Cons
  */
 
 func BackupIndexes(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE INDEX statements to metadata file")
+	gplog.Verbose("Writing CREATE INDEX statements to metadata file")
 	indexNameMap := ConstructImplicitIndexNames(connection)
 	indexes := GetIndexes(connection, indexNameMap)
 	objectCounts["Indexes"] = len(indexes)
@@ -466,7 +466,7 @@ func BackupIndexes(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupRules(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE RULE statements to metadata file")
+	gplog.Verbose("Writing CREATE RULE statements to metadata file")
 	rules := GetRules(connection)
 	objectCounts["Rules"] = len(rules)
 	ruleMetadata := GetCommentsForObjectType(connection, TYPE_RULE)
@@ -474,7 +474,7 @@ func BackupRules(metadataFile *utils.FileWithByteCount) {
 }
 
 func BackupTriggers(metadataFile *utils.FileWithByteCount) {
-	logger.Verbose("Writing CREATE TRIGGER statements to metadata file")
+	gplog.Verbose("Writing CREATE TRIGGER statements to metadata file")
 	triggers := GetTriggers(connection)
 	objectCounts["Triggers"] = len(triggers)
 	triggerMetadata := GetCommentsForObjectType(connection, TYPE_TRIGGER)

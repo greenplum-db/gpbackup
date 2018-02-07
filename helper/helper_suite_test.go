@@ -3,9 +3,8 @@ package helper_test
 import (
 	"testing"
 
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,7 +12,6 @@ import (
 )
 
 var (
-	logger  *gplog.Logger
 	stdout  *gbytes.Buffer
 	stderr  *gbytes.Buffer
 	logfile *gbytes.Buffer
@@ -26,6 +24,6 @@ func TestUtils(t *testing.T) {
 }
 
 var _ = BeforeEach(func() {
-	logger, stdout, stderr, logfile = testutils.SetupTestLogger()
+	stdout, stderr, logfile = testhelper.SetupTestLogger()
 	operating.System = operating.InitializeSystemFunctions()
 })

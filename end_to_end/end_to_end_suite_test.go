@@ -87,7 +87,7 @@ var _ = Describe("backup end to end integration tests", func() {
 	var gpbackupPath, gprestorePath string
 	BeforeSuite(func() {
 		var err error
-		testutils.SetupTestLogger()
+		testhelper.SetupTestLogger()
 		exec.Command("dropdb", "testdb").Run()
 		err = exec.Command("createdb", "testdb").Run()
 		if err != nil {

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
@@ -51,7 +52,7 @@ func ValidateFQNs(fqns []string) {
 	var matches []string
 	for _, fqn := range fqns {
 		if matches = validFormat.FindStringSubmatch(fqn); len(matches) == 0 {
-			logger.Fatal(errors.Errorf(`Table %s is not correctly fully-qualified.  Please ensure that it is in the format schema.table, it is quoted appropriately, and it has no preceding or trailing whitespace.`, fqn), "")
+			gplog.Fatal(errors.Errorf(`Table %s is not correctly fully-qualified.  Please ensure that it is in the format schema.table, it is quoted appropriately, and it has no preceding or trailing whitespace.`, fqn), "")
 		}
 	}
 }
@@ -62,7 +63,7 @@ func InitializeSignalHandler(cleanupFunc func(), procDesc string, termFlag *bool
 	go func() {
 		for range signalChan {
 			fmt.Println() // Add newline after "^C" is printed
-			logger.Warn("Received a termination signal, aborting %s", procDesc)
+			gplog.Warn("Received a termination signal, aborting %s", procDesc)
 			*termFlag = true
 			cleanupFunc()
 			os.Exit(2)

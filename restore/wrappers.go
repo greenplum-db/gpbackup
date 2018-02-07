@@ -24,11 +24,11 @@ import (
 
 func SetLoggerVerbosity() {
 	if *quiet {
-		logger.SetVerbosity(gplog.LOGERROR)
+		gplog.SetVerbosity(gplog.LOGERROR)
 	} else if *debug {
-		logger.SetVerbosity(gplog.LOGDEBUG)
+		gplog.SetVerbosity(gplog.LOGDEBUG)
 	} else if *verbose {
-		logger.SetVerbosity(gplog.LOGVERBOSE)
+		gplog.SetVerbosity(gplog.LOGVERBOSE)
 	}
 }
 
@@ -61,7 +61,7 @@ func InitializeSignalHandler() {
 	go func() {
 		for range signalChan {
 			fmt.Println() // Add newline after "^C" is printed
-			logger.Warn("Received an interrupt, aborting restore process")
+			gplog.Warn("Received an interrupt, aborting restore process")
 			wasTerminated = true
 			DoCleanup()
 			os.Exit(2)
@@ -89,7 +89,7 @@ func InitializeFilterLists() {
 func DoPostgresValidation() {
 	InitializeFilterLists()
 
-	logger.Verbose("Gathering information on backup directories")
+	gplog.Verbose("Gathering information on backup directories")
 	segConfig := cluster.GetSegmentConfiguration(connection)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := utils.ParseSegPrefix(*backupDir)

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -63,7 +64,7 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 			attributes = append(attributes, fmt.Sprintf("ACTIVE_STATEMENTS=%d", resQueue.ActiveStatements))
 		}
 		maxCostFloat, maxCostErr := strconv.ParseFloat(resQueue.MaxCost, 64)
-		logger.FatalOnError(maxCostErr)
+		gplog.FatalOnError(maxCostErr)
 		if maxCostFloat > -1 {
 			attributes = append(attributes, fmt.Sprintf("MAX_COST=%s", resQueue.MaxCost))
 		}
@@ -71,7 +72,7 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 			attributes = append(attributes, "COST_OVERCOMMIT=TRUE")
 		}
 		minCostFloat, minCostErr := strconv.ParseFloat(resQueue.MinCost, 64)
-		logger.FatalOnError(minCostErr)
+		gplog.FatalOnError(minCostErr)
 		if minCostFloat > 0 {
 			attributes = append(attributes, fmt.Sprintf("MIN_COST=%s", resQueue.MinCost))
 		}

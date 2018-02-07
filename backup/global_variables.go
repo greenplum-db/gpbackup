@@ -5,7 +5,6 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -23,7 +22,6 @@ var (
 	globalCluster cluster.Cluster
 	globalFPInfo  utils.FilePathInfo
 	globalTOC     *utils.TOC
-	logger        *gplog.Logger
 	objectCounts  map[string]int
 	version       string
 	wasTerminated bool
@@ -95,10 +93,6 @@ func SetIncludeTables(tables []string) {
 
 func SetLeafPartitionData(which bool) {
 	leafPartitionData = &which
-}
-
-func SetLogger(log *gplog.Logger) {
-	logger = log
 }
 
 func SetReport(report *utils.Report) {

@@ -39,7 +39,7 @@ func initializeFlags() {
 func DoInit() {
 	CleanupGroup = &sync.WaitGroup{}
 	CleanupGroup.Add(1)
-	SetLogger(utils.InitializeLogging("gprestore", ""))
+	gplog.InitializeLogging("gprestore", "")
 	initializeFlags()
 	utils.InitializeSignalHandler(DoCleanup, "restore process", &wasTerminated)
 }
@@ -61,20 +61,20 @@ func DoValidation() {
 	ValidateFlagCombinations()
 	utils.ValidateBackupDir(*backupDir)
 	if !utils.IsValidTimestamp(*timestamp) {
-		logger.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", *timestamp), "")
+		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", *timestamp), "")
 	}
 }
 
 // This function handles setup that must be done after parsing flags.
 func DoSetup() {
 	SetLoggerVerbosity()
-	logger.Info("Restore Key = %s", *timestamp)
+	gplog.Info("Restore Key = %s", *timestamp)
 
 	InitializeConnection("postgres")
 	DoPostgresValidation()
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	if !backupConfig.DataOnly {
-		logger.Verbose("Metadata will be restored from %s", metadataFilename)
+		gplog.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
 	if *createdb {
 		createDatabase(metadataFilename)
@@ -121,38 +121,38 @@ func DoRestore() {
 
 func createDatabase(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE", "DATABASE METADATA"}
-	logger.Info("Creating database")
+	gplog.Info("Creating database")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{})
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
 	ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
-	logger.Info("Database creation complete")
+	gplog.Info("Database creation complete")
 }
 
 func restoreGlobal(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
-	logger.Info("Restoring global metadata")
+	gplog.Info("Restoring global metadata")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{})
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
 	ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
-	logger.Info("Global database metadata restore complete")
+	gplog.Info("Global database metadata restore complete")
 }
 
 func restorePredata(metadataFilename string) {
-	logger.Info("Restoring pre-data metadata")
+	gplog.Info("Restoring pre-data metadata")
 	statements := GetRestoreMetadataStatements("predata", metadataFilename, []string{}, includeSchemas, includeTables)
 	ExecuteRestoreMetadataStatements(statements, "Pre-data objects", nil, utils.PB_VERBOSE, false)
-	logger.Info("Pre-data metadata restore complete")
+	gplog.Info("Pre-data metadata restore complete")
 }
 
 func restoreData(gucStatements []utils.StatementWithType) {
-	logger.Info("Restoring data")
+	gplog.Info("Restoring data")
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
 	if backupConfig.SingleDataFile {
-		logger.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
+		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		VerifyHelperVersionOnSegments(version)
 		CopySegmentTOCs()
 		WriteOidListToSegments(filteredMasterDataEntries)
@@ -208,16 +208,16 @@ func restoreData(gucStatements []utils.StatementWithType) {
 	if err != nil {
 		errMsg := "Error restoring data for one or more tables"
 		if *onErrorContinue {
-			logger.Error("%s: %v", errMsg, err)
+			gplog.Error("%s: %v", errMsg, err)
 		} else {
-			logger.Fatal(err, errMsg)
+			gplog.Fatal(err, errMsg)
 		}
 	}
-	logger.Info("Data restore complete")
+	gplog.Info("Data restore complete")
 }
 
 func restorePostdata(metadataFilename string) {
-	logger.Info("Restoring post-data metadata")
+	gplog.Info("Restoring post-data metadata")
 	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, includeSchemas, includeTables)
 	firstBatch, secondBatch := BatchPostdataStatements(statements)
 	progressBar := utils.NewProgressBar(len(statements), "Post-data objects restored: ", utils.PB_VERBOSE)
@@ -225,15 +225,15 @@ func restorePostdata(metadataFilename string) {
 	ExecuteRestoreMetadataStatements(firstBatch, "", progressBar, utils.PB_VERBOSE, connection.NumConns > 1)
 	ExecuteRestoreMetadataStatements(secondBatch, "", progressBar, utils.PB_VERBOSE, connection.NumConns > 1)
 	progressBar.Finish()
-	logger.Info("Post-data metadata restore complete")
+	gplog.Info("Post-data metadata restore complete")
 }
 
 func restoreStatistics() {
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
-	logger.Info("Restoring query planner statistics from %s", statisticsFilename)
+	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
 	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, includeSchemas, []string{})
 	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
-	logger.Info("Query planner statistics restore complete")
+	gplog.Info("Query planner statistics restore complete")
 }
 
 func DoTeardown() {
@@ -271,12 +271,12 @@ func DoTeardown() {
 func DoCleanup() {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Warn("Encountered error during cleanup: %v", err)
+			gplog.Warn("Encountered error during cleanup: %v", err)
 		}
-		logger.Verbose("Cleanup complete")
+		gplog.Verbose("Cleanup complete")
 		CleanupGroup.Done()
 	}()
-	logger.Verbose("Beginning cleanup")
+	gplog.Verbose("Beginning cleanup")
 	if backupConfig.SingleDataFile {
 		CleanUpSegmentTOCs()
 		CleanUpHelperFilesOnAllHosts()

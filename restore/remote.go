@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
@@ -78,7 +79,7 @@ func CleanUpHelperFilesOnAllHosts() {
 		return fmt.Sprintf("rm -f %s && rm -f %s && rm -f %s", errorFile, oidFile, scriptFile)
 	})
 	errMsg := fmt.Sprintf("Unable to remove segment helper file(s). See %s for a complete list of segments with errors and remove manually.",
-		logger.GetLogFilePath())
+		gplog.GetLogFilePath())
 	globalCluster.CheckClusterError(remoteOutput, errMsg, func(contentID int) string {
 		tocFile := globalFPInfo.GetSegmentTOCFilePathWithPID(globalFPInfo.BackupDirMap[contentID], fmt.Sprintf("%d", contentID))
 		return fmt.Sprintf("Unable to remove helper file %s on segment %d on host %s", tocFile, contentID, globalCluster.GetHostForContent(contentID))
@@ -112,7 +113,7 @@ func VerifyBackupFileCountOnSegments(fileCount int) {
 	for contentID := range remoteOutput.Stdouts {
 		numFound, _ := strconv.Atoi(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
 		if numFound != fileCount {
-			logger.Verbose("Expected to find %d file%s on segment %d on host %s, but found %d instead.", fileCount, s, contentID, globalCluster.GetHostForContent(contentID), numFound)
+			gplog.Verbose("Expected to find %d file%s on segment %d on host %s, but found %d instead.", fileCount, s, contentID, globalCluster.GetHostForContent(contentID), numFound)
 			numIncorrect++
 		}
 	}
@@ -135,7 +136,7 @@ func VerifyHelperVersionOnSegments(version string) {
 		segVersion := strings.TrimSpace(remoteOutput.Stdouts[contentID])
 		segVersion = strings.Split(segVersion, " ")[1] // Format is "gpbackup_helper [version string]"
 		if segVersion != version {
-			logger.Verbose("Version mismatch for gpbackup_helper on segment %d on host %s: Expected version %s, found version %s.", contentID, globalCluster.GetHostForContent(contentID), version, segVersion)
+			gplog.Verbose("Version mismatch for gpbackup_helper on segment %d on host %s: Expected version %s, found version %s.", contentID, globalCluster.GetHostForContent(contentID), version, segVersion)
 			numIncorrect++
 		}
 	}
@@ -166,7 +167,7 @@ func CleanUpSegmentTOCs() {
 		return fmt.Sprintf("rm -f %s", tocFile)
 	})
 	errMsg := fmt.Sprintf("Unable to remove segment table of contents file(s). See %s for a complete list of segments with errors and remove manually.",
-		logger.GetLogFilePath())
+		gplog.GetLogFilePath())
 	globalCluster.CheckClusterError(remoteOutput, errMsg, func(contentID int) string {
 		tocFile := globalFPInfo.GetSegmentTOCFilePathWithPID(globalFPInfo.BackupDirMap[contentID], fmt.Sprintf("%d", contentID))
 		return fmt.Sprintf("Unable to remove table of contents file %s on segment %d on host %s", tocFile, contentID, globalCluster.GetHostForContent(contentID))
@@ -180,19 +181,19 @@ func VerifyMetadataFilePaths(withStats bool) {
 		filepath := globalFPInfo.GetBackupFilePath(filetype)
 		if !utils.FileExistsAndIsReadable(filepath) {
 			missing = true
-			logger.Error("Cannot access %s file %s", filetype, filepath)
+			gplog.Error("Cannot access %s file %s", filetype, filepath)
 		}
 	}
 	if withStats {
 		filepath := globalFPInfo.GetStatisticsFilePath()
 		if !utils.FileExistsAndIsReadable(filepath) {
 			missing = true
-			logger.Error("Cannot access statistics file %s", filepath)
-			logger.Error(`Note that the "-with-stats" flag must be passed to gpbackup to generate a statistics file.`)
+			gplog.Error("Cannot access statistics file %s", filepath)
+			gplog.Error(`Note that the "-with-stats" flag must be passed to gpbackup to generate a statistics file.`)
 		}
 	}
 	if missing {
-		logger.Fatal(errors.Errorf("One or more metadata files do not exist or are not readable."), "Cannot proceed with restore")
+		gplog.Fatal(errors.Errorf("One or more metadata files do not exist or are not readable."), "Cannot proceed with restore")
 	}
 }
 
@@ -209,7 +210,7 @@ func CheckAgentErrorsOnSegments() error {
 	numErrors := 0
 	for contentID := range remoteOutput.Stdouts {
 		if strings.TrimSpace(remoteOutput.Stdouts[contentID]) == "error" {
-			logger.Verbose("Error occurred with restore agent on segment %d on host %s.", contentID, globalCluster.GetHostForContent(contentID))
+			gplog.Verbose("Error occurred with restore agent on segment %d on host %s.", contentID, globalCluster.GetHostForContent(contentID))
 			numErrors++
 		}
 	}
@@ -217,7 +218,7 @@ func CheckAgentErrorsOnSegments() error {
 		_, homeDir, _ := utils.GetUserAndHostInfo()
 		helperLogName := fmt.Sprintf("%s/gpAdminLogs/gpbackup_helper_%s.log", homeDir, globalFPInfo.Timestamp[0:8])
 		return errors.Errorf("Encountered errors with %d restore agent(s).  See %s for a complete list of segments with errors, and see %s on the corresponding hosts for detailed error messages.",
-			numErrors, logger.GetLogFilePath(), helperLogName)
+			numErrors, gplog.GetLogFilePath(), helperLogName)
 	}
 	return nil
 }

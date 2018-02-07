@@ -9,11 +9,9 @@ import (
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/helper"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 
@@ -27,15 +25,11 @@ import (
  * Functions for setting up the test environment and mocking out variables
  */
 
-func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *gplog.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
-	connection, mock, testLogger, testStdout, testStderr, testLogfile := testhelper.SetupTestEnvironment()
+func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
+	connection, mock, testStdout, testStderr, testLogfile := testhelper.SetupTestEnvironment()
 	SetupTestCluster()
 	backup.SetVersion("0.1.0")
-	backup.SetLogger(testLogger)
-	restore.SetLogger(testLogger)
-	helper.SetLogger(testLogger)
-	utils.SetLogger(testLogger)
-	return connection, mock, testLogger, testStdout, testStderr, testLogfile
+	return connection, mock, testStdout, testStderr, testLogfile
 }
 
 func CreateAndConnectMockDB(numConns int) (*dbconn.DBConn, sqlmock.Sqlmock) {
@@ -45,20 +39,6 @@ func CreateAndConnectMockDB(numConns int) (*dbconn.DBConn, sqlmock.Sqlmock) {
 	restore.SetConnection(connection)
 	backup.InitializeMetadataParams(connection)
 	return connection, mock
-}
-
-/*
- * This function creates a test logger and assigns it to both backup.logger and utils.logger,
- * so no assignment to those variables in the tests is necessary.  The logger and gbytes.buffers
- * are returned to allow checking for output written to those buffers during tests if desired.
- */
-func SetupTestLogger() (*gplog.Logger, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
-	testLogger, testStdout, testStderr, testLogfile := testhelper.SetupTestLogger()
-	backup.SetLogger(testLogger)
-	restore.SetLogger(testLogger)
-	helper.SetLogger(testLogger)
-	utils.SetLogger(testLogger)
-	return testLogger, testStdout, testStderr, testLogfile
 }
 
 func SetupTestCluster() {

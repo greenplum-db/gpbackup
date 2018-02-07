@@ -21,7 +21,6 @@ import (
 var ( // Shared globals
 	content      *int
 	dataFile     *string
-	logger       *gplog.Logger
 	oid          *uint
 	oidFile      *string
 	pipeFile     *string
@@ -61,7 +60,7 @@ func InitializeGlobals() {
 	CleanupGroup.Add(1)
 	content = flag.Int("content", -2, "Content ID of the corresponding segment")
 	dataFile = flag.String("data-file", "", "Absolute path to the data file")
-	logger = utils.InitializeLogging("gpbackup_helper", "")
+	gplog.InitializeLogging("gpbackup_helper", "")
 	oid = flag.Uint("oid", 0, "Oid of the table being processed")
 	oidFile = flag.String("oid-file", "", "Absolute path to the file containing a list of oids to restore")
 	pipeFile = flag.String("pipe-file", "", "Absolute path to the pipe file")
@@ -82,10 +81,6 @@ func SetContent(id int) {
 
 func SetFilename(name string) {
 	tocFile = &name
-}
-
-func SetLogger(log *gplog.Logger) {
-	logger = log
 }
 
 func SetOid(newoid uint) {
@@ -131,7 +126,7 @@ func ReadAndCountBytes() uint64 {
 
 func getOidListFromFile() []int {
 	oidStr, err := operating.System.ReadFile(*oidFile)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	oidStrList := strings.Split(strings.TrimSpace(fmt.Sprintf("%s", oidStr)), "\n")
 	oidList := make([]int, len(oidStrList))
 	for i, oid := range oidStrList {
@@ -172,7 +167,7 @@ func doRestoreAgent() {
 		log(fmt.Sprintf("Discarded %d bytes", start-lastByte))
 		bytesRead, err := io.CopyN(writer, reader, int64(end-start))
 		log(fmt.Sprintf("Read %d bytes", bytesRead))
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 		log(fmt.Sprintf("Closing pipe for oid %d", oid))
 		flushAndCloseWriter()
 		lastByte = end
@@ -181,16 +176,16 @@ func doRestoreAgent() {
 
 func createNextPipe() {
 	err := syscall.Mkfifo(nextPipe, 0777)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 }
 
 func getPipeReader() *bufio.Reader {
 	readHandle, err := os.Open(*dataFile)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	var reader *bufio.Reader
 	if strings.HasSuffix(*dataFile, ".gz") {
 		gzipReader, err := gzip.NewReader(readHandle)
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 		reader = bufio.NewReader(gzipReader)
 	} else {
 		reader = bufio.NewReader(readHandle)
@@ -200,7 +195,7 @@ func getPipeReader() *bufio.Reader {
 
 func getPipeWriter(currentPipe string) (*bufio.Writer, *os.File) {
 	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY, os.ModeNamedPipe)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	pipeWriter := bufio.NewWriter(fileHandle)
 	return pipeWriter, fileHandle
 }
@@ -208,12 +203,12 @@ func getPipeWriter(currentPipe string) (*bufio.Writer, *os.File) {
 func flushAndCloseWriter() {
 	if writer != nil {
 		err := writer.Flush()
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 		writer = nil
 	}
 	if writeHandle != nil {
 		err := writeHandle.Close()
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 		writeHandle = nil
 	}
 }
@@ -226,7 +221,7 @@ func fileExists(filename string) bool {
 func removeFileIfExists(filename string) {
 	if fileExists(filename) {
 		err := os.Remove(filename)
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 	}
 }
 
@@ -273,5 +268,5 @@ func DoCleanup() {
 
 func log(s string, v ...interface{}) {
 	s = fmt.Sprintf("Segment %d: %s", *content, s)
-	logger.Verbose(s, v...)
+	gplog.Verbose(s, v...)
 }

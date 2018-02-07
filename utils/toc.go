@@ -5,6 +5,7 @@ import (
 	"io"
 	"regexp"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -48,18 +49,18 @@ type SegmentDataEntry struct {
 func NewTOC(filename string) *TOC {
 	toc := &TOC{}
 	contents, err := operating.System.ReadFile(filename)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	err = yaml.Unmarshal(contents, toc)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return toc
 }
 
 func NewSegmentTOC(filename string) *SegmentTOC {
 	toc := &SegmentTOC{}
 	contents, err := operating.System.ReadFile(filename)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	err = yaml.Unmarshal(contents, toc)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return toc
 }
 
@@ -100,7 +101,7 @@ func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.Re
 		if shouldIncludeObject && shouldIncludeSchema && shouldIncludeTable {
 			contents := make([]byte, entry.EndByte-entry.StartByte)
 			_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
-			logger.FatalOnError(err)
+			gplog.FatalOnError(err)
 			statements = append(statements, StatementWithType{ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
 		}
 	}
@@ -113,7 +114,7 @@ func (toc *TOC) GetAllSQLStatements(section string, metadataFile io.ReaderAt) []
 	for _, entry := range entries {
 		contents := make([]byte, entry.EndByte-entry.StartByte)
 		_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 		statements = append(statements, StatementWithType{ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
 	}
 	return statements

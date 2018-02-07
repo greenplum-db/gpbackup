@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/lib/pq"
 )
@@ -86,7 +87,7 @@ ORDER BY n.nspname, c.relname, a.attnum;`, SchemaFilterClause("n"), utils.SliceT
 
 	results := make([]AttributeStatistic, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	stats := make(map[uint32][]AttributeStatistic, 0)
 	for _, stat := range results {
 		stats[stat.Oid] = append(stats[stat.Oid], stat)
@@ -122,7 +123,7 @@ ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"), utils.SliceToQuotedStr
 
 	results := make([]TupleStatistic, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	stats := make(map[uint32]TupleStatistic, 0)
 	for _, stat := range results {
 		stats[stat.Oid] = stat

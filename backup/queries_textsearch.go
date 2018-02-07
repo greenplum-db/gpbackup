@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 )
 
 type TextSearchParser struct {
@@ -44,7 +45,7 @@ ORDER BY prsname;`, SchemaFilterClause("n"))
 
 	results := make([]TextSearchParser, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -72,7 +73,7 @@ ORDER BY tmplname;`, SchemaFilterClause("n"))
 
 	results := make([]TextSearchTemplate, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -102,7 +103,7 @@ ORDER BY dictname;`, SchemaFilterClause("dict_ns"))
 
 	results := make([]TextSearchDictionary, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -138,7 +139,7 @@ ORDER BY cfgname;`, SchemaFilterClause("cfg_ns"))
 		ParserFQN string
 	}, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 
 	parserTokens := NewParserTokenTypes()
 	typeMappings := getTypeMappings(connection)
@@ -181,7 +182,7 @@ func (tokenTypes *ParserTokenTypes) TokenName(connection *dbconn.DBConn, parserO
 		typesForParser = make([]ParserTokenType, 0)
 		query := fmt.Sprintf("SELECT tokid AS tokenid, alias FROM pg_catalog.ts_token_type('%d'::pg_catalog.oid)", parserOid)
 		err := connection.Select(&typesForParser, query)
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 
 		tokenTypes.forParser[parserOid] = typesForParser
 	}
@@ -213,7 +214,7 @@ FROM pg_ts_config_map m`
 		MapDictName  string
 	}, 0)
 	err := connection.Select(&rows, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 
 	mapping := make(map[uint32][]TypeMapping, 0)
 	for _, row := range rows {

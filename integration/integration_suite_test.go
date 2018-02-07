@@ -11,7 +11,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -39,8 +38,7 @@ var _ = BeforeSuite(func() {
 		Fail("Cannot create database testdb; is GPDB running?")
 	}
 	Expect(err).To(BeNil())
-	logger, _, _, _ := testutils.SetupTestLogger()
-	cluster.SetLogger(logger)
+	testhelper.SetupTestLogger()
 	connection = dbconn.NewDBConn("testdb")
 	connection.MustConnect(1)
 	// We can't use AssertQueryRuns since if a role already exists it will error

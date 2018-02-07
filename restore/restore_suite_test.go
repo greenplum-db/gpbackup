@@ -12,7 +12,6 @@ import (
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/testutils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,7 +22,6 @@ import (
 var (
 	connection    *dbconn.DBConn
 	mock          sqlmock.Sqlmock
-	logger        *gplog.Logger
 	stdout        *gbytes.Buffer
 	stderr        *gbytes.Buffer
 	logfile       *gbytes.Buffer
@@ -48,7 +46,7 @@ func TestRestore(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	connection, mock, logger, stdout, stderr, logfile = testutils.SetupTestEnvironment()
+	connection, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
 	buffer = gbytes.NewBuffer()
 })
 

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 )
 
@@ -149,7 +150,7 @@ func GetSegPrefix(connection *dbconn.DBConn) string {
 	}
 	result := ""
 	err := connection.Get(&result, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	_, segPrefix := path.Split(result)
 	segPrefix = segPrefix[:len(segPrefix)-2] // Remove "-1" segment ID from string
 	return segPrefix
@@ -160,7 +161,7 @@ func ParseSegPrefix(backupDir string) string {
 	if len(backupDir) > 0 {
 		masterDir, err := operating.System.Glob(fmt.Sprintf("%s/*-1", backupDir))
 		if err != nil || len(masterDir) == 0 {
-			logger.Fatal(err, "Master backup directory in %s missing or inaccessible", backupDir)
+			gplog.Fatal(err, "Master backup directory in %s missing or inaccessible", backupDir)
 		}
 		_, segPrefix = path.Split(masterDir[0])
 		segPrefix = segPrefix[:len(segPrefix)-2] // Remove "-1" segment ID from string

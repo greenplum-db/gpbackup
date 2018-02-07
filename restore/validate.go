@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -29,7 +30,7 @@ func ValidateFilterSchemasInRestoreDatabase(connection *dbconn.DBConn, schemaLis
 		query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
 		resultSchemas := dbconn.MustSelectStringSlice(connection, query)
 		if len(resultSchemas) > 0 {
-			logger.Fatal(nil, "Schema %s already exists", resultSchemas[0])
+			gplog.Fatal(nil, "Schema %s already exists", resultSchemas[0])
 		}
 	}
 }
@@ -69,7 +70,7 @@ func ValidateFilterSchemasInBackupSet(schemaList utils.ArrayFlags) {
 		keys[i] = k
 		i++
 	}
-	logger.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
 }
 
 func ValidateFilterTablesInRestoreDatabase(connection *dbconn.DBConn, tableList utils.ArrayFlags) {
@@ -84,7 +85,7 @@ JOIN pg_class c ON n.oid = c.relnamespace
 WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTablesStr)
 		resultTables := dbconn.MustSelectStringSlice(connection, query)
 		if len(resultTables) > 0 {
-			logger.Fatal(nil, "Table %s already exists", resultTables[0])
+			gplog.Fatal(nil, "Table %s already exists", resultTables[0])
 		}
 	}
 }
@@ -129,13 +130,13 @@ func ValidateFilterTablesInBackupSet(tableList utils.ArrayFlags) {
 		keys[i] = k
 		i++
 	}
-	logger.Fatal(errors.Errorf("Could not find the following table(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	gplog.Fatal(errors.Errorf("Could not find the following table(s) in the backup set: %s", strings.Join(keys, ", ")), "")
 }
 
 func ValidateBackupFlagCombinations() {
 	if backupConfig.SingleDataFile {
 		if *numJobs != 1 {
-			logger.Fatal(errors.Errorf("Cannot use jobs flag when restoring backups with a single data file per segment."), "")
+			gplog.Fatal(errors.Errorf("Cannot use jobs flag when restoring backups with a single data file per segment."), "")
 		}
 	}
 }

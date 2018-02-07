@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -28,7 +29,7 @@ func ValidateFilterSchemas(connection *dbconn.DBConn, schemaList utils.ArrayFlag
 			schemaSet := utils.NewIncludeSet(resultSchemas)
 			for _, schema := range schemaList {
 				if !schemaSet.MatchesFilter(schema) {
-					logger.Fatal(nil, "Schema %s does not exist", schema)
+					gplog.Fatal(nil, "Schema %s does not exist", schema)
 				}
 			}
 		}
@@ -51,7 +52,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 			Name string
 		}, 0)
 		err := connection.Select(&resultTables, query)
-		logger.FatalOnError(err)
+		gplog.FatalOnError(err)
 		tableMap := make(map[string]uint32)
 		for _, table := range resultTables {
 			tableMap[table.Name] = table.Oid
@@ -61,10 +62,10 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 		for _, table := range tableList {
 			tableOid := tableMap[table]
 			if tableOid == 0 {
-				logger.Fatal(nil, "Table %s does not exist", table)
+				gplog.Fatal(nil, "Table %s does not exist", table)
 			}
 			if partTableMap[tableOid] == "i" {
-				logger.Fatal(nil, "Cannot filter on %s, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.", table)
+				gplog.Fatal(nil, "Cannot filter on %s, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.", table)
 			}
 		}
 	}
@@ -87,7 +88,7 @@ func ValidateFlagCombinations() {
 func ValidateCompressionLevel(compressionLevel int) {
 	//We treat 0 as a default value and so assume the flag is not set if it is 0
 	if compressionLevel < 0 || compressionLevel > 9 {
-		logger.Fatal(errors.Errorf("Compression level must be between 1 and 9"), "")
+		gplog.Fatal(errors.Errorf("Compression level must be between 1 and 9"), "")
 	}
 }
 

@@ -6,8 +6,8 @@ import (
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -18,7 +18,6 @@ import (
 var (
 	connection *dbconn.DBConn
 	mock       sqlmock.Sqlmock
-	logger     *gplog.Logger
 	stdout     *gbytes.Buffer
 	stderr     *gbytes.Buffer
 	logfile    *gbytes.Buffer
@@ -33,11 +32,11 @@ func TestUtils(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	connection, mock, logger, stdout, stderr, logfile = testutils.SetupTestEnvironment()
+	connection, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
 })
 
 var _ = BeforeEach(func() {
-	logger, stdout, stderr, logfile = testutils.SetupTestLogger()
+	stdout, stderr, logfile = testhelper.SetupTestLogger()
 	connection, mock = testutils.CreateAndConnectMockDB(1)
 	operating.System = operating.InitializeSystemFunctions()
 	buffer = gbytes.NewBuffer()

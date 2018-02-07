@@ -31,7 +31,7 @@ func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes st
 	query := fmt.Sprintf("COPY %s%s FROM %s WITH CSV DELIMITER '%s' ON SEGMENT;", tableName, tableAttributes, copyCommand, tableDelim)
 	result, err := connection.Exec(query, whichConn)
 	if err != nil {
-		logger.Fatal(err, "Error loading data into table %s", tableName)
+		gplog.Fatal(err, "Error loading data into table %s", tableName)
 	}
 	numRows, _ := result.RowsAffected()
 	return numRows
@@ -39,11 +39,11 @@ func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes st
 
 func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) {
 	name := utils.MakeFQN(entry.Schema, entry.Name)
-	if logger.GetVerbosity() > gplog.LOGINFO {
+	if gplog.GetVerbosity() > gplog.LOGINFO {
 		// No progress bar at this log level, so we note table count here
-		logger.Verbose("Reading data for table %s from file (table %d of %d)", name, tableNum, totalTables)
+		gplog.Verbose("Reading data for table %s from file (table %d of %d)", name, tableNum, totalTables)
 	} else {
-		logger.Verbose("Reading data for table %s from file", name)
+		gplog.Verbose("Reading data for table %s from file", name)
 	}
 	backupFile := ""
 	if backupConfig.SingleDataFile {
@@ -60,14 +60,14 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 	if rowsRestored != rowsBackedUp {
 		rowsErrMsg := fmt.Sprintf("Expected to restore %d rows to table %s, but restored %d instead", rowsBackedUp, tableName, rowsRestored)
 		if *onErrorContinue {
-			logger.Error(rowsErrMsg)
+			gplog.Error(rowsErrMsg)
 		} else {
 			agentErr := CheckAgentErrorsOnSegments()
 			if agentErr != nil {
-				logger.Error(rowsErrMsg)
-				logger.Fatal(agentErr, "")
+				gplog.Error(rowsErrMsg)
+				gplog.Fatal(agentErr, "")
 			}
-			logger.Fatal(errors.Errorf("%s", rowsErrMsg), "")
+			gplog.Fatal(errors.Errorf("%s", rowsErrMsg), "")
 		}
 	}
 }

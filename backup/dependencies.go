@@ -3,6 +3,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -128,14 +129,14 @@ func TopologicalSort(slice []Sortable) []Sortable {
 		}
 	}
 	if len(slice) != len(sorted) {
-		logger.Verbose("Failed to sort dependencies.")
-		logger.Verbose("Not yet visited:")
+		gplog.Verbose("Failed to sort dependencies.")
+		gplog.Verbose("Not yet visited:")
 		for _, item := range slice {
 			if notVisited.MatchesFilter(item.FQN()) {
-				logger.Verbose("Object: %s; Dependencies: %s", item.FQN(), item.Dependencies())
+				gplog.Verbose("Object: %s; Dependencies: %s", item.FQN(), item.Dependencies())
 			}
 		}
-		logger.Fatal(errors.Errorf("Dependency resolution failed; see log file %s for details. This is a bug, please report.", logger.GetLogFilePath()), "")
+		gplog.Fatal(errors.Errorf("Dependency resolution failed; see log file %s for details. This is a bug, please report.", gplog.GetLogFilePath()), "")
 	}
 	return sorted
 }

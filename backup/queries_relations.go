@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -80,7 +81,7 @@ ORDER BY c.oid;`, tableAndSchemaFilterClause(), childPartitionFilter)
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -155,7 +156,7 @@ ORDER BY c.oid;`, SchemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitio
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -244,7 +245,7 @@ ORDER BY a.attrelid, a.attnum;`, tableAndSchemaFilterClause())
 
 	results := make([]ColumnDefinition, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	resultMap := make(map[uint32][]ColumnDefinition, 0)
 	for _, result := range results {
 		result.StorageType = storageTypeCodes[result.StorageType]
@@ -294,7 +295,7 @@ ORDER BY a.attrelid, a.attname;
 
 	results := make([]ColumnPrivilegesQueryStruct, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	metadataMap = ConstructColumnPrivilegesMap(results)
 
 	return metadataMap
@@ -311,7 +312,7 @@ func SelectAsOidToStringMap(connection *dbconn.DBConn, query string) map[uint32]
 		Value string
 	}
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	resultMap := make(map[uint32]string, 0)
 	for _, result := range results {
 		resultMap[result.Oid] = result.Value
@@ -419,7 +420,7 @@ AND p.oid NOT IN (select objid from pg_depend where deptype = 'e')`
 	dependencyMap := make(map[uint32][]string, 0)
 	inheritanceMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	for _, dependency := range results {
 		if tableDefs[dependency.Oid].IsExternal && tableDefs[dependency.Oid].PartitionType == "l" {
 			continue
@@ -455,7 +456,7 @@ ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"))
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -476,7 +477,7 @@ func GetSequenceDefinition(connection *dbconn.DBConn, seqName string) SequenceDe
 	query := fmt.Sprintf("SELECT * FROM %s", seqName)
 	result := SequenceDefinition{}
 	err := connection.Get(&result, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return result
 }
 
@@ -505,7 +506,7 @@ WHERE s.relkind = 'S';`
 	}, 0)
 	sequenceOwners := make(map[string]string, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	for _, seqOwner := range results {
 		seqFQN := utils.MakeFQN(seqOwner.Schema, seqOwner.Name)
 		columnFQN := fmt.Sprintf("%s.%s.%s", seqOwner.Schema, seqOwner.TableName, seqOwner.ColumnName)
@@ -540,7 +541,7 @@ LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE c.relkind = 'v'::"char" AND %s
 AND c.oid NOT IN (select objid from pg_depend where deptype = 'e');`, SchemaFilterClause("n"))
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -564,7 +565,7 @@ ORDER BY v2.oid, referencedobject;`, SchemaFilterClause("n"))
 	results := make([]Dependency, 0)
 	dependencyMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	for _, dependency := range results {
 		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
 	}
@@ -575,7 +576,7 @@ ORDER BY v2.oid, referencedobject;`, SchemaFilterClause("n"))
 }
 
 func LockTables(connection *dbconn.DBConn, tables []Relation) {
-	logger.Info("Acquiring ACCESS SHARE locks on tables")
+	gplog.Info("Acquiring ACCESS SHARE locks on tables")
 	progressBar := utils.NewProgressBar(len(tables), "Locks acquired: ", utils.PB_VERBOSE)
 	progressBar.Start()
 	for _, table := range tables {

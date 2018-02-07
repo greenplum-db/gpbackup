@@ -24,14 +24,14 @@ func executeStatement(statement utils.StatementWithType, showProgressBar int, sh
 	if shouldExecute.MatchesFilter(statement.ObjectType) {
 		_, err := connection.Exec(statement.Statement, whichConn)
 		if err != nil {
-			if showProgressBar >= utils.PB_INFO && logger.GetVerbosity() == gplog.LOGINFO {
+			if showProgressBar >= utils.PB_INFO && gplog.GetVerbosity() == gplog.LOGINFO {
 				fmt.Println() // Move error message to its own line, since the cursor is currently at the end of the progress bar
 			}
-			logger.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
+			gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
 			if *onErrorContinue {
 				return 1
 			}
-			logger.Fatal(errors.Errorf("%s; see log file %s for details.", err.Error(), logger.GetLogFilePath()), "Failed to execute statement")
+			gplog.Fatal(errors.Errorf("%s; see log file %s for details.", err.Error(), gplog.GetLogFilePath()), "Failed to execute statement")
 		}
 	}
 	return 0
@@ -69,7 +69,7 @@ func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.P
 		workerPool.Wait()
 	}
 	if numErrors > 0 {
-		logger.Error("Encountered %d errors during metadata restore; see log file %s for a list of failed statements.", numErrors, logger.GetLogFilePath())
+		gplog.Error("Encountered %d errors during metadata restore; see log file %s for a list of failed statements.", numErrors, gplog.GetLogFilePath())
 	}
 }
 

@@ -42,7 +42,7 @@ func initializeFlags() {
 func DoInit() {
 	CleanupGroup = &sync.WaitGroup{}
 	CleanupGroup.Add(1)
-	SetLogger(utils.InitializeLogging("gpbackup", ""))
+	gplog.InitializeLogging("gpbackup", "")
 	initializeFlags()
 	utils.InitializeSignalHandler(DoCleanup, "backup process", &wasTerminated)
 }
@@ -66,7 +66,7 @@ func DoSetup() {
 	SetLoggerVerbosity()
 	timestamp := utils.CurrentTimestamp()
 	utils.CreateBackupLockFile(timestamp)
-	logger.Info("Starting backup of database %s", *dbname)
+	gplog.Info("Starting backup of database %s", *dbname)
 	InitializeConnection()
 
 	InitializeFilterLists()
@@ -90,7 +90,7 @@ func DoBackup() {
 	metadataTables, dataTables, tableDefs := RetrieveAndProcessTables()
 	CheckTablesContainData(dataTables, tableDefs)
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
-	logger.Info("Metadata will be written to %s", metadataFilename)
+	gplog.Info("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
 	defer metadataFile.Close()
 
@@ -119,7 +119,7 @@ func DoBackup() {
 }
 
 func backupGlobal(metadataFile *utils.FileWithByteCount) {
-	logger.Info("Writing global database metadata")
+	gplog.Info("Writing global database metadata")
 
 	BackupTablespaces(metadataFile)
 	BackupCreateDatabase(metadataFile)
@@ -133,11 +133,11 @@ func backupGlobal(metadataFile *utils.FileWithByteCount) {
 		BackupRoles(metadataFile)
 		BackupRoleGrants(metadataFile)
 	}
-	logger.Info("Global database metadata backup complete")
+	gplog.Info("Global database metadata backup complete")
 }
 
 func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
-	logger.Info("Writing pre-data metadata")
+	gplog.Info("Writing pre-data metadata")
 
 	BackupSchemas(metadataFile)
 	if len(includeSchemas) == 0 && connection.Version.AtLeast("5") {
@@ -193,11 +193,11 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	BackupCasts(metadataFile)
 	BackupViews(metadataFile, relationMetadata)
 	BackupConstraints(metadataFile, constraints, conMetadata)
-	logger.Info("Pre-data metadata backup complete")
+	gplog.Info("Pre-data metadata backup complete")
 }
 
 func backupTablePredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
-	logger.Info("Writing table metadata")
+	gplog.Info("Writing table metadata")
 
 	relationMetadata := GetMetadataForObjectType(connection, TYPE_RELATION)
 
@@ -205,35 +205,35 @@ func backupTablePredata(metadataFile *utils.FileWithByteCount, tables []Relation
 
 	BackupTables(metadataFile, tables, relationMetadata, tableDefs, constraints)
 	BackupConstraints(metadataFile, constraints, conMetadata)
-	logger.Info("Table metadata backup complete")
+	gplog.Info("Table metadata backup complete")
 }
 
 func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
-	logger.Info("Writing data to file")
+	gplog.Info("Writing data to file")
 	rowsCopiedMap := BackupData(tables, tableDefs)
 	AddTableDataEntriesToTOC(tables, tableDefs, rowsCopiedMap)
 	if *singleDataFile {
 		MoveSegmentTOCsAndMakeReadOnly()
 	}
-	logger.Info("Data backup complete")
+	gplog.Info("Data backup complete")
 }
 
 func backupPostdata(metadataFile *utils.FileWithByteCount) {
-	logger.Info("Writing post-data metadata")
+	gplog.Info("Writing post-data metadata")
 
 	BackupIndexes(metadataFile)
 	BackupRules(metadataFile)
 	BackupTriggers(metadataFile)
-	logger.Info("Post-data metadata backup complete")
+	gplog.Info("Post-data metadata backup complete")
 }
 
 func backupStatistics(tables []Relation) {
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
-	logger.Info("Writing query planner statistics to %s", statisticsFilename)
+	gplog.Info("Writing query planner statistics to %s", statisticsFilename)
 	statisticsFile := utils.NewFileWithByteCountFromFile(statisticsFilename)
 	defer statisticsFile.Close()
 	BackupStatistics(statisticsFile, tables)
-	logger.Info("Query planner statistics backup complete")
+	gplog.Info("Query planner statistics backup complete")
 }
 
 func DoTeardown() {
@@ -273,7 +273,7 @@ func DoTeardown() {
 		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalFPInfo.Timestamp)
 		err := os.Remove(timestampLockFile)
 		if err != nil {
-			logger.Warn("Failed to remove lock file %s.", timestampLockFile)
+			gplog.Warn("Failed to remove lock file %s.", timestampLockFile)
 		}
 
 		endTime := time.Now()
@@ -286,7 +286,7 @@ func DoTeardown() {
 	DoCleanup()
 
 	if errorCode == 0 {
-		logger.Info("Backup completed successfully")
+		gplog.Info("Backup completed successfully")
 	}
 	os.Exit(errorCode)
 }
@@ -294,12 +294,12 @@ func DoTeardown() {
 func DoCleanup() {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Warn("Encountered error during cleanup: %v", err)
+			gplog.Warn("Encountered error during cleanup: %v", err)
 		}
-		logger.Verbose("Cleanup complete")
+		gplog.Verbose("Cleanup complete")
 		CleanupGroup.Done()
 	}()
-	logger.Verbose("Beginning cleanup")
+	gplog.Verbose("Beginning cleanup")
 	if *singleDataFile {
 		CleanUpSegmentPipesOnAllHosts()
 		CleanUpSegmentTailProcesses()

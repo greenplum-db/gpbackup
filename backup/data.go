@@ -58,7 +58,7 @@ func CopyTableOut(connection *dbconn.DBConn, table Relation, backupFile string) 
 	}
 	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.ToString(), copyCommand, tableDelim)
 	result, err := connection.Exec(query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	numRows, _ := result.RowsAffected()
 	return numRows
 }
@@ -93,11 +93,11 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 		tableDef := tableDefs[table.Oid]
 		isExternal := tableDef.IsExternal
 		if !isExternal {
-			if logger.GetVerbosity() > gplog.LOGINFO {
+			if gplog.GetVerbosity() > gplog.LOGINFO {
 				// No progress bar at this log level, so we note table count here
-				logger.Verbose("Writing data for table %s to file (table %d of %d)", table.ToString(), numRegTables, totalRegTables)
+				gplog.Verbose("Writing data for table %s to file (table %d of %d)", table.ToString(), numRegTables, totalRegTables)
 			} else {
-				logger.Verbose("Writing data for table %s to file", table.ToString())
+				gplog.Verbose("Writing data for table %s to file", table.ToString())
 			}
 			if !*singleDataFile {
 				backupFile = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, false)
@@ -107,7 +107,7 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 			numRegTables++
 			dataProgressBar.Increment()
 		} else if *leafPartitionData || tableDef.PartitionType != "l" {
-			logger.Verbose("Skipping data backup of table %s because it is an external table.", table.ToString())
+			gplog.Verbose("Skipping data backup of table %s because it is an external table.", table.ToString())
 			numExtTables++
 		}
 	}
@@ -122,10 +122,10 @@ func printDataBackupWarnings(numExtTables int) {
 		if numExtTables > 1 {
 			s = "s"
 		}
-		logger.Info("Skipped data backup of %d external table%s.", numExtTables, s)
+		gplog.Info("Skipped data backup of %d external table%s.", numExtTables, s)
 	}
 	if numExtTables > 0 {
-		logger.Info("See %s for a complete list of skipped tables.", logger.GetLogFilePath())
+		gplog.Info("See %s for a complete list of skipped tables.", gplog.GetLogFilePath())
 	}
 }
 
@@ -136,7 +136,7 @@ func CheckTablesContainData(tables []Relation, tableDefs map[uint32]TableDefinit
 				return
 			}
 		}
-		logger.Warn("No tables in backup set contain data. Performing metadata-only backup instead.")
+		gplog.Warn("No tables in backup set contain data. Performing metadata-only backup instead.")
 		backupReport.MetadataOnly = true
 	}
 }

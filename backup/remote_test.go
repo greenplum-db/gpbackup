@@ -33,7 +33,6 @@ var _ = Describe("backup/remote tests", func() {
 		testFPInfo = utils.NewFilePathInfo(testCluster.SegDirMap, "", "20170101010101", "gpseg")
 		backup.SetCluster(testCluster)
 		backup.SetFPInfo(testFPInfo)
-		cluster.SetLogger(logger)
 	})
 	Describe("CreateBackupDirectoriesOnAllHosts", func() {
 		It("successfully creates all directories", func() {

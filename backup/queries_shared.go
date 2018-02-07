@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -46,7 +47,7 @@ ORDER BY name;`, SchemaFilterClause("n"))
 	results := make([]Schema, 0)
 
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -119,7 +120,7 @@ ORDER BY name;
 	}
 	results := make([]Constraint, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return results
 }
 
@@ -269,7 +270,7 @@ ORDER BY o.oid;
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return ConstructMetadataMap(results)
 }
 
@@ -308,7 +309,7 @@ SELECT
 		Comment string
 	}, 0)
 	err := connection.Select(&results, query)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 
 	metadataMap := make(MetadataMap)
 	if len(results) > 0 {

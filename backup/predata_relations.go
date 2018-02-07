@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -142,22 +143,22 @@ type TableDefinition struct {
 func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation) map[uint32]TableDefinition {
 	tableDefinitionMap := make(map[uint32]TableDefinition, 0)
 
-	logger.Info("Gathering additional table metadata")
-	logger.Verbose("Retrieving column information")
+	gplog.Info("Gathering additional table metadata")
+	gplog.Verbose("Retrieving column information")
 	columnMetadata := GetPrivilegesForColumns(connection)
 	columnDefs := GetColumnDefinitions(connection, columnMetadata)
 	distributionPolicies := GetDistributionPolicies(connection, tables)
-	logger.Verbose("Retrieving partition information")
+	gplog.Verbose("Retrieving partition information")
 	partitionDefs := GetPartitionDefinitions(connection)
 	partTemplateDefs := GetPartitionTemplates(connection)
-	logger.Verbose("Retrieving storage information")
+	gplog.Verbose("Retrieving storage information")
 	tableStorageOptions := GetTableStorageOptions(connection)
 	tablespaceNames := GetTablespaceNames(connection)
-	logger.Verbose("Retrieving external table information")
+	gplog.Verbose("Retrieving external table information")
 	extTableDefs := GetExternalTableDefinitions(connection)
 	partTableMap := GetPartitionTableMap(connection)
 
-	logger.Verbose("Constructing table definition map")
+	gplog.Verbose("Constructing table definition map")
 	for _, table := range tables {
 		oid := table.Oid
 		tableDef := TableDefinition{

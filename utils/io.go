@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
@@ -49,7 +50,7 @@ func MustOpenFileForWriting(filename string, allowAppend ...bool) io.WriteCloser
 	}
 	fileHandle, err := operating.System.OpenFileWrite(filename, flags, 0644)
 	if err != nil {
-		logger.Fatal(err, "Unable to create or open file for writing")
+		gplog.Fatal(err, "Unable to create or open file for writing")
 	}
 	return fileHandle
 }
@@ -57,7 +58,7 @@ func MustOpenFileForWriting(filename string, allowAppend ...bool) io.WriteCloser
 func MustOpenFileForReading(filename string) operating.ReadCloserAt {
 	fileHandle, err := operating.System.OpenFileRead(filename, os.O_RDONLY, 0644)
 	if err != nil {
-		logger.Fatal(err, "Unable to open file for reading")
+		gplog.Fatal(err, "Unable to open file for reading")
 	}
 	return fileHandle
 }
@@ -79,7 +80,7 @@ func CreateBackupLockFile(timestamp string) {
 	timestampLockFile := fmt.Sprintf("/tmp/%s.lck", timestamp)
 	_, err := operating.System.OpenFileWrite(timestampLockFile, os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
-		logger.Fatal(errors.Errorf("A backup with timestamp %s is already in progress. Wait 1 second and try the backup again.", timestamp), "")
+		gplog.Fatal(errors.Errorf("A backup with timestamp %s is already in progress. Wait 1 second and try the backup again.", timestamp), "")
 	}
 }
 
@@ -94,7 +95,7 @@ func GetUserAndHostInfo() (string, string, string) {
 func MustPrintf(file io.Writer, s string, v ...interface{}) uint64 {
 	bytesWritten, err := fmt.Fprintf(file, s, v...)
 	if err != nil {
-		logger.Fatal(err, "Unable to write to file")
+		gplog.Fatal(err, "Unable to write to file")
 	}
 	return uint64(bytesWritten)
 }
@@ -102,7 +103,7 @@ func MustPrintf(file io.Writer, s string, v ...interface{}) uint64 {
 func MustPrintln(file io.Writer, v ...interface{}) uint64 {
 	bytesWritten, err := fmt.Fprintln(file, v...)
 	if err != nil {
-		logger.Fatal(err, "Unable to write to file")
+		gplog.Fatal(err, "Unable to write to file")
 	}
 	return uint64(bytesWritten)
 }
@@ -110,7 +111,7 @@ func MustPrintln(file io.Writer, v ...interface{}) uint64 {
 func MustPrintBytes(file io.Writer, bytes []byte) uint64 {
 	bytesWritten, err := file.Write(bytes)
 	if err != nil {
-		logger.Fatal(err, "Unable to write to file")
+		gplog.Fatal(err, "Unable to write to file")
 	}
 	return uint64(bytesWritten)
 }
@@ -157,7 +158,7 @@ func (file *FileWithByteCount) Close() {
 func (file *FileWithByteCount) MustPrintln(v ...interface{}) {
 	bytesWritten, err := fmt.Fprintln(file.writer, v...)
 	if err != nil {
-		logger.Fatal(err, "Unable to write to file")
+		gplog.Fatal(err, "Unable to write to file")
 	}
 	file.ByteCount += uint64(bytesWritten)
 }
@@ -165,7 +166,7 @@ func (file *FileWithByteCount) MustPrintln(v ...interface{}) {
 func (file *FileWithByteCount) MustPrintf(s string, v ...interface{}) {
 	bytesWritten, err := fmt.Fprintf(file.writer, s, v...)
 	if err != nil {
-		logger.Fatal(err, "Unable to write to file")
+		gplog.Fatal(err, "Unable to write to file")
 	}
 	file.ByteCount += uint64(bytesWritten)
 }

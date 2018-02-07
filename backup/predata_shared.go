@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -31,7 +32,7 @@ func SchemaFromString(name string) Schema {
 	} else if matches = utils.UnquotedIdentifier.FindStringSubmatch(name); len(matches) != 0 {
 		schema = utils.ReplacerUnescape.Replace(matches[1])
 	} else {
-		logger.Fatal(errors.Errorf("%s is not a valid identifier", name), "")
+		gplog.Fatal(errors.Errorf("%s is not a valid identifier", name), "")
 	}
 	return Schema{0, schema}
 }

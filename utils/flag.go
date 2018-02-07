@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/pkg/errors"
 )
 
@@ -25,7 +26,7 @@ func CheckMandatoryFlags(flagNames ...string) {
 	for _, name := range flagNames {
 		f := flag.Lookup(name)
 		if f == nil || !FlagIsSet(f) {
-			logger.Fatal(errors.Errorf("Flag %s must be set", name), "")
+			gplog.Fatal(errors.Errorf("Flag %s must be set", name), "")
 		}
 	}
 }
@@ -40,7 +41,7 @@ func CheckExclusiveFlags(flagNames ...string) {
 		}
 	}
 	if numSet > 1 {
-		logger.Fatal(errors.Errorf("The following flags may not be specified together: %s", strings.Join(flagNames, ", ")), "")
+		gplog.Fatal(errors.Errorf("The following flags may not be specified together: %s", strings.Join(flagNames, ", ")), "")
 	}
 }
 
@@ -71,6 +72,6 @@ func IsValidTimestamp(timestamp string) bool {
 
 func ValidateBackupDir(path string) {
 	if len(path) > 0 && string(path[0]) != "/" {
-		logger.Fatal(errors.Errorf("Absolute path required for backupdir."), "")
+		gplog.Fatal(errors.Errorf("Absolute path required for backupdir."), "")
 	}
 }

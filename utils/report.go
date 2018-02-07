@@ -14,6 +14,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
@@ -103,9 +104,9 @@ Data File Format: %s`
 func ReadConfigFile(filename string) *BackupConfig {
 	config := &BackupConfig{}
 	contents, err := operating.System.ReadFile(filename)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	err = yaml.Unmarshal(contents, config)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return config
 }
 
@@ -206,11 +207,11 @@ func PrintObjectCounts(reportFile io.WriteCloser, objectCounts map[string]int) {
  */
 func EnsureBackupVersionCompatibility(backupVersion string, restoreVersion string) {
 	backupSemVer, err := semver.Make(backupVersion)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	restoreSemVer, err := semver.Make(restoreVersion)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	if backupSemVer.GT(restoreSemVer) {
-		logger.Fatal(errors.Errorf("gprestore %s cannot restore a backup taken with gpbackup %s; please use gprestore %s or later.",
+		gplog.Fatal(errors.Errorf("gprestore %s cannot restore a backup taken with gpbackup %s; please use gprestore %s or later.",
 			restoreVersion, backupVersion, backupVersion), "")
 	}
 }
@@ -219,9 +220,9 @@ func EnsureDatabaseVersionCompatibility(backupGPDBVersion string, restoreGPDBVer
 	pattern := regexp.MustCompile(`\d+\.\d+\.\d+`)
 	threeDigitVersion := pattern.FindStringSubmatch(backupGPDBVersion)[0]
 	backupGPDBSemVer, err := semver.Make(threeDigitVersion)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	if backupGPDBSemVer.Major > restoreGPDBVersion.SemVer.Major {
-		logger.Fatal(errors.Errorf("Cannot restore from GPDB version %s to %s due to catalog incompatibilities.", backupGPDBVersion, restoreGPDBVersion.VersionString), "")
+		gplog.Fatal(errors.Errorf("Cannot restore from GPDB version %s to %s due to catalog incompatibilities.", backupGPDBVersion, restoreGPDBVersion.VersionString), "")
 	}
 }
 
@@ -236,11 +237,11 @@ type EmailContact struct {
 func GetContacts(filename string, utility string) string {
 	contactFile := &ContactFile{}
 	contents, err := operating.System.ReadFile(filename)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	err = yaml.Unmarshal(contents, contactFile)
 	if err != nil {
-		logger.Warn("Unable to send email report: Error reading email contacts file.")
-		logger.Warn("Please ensure that the email contacts file is in valid YAML format.")
+		gplog.Warn("Unable to send email report: Error reading email contacts file.")
+		gplog.Warn("Please ensure that the email contacts file is in valid YAML format.")
 		return ""
 	}
 	contactList := make([]string, len(contactFile.Contacts[utility]))
@@ -276,23 +277,25 @@ func EmailReport(cluster cluster.Cluster, backupFPInfo FilePathInfo) {
 	if homeErr != nil {
 		_, gphomeErr := cluster.ExecuteLocalCommand(fmt.Sprintf("test -f %s", gphomeFile))
 		if gphomeErr != nil {
-			logger.Info("Found neither %s nor %s", gphomeFile, homeFile)
-			logger.Info("Email containing backup report %s will not be sent", backupFPInfo.GetReportFilePath())
+			gplog.Info("Found neither %s nor %s", gphomeFile, homeFile)
+			gplog.Info("Email containing backup report %s will not be sent", backupFPInfo.GetReportFilePath())
 			return
 		}
 		contactsFilename = gphomeFile
 	} else {
 		contactsFilename = homeFile
 	}
-	logger.Info("%s list found, %s will be sent", contactsFilename, backupFPInfo.GetReportFilePath())
+	gplog.Info("%s list found, %s will be sent", contactsFilename, backupFPInfo.GetReportFilePath())
 	contactList := GetContacts(contactsFilename, "gpbackup")
 	if contactList == "" {
 		return
 	}
+	gplog.Info("%s list found, %s will be sent", contactsFilename, backupFPInfo.GetReportFilePath())
+	contactList := GetBackupContacts(contactsFilename)
 	message := ConstructEmailMessage(backupFPInfo, contactList)
-	logger.Verbose("Sending email report to the following addresses: %s", contactList)
+	gplog.Verbose("Sending email report to the following addresses: %s", contactList)
 	output, sendErr := cluster.ExecuteLocalCommand(fmt.Sprintf(`echo "%s" | sendmail -t`, message))
 	if sendErr != nil {
-		logger.Warn("Unable to send email report: %s", output)
+		gplog.Warn("Unable to send email report: %s", output)
 	}
 }

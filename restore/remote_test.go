@@ -32,7 +32,6 @@ var _ = Describe("restore/remote tests", func() {
 		testCluster.Executor = testExecutor
 		testFPInfo = utils.NewFilePathInfo(testCluster.SegDirMap, "", "20170101010101", "gpseg")
 		restore.SetFPInfo(testFPInfo)
-		cluster.SetLogger(logger)
 	})
 	Describe("VerifyBackupFileCountOnSegments", func() {
 		It("successfully verifies all backup file counts", func() {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	_ "github.com/lib/pq" // Need driver for postgres
 	"github.com/pkg/errors"
 )
@@ -20,7 +21,7 @@ func GetDBSize(connection *dbconn.DBConn) string {
 	size := struct{ DBSize string }{}
 	sizeQuery := fmt.Sprintf("SELECT pg_size_pretty(sodddatsize) as dbsize FROM gp_toolkit.gp_size_of_database WHERE sodddatname=E'%s'", dbconn.EscapeConnectionParam(connection.DBName))
 	err := connection.Get(&size, sizeQuery)
-	logger.FatalOnError(err)
+	gplog.FatalOnError(err)
 	return size.DBSize
 }
 
@@ -31,9 +32,9 @@ func SetDatabaseVersion(connection *dbconn.DBConn) {
 
 func validateGPDBVersionCompatibility(connection *dbconn.DBConn) {
 	if connection.Version.Before(MINIMUM_GPDB4_VERSION) {
-		logger.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s.0 or later.`, connection.Version.VersionString, MINIMUM_GPDB4_VERSION), "")
+		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s.0 or later.`, connection.Version.VersionString, MINIMUM_GPDB4_VERSION), "")
 	} else if connection.Version.Is("5") && connection.Version.Before(MINIMUM_GPDB5_VERSION) {
-		logger.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s or later.`, connection.Version.VersionString, MINIMUM_GPDB5_VERSION), "")
+		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s or later.`, connection.Version.VersionString, MINIMUM_GPDB5_VERSION), "")
 	}
 }
 
