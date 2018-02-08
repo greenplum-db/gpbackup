@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("utils/cluster tests", func() {
+var _ = Describe("utils/filepath tests", func() {
 	Describe("Backup Filepath setup and accessors", func() {
 		var segDirMap map[int]string
 		masterDir := "/data/gpseg-1"
@@ -21,14 +21,14 @@ var _ = Describe("utils/cluster tests", func() {
 		It("returns content dir for a single-host, single-segment nodes", func() {
 			segDirMap = map[int]string{-1: masterDir, 0: segDirOne}
 			fpInfo := utils.NewFilePathInfo(segDirMap, "", "20170101010101", "gpseg")
-			Expect(len(fpInfo.BackupDirMap)).To(Equal(2))
+			Expect(len(fpInfo.SegDirMap)).To(Equal(2))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg0/backups/20170101/20170101010101"))
 		})
 		It("sets up the configuration for a single-host, multi-segment fpInfo", func() {
 			segDirMap = map[int]string{-1: masterDir, 0: segDirOne, 1: segDirTwo}
 			fpInfo := utils.NewFilePathInfo(segDirMap, "", "20170101010101", "gpseg")
-			Expect(len(fpInfo.BackupDirMap)).To(Equal(3))
+			Expect(len(fpInfo.SegDirMap)).To(Equal(3))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg0/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(1)).To(Equal("/data/gpseg1/backups/20170101/20170101010101"))
@@ -36,7 +36,7 @@ var _ = Describe("utils/cluster tests", func() {
 		It("returns the content directory based on the user specified path", func() {
 			segDirMap = map[int]string{-1: masterDir}
 			fpInfo := utils.NewFilePathInfo(segDirMap, "/foo/bar", "20170101010101", "gpseg")
-			Expect(len(fpInfo.BackupDirMap)).To(Equal(1))
+			Expect(len(fpInfo.SegDirMap)).To(Equal(1))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/foo/bar/gpseg-1/backups/20170101/20170101010101"))
 		})
 	})
@@ -64,7 +64,7 @@ var _ = Describe("utils/cluster tests", func() {
 			Expect(fpInfo.GetReportFilePath()).To(Equal("/data/gpseg-1/backups/20170101/20170101010101/gpbackup_20170101010101_report"))
 		})
 		It("returns report file path based on user specified path", func() {
-			fpInfo := utils.NewFilePathInfo(nil, "/foo/bar", "20170101010101", "gpseg")
+			fpInfo := utils.NewFilePathInfo(map[int]string{-1: "/data/gpseg-1"}, "/foo/bar", "20170101010101", "gpseg")
 			Expect(fpInfo.GetReportFilePath()).To(Equal("/foo/bar/gpseg-1/backups/20170101/20170101010101/gpbackup_20170101010101_report"))
 		})
 	})

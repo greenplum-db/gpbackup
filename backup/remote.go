@@ -72,10 +72,10 @@ func CleanUpSegmentTailProcesses() {
 
 func MoveSegmentTOCsAndMakeReadOnly() {
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Setting permissions on segment table of contents files and moving to backup directories", func(contentID int) string {
-		tocFile := globalFPInfo.GetSegmentTOCFilePath(globalFPInfo.BackupDirMap[contentID], fmt.Sprintf("%d", contentID))
+		tocFile := globalFPInfo.GetSegmentTOCFilePath(globalCluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
 		return fmt.Sprintf("chmod 444 %s; mv %s %s/.", tocFile, tocFile, globalFPInfo.GetDirForContent(contentID))
 	})
 	globalCluster.CheckClusterError(remoteOutput, "Unable to set permissions on or move segment table of contents files", func(contentID int) string {
-		return fmt.Sprintf("Unable to set permissions on or move file %s", globalFPInfo.GetSegmentTOCFilePath(globalFPInfo.BackupDirMap[contentID], fmt.Sprintf("%d", contentID)))
+		return fmt.Sprintf("Unable to set permissions on or move file %s", globalFPInfo.GetSegmentTOCFilePath(globalCluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID)))
 	})
 }

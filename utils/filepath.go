@@ -20,7 +20,7 @@ import (
 
 type FilePathInfo struct {
 	PID                    int
-	BackupDirMap           map[int]string
+	SegDirMap              map[int]string
 	Timestamp              string
 	UserSpecifiedBackupDir string
 	UserSpecifiedSegPrefix string
@@ -32,9 +32,9 @@ func NewFilePathInfo(segDirMap map[int]string, userSpecifiedBackupDir string, ti
 	backupFPInfo.UserSpecifiedBackupDir = userSpecifiedBackupDir
 	backupFPInfo.UserSpecifiedSegPrefix = userSegPrefix
 	backupFPInfo.Timestamp = timestamp
-	backupFPInfo.BackupDirMap = make(map[int]string)
+	backupFPInfo.SegDirMap = make(map[int]string)
 	for k, v := range segDirMap {
-		backupFPInfo.BackupDirMap[k] = v
+		backupFPInfo.SegDirMap[k] = v
 	}
 	return backupFPInfo
 }
@@ -48,11 +48,11 @@ func (backupFPInfo *FilePathInfo) GetDirForContent(contentID int) string {
 		segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, contentID)
 		return path.Join(backupFPInfo.UserSpecifiedBackupDir, segDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
 	}
-	return path.Join(backupFPInfo.BackupDirMap[contentID], "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
+	return path.Join(backupFPInfo.SegDirMap[contentID], "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
 }
 
 func (backupFPInfo *FilePathInfo) replaceCopyFormatStringsInPath(templateFilePath string, contentID int) string {
-	filePath := strings.Replace(templateFilePath, "<SEG_DATA_DIR>", backupFPInfo.BackupDirMap[contentID], -1)
+	filePath := strings.Replace(templateFilePath, "<SEG_DATA_DIR>", backupFPInfo.SegDirMap[contentID], -1)
 	return strings.Replace(filePath, "<SEGID>", strconv.Itoa(contentID), -1)
 }
 
@@ -134,7 +134,7 @@ func (backupFPInfo *FilePathInfo) GetSegmentTOCFilePathWithPID(topDir string, co
 }
 
 func (backupFPInfo *FilePathInfo) GetSegmentHelperFilePath(contentID int, suffix string) string {
-	return path.Join(backupFPInfo.BackupDirMap[contentID], fmt.Sprintf("gpbackup_%d_%s_%s_%d", contentID, backupFPInfo.Timestamp, suffix, backupFPInfo.PID))
+	return path.Join(backupFPInfo.SegDirMap[contentID], fmt.Sprintf("gpbackup_%d_%s_%s_%d", contentID, backupFPInfo.Timestamp, suffix, backupFPInfo.PID))
 }
 
 /*

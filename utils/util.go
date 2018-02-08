@@ -13,10 +13,14 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
+
+const MINIMUM_GPDB4_VERSION = "4.3.17"
+const MINIMUM_GPDB5_VERSION = "5.1.0"
 
 /*
  * General helper functions
@@ -69,4 +73,29 @@ func InitializeSignalHandler(cleanupFunc func(), procDesc string, termFlag *bool
 			os.Exit(2)
 		}
 	}()
+}
+
+// TODO: Uniquely identify COPY commands in the multiple data file case to allow terminating sessions
+func TerminateHangingCopySessions(connection *dbconn.DBConn, globalFPInfo FilePathInfo, appName string) {
+	copyFileName := fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), globalFPInfo.PID)
+	query := fmt.Sprintf(`SELECT
+	pg_terminate_backend(procpid)
+FROM pg_stat_activity
+WHERE application_name = '%s'
+AND current_query LIKE '%%%s%%'
+AND procpid <> pg_backend_pid()`, appName, copyFileName)
+	connection.MustExec(query)
+}
+
+func SetDatabaseVersion(connection *dbconn.DBConn) {
+	connection.Version.Initialize(connection)
+	validateGPDBVersionCompatibility(connection)
+}
+
+func validateGPDBVersionCompatibility(connection *dbconn.DBConn) {
+	if connection.Version.Before(MINIMUM_GPDB4_VERSION) {
+		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s.0 or later.`, connection.Version.VersionString, MINIMUM_GPDB4_VERSION), "")
+	} else if connection.Version.Is("5") && connection.Version.Before(MINIMUM_GPDB5_VERSION) {
+		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s or later.`, connection.Version.VersionString, MINIMUM_GPDB5_VERSION), "")
+	}
 }

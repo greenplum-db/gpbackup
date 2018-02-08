@@ -78,7 +78,7 @@ func InitializeBackupReport() {
 	}
 	dbSize := ""
 	if !*metadataOnly {
-		dbSize = utils.GetDBSize(connection)
+		dbSize = GetDBSize(connection)
 	}
 
 	backupReport = &utils.Report{

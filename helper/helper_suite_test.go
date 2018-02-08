@@ -18,9 +18,9 @@ var (
 	toc     *utils.TOC
 )
 
-func TestUtils(t *testing.T) {
+func TestHelper(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "utils tests")
+	RunSpecs(t, "helper tests")
 }
 
 var _ = BeforeEach(func() {
