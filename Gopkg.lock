@@ -11,13 +11,14 @@
   branch = "add_packages"
   name = "github.com/greenplum-db/gp-common-go-libs"
   packages = [
+    "cluster",
     "dbconn",
     "gplog",
     "operating",
     "structmatcher",
     "testhelper"
   ]
-  revision = "6ddf6ade96aff77d7643ba869694db1f3a0cd76d"
+  revision = "a87ebebf7fe9f64fd1b0129ecbfd5ea5abb37dcc"
 
 [[projects]]
   branch = "master"
@@ -104,7 +105,7 @@
     "html/atom",
     "html/charset"
   ]
-  revision = "2fb46b16b8dda405028c50f7c7f0f9dd1fa6bfb1"
+  revision = "f5dfe339be1d06f81b22525fe34671ee7d2c8904"
 
 [[projects]]
   branch = "master"
@@ -134,7 +135,7 @@
     "transform",
     "unicode/cldr"
   ]
-  revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
+  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
 
 [[projects]]
   name = "gopkg.in/DATA-DOG/go-sqlmock.v1"
@@ -157,6 +158,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "626a48e11223332ba4871726bcafa79cdf79741975958288b297c363e7e4df9a"
+  inputs-digest = "3fa7a083aa9cc58d4f75f1ac5cee4dda4f7ef7fc801df5c6ad03b22f21564c0c"
   solver-name = "gps-cdcl"
   solver-version = 1
