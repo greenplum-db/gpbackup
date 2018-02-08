@@ -26,7 +26,7 @@ SET client_encoding = '%s';
 func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, db Database, dbMetadata MetadataMap) {
 	dbname := db.Name
 	start := metadataFile.ByteCount
-	metadataFile.MustPrintf("\n\nCREATE DATABASE %s", dbname)
+	metadataFile.MustPrintf("\n\nCREATE DATABASE %s TEMPLATE template0", dbname)
 	if db.Tablespace != "pg_default" {
 		metadataFile.MustPrintf(" TABLESPACE %s", db.Tablespace)
 	}

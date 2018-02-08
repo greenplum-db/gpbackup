@@ -12,7 +12,7 @@ import (
 var _ = Describe("utils/toc tests", func() {
 	comment := utils.StatementWithType{ObjectType: "COMMENT", Statement: "-- This is a comment\n"}
 	commentLen := uint64(len(comment.Statement))
-	create := utils.StatementWithType{ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase;\n"}
+	create := utils.StatementWithType{ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase TEMPLATE template0;\n"}
 	createLen := uint64(len(create.Statement))
 	role1 := utils.StatementWithType{ObjectType: "ROLE", Statement: "CREATE ROLE somerole1;\n"}
 	role1Len := uint64(len(role1.Statement))
@@ -184,19 +184,19 @@ var _ = Describe("utils/toc tests", func() {
 	})
 	Context("SubstituteRedirectDatabaseInStatements", func() {
 		wrongCreate := utils.StatementWithType{ObjectType: "TABLE", Statement: "CREATE DATABASE somedatabase;\n"}
-		encoding := utils.StatementWithType{ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase ENCODING 'UTF8';\n"}
+		encoding := utils.StatementWithType{ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase TEMPLATE template0 ENCODING 'UTF8';\n"}
 		gucs := utils.StatementWithType{ObjectType: "DATABASE GUC", Statement: "ALTER DATABASE somedatabase SET fsync TO off;\n"}
 		metadata := utils.StatementWithType{ObjectType: "DATABASE METADATA", Statement: "ALTER DATABASE somedatabase OWNER TO testrole;\n\nREVOKE ALL ON DATABASE somedatabase FROM public;\nGRANT ALL ON DATABASE somedatabase TO gpadmin;"}
-		oldSpecial := utils.StatementWithType{ObjectType: "DATABASE", Statement: `CREATE DATABASE "db-special-chär$" TABLESPACE test_tablespace;
+		oldSpecial := utils.StatementWithType{ObjectType: "DATABASE", Statement: `CREATE DATABASE "db-special-chär$" TEMPLATE template0 TABLESPACE test_tablespace;
 
 COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 		It("can substitute a database name in a CREATE DATABASE statement", func() {
 			statements := utils.SubstituteRedirectDatabaseInStatements([]utils.StatementWithType{create}, "somedatabase", "newdatabase")
-			Expect(statements[0].Statement).To(Equal("CREATE DATABASE newdatabase;\n"))
+			Expect(statements[0].Statement).To(Equal("CREATE DATABASE newdatabase TEMPLATE template0;\n"))
 		})
 		It("can substitute a database name in a CREATE DATABASE statement with encoding", func() {
 			statements := utils.SubstituteRedirectDatabaseInStatements([]utils.StatementWithType{encoding}, "somedatabase", "newdatabase")
-			Expect(statements[0].Statement).To(Equal("CREATE DATABASE newdatabase ENCODING 'UTF8';\n"))
+			Expect(statements[0].Statement).To(Equal("CREATE DATABASE newdatabase TEMPLATE template0 ENCODING 'UTF8';\n"))
 		})
 		It("can substitute a database name in an ALTER DATABASE OWNER statement", func() {
 			statements := utils.SubstituteRedirectDatabaseInStatements([]utils.StatementWithType{metadata}, "somedatabase", "newdatabase")
@@ -216,11 +216,11 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 		})
 		It("can substitute a database name if the old name contained special characters with a tablespace and comment", func() {
 			statements := utils.SubstituteRedirectDatabaseInStatements([]utils.StatementWithType{oldSpecial}, `"db-special-chär$"`, "newdatabase")
-			Expect(statements[0].Statement).To(Equal("CREATE DATABASE newdatabase TABLESPACE test_tablespace;\n\nCOMMENT ON DATABASE newdatabase IS 'this is a database comment';"))
+			Expect(statements[0].Statement).To(Equal("CREATE DATABASE newdatabase TEMPLATE template0 TABLESPACE test_tablespace;\n\nCOMMENT ON DATABASE newdatabase IS 'this is a database comment';"))
 		})
 		It("can substitute a database name if the new name contained special characters", func() {
 			statements := utils.SubstituteRedirectDatabaseInStatements([]utils.StatementWithType{create}, "somedatabase", `"db-special-chär$"`)
-			Expect(statements[0].Statement).To(Equal(`CREATE DATABASE "db-special-chär$";
+			Expect(statements[0].Statement).To(Equal(`CREATE DATABASE "db-special-chär$" TEMPLATE template0;
 `))
 		})
 	})

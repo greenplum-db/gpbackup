@@ -28,14 +28,14 @@ var _ = Describe("backup/metadata_globals tests", func() {
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, emptyMetadataMap)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testdb", "DATABASE")
-			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb;`)
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb TEMPLATE template0;`)
 		})
 		It("prints a CREATE DATABASE statement for a reserved keyword named database", func() {
 			db := backup.Database{Oid: 1, Name: `"table"`, Tablespace: "pg_default"}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, emptyMetadataMap)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", `"table"`, "DATABASE")
-			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE "table";`)
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE "table" TEMPLATE template0;`)
 		})
 		It("prints a CREATE DATABASE statement with privileges, an owner, and a comment", func() {
 			dbMetadataMap := testutils.DefaultMetadataMap("DATABASE", true, true, true)
@@ -44,7 +44,7 @@ var _ = Describe("backup/metadata_globals tests", func() {
 			dbMetadataMap[1] = dbMetadata
 			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "pg_default"}
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, dbMetadataMap)
-			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb;`,
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb TEMPLATE template0;`,
 				`COMMENT ON DATABASE testdb IS 'This is a database comment.';
 
 
@@ -59,7 +59,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`)
 			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "test_tablespace", Encoding: "UTF8", Collate: "en_US.utf-8", CType: "en_US.utf-8"}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, emptyMetadataMap)
-			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb TABLESPACE test_tablespace ENCODING 'UTF8' LC_COLLATE 'en_US.utf-8' LC_CTYPE 'en_US.utf-8';`)
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb TEMPLATE template0 TABLESPACE test_tablespace ENCODING 'UTF8' LC_COLLATE 'en_US.utf-8' LC_CTYPE 'en_US.utf-8';`)
 		})
 	})
 	Describe("PrintDatabaseGUCs", func() {
