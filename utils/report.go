@@ -290,8 +290,6 @@ func EmailReport(cluster cluster.Cluster, backupFPInfo FilePathInfo) {
 	if contactList == "" {
 		return
 	}
-	gplog.Info("%s list found, %s will be sent", contactsFilename, backupFPInfo.GetReportFilePath())
-	contactList := GetBackupContacts(contactsFilename)
 	message := ConstructEmailMessage(backupFPInfo, contactList)
 	gplog.Verbose("Sending email report to the following addresses: %s", contactList)
 	output, sendErr := cluster.ExecuteLocalCommand(fmt.Sprintf(`echo "%s" | sendmail -t`, message))

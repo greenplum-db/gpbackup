@@ -11,6 +11,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -154,7 +155,7 @@ types                        1000`))
 			backupReport = &utils.Report{}
 			utils.InitializeCompressionParameters(true, 0)
 			backupReport.SetBackupParamsFromFlags(true, true, true, true, true, true)
-			testutils.ExpectStructsToMatch(backupReport.BackupConfig, utils.BackupConfig{
+			structmatcher.ExpectStructsToMatch(backupReport.BackupConfig, utils.BackupConfig{
 				BackupVersion: "", DatabaseName: "", DatabaseVersion: "",
 				Compressed: true, DataOnly: true, SchemaFiltered: true, TableFiltered: true,
 				MetadataOnly: true, WithStatistics: true, SingleDataFile: true,
@@ -360,7 +361,7 @@ Timestamp Key: 20170101010101`)
 			operating.InitializeSystemFunctions()
 		})
 		Context("GetContacts", func() {
-			contactsFilename := fmt.Sprintf("%s/bin/gp_email_contacts.yaml", utils.System.Getenv("GPHOME"))
+			contactsFilename := fmt.Sprintf("%s/bin/gp_email_contacts.yaml", operating.System.Getenv("GPHOME"))
 			It("Gets a list of gpbackup contacts", func() {
 				w.Write(contactsFileContents)
 				w.Close()
