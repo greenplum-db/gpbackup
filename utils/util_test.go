@@ -85,7 +85,7 @@ var _ = Describe("utils/util tests", func() {
 			utils.ValidateFQNs(testStrings)
 		})
 	})
-	Describe("Dbconn.SetDatabaseVersion", func() {
+	Describe("SetDatabaseVersion", func() {
 		BeforeEach(func() {
 			operating.System.Now = func() time.Time { return time.Date(2017, time.January, 1, 1, 1, 1, 1, time.Local) }
 		})

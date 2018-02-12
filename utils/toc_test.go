@@ -12,19 +12,19 @@ import (
 var _ = Describe("utils/toc tests", func() {
 	comment := utils.StatementWithType{ObjectType: "COMMENT", Statement: "-- This is a comment\n"}
 	commentLen := uint64(len(comment.Statement))
-	create := utils.StatementWithType{ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase TEMPLATE template0;\n"}
+	create := utils.StatementWithType{Schema: "", Name: "somedatabase", ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase TEMPLATE template0;\n"}
 	createLen := uint64(len(create.Statement))
-	role1 := utils.StatementWithType{ObjectType: "ROLE", Statement: "CREATE ROLE somerole1;\n"}
+	role1 := utils.StatementWithType{Schema: "", Name: "somerole1", ObjectType: "ROLE", Statement: "CREATE ROLE somerole1;\n"}
 	role1Len := uint64(len(role1.Statement))
-	role2 := utils.StatementWithType{ObjectType: "ROLE", Statement: "CREATE ROLE somerole2;\n"}
+	role2 := utils.StatementWithType{Schema: "", Name: "somerole2", ObjectType: "ROLE", Statement: "CREATE ROLE somerole2;\n"}
 	role2Len := uint64(len(role2.Statement))
-	sequence := utils.StatementWithType{ObjectType: "SEQUENCE", Statement: "CREATE SEQUENCE schema.somesequence"}
+	sequence := utils.StatementWithType{Schema: "schema", Name: "somesequence", ObjectType: "SEQUENCE", Statement: "CREATE SEQUENCE schema.somesequence"}
 	sequenceLen := uint64(len(sequence.Statement))
-	table1 := utils.StatementWithType{ObjectType: "TABLE", Statement: "CREATE TABLE schema.table1"}
+	table1 := utils.StatementWithType{Schema: "schema", Name: "table1", ObjectType: "TABLE", Statement: "CREATE TABLE schema.table1"}
 	table1Len := uint64(len(table1.Statement))
-	table2 := utils.StatementWithType{ObjectType: "TABLE", Statement: "CREATE TABLE schema.table2"}
+	table2 := utils.StatementWithType{Schema: "schema", Name: "table2", ObjectType: "TABLE", Statement: "CREATE TABLE schema.table2"}
 	table2Len := uint64(len(table2.Statement))
-	index := utils.StatementWithType{ObjectType: "INDEX", Statement: "CREATE INDEX idx ON schema.table(i)", ReferenceObject: "schema.table"}
+	index := utils.StatementWithType{Schema: "schema", Name: "someindex", ObjectType: "INDEX", Statement: "CREATE INDEX someindex ON schema.table(i)", ReferenceObject: "schema.table"}
 	indexLen := uint64(len(index.Statement))
 	BeforeEach(func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "global")
@@ -222,6 +222,20 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 			statements := utils.SubstituteRedirectDatabaseInStatements([]utils.StatementWithType{create}, "somedatabase", `"db-special-chär$"`)
 			Expect(statements[0].Statement).To(Equal(`CREATE DATABASE "db-special-chär$" TEMPLATE template0;
 `))
+		})
+	})
+	Describe("RemoveActiveRoles", func() {
+		user1 := utils.StatementWithType{Name: "user1", ObjectType: "ROLE", Statement: "CREATE ROLE user1 SUPERUSER;\n"}
+		user2 := utils.StatementWithType{Name: "user2", ObjectType: "ROLE", Statement: "CREATE ROLE user2;\n"}
+		It("Removes current user from the list of roles to restore", func() {
+			resultStatements := utils.RemoveActiveRole("user1", []utils.StatementWithType{user1, user2})
+
+			Expect(resultStatements).To(Equal([]utils.StatementWithType{user2}))
+		})
+		It("Returns the same list if current user is not in it", func() {
+			resultStatements := utils.RemoveActiveRole("user3", []utils.StatementWithType{user1, user2})
+
+			Expect(resultStatements).To(Equal([]utils.StatementWithType{user1, user2}))
 		})
 	})
 })

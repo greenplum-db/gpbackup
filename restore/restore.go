@@ -138,6 +138,7 @@ func restoreGlobal(metadataFilename string) {
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
+	statements = utils.RemoveActiveRole(connection.User, statements)
 	ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
 	gplog.Info("Global database metadata restore complete")
 }

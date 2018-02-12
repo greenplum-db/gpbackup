@@ -82,6 +82,8 @@ func (toc *SegmentTOC) WriteToFile(filename string) {
 }
 
 type StatementWithType struct {
+	Schema          string
+	Name            string
 	ObjectType      string
 	ReferenceObject string
 	Statement       string
@@ -102,7 +104,7 @@ func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.Re
 			contents := make([]byte, entry.EndByte-entry.StartByte)
 			_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
 			gplog.FatalOnError(err)
-			statements = append(statements, StatementWithType{ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
+			statements = append(statements, StatementWithType{Schema: entry.Schema, Name: entry.Name, ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
 		}
 	}
 	return statements
@@ -115,7 +117,7 @@ func (toc *TOC) GetAllSQLStatements(section string, metadataFile io.ReaderAt) []
 		contents := make([]byte, entry.EndByte-entry.StartByte)
 		_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
 		gplog.FatalOnError(err)
-		statements = append(statements, StatementWithType{ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
+		statements = append(statements, StatementWithType{Schema: entry.Schema, Name: entry.Name, ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
 	}
 	return statements
 }
@@ -162,6 +164,17 @@ func SubstituteRedirectDatabaseInStatements(statements []StatementWithType, oldN
 		}
 	}
 	return statements
+}
+
+func RemoveActiveRole(activeUser string, statements []StatementWithType) []StatementWithType {
+	newStatements := make([]StatementWithType, 0)
+	for _, statement := range statements {
+		if statement.ObjectType == "ROLE" && statement.Name == activeUser {
+			continue
+		}
+		newStatements = append(newStatements, statement)
+	}
+	return newStatements
 }
 
 func (toc *TOC) InitializeEntryMap() {
