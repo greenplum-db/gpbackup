@@ -20,7 +20,7 @@ import (
  */
 func initializeFlags() {
 	backupDir = flag.String("backup-dir", "", "The absolute path of the directory in which the backup files to be restored are located")
-	createdb = flag.Bool("createdb", false, "Create the database before metadata restore")
+	createDB = flag.Bool("create-db", false, "Create the database before metadata restore")
 	debug = flag.Bool("debug", false, "Print verbose and debug log messages")
 	flag.Var(&includeSchemas, "include-schema", "Restore only the specified schema(s). --include-schema can be specified multiple times.")
 	includeTableFile = flag.String("include-table-file", "", "A file containing a list of fully-qualified tables to be restored")
@@ -77,7 +77,7 @@ func DoSetup() {
 	if !backupConfig.DataOnly {
 		gplog.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
-	if *createdb {
+	if *createDB {
 		createDatabase(metadataFilename)
 	}
 	ConnectToRestoreDatabase()
@@ -90,7 +90,7 @@ func DoSetup() {
 	 * We don't need to validate anything if we're creating the database; we
 	 * should not error out for validation reasons once the restore database exists.
 	 */
-	if !*createdb {
+	if !*createDB {
 		DoRestoreDatabaseValidation()
 	}
 }
@@ -244,9 +244,9 @@ func DoTeardown() {
 		errStr = fmt.Sprintf("%v", err)
 		if connection != nil {
 			if strings.Contains(errStr, fmt.Sprintf(`Database "%s" does not exist`, connection.DBName)) {
-				errStr = fmt.Sprintf(`%s.  Use the --createdb flag to create "%s" as part of the restore process.`, errStr, connection.DBName)
+				errStr = fmt.Sprintf(`%s.  Use the --create-db flag to create "%s" as part of the restore process.`, errStr, connection.DBName)
 			} else if strings.Contains(errStr, fmt.Sprintf(`Database "%s" already exists`, connection.DBName)) {
-				errStr = fmt.Sprintf(`%s.  Run gprestore again without the --createdb flag.`, errStr)
+				errStr = fmt.Sprintf(`%s.  Run gprestore again without the --create-db flag.`, errStr)
 			}
 		}
 	}

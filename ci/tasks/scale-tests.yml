@@ -57,7 +57,7 @@ run:
     time gpbackup --dbname scaledb --backup-dir /data/gpdata/ --metadata-only --verbose | tee "\$log_file"
 
     timestamp=\$(head -5 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
-    gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --redirect=scaledb_res --createdb
+    gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --redirect=scaledb_res --create-db
 
     SCRIPT
 

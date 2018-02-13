@@ -135,7 +135,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			if err != nil {
 				Fail(fmt.Sprintf("%v", err))
 			}
-			gprestore(gprestorePath, timestamp, "-createdb")
+			gprestore(gprestorePath, timestamp, "-create-db")
 			backupConn = dbconn.NewDBConn("testdb")
 			backupConn.MustConnect(1)
 		})

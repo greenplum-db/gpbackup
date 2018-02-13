@@ -41,7 +41,7 @@ var (
 
 var (
 	backupDir        *string
-	createdb         *bool
+	createDB         *bool
 	debug            *bool
 	includeSchemas   utils.ArrayFlags
 	includeTableFile *string
