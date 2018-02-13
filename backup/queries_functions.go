@@ -514,7 +514,8 @@ SELECT
 	0 AS laninline,
 	l.lanvalidator::regprocedure::oid
 FROM pg_language l
-WHERE l.lanispl='t';
+WHERE l.lanispl='t'
+AND l.lanname != 'plpgsql';
 `
 	query := `
 SELECT
@@ -528,6 +529,7 @@ SELECT
 	l.lanvalidator::regprocedure::oid
 FROM pg_language l
 WHERE l.lanispl='t'
+AND l.lanname != 'plpgsql'
 AND l.oid NOT IN (select objid from pg_depend where deptype = 'e');`
 	var err error
 	if connection.Version.Before("5") {

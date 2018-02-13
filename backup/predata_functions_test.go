@@ -502,12 +502,12 @@ COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';`)
 	})
 	Describe("PrintCreateLanguageStatements", func() {
 		plUntrustedHandlerOnly := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: 4, Inline: 0, Validator: 0}
-		plAllFields := backup.ProceduralLanguage{Oid: 1, Name: "plpgsql", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: 1, Inline: 2, Validator: 3}
+		plAllFields := backup.ProceduralLanguage{Oid: 1, Name: "plperl", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: 1, Inline: 2, Validator: 3}
 		plComment := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: 4, Inline: 0, Validator: 0}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "pg_catalog.plpgsql_call_handler", Arguments: "", IsInternal: true},
-			2: {QualifiedName: "pg_catalog.plpgsql_inline_handler", Arguments: "internal", IsInternal: true},
-			3: {QualifiedName: "pg_catalog.plpgsql_validator", Arguments: "oid", IsInternal: true},
+			1: {QualifiedName: "pg_catalog.plperl_call_handler", Arguments: "", IsInternal: true},
+			2: {QualifiedName: "pg_catalog.plperl_inline_handler", Arguments: "internal", IsInternal: true},
+			3: {QualifiedName: "pg_catalog.plperl_validator", Arguments: "oid", IsInternal: true},
 			4: {QualifiedName: "pg_catalog.plpython_call_handler", Arguments: "", IsInternal: true},
 		}
 		emptyMetadataMap := backup.MetadataMap{}
@@ -524,20 +524,20 @@ ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;`)
 			langs := []backup.ProceduralLanguage{plAllFields}
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, emptyMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TRUSTED PROCEDURAL LANGUAGE plpgsql;
-ALTER FUNCTION pg_catalog.plpgsql_call_handler() OWNER TO testrole;
-ALTER FUNCTION pg_catalog.plpgsql_inline_handler(internal) OWNER TO testrole;
-ALTER FUNCTION pg_catalog.plpgsql_validator(oid) OWNER TO testrole;`)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TRUSTED PROCEDURAL LANGUAGE plperl;
+ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
+ALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO testrole;
+ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`)
 		})
 		It("prints multiple create language statements", func() {
 			langs := []backup.ProceduralLanguage{plUntrustedHandlerOnly, plAllFields}
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, emptyMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROCEDURAL LANGUAGE plpythonu;
-ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;`, `CREATE TRUSTED PROCEDURAL LANGUAGE plpgsql;
-ALTER FUNCTION pg_catalog.plpgsql_call_handler() OWNER TO testrole;
-ALTER FUNCTION pg_catalog.plpgsql_inline_handler(internal) OWNER TO testrole;
-ALTER FUNCTION pg_catalog.plpgsql_validator(oid) OWNER TO testrole;`)
+ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;`, `CREATE TRUSTED PROCEDURAL LANGUAGE plperl;
+ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
+ALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO testrole;
+ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`)
 		})
 		It("prints a language with privileges, an owner, and a comment", func() {
 			langs := []backup.ProceduralLanguage{plComment}

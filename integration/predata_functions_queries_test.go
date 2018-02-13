@@ -437,16 +437,8 @@ LANGUAGE SQL`)
 			testhelper.AssertQueryRuns(connection, "CREATE LANGUAGE plpythonu")
 			defer testhelper.AssertQueryRuns(connection, "DROP LANGUAGE plpythonu")
 
-			pgsqlHandlerOid := testutils.OidFromObjectName(connection, "pg_catalog", "plpgsql_call_handler", backup.TYPE_FUNCTION)
-			pgsqlValidatorOid := testutils.OidFromObjectName(connection, "pg_catalog", "plpgsql_validator", backup.TYPE_FUNCTION)
-
 			pythonHandlerOid := testutils.OidFromObjectName(connection, "pg_catalog", "plpython_call_handler", backup.TYPE_FUNCTION)
 
-			expectedPlpgsqlInfo := backup.ProceduralLanguage{Oid: 0, Name: "plpgsql", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: pgsqlHandlerOid, Inline: 0, Validator: pgsqlValidatorOid}
-			if connection.Version.AtLeast("5") {
-				pgsqlInlineOid := testutils.OidFromObjectName(connection, "pg_catalog", "plpgsql_inline_handler", backup.TYPE_FUNCTION)
-				expectedPlpgsqlInfo.Inline = pgsqlInlineOid
-			}
 			expectedPlpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: pythonHandlerOid, Inline: 0}
 			if connection.Version.AtLeast("5") {
 				pythonInlineOid := testutils.OidFromObjectName(connection, "pg_catalog", "plpython_inline_handler", backup.TYPE_FUNCTION)
@@ -455,9 +447,8 @@ LANGUAGE SQL`)
 
 			resultProcLangs := backup.GetProceduralLanguages(connection)
 
-			Expect(len(resultProcLangs)).To(Equal(2))
-			structmatcher.ExpectStructsToMatchExcluding(&expectedPlpgsqlInfo, &resultProcLangs[0], "Oid", "Owner")
-			structmatcher.ExpectStructsToMatchExcluding(&expectedPlpythonInfo, &resultProcLangs[1], "Oid", "Owner")
+			Expect(len(resultProcLangs)).To(Equal(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedPlpythonInfo, &resultProcLangs[0], "Oid", "Owner")
 		})
 	})
 	Describe("GetConversions", func() {
