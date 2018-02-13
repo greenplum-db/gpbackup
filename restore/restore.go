@@ -265,9 +265,11 @@ func DoTeardown() {
 	errMsg := utils.ParseErrorMessage(errStr)
 	errorCode := gplog.GetErrorCode()
 
-	reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
-	utils.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connection, version, errMsg)
-	utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore")
+	if globalFPInfo.Timestamp != "" {
+		reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
+		utils.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connection, version, errMsg)
+		utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore")
+	}
 
 	DoCleanup()
 
@@ -283,7 +285,7 @@ func DoCleanup() {
 		CleanupGroup.Done()
 	}()
 	gplog.Verbose("Beginning cleanup")
-	if backupConfig.SingleDataFile {
+	if backupConfig != nil && backupConfig.SingleDataFile {
 		CleanUpSegmentTOCs()
 		CleanUpHelperFilesOnAllHosts()
 		CleanUpSegmentHelperProcesses()
