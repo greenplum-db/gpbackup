@@ -83,16 +83,8 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 				testhelper.AssertQueryRuns(tempConn, createQuery)
 			})
 			It("can execute all statements in the list serially", func() {
-				shouldExecute := utils.NewEmptyIncludeSet()
 				expectedOrderArray := []string{"1", "2", "3", "4"}
-				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, false)
-				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
-				Expect(resultOrderArray).To(Equal(expectedOrderArray))
-			})
-			It("can execute all statements in the list that are not of the specified object type serially", func() {
-				shouldExecute := utils.NewExcludeSet([]string{"DATABASE"})
-				expectedOrderArray := []string{"1", "3"}
-				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, false)
+				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, false)
 				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})
@@ -104,16 +96,8 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 				testhelper.AssertQueryRuns(tempConn, createQuery)
 			})
 			It("can execute all statements in the list in parallel", func() {
-				shouldExecute := utils.NewEmptyIncludeSet()
 				expectedOrderArray := []string{"3", "1", "4", "2"}
-				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, true)
-				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
-				Expect(resultOrderArray).To(Equal(expectedOrderArray))
-			})
-			It("can execute all statements in the list that are not of the specified object type in parallel", func() {
-				shouldExecute := utils.NewExcludeSet([]string{"DATABASE"})
-				expectedOrderArray := []string{"3", "1"}
-				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, shouldExecute, true)
+				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, true)
 				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})

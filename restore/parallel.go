@@ -19,20 +19,18 @@ import (
  * The return value for this function is the number of errors encountered, not
  * an error code.
  */
-func executeStatement(statement utils.StatementWithType, showProgressBar int, shouldExecute *utils.FilterSet, whichConn int) uint32 {
+func executeStatement(statement utils.StatementWithType, showProgressBar int, whichConn int) uint32 {
 	whichConn = connection.ValidateConnNum(whichConn)
-	if shouldExecute.MatchesFilter(statement.ObjectType) {
-		_, err := connection.Exec(statement.Statement, whichConn)
-		if err != nil {
-			if showProgressBar >= utils.PB_INFO && gplog.GetVerbosity() == gplog.LOGINFO {
-				fmt.Println() // Move error message to its own line, since the cursor is currently at the end of the progress bar
-			}
-			gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
-			if *onErrorContinue {
-				return 1
-			}
-			gplog.Fatal(errors.Errorf("%s; see log file %s for details.", err.Error(), gplog.GetLogFilePath()), "Failed to execute statement")
+	_, err := connection.Exec(statement.Statement, whichConn)
+	if err != nil {
+		gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
+		if *onErrorContinue {
+			return 1
 		}
+		if showProgressBar >= utils.PB_INFO && gplog.GetVerbosity() == gplog.LOGINFO {
+			fmt.Println() // Move error message to its own line, since the cursor is currently at the end of the progress bar
+		}
+		gplog.Fatal(errors.Errorf("%s; see log file %s for details.", err.Error(), gplog.GetLogFilePath()), "Failed to execute statement")
 	}
 	return 0
 }
@@ -41,12 +39,12 @@ func executeStatement(statement utils.StatementWithType, showProgressBar int, sh
  * This function creates a worker pool of N goroutines to be able to execute up
  * to N statements in parallel.
  */
-func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.ProgressBar, showProgressBar int, shouldExecute *utils.FilterSet, executeInParallel bool, whichConn ...int) {
+func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool, whichConn ...int) {
 	var numErrors uint32
 	if !executeInParallel {
 		connNum := connection.ValidateConnNum(whichConn...)
 		for _, statement := range statements {
-			numErrors += executeStatement(statement, showProgressBar, shouldExecute, connNum)
+			numErrors += executeStatement(statement, showProgressBar, connNum)
 			progressBar.Increment()
 		}
 	} else {
@@ -56,7 +54,7 @@ func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.P
 			workerPool.Add(1)
 			go func(whichConn int) {
 				for statement := range tasks {
-					atomic.AddUint32(&numErrors, executeStatement(statement, showProgressBar, shouldExecute, whichConn))
+					atomic.AddUint32(&numErrors, executeStatement(statement, showProgressBar, whichConn))
 					progressBar.Increment()
 				}
 				workerPool.Done()
@@ -73,10 +71,10 @@ func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.P
 	}
 }
 
-func ExecuteStatementsAndCreateProgressBar(statements []utils.StatementWithType, objectsTitle string, showProgressBar int, shouldExecute *utils.FilterSet, executeInParallel bool, whichConn ...int) {
+func ExecuteStatementsAndCreateProgressBar(statements []utils.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) {
 	progressBar := utils.NewProgressBar(len(statements), fmt.Sprintf("%s restored: ", objectsTitle), showProgressBar)
 	progressBar.Start()
-	ExecuteStatements(statements, progressBar, showProgressBar, shouldExecute, executeInParallel, whichConn...)
+	ExecuteStatements(statements, progressBar, showProgressBar, executeInParallel, whichConn...)
 	progressBar.Finish()
 }
 

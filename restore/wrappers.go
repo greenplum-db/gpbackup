@@ -137,11 +137,10 @@ func GetRestoreMetadataStatements(section string, filename string, objectTypes [
 }
 
 func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) {
-	shouldExecute := utils.NewEmptyIncludeSet()
 	if progressBar == nil {
-		ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, shouldExecute, executeInParallel)
+		ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, executeInParallel)
 	} else {
-		ExecuteStatements(statements, progressBar, showProgressBar, shouldExecute, executeInParallel)
+		ExecuteStatements(statements, progressBar, showProgressBar, executeInParallel)
 	}
 }
 
@@ -155,6 +154,6 @@ func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int
 		objectTypes := []string{"SESSION GUCS"}
 		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{}, []string{})
 	}
-	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, utils.NewEmptyIncludeSet(), false, whichConn)
+	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, false, whichConn)
 	return gucStatements
 }

@@ -52,6 +52,19 @@ var _ = Describe("utils/toc tests", func() {
 
 			Expect(statements).To(Equal([]utils.StatementWithType{create, role1, role2}))
 		})
+		It("does not return a statement type listed in the exclude list", func() {
+			backupfile.ByteCount = commentLen + createLen
+			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
+			backupfile.ByteCount += role1Len
+			toc.AddMetadataEntry("", "somerole1", "ROLE", "", commentLen+createLen, backupfile, "global")
+			backupfile.ByteCount += role2Len
+			toc.AddMetadataEntry("", "somerole2", "ROLE", "", commentLen+createLen+role1Len, backupfile, "global")
+
+			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement + role1.Statement + role2.Statement))
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{"DATABASE"}, []string{}, []string{})
+
+			Expect(statements).To(Equal([]utils.StatementWithType{role1, role2}))
+		})
 		It("returns empty statement when no object types are found", func() {
 			backupfile.ByteCount = commentLen + createLen
 			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
