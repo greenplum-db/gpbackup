@@ -15,34 +15,7 @@ var _ = Describe("restore/validate tests", func() {
 	AfterEach(func() {
 		filterList = []string{}
 	})
-	Describe("ValidateFilterSchemasInRestoreDatabase", func() {
-		It("passes if there are no filter schemas", func() {
-			restore.ValidateFilterSchemasInRestoreDatabase(connection, filterList)
-		})
-		It("passes if schema is not present in database", func() {
-			no_schema_rows := sqlmock.NewRows([]string{"string"})
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(no_schema_rows)
-			filterList = []string{"schema2"}
-			restore.ValidateFilterSchemasInRestoreDatabase(connection, filterList)
-		})
-		It("panics if single schema is present in database", func() {
-			single_schema_row := sqlmock.NewRows([]string{"string"}).
-				AddRow("schema1")
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(single_schema_row)
-			filterList = []string{"schema1"}
-			defer testhelper.ShouldPanicWithMessage("Schema schema1 already exists")
-			restore.ValidateFilterSchemasInRestoreDatabase(connection, filterList)
-		})
-		It("panics if multiple schemas are present in database", func() {
-			two_schema_rows := sqlmock.NewRows([]string{"string"}).
-				AddRow("schema1").AddRow("schema2")
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_schema_rows)
-			filterList = []string{"schema1", "schema2"}
-			defer testhelper.ShouldPanicWithMessage("Schema schema1 already exists")
-			restore.ValidateFilterSchemasInRestoreDatabase(connection, filterList)
-		})
-	})
-	Describe("ValidateFilterSchemasInRestoreDatabase", func() {
+	Describe("ValidateFilterSchemasInBackupSet", func() {
 		sequence := utils.StatementWithType{ObjectType: "SEQUENCE", Statement: "CREATE SEQUENCE schema.somesequence"}
 		sequenceLen := uint64(len(sequence.Statement))
 		table1 := utils.StatementWithType{ObjectType: "TABLE", Statement: "CREATE TABLE schema1.table1"}
@@ -113,7 +86,7 @@ var _ = Describe("restore/validate tests", func() {
 			restore.ValidateFilterTablesInRestoreDatabase(connection, filterList)
 		})
 	})
-	Describe("ValidateFilterTablesInRestoreDatabase", func() {
+	Describe("ValidateFilterTablesInBackupSet", func() {
 		sequence := utils.StatementWithType{ObjectType: "SEQUENCE", Statement: "CREATE SEQUENCE schema1.somesequence"}
 		sequenceLen := uint64(len(sequence.Statement))
 		table1 := utils.StatementWithType{ObjectType: "TABLE", Statement: "CREATE TABLE schema1.table1"}

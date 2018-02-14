@@ -91,7 +91,7 @@ func DoSetup() {
 	 * should not error out for validation reasons once the restore database exists.
 	 */
 	if !*createDB {
-		DoRestoreDatabaseValidation()
+		ValidateFilterTablesInRestoreDatabase(connection, includeTables)
 	}
 }
 
@@ -145,8 +145,17 @@ func restoreGlobal(metadataFilename string) {
 
 func restorePredata(metadataFilename string) {
 	gplog.Info("Restoring pre-data metadata")
-	statements := GetRestoreMetadataStatements("predata", metadataFilename, []string{}, includeSchemas, includeTables)
-	ExecuteRestoreMetadataStatements(statements, "Pre-data objects", nil, utils.PB_VERBOSE, false)
+
+	schemaStatements := GetRestoreMetadataStatements("predata", metadataFilename, []string{"SCHEMA"}, []string{}, includeSchemas, []string{})
+	statements := GetRestoreMetadataStatements("predata", metadataFilename, []string{}, []string{"SCHEMA"}, includeSchemas, includeTables)
+
+	progressBar := utils.NewProgressBar(len(schemaStatements)+len(statements), "Pre-data objects restored: ", utils.PB_VERBOSE)
+	progressBar.Start()
+
+	restoreSchemas(schemaStatements, progressBar)
+	ExecuteRestoreMetadataStatements(statements, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
+
+	progressBar.Finish()
 	gplog.Info("Pre-data metadata restore complete")
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -117,10 +118,6 @@ func ConnectToRestoreDatabase() {
 	InitializeConnection(restoreDatabase)
 }
 
-func DoRestoreDatabaseValidation() {
-	validateFilterListsInRestoreDatabase()
-}
-
 /*
  * Metadata and/or data restore wrapper functions
  */
@@ -156,4 +153,19 @@ func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int
 	}
 	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, false, whichConn)
 	return gucStatements
+}
+
+func restoreSchemas(schemaStatements []utils.StatementWithType, progressBar utils.ProgressBar) {
+	for _, schema := range schemaStatements {
+		_, err := connection.Exec(schema.Statement, 0)
+		if err != nil {
+			fmt.Println()
+			if strings.Contains(err.Error(), "already exists") {
+				gplog.Warn("Schema %s already exists", schema.Name)
+			} else {
+				gplog.Fatal(err, "Error encountered while creating schema %s: %s", schema.Name, err.Error())
+			}
+		}
+		progressBar.Increment()
+	}
 }

@@ -14,25 +14,9 @@ import (
  * This file contains functions related to validating user input.
  */
 
-func validateFilterListsInRestoreDatabase() {
-	ValidateFilterSchemasInRestoreDatabase(connection, includeSchemas)
-	ValidateFilterTablesInRestoreDatabase(connection, includeTables)
-}
-
 func validateFilterListsInBackupSet() {
 	ValidateFilterSchemasInBackupSet(includeSchemas)
 	ValidateFilterTablesInBackupSet(includeTables)
-}
-
-func ValidateFilterSchemasInRestoreDatabase(connection *dbconn.DBConn, schemaList utils.ArrayFlags) {
-	if len(schemaList) > 0 {
-		quotedSchemasStr := utils.SliceToQuotedString(schemaList)
-		query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
-		resultSchemas := dbconn.MustSelectStringSlice(connection, query)
-		if len(resultSchemas) > 0 {
-			gplog.Fatal(nil, "Schema %s already exists", resultSchemas[0])
-		}
-	}
 }
 
 func ValidateFilterSchemasInBackupSet(schemaList utils.ArrayFlags) {
