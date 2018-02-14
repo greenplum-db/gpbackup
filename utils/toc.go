@@ -89,14 +89,15 @@ type StatementWithType struct {
 	Statement       string
 }
 
-func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.ReaderAt, objectTypes []string, includeSchemas []string, includeTables []string) []StatementWithType {
+func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.ReaderAt, includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, includeTables []string) []StatementWithType {
 	entries := *toc.metadataEntryMap[section]
-	objectSet := NewIncludeSet(objectTypes)
+	includeObjectSet := NewIncludeSet(includeObjectTypes)
+	excludeObjectSet := NewExcludeSet(excludeObjectTypes)
 	schemaSet := NewIncludeSet(includeSchemas)
 	tableSet := NewIncludeSet(includeTables)
 	statements := make([]StatementWithType, 0)
 	for _, entry := range entries {
-		shouldIncludeObject := objectSet.MatchesFilter(entry.ObjectType)
+		shouldIncludeObject := includeObjectSet.MatchesFilter(entry.ObjectType) && excludeObjectSet.MatchesFilter(entry.ObjectType)
 		shouldIncludeSchema := schemaSet.MatchesFilter(entry.Schema)
 		tableFQN := MakeFQN(entry.Schema, entry.Name)
 		shouldIncludeTable := len(includeTables) == 0 || (entry.ObjectType == "TABLE" && tableSet.MatchesFilter(tableFQN)) || tableSet.MatchesFilter(entry.ReferenceObject)

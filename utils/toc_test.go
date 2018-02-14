@@ -35,7 +35,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"DATABASE"}, []string{}, []string{})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"DATABASE"}, []string{}, []string{}, []string{})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{create}))
 		})
@@ -48,7 +48,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("", "somerole2", "ROLE", "", commentLen+createLen+role1Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement + role1.Statement + role2.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"DATABASE", "ROLE"}, []string{}, []string{})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"DATABASE", "ROLE"}, []string{}, []string{}, []string{})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{create, role1, role2}))
 		})
@@ -70,7 +70,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"TABLE"}, []string{}, []string{})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"TABLE"}, []string{}, []string{}, []string{})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{}))
 		})
@@ -83,7 +83,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"TABLE"}, []string{"schema"}, []string{})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"TABLE"}, []string{}, []string{"schema"}, []string{})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{table1}))
 		})
@@ -96,7 +96,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{"schema"}, []string{})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{}, []string{"schema"}, []string{})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{table1, sequence}))
 		})
@@ -109,7 +109,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{}, []string{"schema.table1"})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{}, []string{}, []string{"schema.table1"})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{table1}))
 		})
@@ -123,7 +123,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("schema", "someindex", "INDEX", "schema.table", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + index.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{}, []string{"schema.table"})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{}, []string{}, []string{"schema.table"})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{index}))
 
@@ -137,7 +137,7 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
-			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{}, []string{"schema.somesequence"})
+			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{}, []string{}, []string{}, []string{"schema.somesequence"})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{}))
 		})

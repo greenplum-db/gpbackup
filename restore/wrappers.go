@@ -125,11 +125,11 @@ func DoRestoreDatabaseValidation() {
  * Metadata and/or data restore wrapper functions
  */
 
-func GetRestoreMetadataStatements(section string, filename string, objectTypes []string, includeSchemas []string, includeTables []string) []utils.StatementWithType {
+func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, includeTables []string) []utils.StatementWithType {
 	metadataFile := utils.MustOpenFileForReading(filename)
 	var statements []utils.StatementWithType
-	if len(objectTypes) > 0 || len(includeSchemas) > 0 || len(includeTables) > 0 {
-		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, objectTypes, includeSchemas, includeTables)
+	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || len(includeSchemas) > 0 || len(includeTables) > 0 {
+		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, includeSchemas, includeTables)
 	} else {
 		statements = globalTOC.GetAllSQLStatements(section, metadataFile)
 	}
@@ -152,7 +152,7 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int) []utils.StatementWithType {
 	if gucStatements == nil {
 		objectTypes := []string{"SESSION GUCS"}
-		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{}, []string{})
+		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{}, []string{}, []string{})
 	}
 	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, false, whichConn)
 	return gucStatements

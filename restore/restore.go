@@ -123,7 +123,7 @@ func DoRestore() {
 func createDatabase(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE", "DATABASE METADATA"}
 	gplog.Info("Creating database")
-	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{})
+	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{}, []string{})
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
@@ -134,7 +134,7 @@ func createDatabase(metadataFilename string) {
 func restoreGlobal(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
 	gplog.Info("Restoring global metadata")
-	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{})
+	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{}, []string{})
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
@@ -220,7 +220,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 
 func restorePostdata(metadataFilename string) {
 	gplog.Info("Restoring post-data metadata")
-	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, includeSchemas, includeTables)
+	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, []string{}, includeSchemas, includeTables)
 	firstBatch, secondBatch := BatchPostdataStatements(statements)
 	progressBar := utils.NewProgressBar(len(statements), "Post-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
@@ -233,7 +233,7 @@ func restorePostdata(metadataFilename string) {
 func restoreStatistics() {
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
-	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, includeSchemas, []string{})
+	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, []string{}, includeSchemas, []string{})
 	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
 	gplog.Info("Query planner statistics restore complete")
 }
