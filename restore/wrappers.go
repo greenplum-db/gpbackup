@@ -2,8 +2,6 @@ package restore
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -54,20 +52,6 @@ SET default_with_oids = off;
 	for i := 0; i < connection.NumConns; i++ {
 		connection.MustExec(setupQuery, i)
 	}
-}
-
-func InitializeSignalHandler() {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-		for range signalChan {
-			fmt.Println() // Add newline after "^C" is printed
-			gplog.Warn("Received an interrupt, aborting restore process")
-			wasTerminated = true
-			DoCleanup()
-			os.Exit(2)
-		}
-	}()
 }
 
 func InitializeBackupConfig() {

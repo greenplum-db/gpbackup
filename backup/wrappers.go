@@ -2,8 +2,6 @@ package backup
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -40,20 +38,6 @@ func InitializeConnection() {
 	InitializeMetadataParams(connection)
 	connection.MustBegin()
 	SetSessionGUCs()
-}
-
-func InitializeSignalHandler() {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-		for range signalChan {
-			fmt.Println() // Add newline after "^C" is printed
-			gplog.Warn("Received an interrupt, aborting backup process")
-			wasTerminated = true
-			DoCleanup()
-			os.Exit(2)
-		}
-	}()
 }
 
 func SetSessionGUCs() {
