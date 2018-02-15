@@ -301,7 +301,8 @@ func DoCleanup() {
 	if *singleDataFile {
 		CleanUpSegmentPipesOnAllHosts()
 		CleanUpSegmentTailProcesses()
-		if wasTerminated { // These should all end on their own in a successful backup
+		if wasTerminated {
+			// It is possible for the COPY command to become orphaned if an agent process is killed
 			utils.TerminateHangingCopySessions(connection, globalFPInfo, "gpbackup")
 		}
 	}
