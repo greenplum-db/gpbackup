@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"sort"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -264,6 +266,20 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 				}
 			}
 			Fail("Role 'testuser' is not a member of role 'usergroup'")
+		})
+	})
+	Describe("GetRoleGUCs", func() {
+		It("returns a slice of values for user level GUCs", func() {
+			testhelper.AssertQueryRuns(connection, "CREATE ROLE role1 SUPERUSER NOINHERIT")
+			defer testhelper.AssertQueryRuns(connection, "DROP ROLE role1")
+			testhelper.AssertQueryRuns(connection, "ALTER ROLE role1 SET search_path TO public")
+			testhelper.AssertQueryRuns(connection, "ALTER ROLE role1 SET client_min_messages TO info")
+			results := backup.GetRoleGUCs(connection)
+			Expect(len(results)).To(Equal(1))
+			roleConfig := results["role1"]
+			sort.Strings(roleConfig)
+			Expect(roleConfig[0]).To(Equal(`SET client_min_messages TO info`))
+			Expect(roleConfig[1]).To(Equal(`SET search_path TO public`))
 		})
 	})
 	Describe("GetTablespaces", func() {

@@ -210,9 +210,10 @@ COMMENT ON RESOURCE QUEUE "commentQueue" IS 'This is a resource queue comment.';
 				},
 			},
 		}
+		emptyConfigMap := map[string][]string{}
 		It("prints basic role", func() {
 			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, roleMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, emptyConfigMap, roleMetadataMap)
 
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testrole1", "ROLE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE testrole1;
@@ -220,9 +221,26 @@ ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN 
 
 COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
 		})
+		It("prints basic role with user GUCs set", func() {
+			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
+			roleConfigMap := map[string][]string{
+				"testrole1": {"SET search_path TO public", "SET client_min_messages TO error"},
+			}
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, roleConfigMap, roleMetadataMap)
+
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testrole1", "ROLE")
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE testrole1;
+ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default RESOURCE GROUP default_group;
+
+ALTER ROLE testrole1 SET search_path TO public;
+
+ALTER ROLE testrole1 SET client_min_messages TO error;
+
+COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
+		})
 		It("prints roles with non-defaults", func() {
 			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole2}, roleMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole2}, emptyConfigMap, roleMetadataMap)
 
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE "testRole2";
 ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');
@@ -233,7 +251,7 @@ COMMENT ON ROLE "testRole2" IS 'This is a role comment.';`)
 		})
 		It("prints multiple roles", func() {
 			emptyMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1, testrole2}, emptyMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1, testrole2}, emptyConfigMap, emptyMetadataMap)
 
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`CREATE ROLE testrole1;

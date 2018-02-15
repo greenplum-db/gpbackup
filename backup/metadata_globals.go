@@ -130,7 +130,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 	}
 }
 
-func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roles []Role, roleMetadata MetadataMap) {
+func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roles []Role, roleGUCs map[string][]string, roleMetadata MetadataMap) {
 	for _, role := range roles {
 		start := metadataFile.ByteCount
 		attrs := []string{}
@@ -206,6 +206,12 @@ func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 
 CREATE ROLE %s;
 ALTER ROLE %s WITH %s;`, role.Name, role.Name, strings.Join(attrs, " "))
+
+		for _, roleGUC := range roleGUCs[role.Name] {
+			metadataFile.MustPrintf(`
+
+ALTER ROLE %s %s;`, role.Name, roleGUC)
+		}
 
 		if len(role.TimeConstraints) != 0 {
 			for _, timeConstraint := range role.TimeConstraints {

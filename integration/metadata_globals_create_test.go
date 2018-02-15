@@ -110,33 +110,58 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateRoleStatements", func() {
-		It("creates a basic role ", func() {
-			role1 := backup.Role{
-				Oid:             0,
-				Name:            "role1",
-				Super:           true,
-				Inherit:         false,
-				CreateRole:      false,
-				CreateDB:        false,
-				CanLogin:        false,
-				ConnectionLimit: -1,
-				Password:        "",
-				ValidUntil:      "",
-				ResQueue:        "pg_default",
-				ResGroup:        "default_group",
-				Createrexthttp:  false,
-				Createrextgpfd:  false,
-				Createwextgpfd:  false,
-				Createrexthdfs:  false,
-				Createwexthdfs:  false,
-				TimeConstraints: nil,
-			}
+		role1 := backup.Role{
+			Oid:             0,
+			Name:            "role1",
+			Super:           true,
+			Inherit:         false,
+			CreateRole:      false,
+			CreateDB:        false,
+			CanLogin:        false,
+			ConnectionLimit: -1,
+			Password:        "",
+			ValidUntil:      "",
+			ResQueue:        "pg_default",
+			ResGroup:        "default_group",
+			Createrexthttp:  false,
+			Createrextgpfd:  false,
+			Createwextgpfd:  false,
+			Createrexthdfs:  false,
+			Createwexthdfs:  false,
+			TimeConstraints: nil,
+		}
+		emptyConfigMap := map[string][]string{}
+		It("creates a basic role", func() {
 			if connection.Version.Before("5") {
 				role1.ResGroup = ""
 			}
 			emptyMetadataMap := backup.MetadataMap{}
 
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyConfigMap, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP ROLE "role1"`)
+			role1.Oid = testutils.OidFromObjectName(connection, "", "role1", backup.TYPE_ROLE)
+
+			resultRoles := backup.GetRoles(connection)
+			for _, role := range resultRoles {
+				if role.Name == "role1" {
+					structmatcher.ExpectStructsToMatch(&role1, role)
+					return
+				}
+			}
+			Fail("Role 'role1' was not found")
+		})
+		It("creates a basic role with user GUCs set", func() {
+			if connection.Version.Before("5") {
+				role1.ResGroup = ""
+			}
+			roleConfigMap := map[string][]string{
+				"role1": {"SET search_path TO public"},
+			}
+			emptyMetadataMap := backup.MetadataMap{}
+
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, roleConfigMap, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, `DROP ROLE "role1"`)
@@ -191,7 +216,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			metadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
 
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, metadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyConfigMap, metadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, `DROP ROLE "role1"`)

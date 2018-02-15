@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/lib/pq"
 )
 
 type SessionGUCs struct {
@@ -227,6 +228,37 @@ FROM
 	}
 
 	return roles
+}
+
+func GetRoleGUCs(connection *dbconn.DBConn) map[string][]string {
+	query := `
+SELECT
+	quote_ident(rolname) AS name,
+	array_agg(guc) AS config
+FROM (
+	SELECT
+		rolname,
+		CASE
+			WHEN option_name='search_path' OR option_name = 'DateStyle'
+			THEN ('SET ' || option_name || ' TO ' || option_value)
+			ELSE ('SET ' || option_name || ' TO ' || quote_ident(option_value))
+		END AS guc
+	FROM (
+		SELECT rolname, (pg_options_to_table(rolconfig)).option_name, (pg_options_to_table(rolconfig)).option_value FROM pg_roles
+	) AS options
+) AS gucs GROUP BY rolname;`
+
+	results := make([]struct {
+		Name   string
+		Config pq.StringArray
+	}, 0)
+	err := connection.Select(&results, query)
+	gplog.FatalOnError(err)
+	resultMap := make(map[string][]string, len(results))
+	for _, result := range results {
+		resultMap[result.Name] = []string(result.Config)
+	}
+	return resultMap
 }
 
 func getTimeConstraintsByRole(connection *dbconn.DBConn) map[uint32][]TimeConstraint {
