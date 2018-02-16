@@ -44,7 +44,7 @@ run:
     popd
 
     tar -xvf scale_db1.tgz
-    createdb scaledb
+    createdb scaledb -T template0
 
     psql -f scale_db1.sql -d scaledb -v client_min_messages=error -q
 
