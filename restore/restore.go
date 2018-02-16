@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
+	pb "gopkg.in/cheggaaa/pb.v1"
 
 	"github.com/pkg/errors"
 )
@@ -144,6 +145,9 @@ func restoreGlobal(metadataFilename string) {
 }
 
 func restorePredata(metadataFilename string) {
+	if wasTerminated {
+		return
+	}
 	gplog.Info("Restoring pre-data metadata")
 
 	schemaStatements := GetRestoreMetadataStatements("predata", metadataFilename, []string{"SCHEMA"}, []string{}, includeSchemas, []string{})
@@ -160,6 +164,9 @@ func restorePredata(metadataFilename string) {
 }
 
 func restoreData(gucStatements []utils.StatementWithType) {
+	if wasTerminated {
+		return
+	}
 	gplog.Info("Restoring data")
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
 	if backupConfig.SingleDataFile {
@@ -184,7 +191,8 @@ func restoreData(gucStatements []utils.StatementWithType) {
 	if connection.NumConns == 1 {
 		for i, entry := range filteredMasterDataEntries {
 			if wasTerminated {
-				break
+				dataProgressBar.(*pb.ProgressBar).NotPrint = true
+				return
 			}
 			restoreSingleTableData(entry, uint32(i)+1, totalTables, 0)
 			dataProgressBar.Increment()
@@ -228,6 +236,9 @@ func restoreData(gucStatements []utils.StatementWithType) {
 }
 
 func restorePostdata(metadataFilename string) {
+	if wasTerminated {
+		return
+	}
 	gplog.Info("Restoring post-data metadata")
 	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, []string{}, includeSchemas, includeTables)
 	firstBatch, secondBatch := BatchPostdataStatements(statements)
@@ -240,6 +251,9 @@ func restorePostdata(metadataFilename string) {
 }
 
 func restoreStatistics() {
+	if wasTerminated {
+		return
+	}
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
 	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, []string{}, includeSchemas, []string{})

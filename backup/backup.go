@@ -132,10 +132,17 @@ func backupGlobal(metadataFile *utils.FileWithByteCount) {
 		BackupRoles(metadataFile)
 		BackupRoleGrants(metadataFile)
 	}
-	gplog.Info("Global database metadata backup complete")
+	if wasTerminated {
+		gplog.Info("Global database metadata backup incomplete")
+	} else {
+		gplog.Info("Global database metadata backup complete")
+	}
 }
 
 func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
+	if wasTerminated {
+		return
+	}
 	gplog.Info("Writing pre-data metadata")
 
 	BackupSchemas(metadataFile)
@@ -192,10 +199,17 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	BackupCasts(metadataFile)
 	BackupViews(metadataFile, relationMetadata)
 	BackupConstraints(metadataFile, constraints, conMetadata)
-	gplog.Info("Pre-data metadata backup complete")
+	if wasTerminated {
+		gplog.Info("Pre-data metadata backup incomplete")
+	} else {
+		gplog.Info("Pre-data metadata backup complete")
+	}
 }
 
 func backupTablePredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
+	if wasTerminated {
+		return
+	}
 	gplog.Info("Writing table metadata")
 
 	relationMetadata := GetMetadataForObjectType(connection, TYPE_RELATION)
@@ -214,25 +228,43 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	if *singleDataFile {
 		MoveSegmentTOCsAndMakeReadOnly()
 	}
-	gplog.Info("Data backup complete")
+	if wasTerminated {
+		gplog.Info("Data backup incomplete")
+	} else {
+		gplog.Info("Data backup complete")
+	}
 }
 
 func backupPostdata(metadataFile *utils.FileWithByteCount) {
+	if wasTerminated {
+		return
+	}
 	gplog.Info("Writing post-data metadata")
 
 	BackupIndexes(metadataFile)
 	BackupRules(metadataFile)
 	BackupTriggers(metadataFile)
-	gplog.Info("Post-data metadata backup complete")
+	if wasTerminated {
+		gplog.Info("Post-data metadata backup incomplete")
+	} else {
+		gplog.Info("Post-data metadata backup complete")
+	}
 }
 
 func backupStatistics(tables []Relation) {
+	if wasTerminated {
+		return
+	}
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Writing query planner statistics to %s", statisticsFilename)
 	statisticsFile := utils.NewFileWithByteCountFromFile(statisticsFilename)
 	defer statisticsFile.Close()
 	BackupStatistics(statisticsFile, tables)
-	gplog.Info("Query planner statistics backup complete")
+	if wasTerminated {
+		gplog.Info("Query planner statistics backup incomplete")
+	} else {
+		gplog.Info("Query planner statistics backup complete")
+	}
 }
 
 func DoTeardown() {

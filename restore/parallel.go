@@ -44,6 +44,9 @@ func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.P
 	if !executeInParallel {
 		connNum := connection.ValidateConnNum(whichConn...)
 		for _, statement := range statements {
+			if wasTerminated {
+				return
+			}
 			numErrors += executeStatement(statement, showProgressBar, connNum)
 			progressBar.Increment()
 		}

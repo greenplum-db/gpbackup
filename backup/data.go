@@ -11,6 +11,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
+	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
 var (
@@ -88,6 +89,7 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 		* in progress if they don't finish on their own.
 		 */
 		if wasTerminated {
+			dataProgressBar.(*pb.ProgressBar).NotPrint = true
 			break
 		}
 		tableDef := tableDefs[table.Oid]
