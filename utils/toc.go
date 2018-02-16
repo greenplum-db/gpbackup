@@ -89,19 +89,12 @@ type StatementWithType struct {
 	Statement       string
 }
 
-func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.ReaderAt, includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, includeTables []string) []StatementWithType {
+func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.ReaderAt, includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, excludeSchemas []string, includeTables []string, excludeTables []string) []StatementWithType {
 	entries := *toc.metadataEntryMap[section]
-	includeObjectSet := NewIncludeSet(includeObjectTypes)
-	excludeObjectSet := NewExcludeSet(excludeObjectTypes)
-	schemaSet := NewIncludeSet(includeSchemas)
-	tableSet := NewIncludeSet(includeTables)
+	objectSet, schemaSet, tableSet := constructFilterSets(includeObjectTypes, excludeObjectTypes, includeSchemas, excludeSchemas, includeTables, excludeTables)
 	statements := make([]StatementWithType, 0)
 	for _, entry := range entries {
-		shouldIncludeObject := includeObjectSet.MatchesFilter(entry.ObjectType) && excludeObjectSet.MatchesFilter(entry.ObjectType)
-		shouldIncludeSchema := schemaSet.MatchesFilter(entry.Schema)
-		tableFQN := MakeFQN(entry.Schema, entry.Name)
-		shouldIncludeTable := len(includeTables) == 0 || (entry.ObjectType == "TABLE" && tableSet.MatchesFilter(tableFQN)) || tableSet.MatchesFilter(entry.ReferenceObject)
-		if shouldIncludeObject && shouldIncludeSchema && shouldIncludeTable {
+		if shouldIncludeStatement(entry, objectSet, schemaSet, tableSet) {
 			contents := make([]byte, entry.EndByte-entry.StartByte)
 			_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
 			gplog.FatalOnError(err)
@@ -109,6 +102,36 @@ func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.Re
 		}
 	}
 	return statements
+}
+
+func constructFilterSets(includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, excludeSchemas []string, includeTables []string, excludeTables []string) (*FilterSet, *FilterSet, *FilterSet) {
+	var objectSet, schemaSet, tableSet *FilterSet
+	if len(includeObjectTypes) > 0 {
+		objectSet = NewIncludeSet(includeObjectTypes)
+	} else {
+		objectSet = NewExcludeSet(excludeObjectTypes)
+	}
+	if len(includeSchemas) > 0 {
+		schemaSet = NewIncludeSet(includeSchemas)
+	} else {
+		schemaSet = NewExcludeSet(excludeSchemas)
+	}
+	if len(includeTables) > 0 {
+		tableSet = NewIncludeSet(includeTables)
+	} else {
+		tableSet = NewExcludeSet(excludeTables)
+	}
+	return objectSet, schemaSet, tableSet
+}
+
+func shouldIncludeStatement(entry MetadataEntry, objectSet *FilterSet, schemaSet *FilterSet, tableSet *FilterSet) bool {
+	shouldIncludeObject := objectSet.MatchesFilter(entry.ObjectType)
+	shouldIncludeSchema := schemaSet.MatchesFilter(entry.Schema)
+	tableFQN := MakeFQN(entry.Schema, entry.Name)
+	shouldIncludeTable := (tableSet.IsExclude && entry.ObjectType != "TABLE") || // An exclude filter only excludes tables, not other objects
+		(entry.ObjectType == "TABLE" && tableSet.MatchesFilter(tableFQN)) || // Tables should match the filter
+		(entry.ReferenceObject != "" && tableSet.MatchesFilter(entry.ReferenceObject)) // Include tables that filtered tables depend on
+	return shouldIncludeObject && shouldIncludeSchema && shouldIncludeTable
 }
 
 func (toc *TOC) GetAllSQLStatements(section string, metadataFile io.ReaderAt) []StatementWithType {
@@ -123,30 +146,30 @@ func (toc *TOC) GetAllSQLStatements(section string, metadataFile io.ReaderAt) []
 	return statements
 }
 
-func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, includeTables []string) []MasterDataEntry {
-	restoreAllSchemas := len(includeSchemas) == 0
-	var schemaHashes map[string]bool
+func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas []string, includeTables []string, excludeTables []string) []MasterDataEntry {
+	restoreAllSchemas := len(includeSchemas) == 0 && len(excludeSchemas) == 0
+	var schemaSet *FilterSet
 	if !restoreAllSchemas {
-		schemaHashes = make(map[string]bool, len(includeSchemas))
-		for _, schema := range includeSchemas {
-			schemaHashes[schema] = true
+		if len(includeSchemas) > 0 {
+			schemaSet = NewIncludeSet(includeSchemas)
+		} else {
+			schemaSet = NewExcludeSet(excludeSchemas)
 		}
 	}
-	restoreAllTables := len(includeTables) == 0
-	var tableHashes map[string]bool
+	restoreAllTables := len(includeTables) == 0 && len(excludeTables) == 0
+	var tableSet *FilterSet
 	if !restoreAllTables {
-		tableHashes = make(map[string]bool, len(includeTables))
-		for _, table := range includeTables {
-			tableHashes[table] = true
+		if len(includeTables) > 0 {
+			tableSet = NewIncludeSet(includeTables)
+		} else {
+			tableSet = NewExcludeSet(excludeTables)
 		}
 	}
 	matchingEntries := make([]MasterDataEntry, 0)
 	for _, entry := range toc.DataEntries {
-		_, validSchema := schemaHashes[entry.Schema]
-		validSchema = restoreAllSchemas || validSchema
+		validSchema := restoreAllSchemas || schemaSet.MatchesFilter(entry.Schema)
 		tableFQN := MakeFQN(entry.Schema, entry.Name)
-		_, validTable := tableHashes[tableFQN]
-		validTable = restoreAllTables || validTable
+		validTable := restoreAllTables || tableSet.MatchesFilter(tableFQN)
 		if validSchema && validTable {
 			matchingEntries = append(matchingEntries, entry)
 		}

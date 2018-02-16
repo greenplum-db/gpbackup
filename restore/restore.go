@@ -22,8 +22,12 @@ func initializeFlags() {
 	backupDir = flag.String("backup-dir", "", "The absolute path of the directory in which the backup files to be restored are located")
 	createDB = flag.Bool("create-db", false, "Create the database before metadata restore")
 	debug = flag.Bool("debug", false, "Print verbose and debug log messages")
+	flag.Var(&excludeSchemas, "exclude-schema", "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
+	flag.Var(&excludeTables, "exclude-table", "Restore all metadata except the specified table(s). --exclude-table can be specified multiple times.")
+	excludeTableFile = flag.String("exclude-table-file", "", "A file containing a list of fully-qualified tables that will not be restored")
 	flag.Var(&includeSchemas, "include-schema", "Restore only the specified schema(s). --include-schema can be specified multiple times.")
-	includeTableFile = flag.String("include-table-file", "", "A file containing a list of fully-qualified tables to be restored")
+	flag.Var(&includeTables, "include-table", "Restore only the specified table(s). --include-table can be specified multiple times.")
+	includeTableFile = flag.String("include-table-file", "", "A file containing a list of fully-qualified tables that will be restored")
 	numJobs = flag.Int("jobs", 1, "Number of parallel connections to use when restoring table data and post-data")
 	onErrorContinue = flag.Bool("on-error-continue", false, "Log errors and continue restore, instead of exiting on first error")
 	printVersion = flag.Bool("version", false, "Print version number and exit")
@@ -123,7 +127,7 @@ func DoRestore() {
 func createDatabase(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE", "DATABASE METADATA"}
 	gplog.Info("Creating database")
-	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{}, []string{})
+	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
@@ -134,7 +138,7 @@ func createDatabase(metadataFilename string) {
 func restoreGlobal(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
 	gplog.Info("Restoring global metadata")
-	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, []string{}, []string{})
+	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if *redirect != "" {
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
 	}
@@ -146,8 +150,8 @@ func restoreGlobal(metadataFilename string) {
 func restorePredata(metadataFilename string) {
 	gplog.Info("Restoring pre-data metadata")
 
-	schemaStatements := GetRestoreMetadataStatements("predata", metadataFilename, []string{"SCHEMA"}, []string{}, includeSchemas, []string{})
-	statements := GetRestoreMetadataStatements("predata", metadataFilename, []string{}, []string{"SCHEMA"}, includeSchemas, includeTables)
+	schemaStatements := GetRestoreMetadataStatements("predata", metadataFilename, []string{"SCHEMA"}, []string{}, true, false)
+	statements := GetRestoreMetadataStatements("predata", metadataFilename, []string{}, []string{"SCHEMA"}, true, true)
 
 	progressBar := utils.NewProgressBar(len(schemaStatements)+len(statements), "Pre-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
@@ -161,7 +165,7 @@ func restorePredata(metadataFilename string) {
 
 func restoreData(gucStatements []utils.StatementWithType) {
 	gplog.Info("Restoring data")
-	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, includeTables)
+	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, excludeSchemas, includeTables, excludeTables)
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		VerifyHelperVersionOnSegments(version)
@@ -229,7 +233,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 
 func restorePostdata(metadataFilename string) {
 	gplog.Info("Restoring post-data metadata")
-	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, []string{}, includeSchemas, includeTables)
+	statements := GetRestoreMetadataStatements("postdata", metadataFilename, []string{}, []string{}, true, true)
 	firstBatch, secondBatch := BatchPostdataStatements(statements)
 	progressBar := utils.NewProgressBar(len(statements), "Post-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
@@ -242,7 +246,7 @@ func restorePostdata(metadataFilename string) {
 func restoreStatistics() {
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
-	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, []string{}, includeSchemas, []string{})
+	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, []string{}, true, false)
 	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
 	gplog.Info("Query planner statistics restore complete")
 }

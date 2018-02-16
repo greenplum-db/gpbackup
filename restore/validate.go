@@ -128,5 +128,8 @@ func ValidateBackupFlagCombinations() {
 func ValidateFlagCombinations() {
 	utils.CheckMandatoryFlags("timestamp")
 	utils.CheckExclusiveFlags("debug", "quiet", "verbose")
-	utils.CheckExclusiveFlags("include-table-file", "include-schema")
+	utils.CheckExclusiveFlags("include-schema", "include-table", "include-table-file")
+	utils.CheckExclusiveFlags("exclude-schema", "include-schema")
+	utils.CheckExclusiveFlags("exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
+	utils.CheckExclusiveFlags("exclude-table", "exclude-table-file", "leaf-partition-data")
 }

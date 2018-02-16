@@ -150,9 +150,16 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
 		})
-		It("runs gpbackup and gprestore with exclude-schema flag", func() {
+		It("runs gpbackup and gprestore with exclude-schema backup flag", func() {
 			timestamp := gpbackup(gpbackupPath, "-exclude-schema", "public")
 			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb")
+
+			assertTablesCreated(restoreConn, 15)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+		})
+		It("runs gpbackup and gprestore with exclude-schema restore flag", func() {
+			timestamp := gpbackup(gpbackupPath)
+			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb", "-exclude-schema", "public")
 
 			assertTablesCreated(restoreConn, 15)
 			assertDataRestored(restoreConn, schema2TupleCounts)
@@ -164,7 +171,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertTablesCreated(restoreConn, 15)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 		})
-		It("runs gpbackup and gprestore with exclude-table flag", func() {
+		It("runs gpbackup and gprestore with exclude-table backup flag", func() {
 			timestamp := gpbackup(gpbackupPath, "-exclude-table", "schema2.foo2", "-exclude-table", "schema2.returns")
 			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb")
 
@@ -173,9 +180,27 @@ var _ = Describe("backup end to end integration tests", func() {
 
 			os.Remove("/tmp/exclude-tables.txt")
 		})
-		It("runs gpbackup and gprestore with include-table flag", func() {
+		It("runs gpbackup and gprestore with include-table backup flag", func() {
 			timestamp := gpbackup(gpbackupPath, "-include-table", "public.foo", "-include-table", "public.sales")
 			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb")
+
+			assertTablesCreated(restoreConn, 14)
+			assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
+
+			os.Remove("/tmp/include-tables.txt")
+		})
+		It("runs gpbackup and gprestore with exclude-table restore flag", func() {
+			timestamp := gpbackup(gpbackupPath)
+			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb", "-exclude-table", "schema2.foo2", "-exclude-table", "schema2.returns")
+
+			assertTablesCreated(restoreConn, 16)
+			assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000, "public.sales": 13})
+
+			os.Remove("/tmp/exclude-tables.txt")
+		})
+		It("runs gpbackup and gprestore with include-table restore flag", func() {
+			timestamp := gpbackup(gpbackupPath)
+			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb", "-include-table", "public.foo", "-include-table", "public.sales")
 
 			assertTablesCreated(restoreConn, 14)
 			assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
@@ -193,7 +218,7 @@ var _ = Describe("backup end to end integration tests", func() {
 
 			os.Remove("/tmp/exclude-tables.txt")
 		})
-		It("runs gpbackup and gprestore with include-table-file flag", func() {
+		It("runs gpbackup and gprestore with include-table-file backup flag", func() {
 			includeFile := utils.MustOpenFileForWriting("/tmp/include-tables.txt")
 			utils.MustPrintln(includeFile, "public.sales\npublic.foo")
 			timestamp := gpbackup(gpbackupPath, "-include-table-file", "/tmp/include-tables.txt")

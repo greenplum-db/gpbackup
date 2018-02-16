@@ -75,16 +75,16 @@ func SetExcludeSchemas(schemas []string) {
 	excludeSchemas = schemas
 }
 
+func SetExcludeTables(tables []string) {
+	excludeTables = tables
+}
+
 func SetFPInfo(fpInfo utils.FilePathInfo) {
 	globalFPInfo = fpInfo
 }
 
 func SetIncludeSchemas(schemas []string) {
 	includeSchemas = schemas
-}
-
-func SetExcludeTables(tables []string) {
-	excludeTables = tables
 }
 
 func SetIncludeTables(tables []string) {

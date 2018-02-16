@@ -62,6 +62,9 @@ func InitializeBackupConfig() {
 }
 
 func InitializeFilterLists() {
+	if *excludeTableFile != "" {
+		excludeTables = utils.ReadLinesFromFile(*excludeTableFile)
+	}
 	if *includeTableFile != "" {
 		includeTables = utils.ReadLinesFromFile(*includeTableFile)
 	}
@@ -106,11 +109,20 @@ func ConnectToRestoreDatabase() {
  * Metadata and/or data restore wrapper functions
  */
 
-func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, includeTables []string) []utils.StatementWithType {
+func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, filterSchemas bool, filterTables bool) []utils.StatementWithType {
 	metadataFile := utils.MustOpenFileForReading(filename)
 	var statements []utils.StatementWithType
-	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || len(includeSchemas) > 0 || len(includeTables) > 0 {
-		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, includeSchemas, includeTables)
+	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || filterSchemas || filterTables {
+		var inSchemas, exSchemas, inTables, exTables []string
+		if filterSchemas {
+			inSchemas = includeSchemas
+			exSchemas = excludeSchemas
+		}
+		if filterTables {
+			inTables = includeTables
+			exTables = excludeTables
+		}
+		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inTables, exTables)
 	} else {
 		statements = globalTOC.GetAllSQLStatements(section, metadataFile)
 	}
@@ -133,7 +145,7 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int) []utils.StatementWithType {
 	if gucStatements == nil {
 		objectTypes := []string{"SESSION GUCS"}
-		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{}, []string{}, []string{})
+		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{}, false, false)
 	}
 	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, false, whichConn)
 	return gucStatements

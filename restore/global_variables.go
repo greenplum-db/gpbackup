@@ -43,6 +43,9 @@ var (
 	backupDir        *string
 	createDB         *bool
 	debug            *bool
+	excludeSchemas   utils.ArrayFlags
+	excludeTableFile *string
+	excludeTables    utils.ArrayFlags
 	includeSchemas   utils.ArrayFlags
 	includeTableFile *string
 	includeTables    utils.ArrayFlags
