@@ -398,7 +398,7 @@ ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;`)
 		It("prints an explicit cast with a function", func() {
 			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "src", TargetTypeFQN: "dst", FunctionSchema: "public", FunctionName: "cast_func", FunctionArgs: "integer, integer", CastContext: "e", CastMethod: "f"}
 			backup.PrintCreateCastStatements(backupfile, toc, []backup.Cast{castDef}, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "pg_catalog", "", "(src AS dst)", "CAST")
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "(src AS dst)", "CAST")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE CAST (src AS dst)
 	WITH FUNCTION public.cast_func(integer, integer);`)
 		})

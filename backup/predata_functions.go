@@ -163,7 +163,11 @@ func PrintCreateCastStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		}
 		metadataFile.MustPrintf(";")
 		PrintObjectMetadata(metadataFile, castMetadata[castDef.Oid], castStr, "CAST")
-		toc.AddPredataEntry("pg_catalog", castStr, "CAST", "", start, metadataFile)
+		filterSchema := "pg_catalog"
+		if castDef.CastMethod == "f" {
+			filterSchema = castDef.FunctionSchema // Use the function's schema to allow restore filtering
+		}
+		toc.AddPredataEntry(filterSchema, castStr, "CAST", "", start, metadataFile)
 	}
 }
 
