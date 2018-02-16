@@ -79,3 +79,12 @@ func MoveSegmentTOCsAndMakeReadOnly() {
 		return fmt.Sprintf("Unable to set permissions on or move file %s", globalFPInfo.GetSegmentTOCFilePath(globalCluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID)))
 	})
 }
+func CleanUpSegmentTOCs() {
+	remoteOutput := globalCluster.GenerateAndExecuteCommand("Cleaning up segment table of contents files", func(contentID int) string {
+		tocFile := globalFPInfo.GetSegmentTOCFilePath(globalCluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID))
+		return fmt.Sprintf("rm -f %s", tocFile)
+	})
+	globalCluster.CheckClusterError(remoteOutput, "Unable to remove segment table of contents files", func(contentID int) string {
+		return fmt.Sprintf("Unable to remove segment table of contents file %s", globalFPInfo.GetSegmentTOCFilePath(globalCluster.SegDirMap[contentID], fmt.Sprintf("%d", contentID)))
+	})
+}
