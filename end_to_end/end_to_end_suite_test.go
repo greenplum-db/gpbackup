@@ -348,10 +348,13 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		It("runs gpbackup and gprestore on database with all objects", func() {
 			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
-			/* We do not check the error code since there are some objects we
-			 * expect to fail during creation between DB versions
-			 */
-			exec.Command("psql", "-d", "testdb", "-f", "all_objects.sql", "-q")
+			testutils.ExecuteSQLFile(backupConn, "gpdb4_objects.sql")
+			if backupConn.Version.AtLeast("5") {
+				testutils.ExecuteSQLFile(backupConn, "gpdb5_objects.sql")
+			}
+			if backupConn.Version.AtLeast("6") {
+				testutils.ExecuteSQLFile(backupConn, "gpdb6_objects.sql")
+			}
 			timestamp := gpbackup(gpbackupPath)
 			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb")
 
