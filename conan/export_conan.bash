@@ -20,7 +20,7 @@ sed -i '' "s/version = .*/version = '${GIT_VER}'/" conanfile.py
 CONAN_VER=gpbackup/${GIT_VER}@gpdb/devel
 CONAN_REPO_NAME=zzz_gpdb_oss
 conan remove -f ${CONAN_VER}
-conan export ${CONAN_VER}
+conan export ${GPBACKUP_SRC}/conan ${CONAN_VER}
 conan install ${CONAN_VER} --build=missing
 conan remote add ${CONAN_REPO_NAME} https://api.bintray.com/conan/greenplum-db/gpdb-oss
 conan user -r ${CONAN_REPO_NAME} -p ${BINTRAY_TOKEN} ${BINTRAY_USER}
