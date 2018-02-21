@@ -221,6 +221,37 @@ jobs:
   ensure:
     <<: *set_failed
 
+- name: test_package_conan
+  plan:
+  - aggregate:
+    - get: gpbackup
+      trigger: true
+  - task: test_packaging
+    config:
+      platform: linux
+      inputs:
+       - name: gpbackup
+      image_resource:
+        type: docker-image
+        source:
+          repository: golang
+          tag: latest
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          wget https://bootstrap.pypa.io/get-pip.py
+          python get-pip.py
+          pip install conan
+          mkdir -p $GOPATH/src/github.com/greenplum-db/
+          cp -r gpbackup $GOPATH/src/github.com/greenplum-db/gpbackup
+          gpbackup/conan/export_conan.bash
+      params:
+        BINTRAY_USER: {{gpbackup_bintray_user}}
+        BINTRAY_TOKEN: {{gpbackup_bintray_token}}
+
 - name: scale-master
   plan:
   - aggregate:
