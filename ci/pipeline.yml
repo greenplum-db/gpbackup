@@ -5,6 +5,12 @@ resource_types:
   source:
     repository: ljfranklin/terraform-resource
 
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
 resources:
 - name: gpbackup
   type: git
@@ -98,6 +104,11 @@ resources:
     secret_access_key: {{gpdb4-bucket-secret-access-key}}
     versioned_file: DDBoostFS-1.1.0.1-565598.rhel.x86_64.rpm
 
+- name: slack-alert
+  type: slack-notification
+  source:
+    url: {{dpm_webhook_url}}
+
 jobs:
 - name: units
   plan:
@@ -106,6 +117,8 @@ jobs:
       trigger: true
   - task: unit-tests
     file: gpbackup/ci/tasks/unit-tests.yml
+    on_failure:
+      *slack_alert
 
 - name: integrations-master
   plan:
@@ -133,15 +146,13 @@ jobs:
     input_mapping:
       gpdb_binary: bin_gpdb_master
       gpdb_src: gpdb_src
-    on_failure:
-      <<: *ccp_destroy
   - task: integration-tests
     tags: ["ccp"]
     file: gpbackup/ci/tasks/integration-tests.yml
     on_success:
       <<: *ccp_destroy
     on_failure:
-      <<: *set_failed
+      *slack_alert
   ensure:
     <<: *set_failed
 
@@ -171,15 +182,13 @@ jobs:
     input_mapping:
       gpdb_binary: bin_gpdb_5x_stable
       gpdb_src: gpdb_src
-    on_failure:
-      <<: *ccp_destroy
   - task: integration-tests
     tags: ["ccp"]
     file: gpbackup/ci/tasks/integration-tests.yml
     on_success:
       <<: *ccp_destroy
     on_failure:
-      <<: *set_failed
+      *slack_alert
   ensure:
     <<: *set_failed
 
@@ -209,15 +218,13 @@ jobs:
     input_mapping:
       gpdb_binary: bin_gpdb_43_stable
       gpdb_src: gpdb_src
-    on_failure:
-      <<: *ccp_destroy
   - task: integration-tests
     tags: ["ccp"]
     file: gpbackup/ci/tasks/integration-tests.yml
     on_success:
       <<: *ccp_destroy
     on_failure:
-      <<: *set_failed
+      *slack_alert
   ensure:
     <<: *set_failed
 
@@ -251,15 +258,13 @@ jobs:
     input_mapping:
       gpdb_binary: bin_gpdb_master
       gpdb_src: gpdb_src
-    on_failure:
-      <<: *ccp_destroy
   - task: scale-tests
     tags: ["ccp"]
     file: gpbackup/ci/tasks/scale-tests.yml
     on_success:
       <<: *ccp_destroy
     on_failure:
-      <<: *set_failed
+      *slack_alert
   ensure:
     <<: *set_failed
 
@@ -298,8 +303,6 @@ jobs:
       terraform: boostfs_terraform
       gpdb_binary: bin_gpdb_5x_stable
       gpdb_src: gpdb_src
-    on_failure:
-      <<: *boostfs_ccp_destroy
   - task: boostfs_installation
     tags: ["ddboost"]
     config:
@@ -327,14 +330,17 @@ jobs:
           chmod +x gpbackup/ci/scripts/setup_boostfs.sh
           gpbackup/ci/scripts/setup_boostfs.sh
     on_failure:
-      <<: *boostfs_debug_sleep
-
+      do:
+      - *boostfs_debug_sleep
   - task: scale-tests
     tags: ["ddboost"]
     file: gpbackup/ci/tasks/scale-tests.yml
     on_failure:
-      <<: *boostfs_debug_sleep
-  - *boostfs_ccp_destroy
+      do:
+      - *slack_alert
+      - *boostfs_debug_sleep
+  ensure:
+    <<: *boostfs_ccp_destroy
 
 - name: scale-43-stable
   plan:
@@ -366,15 +372,13 @@ jobs:
     input_mapping:
       gpdb_binary: bin_gpdb_43_stable
       gpdb_src: gpdb_src
-    on_failure:
-      <<: *ccp_destroy
   - task: scale-tests
     tags: ["ccp"]
     file: gpbackup/ci/tasks/scale-tests.yml
     on_success:
       <<: *ccp_destroy
     on_failure:
-      <<: *set_failed
+      *slack_alert
   ensure:
     <<: *set_failed
 
@@ -450,17 +454,23 @@ set_failed_anchor: &set_failed
         BUCKET_NAME: {{tf-bucket-name}}
 
 boostfs_debug_sleep_anchor: &boostfs_debug_sleep
-  do:
-  - task: debug_sleep
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: alpine
-          tag: latest
-      run:
-        path: 'sh'
-        args: ['-c', 'sleep 2h']
-    ensure:
-      <<: *boostfs_ccp_destroy
+  task: debug_sleep
+  config:
+    platform: linux
+    image_resource:
+      type: docker-image
+      source:
+        repository: alpine
+        tag: latest
+    run:
+      path: 'sh'
+      args: ['-c', 'sleep 2h']
+  ensure:
+    <<: *boostfs_ccp_destroy
+
+slack_alert_anchor: &slack_alert
+  put: slack-alert
+  params:
+    text: |
+      [gpbackup/$BUILD_JOB_NAME] failed:
+      https://gpdb.data.pivotal.ci/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
