@@ -310,6 +310,12 @@ CREATE TABLE with_multiple_check (
 COPY with_multiple_check (a, b) FROM stdin;
 \.
 
+CREATE TABLE many_partitions (id int, year int)
+DISTRIBUTED BY (id)
+PARTITION BY RANGE (year)
+( START (2000) END (2300) EVERY (1),
+  DEFAULT PARTITION extra );
+
 
 SET search_path = public, pg_catalog;
 
