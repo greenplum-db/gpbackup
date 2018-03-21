@@ -92,9 +92,19 @@ ENCODING 'UTF-8';`)
 		rowEncodingNotNullDef := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: true, HasDefault: true, Type: "character varying(20)", Encoding: "compresstype=zlib,blocksize=65536,compresslevel=1", StatTarget: -1, DefaultVal: "'bar'::text"}
 		rowStats := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: 3}
 		colStorageType := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, StorageType: "PLAIN"}
+		tableDefWithType := backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty, TableType: "public.some_type"}
 
 		Context("No special table attributes", func() {
 			tableDef := backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty}
+			It("prints a CREATE TABLE OF type block with one line", func() {
+				col := []backup.ColumnDefinition{rowOne}
+				tableDefWithType.ColumnDefs = col
+				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDefWithType)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename OF public.some_type (
+	i WITH OPTIONS
+) DISTRIBUTED RANDOMLY;`)
+			})
+
 			It("prints a CREATE TABLE block with one line", func() {
 				col := []backup.ColumnDefinition{rowOne}
 				tableDef.ColumnDefs = col
@@ -137,6 +147,15 @@ ENCODING 'UTF-8';`)
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
 	i integer,
 	j character varying(20) NOT NULL
+) DISTRIBUTED RANDOMLY;`)
+			})
+			It("prints a CREATE TABLE OF type block where one line contains NOT NULL", func() {
+				col := []backup.ColumnDefinition{rowOne, rowNotNull}
+				tableDefWithType.ColumnDefs = col
+				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDefWithType)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename OF public.some_type (
+	i WITH OPTIONS,
+	j WITH OPTIONS NOT NULL
 ) DISTRIBUTED RANDOMLY;`)
 			})
 			It("prints a CREATE TABLE block where one line contains DEFAULT", func() {

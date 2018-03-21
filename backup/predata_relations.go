@@ -133,6 +133,7 @@ type TableDefinition struct {
 	IsExternal      bool
 	ExtTableDef     ExternalTableDefinition
 	PartitionType   string
+	TableType       string
 }
 
 /*
@@ -157,6 +158,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 	gplog.Verbose("Retrieving external table information")
 	extTableDefs := GetExternalTableDefinitions(connection)
 	partTableMap := GetPartitionTableMap(connection)
+	tableTypeMap := GetTableType(connection)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, table := range tables {
@@ -171,6 +173,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 			(extTableDefs[oid].Oid != 0),
 			extTableDefs[oid],
 			partTableMap[oid],
+			tableTypeMap[oid],
 		}
 		tableDefinitionMap[oid] = tableDef
 	}
@@ -240,8 +243,15 @@ func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils
 
 func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
 	start := metadataFile.ByteCount
-	metadataFile.MustPrintf("\n\nCREATE TABLE %s (\n", table.ToString())
-	printColumnDefinitions(metadataFile, tableDef.ColumnDefs)
+
+	typeStr := ""
+	if tableDef.TableType != "" {
+		typeStr = fmt.Sprintf("OF %s ", tableDef.TableType)
+	}
+
+	metadataFile.MustPrintf("\n\nCREATE TABLE %s %s(\n", table.ToString(), typeStr)
+
+	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, tableDef.TableType)
 	metadataFile.MustPrintf(") ")
 	if len(table.Inherits) != 0 {
 		dependencyList := strings.Join(table.Inherits, ", ")
@@ -267,10 +277,13 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 	}
 }
 
-func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []ColumnDefinition) {
+func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []ColumnDefinition, tableType string) {
 	lines := make([]string, 0)
 	for _, column := range columnDefs {
 		line := fmt.Sprintf("\t%s %s", column.Name, column.Type)
+		if tableType != "" {
+			line = fmt.Sprintf("\t%s WITH OPTIONS", column.Name)
+		}
 		if column.HasDefault {
 			line += fmt.Sprintf(" DEFAULT %s", column.DefaultVal)
 		}

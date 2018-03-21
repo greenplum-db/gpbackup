@@ -347,6 +347,14 @@ GROUP BY a.attrelid ORDER BY a.attrelid;`
 	return resultMap
 }
 
+func GetTableType(connection *dbconn.DBConn) map[uint32]string {
+	if connection.Version.Before("6") {
+		return map[uint32]string{}
+	}
+	query := `select oid, reloftype::pg_catalog.regtype AS value from pg_class WHERE reloftype != 0`
+	return SelectAsOidToStringMap(connection, query)
+}
+
 func GetPartitionDefinitions(connection *dbconn.DBConn) map[uint32]string {
 	query := `SELECT parrelid AS oid, pg_get_partition_def(parrelid, true, true) AS value FROM pg_partition`
 	return SelectAsOidToStringMap(connection, query)

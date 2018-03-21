@@ -493,6 +493,30 @@ PARTITION BY LIST (gender)
 			Expect(result).To(Equal(expectedResult))
 		})
 	})
+
+	Describe("GetTableType", func() {
+		It("Returns a map when a table OF type exists", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE some_type AS (a text, b numeric)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE some_type")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE some_table OF some_type (PRIMARY KEY (a), b WITH OPTIONS DEFAULT 1000)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE some_table")
+			typeOid := testutils.OidFromObjectName(connection, "public", "some_table", backup.TYPE_RELATION)
+
+			result := backup.GetTableType(connection)
+			Expect(len(result)).To(Equal(1))
+
+			Expect(result[typeOid]).To(Equal("some_type"))
+		})
+		It("Returns empty map when no tables OF type exist", func() {
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE some_table (i int, j int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE some_table")
+
+			result := backup.GetTableType(connection)
+			Expect(len(result)).To(Equal(0))
+		})
+	})
+
 	Describe("GetPartitionTemplates", func() {
 		It("returns empty string when no partition definition template exists", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE simple_table(i int)")

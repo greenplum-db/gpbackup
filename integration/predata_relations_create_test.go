@@ -87,6 +87,25 @@ SET SUBPARTITION TEMPLATE  ` + `
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
 			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
+		It("creates a table of a type", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE TYPE some_type AS (i text, j numeric)`)
+			defer testhelper.AssertQueryRuns(connection, `DROP TYPE some_type CASCADE`)
+
+			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
+			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: false, HasDefault: false, Type: "numeric", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
+			tableDef.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
+
+			tableDef.TableType = "some_type"
+			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+			testhelper.AssertQueryRuns(connection, buffer.String())
+
+			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
+			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
+
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+		})
+
 		It("creates a basic heap table", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: false, HasDefault: false, Type: "character varying(20)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
