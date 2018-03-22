@@ -18,6 +18,13 @@ resources:
     uri: https://github.com/greenplum-db/gpbackup
     branch: master
 
+- name: gpbackup_tagged_src
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/greenplum-db/gpbackup
+    tag_filter: 1.*
+
 - name: gpdb_src
   type: git
   source:
@@ -108,6 +115,15 @@ resources:
   type: slack-notification
   source:
     url: {{dpm_webhook_url}}
+
+- name: component_gpbackup
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: gpdb-dpm-scratch
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: components/gpbackup/gpbackup.tar.gz
 
 jobs:
 - name: units
@@ -471,6 +487,55 @@ jobs:
       *slack_alert
   ensure:
     <<: *set_failed
+
+- name: package_gpbackup_for_release
+  plan:
+  - aggregate:
+    - get: gpbackup_tagged_src
+      trigger: true
+  - task: compile_gpbackup
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '6-gcc6.2-llvm3.7'
+      inputs:
+      - name: gpbackup_tagged_src
+        path: go/src/github.com/greenplum-db/gpbackup
+      outputs:
+      - name: component_gpbackup
+      run:
+        path: "sh"
+        args:
+        - -exc
+        - |
+          set -x
+          export GOPATH=$(pwd)/go
+          export PATH=$PATH:$GOPATH/bin
+          pushd $GOPATH/src/github.com/greenplum-db/gpbackup
+          make depend
+          make build_linux
+          popd
+          pushd component_gpbackup
+          mkdir -p bin
+          cp $GOPATH/bin/gpbackup bin/
+          cp $GOPATH/bin/gpbackup_helper bin/
+          cp $GOPATH/bin/gprestore bin/
+          printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
+          chmod +x install_gpdb_component
+          tar -czvf bin_gpbackup.tar.gz bin/
+          rm -rf bin
+          tar -czvf gpbackup.tar.gz bin_gpbackup.tar.gz install_gpdb_component
+          popd
+    on_failure:
+      *slack_alert
+  - aggregate:
+    - put: component_gpbackup
+      params:
+        file: component_gpbackup/gpbackup.tar.gz
+
 
 ccp_create_params_anchor: &ccp_create_params
   action: create
