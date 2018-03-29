@@ -330,26 +330,32 @@ func GetDistributionPolicies(connection *dbconn.DBConn, tables []Relation) map[u
 	// This query is adapted from the addDistributedBy() function in pg_dump.c.
 	query := `
 SELECT
-	a.attrelid AS oid,
-	'(' || array_to_string(array_agg(quote_ident(a.attname)), ', ') || ')' AS value
-FROM pg_attribute a
-JOIN (
-	SELECT
-		unnest(attrnums) AS attnum,
-		localoid
-	FROM gp_distribution_policy
-) p
-ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
-GROUP BY a.attrelid ORDER BY a.attrelid;`
+	p.localoid as oid,
+	CASE WHEN p.policytype = 'r' THEN 'DISTRIBUTED REPLICATED'
+		 WHEN count(p.attnum) = 0 THEN 'DISTRIBUTED RANDOMLY'
+		 ELSE 'DISTRIBUTED BY (' || array_to_string(array_agg(quote_ident(a.attname) order by index), ', ') || ')'
+	END AS value	
+FROM
+	(
+	 SELECT
+	 	localoid,
+	 	policytype,
+		attnum,
+		row_number() over () as index
+	 FROM
+	 (select localoid, policytype,
+	  	CASE WHEN attrnums is NULL THEN NULL
+	  	ELSE unnest(attrnums)
+		END AS attnum
+	  FROM gp_distribution_policy) x
+	 ) as p
+	LEFT JOIN
+	pg_attribute a
+	ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
+	GROUP BY localoid, policytype;`
 
 	resultMap := SelectAsOidToStringMap(connection, query)
-	for _, table := range tables {
-		if resultMap[table.Oid] != "" {
-			resultMap[table.Oid] = fmt.Sprintf("DISTRIBUTED BY %s", resultMap[table.Oid])
-		} else {
-			resultMap[table.Oid] = "DISTRIBUTED RANDOMLY"
-		}
-	}
+
 	return resultMap
 }
 
