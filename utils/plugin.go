@@ -122,12 +122,21 @@ func (plugin *PluginConfig) CopyPluginConfigToAllHosts(c cluster.Cluster, config
 }
 
 func (plugin *PluginConfig) BackupSegmentTOCs(c cluster.Cluster, fpInfo FilePathInfo) {
-	remoteOutput := c.GenerateAndExecuteCommand("Processing segment TOC files with plugin", func(contentID int) string {
-		tocFilename := fmt.Sprintf("gpbackup_%d_%s_toc.yaml", contentID, fpInfo.Timestamp)
-		return fmt.Sprintf("%s backup_file %s %s/%s", plugin.ExecutablePath, plugin.ConfigPath, fpInfo.GetDirForContent(contentID), tocFilename)
+	remoteOutput := c.GenerateAndExecuteCommand("Checking that TOC file exists", func(contentID int) string {
+		tocFilename := fmt.Sprintf("%s/gpbackup_%d_%s_toc.yaml", fpInfo.GetDirForContent(contentID), contentID, fpInfo.Timestamp)
+		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
+		return fmt.Sprintf(`while [[ ! -f "%s" && ! -f "%s" ]]; do sleep 1; done; ls "%s"`, tocFilename, errorFile, tocFilename)
+	}, cluster.ON_SEGMENTS)
+	c.CheckClusterError(remoteOutput, "Error occurred in gpbackup_helper", func(contentID int) string {
+		return "See gpAdminLog for gpbackup_helper on segment host for details: Error occurred with plugin"
+	})
+
+	remoteOutput = c.GenerateAndExecuteCommand("Processing segment TOC files with plugin", func(contentID int) string {
+		tocFilename := fmt.Sprintf("%s/gpbackup_%d_%s_toc.yaml", fpInfo.GetDirForContent(contentID), contentID, fpInfo.Timestamp)
+		return fmt.Sprintf("%s backup_file %s %s", plugin.ExecutablePath, plugin.ConfigPath, tocFilename)
 	}, cluster.ON_SEGMENTS)
 	c.CheckClusterError(remoteOutput, "Unable to process segment TOC files using plugin", func(contentID int) string {
-		return fmt.Sprintf("Unable to process segment TOC files using plugin")
+		return "See gpAdminLog for gpbackup_helper on segment host for details: Error occurred with plugin"
 	})
 }
 

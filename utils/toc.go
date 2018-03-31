@@ -66,16 +66,13 @@ func NewSegmentTOC(filename string) *SegmentTOC {
 
 func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
 	defer operating.System.Chmod(filename, 0444)
-	toc.WriteToFile(filename)
-}
-
-func (toc *TOC) WriteToFile(filename string) {
 	tocFile := MustOpenFileForWriting(filename)
 	tocContents, _ := yaml.Marshal(toc)
 	MustPrintBytes(tocFile, tocContents)
 }
 
-func (toc *SegmentTOC) WriteToFile(filename string) {
+func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) {
+	defer operating.System.Chmod(filename, 0444)
 	tocFile := MustOpenFileForWriting(filename)
 	tocContents, _ := yaml.Marshal(toc)
 	MustPrintBytes(tocFile, tocContents)

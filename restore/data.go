@@ -22,7 +22,7 @@ func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes st
 	usingCompression, compressionProgram := utils.GetCompressionParameters()
 	copyCommand := ""
 	if singleDataFile {
-		copyCommand = fmt.Sprintf("PROGRAM 'cat %s'", fmt.Sprintf("%s_%d", backupFile, oid))
+		copyCommand = fmt.Sprintf("PROGRAM 'cat %s_%d'", backupFile, oid)
 	} else if usingCompression && !singleDataFile {
 		copyCommand = fmt.Sprintf("PROGRAM '%s < %s'", compressionProgram.DecompressCommand, backupFile)
 	} else {

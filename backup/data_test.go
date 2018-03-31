@@ -76,7 +76,7 @@ var _ = Describe("backup/data tests", func() {
 			backup.SetSingleDataFile(true)
 			utils.SetCompressionParameters(false, utils.Compression{})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
-			execStr := regexp.QuoteMeta(`COPY public.foo TO PROGRAM '([[ -p <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101 ]] || (echo "Pipe not found">&2; exit 1)) && $GPHOME/bin/gpbackup_helper --oid=3456 --toc-file=<SEG_DATA_DIR>/gpbackup_<SEGID>_20170101010101_toc.yaml --content=<SEGID> >> <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;`)
+			execStr := regexp.QuoteMeta(`COPY public.foo TO PROGRAM '([[ -p <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456 ]] || (echo "Pipe not found">&2; exit 1)) && cat - > <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;`)
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101"
 			backup.CopyTableOut(connection, testTable, filename)

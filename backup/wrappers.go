@@ -471,14 +471,6 @@ func BackupTriggers(metadataFile *utils.FileWithByteCount) {
  * Data wrapper functions
  */
 
-func BackupData(tables []Relation, tableDefs map[uint32]TableDefinition) map[uint32]int64 {
-	if *singleDataFile {
-		CreateSegmentPipesOnAllHostsForBackup()
-		ReadFromSegmentPipes()
-	}
-	return BackupDataForAllTables(tables, tableDefs)
-}
-
 func BackupStatistics(statisticsFile *utils.FileWithByteCount, tables []Relation) {
 	attStats := GetAttributeStatistics(connection, tables)
 	tupleStats := GetTupleStatistics(connection, tables)

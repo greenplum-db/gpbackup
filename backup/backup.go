@@ -115,6 +115,11 @@ func DoBackup() {
 		backupPostdata(metadataFile)
 	}
 
+	/*
+	 * We check this in the backup report rather than the flag because we
+	 * perform a metadata only backup if the database contains no tables
+	 * or only external tables
+	 */
 	if !backupReport.MetadataOnly {
 		backupData(dataTables, tableDefs)
 	}
@@ -244,11 +249,22 @@ func backupTablePredata(metadataFile *utils.FileWithByteCount, tables []Relation
 }
 
 func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
+	if *singleDataFile {
+		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
+		VerifyHelperVersionOnSegments(version)
+		oidList := make([]string, len(tables))
+		for i, table := range tables {
+			oidList[i] = fmt.Sprintf("%d", table.Oid)
+		}
+		WriteOidListToSegments(oidList)
+		firstOid := tables[0].Oid
+		CreateSegmentPipesOnAllHostsForBackup(firstOid)
+		ReadFromSegmentPipes()
+	}
 	gplog.Info("Writing data to file")
-	rowsCopiedMap := BackupData(tables, tableDefs)
+	rowsCopiedMap := BackupDataForAllTables(tables, tableDefs)
 	AddTableDataEntriesToTOC(tables, tableDefs, rowsCopiedMap)
 	if *singleDataFile {
-		MoveSegmentTOCsAndMakeReadOnly()
 		if *pluginConfigFile != "" {
 			pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
 		}
@@ -362,12 +378,11 @@ func DoCleanup() {
 	gplog.Verbose("Beginning cleanup")
 	if globalFPInfo.Timestamp != "" {
 		if *singleDataFile {
-			CleanUpSegmentPipesOnAllHosts()
-			CleanUpSegmentTailProcesses()
+			CleanUpHelperFilesOnAllHosts()
 			if wasTerminated {
 				// It is possible for the COPY command to become orphaned if an agent process is killed
+				CleanUpSegmentHelperProcesses()
 				utils.TerminateHangingCopySessions(connection, globalFPInfo, "gpbackup")
-				CleanUpSegmentTOCs()
 			}
 		}
 		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalFPInfo.Timestamp)

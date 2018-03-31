@@ -48,10 +48,9 @@ func CopyTableOut(connection *dbconn.DBConn, table Relation, backupFile string) 
 		 * drive.  It will be copied to a user-specified directory, if any, once all
 		 * of the data is backed up.
 		 */
-		tocFile := globalFPInfo.GetSegmentTOCFilePath("<SEG_DATA_DIR>", "<SEGID>")
-		helperCommand := fmt.Sprintf("$GPHOME/bin/gpbackup_helper --oid=%d --toc-file=%s --content=<SEGID>", table.Oid, tocFile)
+		backupFile = fmt.Sprintf("%s_%d", backupFile, table.Oid)
 		checkPipeExistsCommand := fmt.Sprintf("([[ -p %s ]] || (echo \"Pipe not found\">&2; exit 1))", backupFile)
-		copyCommand = fmt.Sprintf("PROGRAM '%s && %s >> %s'", checkPipeExistsCommand, helperCommand, backupFile)
+		copyCommand = fmt.Sprintf("PROGRAM '%s && cat - > %s'", checkPipeExistsCommand, backupFile)
 	} else if usingCompression {
 		copyCommand = fmt.Sprintf("PROGRAM '%s > %s'", compressionProgram.CompressCommand, backupFile)
 	} else {
@@ -59,7 +58,15 @@ func CopyTableOut(connection *dbconn.DBConn, table Relation, backupFile string) 
 	}
 	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.ToString(), copyCommand, tableDelim)
 	result, err := connection.Exec(query)
-	gplog.FatalOnError(err)
+	if err != nil {
+		errStr := ""
+		if *singleDataFile {
+			_, homeDir, _ := utils.GetUserAndHostInfo()
+			helperLogName := fmt.Sprintf("%s/gpAdminLogs/gpbackup_helper_%s.log", homeDir, globalFPInfo.Timestamp[0:8])
+			errStr = fmt.Sprintf("Check %s on the affected segment host for more info.", helperLogName)
+		}
+		gplog.Fatal(err, errStr)
+	}
 	numRows, _ := result.RowsAffected()
 	return numRows
 }

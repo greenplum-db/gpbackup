@@ -40,8 +40,8 @@ func CreateSegmentPipesOnAllHostsForRestore(oid uint32) {
 func WriteToSegmentPipes() {
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Writing to segment data pipes", func(contentID int) string {
 		tocFile := globalFPInfo.GetSegmentTOCFilePath(globalFPInfo.GetDirForContent(contentID), fmt.Sprintf("%d", contentID))
-		oidFile := globalFPInfo.GetSegmentHelperFilePath(contentID, "oid")
-		scriptFile := globalFPInfo.GetSegmentHelperFilePath(contentID, "script")
+		oidFile := globalFPInfo.GetSegmentHelperFilePathForRestore(contentID, "oid")
+		scriptFile := globalFPInfo.GetSegmentHelperFilePathForRestore(contentID, "script")
 		pipeFile := globalFPInfo.GetSegmentPipeFilePathWithPID(contentID)
 		backupFile := globalFPInfo.GetTableBackupFilePath(contentID, 0, true)
 		gphomePath := operating.System.Getenv("GPHOME")
@@ -62,14 +62,10 @@ chmod +x %s; (nohup %s > /dev/null 2>&1 &) &`, scriptFile, gphomePath, tocFile, 
 	})
 }
 
-func WriteOidListToSegments(filteredEntries []utils.MasterDataEntry) {
-	filteredOids := make([]string, len(filteredEntries))
-	for i, entry := range filteredEntries {
-		filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
-	}
-	oidStr := strings.Join(filteredOids, "\n")
+func WriteOidListToSegments(oidList []string) {
+	oidStr := strings.Join(oidList, "\n")
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Writing filtered oid list to segments", func(contentID int) string {
-		oidFile := globalFPInfo.GetSegmentHelperFilePath(contentID, "oid")
+		oidFile := globalFPInfo.GetSegmentHelperFilePathForRestore(contentID, "oid")
 		return fmt.Sprintf(`echo "%s" > %s`, oidStr, oidFile)
 	}, cluster.ON_SEGMENTS)
 	globalCluster.CheckClusterError(remoteOutput, "Unable to write oid list to segments", func(contentID int) string {
@@ -80,8 +76,8 @@ func WriteOidListToSegments(filteredEntries []utils.MasterDataEntry) {
 func CleanUpHelperFilesOnAllHosts() {
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", globalFPInfo.GetSegmentPipeFilePathWithPID(contentID))
-		oidFile := globalFPInfo.GetSegmentHelperFilePath(contentID, "oid")
-		scriptFile := globalFPInfo.GetSegmentHelperFilePath(contentID, "script")
+		oidFile := globalFPInfo.GetSegmentHelperFilePathForRestore(contentID, "oid")
+		scriptFile := globalFPInfo.GetSegmentHelperFilePathForRestore(contentID, "script")
 		return fmt.Sprintf("rm -f %s && rm -f %s && rm -f %s", errorFile, oidFile, scriptFile)
 	}, cluster.ON_SEGMENTS)
 	errMsg := fmt.Sprintf("Unable to remove segment helper file(s). See %s for a complete list of segments with errors and remove manually.",

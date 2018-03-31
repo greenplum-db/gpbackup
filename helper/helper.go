@@ -21,7 +21,9 @@ import (
 )
 
 var ( // Shared globals
+	backupAgent      *bool
 	content          *int
+	compressionLevel *int
 	dataFile         *string
 	oid              *uint
 	oidFile          *string
@@ -31,17 +33,15 @@ var ( // Shared globals
 	tocFile          *string
 	version          string
 	pluginConfigFile *string
-)
-
-var ( // Globals for restore only
-	CleanupGroup  *sync.WaitGroup
-	currentPipe   string
-	lastPipe      string
-	nextPipe      string
-	wasTerminated bool
-	writer        *bufio.Writer
-	writeHandle   *os.File
-	errBuf        bytes.Buffer
+	writeCmd         *exec.Cmd
+	CleanupGroup     *sync.WaitGroup
+	currentPipe      string
+	lastPipe         string
+	nextPipe         string
+	wasTerminated    bool
+	writer           *bufio.Writer
+	writeHandle      *os.File
+	errBuf           bytes.Buffer
 )
 
 /*
@@ -52,17 +52,19 @@ func DoHelper() {
 	defer DoTeardown()
 	InitializeGlobals()
 	utils.InitializeSignalHandler(DoCleanup, fmt.Sprintf("restore agent on segment %d", *content), &wasTerminated)
-	if *restoreAgent {
+	if *backupAgent {
+		doBackupAgent()
+	} else if *restoreAgent {
 		doRestoreAgent()
-	} else {
-		doBackupHelper()
 	}
 }
 
 func InitializeGlobals() {
 	CleanupGroup = &sync.WaitGroup{}
 	CleanupGroup.Add(1)
+	backupAgent = flag.Bool("backup-agent", false, "Use gpbackup_helper as an agent for backup")
 	content = flag.Int("content", -2, "Content ID of the corresponding segment")
+	compressionLevel = flag.Int("compression-level", 0, "The level of compression to use with gzip. O indicates no compression.")
 	dataFile = flag.String("data-file", "", "Absolute path to the data file")
 	gplog.InitializeLogging("gpbackup_helper", "")
 	oid = flag.Uint("oid", 0, "Oid of the table being processed")
@@ -88,47 +90,6 @@ func SetFilename(name string) {
 	tocFile = &name
 }
 
-func SetOid(newoid uint) {
-	oid = &newoid
-}
-
-/*
- * Backup helper functions
- */
-
-func doBackupHelper() {
-	toc, lastRead := ReadOrCreateTOC()
-	numBytes := ReadAndCountBytes()
-	lastProcessed := lastRead + numBytes
-	toc.AddSegmentDataEntry(*oid, lastRead, lastProcessed)
-	toc.LastByteRead = lastProcessed
-	toc.WriteToFile(*tocFile)
-}
-
-func ReadOrCreateTOC() (*utils.SegmentTOC, uint64) {
-	var toc *utils.SegmentTOC
-	var lastRead uint64
-	if utils.FileExistsAndIsReadable(*tocFile) {
-		toc = utils.NewSegmentTOC(*tocFile)
-		lastRead = toc.LastByteRead
-	} else {
-		toc = &utils.SegmentTOC{}
-		toc.DataEntries = make(map[uint]utils.SegmentDataEntry, 1)
-		lastRead = 0
-	}
-	return toc, lastRead
-}
-
-func ReadAndCountBytes() uint64 {
-	reader := bufio.NewReader(operating.System.Stdin)
-	numBytes, _ := io.Copy(operating.System.Stdout, reader)
-	return uint64(numBytes)
-}
-
-/*
- * Restore helper functions
- */
-
 func getOidListFromFile() []int {
 	oidStr, err := operating.System.ReadFile(*oidFile)
 	gplog.FatalOnError(err)
@@ -142,6 +103,110 @@ func getOidListFromFile() []int {
 	return oidList
 }
 
+func doBackupAgent() {
+	toc := &utils.SegmentTOC{}
+	toc.DataEntries = make(map[uint]utils.SegmentDataEntry, 1)
+	lastRead := uint64(0)
+	oidList := getOidListFromFile()
+	lastPipe = ""
+	currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[0])
+	nextPipe = ""
+	log(fmt.Sprintf("Opening pipe for oid %d", oidList[0]))
+	reader, readHandle := getBackupPipeReader(currentPipe)
+	finalWriter, gzipWriter, bufIoWriter, writeHandle := getBackupPipeWriter(*compressionLevel)
+	for i, oid := range oidList {
+		if i < len(oidList)-1 {
+			nextPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i+1])
+			createNextPipe()
+		} else {
+			nextPipe = ""
+		}
+		log(fmt.Sprintf("Backing up table with oid %d\n", oid))
+		numBytes, err := io.Copy(finalWriter, reader)
+		gplog.FatalOnError(err, strings.Trim(errBuf.String(), "\x00"))
+		lastProcessed := lastRead + uint64(numBytes)
+		toc.AddSegmentDataEntry(uint(oid), lastRead, lastProcessed)
+		lastRead = lastProcessed
+		log(fmt.Sprintf("Read %d bytes\n", numBytes))
+		lastPipe = currentPipe
+		currentPipe = nextPipe
+		readHandle.Close()
+		removeFileIfExists(lastPipe)
+		if currentPipe != "" {
+			log(fmt.Sprintf("Opening pipe for oid %d\n", oidList[i+1]))
+			reader, readHandle = getBackupPipeReader(currentPipe)
+		}
+	}
+	if gzipWriter != nil {
+		gzipWriter.Close()
+	}
+	bufIoWriter.Flush()
+	writeHandle.Close()
+	if *pluginConfigFile != "" {
+		/*
+		 * When using a plugin, the agent may take longer to finish than the
+		 * main gpbackup process. We either write the TOC file if the agent finishes
+		 * successfully or write an error file if it has an error after the COPYs have
+		 * finished. We then wait on the gpbackup side until one of those files is
+		 * written to verify the agent completed.
+		 */
+		if err := writeCmd.Wait(); err != nil {
+			handle := utils.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
+			handle.Close()
+			gplog.Fatal(err, strings.Trim(errBuf.String(), "\x00"))
+		}
+	}
+	toc.WriteToFileAndMakeReadOnly(*tocFile)
+	log("Finished writing segment TOC")
+}
+
+func getBackupPipeReader(currentPipe string) (io.Reader, io.ReadCloser) {
+	readHandle, err := os.OpenFile(currentPipe, os.O_RDONLY, os.ModeNamedPipe)
+	gplog.FatalOnError(err)
+	// This is a workaround for https://github.com/golang/go/issues/24164.
+	// Once this bug is fixed, the call to Fd() can be removed
+	readHandle.Fd()
+	reader := bufio.NewReader(readHandle)
+	return reader, readHandle
+}
+
+func getBackupPipeWriter(compressLevel int) (io.Writer, *gzip.Writer, *bufio.Writer, io.WriteCloser) {
+	var writeHandle io.WriteCloser
+	var err error
+	if *pluginConfigFile != "" {
+		pluginConfig := utils.ReadPluginConfig(*pluginConfigFile)
+		cmdStr := fmt.Sprintf("%s backup_data %s %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath, *dataFile)
+		writeCmd = exec.Command("bash", "-c", cmdStr)
+
+		writeHandle, err = writeCmd.StdinPipe()
+		gplog.FatalOnError(err)
+		writeCmd.Stderr = &errBuf
+
+		err := writeCmd.Start()
+		gplog.FatalOnError(err)
+
+		defer func() {
+			if len(errBuf.String()) != 0 {
+				gplog.Error(errBuf.String())
+			}
+		}()
+	} else {
+		writeHandle, err = os.Create(*dataFile)
+		gplog.FatalOnError(err)
+	}
+
+	var finalWriter io.Writer
+	var gzipWriter *gzip.Writer
+	bufIoWriter := bufio.NewWriter(writeHandle)
+	finalWriter = bufIoWriter
+	if compressLevel > 0 {
+		gzipWriter, err = gzip.NewWriterLevel(bufIoWriter, compressLevel)
+		gplog.FatalOnError(err)
+		finalWriter = gzipWriter
+	}
+	return finalWriter, gzipWriter, bufIoWriter, writeHandle
+}
+
 func doRestoreAgent() {
 	tocEntries := utils.NewSegmentTOC(*tocFile).DataEntries
 	lastByte := uint64(0)
@@ -151,8 +216,8 @@ func doRestoreAgent() {
 	currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[0])
 	nextPipe = ""
 	log(fmt.Sprintf("Opening pipe for oid %d", oid))
-	writer, writeHandle = getPipeWriter(currentPipe)
-	reader := getPipeReader()
+	writer, writeHandle = getRestorePipeWriter(currentPipe)
+	reader := getRestorePipeReader()
 	for i, oid := range oidList {
 		log(fmt.Sprintf("Restoring table with oid %d", oid))
 		if i < len(oidList)-1 {
@@ -178,7 +243,7 @@ func doRestoreAgent() {
 		removeFileIfExists(lastPipe)
 		if currentPipe != "" {
 			log(fmt.Sprintf("Opening pipe for oid %d", oid))
-			writer, writeHandle = getPipeWriter(currentPipe)
+			writer, writeHandle = getRestorePipeWriter(currentPipe)
 		}
 	}
 }
@@ -188,7 +253,7 @@ func createNextPipe() {
 	gplog.FatalOnError(err)
 }
 
-func getPipeReader() *bufio.Reader {
+func getRestorePipeReader() *bufio.Reader {
 	var readHandle io.Reader
 	var err error
 	if *pluginConfigFile != "" {
@@ -224,7 +289,7 @@ func getPipeReader() *bufio.Reader {
 	return bufIoReader
 }
 
-func getPipeWriter(currentPipe string) (*bufio.Writer, *os.File) {
+func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File) {
 	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY, os.ModeNamedPipe)
 	gplog.FatalOnError(err)
 	pipeWriter := bufio.NewWriter(fileHandle)
@@ -287,7 +352,7 @@ func DoCleanup() {
 		handle := utils.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
 		handle.Close()
 	}
-	if *restoreAgent {
+	if *restoreAgent || *backupAgent {
 		flushAndCloseWriter()
 		removeFileIfExists(lastPipe)
 		removeFileIfExists(currentPipe)
