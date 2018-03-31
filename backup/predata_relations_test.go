@@ -91,6 +91,7 @@ ENCODING 'UTF-8';`)
 		rowNotNullDef := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: true, HasDefault: true, Type: "character varying(20)", StatTarget: -1, DefaultVal: "'bar'::text"}
 		rowEncodingNotNullDef := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: true, HasDefault: true, Type: "character varying(20)", Encoding: "compresstype=zlib,blocksize=65536,compresslevel=1", StatTarget: -1, DefaultVal: "'bar'::text"}
 		rowStats := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: 3}
+		colOptions := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", Options: "n_distinct=1", StatTarget: -1}
 		colStorageType := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, StorageType: "PLAIN"}
 		tableDefWithType := backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty, TableType: "public.some_type"}
 
@@ -195,6 +196,16 @@ ALTER TABLE ONLY public.tablename ALTER COLUMN i SET STATISTICS 3;`)
 ) DISTRIBUTED RANDOMLY;
 
 ALTER TABLE ONLY public.tablename ALTER COLUMN i SET STORAGE PLAIN;`)
+			})
+			It("prints a CREATE TABLE block followed by an ALTER COLUMN ... SET ... statement", func() {
+				col := []backup.ColumnDefinition{colOptions}
+				tableDef.ColumnDefs = col
+				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
+	i integer
+) DISTRIBUTED RANDOMLY;
+
+ALTER TABLE ONLY public.tablename ALTER COLUMN i SET (n_distinct=1);`)
 			})
 		})
 		Context("Multiple special table attributes on one column", func() {

@@ -308,6 +308,9 @@ func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Rel
 		if column.StorageType != "" {
 			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STORAGE %s;", table.ToString(), column.Name, column.StorageType)
 		}
+		if column.Options != "" {
+			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET (%s);", table.ToString(), column.Name, column.Options)
+		}
 	}
 }
 

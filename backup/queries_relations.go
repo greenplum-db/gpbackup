@@ -207,6 +207,7 @@ type ColumnDefinition struct {
 	DefaultVal  string
 	Comment     string
 	ACL         []ACL
+	Options     string
 }
 
 var storageTypeCodes = map[string]string{
@@ -218,6 +219,10 @@ var storageTypeCodes = map[string]string{
 
 func GetColumnDefinitions(connection *dbconn.DBConn, columnMetadata map[uint32]map[string][]ACL) map[uint32][]ColumnDefinition {
 	// This query is adapted from the getTableAttrs() function in pg_dump.c.
+	optionsQuery := ""
+	if connection.Version.AtLeast("6") {
+		optionsQuery = "coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,"
+	}
 	query := fmt.Sprintf(`
 SELECT
 	a.attrelid,
@@ -230,6 +235,7 @@ SELECT
 	a.attstattarget,
 	CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
 	coalesce(pg_catalog.pg_get_expr(ad.adbin, ad.adrelid), '') AS defaultval,
+	%s
 	coalesce(d.description,'') AS comment
 FROM pg_catalog.pg_attribute a
 JOIN pg_class c ON a.attrelid = c.oid
@@ -241,7 +247,7 @@ LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'
 WHERE %s
 AND a.attnum > 0::pg_catalog.int2
 AND a.attisdropped = 'f'
-ORDER BY a.attrelid, a.attnum;`, tableAndSchemaFilterClause())
+ORDER BY a.attrelid, a.attnum;`, optionsQuery, tableAndSchemaFilterClause())
 
 	results := make([]ColumnDefinition, 0)
 	err := connection.Select(&results, query)

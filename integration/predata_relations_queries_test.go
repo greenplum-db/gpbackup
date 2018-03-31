@@ -387,6 +387,21 @@ PARTITION BY RANGE (year)
 
 			Expect(len(tableAtts)).To(Equal(0))
 		})
+		It("returns table attributes with per-attribute options", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE atttable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE atttable")
+			testhelper.AssertQueryRuns(connection, "ALTER TABLE ONLY public.atttable ALTER COLUMN i SET (n_distinct=1);")
+			oid := testutils.OidFromObjectName(connection, "public", "atttable", backup.TYPE_RELATION)
+			privileges := backup.GetPrivilegesForColumns(connection)
+			tableAtts := backup.GetColumnDefinitions(connection, privileges)[oid]
+
+			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL, Options: "n_distinct=1"}
+
+			Expect(len(tableAtts)).To(Equal(1))
+
+			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
+		})
 	})
 	Describe("GetPrivilegesForColumns", func() {
 		It("Default column", func() {
