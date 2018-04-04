@@ -501,11 +501,7 @@ jobs:
     - get: gpbackup
       passed:
        - units
-       - scale-master
-       - scale-43-stable
-       - scale-5x-stable
        - integrations-GPDB5
-       - integrations-master
        - integrations-GPDB4.3
        - integrations-GPDB5-sles
        - test_package_conan
