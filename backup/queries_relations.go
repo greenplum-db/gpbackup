@@ -326,7 +326,7 @@ func SelectAsOidToStringMap(connection *dbconn.DBConn, query string) map[uint32]
 	return resultMap
 }
 
-func GetDistributionPolicies(connection *dbconn.DBConn, tables []Relation) map[uint32]string {
+func GetDistributionPolicies(connection *dbconn.DBConn) map[uint32]string {
 	// This query is adapted from the addDistributedBy() function in pg_dump.c.
 	var query string
 	if connection.Version.Before("6") {
