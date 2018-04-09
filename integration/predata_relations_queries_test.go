@@ -473,6 +473,17 @@ PARTITION BY RANGE (year)
 
 			Expect(distPolicies).To(Equal(`DISTRIBUTED BY ("group")`))
 		})
+		It("returns distribution policy info for a table DISTRIBUTED REPLICATED", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE TABLE dist_one(a int, "group" text) DISTRIBUTED REPLICATED`)
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE dist_one")
+			oid := testutils.OidFromObjectName(connection, "public", "dist_one", backup.TYPE_RELATION)
+
+			tables := []backup.Relation{{Oid: oid}}
+			distPolicies := backup.GetDistributionPolicies(connection, tables)[oid]
+
+			Expect(distPolicies).To(Equal(`DISTRIBUTED REPLICATED`))
+		})
 	})
 	Describe("GetPartitionDefinitions", func() {
 		It("returns empty string when no partition exists", func() {

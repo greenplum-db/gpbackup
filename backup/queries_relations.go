@@ -328,31 +328,58 @@ func SelectAsOidToStringMap(connection *dbconn.DBConn, query string) map[uint32]
 
 func GetDistributionPolicies(connection *dbconn.DBConn, tables []Relation) map[uint32]string {
 	// This query is adapted from the addDistributedBy() function in pg_dump.c.
-	query := `
-SELECT
-	p.localoid as oid,
-	CASE WHEN p.policytype = 'r' THEN 'DISTRIBUTED REPLICATED'
-		 WHEN count(p.attnum) = 0 THEN 'DISTRIBUTED RANDOMLY'
-		 ELSE 'DISTRIBUTED BY (' || array_to_string(array_agg(quote_ident(a.attname) order by index), ', ') || ')'
-	END AS value	
-FROM
-	(
-	 SELECT
-	 	localoid,
-	 	policytype,
-		attnum,
-		row_number() over () as index
-	 FROM
-	 (select localoid, policytype,
-	  	CASE WHEN attrnums is NULL THEN NULL
-	  	ELSE unnest(attrnums)
-		END AS attnum
-	  FROM gp_distribution_policy) x
-	 ) as p
-	LEFT JOIN
-	pg_attribute a
-	ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
-	GROUP BY localoid, policytype;`
+	var query string
+	if connection.Version.Before("6") {
+		query = `
+		SELECT
+			p.localoid as oid,
+			CASE WHEN count(p.attnum) = 0 THEN 'DISTRIBUTED RANDOMLY'
+				 ELSE 'DISTRIBUTED BY (' || array_to_string(array_agg(quote_ident(a.attname) order by index), ', ') || ')'
+			END AS value	
+		FROM
+			(
+			 SELECT
+			 	localoid,
+				attnum,
+				row_number() over () as index
+			 FROM
+			 (select localoid,
+			  	CASE WHEN attrnums is NULL THEN NULL
+			  	ELSE unnest(attrnums)
+				END AS attnum
+			  FROM gp_distribution_policy) x
+			 ) as p
+			LEFT JOIN
+			pg_attribute a
+			ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
+			GROUP BY localoid;`
+	} else {
+		query = `
+		SELECT
+			p.localoid as oid,
+			CASE WHEN p.policytype = 'r' THEN 'DISTRIBUTED REPLICATED'
+				 WHEN count(p.attnum) = 0 THEN 'DISTRIBUTED RANDOMLY'
+				 ELSE 'DISTRIBUTED BY (' || array_to_string(array_agg(quote_ident(a.attname) order by index), ', ') || ')'
+			END AS value	
+		FROM
+			(
+			 SELECT
+			 	localoid,
+			 	policytype,
+				attnum,
+				row_number() over () as index
+			 FROM
+			 (select localoid, policytype,
+			  	CASE WHEN attrnums is NULL THEN NULL
+			  	ELSE unnest(attrnums)
+				END AS attnum
+			  FROM gp_distribution_policy) x
+			 ) as p
+			LEFT JOIN
+			pg_attribute a
+			ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
+			GROUP BY localoid, policytype;`
+	}
 
 	resultMap := SelectAsOidToStringMap(connection, query)
 
