@@ -251,23 +251,25 @@ func backupTablePredata(metadataFile *utils.FileWithByteCount, tables []Relation
 func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	if *singleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
-		VerifyHelperVersionOnSegments(version)
+		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		oidList := make([]string, len(tables))
 		for i, table := range tables {
 			oidList[i] = fmt.Sprintf("%d", table.Oid)
 		}
-		WriteOidListToSegments(oidList)
+		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo)
 		firstOid := tables[0].Oid
-		CreateSegmentPipesOnAllHostsForBackup(firstOid)
-		ReadFromSegmentPipes()
+		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, globalFPInfo)
+		compressStr := fmt.Sprintf(" --compression-level %d", *compressionLevel)
+		if !*noCompression && *compressionLevel == 0 {
+			compressStr = " --compression-level 1"
+		}
+		utils.StartAgent(globalCluster, globalFPInfo, "--backup-agent", *pluginConfigFile, compressStr)
 	}
 	gplog.Info("Writing data to file")
 	rowsCopiedMap := BackupDataForAllTables(tables, tableDefs)
 	AddTableDataEntriesToTOC(tables, tableDefs, rowsCopiedMap)
-	if *singleDataFile {
-		if *pluginConfigFile != "" {
-			pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
-		}
+	if *singleDataFile && *pluginConfigFile != "" {
+		pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
 	}
 	if wasTerminated {
 		gplog.Info("Data backup incomplete")
@@ -378,10 +380,10 @@ func DoCleanup() {
 	gplog.Verbose("Beginning cleanup")
 	if globalFPInfo.Timestamp != "" {
 		if *singleDataFile {
-			CleanUpHelperFilesOnAllHosts()
+			utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
 			if wasTerminated {
 				// It is possible for the COPY command to become orphaned if an agent process is killed
-				CleanUpSegmentHelperProcesses()
+				utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
 				utils.TerminateHangingCopySessions(connection, globalFPInfo, "gpbackup")
 			}
 		}

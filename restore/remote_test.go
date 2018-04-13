@@ -79,40 +79,4 @@ var _ = Describe("restore/remote tests", func() {
 			restore.VerifyBackupFileCountOnSegments(2)
 		})
 	})
-	Describe("VerifyBackupDirectoriesExistOnAllHosts", func() {
-		It("successfully verifies all directories", func() {
-			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				NumErrors: 0,
-			}
-			testCluster.Executor = testExecutor
-			restore.SetCluster(testCluster)
-			restore.VerifyBackupDirectoriesExistOnAllHosts()
-			Expect((*testExecutor).NumExecutions).To(Equal(1))
-		})
-		It("panics if it cannot verify all directories", func() {
-			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				NumErrors: 2,
-				Errors: map[int]error{
-					0: errors.Errorf("exit status 1"),
-					1: errors.Errorf("exit status 1"),
-				},
-			}
-			testCluster.Executor = testExecutor
-			restore.SetCluster(testCluster)
-			defer testhelper.ShouldPanicWithMessage("Backup directories missing or inaccessible on 2 segments")
-			restore.VerifyBackupDirectoriesExistOnAllHosts()
-		})
-		It("panics if it cannot verify some directories", func() {
-			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				NumErrors: 1,
-				Errors: map[int]error{
-					1: errors.Errorf("exit status 1"),
-				},
-			}
-			testCluster.Executor = testExecutor
-			restore.SetCluster(testCluster)
-			defer testhelper.ShouldPanicWithMessage("Backup directories missing or inaccessible on 1 segment")
-			restore.VerifyBackupDirectoriesExistOnAllHosts()
-		})
-	})
 })

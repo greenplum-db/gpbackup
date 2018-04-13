@@ -61,12 +61,8 @@ func (backupFPInfo *FilePathInfo) GetSegmentPipeFilePath(contentID int) string {
 	return backupFPInfo.replaceCopyFormatStringsInPath(templateFilePath, contentID)
 }
 
-func (backupFPInfo *FilePathInfo) GetSegmentPipeFilePathWithPID(contentID int) string {
-	return fmt.Sprintf("%s_%d", backupFPInfo.GetSegmentPipeFilePath(contentID), backupFPInfo.PID)
-}
-
 func (backupFPInfo *FilePathInfo) GetSegmentPipePathForCopyCommand() string {
-	return fmt.Sprintf("<SEG_DATA_DIR>/gpbackup_<SEGID>_%s_pipe", backupFPInfo.Timestamp)
+	return fmt.Sprintf("<SEG_DATA_DIR>/gpbackup_<SEGID>_%s_pipe_%d", backupFPInfo.Timestamp, backupFPInfo.PID)
 }
 
 func (backupFPInfo *FilePathInfo) GetTableBackupFilePath(contentID int, tableOid uint32, singleDataFile bool) string {
@@ -125,20 +121,17 @@ func (backupFPInfo *FilePathInfo) GetConfigFilePath() string {
 	return backupFPInfo.GetBackupFilePath("config")
 }
 
-/*
- * This is the temporary location of the segment TOC file before it is moved
- * to its final location in the actual backup directory
- */
-func (backupFPInfo *FilePathInfo) GetSegmentTOCFilePath(topDir string, contentStr string) string {
-	return path.Join(topDir, fmt.Sprintf("gpbackup_%s_%s_toc.yaml", contentStr, backupFPInfo.Timestamp))
+func (backupFPInfo *FilePathInfo) GetSegmentTOCFilePath(contentID int) string {
+	return fmt.Sprintf("%s/gpbackup_%d_%s_toc.yaml", backupFPInfo.GetDirForContent(contentID), contentID, backupFPInfo.Timestamp)
 }
 
-func (backupFPInfo *FilePathInfo) GetSegmentHelperFilePathForRestore(contentID int, suffix string) string {
+func (backupFPInfo *FilePathInfo) GetSegmentHelperFilePath(contentID int, suffix string) string {
 	return path.Join(backupFPInfo.SegDirMap[contentID], fmt.Sprintf("gpbackup_%d_%s_%s_%d", contentID, backupFPInfo.Timestamp, suffix, backupFPInfo.PID))
 }
 
-func (backupFPInfo *FilePathInfo) GetSegmentHelperFilePathForBackup(contentID int, suffix string) string {
-	return path.Join(backupFPInfo.SegDirMap[contentID], fmt.Sprintf("gpbackup_%d_%s_%s", contentID, backupFPInfo.Timestamp, suffix))
+func (backupFPInfo *FilePathInfo) GetHelperLogPath() string {
+	_, homeDir, _ := GetUserAndHostInfo()
+	return fmt.Sprintf("%s/gpAdminLogs/gpbackup_helper_%s.log", homeDir, backupFPInfo.Timestamp[0:8])
 }
 
 /*

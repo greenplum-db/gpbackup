@@ -61,8 +61,7 @@ func CopyTableOut(connection *dbconn.DBConn, table Relation, backupFile string) 
 	if err != nil {
 		errStr := ""
 		if *singleDataFile {
-			_, homeDir, _ := utils.GetUserAndHostInfo()
-			helperLogName := fmt.Sprintf("%s/gpAdminLogs/gpbackup_helper_%s.log", homeDir, globalFPInfo.Timestamp[0:8])
+			helperLogName := globalFPInfo.GetHelperLogPath()
 			errStr = fmt.Sprintf("Check %s on the affected segment host for more info.", helperLogName)
 		}
 		gplog.Fatal(err, errStr)

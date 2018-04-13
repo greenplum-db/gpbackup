@@ -196,15 +196,15 @@ func restoreData(gucStatements []utils.StatementWithType) {
 	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, excludeSchemas, includeTables, excludeTables)
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
-		VerifyHelperVersionOnSegments(version)
+		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		filteredOids := make([]string, len(filteredMasterDataEntries))
 		for i, entry := range filteredMasterDataEntries {
 			filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
 		}
-		WriteOidListToSegments(filteredOids)
+		utils.WriteOidListToSegments(filteredOids, globalCluster, globalFPInfo)
 		firstOid := filteredMasterDataEntries[0].Oid
-		CreateSegmentPipesOnAllHostsForRestore(firstOid)
-		WriteToSegmentPipes()
+		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, globalFPInfo)
+		utils.StartAgent(globalCluster, globalFPInfo, "--restore-agent", *pluginConfigFile, "")
 	}
 
 	totalTables := len(filteredMasterDataEntries)
@@ -334,8 +334,8 @@ func DoCleanup() {
 	}()
 	gplog.Verbose("Beginning cleanup")
 	if backupConfig != nil && backupConfig.SingleDataFile {
-		CleanUpSegmentHelperProcesses()
-		CleanUpHelperFilesOnAllHosts()
+		utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "restore")
+		utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
 		if wasTerminated { // These should all end on their own in a successful restore
 			utils.TerminateHangingCopySessions(connection, globalFPInfo, "gprestore")
 		}

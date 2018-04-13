@@ -47,7 +47,7 @@ func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalT
 	}
 	backupFile := ""
 	if backupConfig.SingleDataFile {
-		backupFile = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), globalFPInfo.PID)
+		backupFile = globalFPInfo.GetSegmentPipePathForCopyCommand()
 	} else {
 		backupFile = globalFPInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
 	}

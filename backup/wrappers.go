@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -84,6 +85,15 @@ func InitializeFilterLists() {
 	if *includeTableFile != "" {
 		includeTables = utils.ReadLinesFromFile(*includeTableFile)
 	}
+}
+
+func CreateBackupDirectoriesOnAllHosts() {
+	remoteOutput := globalCluster.GenerateAndExecuteCommand("Creating backup directories", func(contentID int) string {
+		return fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(contentID))
+	}, cluster.ON_SEGMENTS_AND_MASTER)
+	globalCluster.CheckClusterError(remoteOutput, "Unable to create backup directories", func(contentID int) string {
+		return fmt.Sprintf("Unable to create backup directory %s", globalFPInfo.GetDirForContent(contentID))
+	})
 }
 
 /*
