@@ -215,7 +215,9 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *u
 		if procLang.PlTrusted {
 			metadataFile.MustPrintf("TRUSTED ")
 		}
-		metadataFile.MustPrintf("PROCEDURAL LANGUAGE %s;", procLang.Name)
+		metadataFile.MustPrintf("PROCEDURAL LANGUAGE %s", procLang.Name)
+		paramsStr := ""
+		alterStr := ""
 		/*
 		 * If the handler, validator, and inline functions are in pg_pltemplate, we can
 		 * back up a CREATE LANGUAGE command without specifying them individually.
@@ -226,16 +228,21 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *u
 
 		if procLang.Handler != 0 {
 			handlerInfo := funcInfoMap[procLang.Handler]
-			metadataFile.MustPrintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", handlerInfo.QualifiedName, handlerInfo.Arguments, procLang.Owner)
+			paramsStr += fmt.Sprintf(" HANDLER %s", handlerInfo.QualifiedName)
+			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", handlerInfo.QualifiedName, handlerInfo.Arguments, procLang.Owner)
 		}
 		if procLang.Inline != 0 {
 			inlineInfo := funcInfoMap[procLang.Inline]
-			metadataFile.MustPrintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", inlineInfo.QualifiedName, inlineInfo.Arguments, procLang.Owner)
+			paramsStr += fmt.Sprintf(" INLINE %s", inlineInfo.QualifiedName)
+			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", inlineInfo.QualifiedName, inlineInfo.Arguments, procLang.Owner)
 		}
 		if procLang.Validator != 0 {
 			validatorInfo := funcInfoMap[procLang.Validator]
-			metadataFile.MustPrintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", validatorInfo.QualifiedName, validatorInfo.Arguments, procLang.Owner)
+			paramsStr += fmt.Sprintf(" VALIDATOR %s", validatorInfo.QualifiedName)
+			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", validatorInfo.QualifiedName, validatorInfo.Arguments, procLang.Owner)
 		}
+		metadataFile.MustPrintf("%s;", paramsStr)
+		metadataFile.MustPrintf(alterStr)
 		PrintObjectMetadata(metadataFile, procLangMetadata[procLang.Oid], procLang.Name, "LANGUAGE")
 		metadataFile.MustPrintln()
 		toc.AddPredataEntry("", procLang.Name, "PROCEDURAL LANGUAGE", "", start, metadataFile)
