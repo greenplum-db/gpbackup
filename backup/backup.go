@@ -250,7 +250,7 @@ func backupTablePredata(metadataFile *utils.FileWithByteCount, tables []Relation
 
 func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	if *singleDataFile {
-		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
+		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file backup")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		oidList := make([]string, len(tables))
 		for i, table := range tables {
@@ -382,8 +382,8 @@ func DoCleanup() {
 		if *singleDataFile {
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
 			if wasTerminated {
-				// It is possible for the COPY command to become orphaned if an agent process is killed
 				utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
+				// It is possible for the COPY command to become orphaned if an agent process is killed
 				utils.TerminateHangingCopySessions(connection, globalFPInfo, "gpbackup")
 			}
 		}

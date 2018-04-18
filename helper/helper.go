@@ -100,6 +100,11 @@ func doBackupAgent() {
 
 	currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[0])
 	log(fmt.Sprintf("Opening pipe for oid %d", oidList[0]))
+	/*
+	 * It is important that we create the reader before creating the writer
+	 * so that we establish a connection to the first pipe (created by gpbackup)
+	 * and properly clean it up if an error occurs while creating the writer.
+	 */
 	reader, readHandle := getBackupPipeReader(currentPipe)
 	finalWriter, gzipWriter, bufIoWriter, writeHandle, writeCmd := getBackupPipeWriter(*compressionLevel)
 	for i, oid := range oidList {
@@ -129,6 +134,10 @@ func doBackupAgent() {
 		}
 	}
 
+	/*
+	 * The order for flushing and closing the writers below is very specific
+	 * to ensure all data is written to the file and file handles are not leaked.
+	 */
 	if gzipWriter != nil {
 		gzipWriter.Close()
 	}
@@ -209,6 +218,11 @@ func doRestoreAgent() {
 
 	currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[0])
 	log(fmt.Sprintf("Opening pipe for oid %d", oidList[0]))
+	/*
+	 * It is important that we create the writer before creating the reader
+	 * so that we establish a connection to the first pipe (created by gprestore)
+	 * and properly clean it up if an error occurs while creating the reader.
+	 */
 	writer, writeHandle = getRestorePipeWriter(currentPipe)
 	reader := getRestorePipeReader()
 	for i, oid := range oidList {
@@ -367,12 +381,10 @@ func DoCleanup() {
 		handle := utils.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
 		handle.Close()
 	}
-	if *restoreAgent || *backupAgent {
-		flushAndCloseRestoreWriter()
-		removeFileIfExists(lastPipe)
-		removeFileIfExists(currentPipe)
-		removeFileIfExists(nextPipe)
-	}
+	flushAndCloseRestoreWriter()
+	removeFileIfExists(lastPipe)
+	removeFileIfExists(currentPipe)
+	removeFileIfExists(nextPipe)
 }
 
 func log(s string, v ...interface{}) {
