@@ -3,6 +3,7 @@ package integration
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"testing"
 
 	"os/exec"
@@ -19,11 +20,12 @@ import (
 )
 
 var (
-	buffer      *bytes.Buffer
-	connection  *dbconn.DBConn
-	toc         *utils.TOC
-	backupfile  *utils.FileWithByteCount
-	testCluster cluster.Cluster
+	buffer             *bytes.Buffer
+	connection         *dbconn.DBConn
+	toc                *utils.TOC
+	backupfile         *utils.FileWithByteCount
+	testCluster        cluster.Cluster
+	gpbackupHelperPath string
 )
 
 func TestQueries(t *testing.T) {
@@ -64,6 +66,8 @@ var _ = BeforeSuite(func() {
 			Fail("Could not create /tmp/test_dir directory on 1 or more hosts")
 		}
 	}
+
+	gpbackupHelperPath = buildAndInstallBinaries()
 })
 
 var _ = BeforeEach(func() {
@@ -95,6 +99,8 @@ var _ = AfterSuite(func() {
 	testhelper.AssertQueryRuns(connection1, "DROP ROLE testrole")
 	testhelper.AssertQueryRuns(connection1, "DROP ROLE anothertestrole")
 	connection1.Close()
+	os.RemoveAll("/tmp/helper_test")
+	os.RemoveAll("/tmp/plugin_dest")
 })
 
 func setupTestFilespace(testCluster cluster.Cluster) {
