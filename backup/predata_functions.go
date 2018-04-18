@@ -190,7 +190,7 @@ func ExtractLanguageFunctions(funcDefs []Function, procLangs []ProceduralLanguag
 	isLangFuncMap := make(map[uint32]bool, 0)
 	for _, procLang := range procLangs {
 		for _, funcDef := range funcDefs {
-			isLangFuncMap[funcDef.Oid] = (funcDef.Oid == procLang.Handler ||
+			isLangFuncMap[funcDef.Oid] = (isLangFuncMap[funcDef.Oid] || funcDef.Oid == procLang.Handler ||
 				funcDef.Oid == procLang.Inline ||
 				funcDef.Oid == procLang.Validator)
 		}

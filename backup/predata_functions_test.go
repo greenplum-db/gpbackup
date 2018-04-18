@@ -473,8 +473,9 @@ COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';`)
 		})
 	})
 	Describe("ExtractLanguageFunctions", func() {
-		customLang := backup.ProceduralLanguage{Oid: 1, Name: "custom_language", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: 3, Inline: 4, Validator: 5}
-		procLangs := []backup.ProceduralLanguage{customLang}
+		customLang1 := backup.ProceduralLanguage{Oid: 1, Name: "custom_language", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: 3, Inline: 4, Validator: 5}
+		customLang2 := backup.ProceduralLanguage{Oid: 2, Name: "custom_language2", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: 5, Inline: 6, Validator: 7}
+		procLangs := []backup.ProceduralLanguage{customLang1, customLang2}
 		langFunc := backup.Function{Oid: 3, Name: "custom_handler"}
 		nonLangFunc := backup.Function{Oid: 2, Name: "random_function"}
 		It("handles a case where all functions are language-associated functions", func() {
