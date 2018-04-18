@@ -20,8 +20,7 @@ type TOC struct {
 }
 
 type SegmentTOC struct {
-	LastByteRead uint64
-	DataEntries  map[uint]SegmentDataEntry
+	DataEntries map[uint]SegmentDataEntry
 }
 
 type MetadataEntry struct {
