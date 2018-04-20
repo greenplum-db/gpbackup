@@ -324,7 +324,7 @@ ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:
 	})
 	Describe("PrintCreateTablespaceStatements", func() {
 		expectedTablespace := backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "test_filespace"}
-		It("prints a basic tablespace", func() {
+		It("prints a basic tablespace with a filespace", func() {
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")
@@ -343,6 +343,14 @@ ALTER TABLESPACE test_tablespace OWNER TO testrole;
 REVOKE ALL ON TABLESPACE test_tablespace FROM PUBLIC;
 REVOKE ALL ON TABLESPACE test_tablespace FROM testrole;
 GRANT ALL ON TABLESPACE test_tablespace TO testrole;`)
+		})
+		It("prints a tablespace with per-segment tablespaces", func() {
+			expectedTablespace := backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/data/dir'", SegmentLocation: []backup.SegmentTablespace{{Tablespace: "content1", FileLocation: "'/data/dir1'"}, {Tablespace: "content2", FileLocation: "'/data/dir2'"}, {Tablespace: "content3", FileLocation: "'/data/dir3'"}}}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE TABLESPACE test_tablespace LOCATION '/data/dir'
+	OPTIONS (content1 '/data/dir1', content2 '/data/dir2', content3 '/data/dir3');`)
 		})
 	})
 })

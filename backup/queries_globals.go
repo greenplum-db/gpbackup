@@ -320,10 +320,15 @@ ORDER BY roleid, member;`
 	return results
 }
 
-type Tablespace struct {
-	Oid          uint32
+type SegmentTablespace struct {
 	Tablespace   string
-	FileLocation string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
+	FileLocation string
+}
+type Tablespace struct {
+	Oid             uint32
+	Tablespace      string
+	FileLocation    string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
+	SegmentLocation []SegmentTablespace
 }
 
 func GetTablespaces(connection *dbconn.DBConn) []Tablespace {
@@ -352,8 +357,28 @@ AND spcname != 'pg_global';`
 		err = connection.Select(&results, before6query)
 	} else {
 		err = connection.Select(&results, query)
+		for i := 0; i < len(results); i++ {
+			results[i].SegmentLocation = GetSegmentTablespaces(connection, results[i].Oid)
+		}
 	}
 	gplog.FatalOnError(err)
+	return results
+}
+
+func GetSegmentTablespaces(connection *dbconn.DBConn, Oid uint32) []SegmentTablespace {
+	query := fmt.Sprintf(`
+SELECT
+	gp_segment_id AS tablespace,
+	'''' || tblspc_loc || '''' AS fileLocation
+FROM gp_tablespace_segment_location(%d) WHERE tblspc_loc != pg_tablespace_location(%d)
+ORDER BY gp_segment_id;`, Oid, Oid)
+	results := make([]SegmentTablespace, 0)
+	var err error
+	err = connection.Select(&results, query)
+	gplog.FatalOnError(err)
+	for i := 0; i < len(results); i++ {
+		results[i].Tablespace = "content" + results[i].Tablespace
+	}
 	return results
 }
 

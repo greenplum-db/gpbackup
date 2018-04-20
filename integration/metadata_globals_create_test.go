@@ -300,15 +300,36 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateTablespaceStatements", func() {
-		expectedTablespace := backup.Tablespace{Oid: 1, Tablespace: "test_tablespace"}
+		var expectedTablespace backup.Tablespace
 		BeforeEach(func() {
-			if connection.Version.Before("6") {
-				expectedTablespace.FileLocation = "test_dir"
+			if connection.Version.AtLeast("6") {
+				expectedTablespace = backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocation: []backup.SegmentTablespace{}}
 			} else {
-				expectedTablespace.FileLocation = "'/tmp/test_dir'"
+				expectedTablespace = backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "test_dir"}
 			}
 		})
 		It("creates a basic tablespace", func() {
+			numTablespaces := len(backup.GetTablespaces(connection))
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
+
+			resultTablespaces := backup.GetTablespaces(connection)
+			Expect(len(resultTablespaces)).To(Equal(numTablespaces + 1))
+			for _, tablespace := range resultTablespaces {
+				if tablespace.Tablespace == "test_tablespace" {
+					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
+					return
+				}
+			}
+			Fail("Tablespace 'test_tablespace' was not created")
+		})
+		It("creates a basic tablespace with different filespace locations", func() {
+			testutils.SkipIfBefore6(connection)
+
+			expectedTablespace = backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocation: []backup.SegmentTablespace{{Tablespace: "content0", FileLocation: "'/tmp/test_dir1'"}, {Tablespace: "content1", FileLocation: "'/tmp/test_dir2'"}}}
 			numTablespaces := len(backup.GetTablespaces(connection))
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
@@ -339,7 +360,6 @@ var _ = Describe("backup integration create statement tests", func() {
 				 */
 				gbuffer := gbytes.BufferWithBytes([]byte(buffer.String()))
 				entries, _ := testutils.SliceBufferByEntries(toc.GlobalEntries, gbuffer)
-				Expect(len(entries)).To(Equal(2))
 				create, metadata := entries[0], entries[1]
 				testhelper.AssertQueryRuns(connection, create)
 				defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
