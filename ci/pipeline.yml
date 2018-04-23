@@ -32,6 +32,13 @@ resources:
     branch: 5X_STABLE
     tag_filter: 5.*
 
+- name: gpdb_release
+  type: git
+  source:
+    branch: {{gpdb-release-branch}}
+    private_key: {{gpdb-release-remote-deploy-key}}
+    uri: {{gpdb-release-git-remote}}
+
 - name: bin_gpdb_master
   type: s3
   source:
@@ -440,6 +447,7 @@ jobs:
        - integrations-GPDB5
        - integrations-GPDB4.3
        - integrations-GPDB5-sles
+    - get: gpdb_release
   - task: compile_gpbackup
     config:
       platform: linux
@@ -453,6 +461,7 @@ jobs:
         path: go/src/github.com/greenplum-db/gpbackup
       outputs:
       - name: component_gpbackup
+      - name: gpbackup_version
       run:
         path: "sh"
         args:
@@ -463,9 +472,11 @@ jobs:
           export PATH=$PATH:$GOPATH/bin
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup
           make depend
+
           make build_linux
           version=`git describe --tags`
           popd
+          echo ${version} > gpbackup_version/version
           pushd component_gpbackup
           mkdir -p bin
           cp $GOPATH/bin/gpbackup bin/
@@ -479,10 +490,45 @@ jobs:
           popd
     on_failure:
       *slack_alert
+  - task: update-manifest
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '7-gcc6.2-llvm3.7'
+      inputs:
+      - name: gpdb_release
+      - name: gpbackup_version
+      outputs:
+      - name: gpdb_release_output
+      run:
+        path: "sh"
+        args:
+        - -exc
+        - |
+          set -x
+          yum -y install jq
+          GPBACKUP_VERSION=$(cat gpbackup_version/version)
+          git clone gpdb_release gpdb_release_output
+          cd gpdb_release_output
+          cat components/component_manifest.json | jq "(.platforms[].components[] | select(.name==\"gpbackup\").version) = \"${GPBACKUP_VERSION}\"" > /tmp/component_manifest.json
+          mv /tmp/component_manifest.json components/component_manifest.json
+          git add components/component_manifest.json
+          git config user.email "gpbackup_bot@bot.com"
+          git config user.name "GPBACKUP_BOT"
+          git commit -m "Updating manifest for gpbackup version ${GPBACKUP_VERSION}"
+    on_failure:
+      *slack_alert
   - aggregate:
     - put: component_gpbackup
       params:
         file: component_gpbackup/gpbackup-*.tar.gz
+    - put: gpdb_release
+      params:
+        repository: gpdb_release_output
+        rebase: true
 
 
 ccp_default_params_anchor: &ccp_default_params
