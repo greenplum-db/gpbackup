@@ -25,6 +25,13 @@ resources:
     uri: https://github.com/greenplum-db/gpbackup
     tag_filter: 1.*
 
+- name: gpbackup_s3_plugin_tagged_src
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/greenplum-db/gpbackup-s3-plugin
+    tag_filter: 0.*
+
 - name: gpdb_src
   type: git
   source:
@@ -432,8 +439,9 @@ jobs:
   - aggregate:
     - get: gpbackup_tagged_src
       trigger: true
+    - get: gpbackup_s3_plugin_tagged_src
     # While the resource is not used, it ensures only releasing if
-    #  tests are passing
+    # tests are passing
     - get: gpbackup
       passed:
        - units
@@ -451,6 +459,8 @@ jobs:
       inputs:
       - name: gpbackup_tagged_src
         path: go/src/github.com/greenplum-db/gpbackup
+      - name: gpbackup_s3_plugin_tagged_src
+        path: go/src/github.com/greenplum-db/gpbackup-s3-plugin
       outputs:
       - name: component_gpbackup
       run:
@@ -461,16 +471,24 @@ jobs:
           set -x
           export GOPATH=$(pwd)/go
           export PATH=$PATH:$GOPATH/bin
+
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup
           make depend
           make build_linux
           version=`git describe --tags`
           popd
+
+          pushd $GOPATH/src/github.com/greenplum-db/gpbackup-s3-plugin
+          make depend
+          make build_linux
+          popd
+
           pushd component_gpbackup
           mkdir -p bin
           cp $GOPATH/bin/gpbackup bin/
           cp $GOPATH/bin/gpbackup_helper bin/
           cp $GOPATH/bin/gprestore bin/
+          cp $GOPATH/bin/gpbackup_s3_plugin bin/
           printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
           chmod +x install_gpdb_component
           tar -czvf bin_gpbackup.tar.gz bin/
