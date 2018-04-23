@@ -41,7 +41,7 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(err).To(BeNil())
 	testhelper.SetupTestLogger()
-	connection = dbconn.NewDBConn("testdb")
+	connection = dbconn.NewDBConnFromEnvironment("testdb")
 	connection.MustConnect(1)
 	// We can't use AssertQueryRuns since if a role already exists it will error
 	connection.Exec("CREATE ROLE testrole SUPERUSER")
@@ -94,7 +94,7 @@ var _ = AfterSuite(func() {
 		err := exec.Command("dropdb", "testdb").Run()
 		Expect(err).To(BeNil())
 	}
-	connection1 := dbconn.NewDBConn("template1")
+	connection1 := dbconn.NewDBConnFromEnvironment("template1")
 	connection1.MustConnect(1)
 	testhelper.AssertQueryRuns(connection1, "DROP ROLE testrole")
 	testhelper.AssertQueryRuns(connection1, "DROP ROLE anothertestrole")

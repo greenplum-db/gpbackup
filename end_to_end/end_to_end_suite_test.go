@@ -115,9 +115,9 @@ var _ = Describe("backup end to end integration tests", func() {
 		if err != nil {
 			Fail(fmt.Sprintf("Could not create restoredb: %v", err))
 		}
-		backupConn = dbconn.NewDBConn("testdb")
+		backupConn = dbconn.NewDBConnFromEnvironment("testdb")
 		backupConn.MustConnect(1)
-		restoreConn = dbconn.NewDBConn("restoredb")
+		restoreConn = dbconn.NewDBConnFromEnvironment("restoredb")
 		restoreConn.MustConnect(1)
 		testutils.ExecuteSQLFile(backupConn, "test_tables.sql")
 		gpbackupPath, gprestorePath = buildAndInstallBinaries()
@@ -154,7 +154,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				Fail(fmt.Sprintf("%v", err))
 			}
 			gprestore(gprestorePath, timestamp, "-create-db")
-			backupConn = dbconn.NewDBConn("testdb")
+			backupConn = dbconn.NewDBConnFromEnvironment("testdb")
 			backupConn.MustConnect(1)
 		})
 		It("runs basic gpbackup and gprestore with metadata and data-only flags", func() {

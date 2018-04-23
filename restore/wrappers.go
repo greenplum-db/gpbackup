@@ -31,7 +31,7 @@ func SetLoggerVerbosity() {
 }
 
 func InitializeConnection(dbname string) {
-	connection = dbconn.NewDBConn(dbname)
+	connection = dbconn.NewDBConnFromEnvironment(dbname)
 	connection.MustConnect(*numJobs)
 	utils.SetDatabaseVersion(connection)
 	setupQuery := `

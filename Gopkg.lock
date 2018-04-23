@@ -18,7 +18,7 @@
     "structmatcher",
     "testhelper"
   ]
-  revision = "083ff5493dd69d7ccf573ef50ca4ed8d44fac031"
+  revision = "74d1ae48cbdedb7fed151f189b5bf03edef5444b"
 
 [[projects]]
   branch = "master"
@@ -27,7 +27,7 @@
     ".",
     "reflectx"
   ]
-  revision = "cf35089a197953c69420c8d0cecda90809764b1d"
+  revision = "2aeb6a910c2b94f2d5eb53d9895d80e27264ec41"
 
 [[projects]]
   branch = "master"
@@ -36,7 +36,7 @@
     ".",
     "oid"
   ]
-  revision = "614cb7963ff8ee90114d039a0f92dcd6a79292f9"
+  revision = "d34b9ff171c21ad295489235aec8b6626023cd04"
 
 [[projects]]
   name = "github.com/mattn/go-runewidth"
@@ -68,7 +68,7 @@
     "reporters/stenographer/support/go-isatty",
     "types"
   ]
-  revision = "03ffd3f46debf00c49ed76d5dbb564ef4839adfe"
+  revision = "6d8be987c536ebd84576a5a46208e7b7a3c796b0"
 
 [[projects]]
   name = "github.com/onsi/gomega"
@@ -105,13 +105,13 @@
     "html/atom",
     "html/charset"
   ]
-  revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
+  revision = "5f9ae10d9af5b1c89ae6904293b14b064d4ada23"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "13d03a9a82fba647c21a0ef8fba44a795d0f0835"
+  revision = "79b0c6888797020a994db17c8510466c72fe75d9"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -150,10 +150,10 @@
   version = "v1.0.22"
 
 [[projects]]
-  branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "4fc5987536ef307a24ca299aee7ae301cde3d221"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"

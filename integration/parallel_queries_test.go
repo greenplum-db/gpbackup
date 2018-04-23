@@ -14,7 +14,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 	Describe("Connection pooling tests", func() {
 		var tempConn *dbconn.DBConn
 		BeforeEach(func() {
-			tempConn = dbconn.NewDBConn("testdb")
+			tempConn = dbconn.NewDBConnFromEnvironment("testdb")
 			tempConn.MustConnect(2)
 		})
 		AfterEach(func() {
@@ -67,7 +67,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 		orderQuery := "SELECT exec_index AS string FROM public.timestamps ORDER BY exec_time;"
 		BeforeEach(func() {
 			restore.SetOnErrorContinue(false)
-			tempConn = dbconn.NewDBConn("testdb")
+			tempConn = dbconn.NewDBConnFromEnvironment("testdb")
 			restore.SetConnection(tempConn)
 		})
 		AfterEach(func() {

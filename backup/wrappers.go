@@ -32,7 +32,7 @@ func SetLoggerVerbosity() {
 }
 
 func InitializeConnection() {
-	connection = dbconn.NewDBConn(*dbname)
+	connection = dbconn.NewDBConnFromEnvironment(*dbname)
 	connection.MustConnect(1)
 	connection.MustExec("SET application_name TO 'gpbackup'")
 	utils.SetDatabaseVersion(connection)
