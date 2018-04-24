@@ -51,6 +51,13 @@
     ".",
     "config",
     "extensions/table",
+    "ginkgo",
+    "ginkgo/convert",
+    "ginkgo/interrupthandler",
+    "ginkgo/nodot",
+    "ginkgo/testrunner",
+    "ginkgo/testsuite",
+    "ginkgo/watch",
     "internal/codelocation",
     "internal/containernode",
     "internal/failer",
@@ -138,6 +145,17 @@
   version = "v0.3.0"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/tools"
+  packages = [
+    "cmd/goimports",
+    "go/ast/astutil",
+    "imports",
+    "internal/fastwalk"
+  ]
+  revision = "c1def519f03ddf76f16b3e444ee1095d73afa01b"
+
+[[projects]]
   name = "gopkg.in/DATA-DOG/go-sqlmock.v1"
   packages = ["."]
   revision = "d76b18b42f285b792bf985118980ce9eacea9d10"
@@ -158,6 +176,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "00827baf447b8cd9ef306470ce1ba4ceb19d5f90c743fde7997aaa2f832b4235"
+  inputs-digest = "bc0635a8914703943eb3e2264b848d64a9bf68846acdf4884253e518381b3528"
   solver-name = "gps-cdcl"
   solver-version = 1
