@@ -25,17 +25,60 @@ run:
     cat <<SCRIPT > /tmp/run_tests.bash
     source env.sh
 
-    tar -xvf scale_db1.tgz
-    createdb scaledb -T template0
-
-    psql -f scale_db1.sql -d scaledb -v client_min_messages=error -q
-
+    ### Data scale tests ###
     log_file=/tmp/gpbackup.log
-    time pg_dump -s scaledb > /data/gpdata/pg_dump.sql
-    time gpbackup --dbname scaledb --backup-dir /data/gpdata/ --metadata-only --verbose | tee "\$log_file"
+    echo "## Populating database for data scale test ##"
+    createdb datascaledb
+    for j in {1..5000}
+    do
+      psql -d datascaledb -q -c "CREATE TABLE tbl_1k_\$j(i int) DISTRIBUTED BY (i);"
+      psql -d datascaledb -q -c "INSERT INTO tbl_1k_\$j SELECT generate_series(1,1000)"
+    done
+    for j in {1..100}
+    do
+      psql -d datascaledb -q -c "CREATE TABLE tbl_1M_\$j(i int) DISTRIBUTED BY(i);"
+      psql -d datascaledb -q -c "INSERT INTO tbl_1M_\$j SELECT generate_series(1,1000000)"
+    done
+    psql -d datascaledb -q -c "CREATE TABLE tbl_1B(i int) DISTRIBUTED BY(i);"
+    for j in {1..1000}
+    do
+      psql -d datascaledb -q -c "INSERT INTO tbl_1B SELECT generate_series(1,1000000)"
+    done
+
+    echo "## Performing backup for data scale test ##"
+    ### Multiple data file test ###
+    time gpbackup --dbname datascaledb --backup-dir /data/gpdata/ | tee "\$log_file"
+    timestamp=\$(head -5 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+    dropdb datascaledb
+    echo "## Performing restore for data scale test ##"
+    time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --jobs=4 --quiet
+    rm "\$log_file"
+
+    echo "## Performing single-data-file backup for data scale test ##"
+    ### Single data file test ###
+    time gpbackup --dbname datascaledb --backup-dir /data/gpdata/ --single-data-file | tee "\$log_file"
+    timestamp=\$(head -5 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+    dropdb datascaledb
+    echo "## Performing single-data-file restore for data scale test ##"
+    time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/  --create-db --quiet
+    dropdb datascaledb
+    rm "\$log_file"
+
+    ### Metadata scale test ###
+    echo "## Populating database for metadata scale test ##"
+    tar -xvf scale_db1.tgz
+    createdb metadatascaledb -T template0
+
+    psql -f scale_db1.sql -d metadatascaledb -v client_min_messages=error -q
+
+    echo "## Performing pg_dump with metadata-only ##"
+    time pg_dump -s metadatascaledb > /data/gpdata/pg_dump.sql
+    echo "## Performing gpbackup with metadata-only ##"
+    time gpbackup --dbname metadatascaledb --backup-dir /data/gpdata/ --metadata-only --verbose | tee "\$log_file"
 
     timestamp=\$(head -5 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
-    gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --redirect-db=scaledb_res --create-db
+    echo "## Performing gprestore with metadata-only ##"
+    time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --redirect-db=metadatascaledb_res --jobs=4 --create-db
 
     SCRIPT
 
