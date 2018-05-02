@@ -110,7 +110,7 @@ func doBackupAgent() {
 	for i, oid := range oidList {
 		if i < len(oidList)-1 {
 			nextPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i+1])
-			createPipe(nextPipe)
+			syscall.Mkfifo(nextPipe, 0777)
 		} else {
 			nextPipe = ""
 		}
@@ -229,7 +229,7 @@ func doRestoreAgent() {
 		log(fmt.Sprintf("Restoring table with oid %d", oid))
 		if i < len(oidList)-1 {
 			nextPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i+1])
-			createPipe(nextPipe)
+			syscall.Mkfifo(nextPipe, 0777)
 		} else {
 			nextPipe = ""
 		}
@@ -306,11 +306,6 @@ func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File) {
 /*
  * Shared functions
  */
-
-func createPipe(pipe string) {
-	err := syscall.Mkfifo(pipe, 0777)
-	gplog.FatalOnError(err)
-}
 
 func getOidListFromFile() []int {
 	oidStr, err := operating.System.ReadFile(*oidFile)
