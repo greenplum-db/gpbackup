@@ -705,4 +705,4 @@ slack_alert_anchor: &slack_alert
   params:
     text: |
       [gpbackup/$BUILD_JOB_NAME] failed:
-      https://gpdb.data.pivotal.ci/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+      https://gpdb.bosh.pivotalci.info/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
