@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -65,14 +66,14 @@ func NewSegmentTOC(filename string) *SegmentTOC {
 
 func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
 	defer operating.System.Chmod(filename, 0444)
-	tocFile := MustOpenFileForWriting(filename)
+	tocFile := iohelper.MustOpenFileForWriting(filename)
 	tocContents, _ := yaml.Marshal(toc)
 	MustPrintBytes(tocFile, tocContents)
 }
 
 func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) {
 	defer operating.System.Chmod(filename, 0444)
-	tocFile := MustOpenFileForWriting(filename)
+	tocFile := iohelper.MustOpenFileForWriting(filename)
 	tocContents, _ := yaml.Marshal(toc)
 	MustPrintBytes(tocFile, tocContents)
 }

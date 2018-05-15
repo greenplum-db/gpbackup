@@ -14,11 +14,12 @@
     "cluster",
     "dbconn",
     "gplog",
+    "iohelper",
     "operating",
     "structmatcher",
     "testhelper"
   ]
-  revision = "74d1ae48cbdedb7fed151f189b5bf03edef5444b"
+  revision = "26097cb0b6c1a5fd473bcea25dddffe2ad492b5a"
 
 [[projects]]
   branch = "master"
@@ -176,6 +177,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bc0635a8914703943eb3e2264b848d64a9bf68846acdf4884253e518381b3528"
+  inputs-digest = "5c917dfa592f0ecad7c632440df951cbd9f560994e5c574800ddb0b01064f93b"
   solver-name = "gps-cdcl"
   solver-version = 1

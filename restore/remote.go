@@ -7,7 +7,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/pkg/errors"
 )
 
@@ -50,14 +50,14 @@ func VerifyMetadataFilePaths(withStats bool) {
 	missing := false
 	for _, filetype := range filetypes {
 		filepath := globalFPInfo.GetBackupFilePath(filetype)
-		if !utils.FileExistsAndIsReadable(filepath) {
+		if !iohelper.FileExistsAndIsReadable(filepath) {
 			missing = true
 			gplog.Error("Cannot access %s file %s", filetype, filepath)
 		}
 	}
 	if withStats {
 		filepath := globalFPInfo.GetStatisticsFilePath()
-		if !utils.FileExistsAndIsReadable(filepath) {
+		if !iohelper.FileExistsAndIsReadable(filepath) {
 			missing = true
 			gplog.Error("Cannot access statistics file %s", filepath)
 			gplog.Error(`Note that the "-with-stats" flag must be passed to gpbackup to generate a statistics file.`)

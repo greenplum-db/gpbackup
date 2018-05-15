@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -62,10 +63,10 @@ func InitializeBackupConfig() {
 
 func InitializeFilterLists() {
 	if *excludeTableFile != "" {
-		excludeTables = utils.ReadLinesFromFile(*excludeTableFile)
+		excludeTables = iohelper.MustReadLinesFromFile(*excludeTableFile)
 	}
 	if *includeTableFile != "" {
-		includeTables = utils.ReadLinesFromFile(*includeTableFile)
+		includeTables = iohelper.MustReadLinesFromFile(*includeTableFile)
 	}
 }
 
@@ -111,7 +112,7 @@ func RecoverMetadataFilesUsingPlugin() {
  */
 
 func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, filterSchemas bool, filterTables bool) []utils.StatementWithType {
-	metadataFile := utils.MustOpenFileForReading(filename)
+	metadataFile := iohelper.MustOpenFileForReading(filename)
 	var statements []utils.StatementWithType
 	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || filterSchemas || filterTables {
 		var inSchemas, exSchemas, inTables, exTables []string

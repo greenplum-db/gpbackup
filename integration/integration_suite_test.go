@@ -54,7 +54,7 @@ var _ = BeforeSuite(func() {
 	testhelper.AssertQueryRuns(connection, "ALTER SCHEMA public OWNER TO anothertestrole")
 	testhelper.AssertQueryRuns(connection, "DROP PROTOCOL IF EXISTS gphdfs")
 	testhelper.AssertQueryRuns(connection, `SET standard_conforming_strings TO "on"`)
-	segConfig := cluster.GetSegmentConfiguration(connection)
+	segConfig := cluster.MustGetSegmentConfiguration(connection)
 	testCluster = cluster.NewCluster(segConfig)
 	if connection.Version.Before("6") {
 		setupTestFilespace(testCluster)

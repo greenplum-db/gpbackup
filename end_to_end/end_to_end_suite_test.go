@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -226,7 +227,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.Remove("/tmp/include-tables.txt")
 		})
 		It("runs gpbackup and gprestore with exclude-table-file flag", func() {
-			excludeFile := utils.MustOpenFileForWriting("/tmp/exclude-tables.txt")
+			excludeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 			utils.MustPrintln(excludeFile, "schema2.foo2\nschema2.returns\npublic.sales")
 			timestamp := gpbackup(gpbackupPath, "-exclude-table-file", "/tmp/exclude-tables.txt")
 			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb")
@@ -237,7 +238,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.Remove("/tmp/exclude-tables.txt")
 		})
 		It("runs gpbackup and gprestore with include-table-file backup flag", func() {
-			includeFile := utils.MustOpenFileForWriting("/tmp/include-tables.txt")
+			includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 			utils.MustPrintln(includeFile, "public.sales\npublic.foo")
 			timestamp := gpbackup(gpbackupPath, "-include-table-file", "/tmp/include-tables.txt")
 			gprestore(gprestorePath, timestamp, "-redirect-db", "restoredb")
@@ -343,7 +344,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 
 		It("runs gpbackup and gprestore with include-table-file restore flag", func() {
-			includeFile := utils.MustOpenFileForWriting("/tmp/include-tables.txt")
+			includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 			utils.MustPrintln(includeFile, "public.sales\npublic.foo")
 			backupdir := "/tmp/include_table_file"
 			timestamp := gpbackup(gpbackupPath, "-backup-dir", backupdir)
@@ -357,7 +358,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 
 		It("runs gpbackup and gprestore with include-table-file restore flag with a single data file", func() {
-			includeFile := utils.MustOpenFileForWriting("/tmp/include-tables.txt")
+			includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 			utils.MustPrintln(includeFile, "public.sales\npublic.foo")
 			backupdir := "/tmp/include_table_file"
 			timestamp := gpbackup(gpbackupPath, "-backup-dir", backupdir, "-single-data-file")

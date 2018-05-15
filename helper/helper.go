@@ -16,6 +16,7 @@ import (
 	"syscall"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -152,7 +153,7 @@ func doBackupAgent() {
 		 * written to verify the agent completed.
 		 */
 		if err := writeCmd.Wait(); err != nil {
-			handle := utils.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
+			handle := iohelper.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
 			handle.Close()
 			gplog.Fatal(err, strings.Trim(errBuf.String(), "\x00"))
 		}
@@ -378,7 +379,7 @@ func DoCleanup() {
 		 * success, so we create an error file and check for its presence in
 		 * gprestore after the COPYs are finished.
 		 */
-		handle := utils.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
+		handle := iohelper.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
 		handle.Close()
 	}
 	flushAndCloseRestoreWriter()

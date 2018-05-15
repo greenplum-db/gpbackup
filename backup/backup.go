@@ -75,7 +75,7 @@ func DoSetup() {
 	InitializeBackupReport()
 	validateFilterLists()
 
-	segConfig := cluster.GetSegmentConfiguration(connection)
+	segConfig := cluster.MustGetSegmentConfiguration(connection)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := utils.GetSegPrefix(connection)
 	globalFPInfo = utils.NewFilePathInfo(globalCluster.SegDirMap, *backupDir, timestamp, segPrefix)

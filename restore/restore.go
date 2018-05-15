@@ -79,7 +79,7 @@ func DoSetup() {
 	gplog.Info("Restore Key = %s", *timestamp)
 
 	InitializeConnection("postgres")
-	segConfig := cluster.GetSegmentConfiguration(connection)
+	segConfig := cluster.MustGetSegmentConfiguration(connection)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := utils.ParseSegPrefix(*backupDir)
 	globalFPInfo = utils.NewFilePathInfo(globalCluster.SegDirMap, *backupDir, *timestamp, segPrefix)

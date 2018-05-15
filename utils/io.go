@@ -6,7 +6,6 @@ package utils
  */
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
@@ -42,39 +42,6 @@ func SliceToQuotedString(slice []string) string {
 /*
  * Generic file/directory manipulation functions
  */
-
-func MustOpenFileForWriting(filename string, allowAppend ...bool) io.WriteCloser {
-	flags := os.O_CREATE | os.O_WRONLY
-	if len(allowAppend) == 1 && allowAppend[0] {
-		flags = os.O_APPEND | flags
-	}
-	fileHandle, err := operating.System.OpenFileWrite(filename, flags, 0644)
-	if err != nil {
-		gplog.Fatal(err, "Unable to create or open file for writing")
-	}
-	return fileHandle
-}
-
-func MustOpenFileForReading(filename string) operating.ReadCloserAt {
-	fileHandle, err := operating.System.OpenFileRead(filename, os.O_RDONLY, 0644)
-	if err != nil {
-		gplog.Fatal(err, "Unable to open file for reading")
-	}
-	return fileHandle
-}
-
-func FileExistsAndIsReadable(filename string) bool {
-	_, err := operating.System.Stat(filename)
-	if err == nil {
-		var fileHandle io.ReadCloser
-		fileHandle, err = operating.System.OpenFileRead(filename, os.O_RDONLY, 0644)
-		fileHandle.Close()
-		if err == nil {
-			return true
-		}
-	}
-	return false
-}
 
 func CreateBackupLockFile(timestamp string) {
 	timestampLockFile := fmt.Sprintf("/tmp/%s.lck", timestamp)
@@ -117,18 +84,8 @@ func MustPrintBytes(file io.Writer, bytes []byte) uint64 {
 }
 
 /*
- * Generic file/directory manipulation functions
+ * Structs and functions for file readers/writers that track bytes read/written
  */
-
-func ReadLinesFromFile(filename string) []string {
-	file := MustOpenFileForReading(filename)
-	contents := make([]string, 0)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		contents = append(contents, scanner.Text())
-	}
-	return contents
-}
 
 type FileWithByteCount struct {
 	Filename  string
@@ -142,7 +99,7 @@ func NewFileWithByteCount(writer io.Writer) *FileWithByteCount {
 }
 
 func NewFileWithByteCountFromFile(filename string) *FileWithByteCount {
-	file := MustOpenFileForWriting(filename)
+	file := iohelper.MustOpenFileForWriting(filename)
 	return &FileWithByteCount{filename, file, file, 0}
 }
 

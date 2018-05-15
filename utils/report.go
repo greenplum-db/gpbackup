@@ -15,6 +15,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/pkg/errors"
 )
@@ -132,7 +133,7 @@ func ReadConfigFile(filename string) *BackupConfig {
 }
 
 func (report *Report) WriteConfigFile(configFilename string) {
-	configFile := MustOpenFileForWriting(configFilename)
+	configFile := iohelper.MustOpenFileForWriting(configFilename)
 	defer operating.System.Chmod(configFilename, 0444)
 	config := report.BackupConfig
 	configContents, _ := yaml.Marshal(config)
@@ -140,7 +141,7 @@ func (report *Report) WriteConfigFile(configFilename string) {
 }
 
 func (report *Report) WriteBackupReportFile(reportFilename string, timestamp string, objectCounts map[string]int, errMsg string) {
-	reportFile := MustOpenFileForWriting(reportFilename)
+	reportFile := iohelper.MustOpenFileForWriting(reportFilename)
 	defer operating.System.Chmod(reportFilename, 0444)
 	reportFileTemplate := `Greenplum Database Backup Report
 
@@ -180,7 +181,7 @@ Backup Status: %s
 }
 
 func WriteRestoreReportFile(reportFilename string, backupTimestamp string, startTimestamp string, connection *dbconn.DBConn, restoreVersion string, errMsg string) {
-	reportFile := MustOpenFileForWriting(reportFilename)
+	reportFile := iohelper.MustOpenFileForWriting(reportFilename)
 	defer operating.System.Chmod(reportFilename, 0444)
 	reportFileTemplate := `Greenplum Database Restore Report
 
@@ -328,7 +329,7 @@ Content-Disposition: inline
 </pre>
 </body>
 </html>`
-	fileContents := strings.Join(ReadLinesFromFile(reportFilePath), "\n")
+	fileContents := strings.Join(iohelper.MustReadLinesFromFile(reportFilePath), "\n")
 	return emailHeader + fileContents + emailFooter
 }
 
