@@ -1,7 +1,6 @@
 package restore
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"sync"
@@ -10,6 +9,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/spf13/cobra"
 	"gopkg.in/cheggaaa/pb.v1"
 
 	"github.com/pkg/errors"
@@ -19,36 +19,37 @@ import (
  * We define and initialize flags separately to avoid import conflicts in tests.
  * The flag variables, and setter functions for them, are in global_variables.go.
  */
-func initializeFlags() {
-	backupDir = flag.String("backup-dir", "", "The absolute path of the directory in which the backup files to be restored are located")
-	createDB = flag.Bool("create-db", false, "Create the database before metadata restore")
-	dataOnly = flag.Bool("data-only", false, "Only restore data, do not restore metadata")
-	debug = flag.Bool("debug", false, "Print verbose and debug log messages")
-	flag.Var(&excludeSchemas, "exclude-schema", "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	flag.Var(&excludeTables, "exclude-table", "Restore all metadata except the specified table(s). --exclude-table can be specified multiple times.")
-	excludeTableFile = flag.String("exclude-table-file", "", "A file containing a list of fully-qualified tables that will not be restored")
-	flag.Var(&includeSchemas, "include-schema", "Restore only the specified schema(s). --include-schema can be specified multiple times.")
-	flag.Var(&includeTables, "include-table", "Restore only the specified table(s). --include-table can be specified multiple times.")
-	includeTableFile = flag.String("include-table-file", "", "A file containing a list of fully-qualified tables that will be restored")
-	metadataOnly = flag.Bool("metadata-only", false, "Only restore metadata, do not restore data")
-	numJobs = flag.Int("jobs", 1, "Number of parallel connections to use when restoring table data and post-data")
-	onErrorContinue = flag.Bool("on-error-continue", false, "Log errors and continue restore, instead of exiting on first error")
-	pluginConfigFile = flag.String("plugin-config", "", "The configuration file to use for a plugin")
-	printVersion = flag.Bool("version", false, "Print version number and exit")
-	quiet = flag.Bool("quiet", false, "Suppress non-warning, non-error log messages")
-	redirect = flag.String("redirect-db", "", "Restore to the specified database instead of the database that was backed up")
-	restoreGlobals = flag.Bool("with-globals", false, "Restore global metadata")
-	timestamp = flag.String("timestamp", "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
-	verbose = flag.Bool("verbose", false, "Print verbose log messages")
-	withStats = flag.Bool("with-stats", false, "Restore query plan statistics")
+func initializeFlags(cmd *cobra.Command) {
+	backupDir = cmd.Flags().String("backup-dir", "", "The absolute path of the directory in which the backup files to be restored are located")
+	createDB = cmd.Flags().Bool("create-db", false, "Create the database before metadata restore")
+	dataOnly = cmd.Flags().Bool("data-only", false, "Only restore data, do not restore metadata")
+	debug = cmd.Flags().Bool("debug", false, "Print verbose and debug log messages")
+	excludeSchemas = cmd.Flags().StringSlice("exclude-schema", []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
+	excludeTables = cmd.Flags().StringSlice("exclude-table", []string{}, "Restore all metadata except the specified table(s). --exclude-table can be specified multiple times.")
+	excludeTableFile = cmd.Flags().String("exclude-table-file", "", "A file containing a list of fully-qualified tables that will not be restored")
+	cmd.Flags().Bool("help", false, "Help for gprestore")
+	includeSchemas = cmd.Flags().StringSlice("include-schema", []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
+	includeTables = cmd.Flags().StringSlice("include-table", []string{}, "Restore only the specified table(s). --include-table can be specified multiple times.")
+	includeTableFile = cmd.Flags().String("include-table-file", "", "A file containing a list of fully-qualified tables that will be restored")
+	metadataOnly = cmd.Flags().Bool("metadata-only", false, "Only restore metadata, do not restore data")
+	numJobs = cmd.Flags().Int("jobs", 1, "Number of parallel connections to use when restoring table data and post-data")
+	onErrorContinue = cmd.Flags().Bool("on-error-continue", false, "Log errors and continue restore, instead of exiting on first error")
+	pluginConfigFile = cmd.Flags().String("plugin-config", "", "The configuration file to use for a plugin")
+	printVersion = cmd.Flags().Bool("version", false, "Print version number and exit")
+	quiet = cmd.Flags().Bool("quiet", false, "Suppress non-warning, non-error log messages")
+	redirect = cmd.Flags().String("redirect-db", "", "Restore to the specified database instead of the database that was backed up")
+	restoreGlobals = cmd.Flags().Bool("with-globals", false, "Restore global metadata")
+	timestamp = cmd.Flags().String("timestamp", "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
+	verbose = cmd.Flags().Bool("verbose", false, "Print verbose log messages")
+	withStats = cmd.Flags().Bool("with-stats", false, "Restore query plan statistics")
 }
 
 // This function handles setup that can be done before parsing flags.
-func DoInit() {
+func DoInit(cmd *cobra.Command) {
 	CleanupGroup = &sync.WaitGroup{}
 	CleanupGroup.Add(1)
 	gplog.InitializeLogging("gprestore", "")
-	initializeFlags()
+	initializeFlags(cmd)
 	utils.InitializeSignalHandler(DoCleanup, "restore process", &wasTerminated)
 }
 
@@ -56,17 +57,12 @@ func DoInit() {
 * This function handles argument parsing and validation, e.g. checking that a passed filename exists.
 * It should only validate; initialization with any sort of side effects should go in DoInit or DoSetup.
  */
-func DoValidation() {
-	if len(os.Args) == 1 {
-		flag.PrintDefaults()
-		os.Exit(0)
-	}
-	flag.Parse()
+func DoValidation(cmd *cobra.Command) {
 	if *printVersion {
 		fmt.Printf("gprestore %s\n", version)
 		os.Exit(0)
 	}
-	ValidateFlagCombinations()
+	ValidateFlagCombinations(cmd)
 	utils.ValidateFullPath(*backupDir)
 	utils.ValidateFullPath(*pluginConfigFile)
 	if !utils.IsValidTimestamp(*timestamp) {
@@ -117,7 +113,7 @@ func DoSetup() {
 	 * should not error out for validation reasons once the restore database exists.
 	 */
 	if !*createDB {
-		ValidateFilterTablesInRestoreDatabase(connection, includeTables)
+		ValidateFilterTablesInRestoreDatabase(connection, *includeTables)
 	}
 }
 
@@ -197,7 +193,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 		return
 	}
 	gplog.Info("Restoring data")
-	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(includeSchemas, excludeSchemas, includeTables, excludeTables)
+	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(*includeSchemas, *excludeSchemas, *includeTables, *excludeTables)
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)

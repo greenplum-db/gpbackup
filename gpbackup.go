@@ -13,7 +13,7 @@ import (
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "gpbackup",
-		Short: "gpbackup is parallel backup utility for Greenplum",
+		Short: "gpbackup is the parallel backup utility for Greenplum",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			defer DoTeardown()
@@ -26,7 +26,6 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(2)
 	}
-
 }
 
 func handleSingleDashes(args []string) []string {
@@ -36,6 +35,5 @@ func handleSingleDashes(args []string) []string {
 		newArg := r.ReplaceAllString(arg, "--$1")
 		newArgs = append(newArgs, newArg)
 	}
-
 	return newArgs
 }

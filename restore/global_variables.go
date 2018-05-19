@@ -45,13 +45,12 @@ var (
 	createDB         *bool
 	dataOnly         *bool
 	debug            *bool
-	excludeSchemas   utils.ArrayFlags
+	excludeSchemas   *[]string
 	excludeTableFile *string
-	excludeTables    utils.ArrayFlags
-	includeSchemas   utils.ArrayFlags
+	excludeTables    *[]string
+	includeSchemas   *[]string
 	includeTableFile *string
-	includeTables    utils.ArrayFlags
-	metadataOnly     *bool
+	includeTables    *[]string
 	numJobs          *int
 	onErrorContinue  *bool
 	pluginConfigFile *string

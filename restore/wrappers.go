@@ -63,10 +63,10 @@ func InitializeBackupConfig() {
 
 func InitializeFilterLists() {
 	if *excludeTableFile != "" {
-		excludeTables = iohelper.MustReadLinesFromFile(*excludeTableFile)
+		*excludeTables = iohelper.MustReadLinesFromFile(*excludeTableFile)
 	}
 	if *includeTableFile != "" {
-		includeTables = iohelper.MustReadLinesFromFile(*includeTableFile)
+		*includeTables = iohelper.MustReadLinesFromFile(*includeTableFile)
 	}
 }
 
@@ -117,12 +117,12 @@ func GetRestoreMetadataStatements(section string, filename string, includeObject
 	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || filterSchemas || filterTables {
 		var inSchemas, exSchemas, inTables, exTables []string
 		if filterSchemas {
-			inSchemas = includeSchemas
-			exSchemas = excludeSchemas
+			inSchemas = *includeSchemas
+			exSchemas = *excludeSchemas
 		}
 		if filterTables {
-			inTables = includeTables
-			exTables = excludeTables
+			inTables = *includeTables
+			exTables = *excludeTables
 		}
 		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inTables, exTables)
 	} else {

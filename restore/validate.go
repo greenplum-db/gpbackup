@@ -9,6 +9,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 /*
@@ -16,8 +17,8 @@ import (
  */
 
 func validateFilterListsInBackupSet() {
-	ValidateFilterSchemasInBackupSet(includeSchemas)
-	ValidateFilterTablesInBackupSet(includeTables)
+	ValidateFilterSchemasInBackupSet(*includeSchemas)
+	ValidateFilterTablesInBackupSet(*includeTables)
 }
 
 func ValidateFilterSchemasInBackupSet(schemaList utils.ArrayFlags) {
@@ -160,14 +161,14 @@ func validateBackupFlagPluginCombinations() {
 	}
 }
 
-func ValidateFlagCombinations() {
-	//	utils.CheckMandatoryFlags("timestamp")
-	// utils.CheckExclusiveFlags("data-only", "with-globals")
-	// utils.CheckExclusiveFlags("data-only", "create-db")
-	// utils.CheckExclusiveFlags("debug", "quiet", "verbose")
-	// utils.CheckExclusiveFlags("include-schema", "include-table", "include-table-file")
-	// utils.CheckExclusiveFlags("exclude-schema", "include-schema")
-	// utils.CheckExclusiveFlags("exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
-	// utils.CheckExclusiveFlags("exclude-table", "exclude-table-file", "leaf-partition-data")
-	// utils.CheckExclusiveFlags("metadata-only", "data-only")
+func ValidateFlagCombinations(cmd *cobra.Command) {
+	utils.CheckMandatoryFlags(cmd, "timestamp")
+	utils.CheckExclusiveFlags(cmd, "data-only", "with-globals")
+	utils.CheckExclusiveFlags(cmd, "data-only", "create-db")
+	utils.CheckExclusiveFlags(cmd, "debug", "quiet", "verbose")
+	utils.CheckExclusiveFlags(cmd, "include-schema", "include-table", "include-table-file")
+	utils.CheckExclusiveFlags(cmd, "exclude-schema", "include-schema")
+	utils.CheckExclusiveFlags(cmd, "exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
+	utils.CheckExclusiveFlags(cmd, "exclude-table", "exclude-table-file", "leaf-partition-data")
+	utils.CheckExclusiveFlags(cmd, "metadata-only", "data-only")
 }
