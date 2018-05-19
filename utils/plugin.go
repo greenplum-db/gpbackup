@@ -43,7 +43,8 @@ func (plugin *PluginConfig) BackupFile(filenamePath string, noFatal ...bool) {
 			gplog.Fatal(err, string(output))
 		}
 	}
-	operating.System.Chmod(filenamePath, 0755)
+	err = operating.System.Chmod(filenamePath, 0755)
+	gplog.FatalOnError(err)
 }
 
 func (plugin *PluginConfig) RestoreFile(filenamePath string) {

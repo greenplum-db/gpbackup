@@ -388,7 +388,7 @@ func DoCleanup() {
 			}
 		}
 		timestampLockFile := fmt.Sprintf("/tmp/%s.lck", globalFPInfo.Timestamp)
-		os.Remove(timestampLockFile) // Don't check error, as DoTeardown may have removed it already
+		_ = os.Remove(timestampLockFile) // Don't check error, as DoTeardown may have removed it already
 	}
 	if connection != nil {
 		connection.Close()

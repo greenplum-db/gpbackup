@@ -105,9 +105,10 @@ func NewFileWithByteCountFromFile(filename string) *FileWithByteCount {
 
 func (file *FileWithByteCount) Close() {
 	if file.closer != nil {
-		file.closer.Close()
+		_ = file.closer.Close()
 		if file.Filename != "" {
-			operating.System.Chmod(file.Filename, 0444)
+			err := operating.System.Chmod(file.Filename, 0444)
+			gplog.FatalOnError(err)
 		}
 	}
 }

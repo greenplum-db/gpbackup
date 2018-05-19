@@ -91,7 +91,7 @@ WHERE application_name = '%s'
 AND current_query LIKE '%%%s%%'
 AND procpid <> pg_backend_pid()`, appName, copyFileName)
 	// We don't check the error as the connection may have finished or been previously terminated
-	connection.Exec(query)
+	_, _ = connection.Exec(query)
 }
 
 func SetDatabaseVersion(connection *dbconn.DBConn) {

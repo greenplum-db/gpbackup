@@ -134,15 +134,15 @@ func ReadConfigFile(filename string) *BackupConfig {
 
 func (report *Report) WriteConfigFile(configFilename string) {
 	configFile := iohelper.MustOpenFileForWriting(configFilename)
-	defer operating.System.Chmod(configFilename, 0444)
 	config := report.BackupConfig
 	configContents, _ := yaml.Marshal(config)
 	MustPrintBytes(configFile, configContents)
+	err := operating.System.Chmod(configFilename, 0444)
+	gplog.FatalOnError(err)
 }
 
 func (report *Report) WriteBackupReportFile(reportFilename string, timestamp string, objectCounts map[string]int, errMsg string) {
 	reportFile := iohelper.MustOpenFileForWriting(reportFilename)
-	defer operating.System.Chmod(reportFilename, 0444)
 	reportFileTemplate := `Greenplum Database Backup Report
 
 Timestamp Key: %s
@@ -178,11 +178,12 @@ Backup Status: %s
 		backupStatus, dbSizeStr)
 
 	PrintObjectCounts(reportFile, objectCounts)
+	err := operating.System.Chmod(reportFilename, 0444)
+	gplog.FatalOnError(err)
 }
 
 func WriteRestoreReportFile(reportFilename string, backupTimestamp string, startTimestamp string, connection *dbconn.DBConn, restoreVersion string, errMsg string) {
 	reportFile := iohelper.MustOpenFileForWriting(reportFilename)
-	defer operating.System.Chmod(reportFilename, 0444)
 	reportFileTemplate := `Greenplum Database Restore Report
 
 Timestamp Key: %s
@@ -212,7 +213,8 @@ Restore Status: %s`
 		backupTimestamp, connection.Version.VersionString, restoreVersion,
 		connection.DBName, gprestoreCommandLine,
 		start, end, duration, restoreStatus)
-
+	err := operating.System.Chmod(reportFilename, 0444)
+	gplog.FatalOnError(err)
 }
 
 func GetDurationInfo(timestamp string, endTime time.Time) (string, string, string) {

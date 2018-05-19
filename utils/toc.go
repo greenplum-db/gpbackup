@@ -65,17 +65,21 @@ func NewSegmentTOC(filename string) *SegmentTOC {
 }
 
 func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
-	defer operating.System.Chmod(filename, 0444)
 	tocFile := iohelper.MustOpenFileForWriting(filename)
-	tocContents, _ := yaml.Marshal(toc)
+	tocContents, err := yaml.Marshal(toc)
+	gplog.FatalOnError(err)
 	MustPrintBytes(tocFile, tocContents)
+	err = operating.System.Chmod(filename, 0444)
+	gplog.FatalOnError(err)
 }
 
 func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) {
-	defer operating.System.Chmod(filename, 0444)
 	tocFile := iohelper.MustOpenFileForWriting(filename)
-	tocContents, _ := yaml.Marshal(toc)
+	tocContents, err := yaml.Marshal(toc)
+	gplog.FatalOnError(err)
 	MustPrintBytes(tocFile, tocContents)
+	err = operating.System.Chmod(filename, 0444)
+	gplog.FatalOnError(err)
 }
 
 type StatementWithType struct {

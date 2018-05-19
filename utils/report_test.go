@@ -61,6 +61,10 @@ Data File Format: Single Data File Per Segment`,
 			operating.System.Now = func() time.Time {
 				return time.Date(2017, 1, 1, 5, 4, 3, 2, time.Local)
 			}
+			operating.System.Chmod = func(name string, mode os.FileMode) error {
+				return nil
+			}
+
 		})
 
 		It("writes a report for a successful backup", func() {
@@ -166,6 +170,10 @@ types                        1000`))
 			operating.System.Now = func() time.Time {
 				return time.Date(2017, 1, 1, 5, 4, 3, 2, time.Local)
 			}
+			operating.System.Chmod = func(name string, mode os.FileMode) error {
+				return nil
+			}
+
 		})
 		AfterEach(func() {
 			gplog.SetErrorCode(0)

@@ -127,7 +127,7 @@ func doBackupAgent() {
 
 		lastPipe = currentPipe
 		currentPipe = nextPipe
-		readHandle.Close()
+		_ = readHandle.Close()
 		removeFileIfExists(lastPipe)
 		if currentPipe != "" {
 			log(fmt.Sprintf("Opening pipe for oid %d\n", oidList[i+1]))
@@ -140,10 +140,10 @@ func doBackupAgent() {
 	 * to ensure all data is written to the file and file handles are not leaked.
 	 */
 	if gzipWriter != nil {
-		gzipWriter.Close()
+		_ = gzipWriter.Close()
 	}
-	bufIoWriter.Flush()
-	writeHandle.Close()
+	_ = bufIoWriter.Flush()
+	_ = writeHandle.Close()
 	if *pluginConfigFile != "" {
 		/*
 		 * When using a plugin, the agent may take longer to finish than the
@@ -154,7 +154,7 @@ func doBackupAgent() {
 		 */
 		if err := writeCmd.Wait(); err != nil {
 			handle := iohelper.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
-			handle.Close()
+			_ = handle.Close()
 			gplog.Fatal(err, strings.Trim(errBuf.String(), "\x00"))
 		}
 	}
@@ -237,7 +237,8 @@ func doRestoreAgent() {
 		start := tocEntries[uint(oid)].StartByte
 		end := tocEntries[uint(oid)].EndByte
 		log(fmt.Sprintf("Start Byte: %d; End Byte: %d; Last Byte: %d", start, end, lastByte))
-		reader.Discard(int(start - lastByte))
+		_, err := reader.Discard(int(start - lastByte))
+		gplog.FatalOnError(err)
 		log(fmt.Sprintf("Discarded %d bytes", start-lastByte))
 		bytesRead, err := io.CopyN(writer, reader, int64(end-start))
 		log(fmt.Sprintf("Read %d bytes", bytesRead))
@@ -356,7 +357,7 @@ func removeFileIfExists(filename string) {
  */
 
 func DoTeardown() {
-	recover()
+	_ = recover()
 	if wasTerminated {
 		CleanupGroup.Wait()
 		return
@@ -380,7 +381,7 @@ func DoCleanup() {
 		 * gprestore after the COPYs are finished.
 		 */
 		handle := iohelper.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
-		handle.Close()
+		_ = handle.Close()
 	}
 	flushAndCloseRestoreWriter()
 	removeFileIfExists(lastPipe)

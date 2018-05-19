@@ -33,7 +33,8 @@ func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes st
 	if err != nil {
 		gplog.Fatal(err, "Error loading data into table %s", tableName)
 	}
-	numRows, _ := result.RowsAffected()
+	numRows, err := result.RowsAffected()
+	gplog.FatalOnError(err)
 	return numRows
 }
 
