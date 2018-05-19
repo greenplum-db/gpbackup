@@ -161,13 +161,13 @@ func validateBackupFlagPluginCombinations() {
 }
 
 func ValidateFlagCombinations() {
-	utils.CheckMandatoryFlags("timestamp")
-	utils.CheckExclusiveFlags("data-only", "with-globals")
-	utils.CheckExclusiveFlags("data-only", "create-db")
-	utils.CheckExclusiveFlags("debug", "quiet", "verbose")
-	utils.CheckExclusiveFlags("include-schema", "include-table", "include-table-file")
-	utils.CheckExclusiveFlags("exclude-schema", "include-schema")
-	utils.CheckExclusiveFlags("exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
-	utils.CheckExclusiveFlags("exclude-table", "exclude-table-file", "leaf-partition-data")
-	utils.CheckExclusiveFlags("metadata-only", "data-only")
+	//	utils.CheckMandatoryFlags("timestamp")
+	// utils.CheckExclusiveFlags("data-only", "with-globals")
+	// utils.CheckExclusiveFlags("data-only", "create-db")
+	// utils.CheckExclusiveFlags("debug", "quiet", "verbose")
+	// utils.CheckExclusiveFlags("include-schema", "include-table", "include-table-file")
+	// utils.CheckExclusiveFlags("exclude-schema", "include-schema")
+	// utils.CheckExclusiveFlags("exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
+	// utils.CheckExclusiveFlags("exclude-table", "exclude-table-file", "leaf-partition-data")
+	// utils.CheckExclusiveFlags("metadata-only", "data-only")
 }

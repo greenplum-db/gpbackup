@@ -44,12 +44,12 @@ var (
 	dataOnly          *bool
 	dbname            *string
 	debug             *bool
-	excludeSchemas    utils.ArrayFlags
+	excludeSchemas    *[]string
 	excludeTableFile  *string
-	excludeTables     utils.ArrayFlags
-	includeSchemas    utils.ArrayFlags
+	excludeTables     *[]string
+	includeSchemas    *[]string
 	includeTableFile  *string
-	includeTables     utils.ArrayFlags
+	includeTables     *[]string
 	leafPartitionData *bool
 	metadataOnly      *bool
 	noCompression     *bool
@@ -74,11 +74,11 @@ func SetCluster(cluster cluster.Cluster) {
 }
 
 func SetExcludeSchemas(schemas []string) {
-	excludeSchemas = schemas
+	*excludeSchemas = schemas
 }
 
 func SetExcludeTables(tables []string) {
-	excludeTables = tables
+	*excludeTables = tables
 }
 
 func SetFPInfo(fpInfo utils.FilePathInfo) {
@@ -86,11 +86,11 @@ func SetFPInfo(fpInfo utils.FilePathInfo) {
 }
 
 func SetIncludeSchemas(schemas []string) {
-	includeSchemas = schemas
+	*includeSchemas = schemas
 }
 
 func SetIncludeTables(tables []string) {
-	includeTables = tables
+	*includeTables = tables
 }
 
 func SetLeafPartitionData(which bool) {

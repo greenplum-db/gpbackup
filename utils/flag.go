@@ -5,38 +5,32 @@ package utils
  */
 
 import (
-	"flag"
 	"regexp"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 /*
  * Functions for validating whether flags are set and in what combination
  */
 
-func FlagIsSet(f *flag.Flag) bool {
-	return (*f).Value.String() != (*f).DefValue
-}
-
 // Each flag passed to this function must be set
-func CheckMandatoryFlags(flagNames ...string) {
+func CheckMandatoryFlags(cmd *cobra.Command, flagNames ...string) {
 	for _, name := range flagNames {
-		f := flag.Lookup(name)
-		if f == nil || !FlagIsSet(f) {
+		if !cmd.Flags().Changed(name) {
 			gplog.Fatal(errors.Errorf("Flag %s must be set", name), "")
 		}
 	}
 }
 
 // At most one of the flags passed to this function may be set
-func CheckExclusiveFlags(flagNames ...string) {
+func CheckExclusiveFlags(cmd *cobra.Command, flagNames ...string) {
 	numSet := 0
 	for _, name := range flagNames {
-		f := flag.Lookup(name)
-		if f != nil && FlagIsSet(f) {
+		if cmd.Flags().Changed(name) {
 			numSet++
 		}
 	}

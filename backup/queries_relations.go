@@ -17,12 +17,12 @@ import (
 
 func tableAndSchemaFilterClause() string {
 	filterClause := SchemaFilterClause("n")
-	if len(excludeTables) > 0 {
-		excludeOids := GetOidsFromTableList(connection, excludeTables)
+	if len(*excludeTables) > 0 {
+		excludeOids := GetOidsFromTableList(connection, *excludeTables)
 		filterClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ", "))
 	}
-	if len(includeTables) > 0 {
-		includeOids := GetOidsFromTableList(connection, includeTables)
+	if len(*includeTables) > 0 {
+		includeOids := GetOidsFromTableList(connection, *includeTables)
 		filterClause += fmt.Sprintf("\nAND c.oid IN (%s)", strings.Join(includeOids, ", "))
 	}
 	return filterClause
@@ -40,7 +40,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, tableLis
 }
 
 func GetAllUserTables(connection *dbconn.DBConn) []Relation {
-	if len(includeTables) > 0 {
+	if len(*includeTables) > 0 {
 		return GetUserTablesWithIncludeFiltering(connection)
 	}
 	return GetUserTables(connection)
@@ -86,7 +86,7 @@ ORDER BY c.oid;`, tableAndSchemaFilterClause(), childPartitionFilter)
 }
 
 func GetUserTablesWithIncludeFiltering(connection *dbconn.DBConn) []Relation {
-	includeOids := GetOidsFromTableList(connection, includeTables)
+	includeOids := GetOidsFromTableList(connection, *includeTables)
 	oidStr := strings.Join(includeOids, ", ")
 	childPartitionFilter := ""
 	if *leafPartitionData {
@@ -506,10 +506,10 @@ ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"))
 	gplog.FatalOnError(err)
 
 	var tableSet *utils.FilterSet
-	if len(excludeTables) > 0 {
-		tableSet = utils.NewExcludeSet(excludeTables)
-	} else if len(includeTables) > 0 {
-		tableSet = utils.NewIncludeSet(includeTables)
+	if len(*excludeTables) > 0 {
+		tableSet = utils.NewExcludeSet(*excludeTables)
+	} else if len(*includeTables) > 0 {
+		tableSet = utils.NewIncludeSet(*includeTables)
 	} else {
 		return results
 	}

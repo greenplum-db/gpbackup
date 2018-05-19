@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"sync"
@@ -10,55 +9,52 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/spf13/cobra"
 )
 
 /*
  * We define and initialize flags separately to avoid import conflicts in tests.
  * The flag variables, and setter functions for them, are in global_variables.go.
  */
-func initializeFlags() {
-	backupDir = flag.String("backup-dir", "", "The absolute path of the directory to which all backup files will be written")
-	compressionLevel = flag.Int("compression-level", 0, "Level of compression to use during data backup. Valid values are between 1 and 9.")
-	dataOnly = flag.Bool("data-only", false, "Only back up data, do not back up metadata")
-	dbname = flag.String("dbname", "", "The database to be backed up")
-	debug = flag.Bool("debug", false, "Print verbose and debug log messages")
-	flag.Var(&excludeSchemas, "exclude-schema", "Back up all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	flag.Var(&excludeTables, "exclude-table", "Back up all metadata except the specified table(s). --exclude-table can be specified multiple times.")
-	excludeTableFile = flag.String("exclude-table-file", "", "A file containing a list of fully-qualified tables to be excluded from the backup")
-	flag.Var(&includeSchemas, "include-schema", "Back up only the specified schema(s). --include-schema can be specified multiple times.")
-	flag.Var(&includeTables, "include-table", "Back up only the specified table(s). --include-table can be specified multiple times.")
-	includeTableFile = flag.String("include-table-file", "", "A file containing a list of fully-qualified tables to be included in the backup")
-	leafPartitionData = flag.Bool("leaf-partition-data", false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
-	metadataOnly = flag.Bool("metadata-only", false, "Only back up metadata, do not back up data")
-	noCompression = flag.Bool("no-compression", false, "Disable compression of data files")
-	pluginConfigFile = flag.String("plugin-config", "", "The configuration file to use for a plugin")
-	printVersion = flag.Bool("version", false, "Print version number and exit")
-	quiet = flag.Bool("quiet", false, "Suppress non-warning, non-error log messages")
-	singleDataFile = flag.Bool("single-data-file", false, "Back up all data to a single file instead of one per table")
-	verbose = flag.Bool("verbose", false, "Print verbose log messages")
-	withStats = flag.Bool("with-stats", false, "Back up query plan statistics")
+func initializeFlags(cmd *cobra.Command) {
+	backupDir = cmd.Flags().String("backup-dir", "", "The absolute path of the directory to which all backup files will be written")
+	compressionLevel = cmd.Flags().Int("compression-level", 0, "Level of compression to use during data backup. Valid values are between 1 and 9.")
+	dataOnly = cmd.Flags().Bool("data-only", false, "Only back up data, do not back up metadata")
+	dbname = cmd.Flags().String("dbname", "", "The database to be backed up")
+	debug = cmd.Flags().Bool("debug", false, "Print verbose and debug log messages")
+	excludeSchemas = cmd.Flags().StringSlice("exclude-schema", []string{}, "Back up all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
+	excludeTables = cmd.Flags().StringSlice("exclude-table", []string{}, "Back up all metadata except the specified table(s). --exclude-table can be specified multiple times.")
+	excludeTableFile = cmd.Flags().String("exclude-table-file", "", "A file containing a list of fully-qualified tables to be excluded from the backup")
+	cmd.Flags().Bool("help", false, "Help for gpbackup")
+	includeSchemas = cmd.Flags().StringSlice("include-schema", []string{}, "Back up only the specified schema(s). --include-schema can be specified multiple times.")
+	includeTables = cmd.Flags().StringSlice("include-table", []string{}, "Back up only the specified table(s). --include-table can be specified multiple times.")
+	includeTableFile = cmd.Flags().String("include-table-file", "", "A file containing a list of fully-qualified tables to be included in the backup")
+	leafPartitionData = cmd.Flags().Bool("leaf-partition-data", false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
+	metadataOnly = cmd.Flags().Bool("metadata-only", false, "Only back up metadata, do not back up data")
+	noCompression = cmd.Flags().Bool("no-compression", false, "Disable compression of data files")
+	pluginConfigFile = cmd.Flags().String("plugin-config", "", "The configuration file to use for a plugin")
+	printVersion = cmd.Flags().Bool("version", false, "Print version number and exit")
+	quiet = cmd.Flags().Bool("quiet", false, "Suppress non-warning, non-error log messages")
+	singleDataFile = cmd.Flags().Bool("single-data-file", false, "Back up all data to a single file instead of one per table")
+	verbose = cmd.Flags().Bool("verbose", false, "Print verbose log messages")
+	withStats = cmd.Flags().Bool("with-stats", false, "Back up query plan statistics")
 }
 
 // This function handles setup that can be done before parsing flags.
-func DoInit() {
+func DoInit(cmd *cobra.Command) {
 	CleanupGroup = &sync.WaitGroup{}
 	CleanupGroup.Add(1)
 	gplog.InitializeLogging("gpbackup", "")
-	initializeFlags()
+	initializeFlags(cmd)
 	utils.InitializeSignalHandler(DoCleanup, "backup process", &wasTerminated)
 }
 
-func DoFlagValidation() {
-	if len(os.Args) == 1 {
-		flag.PrintDefaults()
-		os.Exit(0)
-	}
-	flag.Parse()
+func DoFlagValidation(cmd *cobra.Command) {
 	if *printVersion {
 		fmt.Printf("gpbackup %s\n", version)
 		os.Exit(0)
 	}
-	ValidateFlagCombinations()
+	ValidateFlagCombinations(cmd)
 	ValidateFlagValues()
 }
 
@@ -105,7 +101,7 @@ func DoBackup() {
 
 	BackupSessionGUCs(metadataFile)
 	if !*dataOnly {
-		if len(includeTables) > 0 {
+		if len(*includeTables) > 0 {
 			backupTablePredata(metadataFile, metadataTables, tableDefs)
 		} else {
 			backupGlobal(metadataFile)
@@ -146,7 +142,7 @@ func backupGlobal(metadataFile *utils.FileWithByteCount) {
 	BackupCreateDatabase(metadataFile)
 	BackupDatabaseGUCs(metadataFile)
 
-	if len(includeSchemas) == 0 {
+	if len(*includeSchemas) == 0 {
 		BackupResourceQueues(metadataFile)
 		if connection.Version.AtLeast("5") {
 			BackupResourceGroups(metadataFile)
@@ -168,7 +164,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	gplog.Info("Writing pre-data metadata")
 
 	BackupSchemas(metadataFile)
-	if len(includeSchemas) == 0 && connection.Version.AtLeast("5") {
+	if len(*includeSchemas) == 0 && connection.Version.AtLeast("5") {
 		BackupExtensions(metadataFile)
 	}
 
@@ -176,7 +172,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	langFuncs, otherFuncs, functionMetadata := RetrieveFunctions(procLangs)
 	types, typeMetadata, funcInfoMap := RetrieveTypes()
 
-	if len(includeSchemas) == 0 {
+	if len(*includeSchemas) == 0 {
 		BackupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
 	}
 
@@ -194,7 +190,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	BackupFunctionsAndTypesAndTables(metadataFile, otherFuncs, types, tables, functionMetadata, typeMetadata, relationMetadata, tableDefs, constraints)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
-	if len(includeSchemas) == 0 {
+	if len(*includeSchemas) == 0 {
 		BackupProtocols(metadataFile, funcInfoMap)
 		if connection.Version.AtLeast("6") {
 			BackupForeignDataWrappers(metadataFile, funcInfoMap)

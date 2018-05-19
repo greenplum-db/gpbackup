@@ -72,19 +72,19 @@ func InitializeBackupReport() {
 		BackupConfig: config,
 	}
 	utils.InitializeCompressionParameters(!*noCompression, *compressionLevel)
-	isIncludeSchemaFiltered := len(includeSchemas) > 0
-	isIncludeTableFiltered := len(includeTables) > 0
-	isExcludeSchemaFiltered := len(excludeSchemas) > 0
-	isExcludeTableFiltered := len(excludeTables) > 0
+	isIncludeSchemaFiltered := len(*includeSchemas) > 0
+	isIncludeTableFiltered := len(*includeTables) > 0
+	isExcludeSchemaFiltered := len(*excludeSchemas) > 0
+	isExcludeTableFiltered := len(*excludeTables) > 0
 	backupReport.SetBackupParamsFromFlags(*dataOnly, *metadataOnly, "", isIncludeSchemaFiltered, isIncludeTableFiltered, isExcludeSchemaFiltered, isExcludeTableFiltered, *singleDataFile, *withStats)
 }
 
 func InitializeFilterLists() {
 	if *excludeTableFile != "" {
-		excludeTables = iohelper.MustReadLinesFromFile(*excludeTableFile)
+		*excludeTables = iohelper.MustReadLinesFromFile(*excludeTableFile)
 	}
 	if *includeTableFile != "" {
-		includeTables = iohelper.MustReadLinesFromFile(*includeTableFile)
+		*includeTables = iohelper.MustReadLinesFromFile(*includeTableFile)
 	}
 }
 
@@ -110,13 +110,13 @@ func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinit
 	 * We expand the includeTables list to include parent and leaf partitions that may not have been
 	 * specified by the user but are used in the backup for metadata or data.
 	 */
-	userPassedIncludeTables := includeTables
-	if len(includeTables) > 0 {
+	userPassedIncludeTables := *includeTables
+	if len(*includeTables) > 0 {
 		expandedIncludeTables := make([]string, 0)
 		for _, table := range tables {
 			expandedIncludeTables = append(expandedIncludeTables, table.FQN())
 		}
-		includeTables = expandedIncludeTables
+		*includeTables = expandedIncludeTables
 	}
 	tableDefs := ConstructDefinitionsForTables(connection, tables)
 	metadataTables, dataTables := SplitTablesByPartitionType(tables, tableDefs, userPassedIncludeTables)

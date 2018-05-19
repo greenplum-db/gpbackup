@@ -7,6 +7,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
 )
 
 /*
@@ -14,10 +15,10 @@ import (
  */
 
 func validateFilterLists() {
-	ValidateFilterSchemas(connection, excludeSchemas)
-	ValidateFilterSchemas(connection, includeSchemas)
-	ValidateFilterTables(connection, excludeTables)
-	ValidateFilterTables(connection, includeTables)
+	ValidateFilterSchemas(connection, *excludeSchemas)
+	ValidateFilterSchemas(connection, *includeSchemas)
+	ValidateFilterTables(connection, *excludeTables)
+	ValidateFilterTables(connection, *includeTables)
 }
 
 func ValidateFilterSchemas(connection *dbconn.DBConn, schemaList utils.ArrayFlags) {
@@ -71,18 +72,18 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	}
 }
 
-func ValidateFlagCombinations() {
-	utils.CheckMandatoryFlags("dbname")
+func ValidateFlagCombinations(cmd *cobra.Command) {
+	utils.CheckMandatoryFlags(cmd, "dbname")
 
-	utils.CheckExclusiveFlags("debug", "quiet", "verbose")
-	utils.CheckExclusiveFlags("data-only", "metadata-only")
-	utils.CheckExclusiveFlags("include-schema", "include-table", "include-table-file")
-	utils.CheckExclusiveFlags("exclude-schema", "include-schema")
-	utils.CheckExclusiveFlags("exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
-	utils.CheckExclusiveFlags("exclude-table", "exclude-table-file", "leaf-partition-data")
-	utils.CheckExclusiveFlags("metadata-only", "leaf-partition-data")
-	utils.CheckExclusiveFlags("metadata-only", "single-data-file")
-	utils.CheckExclusiveFlags("no-compression", "compression-level")
+	utils.CheckExclusiveFlags(cmd, "debug", "quiet", "verbose")
+	utils.CheckExclusiveFlags(cmd, "data-only", "metadata-only")
+	utils.CheckExclusiveFlags(cmd, "include-schema", "include-table", "include-table-file")
+	utils.CheckExclusiveFlags(cmd, "exclude-schema", "include-schema")
+	utils.CheckExclusiveFlags(cmd, "exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
+	utils.CheckExclusiveFlags(cmd, "exclude-table", "exclude-table-file", "leaf-partition-data")
+	utils.CheckExclusiveFlags(cmd, "metadata-only", "leaf-partition-data")
+	utils.CheckExclusiveFlags(cmd, "metadata-only", "single-data-file")
+	utils.CheckExclusiveFlags(cmd, "no-compression", "compression-level")
 	if *pluginConfigFile != "" && !(*singleDataFile || *metadataOnly) {
 		gplog.Fatal(errors.Errorf("--plugin-config must be specified with either --single-data-file or --metadata-only"), "")
 	}
