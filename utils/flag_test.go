@@ -61,5 +61,23 @@ var _ = Describe("utils/flag tests", func() {
 				utils.CheckExclusiveFlags(flagSet, "stringFlag", "boolFlag")
 			})
 		})
+		Context("HandleSingleDashes", func() {
+			It("replaces single dash at beginning of command", func() {
+				result := utils.HandleSingleDashes([]string{"-some_flag", "some_argument"})
+				Expect(result).To(Equal([]string{"--some_flag", "some_argument"}))
+			})
+			It("does not replace single dashes inside command", func() {
+				result := utils.HandleSingleDashes([]string{"-some-flag", "some_argument"})
+				Expect(result).To(Equal([]string{"--some-flag", "some_argument"}))
+			})
+			It("does not replace double dashes", func() {
+				result := utils.HandleSingleDashes([]string{"--some_flag", "some_argument"})
+				Expect(result).To(Equal([]string{"--some_flag", "some_argument"}))
+			})
+			It("does not replace dash for single character flag", func() {
+				result := utils.HandleSingleDashes([]string{"-s", "some_argument"})
+				Expect(result).To(Equal([]string{"-s", "some_argument"}))
+			})
+		})
 	})
 })

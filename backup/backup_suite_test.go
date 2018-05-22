@@ -20,15 +20,14 @@ import (
 )
 
 var (
-	connection   *dbconn.DBConn
-	mock         sqlmock.Sqlmock
-	stdout       *gbytes.Buffer
-	stderr       *gbytes.Buffer
-	logfile      *gbytes.Buffer
-	buffer       = gbytes.NewBuffer()
-	gpbackupPath = ""
-	toc          *utils.TOC
-	backupfile   *utils.FileWithByteCount
+	connection *dbconn.DBConn
+	mock       sqlmock.Sqlmock
+	stdout     *gbytes.Buffer
+	stderr     *gbytes.Buffer
+	logfile    *gbytes.Buffer
+	buffer     = gbytes.NewBuffer()
+	toc        *utils.TOC
+	backupfile *utils.FileWithByteCount
 )
 
 func TestBackup(t *testing.T) {

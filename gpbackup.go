@@ -4,9 +4,9 @@ package main
 
 import (
 	"os"
-	"regexp"
 
 	. "github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -21,19 +21,9 @@ func main() {
 			DoSetup()
 			DoBackup()
 		}}
-	rootCmd.SetArgs(handleSingleDashes(os.Args[1:]))
+	rootCmd.SetArgs(utils.HandleSingleDashes(os.Args[1:]))
 	DoInit(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(2)
 	}
-}
-
-func handleSingleDashes(args []string) []string {
-	r, _ := regexp.Compile(`^-(\w{2,})`)
-	var newArgs []string
-	for _, arg := range args {
-		newArg := r.ReplaceAllString(arg, "--$1")
-		newArgs = append(newArgs, newArg)
-	}
-	return newArgs
 }

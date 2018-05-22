@@ -43,3 +43,17 @@ func IsValidTimestamp(timestamp string) bool {
 	timestampFormat := regexp.MustCompile(`^([0-9]{14})$`)
 	return timestampFormat.MatchString(timestamp)
 }
+
+/*
+ * Convert arguements that contain a single dash to double dashes for backward
+ * compatibility.
+ */
+func HandleSingleDashes(args []string) []string {
+	r, _ := regexp.Compile(`^-(\w{2,})`)
+	var newArgs []string
+	for _, arg := range args {
+		newArg := r.ReplaceAllString(arg, "--$1")
+		newArgs = append(newArgs, newArg)
+	}
+	return newArgs
+}
