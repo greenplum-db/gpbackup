@@ -40,17 +40,6 @@ var _ = Describe("utils/flag tests", func() {
 			_ = flag.Bool("boolFlag", false, "This is a sample bool flag.")
 			_ = flag.Int("intFlag", 0, "This is a sample int flag.")
 		})
-		Context("CheckMandatoryFlags", func() {
-			It("does not panic if a mandatory flag is set", func() {
-				flag.CommandLine.Parse([]string{"-stringFlag", "foo"})
-				utils.CheckMandatoryFlags("stringFlag")
-			})
-			It("panics if a mandatory flag is not set", func() {
-				flag.CommandLine.Parse([]string{})
-				defer testhelper.ShouldPanicWithMessage("Flag stringFlag must be set")
-				utils.CheckMandatoryFlags("stringFlag")
-			})
-		})
 		Context("CheckExclusiveFlags", func() {
 			It("does not panic if no flags in the argument list are set", func() {
 				flag.CommandLine.Parse([]string{})

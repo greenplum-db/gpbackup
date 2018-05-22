@@ -38,6 +38,8 @@ func initializeFlags(cmd *cobra.Command) {
 	singleDataFile = cmd.Flags().Bool("single-data-file", false, "Back up all data to a single file instead of one per table")
 	verbose = cmd.Flags().Bool("verbose", false, "Print verbose log messages")
 	withStats = cmd.Flags().Bool("with-stats", false, "Back up query plan statistics")
+
+	cmd.MarkFlagRequired("dbname")
 }
 
 // This function handles setup that can be done before parsing flags.

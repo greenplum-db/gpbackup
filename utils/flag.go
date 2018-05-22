@@ -17,15 +17,6 @@ import (
  * Functions for validating whether flags are set and in what combination
  */
 
-// Each flag passed to this function must be set
-func CheckMandatoryFlags(cmd *cobra.Command, flagNames ...string) {
-	for _, name := range flagNames {
-		if !cmd.Flags().Changed(name) {
-			gplog.Fatal(errors.Errorf("Flag %s must be set", name), "")
-		}
-	}
-}
-
 // At most one of the flags passed to this function may be set
 func CheckExclusiveFlags(cmd *cobra.Command, flagNames ...string) {
 	numSet := 0

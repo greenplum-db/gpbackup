@@ -42,6 +42,7 @@ func initializeFlags(cmd *cobra.Command) {
 	timestamp = cmd.Flags().String("timestamp", "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
 	verbose = cmd.Flags().Bool("verbose", false, "Print verbose log messages")
 	withStats = cmd.Flags().Bool("with-stats", false, "Restore query plan statistics")
+	cmd.MarkFlagRequired("timestamp")
 }
 
 // This function handles setup that can be done before parsing flags.

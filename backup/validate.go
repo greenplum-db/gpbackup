@@ -73,8 +73,6 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 }
 
 func ValidateFlagCombinations(cmd *cobra.Command) {
-	utils.CheckMandatoryFlags(cmd, "dbname")
-
 	utils.CheckExclusiveFlags(cmd, "debug", "quiet", "verbose")
 	utils.CheckExclusiveFlags(cmd, "data-only", "metadata-only")
 	utils.CheckExclusiveFlags(cmd, "include-schema", "include-table", "include-table-file")
