@@ -21,7 +21,7 @@ func validateFilterListsInBackupSet() {
 	ValidateFilterTablesInBackupSet(*includeTables)
 }
 
-func ValidateFilterSchemasInBackupSet(schemaList utils.ArrayFlags) {
+func ValidateFilterSchemasInBackupSet(schemaList []string) {
 	schemaMap := make(map[string]bool, len(schemaList))
 	for _, schema := range schemaList {
 		schemaMap[schema] = true
@@ -59,7 +59,7 @@ func ValidateFilterSchemasInBackupSet(schemaList utils.ArrayFlags) {
 	gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
 }
 
-func ValidateFilterTablesInRestoreDatabase(connection *dbconn.DBConn, tableList utils.ArrayFlags) {
+func ValidateFilterTablesInRestoreDatabase(connection *dbconn.DBConn, tableList []string) {
 	if len(tableList) > 0 {
 		utils.ValidateFQNs(tableList)
 		quotedTablesStr := utils.SliceToQuotedString(tableList)
@@ -76,7 +76,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	}
 }
 
-func ValidateFilterTablesInBackupSet(tableList utils.ArrayFlags) {
+func ValidateFilterTablesInBackupSet(tableList []string) {
 	tableMap := make(map[string]bool, len(tableList))
 	for _, table := range tableList {
 		tableMap[table] = true
@@ -162,13 +162,13 @@ func validateBackupFlagPluginCombinations() {
 }
 
 func ValidateFlagCombinations(cmd *cobra.Command) {
-	utils.CheckMandatoryFlags(cmd, "timestamp")
-	utils.CheckExclusiveFlags(cmd, "data-only", "with-globals")
-	utils.CheckExclusiveFlags(cmd, "data-only", "create-db")
-	utils.CheckExclusiveFlags(cmd, "debug", "quiet", "verbose")
-	utils.CheckExclusiveFlags(cmd, "include-schema", "include-table", "include-table-file")
-	utils.CheckExclusiveFlags(cmd, "exclude-schema", "include-schema")
-	utils.CheckExclusiveFlags(cmd, "exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
-	utils.CheckExclusiveFlags(cmd, "exclude-table", "exclude-table-file", "leaf-partition-data")
-	utils.CheckExclusiveFlags(cmd, "metadata-only", "data-only")
+	flags := cmd.Flags()
+	utils.CheckExclusiveFlags(flags, "data-only", "with-globals")
+	utils.CheckExclusiveFlags(flags, "data-only", "create-db")
+	utils.CheckExclusiveFlags(flags, "debug", "quiet", "verbose")
+	utils.CheckExclusiveFlags(flags, "include-schema", "include-table", "include-table-file")
+	utils.CheckExclusiveFlags(flags, "exclude-schema", "include-schema")
+	utils.CheckExclusiveFlags(flags, "exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
+	utils.CheckExclusiveFlags(flags, "exclude-table", "exclude-table-file", "leaf-partition-data")
+	utils.CheckExclusiveFlags(flags, "metadata-only", "data-only")
 }

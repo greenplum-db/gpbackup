@@ -21,7 +21,7 @@ func validateFilterLists() {
 	ValidateFilterTables(connection, *includeTables)
 }
 
-func ValidateFilterSchemas(connection *dbconn.DBConn, schemaList utils.ArrayFlags) {
+func ValidateFilterSchemas(connection *dbconn.DBConn, schemaList []string) {
 	if len(schemaList) > 0 {
 		quotedSchemasStr := utils.SliceToQuotedString(schemaList)
 		query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
@@ -37,7 +37,7 @@ func ValidateFilterSchemas(connection *dbconn.DBConn, schemaList utils.ArrayFlag
 	}
 }
 
-func ValidateFilterTables(connection *dbconn.DBConn, tableList utils.ArrayFlags) {
+func ValidateFilterTables(connection *dbconn.DBConn, tableList []string) {
 	if len(tableList) > 0 {
 		utils.ValidateFQNs(tableList)
 		quotedTablesStr := utils.SliceToQuotedString(tableList)
@@ -73,15 +73,16 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 }
 
 func ValidateFlagCombinations(cmd *cobra.Command) {
-	utils.CheckExclusiveFlags(cmd, "debug", "quiet", "verbose")
-	utils.CheckExclusiveFlags(cmd, "data-only", "metadata-only")
-	utils.CheckExclusiveFlags(cmd, "include-schema", "include-table", "include-table-file")
-	utils.CheckExclusiveFlags(cmd, "exclude-schema", "include-schema")
-	utils.CheckExclusiveFlags(cmd, "exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
-	utils.CheckExclusiveFlags(cmd, "exclude-table", "exclude-table-file", "leaf-partition-data")
-	utils.CheckExclusiveFlags(cmd, "metadata-only", "leaf-partition-data")
-	utils.CheckExclusiveFlags(cmd, "metadata-only", "single-data-file")
-	utils.CheckExclusiveFlags(cmd, "no-compression", "compression-level")
+	flags := cmd.Flags()
+	utils.CheckExclusiveFlags(flags, "debug", "quiet", "verbose")
+	utils.CheckExclusiveFlags(flags, "data-only", "metadata-only")
+	utils.CheckExclusiveFlags(flags, "include-schema", "include-table", "include-table-file")
+	utils.CheckExclusiveFlags(flags, "exclude-schema", "include-schema")
+	utils.CheckExclusiveFlags(flags, "exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
+	utils.CheckExclusiveFlags(flags, "exclude-table", "exclude-table-file", "leaf-partition-data")
+	utils.CheckExclusiveFlags(flags, "metadata-only", "leaf-partition-data")
+	utils.CheckExclusiveFlags(flags, "metadata-only", "single-data-file")
+	utils.CheckExclusiveFlags(flags, "no-compression", "compression-level")
 	if *pluginConfigFile != "" && !(*singleDataFile || *metadataOnly) {
 		gplog.Fatal(errors.Errorf("--plugin-config must be specified with either --single-data-file or --metadata-only"), "")
 	}

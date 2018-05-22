@@ -51,6 +51,7 @@ var (
 	includeSchemas   *[]string
 	includeTableFile *string
 	includeTables    *[]string
+	metadataOnly     *bool
 	numJobs          *int
 	onErrorContinue  *bool
 	pluginConfigFile *string

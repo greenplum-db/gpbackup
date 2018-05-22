@@ -10,7 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 /*
@@ -18,27 +18,16 @@ import (
  */
 
 // At most one of the flags passed to this function may be set
-func CheckExclusiveFlags(cmd *cobra.Command, flagNames ...string) {
+func CheckExclusiveFlags(flags *pflag.FlagSet, flagNames ...string) {
 	numSet := 0
 	for _, name := range flagNames {
-		if cmd.Flags().Changed(name) {
+		if flags.Changed(name) {
 			numSet++
 		}
 	}
 	if numSet > 1 {
 		gplog.Fatal(errors.Errorf("The following flags may not be specified together: %s", strings.Join(flagNames, ", ")), "")
 	}
-}
-
-type ArrayFlags []string
-
-func (i *ArrayFlags) String() string {
-	return strings.Join(*i, ", ")
-}
-
-func (i *ArrayFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
 }
 
 /*

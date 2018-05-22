@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/spf13/pflag"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,29 +35,30 @@ var _ = Describe("utils/flag tests", func() {
 		})
 	})
 	Context("Flag parsing functions ", func() {
+		var flagSet *pflag.FlagSet
 		BeforeEach(func() {
-			flag.CommandLine = flag.NewFlagSet("", flag.ContinueOnError)
-			_ = flag.String("stringFlag", "", "This is a sample string flag.")
-			_ = flag.Bool("boolFlag", false, "This is a sample bool flag.")
-			_ = flag.Int("intFlag", 0, "This is a sample int flag.")
+			flagSet = pflag.NewFlagSet("testFlags", pflag.ContinueOnError)
+			_ = flagSet.String("stringFlag", "", "This is a sample string flag.")
+			_ = flagSet.Bool("boolFlag", false, "This is a sample bool flag.")
+			_ = flagSet.Int("intFlag", 0, "This is a sample int flag.")
 		})
 		Context("CheckExclusiveFlags", func() {
 			It("does not panic if no flags in the argument list are set", func() {
 				flag.CommandLine.Parse([]string{})
-				utils.CheckExclusiveFlags("stringFlag", "boolFlag")
+				utils.CheckExclusiveFlags(flagSet, "boolFlag")
 			})
 			It("does not panic if one flags in the argument list is set", func() {
-				flag.CommandLine.Parse([]string{"-stringFlag", "foo"})
-				utils.CheckExclusiveFlags("stringFlag", "boolFlag")
+				flagSet.Parse([]string{"--stringFlag", "foo"})
+				utils.CheckExclusiveFlags(flagSet, "boolFlag")
 			})
 			It("does not panic if one flags in the argument list is set with flags not in the set", func() {
-				flag.CommandLine.Parse([]string{"-stringFlag", "foo", "-intFlag", "42"})
-				utils.CheckExclusiveFlags("stringFlag", "boolFlag")
+				flagSet.Parse([]string{"--stringFlag", "foo", "--intFlag", "42"})
+				utils.CheckExclusiveFlags(flagSet, "boolFlag")
 			})
 			It("panics if two or more flags in the argument list are set", func() {
-				flag.CommandLine.Parse([]string{"-stringFlag", "foo", "-boolFlag"})
+				flagSet.Parse([]string{"--stringFlag", "foo", "--boolFlag"})
 				defer testhelper.ShouldPanicWithMessage("The following flags may not be specified together: stringFlag, boolFlag")
-				utils.CheckExclusiveFlags("stringFlag", "boolFlag")
+				utils.CheckExclusiveFlags(flagSet, "stringFlag", "boolFlag")
 			})
 		})
 	})
