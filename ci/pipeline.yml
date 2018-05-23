@@ -117,7 +117,7 @@ resources:
       bucket: gpdb5-pipeline-dynamic-terraform
       bucket_path: clusters-google/
 
-- name: boostfs_terraform
+- name: ddboost_terraform
   type: terraform
   source:
     env:
@@ -275,7 +275,9 @@ jobs:
       tags: ["ddboost"]
     - get: bin_gpdb_5x_stable
       tags: ["ddboost"]
-  - put: boostfs_terraform
+    - get: boostfs_installer
+      tags: ["ddboost"]
+  - put: ddboost_terraform
     tags: ["ddboost"]
     params:
       <<: *ccp_default_params
@@ -285,11 +287,11 @@ jobs:
         PLATFORM: centos6
   - task: gen_cluster
     params:
-      <<: *boostfs_ccp_gen_cluster_default_params
+      <<: *ddboost_ccp_gen_cluster_default_params
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
-      terraform: boostfs_terraform
+      terraform: ddboost_terraform
       gpdb_binary: bin_gpdb_5x_stable
       gpdb_src: gpdb_src
   - task: gpinitsystem
@@ -341,7 +343,36 @@ jobs:
     on_failure:
       do:
       - *slack_alert
-      - *boostfs_debug_sleep
+      - *ddboost_debug_sleep
+  - task: boostfs_installation
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: boostfs_installer
+       - name: gpbackup
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/ccp
+          tag: '7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+          export DD_IP={{datadomain_source_host}}
+          export DD_USER={{datadomain_user}}
+          export DD_PASSWORD={{datadomain_password}}
+          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
+          gpbackup/ci/scripts/setup_boostfs.sh
+    on_failure:
+      do:
+      - *ddboost_debug_sleep
   - task: run_tests
     tags: ["ddboost"]
     config:
@@ -397,9 +428,9 @@ jobs:
     on_failure:
       do:
       - *slack_alert
-      - *boostfs_debug_sleep
+      - *ddboost_debug_sleep
   ensure:
-      <<: *boostfs_ccp_destroy
+      <<: *ddboost_ccp_destroy
 
 - name: integrations-GPDB5-sles
   plan:
@@ -549,7 +580,6 @@ jobs:
       terraform_source: ccp_src/google-nvme-block-device/
       vars:
         instance_type: n1-highmem-2
-        number_of_nodes: 1
         ccp_reap_minutes: 720
   - task: gen_cluster
     params:
@@ -571,89 +601,39 @@ jobs:
   ensure:
     <<: *set_failed
 
-# This job has a different configuration because it is set up for use with boostfs
 - name: scale-5x-stable
   plan:
   - aggregate:
     - get: gpbackup
-      tags: ["ddboost"]
     - get: bin_gpdb_5x_stable
-      tags: ["ddboost"]
     - get: ccp_src
-      tags: ["ddboost"]
     - get: gpdb_src
-      tags: ["ddboost"]
     - get: scale_schema
-      tags: ["ddboost"]
-    - get: boostfs_installer
-      tags: ["ddboost"]
-  - put: boostfs_terraform
-    tags: ["ddboost"]
+  - put: terraform
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/aws-pivotal-pa-toolsmiths/
+      terraform_source: ccp_src/google-nvme-block-device/
       vars:
-        aws_instance-node-instance_type: m4.large
-        aws_ebs_volume_type: gp2
-        aws_ebs_volume_size: 256
-        number_of_nodes: 3
-        ccp_reap_minutes: 720
+        instance_type: n1-highmem-2
   - task: gen_cluster
     params:
-      <<: *boostfs_ccp_gen_cluster_default_params
-    tags: ["ddboost"]
+      <<: *ccp_gen_cluster_default_params
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
-      terraform: boostfs_terraform
       gpdb_binary: bin_gpdb_5x_stable
       gpdb_src: gpdb_src
   - task: gpinitsystem
-    tags: ["ddboost"]
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
-    tags: ["ddboost"]
     file: gpbackup/ci/tasks/setup-centos-env.yml
-    on_failure:
-      do:
-      - *boostfs_debug_sleep
-  - task: boostfs_installation
-    tags: ["ddboost"]
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: boostfs_installer
-       - name: gpbackup
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/ccp
-          tag: '7'
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-          export DD_IP={{datadomain_source_host}}
-          export DD_USER={{datadomain_user}}
-          export DD_PASSWORD={{datadomain_password}}
-          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
-          gpbackup/ci/scripts/setup_boostfs.sh
-    on_failure:
-      do:
-      - *boostfs_debug_sleep
   - task: scale-tests
-    tags: ["ddboost"]
     file: gpbackup/ci/tasks/scale-tests.yml
+    on_success:
+      <<: *ccp_destroy_nvme
     on_failure:
-      do:
-      - *slack_alert
-      - *boostfs_debug_sleep
+      *slack_alert
   ensure:
-    <<: *boostfs_ccp_destroy
+    <<: *set_failed
 
 - name: scale-43-stable
   plan:
@@ -669,7 +649,6 @@ jobs:
       terraform_source: ccp_src/google-nvme-block-device/
       vars:
         instance_type: n1-highmem-2
-        number_of_nodes: 1
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
@@ -864,7 +843,7 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   BUCKET_NAME: {{tf-bucket-name}}
   CLOUD_PROVIDER: google
 
-boostfs_ccp_gen_cluster_default_params_anchor: &boostfs_ccp_gen_cluster_default_params
+ddboost_ccp_gen_cluster_default_params_anchor: &ddboost_ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: {{gpdb4-tf-machine-access-key-id}}
   AWS_SECRET_ACCESS_KEY: {{gpdb4-tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{aws-region}}
@@ -898,11 +877,11 @@ ccp_nvme_destroy_anchor: &ccp_destroy_nvme
   get_params:
     action: destroy
 
-boostfs_ccp_destroy_anchor: &boostfs_ccp_destroy
-  put: boostfs_terraform
+ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
+  put: ddboost_terraform
   params:
     action: destroy
-    env_name_file: boostfs_terraform/name
+    env_name_file: ddboost_terraform/name
     terraform_source: ccp_src/aws-pivotal-pa-toolsmiths/
     vars:
       aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
@@ -935,7 +914,7 @@ set_failed_anchor: &set_failed
         BUCKET_PATH: clusters-google/
         BUCKET_NAME: {{tf-bucket-name}}
 
-boostfs_debug_sleep_anchor: &boostfs_debug_sleep
+ddboost_debug_sleep_anchor: &ddboost_debug_sleep
   task: debug_sleep
   config:
     platform: linux
@@ -948,7 +927,7 @@ boostfs_debug_sleep_anchor: &boostfs_debug_sleep
       path: 'sh'
       args: ['-c', 'sleep 2h']
   ensure:
-    <<: *boostfs_ccp_destroy
+    <<: *ddboost_ccp_destroy
 
 slack_alert_anchor: &slack_alert
   put: slack-alert
