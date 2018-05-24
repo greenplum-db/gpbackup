@@ -439,10 +439,13 @@ LANGUAGE SQL`)
 
 			pythonHandlerOid := testutils.OidFromObjectName(connection, "pg_catalog", "plpython_call_handler", backup.TYPE_FUNCTION)
 
-			expectedPlpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: pythonHandlerOid, Inline: 0}
+			expectedPlpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: pythonHandlerOid, Inline: 0, Validator: 0}
 			if connection.Version.AtLeast("5") {
 				pythonInlineOid := testutils.OidFromObjectName(connection, "pg_catalog", "plpython_inline_handler", backup.TYPE_FUNCTION)
 				expectedPlpythonInfo.Inline = pythonInlineOid
+			}
+			if connection.Version.AtLeast("6") {
+				expectedPlpythonInfo.Validator = testutils.OidFromObjectName(connection, "pg_catalog", "plpython_validator", backup.TYPE_FUNCTION)
 			}
 
 			resultProcLangs := backup.GetProceduralLanguages(connection)
