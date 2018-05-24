@@ -9,7 +9,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 /*
@@ -161,8 +161,7 @@ func validateBackupFlagPluginCombinations() {
 	}
 }
 
-func ValidateFlagCombinations(cmd *cobra.Command) {
-	flags := cmd.Flags()
+func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	utils.CheckExclusiveFlags(flags, "data-only", "with-globals")
 	utils.CheckExclusiveFlags(flags, "data-only", "create-db")
 	utils.CheckExclusiveFlags(flags, "debug", "quiet", "verbose")

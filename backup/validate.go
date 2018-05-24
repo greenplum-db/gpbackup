@@ -7,7 +7,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 /*
@@ -72,8 +72,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	}
 }
 
-func ValidateFlagCombinations(cmd *cobra.Command) {
-	flags := cmd.Flags()
+func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	utils.CheckExclusiveFlags(flags, "debug", "quiet", "verbose")
 	utils.CheckExclusiveFlags(flags, "data-only", "metadata-only")
 	utils.CheckExclusiveFlags(flags, "include-schema", "include-table", "include-table-file")

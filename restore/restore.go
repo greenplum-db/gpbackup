@@ -63,7 +63,7 @@ func DoValidation(cmd *cobra.Command) {
 		fmt.Printf("gprestore %s\n", version)
 		os.Exit(0)
 	}
-	ValidateFlagCombinations(cmd)
+	ValidateFlagCombinations(cmd.Flags())
 	utils.ValidateFullPath(*backupDir)
 	utils.ValidateFullPath(*pluginConfigFile)
 	if !utils.IsValidTimestamp(*timestamp) {

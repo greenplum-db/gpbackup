@@ -45,7 +45,7 @@ func IsValidTimestamp(timestamp string) bool {
 }
 
 /*
- * Convert arguements that contain a single dash to double dashes for backward
+ * Convert arguments that contain a single dash to double dashes for backward
  * compatibility.
  */
 func HandleSingleDashes(args []string) []string {

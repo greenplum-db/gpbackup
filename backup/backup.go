@@ -56,7 +56,7 @@ func DoFlagValidation(cmd *cobra.Command) {
 		fmt.Printf("gpbackup %s\n", version)
 		os.Exit(0)
 	}
-	ValidateFlagCombinations(cmd)
+	ValidateFlagCombinations(cmd.Flags())
 	ValidateFlagValues()
 }
 
