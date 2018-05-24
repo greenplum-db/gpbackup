@@ -12,9 +12,10 @@ import (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "gpbackup",
-		Short: "gpbackup is the parallel backup utility for Greenplum",
-		Args:  cobra.NoArgs,
+		Use:     "gpbackup",
+		Short:   "gpbackup is the parallel backup utility for Greenplum",
+		Args:    cobra.NoArgs,
+		Version: GetVersion(),
 		Run: func(cmd *cobra.Command, args []string) {
 			defer DoTeardown()
 			DoFlagValidation(cmd)

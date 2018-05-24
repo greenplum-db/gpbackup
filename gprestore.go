@@ -12,9 +12,10 @@ import (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "gprestore",
-		Short: "gprestore is the parallel restore utility for Greenplum",
-		Args:  cobra.NoArgs,
+		Use:     "gprestore",
+		Short:   "gprestore is the parallel restore utility for Greenplum",
+		Args:    cobra.NoArgs,
+		Version: GetVersion(),
 		Run: func(cmd *cobra.Command, args []string) {
 			defer DoTeardown()
 			DoValidation(cmd)

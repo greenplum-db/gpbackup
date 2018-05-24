@@ -54,7 +54,6 @@ var (
 	metadataOnly      *bool
 	noCompression     *bool
 	pluginConfigFile  *string
-	printVersion      *bool
 	quiet             *bool
 	singleDataFile    *bool
 	verbose           *bool

@@ -33,13 +33,13 @@ func initializeFlags(cmd *cobra.Command) {
 	metadataOnly = cmd.Flags().Bool("metadata-only", false, "Only back up metadata, do not back up data")
 	noCompression = cmd.Flags().Bool("no-compression", false, "Disable compression of data files")
 	pluginConfigFile = cmd.Flags().String("plugin-config", "", "The configuration file to use for a plugin")
-	printVersion = cmd.Flags().Bool("version", false, "Print version number and exit")
+	cmd.Flags().Bool("version", false, "Print version number and exit")
 	quiet = cmd.Flags().Bool("quiet", false, "Suppress non-warning, non-error log messages")
 	singleDataFile = cmd.Flags().Bool("single-data-file", false, "Back up all data to a single file instead of one per table")
 	verbose = cmd.Flags().Bool("verbose", false, "Print verbose log messages")
 	withStats = cmd.Flags().Bool("with-stats", false, "Back up query plan statistics")
 
-	cmd.MarkFlagRequired("dbname")
+	_ = cmd.MarkFlagRequired("dbname")
 }
 
 // This function handles setup that can be done before parsing flags.
@@ -52,10 +52,6 @@ func DoInit(cmd *cobra.Command) {
 }
 
 func DoFlagValidation(cmd *cobra.Command) {
-	if *printVersion {
-		fmt.Printf("gpbackup %s\n", version)
-		os.Exit(0)
-	}
 	ValidateFlagCombinations(cmd.Flags())
 	ValidateFlagValues()
 }
@@ -391,4 +387,8 @@ func DoCleanup() {
 	if connection != nil {
 		connection.Close()
 	}
+}
+
+func GetVersion() string {
+	return version
 }

@@ -35,14 +35,15 @@ func initializeFlags(cmd *cobra.Command) {
 	numJobs = cmd.Flags().Int("jobs", 1, "Number of parallel connections to use when restoring table data and post-data")
 	onErrorContinue = cmd.Flags().Bool("on-error-continue", false, "Log errors and continue restore, instead of exiting on first error")
 	pluginConfigFile = cmd.Flags().String("plugin-config", "", "The configuration file to use for a plugin")
-	printVersion = cmd.Flags().Bool("version", false, "Print version number and exit")
+	cmd.Flags().Bool("version", false, "Print version number and exit")
 	quiet = cmd.Flags().Bool("quiet", false, "Suppress non-warning, non-error log messages")
 	redirect = cmd.Flags().String("redirect-db", "", "Restore to the specified database instead of the database that was backed up")
 	restoreGlobals = cmd.Flags().Bool("with-globals", false, "Restore global metadata")
 	timestamp = cmd.Flags().String("timestamp", "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
 	verbose = cmd.Flags().Bool("verbose", false, "Print verbose log messages")
 	withStats = cmd.Flags().Bool("with-stats", false, "Restore query plan statistics")
-	cmd.MarkFlagRequired("timestamp")
+
+	_ = cmd.MarkFlagRequired("timestamp")
 }
 
 // This function handles setup that can be done before parsing flags.
@@ -59,10 +60,6 @@ func DoInit(cmd *cobra.Command) {
 * It should only validate; initialization with any sort of side effects should go in DoInit or DoSetup.
  */
 func DoValidation(cmd *cobra.Command) {
-	if *printVersion {
-		fmt.Printf("gprestore %s\n", version)
-		os.Exit(0)
-	}
 	ValidateFlagCombinations(cmd.Flags())
 	utils.ValidateFullPath(*backupDir)
 	utils.ValidateFullPath(*pluginConfigFile)
@@ -344,4 +341,8 @@ func DoCleanup() {
 	if connection != nil {
 		connection.Close()
 	}
+}
+
+func GetVersion() string {
+	return version
 }

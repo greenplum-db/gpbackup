@@ -55,7 +55,6 @@ var (
 	numJobs          *int
 	onErrorContinue  *bool
 	pluginConfigFile *string
-	printVersion     *bool
 	quiet            *bool
 	redirect         *string
 	restoreGlobals   *bool

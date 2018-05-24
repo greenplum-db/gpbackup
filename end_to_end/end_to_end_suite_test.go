@@ -500,7 +500,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 			os.RemoveAll(backupdir)
 		})
-
 		It("runs example_plugin.sh with plugin_test_bench", func() {
 			pluginsDir := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("HOME"))
 			copyPluginToAllHosts(backupConn, fmt.Sprintf("%s/example_plugin.sh", pluginsDir))
@@ -511,6 +510,22 @@ var _ = Describe("backup end to end integration tests", func() {
 			}
 
 			os.RemoveAll("/tmp/plugin_dest")
+		})
+		It("runs gpbackup with --version flag", func() {
+			output, err := exec.Command(gpbackupPath, "--version").CombinedOutput()
+			if err != nil {
+				fmt.Printf("%s", output)
+				Fail(fmt.Sprintf("%v", err))
+			}
+			Expect(string(output)).To(MatchRegexp(`gpbackup version \w+`))
+		})
+		It("runs gprestore with --version flag", func() {
+			output, err := exec.Command(gprestorePath, "--version").CombinedOutput()
+			if err != nil {
+				fmt.Printf("%s", output)
+				Fail(fmt.Sprintf("%v", err))
+			}
+			Expect(string(output)).To(MatchRegexp(`gprestore version \w+`))
 		})
 
 	})
