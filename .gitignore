@@ -23,3 +23,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+gpbackup
+gprestore
+gpbackup_helper
