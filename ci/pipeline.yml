@@ -687,40 +687,6 @@ jobs:
        - s3_plugin_tests
        - ddboost_plugin_tests
     - get: gpdb_release
-  - task: compile_gpbackup_ddboost_plugin
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '6-gcc6.2-llvm3.7'
-      inputs:
-      - name: gpbackup_ddboost_plugin_tagged_src
-      outputs:
-      - name: compiled_ddboost_plugin
-      run:
-        path: "sh"
-        args:
-        - -exc
-        - |
-          set -x
-          # Install dependencies for ddboost plugin
-          pushd gpbackup_ddboost_plugin_tagged_src
-          curl -u{{ivyrepo_user}}:{{ivyrepo_passwd}} -O "https://{{ivyrepo_host}}/gpdb-ext-release-local/third-party/ext/gpdb5_ext-3.3/targzs/rhel6_x86_64-gpdb5_ext-3.3.targz"
-          curl -u{{ivyrepo_user}}:{{ivyrepo_passwd}} -O "https://{{ivyrepo_host}}/gpdb-ext-release-local/emc/DDBoostSDK/3.3.0.4-550644/targzs/DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz"
-          tar -xf rhel6_x86_64-gpdb5_ext-3.3.targz
-          tar -xf DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz
-          sudo cp rhel6_x86_64/include/yaml.h /usr/local/include/yaml.h
-          sudo cp rhel5_x86_64/include/* /usr/local/include/.
-          cp rhel6_x86_64/lib/libyaml.so .
-          cp rhel5_x86_64/lib/libDDBoost.so .
-
-          make build
-          cp gpbackup_ddboost_plugin ../compiled_ddboost_plugin
-          popd
-    on_failure:
-      *slack_alert
   - task: compile_package_gpbackup
     config:
       platform: linux
@@ -734,7 +700,7 @@ jobs:
         path: go/src/github.com/greenplum-db/gpbackup
       - name: gpbackup_s3_plugin_tagged_src
         path: go/src/github.com/greenplum-db/gpbackup-s3-plugin
-      - name: compiled_ddboost_plugin
+      - name: gpbackup_ddboost_plugin_tagged_src
       outputs:
       - name: component_gpbackup
       - name: gpbackup_version
@@ -747,31 +713,36 @@ jobs:
           export GOPATH=$(pwd)/go
           export PATH=$PATH:$GOPATH/bin
 
+          # Build gpbackup
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup
           make depend
 
           make build_linux
           version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
           popd
+          echo ${version} > gpbackup_version/version
 
+          # Build s3 plugin
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup-s3-plugin
           make depend
           make build_linux
           popd
 
-          echo ${version} > gpbackup_version/version
+          # Install dependencies and build ddboost plugin
+          pushd gpbackup_ddboost_plugin_tagged_src
+          curl -u{{ivyrepo_user}}:{{ivyrepo_passwd}} -O "https://{{ivyrepo_host}}/gpdb-ext-release-local/third-party/ext/gpdb5_ext-3.3/targzs/rhel6_x86_64-gpdb5_ext-3.3.targz"
+          curl -u{{ivyrepo_user}}:{{ivyrepo_passwd}} -O "https://{{ivyrepo_host}}/gpdb-ext-release-local/emc/DDBoostSDK/3.3.0.4-550644/targzs/DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz"
+          tar -xf rhel6_x86_64-gpdb5_ext-3.3.targz
+          tar -xf DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz
+          sudo cp rhel6_x86_64/include/yaml.h /usr/local/include/yaml.h
+          sudo cp rhel5_x86_64/include/* /usr/local/include/.
+          sudo cp rhel6_x86_64/lib/libyaml*so* /usr/lib64/.
+          sudo cp rhel5_x86_64/lib/libDDBoost.so /usr/lib64/.
+
+          make build
+          popd
 
           pushd component_gpbackup
-          # Assemble binaries
-          mkdir -p bin
-          cp $GOPATH/bin/gpbackup bin/
-          cp $GOPATH/bin/gpbackup_helper bin/
-          cp $GOPATH/bin/gprestore bin/
-          cp $GOPATH/bin/gpbackup_s3_plugin bin/
-          cp ../compiled_ddboost_plugin/gpbackup_ddboost_plugin bin/
-          tar -czvf bin_gpbackup.tar.gz bin/
-          rm -rf bin
-
           # Create install script
           printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
           chmod +x install_gpdb_component
@@ -779,6 +750,20 @@ jobs:
           # Create test script
           cp ../gpbackup_version/version .
           cp $GOPATH/src/github.com/greenplum-db/gpbackup/ci/scripts/smoke_test_component_gpbackup.sh smoke_test_gpdb_component
+          # Assemble binaries
+          mkdir -p bin
+          cp $GOPATH/bin/gpbackup bin/
+          cp $GOPATH/bin/gpbackup_helper bin/
+          cp $GOPATH/bin/gprestore bin/
+          cp $GOPATH/bin/gpbackup_s3_plugin bin/
+          cp ../gpbackup_ddboost_plugin_tagged_src/gpbackup_ddboost_plugin bin/
+
+          # Test package
+          export PATH=$PATH:`pwd`/bin
+          ./smoke_test_gpdb_component
+
+          tar -czvf bin_gpbackup.tar.gz bin/
+          rm -rf bin
 
           tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component smoke_test_gpdb_component version
           popd
