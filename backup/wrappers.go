@@ -62,8 +62,13 @@ func InitializeBackupReport() {
 		DatabaseVersion: connection.Version.VersionString,
 		BackupVersion:   version,
 	}
+	isIncludeSchemaFiltered := len(*includeSchemas) > 0
+	isIncludeTableFiltered := len(*includeTables) > 0
+	isExcludeSchemaFiltered := len(*excludeSchemas) > 0
+	isExcludeTableFiltered := len(*excludeTables) > 0
 	dbSize := ""
-	if !*metadataOnly {
+	if !*metadataOnly && !isIncludeSchemaFiltered && !isIncludeTableFiltered && !isExcludeSchemaFiltered && !isExcludeTableFiltered {
+		gplog.Verbose("Getting database size")
 		dbSize = GetDBSize(connection)
 	}
 
@@ -72,11 +77,8 @@ func InitializeBackupReport() {
 		BackupConfig: config,
 	}
 	utils.InitializeCompressionParameters(!*noCompression, *compressionLevel)
-	isIncludeSchemaFiltered := len(*includeSchemas) > 0
-	isIncludeTableFiltered := len(*includeTables) > 0
-	isExcludeSchemaFiltered := len(*excludeSchemas) > 0
-	isExcludeTableFiltered := len(*excludeTables) > 0
 	backupReport.SetBackupParamsFromFlags(*dataOnly, *metadataOnly, "", isIncludeSchemaFiltered, isIncludeTableFiltered, isExcludeSchemaFiltered, isExcludeTableFiltered, *singleDataFile, *withStats)
+	backupReport.ConstructBackupParamsString()
 }
 
 func InitializeFilterLists() {
