@@ -717,7 +717,7 @@ jobs:
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup
           make depend
 
-          make build_linux
+          make build
           version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
           popd
           echo ${version} > gpbackup_version/version
@@ -725,7 +725,7 @@ jobs:
           # Build s3 plugin
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup-s3-plugin
           make depend
-          make build_linux
+          make build
           popd
 
           # Install dependencies and build ddboost plugin
