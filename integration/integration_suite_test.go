@@ -54,6 +54,11 @@ var _ = BeforeSuite(func() {
 	testhelper.AssertQueryRuns(connection, "ALTER SCHEMA public OWNER TO anothertestrole")
 	testhelper.AssertQueryRuns(connection, "DROP PROTOCOL IF EXISTS gphdfs")
 	testhelper.AssertQueryRuns(connection, `SET standard_conforming_strings TO "on"`)
+	if connection.Version.AtLeast("6") {
+		// Drop plpgsql extension to not interfere in extension tests
+		testhelper.AssertQueryRuns(connection, "DROP EXTENSION plpgsql CASCADE")
+		testhelper.AssertQueryRuns(connection, "CREATE LANGUAGE plpgsql")
+	}
 	segConfig := cluster.MustGetSegmentConfiguration(connection)
 	testCluster = cluster.NewCluster(segConfig)
 	if connection.Version.Before("6") {
