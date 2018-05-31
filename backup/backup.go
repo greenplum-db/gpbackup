@@ -166,6 +166,9 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 		BackupExtensions(metadataFile)
 	}
 
+	if connection.Version.AtLeast("6") {
+		BackupCollations(metadataFile)
+	}
 	procLangs := GetProceduralLanguages(connection)
 	langFuncs, otherFuncs, functionMetadata := RetrieveFunctions(procLangs)
 	types, typeMetadata, funcInfoMap := RetrieveTypes()

@@ -253,6 +253,39 @@ PARTITION BY RANGE (date)
 			})
 		})
 	})
+	Describe("GetCollations", func() {
+		It("returns a slice of collations", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION some_coll FROM "de_DE";`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION some_coll")
+
+			results := backup.GetCollations(connection)
+
+			Expect(len(results)).To(Equal(1))
+
+			collationDef := backup.Collation{Oid: 0, Schema: "public", Name: "some_coll", Collate: "de_DE", Ctype: "de_DE"}
+			structmatcher.ExpectStructsToMatchExcluding(&collationDef, &results[0], "Oid")
+
+		})
+		It("returns a slice of collations in a specific schema", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION some_coll FROM "de_DE";`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION some_coll")
+			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
+			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION testschema.some_coll FROM "de_DE";`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION testschema.some_coll")
+			backup.SetIncludeSchemas([]string{"testschema"})
+
+			results := backup.GetCollations(connection)
+
+			Expect(len(results)).To(Equal(1))
+
+			collationDef := backup.Collation{Oid: 0, Schema: "testschema", Name: "some_coll", Collate: "de_DE", Ctype: "de_DE"}
+			structmatcher.ExpectStructsToMatchExcluding(&collationDef, &results[0], "Oid")
+
+		})
+	})
 	Describe("GetMetadataForObjectType", func() {
 		Context("default metadata for all objects of one type", func() {
 			It("returns a slice of metadata with modified privileges", func() {
@@ -563,6 +596,21 @@ LANGUAGE SQL`)
 				resultMetadata := resultMetadataMap[oid]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
+			It("returns a slice of default metadata for a collation", func() {
+				testutils.SkipIfBefore6(connection)
+				testhelper.AssertQueryRuns(connection, `CREATE COLLATION some_coll FROM "de_DE";`)
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION some_coll")
+				testhelper.AssertQueryRuns(connection, "COMMENT ON COLLATION some_coll IS 'This is a collation comment.'")
+
+				resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_COLLATION)
+
+				Expect(len(resultMetadataMap)).To(Equal(1))
+				oid := testutils.OidFromObjectName(connection, "public", "some_coll", backup.TYPE_COLLATION)
+				collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
+				collationMetadata := collationMetadataMap[1]
+				resultMetadata := resultMetadataMap[oid]
+				structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
+			})
 		})
 		Context("metadata for objects in a specific schema", func() {
 			It("returns a slice of default metadata for a table in a specific schema", func() {
@@ -821,6 +869,26 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "testschema", "testconfiguration", backup.TYPE_TSCONFIGURATION)
 				resultMetadata := resultMetadataMap[oid]
 				structmatcher.ExpectStructsToMatch(&configurationMetadata, &resultMetadata)
+			})
+			It("returns a slice of default metadata for a collation in a specific schema", func() {
+				testutils.SkipIfBefore6(connection)
+				testhelper.AssertQueryRuns(connection, `CREATE COLLATION some_coll FROM "de_DE";`)
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION some_coll")
+				testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
+				defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
+				testhelper.AssertQueryRuns(connection, `CREATE COLLATION testschema.some_coll FROM "de_DE";`)
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION testschema.some_coll")
+				testhelper.AssertQueryRuns(connection, "COMMENT ON COLLATION testschema.some_coll IS 'This is a collation comment.'")
+
+				backup.SetIncludeSchemas([]string{"testschema"})
+				resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_COLLATION)
+
+				Expect(len(resultMetadataMap)).To(Equal(1))
+				oid := testutils.OidFromObjectName(connection, "testschema", "some_coll", backup.TYPE_COLLATION)
+				collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
+				collationMetadata := collationMetadataMap[1]
+				resultMetadata := resultMetadataMap[oid]
+				structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
 			})
 		})
 	})

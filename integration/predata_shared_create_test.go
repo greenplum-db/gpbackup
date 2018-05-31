@@ -173,4 +173,41 @@ PARTITION BY RANGE (year)
 
 		})
 	})
+	Describe("PrintCreateCollationStatement", func() {
+		It("creates a basic collation", func() {
+			testutils.SkipIfBefore6(connection)
+			collations := []backup.Collation{{Oid: 0, Schema: "public", Name: "testcollation", Collate: "de_DE", Ctype: "de_DE"}}
+
+			backup.PrintCreateCollationStatements(backupfile, toc, collations, backup.MetadataMap{})
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION testcollation")
+
+			resultCollations := backup.GetCollations(connection)
+
+			Expect(len(resultCollations)).To(Equal(1))
+			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")
+		})
+		It("creates a basic collation with comment and owner", func() {
+			testutils.SkipIfBefore6(connection)
+			collations := []backup.Collation{{Oid: 1, Schema: "public", Name: "testcollation", Collate: "de_DE", Ctype: "de_DE"}}
+			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
+			collationMetadata := collationMetadataMap[1]
+
+			backup.PrintCreateCollationStatements(backupfile, toc, collations, collationMetadataMap)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION testcollation")
+
+			resultCollations := backup.GetCollations(connection)
+			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_COLLATION)
+
+			Expect(len(resultCollations)).To(Equal(1))
+			oid := testutils.OidFromObjectName(connection, "public", "testcollation", backup.TYPE_COLLATION)
+			resultMetadata := resultMetadataMap[oid]
+			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")
+			structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
+
+		})
+	})
 })

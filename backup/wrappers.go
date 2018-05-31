@@ -430,8 +430,16 @@ func BackupCasts(metadataFile *utils.FileWithByteCount) {
 	PrintCreateCastStatements(metadataFile, globalTOC, casts, castMetadata)
 }
 
+func BackupCollations(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing CREATE COLLATION statements to metadata file")
+	collations := GetCollations(connection)
+	objectCounts["Collations"] = len(collations)
+	collationMetadata := GetMetadataForObjectType(connection, TYPE_COLLATION)
+	PrintCreateCollationStatements(metadataFile, globalTOC, collations, collationMetadata)
+}
+
 func BackupExtensions(metadataFile *utils.FileWithByteCount) {
-	gplog.Verbose("Writing CREATE EXTENSIONS statements to metadata file")
+	gplog.Verbose("Writing CREATE EXTENSION statements to metadata file")
 	extensions := GetExtensions(connection)
 	objectCounts["Extensions"] = len(extensions)
 	extensionMetadata := GetCommentsForObjectType(connection, TYPE_EXTENSION)
