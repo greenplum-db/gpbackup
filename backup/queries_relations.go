@@ -414,6 +414,14 @@ func GetTablespaceNames(connection *dbconn.DBConn) map[uint32]string {
 	return SelectAsOidToStringMap(connection, query)
 }
 
+func GetUnloggedTables(connection *dbconn.DBConn) map[uint32]string {
+	if connection.Version.Before("6") {
+		return map[uint32]string{}
+	}
+	query := `SELECT oid, relpersistence AS value FROM pg_class WHERE relpersistence = 'u'`
+	return SelectAsOidToStringMap(connection, query)
+}
+
 type Dependency struct {
 	Oid              uint32
 	ReferencedObject string

@@ -522,18 +522,39 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connection, "DROP TYPE some_type")
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE some_table OF some_type (PRIMARY KEY (a), b WITH OPTIONS DEFAULT 1000)")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE some_table")
-			typeOid := testutils.OidFromObjectName(connection, "public", "some_table", backup.TYPE_RELATION)
+			oid := testutils.OidFromObjectName(connection, "public", "some_table", backup.TYPE_RELATION)
 
 			result := backup.GetTableType(connection)
 			Expect(len(result)).To(Equal(1))
 
-			Expect(result[typeOid]).To(Equal("some_type"))
+			Expect(result[oid]).To(Equal("some_type"))
 		})
 		It("Returns empty map when no tables OF type exist", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE some_table (i int, j int)")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE some_table")
 
 			result := backup.GetTableType(connection)
+			Expect(len(result)).To(Equal(0))
+		})
+	})
+
+	Describe("GetUnloggedTables", func() {
+		It("Returns a map when an UNLOGGED table exists", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE UNLOGGED TABLE some_table(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE some_table")
+			oid := testutils.OidFromObjectName(connection, "public", "some_table", backup.TYPE_RELATION)
+
+			result := backup.GetUnloggedTables(connection)
+			Expect(len(result)).To(Equal(1))
+
+			Expect(result[oid]).To(Equal("u"))
+		})
+		It("Returns empty map when no UNLOGGED tables exist", func() {
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE some_table (i int, j int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE some_table")
+
+			result := backup.GetUnloggedTables(connection)
 			Expect(len(result)).To(Equal(0))
 		})
 	})

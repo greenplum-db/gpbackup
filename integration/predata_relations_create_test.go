@@ -240,6 +240,19 @@ SET SUBPARTITION TEMPLATE  ` + `
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent_one"))
 			Expect(tables[0].Inherits[1]).To(Equal("public.parent_two"))
 		})
+		It("creates an unlogged table", func() {
+			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
+			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: false, HasDefault: false, Type: "character varying(20)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
+			tableDef.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
+			tableDef.IsUnlogged = true
+
+			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
+			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+		})
 	})
 	Describe("PrintPostCreateTableStatements", func() {
 		var (

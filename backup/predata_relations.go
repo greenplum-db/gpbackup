@@ -134,6 +134,7 @@ type TableDefinition struct {
 	ExtTableDef     ExternalTableDefinition
 	PartitionType   string
 	TableType       string
+	IsUnlogged      bool
 }
 
 /*
@@ -159,6 +160,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 	extTableDefs := GetExternalTableDefinitions(connection)
 	partTableMap := GetPartitionTableMap(connection)
 	tableTypeMap := GetTableType(connection)
+	unloggedTableMap := GetUnloggedTables(connection)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, table := range tables {
@@ -174,6 +176,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 			extTableDefs[oid],
 			partTableMap[oid],
 			tableTypeMap[oid],
+			unloggedTableMap[oid] == "u",
 		}
 		tableDefinitionMap[oid] = tableDef
 	}
@@ -249,7 +252,12 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 		typeStr = fmt.Sprintf("OF %s ", tableDef.TableType)
 	}
 
-	metadataFile.MustPrintf("\n\nCREATE TABLE %s %s(\n", table.ToString(), typeStr)
+	unloggedStr := ""
+	if tableDef.IsUnlogged {
+		unloggedStr = "UNLOGGED "
+	}
+
+	metadataFile.MustPrintf("\n\nCREATE %sTABLE %s %s(\n", unloggedStr, table.ToString(), typeStr)
 
 	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, tableDef.TableType)
 	metadataFile.MustPrintf(") ")
