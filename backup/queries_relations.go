@@ -326,6 +326,19 @@ func SelectAsOidToStringMap(connection *dbconn.DBConn, query string) map[uint32]
 	return resultMap
 }
 
+func SelectAsOidToBoolMap(connection *dbconn.DBConn, query string) map[uint32]bool {
+	var results []struct {
+		Oid uint32
+	}
+	err := connection.Select(&results, query)
+	gplog.FatalOnError(err)
+	resultMap := make(map[uint32]bool, 0)
+	for _, result := range results {
+		resultMap[result.Oid] = true
+	}
+	return resultMap
+}
+
 func GetDistributionPolicies(connection *dbconn.DBConn) map[uint32]string {
 	// This query is adapted from the addDistributedBy() function in pg_dump.c.
 	var query string
@@ -414,12 +427,12 @@ func GetTablespaceNames(connection *dbconn.DBConn) map[uint32]string {
 	return SelectAsOidToStringMap(connection, query)
 }
 
-func GetUnloggedTables(connection *dbconn.DBConn) map[uint32]string {
+func GetUnloggedTables(connection *dbconn.DBConn) map[uint32]bool {
 	if connection.Version.Before("6") {
-		return map[uint32]string{}
+		return map[uint32]bool{}
 	}
-	query := `SELECT oid, relpersistence AS value FROM pg_class WHERE relpersistence = 'u'`
-	return SelectAsOidToStringMap(connection, query)
+	query := `SELECT oid FROM pg_class WHERE relpersistence = 'u'`
+	return SelectAsOidToBoolMap(connection, query)
 }
 
 type Dependency struct {

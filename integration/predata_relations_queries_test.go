@@ -548,7 +548,7 @@ PARTITION BY LIST (gender)
 			result := backup.GetUnloggedTables(connection)
 			Expect(len(result)).To(Equal(1))
 
-			Expect(result[oid]).To(Equal("u"))
+			Expect(result[oid]).To(BeTrue())
 		})
 		It("Returns empty map when no UNLOGGED tables exist", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE some_table (i int, j int)")

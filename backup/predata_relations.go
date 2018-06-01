@@ -176,7 +176,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 			extTableDefs[oid],
 			partTableMap[oid],
 			tableTypeMap[oid],
-			unloggedTableMap[oid] == "u",
+			unloggedTableMap[oid],
 		}
 		tableDefinitionMap[oid] = tableDef
 	}
