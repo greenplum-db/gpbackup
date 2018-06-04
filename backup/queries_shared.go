@@ -124,33 +124,6 @@ ORDER BY name;
 	return results
 }
 
-type Collation struct {
-	Oid     uint32
-	Schema  string
-	Name    string
-	Collate string
-	Ctype   string
-}
-
-func GetCollations(connection *dbconn.DBConn) []Collation {
-	results := make([]Collation, 0)
-
-	query := fmt.Sprintf(`
-SELECT
-	c.oid,
-	quote_ident(n.nspname) as schema,
-	quote_ident(c.collname) as name,
-	c.collcollate as collate,
-	c.collctype as ctype
-FROM pg_collation c
-JOIN pg_namespace n ON c.collnamespace = n.oid
-WHERE %s`, SchemaFilterClause("n"))
-
-	err := connection.Select(&results, query)
-	gplog.FatalOnError(err)
-	return results
-}
-
 /*
  * Structs and functions relating to generic metadata handling.
  */

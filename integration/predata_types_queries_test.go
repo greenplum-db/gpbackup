@@ -306,4 +306,37 @@ var _ = Describe("backup integration tests", func() {
 			Expect(domains[0].DependsUpon).To(BeNil())
 		})
 	})
+	Describe("GetCollations", func() {
+		It("returns a slice of collations", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION some_coll FROM "de_DE";`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION some_coll")
+
+			results := backup.GetCollations(connection)
+
+			Expect(len(results)).To(Equal(1))
+
+			collationDef := backup.Collation{Oid: 0, Schema: "public", Name: "some_coll", Collate: "de_DE", Ctype: "de_DE"}
+			structmatcher.ExpectStructsToMatchExcluding(&collationDef, &results[0], "Oid")
+
+		})
+		It("returns a slice of collations in a specific schema", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION some_coll FROM "de_DE";`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION some_coll")
+			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
+			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION testschema.some_coll FROM "de_DE";`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION testschema.some_coll")
+			backup.SetIncludeSchemas([]string{"testschema"})
+
+			results := backup.GetCollations(connection)
+
+			Expect(len(results)).To(Equal(1))
+
+			collationDef := backup.Collation{Oid: 0, Schema: "testschema", Name: "some_coll", Collate: "de_DE", Ctype: "de_DE"}
+			structmatcher.ExpectStructsToMatchExcluding(&collationDef, &results[0], "Oid")
+
+		})
+	})
 })

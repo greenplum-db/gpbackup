@@ -206,4 +206,23 @@ COMMENT ON DOMAIN public.domain2 IS 'This is a domain comment.';
 ALTER DOMAIN public.domain2 OWNER TO testrole;`)
 		})
 	})
+	Describe("PrintCreateCollationStatement", func() {
+		emptyMetadataMap := backup.MetadataMap{}
+		It("prints a create collation statement", func() {
+			collation := backup.Collation{Oid: 1, Name: "collation1", Collate: "collate1", Ctype: "ctype1", Schema: "schema1"}
+			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, emptyMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE COLLATION schema1.collation1 (LC_COLLATE = 'collate1', LC_CTYPE = 'ctype1');`)
+		})
+		It("prints a create collation statement with owner and comment", func() {
+			collation := backup.Collation{Oid: 1, Name: "collation1", Collate: "collate1", Ctype: "ctype1", Schema: "schema1"}
+			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
+			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, collationMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE COLLATION schema1.collation1 (LC_COLLATE = 'collate1', LC_CTYPE = 'ctype1');
+
+COMMENT ON COLLATION collation1 IS 'This is a collation comment.';
+
+
+ALTER COLLATION collation1 OWNER TO testrole;`)
+		})
+	})
 })
