@@ -927,7 +927,7 @@ LANGUAGE SQL`)
 				resultMetadata := resultMetadataMap[oid]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
-			It("returns a slice of default metadata for a resource queue", func() {
+			PIt("returns a slice of default metadata for a resource queue", func() {
 				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_RESOURCEQUEUE)
 				numResQueues := len(resultMetadataMap)
 
