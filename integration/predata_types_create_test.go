@@ -125,7 +125,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateCollationStatement", func() {
 		It("creates a basic collation", func() {
 			testutils.SkipIfBefore6(connection)
-			collations := []backup.Collation{{Oid: 0, Schema: "public", Name: "testcollation", Collate: "de_DE", Ctype: "de_DE"}}
+			collations := []backup.Collation{{Oid: 0, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}}
 
 			backup.PrintCreateCollationStatements(backupfile, toc, collations, backup.MetadataMap{})
 
@@ -139,7 +139,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic collation with comment and owner", func() {
 			testutils.SkipIfBefore6(connection)
-			collations := []backup.Collation{{Oid: 1, Schema: "public", Name: "testcollation", Collate: "de_DE", Ctype: "de_DE"}}
+			collations := []backup.Collation{{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}}
 			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
 			collationMetadata := collationMetadataMap[1]
 
