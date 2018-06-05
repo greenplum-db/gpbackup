@@ -297,17 +297,19 @@ FORMAT 'text'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table using error logging with an error table", func() {
-				extTableDef.ErrTable = "error_table"
+				extTableDef.ErrTableName = "error_table"
+				extTableDef.ErrTableSchema = "error_table_schema"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
 FORMAT 'text'
 ENCODING 'UTF-8'
-LOG ERRORS INTO error_table`)
+LOG ERRORS INTO error_table_schema.error_table`)
 			})
 			It("prints a CREATE block for a table using error logging without an error table", func() {
-				extTableDef.ErrTable = "tablename"
+				extTableDef.ErrTableName = "tablename"
+				extTableDef.ErrTableSchema = "public"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
@@ -339,7 +341,8 @@ ENCODING 'UTF-8'
 SEGMENT REJECT LIMIT 2 PERCENT`)
 			})
 			It("prints a CREATE block for a table with error logging and a row-based reject limit", func() {
-				extTableDef.ErrTable = "tablename"
+				extTableDef.ErrTableName = "tablename"
+				extTableDef.ErrTableSchema = "public"
 				extTableDef.RejectLimit = 2
 				extTableDef.RejectLimitType = "r"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)

@@ -25,7 +25,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		BeforeEach(func() {
 			extTable = backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: backup.FILE, Location: "file://tmp/ext_table_file",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
-				Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTable: "", Encoding: "UTF8",
+				Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/ext_table_file"}}
 			testTable = backup.BasicRelation("public", "testtable")
 			tableDef = backup.TableDefinition{IsExternal: true}
@@ -39,7 +39,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a READABLE EXTERNAL table", func() {
 			extTable.Type = backup.READABLE
 			extTable.Writable = false
-			extTable.ErrTable = "testtable"
+			extTable.ErrTableName = "testtable"
+			extTable.ErrTableSchema = "public"
 			extTable.RejectLimit = 2
 			extTable.RejectLimitType = "r"
 			tableDef.ExtTableDef = extTable
@@ -59,7 +60,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfNot4(connection)
 			extTable.Type = backup.READABLE
 			extTable.Writable = false
-			extTable.ErrTable = "err_table"
+			extTable.ErrTableName = "err_table"
+			extTable.ErrTableSchema = "public"
 			extTable.RejectLimit = 2
 			extTable.RejectLimitType = "r"
 			tableDef.ExtTableDef = extTable

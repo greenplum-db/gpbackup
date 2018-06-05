@@ -40,7 +40,8 @@ type ExternalTableDefinition struct {
 	Command         string
 	RejectLimit     int
 	RejectLimitType string
-	ErrTable        string
+	ErrTableName    string
+	ErrTableSchema  string
 	Encoding        string
 	Writable        bool
 	URIs            []string
@@ -191,10 +192,11 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table R
 		 * If an external table is created using LOG ERRORS instead of LOG ERRORS INTO [tablename],
 		 * the value of pg_exttable.fmterrtbl will match the table's own name.
 		 */
-		if extTableDef.ErrTable == table.Name {
+		errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
+		if errTableFQN == table.ToString() {
 			metadataFile.MustPrintf("\nLOG ERRORS")
-		} else if extTableDef.ErrTable != "" {
-			metadataFile.MustPrintf("\nLOG ERRORS INTO %s", extTableDef.ErrTable)
+		} else if extTableDef.ErrTableName != "" {
+			metadataFile.MustPrintf("\nLOG ERRORS INTO %s", errTableFQN)
 		}
 		if extTableDef.RejectLimit != 0 {
 			metadataFile.MustPrintf("\nSEGMENT REJECT LIMIT %d ", extTableDef.RejectLimit)

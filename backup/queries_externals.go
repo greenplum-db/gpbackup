@@ -25,10 +25,11 @@ SELECT
 	coalesce(command, '') AS command,
 	coalesce(rejectlimit, 0) AS rejectlimit,
 	coalesce(rejectlimittype, '') AS rejectlimittype,
-	coalesce((SELECT relname FROM pg_class WHERE oid = fmterrtbl), '') AS errtable,
+	coalesce(quote_ident(c.relname),'') AS errtablename,
+	coalesce((SELECT quote_ident(nspname) FROM pg_namespace WHERE oid = relnamespace), '') AS errtableschema,
 	pg_encoding_to_char(encoding) AS encoding,
 	writable
-FROM pg_exttable;`, execOptions, execOptions)
+FROM pg_exttable e LEFT JOIN pg_class c ON (e.fmterrtbl = c.oid);`, execOptions, execOptions)
 
 	version5query := `
 SELECT
@@ -45,10 +46,11 @@ SELECT
 	coalesce(command, '') AS command,
 	coalesce(rejectlimit, 0) AS rejectlimit,
 	coalesce(rejectlimittype, '') AS rejectlimittype,
-	coalesce((SELECT relname FROM pg_class WHERE oid = fmterrtbl), '') AS errtable,
+	coalesce(quote_ident(c.relname),'') AS errtablename,
+	coalesce((SELECT quote_ident(nspname) FROM pg_namespace WHERE oid = relnamespace), '') AS errtableschema,
 	pg_encoding_to_char(encoding) AS encoding,
 	writable
-FROM pg_exttable;`
+FROM pg_exttable e LEFT JOIN pg_class c ON (e.fmterrtbl = c.oid);`
 
 	query := `
 SELECT
@@ -65,10 +67,11 @@ SELECT
 	coalesce(command, '') AS command,
 	coalesce(rejectlimit, 0) AS rejectlimit,
 	coalesce(rejectlimittype, '') AS rejectlimittype,
-	CASE WHEN logerrors = 'false' THEN '' ELSE coalesce((SELECT relname FROM pg_class WHERE oid = reloid), '') END AS errtable,
+	CASE WHEN logerrors = 'false' THEN '' ELSE quote_ident(c.relname) END AS errtablename,
+  CASE WHEN logerrors = 'false' THEN '' ELSE coalesce((SELECT quote_ident(nspname) FROM pg_namespace WHERE oid = relnamespace), '') END AS errtableschema,
 	pg_encoding_to_char(encoding) AS encoding,
 	writable
-FROM pg_exttable;`
+FROM pg_exttable e LEFT JOIN pg_class c ON (e.reloid = c.oid);`
 
 	results := make([]ExternalTableDefinition, 0)
 	var err error
