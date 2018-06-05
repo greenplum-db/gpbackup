@@ -19,7 +19,7 @@
     "structmatcher",
     "testhelper"
   ]
-  revision = "26097cb0b6c1a5fd473bcea25dddffe2ad492b5a"
+  revision = "b8292cc5bc422661e0e5d58c33a79333a66247b4"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -52,7 +52,6 @@
   version = "v0.0.2"
 
 [[projects]]
-  branch = "master"
   name = "github.com/onsi/ginkgo"
   packages = [
     ".",
@@ -82,7 +81,8 @@
     "reporters/stenographer/support/go-isatty",
     "types"
   ]
-  revision = "6d8be987c536ebd84576a5a46208e7b7a3c796b0"
+  revision = "fa5fabab2a1bfbd924faf4c067d07ae414e2aedf"
+  version = "v1.5.0"
 
 [[projects]]
   name = "github.com/onsi/gomega"
@@ -195,6 +195,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e5c978284f2111830cbfbb7e41a35675c998d854b5de743f367caaf06c30321b"
+  inputs-digest = "a1b295b43ba2cb1e380699a4581ebb0a67da952b5a06882250cf85ad3d007cd8"
   solver-name = "gps-cdcl"
   solver-version = 1

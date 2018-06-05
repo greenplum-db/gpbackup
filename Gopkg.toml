@@ -36,8 +36,8 @@ required = ["golang.org/x/tools/cmd/goimports", "github.com/onsi/ginkgo/ginkgo"]
   name = "github.com/lib/pq"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/onsi/ginkgo"
+  version = "v1.5.0"
 
 [[constraint]]
   name = "github.com/onsi/gomega"
