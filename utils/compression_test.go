@@ -18,7 +18,7 @@ var _ = Describe("utils/compression tests", func() {
 	localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
 	remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
 	var (
-		testCluster  cluster.Cluster
+		testCluster  *cluster.Cluster
 		testExecutor *testhelper.TestExecutor
 	)
 

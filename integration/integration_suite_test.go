@@ -24,7 +24,7 @@ var (
 	connection         *dbconn.DBConn
 	toc                *utils.TOC
 	backupfile         *utils.FileWithByteCount
-	testCluster        cluster.Cluster
+	testCluster        *cluster.Cluster
 	gpbackupHelperPath string
 )
 
@@ -49,6 +49,8 @@ var _ = BeforeSuite(func() {
 	utils.SetDatabaseVersion(connection)
 	backup.InitializeMetadataParams(connection)
 	backup.SetConnection(connection)
+	segConfig := cluster.MustGetSegmentConfiguration(connection)
+	testCluster = cluster.NewCluster(segConfig)
 	testhelper.AssertQueryRuns(connection, "SET ROLE testrole")
 	testhelper.AssertQueryRuns(connection, "ALTER DATABASE testdb OWNER TO anothertestrole")
 	testhelper.AssertQueryRuns(connection, "ALTER SCHEMA public OWNER TO anothertestrole")
@@ -59,8 +61,6 @@ var _ = BeforeSuite(func() {
 		testhelper.AssertQueryRuns(connection, "DROP EXTENSION plpgsql CASCADE")
 		testhelper.AssertQueryRuns(connection, "CREATE LANGUAGE plpgsql")
 	}
-	segConfig := cluster.MustGetSegmentConfiguration(connection)
-	testCluster = cluster.NewCluster(segConfig)
 	if connection.Version.Before("6") {
 		setupTestFilespace(testCluster)
 	} else {
@@ -109,7 +109,7 @@ var _ = AfterSuite(func() {
 	os.RemoveAll("/tmp/plugin_dest")
 })
 
-func setupTestFilespace(testCluster cluster.Cluster) {
+func setupTestFilespace(testCluster *cluster.Cluster) {
 	remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directory", func(contentID int) string {
 		return fmt.Sprintf("mkdir -p /tmp/test_dir")
 	}, cluster.ON_HOSTS_AND_MASTER)

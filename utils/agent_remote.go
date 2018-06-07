@@ -14,7 +14,7 @@ import (
  * Functions to run commands on entire cluster during both backup and restore
  */
 
-func CreateFirstSegmentPipeOnAllHosts(oid uint32, c cluster.Cluster, fpInfo FilePathInfo) {
+func CreateFirstSegmentPipeOnAllHosts(oid uint32, c *cluster.Cluster, fpInfo FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Creating segment data pipes", func(contentID int) string {
 		pipeName := fpInfo.GetSegmentPipeFilePath(contentID)
 		pipeName = fmt.Sprintf("%s_%d", pipeName, oid)
@@ -25,7 +25,7 @@ func CreateFirstSegmentPipeOnAllHosts(oid uint32, c cluster.Cluster, fpInfo File
 	})
 }
 
-func WriteOidListToSegments(oidList []string, c cluster.Cluster, fpInfo FilePathInfo) {
+func WriteOidListToSegments(oidList []string, c *cluster.Cluster, fpInfo FilePathInfo) {
 	oidStr := strings.Join(oidList, "\n")
 	remoteOutput := c.GenerateAndExecuteCommand("Writing filtered oid list to segments", func(contentID int) string {
 		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
@@ -36,7 +36,7 @@ func WriteOidListToSegments(oidList []string, c cluster.Cluster, fpInfo FilePath
 	})
 }
 
-func VerifyHelperVersionOnSegments(version string, c cluster.Cluster) {
+func VerifyHelperVersionOnSegments(version string, c *cluster.Cluster) {
 	remoteOutput := c.GenerateAndExecuteCommand("Verifying gpbackup_helper version", func(contentID int) string {
 		gphome := operating.System.Getenv("GPHOME")
 		return fmt.Sprintf("%s/bin/gpbackup_helper --version", gphome)
@@ -59,7 +59,7 @@ func VerifyHelperVersionOnSegments(version string, c cluster.Cluster) {
 	}
 }
 
-func StartAgent(c cluster.Cluster, fpInfo FilePathInfo, operation string, pluginConfigFile string, compressStr string) {
+func StartAgent(c *cluster.Cluster, fpInfo FilePathInfo, operation string, pluginConfigFile string, compressStr string) {
 	remoteOutput := c.GenerateAndExecuteCommand("Starting gpbackup_helper agent", func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
 		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
@@ -88,7 +88,7 @@ chmod +x %s; (nohup %s > /dev/null 2>&1 &) &`, scriptFile, gphomePath, gphomePat
 	})
 }
 
-func CleanUpHelperFilesOnAllHosts(c cluster.Cluster, fpInfo FilePathInfo) {
+func CleanUpHelperFilesOnAllHosts(c *cluster.Cluster, fpInfo FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
 		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
@@ -103,7 +103,7 @@ func CleanUpHelperFilesOnAllHosts(c cluster.Cluster, fpInfo FilePathInfo) {
 	}, true)
 }
 
-func CleanUpSegmentHelperProcesses(c cluster.Cluster, fpInfo FilePathInfo, operation string) {
+func CleanUpSegmentHelperProcesses(c *cluster.Cluster, fpInfo FilePathInfo, operation string) {
 	remoteOutput := c.GenerateAndExecuteCommand("Cleaning up segment agent processes", func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
 		procPattern := fmt.Sprintf("gpbackup_helper --%s-agent --toc-file %s", operation, tocFile)

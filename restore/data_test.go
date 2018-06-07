@@ -53,7 +53,7 @@ var _ = Describe("restore/data tests", func() {
 		localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
 		remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
 		var (
-			testCluster  cluster.Cluster
+			testCluster  *cluster.Cluster
 			testExecutor *testhelper.TestExecutor
 			testFPInfo   utils.FilePathInfo
 
@@ -66,7 +66,7 @@ var _ = Describe("restore/data tests", func() {
 			testExecutor = &testhelper.TestExecutor{}
 			testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
 			testCluster.Executor = testExecutor
-			testFPInfo = utils.NewFilePathInfo(testCluster.SegDirMap, "", "20170101010101", "gpseg")
+			testFPInfo = utils.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 			backup.SetFPInfo(testFPInfo)
 		})
 		AfterEach(func() {

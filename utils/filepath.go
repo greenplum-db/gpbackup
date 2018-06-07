@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
@@ -26,15 +27,15 @@ type FilePathInfo struct {
 	UserSpecifiedSegPrefix string
 }
 
-func NewFilePathInfo(segDirMap map[int]string, userSpecifiedBackupDir string, timestamp string, userSegPrefix string) FilePathInfo {
+func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestamp string, userSegPrefix string) FilePathInfo {
 	backupFPInfo := FilePathInfo{}
 	backupFPInfo.PID = os.Getpid()
 	backupFPInfo.UserSpecifiedBackupDir = userSpecifiedBackupDir
 	backupFPInfo.UserSpecifiedSegPrefix = userSegPrefix
 	backupFPInfo.Timestamp = timestamp
 	backupFPInfo.SegDirMap = make(map[int]string)
-	for k, v := range segDirMap {
-		backupFPInfo.SegDirMap[k] = v
+	for content, segment := range c.Segments {
+		backupFPInfo.SegDirMap[content] = segment.DataDir
 	}
 	return backupFPInfo
 }

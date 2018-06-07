@@ -19,7 +19,7 @@
     "structmatcher",
     "testhelper"
   ]
-  revision = "26097cb0b6c1a5fd473bcea25dddffe2ad492b5a"
+  revision = "e1ff11c5bc81a9412a4cf9484e0131c781fa031e"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -195,6 +195,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e5c978284f2111830cbfbb7e41a35675c998d854b5de743f367caaf06c30321b"
+  inputs-digest = "873ea78f5de4cd978957707dc5c039e4e62c9f5b0ae4d77d9573fda71f767ff2"
   solver-name = "gps-cdcl"
   solver-version = 1

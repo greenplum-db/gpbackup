@@ -335,13 +335,13 @@ Content-Disposition: inline
 	return emailHeader + fileContents + emailFooter
 }
 
-func EmailReport(cluster cluster.Cluster, timestamp string, reportFilePath string, utility string) {
+func EmailReport(c *cluster.Cluster, timestamp string, reportFilePath string, utility string) {
 	contactsFilename := "gp_email_contacts.yaml"
 	gphomeFile := fmt.Sprintf("%s/bin/%s", operating.System.Getenv("GPHOME"), contactsFilename)
 	homeFile := fmt.Sprintf("%s/%s", operating.System.Getenv("HOME"), contactsFilename)
-	_, homeErr := cluster.ExecuteLocalCommand(fmt.Sprintf("test -f %s", homeFile))
+	_, homeErr := c.ExecuteLocalCommand(fmt.Sprintf("test -f %s", homeFile))
 	if homeErr != nil {
-		_, gphomeErr := cluster.ExecuteLocalCommand(fmt.Sprintf("test -f %s", gphomeFile))
+		_, gphomeErr := c.ExecuteLocalCommand(fmt.Sprintf("test -f %s", gphomeFile))
 		if gphomeErr != nil {
 			gplog.Info("Found neither %s nor %s", gphomeFile, homeFile)
 			gplog.Info("Email containing %s report %s will not be sent", utility, reportFilePath)
@@ -358,7 +358,7 @@ func EmailReport(cluster cluster.Cluster, timestamp string, reportFilePath strin
 	}
 	message := ConstructEmailMessage(timestamp, contactList, reportFilePath, utility)
 	gplog.Verbose("Sending email report to the following addresses: %s", contactList)
-	output, sendErr := cluster.ExecuteLocalCommand(fmt.Sprintf(`echo "%s" | sendmail -t`, message))
+	output, sendErr := c.ExecuteLocalCommand(fmt.Sprintf(`echo "%s" | sendmail -t`, message))
 	if sendErr != nil {
 		gplog.Warn("Unable to send email report: %s", output)
 	}

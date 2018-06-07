@@ -78,7 +78,7 @@ func DoSetup() {
 	segConfig := cluster.MustGetSegmentConfiguration(connection)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := utils.ParseSegPrefix(*backupDir)
-	globalFPInfo = utils.NewFilePathInfo(globalCluster.SegDirMap, *backupDir, *timestamp, segPrefix)
+	globalFPInfo = utils.NewFilePathInfo(globalCluster, *backupDir, *timestamp, segPrefix)
 
 	// Get restore metadata from plugin
 	if *pluginConfigFile != "" {

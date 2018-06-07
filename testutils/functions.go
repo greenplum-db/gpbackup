@@ -45,12 +45,12 @@ func SetupTestCluster() {
 	testCluster := SetDefaultSegmentConfiguration()
 	backup.SetCluster(testCluster)
 	restore.SetCluster(testCluster)
-	testFPInfo := utils.NewFilePathInfo(testCluster.SegDirMap, "", "20170101010101", "gpseg")
+	testFPInfo := utils.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 	backup.SetFPInfo(testFPInfo)
 	restore.SetFPInfo(testFPInfo)
 }
 
-func SetDefaultSegmentConfiguration() cluster.Cluster {
+func SetDefaultSegmentConfiguration() *cluster.Cluster {
 	configMaster := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
 	configSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "gpseg0"}
 	configSegTwo := cluster.SegConfig{ContentID: 1, Hostname: "localhost", DataDir: "gpseg1"}
