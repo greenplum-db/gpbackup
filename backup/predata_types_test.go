@@ -219,10 +219,10 @@ ALTER DOMAIN public.domain2 OWNER TO testrole;`)
 			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, collationMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE COLLATION schema1.collation1 (LC_COLLATE = 'collate1', LC_CTYPE = 'ctype1');
 
-COMMENT ON COLLATION collation1 IS 'This is a collation comment.';
+COMMENT ON COLLATION schema1.collation1 IS 'This is a collation comment.';
 
 
-ALTER COLLATION collation1 OWNER TO testrole;`)
+ALTER COLLATION schema1.collation1 OWNER TO testrole;`)
 		})
 	})
 })
