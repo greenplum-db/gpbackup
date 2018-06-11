@@ -32,7 +32,7 @@ ALTER TABLE public.testtable CLUSTER ON testindex;`)
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, emptyMetadataMap)
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE INDEX testindex ON public.testtable USING btree(i);
-ALTER INDEX testindex SET TABLESPACE test_tablespace;`)
+ALTER INDEX public.testindex SET TABLESPACE test_tablespace;`)
 		})
 		It("can print an index with a comment", func() {
 			indexes := []backup.IndexDefinition{{Oid: 1, Name: "testindex", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX testindex ON public.testtable USING btree(i)"}}
@@ -40,7 +40,7 @@ ALTER INDEX testindex SET TABLESPACE test_tablespace;`)
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE INDEX testindex ON public.testtable USING btree(i);
 
-COMMENT ON INDEX testindex IS 'This is an index comment.';`)
+COMMENT ON INDEX public.testindex IS 'This is an index comment.';`)
 		})
 	})
 	Context("PrintCreateRuleStatements", func() {

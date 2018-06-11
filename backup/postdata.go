@@ -14,14 +14,15 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *util
 	for _, index := range indexes {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s;", index.Def)
+		indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
 		if index.Tablespace != "" {
-			metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", index.Name, index.Tablespace)
+			metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace)
 		}
 		tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
 		if index.IsClustered {
 			metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
 		}
-		PrintObjectMetadata(metadataFile, indexMetadata[index.Oid], index.Name, "INDEX")
+		PrintObjectMetadata(metadataFile, indexMetadata[index.Oid], indexFQN, "INDEX")
 		toc.AddPostdataEntry(index.OwningSchema, index.Name, "INDEX", tableFQN, start, metadataFile)
 	}
 }
