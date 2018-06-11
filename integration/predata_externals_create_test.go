@@ -33,8 +33,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		AfterEach(func() {
 			os.Remove("/tmp/ext_table_file")
-			testhelper.AssertQueryRuns(connection, "DROP EXTERNAL TABLE testtable")
-			testhelper.AssertQueryRuns(connection, "DROP TABLE IF EXISTS err_table")
+			testhelper.AssertQueryRuns(connection, "DROP EXTERNAL TABLE public.testtable")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE IF EXISTS public.err_table")
 		})
 		It("creates a READABLE EXTERNAL table", func() {
 			extTable.Type = backup.READABLE
@@ -113,8 +113,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			backup.PrintCreateExternalProtocolStatements(backupfile, toc, externalProtocols, funcInfoMap, protoMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION read_from_s3()")
+			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION public.read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.read_from_s3()")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP PROTOCOL s3_read")
@@ -129,8 +129,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			backup.PrintCreateExternalProtocolStatements(backupfile, toc, externalProtocols, funcInfoMap, emptyMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION write_to_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_export' LANGUAGE C STABLE;")
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION write_to_s3()")
+			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION public.write_to_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_export' LANGUAGE C STABLE;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.write_to_s3()")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP PROTOCOL s3_write")
@@ -145,11 +145,11 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			backup.PrintCreateExternalProtocolStatements(backupfile, toc, externalProtocols, funcInfoMap, emptyMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION read_from_s3()")
+			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION public.read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.read_from_s3()")
 
-			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION write_to_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_export' LANGUAGE C STABLE;")
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION write_to_s3()")
+			testhelper.AssertQueryRuns(connection, "CREATE OR REPLACE FUNCTION public.write_to_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_export' LANGUAGE C STABLE;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.write_to_s3()")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP PROTOCOL s3_read_write")
@@ -167,7 +167,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		}
 		emptyPartInfoMap := make(map[uint32]backup.PartitionInfo, 0)
 		AfterEach(func() {
-			testhelper.AssertQueryRuns(connection, "DROP TABLE part_tbl")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE public.part_tbl")
 		})
 		It("writes an alter statement for a named list partition", func() {
 			externalPartition := backup.PartitionInfo{
@@ -182,14 +182,14 @@ var _ = Describe("backup integration create statement tests", func() {
 				IsExternal:             true,
 			}
 			testhelper.AssertQueryRuns(connection, `
-CREATE TABLE part_tbl (id int, gender char(1))
+CREATE TABLE public.part_tbl (id int, gender char(1))
 DISTRIBUTED BY (id)
 PARTITION BY LIST (gender)
 ( PARTITION girls VALUES ('F'),
   PARTITION boys VALUES ('M'),
   DEFAULT PARTITION other );`)
 			testhelper.AssertQueryRuns(connection, `
-CREATE EXTERNAL WEB TABLE part_tbl_ext_part_ (like part_tbl_1_prt_girls)
+CREATE EXTERNAL WEB TABLE public.part_tbl_ext_part_ (like public.part_tbl_1_prt_girls)
 EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
 			externalPartitions := []backup.PartitionInfo{externalPartition}
@@ -215,12 +215,12 @@ FORMAT 'csv';`)
 				IsExternal:             true,
 			}
 			testhelper.AssertQueryRuns(connection, `
-CREATE TABLE part_tbl (a int)
+CREATE TABLE public.part_tbl (a int)
 DISTRIBUTED BY (a)
 PARTITION BY RANGE (a)
 (start(1) end(3) every(1));`)
 			testhelper.AssertQueryRuns(connection, `
-CREATE EXTERNAL WEB TABLE part_tbl_ext_part_ (like part_tbl_1_prt_1)
+CREATE EXTERNAL WEB TABLE public.part_tbl_ext_part_ (like public.part_tbl_1_prt_1)
 EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
 			externalPartitions := []backup.PartitionInfo{externalPartition}
@@ -258,7 +258,7 @@ FORMAT 'csv';`)
 				IsExternal:             false,
 			}
 			testhelper.AssertQueryRuns(connection, `
-CREATE TABLE part_tbl (a int,b date,c text,d int)
+CREATE TABLE public.part_tbl (a int,b date,c text,d int)
 DISTRIBUTED BY (a)
 PARTITION BY RANGE (b)
 SUBPARTITION BY LIST (c)
@@ -273,7 +273,7 @@ SUBPARTITION eur values ('eur'))
                   END (date '2017-01-01') EXCLUSIVE);
 `)
 
-			testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (a int,b date,c text,d int) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
+			testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE public.part_tbl_ext_part_ (a int,b date,c text,d int) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
 			partInfoMap := map[uint32]backup.PartitionInfo{externalPartitionParent.PartitionRuleOid: externalPartitionParent}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
 
@@ -321,7 +321,7 @@ SUBPARTITION eur values ('eur'))
 				IsExternal:             false,
 			}
 			testhelper.AssertQueryRuns(connection, `
-CREATE TABLE part_tbl (id int, year int, month int, day int, region text)
+CREATE TABLE public.part_tbl (id int, year int, month int, day int, region text)
 DISTRIBUTED BY (id)
 PARTITION BY RANGE (year)
     SUBPARTITION BY RANGE (month)
@@ -336,7 +336,7 @@ PARTITION BY RANGE (year)
 ( START (2002) END (2005) EVERY (1));
 `)
 
-			testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE part_tbl_ext_part_ (like part_tbl_1_prt_3_2_prt_1_3_prt_europe) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
+			testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE public.part_tbl_ext_part_ (like public.part_tbl_1_prt_3_2_prt_1_3_prt_europe) LOCATION ('gpfdist://127.0.0.1/apj') FORMAT 'text';`)
 			partInfoMap := map[uint32]backup.PartitionInfo{externalPartitionParent1.PartitionRuleOid: externalPartitionParent1, externalPartitionParent2.PartitionRuleOid: externalPartitionParent2}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
 

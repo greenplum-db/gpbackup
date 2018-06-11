@@ -15,14 +15,14 @@ var _ = Describe("backup integration tests", func() {
 	tables := []backup.Relation{backup.BasicRelation("public", "foo")}
 	var tableOid uint32
 	BeforeEach(func() {
-		testhelper.AssertQueryRuns(connection, "CREATE TABLE foo(i int, j text, k bool)")
+		testhelper.AssertQueryRuns(connection, "CREATE TABLE public.foo(i int, j text, k bool)")
 		tableOid = testutils.OidFromObjectName(connection, "public", "foo", backup.TYPE_RELATION)
-		testhelper.AssertQueryRuns(connection, "INSERT INTO foo VALUES (1, 'a', 't')")
-		testhelper.AssertQueryRuns(connection, "INSERT INTO foo VALUES (2, 'b', 'f')")
-		testhelper.AssertQueryRuns(connection, "ANALYZE foo")
+		testhelper.AssertQueryRuns(connection, "INSERT INTO public.foo VALUES (1, 'a', 't')")
+		testhelper.AssertQueryRuns(connection, "INSERT INTO public.foo VALUES (2, 'b', 'f')")
+		testhelper.AssertQueryRuns(connection, "ANALYZE public.foo")
 	})
 	AfterEach(func() {
-		testhelper.AssertQueryRuns(connection, "DROP TABLE foo")
+		testhelper.AssertQueryRuns(connection, "DROP TABLE public.foo")
 	})
 	Describe("GetAttributeStatistics", func() {
 		It("returns attribute statistics for a table", func() {

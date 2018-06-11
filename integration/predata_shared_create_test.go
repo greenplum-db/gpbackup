@@ -60,14 +60,14 @@ var _ = Describe("backup integration create statement tests", func() {
 		BeforeEach(func() {
 			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: "UNIQUE (a, b)", OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
 			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "constraints_other_table_pkey", ConType: "p", ConDef: "PRIMARY KEY (b)", OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
-			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: "FOREIGN KEY (b) REFERENCES constraints_other_table(b)", OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
+			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: "FOREIGN KEY (b) REFERENCES public.constraints_other_table(b)", OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
 			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (a <> 42)", OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
 			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (id <> 0)", OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(a int, b text) DISTRIBUTED BY (b)")
 			conMetadataMap = backup.MetadataMap{}
 		})
 		AfterEach(func() {
-			testhelper.AssertQueryRuns(connection, "DROP TABLE testtable CASCADE")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable CASCADE")
 		})
 		It("creates a unique constraint", func() {
 			constraints := []backup.Constraint{uniqueConstraint}
@@ -84,8 +84,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			constraints := []backup.Constraint{}
 			backup.PrintConstraintStatements(backupfile, toc, constraints, conMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE constraints_other_table(b text PRIMARY KEY)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE constraints_other_table CASCADE")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.constraints_other_table(b text PRIMARY KEY)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.constraints_other_table CASCADE")
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultConstraints := backup.GetConstraints(connection)
@@ -97,8 +97,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			constraints := []backup.Constraint{fkConstraint}
 			backup.PrintConstraintStatements(backupfile, toc, constraints, conMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE constraints_other_table(b text PRIMARY KEY)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE constraints_other_table CASCADE")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.constraints_other_table(b text PRIMARY KEY)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.constraints_other_table CASCADE")
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultConstraints := backup.GetConstraints(connection)
@@ -122,8 +122,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			constraints := []backup.Constraint{checkConstraint, uniqueConstraint, fkConstraint}
 			backup.PrintConstraintStatements(backupfile, toc, constraints, conMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE constraints_other_table(b text PRIMARY KEY)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE constraints_other_table CASCADE")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.constraints_other_table(b text PRIMARY KEY)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.constraints_other_table CASCADE")
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultConstraints := backup.GetConstraints(connection)
@@ -135,8 +135,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[3], "Oid")
 		})
 		It("doesn't create a check constraint on a domain", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN domain1 AS numeric")
-			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN domain1")
+			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS numeric")
+			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN public.domain1")
 			domainCheckConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42::numeric)", OwningObject: "public.domain1", IsDomainConstraint: true, IsPartitionParent: false}
 			constraints := []backup.Constraint{domainCheckConstraint}
 			backup.PrintConstraintStatements(backupfile, toc, constraints, conMetadataMap)
@@ -147,12 +147,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			constraints := []backup.Constraint{partitionCheckConstraint}
 			backup.PrintConstraintStatements(backupfile, toc, constraints, conMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, `CREATE TABLE part (id int, year int)
+			testhelper.AssertQueryRuns(connection, `CREATE TABLE public.part (id int, year int)
 DISTRIBUTED BY (id)
 PARTITION BY RANGE (year)
 ( START (2007) END (2008) EVERY (1),
   DEFAULT PARTITION extra ); `)
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE part CASCADE")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.part CASCADE")
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultConstraints := backup.GetConstraints(connection)

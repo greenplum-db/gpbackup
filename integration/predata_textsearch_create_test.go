@@ -21,7 +21,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchParserStatements(backupfile, toc, parsers, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH PARSER testparser")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH PARSER public.testparser")
 
 			resultParsers := backup.GetTextSearchParsers(connection)
 
@@ -36,7 +36,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchParserStatements(backupfile, toc, parsers, parserMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH PARSER testparser")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH PARSER public.testparser")
 
 			resultParsers := backup.GetTextSearchParsers(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_TSPARSER)
@@ -54,7 +54,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchTemplateStatements(backupfile, toc, templates, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH TEMPLATE testtemplate")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH TEMPLATE public.testtemplate")
 
 			resultTemplates := backup.GetTextSearchTemplates(connection)
 
@@ -69,7 +69,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchTemplateStatements(backupfile, toc, templates, templateMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH TEMPLATE testtemplate")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH TEMPLATE public.testtemplate")
 
 			resultTemplates := backup.GetTextSearchTemplates(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_TSTEMPLATE)
@@ -88,7 +88,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchDictionaryStatements(backupfile, toc, dictionaries, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH DICTIONARY testdictionary")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
 
 			resultDictionaries := backup.GetTextSearchDictionaries(connection)
 
@@ -103,7 +103,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchDictionaryStatements(backupfile, toc, dictionaries, dictionaryMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH DICTIONARY testdictionary")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
 
 			resultDictionaries := backup.GetTextSearchDictionaries(connection)
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_TSDICTIONARY)
@@ -122,7 +122,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchConfigurationStatements(backupfile, toc, configurations, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH CONFIGURATION testconfiguration")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH CONFIGURATION public.testconfiguration")
 
 			resultConfigurations := backup.GetTextSearchConfigurations(connection)
 
@@ -137,7 +137,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateTextSearchConfigurationStatements(backupfile, toc, configurations, configurationMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH CONFIGURATION testconfiguration")
+			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH CONFIGURATION public.testconfiguration")
 
 			resultConfigurations := backup.GetTextSearchConfigurations(connection)
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_TSCONFIGURATION)

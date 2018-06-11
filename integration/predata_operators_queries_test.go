@@ -13,8 +13,8 @@ import (
 var _ = Describe("backup integration tests", func() {
 	Describe("GetOperators", func() {
 		It("returns a slice of operators", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR ## (LEFTARG = bigint, PROCEDURE = numeric_fac)")
-			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR ## (bigint, NONE)")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR public.## (LEFTARG = bigint, PROCEDURE = numeric_fac)")
+			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR public.## (bigint, NONE)")
 
 			expectedOperator := backup.Operator{Oid: 0, Schema: "public", Name: "##", Procedure: "numeric_fac", LeftArgType: "bigint", RightArgType: "-", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 
@@ -43,10 +43,10 @@ var _ = Describe("backup integration tests", func() {
 				MERGES
 			)`)
 			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR testschema.## (path, path)")
-			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR ### (path, path)")
+			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR public.### (path, path)")
 
-			version4expectedOperator := backup.Operator{Oid: 0, Schema: "testschema", Name: "##", Procedure: `testschema."testFunc"`, LeftArgType: "path", RightArgType: "path", CommutatorOp: "testschema.##", NegatorOp: "###", RestrictFunction: "eqsel", JoinFunction: "eqjoinsel", CanHash: true, CanMerge: false}
-			expectedOperator := backup.Operator{Oid: 0, Schema: "testschema", Name: "##", Procedure: `testschema."testFunc"`, LeftArgType: "path", RightArgType: "path", CommutatorOp: "testschema.##", NegatorOp: "###", RestrictFunction: "eqsel", JoinFunction: "eqjoinsel", CanHash: true, CanMerge: true}
+			version4expectedOperator := backup.Operator{Oid: 0, Schema: "testschema", Name: "##", Procedure: `testschema."testFunc"`, LeftArgType: "path", RightArgType: "path", CommutatorOp: "testschema.##", NegatorOp: "public.###", RestrictFunction: "eqsel", JoinFunction: "eqjoinsel", CanHash: true, CanMerge: false}
+			expectedOperator := backup.Operator{Oid: 0, Schema: "testschema", Name: "##", Procedure: `testschema."testFunc"`, LeftArgType: "path", RightArgType: "path", CommutatorOp: "testschema.##", NegatorOp: "public.###", RestrictFunction: "eqsel", JoinFunction: "eqjoinsel", CanHash: true, CanMerge: true}
 
 			results := backup.GetOperators(connection)
 
@@ -58,8 +58,8 @@ var _ = Describe("backup integration tests", func() {
 			}
 		})
 		It("returns a slice of operators from a specific schema", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR ## (LEFTARG = bigint, PROCEDURE = numeric_fac)")
-			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR ## (bigint, NONE)")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR public.## (LEFTARG = bigint, PROCEDURE = numeric_fac)")
+			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR public.## (bigint, NONE)")
 			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR testschema.## (LEFTARG = bigint, PROCEDURE = numeric_fac)")
@@ -79,8 +79,8 @@ var _ = Describe("backup integration tests", func() {
 			testutils.SkipIfBefore5(connection)
 		})
 		It("returns a slice of operator families", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testfam USING hash;")
-			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testfam USING hash")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY public.testfam USING hash;")
+			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY public.testfam USING hash")
 
 			expectedOperator := backup.OperatorFamily{Oid: 0, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 
@@ -90,8 +90,8 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 		It("returns a slice of operator families in a specific schema", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testfam USING hash;")
-			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testfam USING hash")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY public.testfam USING hash;")
+			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY public.testfam USING hash")
 			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testschema.testfam USING hash;")
@@ -108,11 +108,11 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetOperatorClasses", func() {
 		It("returns a slice of operator classes", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS testclass FOR TYPE int USING hash AS STORAGE int")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS public.testclass FOR TYPE int USING hash AS STORAGE int")
 			if connection.Version.Before("5") {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS testclass USING hash")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS public.testclass USING hash")
 			} else {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testclass USING hash")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY public.testclass USING hash")
 			}
 
 			version4expected := backup.OperatorClass{Oid: 0, Schema: "public", Name: "testclass", FamilySchema: "", FamilyName: "", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
@@ -134,7 +134,7 @@ var _ = Describe("backup integration tests", func() {
 
 			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testschema.testfam USING gist;")
 			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testschema.testfam USING gist CASCADE")
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS testclass FOR TYPE int USING gist FAMILY testschema.testfam AS STORAGE int")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS public.testclass FOR TYPE int USING gist FAMILY testschema.testfam AS STORAGE int")
 
 			expected := backup.OperatorClass{Oid: 0, Schema: "public", Name: "testclass", FamilySchema: "testschema", FamilyName: "testfam", IndexMethod: "gist", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
 
@@ -144,14 +144,11 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
 		})
 		It("returns a slice of operator classes with different type and storage type", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
-			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema CASCADE")
-
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS testclass DEFAULT FOR TYPE int USING gist AS STORAGE text")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS public.testclass DEFAULT FOR TYPE int USING gist AS STORAGE text")
 			if connection.Version.Before("5") {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS testclass USING gist")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS public.testclass USING gist")
 			} else {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testclass USING gist")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY public.testclass USING gist")
 			}
 
 			version4expected := backup.OperatorClass{Oid: 0, Schema: "public", Name: "testclass", FamilySchema: "", FamilyName: "", IndexMethod: "gist", Type: "integer", Default: true, StorageType: "text", Operators: nil, Functions: nil}
@@ -170,18 +167,18 @@ var _ = Describe("backup integration tests", func() {
 			opClassQuery := ""
 			expectedRecheck := false
 			if connection.Version.Before("6") {
-				opClassQuery = "CREATE OPERATOR CLASS testclass FOR TYPE int USING gist AS OPERATOR 1 = RECHECK, OPERATOR 2 < , FUNCTION 1 abs(integer), FUNCTION 2 int4out(integer)"
+				opClassQuery = "CREATE OPERATOR CLASS public.testclass FOR TYPE int USING gist AS OPERATOR 1 = RECHECK, OPERATOR 2 < , FUNCTION 1 abs(integer), FUNCTION 2 int4out(integer)"
 				expectedRecheck = true
 			} else {
-				opClassQuery = "CREATE OPERATOR CLASS testclass FOR TYPE int USING gist AS OPERATOR 1 =, OPERATOR 2 < , FUNCTION 1 abs(integer), FUNCTION 2 int4out(integer)"
+				opClassQuery = "CREATE OPERATOR CLASS public.testclass FOR TYPE int USING gist AS OPERATOR 1 =, OPERATOR 2 < , FUNCTION 1 abs(integer), FUNCTION 2 int4out(integer)"
 			}
 
 			testhelper.AssertQueryRuns(connection, opClassQuery)
 
 			if connection.Version.Before("5") {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS testclass USING gist")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS public.testclass USING gist")
 			} else {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testclass USING gist")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY public.testclass USING gist")
 			}
 
 			expectedOperators := []backup.OperatorClassOperator{{ClassOid: 0, StrategyNumber: 1, Operator: "=(integer,integer)", Recheck: expectedRecheck}, {ClassOid: 0, StrategyNumber: 2, Operator: "<(integer,integer)", Recheck: false}}
@@ -199,11 +196,11 @@ var _ = Describe("backup integration tests", func() {
 			}
 		})
 		It("returns a slice of operator classes for a specific schema", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS testclass FOR TYPE int USING hash AS STORAGE int")
+			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR CLASS public.testclass FOR TYPE int USING hash AS STORAGE int")
 			if connection.Version.Before("5") {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS testclass USING hash")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR CLASS public.testclass USING hash")
 			} else {
-				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testclass USING hash")
+				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY public.testclass USING hash")
 			}
 			testhelper.AssertQueryRuns(connection, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema CASCADE")

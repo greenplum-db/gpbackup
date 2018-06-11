@@ -19,11 +19,11 @@ var _ = Describe("backup integration tests", func() {
 			tables := []backup.Relation{{SchemaOid: 2200, Schema: "public", Name: "foo"}}
 
 			// Create and ANALYZE a table to generate statistics
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE foo(i int, j text, k bool)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE foo")
-			testhelper.AssertQueryRuns(connection, "INSERT INTO foo VALUES (1, 'a', 't')")
-			testhelper.AssertQueryRuns(connection, "INSERT INTO foo VALUES (2, 'b', 'f')")
-			testhelper.AssertQueryRuns(connection, "ANALYZE foo")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.foo(i int, j text, k bool)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.foo")
+			testhelper.AssertQueryRuns(connection, "INSERT INTO public.foo VALUES (1, 'a', 't')")
+			testhelper.AssertQueryRuns(connection, "INSERT INTO public.foo VALUES (2, 'b', 'f')")
+			testhelper.AssertQueryRuns(connection, "ANALYZE public.foo")
 
 			oldTableOid := testutils.OidFromObjectName(connection, "public", "foo", backup.TYPE_RELATION)
 			tables[0].Oid = oldTableOid
@@ -33,8 +33,8 @@ var _ = Describe("backup integration tests", func() {
 			beforeTupleStat := beforeTupleStats[oldTableOid]
 
 			// Drop and recreate the table to clear the statistics
-			testhelper.AssertQueryRuns(connection, "DROP TABLE foo")
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE foo(i int, j text, k bool)")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE public.foo")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.foo(i int, j text, k bool)")
 
 			// Reload the retrieved statistics into the new table
 			backup.PrintStatisticsStatements(backupfile, toc, tables, beforeAttStats, beforeTupleStats)

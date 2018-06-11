@@ -22,12 +22,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			indexMetadataMap = backup.MetadataMap{}
 		})
 		It("creates a basic index", func() {
-			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON testtable USING btree (i)"}}
+			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -36,12 +36,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index used for clustering", func() {
-			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON testtable USING btree (i)", IsClustered: true}}
+			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)", IsClustered: true}}
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -50,14 +50,14 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index with a comment", func() {
-			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON testtable USING btree (i)"}}
+			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
 			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true)
 			indexMetadata := indexMetadataMap[1]
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -76,12 +76,12 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 			}
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
-			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "test_tablespace", Def: "CREATE INDEX index1 ON testtable USING btree (i)"}}
+			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "test_tablespace", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -98,11 +98,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			ruleMetadataMap = backup.MetadataMap{}
 		})
 		It("creates a basic rule", func() {
-			rules := []backup.QuerySimpleDefinition{{Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}}
+			rules := []backup.QuerySimpleDefinition{{Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO public.testtable DO NOTIFY testtable;"}}
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -111,13 +111,13 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 		})
 		It("creates a rule with a comment", func() {
-			rules := []backup.QuerySimpleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}}
+			rules := []backup.QuerySimpleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO public.testtable DO NOTIFY testtable;"}}
 			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true)
 			ruleMetadata := ruleMetadataMap[1]
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -138,11 +138,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggerMetadataMap = backup.MetadataMap{}
 		})
 		It("creates a basic trigger", func() {
-			triggers := []backup.QuerySimpleDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
+			triggers := []backup.QuerySimpleDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -151,13 +151,13 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 		})
 		It("creates a trigger with a comment", func() {
-			triggers := []backup.QuerySimpleDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
+			triggers := []backup.QuerySimpleDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
 			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true)
 			triggerMetadata := triggerMetadataMap[1]
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 

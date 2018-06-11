@@ -28,36 +28,36 @@ var _ = Describe("backup integration create statement tests", func() {
 			 */
 			partitionDef = `PARTITION BY LIST(gender) ` + `
           (
-          PARTITION girls VALUES('F') WITH (tablename='rank_1_prt_girls', appendonly=false ), ` + `
-          PARTITION boys VALUES('M') WITH (tablename='rank_1_prt_boys', appendonly=false ), ` + `
-          DEFAULT PARTITION other  WITH (tablename='rank_1_prt_other', appendonly=false )
+          PARTITION girls VALUES('F') WITH (tablename='public.rank_1_prt_girls', appendonly=false ), ` + `
+          PARTITION boys VALUES('M') WITH (tablename='public.rank_1_prt_boys', appendonly=false ), ` + `
+          DEFAULT PARTITION other  WITH (tablename='public.rank_1_prt_other', appendonly=false )
           )`
 			subpartitionDef = `PARTITION BY LIST(gender)
           SUBPARTITION BY LIST(region) ` + `
           (
-          PARTITION girls VALUES('F') WITH (tablename='rank_1_prt_girls', appendonly=false ) ` + `
+          PARTITION girls VALUES('F') WITH (tablename='public.rank_1_prt_girls', appendonly=false ) ` + `
                   (
-                  SUBPARTITION usa VALUES('usa') WITH (tablename='rank_1_prt_girls_2_prt_usa', appendonly=false ), ` + `
-                  SUBPARTITION asia VALUES('asia') WITH (tablename='rank_1_prt_girls_2_prt_asia', appendonly=false ), ` + `
-                  SUBPARTITION europe VALUES('europe') WITH (tablename='rank_1_prt_girls_2_prt_europe', appendonly=false ), ` + `
-                  DEFAULT SUBPARTITION other_regions  WITH (tablename='rank_1_prt_girls_2_prt_other_regions', appendonly=false )
+                  SUBPARTITION usa VALUES('usa') WITH (tablename='public.rank_1_prt_girls_2_prt_usa', appendonly=false ), ` + `
+                  SUBPARTITION asia VALUES('asia') WITH (tablename='public.rank_1_prt_girls_2_prt_asia', appendonly=false ), ` + `
+                  SUBPARTITION europe VALUES('europe') WITH (tablename='public.rank_1_prt_girls_2_prt_europe', appendonly=false ), ` + `
+                  DEFAULT SUBPARTITION other_regions  WITH (tablename='public.rank_1_prt_girls_2_prt_other_regions', appendonly=false )
                   ), ` + `
           PARTITION boys VALUES('M') WITH (tablename='rank_1_prt_boys', appendonly=false ) ` + `
                   (
-                  SUBPARTITION usa VALUES('usa') WITH (tablename='rank_1_prt_boys_2_prt_usa', appendonly=false ), ` + `
-                  SUBPARTITION asia VALUES('asia') WITH (tablename='rank_1_prt_boys_2_prt_asia', appendonly=false ), ` + `
-                  SUBPARTITION europe VALUES('europe') WITH (tablename='rank_1_prt_boys_2_prt_europe', appendonly=false ), ` + `
-                  DEFAULT SUBPARTITION other_regions  WITH (tablename='rank_1_prt_boys_2_prt_other_regions', appendonly=false )
+                  SUBPARTITION usa VALUES('usa') WITH (tablename='public.rank_1_prt_boys_2_prt_usa', appendonly=false ), ` + `
+                  SUBPARTITION asia VALUES('asia') WITH (tablename='public.rank_1_prt_boys_2_prt_asia', appendonly=false ), ` + `
+                  SUBPARTITION europe VALUES('europe') WITH (tablename='public.rank_1_prt_boys_2_prt_europe', appendonly=false ), ` + `
+                  DEFAULT SUBPARTITION other_regions  WITH (tablename='public.rank_1_prt_boys_2_prt_other_regions', appendonly=false )
                   ), ` + `
-          DEFAULT PARTITION other  WITH (tablename='rank_1_prt_other', appendonly=false ) ` + `
+          DEFAULT PARTITION other  WITH (tablename='public.rank_1_prt_other', appendonly=false ) ` + `
                   (
-                  SUBPARTITION usa VALUES('usa') WITH (tablename='rank_1_prt_other_2_prt_usa', appendonly=false ), ` + `
-                  SUBPARTITION asia VALUES('asia') WITH (tablename='rank_1_prt_other_2_prt_asia', appendonly=false ), ` + `
-                  SUBPARTITION europe VALUES('europe') WITH (tablename='rank_1_prt_other_2_prt_europe', appendonly=false ), ` + `
-                  DEFAULT SUBPARTITION other_regions  WITH (tablename='rank_1_prt_other_2_prt_other_regions', appendonly=false )
+                  SUBPARTITION usa VALUES('usa') WITH (tablename='public.rank_1_prt_other_2_prt_usa', appendonly=false ), ` + `
+                  SUBPARTITION asia VALUES('asia') WITH (tablename='public.rank_1_prt_other_2_prt_asia', appendonly=false ), ` + `
+                  SUBPARTITION europe VALUES('europe') WITH (tablename='public.rank_1_prt_other_2_prt_europe', appendonly=false ), ` + `
+                  DEFAULT SUBPARTITION other_regions  WITH (tablename='public.rank_1_prt_other_2_prt_other_regions', appendonly=false )
                   )
           )`
-			partTemplateDef = `ALTER TABLE testtable ` + `
+			partTemplateDef = `ALTER TABLE public.testtable ` + `
 SET SUBPARTITION TEMPLATE  ` + `
           (
           SUBPARTITION usa VALUES('usa') WITH (tablename='testtable'), ` + `
@@ -89,14 +89,14 @@ SET SUBPARTITION TEMPLATE  ` + `
 		})
 		It("creates a table of a type", func() {
 			testutils.SkipIfBefore6(connection)
-			testhelper.AssertQueryRuns(connection, `CREATE TYPE some_type AS (i text, j numeric)`)
-			defer testhelper.AssertQueryRuns(connection, `DROP TYPE some_type CASCADE`)
+			testhelper.AssertQueryRuns(connection, `CREATE TYPE public.some_type AS (i text, j numeric)`)
+			defer testhelper.AssertQueryRuns(connection, `DROP TYPE public.some_type CASCADE`)
 
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: false, HasDefault: false, Type: "numeric", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
 			tableDef.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 
-			tableDef.TableType = "some_type"
+			tableDef.TableType = "public.some_type"
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
@@ -185,7 +185,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			tableDef.TablespaceName = "test_tablespace"
 
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE testtable2")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable2")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable2", backup.TYPE_RELATION)
@@ -264,12 +264,12 @@ SET SUBPARTITION TEMPLATE  ` + `
 			tableDef      backup.TableDefinition
 		)
 		BeforeEach(func() {
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE testtable(i int)")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
 			tableMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}}
 			tableDef = backup.TableDefinition{DistPolicy: "DISTRIBUTED BY (i)", ColumnDefs: []backup.ColumnDefinition{tableRow}, ExtTableDef: extTableEmpty}
 		})
 		AfterEach(func() {
-			testhelper.AssertQueryRuns(connection, "DROP TABLE testtable")
+			testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 		})
 		It("prints only owner for a table with no comment or column comments", func() {
 			tableMetadata.Owner = "testrole"
@@ -320,7 +320,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewDef}, viewMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP VIEW simpleview")
+			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.simpleview")
 
 			resultViews := backup.GetViews(connection)
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_RELATION)
@@ -355,7 +355,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			}
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE my_sequence")
+			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE public.my_sequence")
 
 			resultSequences := backup.GetAllSequences(connection, map[string]string{})
 
@@ -372,7 +372,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE my_sequence")
+			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE public.my_sequence")
 
 			resultSequences := backup.GetAllSequences(connection, map[string]string{})
 
@@ -394,7 +394,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			}
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE my_sequence")
+			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE public.my_sequence")
 
 			resultSequences := backup.GetAllSequences(connection, map[string]string{})
 
@@ -422,11 +422,11 @@ SET SUBPARTITION TEMPLATE  ` + `
 			backup.PrintAlterSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, columnOwnerMap)
 
 			//Create table that sequence can be owned by
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE sequence_table(a int)")
-			defer testhelper.AssertQueryRuns(connection, "DROP TABLE sequence_table")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.sequence_table(a int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.sequence_table")
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
-			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE my_sequence")
+			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE public.my_sequence")
 
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connection)
 			Expect(len(sequenceOwnerTables)).To(Equal(1))
