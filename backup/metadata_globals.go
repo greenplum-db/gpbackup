@@ -92,6 +92,33 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 	}
 }
 
+type resGroupPrepareStruct struct {
+	oid     uint32
+	name    string
+	setting string
+}
+
+func PrintPrepareResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resGroupMetadata MetadataMap) {
+	/*
+	 * total cpu_rate_limit and memory_limit should less than 100, so clean
+	 * them before we seting new memory_limit and cpu_rate_limit.
+	 */
+	defSettings := []resGroupPrepareStruct{
+		{6438, "admin_group", "SET CPU_RATE_LIMIT 1"},
+		{6438, "admin_group", "SET MEMORY_LIMIT 1"},
+		{6437, "default_group", "SET CPU_RATE_LIMIT 1"},
+		{6437, "default_group", "SET MEMORY_LIMIT 1"},
+	}
+	for _, prepare := range defSettings {
+		start := uint64(0)
+
+		start = metadataFile.ByteCount
+		metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s %s;", prepare.name, prepare.setting)
+		PrintObjectMetadata(metadataFile, resGroupMetadata[prepare.oid], prepare.name, "RESOURCE GROUP")
+		toc.AddGlobalEntry("", prepare.name, "RESOURCE GROUP", start, metadataFile)
+	}
+}
+
 type resGroupStruct struct {
 	setting string
 	value   int
@@ -103,7 +130,6 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 
 		if resGroup.Name == "default_group" || resGroup.Name == "admin_group" {
 			resGroupList := []resGroupStruct{
-				{"CPU_RATE_LIMIT", resGroup.CPURateLimit},
 				{"MEMORY_LIMIT", resGroup.MemoryLimit},
 				{"MEMORY_SHARED_QUOTA", resGroup.MemorySharedQuota},
 				{"MEMORY_SPILL_RATIO", resGroup.MemorySpillRatio},
@@ -115,10 +141,44 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 				PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.Oid], resGroup.Name, "RESOURCE GROUP")
 				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 			}
+
+			/* special handling for cpu properties */
+			start = metadataFile.ByteCount
+			if resGroup.CPURateLimit >= 0 {
+				/* cpu rate mode */
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_RATE_LIMIT %d;", resGroup.Name, resGroup.CPURateLimit)
+			} else {
+				/* cpuset mode */
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
+			}
+			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.Oid], resGroup.Name, "RESOURCE GROUP")
+			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 		} else {
 			start = metadataFile.ByteCount
 			attributes := []string{}
-			attributes = append(attributes, fmt.Sprintf("CPU_RATE_LIMIT=%d", resGroup.CPURateLimit))
+
+			/* special handling for cpu properties */
+			if resGroup.CPURateLimit >= 0 {
+				/* cpu rate mode */
+				attributes = append(attributes, fmt.Sprintf("CPU_RATE_LIMIT=%d", resGroup.CPURateLimit))
+			} else {
+				/* cpuset mode */
+				attributes = append(attributes, fmt.Sprintf("CPUSET='%s'", resGroup.Cpuset))
+			}
+
+			/*
+			 * Possible values of memory_auditor:
+			 * - "1": cgroup;
+			 * - "0": vmtracker;
+			 * - "": not set, e.g. created on an older version which does not
+			 *   support memory_auditor yet, consider it as vmtracker;
+			 */
+			if resGroup.MemoryAuditor == 1 {
+				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=cgroup"))
+			} else {
+				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=vmtracker"))
+			}
+
 			attributes = append(attributes, fmt.Sprintf("MEMORY_LIMIT=%d", resGroup.MemoryLimit))
 			attributes = append(attributes, fmt.Sprintf("MEMORY_SHARED_QUOTA=%d", resGroup.MemorySharedQuota))
 			attributes = append(attributes, fmt.Sprintf("MEMORY_SPILL_RATIO=%d", resGroup.MemorySpillRatio))
