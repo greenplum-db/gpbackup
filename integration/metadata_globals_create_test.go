@@ -87,7 +87,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfBefore5(connection)
 		})
 		It("creates a basic resource group", func() {
-			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30}
+			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
 			emptyMetadataMap := map[uint32]backup.ObjectMetadata{}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{someGroup}, emptyMetadataMap)
@@ -106,7 +106,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Fail("Could not find some_group")
 		})
 		It("alters a default resource group", func() {
-			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30}
+			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
 			emptyMetadataMap := map[uint32]backup.ObjectMetadata{}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{defaultGroup}, emptyMetadataMap)
