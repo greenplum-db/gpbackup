@@ -181,10 +181,10 @@ COMMENT ON RESOURCE QUEUE "commentQueue" IS 'This is a resource queue comment.';
 				`CREATE RESOURCE GROUP some_group2 WITH (CPUSET='0-3', MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=10, CONCURRENCY=25);`)
 		})
 	})
-	Describe("PrintPrepareResourceGroupStatements", func() {
+	Describe("PrintResetResourceGroupStatements", func() {
 		var emptyResGroupMetadata = map[uint32]backup.ObjectMetadata{}
 		It("prints prepare resource groups", func() {
-			backup.PrintPrepareResourceGroupStatements(backupfile, toc, emptyResGroupMetadata)
+			backup.PrintResetResourceGroupStatements(backupfile, toc, emptyResGroupMetadata)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "admin_group", "RESOURCE GROUP")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`ALTER RESOURCE GROUP admin_group SET CPU_RATE_LIMIT 1;`,

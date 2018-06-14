@@ -230,7 +230,7 @@ func BackupResourceGroups(metadataFile *utils.FileWithByteCount) {
 	resGroups := GetResourceGroups(connectionPool)
 	objectCounts["Resource Groups"] = len(resGroups)
 	resGroupMetadata := GetCommentsForObjectType(connectionPool, TYPE_RESOURCEGROUP)
-	PrintPrepareResourceGroupStatements(metadataFile, globalTOC, resGroupMetadata)
+	PrintResetResourceGroupStatements(metadataFile, globalTOC, resGroupMetadata)
 	PrintCreateResourceGroupStatements(metadataFile, globalTOC, resGroups, resGroupMetadata)
 }
 

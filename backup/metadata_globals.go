@@ -92,29 +92,27 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 	}
 }
 
-type resGroupPrepareStruct struct {
-	oid     uint32
-	name    string
-	setting string
-}
-
-func PrintPrepareResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resGroupMetadata MetadataMap) {
+func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resGroupMetadata MetadataMap) {
 	/*
 	 * total cpu_rate_limit and memory_limit should less than 100, so clean
 	 * them before we seting new memory_limit and cpu_rate_limit.
 	 */
-	defSettings := []resGroupPrepareStruct{
+	defSettings := []struct {
+		oid     uint32
+		name    string
+		setting string
+	}{
 		{6438, "admin_group", "SET CPU_RATE_LIMIT 1"},
 		{6438, "admin_group", "SET MEMORY_LIMIT 1"},
 		{6437, "default_group", "SET CPU_RATE_LIMIT 1"},
 		{6437, "default_group", "SET MEMORY_LIMIT 1"},
 	}
+
 	for _, prepare := range defSettings {
 		start := uint64(0)
 
 		start = metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s %s;", prepare.name, prepare.setting)
-		PrintObjectMetadata(metadataFile, resGroupMetadata[prepare.oid], prepare.name, "RESOURCE GROUP")
 		toc.AddGlobalEntry("", prepare.name, "RESOURCE GROUP", start, metadataFile)
 	}
 }
