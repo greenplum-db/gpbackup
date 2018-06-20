@@ -29,6 +29,7 @@ var _ = Describe("backup/queries_shared tests", func() {
 	pg_get_userbyid(owner) AS owner,
 	coalesce(description,'') AS comment
 FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
+AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
@@ -42,6 +43,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
 JOIN pg_namespace n ON o.schema = n.oid
 WHERE n.nspname NOT LIKE 'pg_temp_%' AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog')
+AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 			params.SchemaField = "schema"
 			backup.GetMetadataForObjectType(connectionPool, params)
@@ -60,7 +62,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 	pg_get_userbyid(owner) AS owner,
 	coalesce(description,'') AS comment
 FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
-
+AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 			params.ACLField = "acl"
 			backup.GetMetadataForObjectType(connectionPool, params)
@@ -73,7 +75,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 	pg_get_userbyid(owner) AS owner,
 	coalesce(description,'') AS comment
 FROM table o LEFT JOIN pg_shdescription d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass)
-
+AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 			params.Shared = true
 			backup.GetMetadataForObjectType(connectionPool, params)

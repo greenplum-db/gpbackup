@@ -78,6 +78,7 @@ GROUP BY %s`, selectClause, groupBy, selectClause, groupBy)
 %s
 WHERE %s
 AND t.typtype = '%s'
+AND t.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 GROUP BY %s
 EXCEPT (
 %s

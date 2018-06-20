@@ -267,8 +267,10 @@ SELECT
 	coalesce(description,'') AS comment
 FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
 %s
+AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;
 `, aclStr, kindStr, ownerStr, params.CatalogTable, descFunc, params.CatalogTable, subidStr, schemaStr)
+	fmt.Println(query)
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connection.Select(&results, query)

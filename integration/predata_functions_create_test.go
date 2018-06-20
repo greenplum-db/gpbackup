@@ -388,7 +388,6 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadata := resultMetadataMap[extension.Oid]
 			structmatcher.ExpectStructsToMatch(&extension, &resultExtensions[0])
 			structmatcher.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
-
 		})
 	})
 	Describe("PrintCreateConversionStatements", func() {

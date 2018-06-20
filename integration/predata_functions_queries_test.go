@@ -427,9 +427,8 @@ LANGUAGE SQL`)
 
 			Expect(len(results)).To(Equal(1))
 
-			extensionDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
-			structmatcher.ExpectStructsToMatchExcluding(&extensionDef, &results[0], "Oid")
-
+			plperlDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
+			structmatcher.ExpectStructsToMatchExcluding(&plperlDef, &results[0], "Oid")
 		})
 	})
 	Describe("GetProceduralLanguages", func() {

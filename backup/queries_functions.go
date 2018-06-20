@@ -449,7 +449,7 @@ JOIN pg_namespace tn ON tt.typnamespace = tn.oid
 LEFT JOIN pg_proc p ON c.castfunc = p.oid
 LEFT JOIN pg_description d ON c.oid = d.objoid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE (%s) OR (%s) OR (%s)
+WHERE ((%s) OR (%s) OR (%s))
 AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
 ORDER BY 1, 2;
 `, argStr, methodStr, SchemaFilterClause("sn"), SchemaFilterClause("tn"), SchemaFilterClause("n"))
