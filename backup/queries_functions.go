@@ -697,7 +697,8 @@ SELECT
 	) AS options
 FROM pg_user_mapping um
 JOIN pg_foreign_server fs
-ON um.umserver = fs.oid;`)
+ON um.umserver = fs.oid
+WHERE %s;`, ExtensionFilterClause("um"))
 
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)

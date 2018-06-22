@@ -64,7 +64,7 @@ type Constraint struct {
 
 func GetConstraints(connection *dbconn.DBConn, includeTables ...Relation) []Constraint {
 	// This query is adapted from the queries underlying \d in psql.
-	tableQuery := `
+	tableQuery := fmt.Sprintf(`
 SELECT
 	con.oid,
 	quote_ident(n.nspname) AS schema,
@@ -82,10 +82,11 @@ LEFT JOIN pg_class c ON con.conrelid = c.oid
 LEFT JOIN pg_partition pt ON con.conrelid = pt.parrelid
 JOIN pg_namespace n ON n.oid = con.connamespace
 WHERE %s
+AND %s
 AND c.relname IS NOT NULL
 AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
 AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
-GROUP BY con.oid, conname, contype, c.relname, n.nspname, pt.parrelid`
+GROUP BY con.oid, conname, contype, c.relname, n.nspname, pt.parrelid`, "%s", ExtensionFilterClause("c"))
 
 	nonTableQuery := fmt.Sprintf(`SELECT
 	con.oid,
@@ -100,11 +101,12 @@ FROM pg_constraint con
 LEFT JOIN pg_type t ON con.contypid = t.oid
 JOIN pg_namespace n ON n.oid = con.connamespace
 WHERE %s
+AND %s
 AND t.typname IS NOT NULL
 GROUP BY con.oid, conname, contype, n.nspname, t.typname
 ORDER BY name;
 
-`, SchemaFilterClause("n"))
+`, SchemaFilterClause("n"), ExtensionFilterClause("con"))
 
 	query := ""
 	if len(includeTables) > 0 {
