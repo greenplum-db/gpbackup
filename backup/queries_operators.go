@@ -63,7 +63,7 @@ SELECT
 FROM pg_operator o
 JOIN pg_namespace n on n.oid = o.oprnamespace
 WHERE %s AND oprcode != 0
-AND o.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("n"))
+AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("o"))
 
 	var err error
 	if connection.Version.Before("5") {
@@ -98,7 +98,7 @@ SELECT
 FROM pg_opfamily o
 JOIN pg_namespace n on n.oid = o.opfnamespace
 WHERE %s
-AND o.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("n"))
+AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("o"))
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
@@ -157,7 +157,7 @@ LEFT JOIN pg_catalog.pg_opfamily f ON f.oid = opcfamily
 JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
 JOIN pg_catalog.pg_namespace fam_ns ON fam_ns.oid = opfnamespace
 WHERE %s
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("cls_ns"))
+AND %s`, SchemaFilterClause("cls_ns"), ExtensionFilterClause("c"))
 
 	var err error
 	if connection.Version.Before("5") {

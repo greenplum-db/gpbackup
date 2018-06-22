@@ -40,8 +40,8 @@ SELECT
 FROM pg_ts_parser p
 JOIN pg_namespace n ON n.oid = p.prsnamespace
 WHERE %s
-AND p.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY prsname;`, SchemaFilterClause("n"))
+AND %s
+ORDER BY prsname;`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	results := make([]TextSearchParser, 0)
 	err := connection.Select(&results, query)
@@ -68,8 +68,8 @@ SELECT
 FROM pg_ts_template p
 JOIN pg_namespace n ON n.oid = p.tmplnamespace
 WHERE %s
-AND p.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY tmplname;`, SchemaFilterClause("n"))
+AND %s
+ORDER BY tmplname;`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	results := make([]TextSearchTemplate, 0)
 	err := connection.Select(&results, query)
@@ -98,8 +98,8 @@ JOIN pg_ts_template t ON t.oid = d.dicttemplate
 JOIN pg_namespace tmpl_ns ON tmpl_ns.oid = t.tmplnamespace
 JOIN pg_namespace dict_ns ON dict_ns.oid = d.dictnamespace
 WHERE %s
-AND d.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY dictname;`, SchemaFilterClause("dict_ns"))
+AND %s
+ORDER BY dictname;`, SchemaFilterClause("dict_ns"), ExtensionFilterClause("d"))
 
 	results := make([]TextSearchDictionary, 0)
 	err := connection.Select(&results, query)
@@ -128,8 +128,8 @@ JOIN pg_ts_parser p ON p.oid = c.cfgparser
 JOIN pg_namespace cfg_ns ON cfg_ns.oid = c.cfgnamespace
 JOIN pg_namespace prs_ns ON prs_ns.oid = prsnamespace
 WHERE %s
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY cfgname;`, SchemaFilterClause("cfg_ns"))
+AND %s
+ORDER BY cfgname;`, SchemaFilterClause("cfg_ns"), ExtensionFilterClause("c"))
 
 	results := make([]struct {
 		Schema    string

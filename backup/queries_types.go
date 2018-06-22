@@ -66,26 +66,26 @@ GROUP BY %s`, selectClause, groupBy)
 	 */
 	tableTypesClause := fmt.Sprintf(`
 %s
-AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
+AND %s
 JOIN pg_class c ON t.typrelid = c.oid AND c.relkind IN ('r', 'S', 'v')
 GROUP BY %s
 UNION ALL
 %s
 JOIN pg_type it ON t.typelem = it.oid
 JOIN pg_class c ON it.typrelid = c.oid AND c.relkind IN ('r', 'S', 'v')
-GROUP BY %s`, selectClause, groupBy, selectClause, groupBy)
+GROUP BY %s`, selectClause, ExtensionFilterClause("t"), groupBy, selectClause, groupBy)
 	return fmt.Sprintf(`
 %s
 WHERE %s
 AND t.typtype = '%s'
-AND t.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
+AND %s
 GROUP BY %s
 EXCEPT (
 %s
 UNION ALL
 %s
 )
-ORDER BY schema, name;`, selectClause, SchemaFilterClause("n"), typeType, groupBy, arrayTypesClause, tableTypesClause)
+ORDER BY schema, name;`, selectClause, SchemaFilterClause("n"), typeType, ExtensionFilterClause("t"), groupBy, arrayTypesClause, tableTypesClause)
 }
 
 type Type struct {
@@ -252,8 +252,8 @@ JOIN pg_namespace n ON t.typnamespace = n.oid
 JOIN pg_type b ON t.typbasetype = b.oid
 WHERE %s
 AND t.typtype = 'd'
-AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
+AND %s
+ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)
@@ -276,8 +276,8 @@ LEFT JOIN (
 	) e ON t.oid = e.enumtypid
 WHERE %s
 AND t.typtype = 'e'
-AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
+AND %s
+ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)
@@ -296,8 +296,8 @@ FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
 WHERE %s
 AND t.typtype = 'p'
-AND t.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"))
+AND %s
+ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)

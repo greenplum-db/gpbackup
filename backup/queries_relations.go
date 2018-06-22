@@ -76,8 +76,8 @@ JOIN pg_namespace n
 WHERE %s
 %s
 AND relkind = 'r'
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY c.oid;`, relationAndSchemaFilterClause(), childPartitionFilter)
+AND %s
+ORDER BY c.oid;`, relationAndSchemaFilterClause(), childPartitionFilter, ExtensionFilterClause("c"))
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
@@ -151,8 +151,8 @@ AND (
 	%s
 )
 AND relkind = 'r'
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY c.oid;`, SchemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter)
+AND %s
+ORDER BY c.oid;`, SchemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter, ExtensionFilterClause("c"))
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
@@ -461,8 +461,8 @@ JOIN pg_type p ON d.refobjid = p.oid
 JOIN pg_namespace n ON p.typnamespace = n.oid
 JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'r'
 WHERE %s
-AND p.oid NOT IN (select objid from pg_depend where deptype = 'e')`, SchemaFilterClause("n"))
-	tableQuery := `
+AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
+	tableQuery := fmt.Sprintf(`
 SELECT
 	objid AS oid,
 	quote_ident(n.nspname) || '.' || quote_ident(p.relname) AS referencedobject,
@@ -471,7 +471,7 @@ FROM pg_depend d
 JOIN pg_class p ON d.refobjid = p.oid AND p.relkind = 'r'
 JOIN pg_namespace n ON p.relnamespace = n.oid
 JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'r'
-AND p.oid NOT IN (select objid from pg_depend where deptype = 'e')`
+AND %s`, ExtensionFilterClause("p"))
 
 	query := ""
 	// If we are filtering on tables, we only want to record dependencies on other tables in the list
@@ -519,8 +519,8 @@ LEFT JOIN pg_namespace n
 	ON c.relnamespace = n.oid
 WHERE relkind = 'S'
 AND %s
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY n.nspname, c.relname;`, relationAndSchemaFilterClause())
+AND %s
+ORDER BY n.nspname, c.relname;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
@@ -614,7 +614,7 @@ FROM pg_class c
 LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE c.relkind = 'v'::"char"
 AND %s
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e');`, relationAndSchemaFilterClause())
+AND %s;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
@@ -634,8 +634,8 @@ WHERE d.classid = 'pg_rewrite'::regclass::oid
 	AND v1.oid != v2.oid
 	AND v1.relkind = 'v'
 	AND %s
-	AND v1.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY v2.oid, referencedobject;`, SchemaFilterClause("n"))
+	AND %s
+ORDER BY v2.oid, referencedobject;`, SchemaFilterClause("n"), ExtensionFilterClause("v1"))
 
 	results := make([]Dependency, 0)
 	dependencyMap := make(map[uint32][]string, 0)

@@ -100,8 +100,8 @@ LEFT JOIN pg_namespace n
 	ON p.pronamespace = n.oid
 WHERE %s
 AND proisagg = 'f'
-AND p.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"))
+AND %s
+ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	results := make([]Function, 0)
 	err := connection.Select(&results, query)
@@ -300,7 +300,7 @@ FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE %s
-AND p.oid NOT IN (select objid from pg_depend where deptype = 'e');`, SchemaFilterClause("n"))
+AND %s;`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	masterQuery := fmt.Sprintf(`
 SELECT
@@ -322,7 +322,7 @@ FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE %s
-AND p.oid NOT IN (select objid from pg_depend where deptype = 'e');`, SchemaFilterClause("n"))
+AND %s;`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	aggregates := make([]Aggregate, 0)
 	query := ""
@@ -450,9 +450,9 @@ LEFT JOIN pg_proc p ON c.castfunc = p.oid
 LEFT JOIN pg_description d ON c.oid = d.objoid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE ((%s) OR (%s) OR (%s))
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
+AND %s
 ORDER BY 1, 2;
-`, argStr, methodStr, SchemaFilterClause("sn"), SchemaFilterClause("tn"), SchemaFilterClause("n"))
+`, argStr, methodStr, SchemaFilterClause("sn"), SchemaFilterClause("tn"), SchemaFilterClause("n"), ExtensionFilterClause("c"))
 
 	casts := make([]Cast, 0)
 	err := connection.Select(&casts, query)
@@ -517,7 +517,7 @@ FROM pg_language l
 WHERE l.lanispl='t'
 AND l.lanname != 'plpgsql';
 `
-	query := `
+	query := fmt.Sprintf(`
 SELECT
 	oid,
 	quote_ident(l.lanname) AS name,
@@ -530,7 +530,7 @@ SELECT
 FROM pg_language l
 WHERE l.lanispl='t'
 AND l.lanname != 'plpgsql'
-AND l.oid NOT IN (select objid from pg_depend where deptype = 'e');`
+AND %s;`, ExtensionFilterClause("l"))
 	var err error
 	if connection.Version.Before("5") {
 		err = connection.Select(&results, version4query)
@@ -567,8 +567,8 @@ JOIN pg_namespace n ON c.connamespace = n.oid
 JOIN pg_proc p ON c.conproc = p.oid
 JOIN pg_namespace fn ON p.pronamespace = fn.oid
 WHERE %s
-AND c.oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY n.nspname, c.conname;`, SchemaFilterClause("n"))
+AND %s
+ORDER BY n.nspname, c.conname;`, SchemaFilterClause("n"), ExtensionFilterClause("c"))
 
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -637,9 +637,7 @@ SELECT
 		ORDER BY option_name), ', ')
 	) AS options
 FROM pg_foreign_data_wrapper
-WHERE oid NOT IN (select objid from pg_depend where deptype = 'e')
-
-;`)
+WHERE %s;`, ExtensionFilterClause(""))
 
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -671,7 +669,7 @@ SELECT
 	) AS options
 FROM pg_foreign_server fs
 LEFT JOIN pg_foreign_data_wrapper fdw ON fdw.oid = srvfdw
-WHERE fs.oid NOT IN (select objid from pg_depend where deptype = 'e');`)
+WHERE %s`, ExtensionFilterClause("fs"))
 
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)

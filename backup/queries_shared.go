@@ -41,8 +41,8 @@ SELECT
 	quote_ident(nspname) AS name
 FROM pg_namespace n
 WHERE %s
-AND oid NOT IN (select objid from pg_depend where deptype = 'e')
-ORDER BY name;`, SchemaFilterClause("n"))
+AND %s
+ORDER BY name;`, SchemaFilterClause("n"), ExtensionFilterClause(""))
 
 	results := make([]Schema, 0)
 
@@ -221,6 +221,15 @@ func SchemaFilterClause(namespace string) string {
 	return fmt.Sprintf(`%s.nspname NOT LIKE 'pg_temp_%%' AND %s.nspname NOT LIKE 'pg_toast%%' AND %s.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog') %s`, namespace, namespace, namespace, schemaFilterClauseStr)
 }
 
+func ExtensionFilterClause(namespace string) string {
+	oidStr := "oid"
+	if namespace != "" {
+		oidStr = fmt.Sprintf("%s.oid", namespace)
+	}
+
+	return fmt.Sprintf("%s NOT IN (select objid from pg_depend where deptype = 'e')", oidStr)
+}
+
 type MetadataQueryStruct struct {
 	Oid        uint32
 	Privileges sql.NullString
@@ -270,7 +279,6 @@ FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
 AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;
 `, aclStr, kindStr, ownerStr, params.CatalogTable, descFunc, params.CatalogTable, subidStr, schemaStr)
-	fmt.Println(query)
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connection.Select(&results, query)
