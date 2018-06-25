@@ -1042,7 +1042,11 @@ LANGUAGE SQL`)
 				oid := testutils.OidFromObjectName(connection, "", "plperl", backup.TYPE_EXTENSION)
 				resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_EXTENSION)
 
-				Expect(len(resultMetadataMap)).To(Equal(1))
+				if connection.Version.Before("6") {
+					Expect(len(resultMetadataMap)).To(Equal(1))
+				} else {
+					Expect(len(resultMetadataMap)).To(Equal(2))
+				}
 				resultMetadata := resultMetadataMap[oid]
 				structmatcher.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
 			})

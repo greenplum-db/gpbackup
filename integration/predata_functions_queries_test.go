@@ -425,10 +425,19 @@ LANGUAGE SQL`)
 
 			results := backup.GetExtensions(connection)
 
-			Expect(len(results)).To(Equal(1))
+			if connection.Version.Before("6") {
+				Expect(len(results)).To(Equal(1))
 
-			plperlDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
-			structmatcher.ExpectStructsToMatchExcluding(&plperlDef, &results[0], "Oid")
+				plperlDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
+				structmatcher.ExpectStructsToMatchExcluding(&plperlDef, &results[0], "Oid")
+			} else {
+				Expect(len(results)).To(Equal(2))
+
+				plperlDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
+				hyperloglogDef := backup.Extension{Oid: 0, Name: "hyperloglog_counter", Schema: "pg_catalog"}
+				structmatcher.ExpectStructsToMatchExcluding(&plperlDef, &results[0], "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&hyperloglogDef, &results[1], "Oid")
+			}
 		})
 	})
 	Describe("GetProceduralLanguages", func() {

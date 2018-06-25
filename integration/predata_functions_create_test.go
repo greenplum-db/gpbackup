@@ -370,24 +370,24 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateExtensions", func() {
 		It("creates extensions", func() {
 			testutils.SkipIfBefore5(connection)
-			extension := backup.Extension{Oid: 1, Name: "plperl", Schema: "pg_catalog"}
-			extensions := []backup.Extension{extension}
+			plperlExtension := backup.Extension{Oid: 1, Name: "plperl", Schema: "pg_catalog"}
+			extensions := []backup.Extension{plperlExtension}
 			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
 			extensionMetadata := extensionMetadataMap[1]
-
 			backup.PrintCreateExtensionStatements(backupfile, toc, extensions, extensionMetadataMap)
-
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP EXTENSION plperl; SET search_path=pg_catalog")
-
 			resultExtensions := backup.GetExtensions(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_EXTENSION)
-
-			extension.Oid = testutils.OidFromObjectName(connection, "", "plperl", backup.TYPE_EXTENSION)
-			Expect(len(resultExtensions)).To(Equal(1))
-			resultMetadata := resultMetadataMap[extension.Oid]
-			structmatcher.ExpectStructsToMatch(&extension, &resultExtensions[0])
-			structmatcher.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
+			plperlExtension.Oid = testutils.OidFromObjectName(connection, "", "plperl", backup.TYPE_EXTENSION)
+			if connection.Version.Before("6") {
+				Expect(len(resultExtensions)).To(Equal(1))
+			} else {
+				Expect(len(resultExtensions)).To(Equal(2))
+			}
+			plperlMetadata := resultMetadataMap[plperlExtension.Oid]
+			structmatcher.ExpectStructsToMatch(&plperlExtension, &resultExtensions[0])
+			structmatcher.ExpectStructsToMatch(&extensionMetadata, &plperlMetadata)
 		})
 	})
 	Describe("PrintCreateConversionStatements", func() {
