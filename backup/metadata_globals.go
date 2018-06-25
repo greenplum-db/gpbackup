@@ -98,14 +98,13 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	 * them before we seting new memory_limit and cpu_rate_limit.
 	 */
 	defSettings := []struct {
-		oid     uint32
 		name    string
 		setting string
 	}{
-		{6438, "admin_group", "SET CPU_RATE_LIMIT 1"},
-		{6438, "admin_group", "SET MEMORY_LIMIT 1"},
-		{6437, "default_group", "SET CPU_RATE_LIMIT 1"},
-		{6437, "default_group", "SET MEMORY_LIMIT 1"},
+		{"admin_group", "SET CPU_RATE_LIMIT 1"},
+		{"admin_group", "SET MEMORY_LIMIT 1"},
+		{"default_group", "SET CPU_RATE_LIMIT 1"},
+		{"default_group", "SET MEMORY_LIMIT 1"},
 	}
 
 	for _, prepare := range defSettings {
