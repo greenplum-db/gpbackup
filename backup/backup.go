@@ -255,13 +255,14 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	if *singleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file backup")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
-		oidList := make([]string, len(tables))
-		for i, table := range tables {
-			oidList[i] = fmt.Sprintf("%d", table.Oid)
+		oidList := make([]string, 0, len(tables))
+		for _, table := range tables {
+			if !tableDefs[table.Oid].IsExternal {
+				oidList = append(oidList, fmt.Sprintf("%d", table.Oid))
+			}
 		}
 		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo)
-		firstOid := tables[0].Oid
-		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, globalFPInfo)
+		utils.CreateFirstSegmentPipeOnAllHosts(oidList[0], globalCluster, globalFPInfo)
 		compressStr := fmt.Sprintf(" --compression-level %d", *compressionLevel)
 		if !*noCompression && *compressionLevel == 0 {
 			compressStr = " --compression-level 1"

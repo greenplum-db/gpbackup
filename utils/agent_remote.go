@@ -14,10 +14,10 @@ import (
  * Functions to run commands on entire cluster during both backup and restore
  */
 
-func CreateFirstSegmentPipeOnAllHosts(oid uint32, c *cluster.Cluster, fpInfo FilePathInfo) {
+func CreateFirstSegmentPipeOnAllHosts(oid string, c *cluster.Cluster, fpInfo FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Creating segment data pipes", func(contentID int) string {
 		pipeName := fpInfo.GetSegmentPipeFilePath(contentID)
-		pipeName = fmt.Sprintf("%s_%d", pipeName, oid)
+		pipeName = fmt.Sprintf("%s_%s", pipeName, oid)
 		return fmt.Sprintf("mkfifo %s", pipeName)
 	}, cluster.ON_SEGMENTS)
 	c.CheckClusterError(remoteOutput, "Unable to create segment data pipes", func(contentID int) string {

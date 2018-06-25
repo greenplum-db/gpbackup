@@ -252,11 +252,53 @@ CREATE TABLE prime (
     j integer
 ) DISTRIBUTED BY (i);
 
-
-
-
 COPY prime (i, j) FROM stdin;
 \.
+
+
+SET search_path = public, pg_catalog;
+
+CREATE WRITABLE EXTERNAL TABLE my_sales_ext (
+    id integer,
+    year integer,
+    qtr integer,
+    day integer,
+    region text
+) LOCATION (
+    'gpfdist://gpdb_test:8080/sales_2010'
+)
+FORMAT 'csv' (delimiter E',' null E'' escape E'"' quote E'"')
+ENCODING 'UTF8' DISTRIBUTED BY (id);
+
+
+CREATE EXTERNAL TABLE sales_1_prt_yr_1_external_partition__ (
+    id integer,
+    year integer,
+    qtr integer,
+    day integer,
+    region text
+) LOCATION (
+    'gpfdist://gpdb_test:8080/sales_2010'
+) ON ALL
+FORMAT 'csv' (delimiter E',' null E'' escape E'"' quote E'"')
+ENCODING 'UTF8';
+
+
+CREATE TABLE part_with_ext (
+    id integer,
+    year integer,
+    qtr integer,
+    day integer,
+    region text
+) DISTRIBUTED BY (id) PARTITION BY RANGE(year)
+          (
+          PARTITION yr_1 START (2010) END (2011) EVERY (1) WITH (tablename='sales_1_prt_yr_1', appendonly=false ),
+          PARTITION yr_2 START (2011) END (2012) EVERY (1) WITH (tablename='sales_1_prt_yr_2', appendonly=false ),
+          PARTITION yr_3 START (2012) END (2013) EVERY (1) WITH (tablename='sales_1_prt_yr_3', appendonly=false ),
+          PARTITION yr_4 START (2013) END (2014) EVERY (1) WITH (tablename='sales_1_prt_yr_4', appendonly=false )
+          );
+ALTER TABLE part_with_ext EXCHANGE PARTITION yr_1 WITH TABLE sales_1_prt_yr_1_external_partition__ WITHOUT VALIDATION;
+DROP TABLE sales_1_prt_yr_1_external_partition__;
 
 
 SET search_path = public, pg_catalog;

@@ -351,6 +351,22 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				os.RemoveAll(backupdir)
 			})
+			It("runs gpbackup and gprestore on database with all objects", func() {
+				testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+				defer testutils.ExecuteSQLFile(backupConn, "test_tables_data.sql")
+				defer testutils.ExecuteSQLFile(backupConn, "test_tables_ddl.sql")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+				testutils.ExecuteSQLFile(backupConn, "gpdb4_objects.sql")
+				if backupConn.Version.AtLeast("5") {
+					testutils.ExecuteSQLFile(backupConn, "gpdb5_objects.sql")
+				}
+				if backupConn.Version.AtLeast("6") {
+					testutils.ExecuteSQLFile(backupConn, "gpdb6_objects.sql")
+				}
+				timestamp := gpbackup(gpbackupPath, "--leaf-partition-data", "--single-data-file")
+				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+
+			})
 		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
 			timestamp := gpbackup(gpbackupPath)
@@ -455,22 +471,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 
 			os.RemoveAll(backupdir)
-		})
-		It("runs gpbackup and gprestore on database with all objects", func() {
-			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
-			defer testutils.ExecuteSQLFile(backupConn, "test_tables_data.sql")
-			defer testutils.ExecuteSQLFile(backupConn, "test_tables_ddl.sql")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
-			testutils.ExecuteSQLFile(backupConn, "gpdb4_objects.sql")
-			if backupConn.Version.AtLeast("5") {
-				testutils.ExecuteSQLFile(backupConn, "gpdb5_objects.sql")
-			}
-			if backupConn.Version.AtLeast("6") {
-				testutils.ExecuteSQLFile(backupConn, "gpdb6_objects.sql")
-			}
-			timestamp := gpbackup(gpbackupPath, "--leaf-partition-data")
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
-
 		})
 		It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {
 			backupdir := "/tmp/signals"

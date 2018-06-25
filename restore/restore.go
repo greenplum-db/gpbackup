@@ -200,7 +200,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 			filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
 		}
 		utils.WriteOidListToSegments(filteredOids, globalCluster, globalFPInfo)
-		firstOid := filteredMasterDataEntries[0].Oid
+		firstOid := fmt.Sprintf("%d", filteredMasterDataEntries[0].Oid)
 		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, globalFPInfo)
 		utils.StartAgent(globalCluster, globalFPInfo, "--restore-agent", *pluginConfigFile, "")
 	}
