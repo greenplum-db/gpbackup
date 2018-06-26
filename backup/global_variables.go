@@ -50,6 +50,7 @@ var (
 	includeSchemas      *[]string
 	includeRelationFile *string
 	includeRelations    *[]string
+	incremental         *string // TODO: change to bool
 	numJobs             *int
 	leafPartitionData   *bool
 	metadataOnly        *bool
