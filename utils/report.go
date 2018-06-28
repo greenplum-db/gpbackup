@@ -34,6 +34,12 @@ type BackupConfig struct {
 	Plugin                string
 	SingleDataFile        bool
 	WithStatistics        bool
+	RestorePlan           []RestorePlanEntry
+}
+
+type RestorePlanEntry struct {
+	Timestamp string
+	TableFQNs []string
 }
 
 /*

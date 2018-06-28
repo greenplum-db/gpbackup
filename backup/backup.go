@@ -118,14 +118,17 @@ func DoBackup() {
 	 * or only external tables
 	 */
 	if !backupReport.MetadataOnly {
-		filteredTables := dataTables
+		backupSetTables := dataTables
 
 		// TODO: change to bool check
 		if *incremental != "" {
 			lastBackupTOC := GetLastBackupTOC()
-			filteredTables = FilterTablesForIncremental(lastBackupTOC, globalTOC, dataTables)
+			backupSetTables = FilterTablesForIncremental(lastBackupTOC, globalTOC, dataTables)
 		}
-		backupData(filteredTables, tableDefs)
+
+		CreateRestorePlan(backupSetTables, dataTables)
+
+		backupData(backupSetTables, tableDefs)
 	}
 
 	if *withStats {
