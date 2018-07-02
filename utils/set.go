@@ -34,18 +34,10 @@ func NewIncludeSet(list []string) *FilterSet {
 	return &newSet
 }
 
-func NewEmptyIncludeSet() *FilterSet {
-	return NewIncludeSet([]string{})
-}
-
 func NewExcludeSet(list []string) *FilterSet {
 	newSet := NewIncludeSet(list)
 	(*newSet).IsExclude = true
 	return newSet
-}
-
-func NewEmptyExcludeSet() *FilterSet {
-	return NewExcludeSet([]string{})
 }
 
 func (s *FilterSet) MatchesFilter(item string) bool {

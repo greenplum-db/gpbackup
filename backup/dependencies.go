@@ -102,7 +102,7 @@ func TopologicalSort(slice []Sortable) []Sortable {
 	isDependentOn := make(map[string][]string, 0)
 	queue := make([]Sortable, 0)
 	sorted := make([]Sortable, 0)
-	notVisited := utils.NewEmptyIncludeSet()
+	notVisited := utils.NewIncludeSet([]string{})
 	for i, item := range slice {
 		name := item.FQN()
 		deps := item.Dependencies()
