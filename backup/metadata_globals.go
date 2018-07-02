@@ -116,17 +116,15 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	}
 }
 
-type resGroupStruct struct {
-	setting string
-	value   int
-}
-
 func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resGroups []ResourceGroup, resGroupMetadata MetadataMap) {
 	for _, resGroup := range resGroups {
 		start := uint64(0)
 
 		if resGroup.Name == "default_group" || resGroup.Name == "admin_group" {
-			resGroupList := []resGroupStruct{
+			resGroupList := []struct {
+				setting string
+				value   int
+			}{
 				{"MEMORY_LIMIT", resGroup.MemoryLimit},
 				{"MEMORY_SHARED_QUOTA", resGroup.MemorySharedQuota},
 				{"MEMORY_SPILL_RATIO", resGroup.MemorySpillRatio},
