@@ -93,7 +93,7 @@ func RecoverMetadataFilesUsingPlugin() {
 	pluginConfig := utils.ReadPluginConfig(*pluginConfigFile)
 	pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
 	pluginConfig.CopyPluginConfigToAllHosts(globalCluster, *pluginConfigFile)
-	pluginConfig.SetupPluginForRestoreOnAllHosts(globalCluster, pluginConfig.ConfigPath, globalFPInfo.GetDirForContent(-1))
+	pluginConfig.SetupPluginForRestore(globalCluster, pluginConfig.ConfigPath, globalFPInfo.GetDirForContent(-1))
 	pluginConfig.RestoreFile(globalFPInfo.GetConfigFilePath())
 
 	InitializeBackupConfig()

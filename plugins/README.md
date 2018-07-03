@@ -72,17 +72,23 @@ Our utility calls all commands listed below. Errors will occur if any of them ar
 
 These arguments are passed to the plugin by gpbackup/gprestore.
 
-<a name="config_path">**config_path:**</a> Absolute path to the config yaml file
+[config_path](#config_path): Absolute path to the config yaml file
 
-<a name="local_backup_directory">**local_backup_directory:**</a> The path to the directory where gpbackup would place backup files on the master host if not using a plugin. Our plugins reference this path to recreate a similar directory structure on the destination system. gprestore will read files from this location so the plugin will need to create the directory during setup if it does not already exist.
+[local_backup_directory](#local_backup_directory): The path to the directory where gpbackup would place backup files on the master host if not using a plugin. Our plugins reference this path to recreate a similar directory structure on the destination system. gprestore will read files from this location so the plugin will need to create the directory during setup if it does not already exist.
 
-<a name="filepath">**filepath:**</a> The local path to a file written by gpbackup and/or read by gprestore.
+[scope](#scope): The scope at which this plugin's setup/cleanup hook is invoked. Values for this parameter are: "master", "segment_host" and "segment". Each such hook is invoked at each of these scopes. For eg. If we have a cluster with a master on 1 master host and 2 segment hosts each with 4 segments, each of these hooks will be executed in the following manner: There will be 1 invocation
+of each method with the parameter "master", offering a chance to perform some setup/cleanup to be done *once* per cluster. Creation/Deletion of a remote directory is a perfect candidate here. Furthermore, there will be 1 invocation for each of these commands for each of the segment hosts, offering a chance to establish/teardown connectivity to a remote storage provider such as S3 for instance. Finally, there will be 1 invocation for each of these commands for each of the segments.
 
-<a name="data_filekey">**data_filekey:**</a> The path where a data file would be written on local disk if not using a plugin. The plugin should use the filename specified in this argument when storing the streamed data on the remote system because the same path will be used as a key to the restore_data command to retrieve the data.
+Note: "segment_host" and "segment" are both provided as a single physical segment host may house multiple segment processes in Greenplum. There maybe some setup or cleanup required at the segment host level as compared to each segment process.
+
+
+[filepath](#filepath): The local path to a file written by gpbackup and/or read by gprestore.
+
+[data_filekey](#data_filekey): The path where a data file would be written on local disk if not using a plugin. The plugin should use the filename specified in this argument when storing the streamed data on the remote system because the same path will be used as a key to the restore_data command to retrieve the data.
 
 ## Command API
 
-### <a name="setup_plugin_for_backup">setup_plugin_for_backup</a>
+### [setup_plugin_for_backup](#setup_plugin_for_backup)
 
 Steps necessary to initialize plugin before backup begins. E.g. Creating remote directories, validating connectivity, disk checks, etc.
 
@@ -96,14 +102,18 @@ Called at the start of the backup process on the master and each segment host.
 
 [local_backup_directory](#local_backup_directory)
 
+[scope](#scope)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
 ```
 
-### <a name="setup_plugin_for_restore">setup_plugin_for_restore</a>
+### [setup_plugin_for_restore](#setup_plugin_for_restore)
 
 Steps necessary to initialize plugin before restore begins. E.g. validating connectivity
 
@@ -117,14 +127,18 @@ Called at the start of the restore process on the master and each segment host.
 
 [local_backup_directory](#local_backup_directory)
 
+[scope](#scope)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
 ```
 
-### <a name="cleanup_plugin_for_backup">cleanup_plugin_for_backup</a>
+### [cleanup_plugin_for_backup](#cleanup_plugin_for_backup)
 
 Steps necessary to tear down plugin once backup is complete. E.g. Disconnecting from backup service, removing temporary files created during backup, etc.
 
@@ -138,14 +152,18 @@ Called during the backup teardown phase on the master and each segment host. Thi
 
 [local_backup_directory](#local_backup_directory)
 
+[scope](#scope)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
 ```
 
-### <a name="cleanup_plugin_for_restore">cleanup_plugin_for_restore</a>
+### [cleanup_plugin_for_restore](#cleanup_plugin_for_restore)
 
 Steps necessary to tear down plugin once restore is complete. E.g. Disconnecting from backup service, removing files created during restore, etc.
 
@@ -159,14 +177,18 @@ Called during the restore teardown phase on the master and each segment host. Th
 
 [local_backup_directory](#local_backup_directory)
 
+[scope](#scope)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
 ```
 
-### <a name="backup_file">backup_file</a>
+### [backup_file](#backup_file)
 
 Given the path to a file gpbackup has created on local disk, this command should copy the file to the remote system. The original file should be left behind.
 
@@ -180,6 +202,8 @@ Called once for each file created by gpbackup after the files have been written 
 
 [filepath_to_back_up](#filepath)
 
+[scope](#scope)
+
 **Return Value:** None
 
 **Example:**
@@ -187,7 +211,7 @@ Called once for each file created by gpbackup after the files have been written 
 test_plugin backup_file /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101/gpbackup_20180101010101_metadata.sql
 ```
 
-### <a name="restore_file">restore_file</a>
+### [restore_file](#restore_file)
 
 Given the path to a file gprestore will read on local disk, this command should recover this file from the remote system and place it at the specified path.
 
@@ -208,7 +232,7 @@ Called once for each file created by gpbackup to restore them to local disk so g
 test_plugin restore_file /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101/gpbackup_20180101010101_metadata.sql
 ```
 
-### <a name="backup_data">backup_data</a>
+### [backup_data](#backup_data)
 
 This command should read a potentially large stream of data from stdin and process/write this data to a remote system. The destination file should keep the same name as the provided argument for easier restore.
 
@@ -229,7 +253,7 @@ Called by the gpbackup_helper agent process to stream all table data for a segme
 COPY "<large amount of data>" | test_plugin backup_data /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101/gpbackup_0_20180101010101
 ```
 
-### <a name="restore_data">restore_data</a>
+### [restore_data](#restore_data)
 
 This command should read a potentially large data file specified by the filepath argument from the remote filesystem and process/write the contents to stdout. The data file in the restore system should have the same name as the filepath argument.
 
@@ -249,7 +273,7 @@ Called by the gpbackup_helper agent process to stream all table data for a segme
 ```
 test_plugin restore_data /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101/gpbackup_0_20180101010101 > COPY ...
 ```
-### <a name="plugin_api_version">plugin_api_version</a>
+### [plugin_api_version](#plugin_api_version)
 
 This command should echo the gpbackup plugin api version to stdout. The version for this gpbackup plugin api is 0.1.0.
 
@@ -301,4 +325,4 @@ plugin_test_bench.sh [path_to_executable] [plugin_config] [optional_config_for_s
 
 This will individually test each command and run a backup and restore using your plugin. This suite will upload small amounts of data to your destination system (<1MB total)
 
-If the `[optional_config_for_secondary_destination]` is provided, the test bench will also restore from this secondary destination. 
+If the `[optional_config_for_secondary_destination]` is provided, the test bench will also restore from this secondary destination.

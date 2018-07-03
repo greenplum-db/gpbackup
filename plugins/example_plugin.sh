@@ -38,7 +38,7 @@ restore_data() {
 }
 
 plugin_api_version(){
-  echo "0.1.0"
+  echo "0.2.0"
 }
 
 "$@"

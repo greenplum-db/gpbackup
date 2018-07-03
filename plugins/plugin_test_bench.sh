@@ -3,7 +3,7 @@
 plugin=$1
 plugin_config=$2
 secondary_plugin_config=$3
-SUPPORTED_API_VERSION="0.1.0"
+SUPPORTED_API_VERSION="0.2.0"
 
 # ----------------------------------------------
 # Test suite setup

@@ -82,7 +82,7 @@ func DoSetup() {
 		pluginConfig = utils.ReadPluginConfig(*pluginConfigFile)
 		pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
 		pluginConfig.CopyPluginConfigToAllHosts(globalCluster, *pluginConfigFile)
-		pluginConfig.SetupPluginForBackupOnAllHosts(globalCluster, pluginConfig.ConfigPath, globalFPInfo.GetDirForContent(-1))
+		pluginConfig.SetupPluginForBackup(globalCluster, pluginConfig.ConfigPath, globalFPInfo.GetDirForContent(-1))
 		backupReport.Plugin = pluginConfig.ExecutablePath
 	}
 }
@@ -360,7 +360,7 @@ func DoTeardown() {
 		if pluginConfig != nil {
 			pluginConfig.BackupFile(configFilename, true)
 			pluginConfig.BackupFile(reportFilename, true)
-			pluginConfig.CleanupPluginForBackupOnAllHosts(globalCluster, pluginConfig.ConfigPath, globalFPInfo.GetDirForContent(-1))
+			pluginConfig.CleanupPluginForBackup(globalCluster, pluginConfig.ConfigPath, globalFPInfo.GetDirForContent(-1))
 		}
 	}
 
