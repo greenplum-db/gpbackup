@@ -176,6 +176,7 @@ func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas [
 	}
 
 	restorePlanTableSet := NewIncludeSet(restorePlanTableFQNs)
+	restorePlanTableSet.AlwaysMatchesFilter = false
 
 	matchingEntries := make([]MasterDataEntry, 0)
 	for _, entry := range toc.DataEntries {

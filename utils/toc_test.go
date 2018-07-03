@@ -219,57 +219,75 @@ var _ = Describe("utils/toc tests", func() {
 		})
 	})
 	Describe("GetDataEntriesMatching", func() {
-		var restorePlanTableFQNs []string
 		BeforeEach(func() {
 			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0)
 			toc.AddMasterDataEntry("schema2", "table2", 1, "(i)", 0)
 			toc.AddMasterDataEntry("schema3", "table3", 1, "(i)", 0)
-			restorePlanTableFQNs = []string{"schema1.table1", "schema2.table2"}
 		})
 
-		It("returns matching entry on include schema", func() {
-			includeSchemas := []string{"schema1"}
+		Context("Non-empty restore plan", func() {
+			restorePlanTableFQNs := []string{"schema1.table1", "schema2.table2"}
 
-			matchingEntries := toc.GetDataEntriesMatching(includeSchemas, []string{},
-				[]string{}, []string{}, restorePlanTableFQNs)
+			It("returns matching entry on include schema", func() {
+				includeSchemas := []string{"schema1"}
 
-			Expect(matchingEntries).
-				To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
+				matchingEntries := toc.GetDataEntriesMatching(includeSchemas, []string{},
+					[]string{}, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns matching entry on exclude schema", func() {
+				excludeSchemas := []string{"schema2"}
+
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, excludeSchemas,
+					[]string{}, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns matching entry on include table", func() {
+				includeTables := []string{"schema1.table1"}
+
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					includeTables, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns matching entry on exclude table", func() {
+				excludeTables := []string{"schema2.table2"}
+
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					[]string{}, excludeTables, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns all entries when not schema-filtered or table-filtered", func() {
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					[]string{}, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"},
+						{Schema: "schema2", Name: "table2", Oid: 1, AttributeString: "(i)"}}))
+			})
 		})
-		It("returns matching entry on exclude schema", func() {
-			excludeSchemas := []string{"schema2"}
 
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, excludeSchemas,
-				[]string{}, []string{}, restorePlanTableFQNs)
+		Context("Empty restore plan", func() {
+			restorePlanTableFQNs := make([]string, 0)
 
-			Expect(matchingEntries).
-				To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
-		})
-		It("returns matching entry on include table", func() {
-			includeTables := []string{"schema1.table1"}
+			Specify("That there are no matching entries", func() {
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					[]string{}, []string{}, restorePlanTableFQNs)
 
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
-				includeTables, []string{}, restorePlanTableFQNs)
-
-			Expect(matchingEntries).
-				To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
-		})
-		It("returns matching entry on exclude table", func() {
-			excludeTables := []string{"schema2.table2"}
-
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
-				[]string{}, excludeTables, restorePlanTableFQNs)
-
-			Expect(matchingEntries).
-				To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
-		})
-		It("returns all entries when not schema-filtered or table-filtered", func() {
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
-				[]string{}, []string{}, restorePlanTableFQNs)
-
-			Expect(matchingEntries).
-				To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"},
-					{Schema: "schema2", Name: "table2", Oid: 1, AttributeString: "(i)"}}))
+				Expect(matchingEntries).To(BeEmpty())
+			})
 		})
 	})
 
