@@ -168,6 +168,32 @@ func RetrieveSequences() ([]Sequence, map[string]string) {
 	return sequences, sequenceOwnerColumns
 }
 
+func RetrieveProtocols(funcInfoMap map[uint32]FunctionInfo) ([]ExternalProtocol, MetadataMap) {
+	protocols := GetExternalProtocols(connectionPool)
+	protocolsToBackUp := make([]ExternalProtocol, 0, len(protocols))
+	for _, p := range protocols {
+		p.FuncMap = make(map[uint32]string)
+		funcOidList := []uint32{p.ReadFunction, p.WriteFunction, p.Validator}
+		hasUserDefinedFunc := false
+		for _, funcOid := range funcOidList {
+			if funcInfo, hasFunction := funcInfoMap[funcOid]; hasFunction {
+				if !funcInfo.IsInternal {
+					hasUserDefinedFunc = true
+				}
+				dependencyStr := fmt.Sprintf("%s(%s)", funcInfo.QualifiedName, funcInfo.Arguments)
+				p.DependsUpon = append(p.DependsUpon, dependencyStr)
+				p.FuncMap[funcOid] = funcInfo.QualifiedName
+			}
+		}
+		if hasUserDefinedFunc {
+			protocolsToBackUp = append(protocolsToBackUp, p)
+		}
+	}
+	objectCounts["Protocols"] = len(protocolsToBackUp)
+	protoMetadata := GetMetadataForObjectType(connectionPool, TYPE_PROTOCOL)
+	return protocolsToBackUp, protoMetadata
+}
+
 /*
  * Generic metadata wrapper functions
  */
@@ -308,13 +334,16 @@ func BackupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Se
 }
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
-func BackupFunctionsAndTypesAndTables(metadataFile *utils.FileWithByteCount, otherFuncs []Function, types []Type, tables []Relation, functionMetadata MetadataMap, typeMetadata MetadataMap, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
+func BackupFunctionsAndTypesAndTablesAndProtocols(metadataFile *utils.FileWithByteCount, otherFuncs []Function, types []Type, tables []Relation,
+	protocols []ExternalProtocol, functionMetadata MetadataMap, typeMetadata MetadataMap, relationMetadata MetadataMap, protoMetadata MetadataMap,
+	tableDefs map[uint32]TableDefinition, constraints []Constraint) {
 	gplog.Verbose("Writing CREATE FUNCTION statements to metadata file")
 	gplog.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
 	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
+	gplog.Verbose("Writing CREATE PROTOCOL statements to metadata file")
 	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, false)
-	sortedSlice := SortFunctionsAndTypesAndTablesInDependencyOrder(otherFuncs, types, tables)
-	filteredMetadata := ConstructFunctionAndTypeAndTableMetadataMap(functionMetadata, typeMetadata, relationMetadata)
+	sortedSlice := SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder(otherFuncs, types, tables, protocols)
+	filteredMetadata := ConstructFunctionAndTypeAndTableMetadataMap(functionMetadata, typeMetadata, relationMetadata, protoMetadata)
 	PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
@@ -338,14 +367,6 @@ func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, rela
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
 		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
 	}
-}
-
-func BackupProtocols(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
-	gplog.Verbose("Writing CREATE PROTOCOL statements to metadata file")
-	protocols := GetExternalProtocols(connectionPool)
-	objectCounts["Protocols"] = len(protocols)
-	protoMetadata := GetMetadataForObjectType(connectionPool, TYPE_PROTOCOL)
-	PrintCreateExternalProtocolStatements(metadataFile, globalTOC, protocols, funcInfoMap, protoMetadata)
 }
 
 func BackupTSParsers(metadataFile *utils.FileWithByteCount) {

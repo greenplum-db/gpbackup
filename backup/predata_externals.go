@@ -210,43 +210,26 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table R
 	}
 }
 
-func PrintCreateExternalProtocolStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, protocols []ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata MetadataMap) {
-	for _, protocol := range protocols {
-		start := metadataFile.ByteCount
-		hasUserDefinedFunc := false
-		if function, ok := funcInfoMap[protocol.WriteFunction]; ok && !function.IsInternal {
-			hasUserDefinedFunc = true
-		}
-		if function, ok := funcInfoMap[protocol.ReadFunction]; ok && !function.IsInternal {
-			hasUserDefinedFunc = true
-		}
-		if function, ok := funcInfoMap[protocol.Validator]; ok && !function.IsInternal {
-			hasUserDefinedFunc = true
-		}
-
-		if !hasUserDefinedFunc {
-			continue
-		}
-
-		protocolFunctions := []string{}
-		if protocol.ReadFunction != 0 {
-			protocolFunctions = append(protocolFunctions, fmt.Sprintf("readfunc = %s", funcInfoMap[protocol.ReadFunction].QualifiedName))
-		}
-		if protocol.WriteFunction != 0 {
-			protocolFunctions = append(protocolFunctions, fmt.Sprintf("writefunc = %s", funcInfoMap[protocol.WriteFunction].QualifiedName))
-		}
-		if protocol.Validator != 0 {
-			protocolFunctions = append(protocolFunctions, fmt.Sprintf("validatorfunc = %s", funcInfoMap[protocol.Validator].QualifiedName))
-		}
-
-		metadataFile.MustPrintf("\n\nCREATE ")
-		if protocol.Trusted {
-			metadataFile.MustPrintf("TRUSTED ")
-		}
-		metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
-		PrintObjectMetadata(metadataFile, protoMetadata[protocol.Oid], protocol.Name, "PROTOCOL")
-		toc.AddPredataEntry("", protocol.Name, "PROTOCOL", "", start, metadataFile)
+func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, protocol ExternalProtocol, protoMetadata ObjectMetadata) {
+	start := metadataFile.ByteCount
+	protocolFunctions := []string{}
+	if protocol.ReadFunction != 0 {
+		protocolFunctions = append(protocolFunctions, fmt.Sprintf("readfunc = %s", protocol.FuncMap[protocol.ReadFunction]))
 	}
+	if protocol.WriteFunction != 0 {
+		protocolFunctions = append(protocolFunctions, fmt.Sprintf("writefunc = %s", protocol.FuncMap[protocol.WriteFunction]))
+	}
+	if protocol.Validator != 0 {
+		protocolFunctions = append(protocolFunctions, fmt.Sprintf("validatorfunc = %s", protocol.FuncMap[protocol.Validator]))
+	}
+
+	metadataFile.MustPrintf("\n\nCREATE ")
+	if protocol.Trusted {
+		metadataFile.MustPrintf("TRUSTED ")
+	}
+	metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
+	PrintObjectMetadata(metadataFile, protoMetadata, protocol.Name, "PROTOCOL")
+	toc.AddPredataEntry("", protocol.Name, "PROTOCOL", "", start, metadataFile)
 }
 
 func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Relation) {

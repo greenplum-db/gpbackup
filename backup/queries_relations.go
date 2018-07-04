@@ -457,7 +457,7 @@ func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, ta
 			tableOidList[i] = fmt.Sprintf("%d", table.Oid)
 		}
 	}
-	nonTableQuery := fmt.Sprintf(`
+	typeQuery := fmt.Sprintf(`
 SELECT
 	objid AS oid,
 	quote_ident(n.nspname) || '.' || quote_ident(p.typname) AS referencedobject,
@@ -468,6 +468,14 @@ JOIN pg_namespace n ON p.typnamespace = n.oid
 JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'r'
 WHERE %s
 AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
+	protocolQuery := fmt.Sprintf(`
+SELECT
+	objid AS oid,
+	quote_ident(ptc.ptcname) AS referencedobject,
+	'f' AS istable
+FROM pg_depend d
+JOIN pg_extprotocol ptc ON d.refobjid = ptc.oid
+AND %s`, ExtensionFilterClause("ptc"))
 	tableQuery := fmt.Sprintf(`
 SELECT
 	objid AS oid,
@@ -484,7 +492,7 @@ AND %s`, ExtensionFilterClause("p"))
 	if isTableFiltered && len(tableOidList) > 0 {
 		query = fmt.Sprintf("%s\nWHERE objid IN (%s);", tableQuery, strings.Join(tableOidList, ","))
 	} else {
-		query = fmt.Sprintf("%s\nUNION\n%s;", nonTableQuery, tableQuery)
+		query = fmt.Sprintf("%s\nUNION\n%s\nUNION\n%s;", typeQuery, protocolQuery, tableQuery)
 	}
 	results := make([]struct {
 		Oid              uint32

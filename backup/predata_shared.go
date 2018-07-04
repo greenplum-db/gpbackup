@@ -485,6 +485,8 @@ func PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile *utils.
 			PrintCreateFunctionStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 		case Relation:
 			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], metadataMap[obj.Oid])
+		case ExternalProtocol:
+			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 		}
 	}
 }
