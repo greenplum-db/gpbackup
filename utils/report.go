@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -40,6 +40,18 @@ type BackupConfig struct {
 type RestorePlanEntry struct {
 	Timestamp string
 	TableFQNs []string
+}
+
+func SetRestorePlanForLegacyBackup(toc *TOC, backupTimestamp string, backupConfig *BackupConfig) {
+	tableFQNs := make([]string, 0, len(toc.DataEntries))
+	for _, entry := range toc.DataEntries {
+		entryFQN := MakeFQN(entry.Schema, entry.Name)
+		tableFQNs = append(tableFQNs, entryFQN)
+	}
+	backupConfig.RestorePlan = []RestorePlanEntry{
+		{Timestamp: backupTimestamp, TableFQNs: tableFQNs},
+	}
+
 }
 
 /*

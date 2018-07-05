@@ -38,7 +38,7 @@ func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes st
 	return numRows
 }
 
-func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) {
+func restoreSingleTableData(fpInfo *utils.FilePathInfo, entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) {
 	name := utils.MakeFQN(entry.Schema, entry.Name)
 	if gplog.GetVerbosity() > gplog.LOGINFO {
 		// No progress bar at this log level, so we note table count here
@@ -48,9 +48,9 @@ func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalT
 	}
 	backupFile := ""
 	if backupConfig.SingleDataFile {
-		backupFile = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
+		backupFile = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
 	} else {
-		backupFile = globalFPInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
+		backupFile = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
 	}
 	numRowsRestored := CopyTableIn(connectionPool, name, entry.AttributeString, backupFile, backupConfig.SingleDataFile, whichConn)
 	numRowsBackedUp := entry.RowsCopied

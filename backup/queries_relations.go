@@ -444,7 +444,7 @@ func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, ta
 	var tableNameSet *utils.FilterSet
 	var tableOidList []string
 	if isTableFiltered {
-		tableNameSet = utils.NewEmptyIncludeSet()
+		tableNameSet = utils.NewIncludeSet([]string{})
 		tableOidList = make([]string, len(tables))
 		for i, table := range tables {
 			tableNameSet.Add(table.ToString())

@@ -62,6 +62,11 @@ func InitializeBackupConfig() {
 	utils.InitializeCompressionParameters(backupConfig.Compressed, 0)
 	utils.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
 	utils.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
+
+	// Legacy backups prior to the incremental feature would have no restoreplan yaml element
+	if isLegacyBackup := backupConfig.RestorePlan == nil; isLegacyBackup {
+		utils.SetRestorePlanForLegacyBackup(globalTOC, globalFPInfo.Timestamp, backupConfig)
+	}
 }
 
 func InitializeFilterLists() {

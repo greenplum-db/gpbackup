@@ -50,6 +50,10 @@ SET search_path = schema2, pg_catalog;
 
 INSERT INTO foo3 SELECT generate_series(201,300);
 
+INSERT INTO ao1 SELECT generate_series(1,1000);
+
+INSERT INTO ao2 SELECT generate_series(1,1000);
+
 --
 --
 

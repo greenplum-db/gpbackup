@@ -158,30 +158,32 @@ func (toc *TOC) GetAllSQLStatements(section string, metadataFile io.ReaderAt) []
 	return statements
 }
 
-func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas []string, includeTables []string, excludeTables []string) []MasterDataEntry {
-	restoreAllSchemas := len(includeSchemas) == 0 && len(excludeSchemas) == 0
-	var schemaSet *FilterSet
-	if !restoreAllSchemas {
-		if len(includeSchemas) > 0 {
-			schemaSet = NewIncludeSet(includeSchemas)
-		} else {
-			schemaSet = NewExcludeSet(excludeSchemas)
-		}
+func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas []string,
+	includeTableFQNs []string, excludeTableFQNs []string, restorePlanTableFQNs []string) []MasterDataEntry {
+
+	schemaSet := NewIncludeSet([]string{})
+	if len(includeSchemas) > 0 {
+		schemaSet = NewIncludeSet(includeSchemas)
+	} else if len(excludeSchemas) > 0 {
+		schemaSet = NewExcludeSet(excludeSchemas)
 	}
-	restoreAllTables := len(includeTables) == 0 && len(excludeTables) == 0
-	var tableSet *FilterSet
-	if !restoreAllTables {
-		if len(includeTables) > 0 {
-			tableSet = NewIncludeSet(includeTables)
-		} else {
-			tableSet = NewExcludeSet(excludeTables)
-		}
+
+	tableSet := NewIncludeSet([]string{})
+	if len(includeTableFQNs) > 0 {
+		tableSet = NewIncludeSet(includeTableFQNs)
+	} else if len(excludeTableFQNs) > 0 {
+		tableSet = NewExcludeSet(excludeTableFQNs)
 	}
+
+	restorePlanTableSet := NewIncludeSet(restorePlanTableFQNs)
+	restorePlanTableSet.AlwaysMatchesFilter = false
+
 	matchingEntries := make([]MasterDataEntry, 0)
 	for _, entry := range toc.DataEntries {
-		validSchema := restoreAllSchemas || schemaSet.MatchesFilter(entry.Schema)
 		tableFQN := MakeFQN(entry.Schema, entry.Name)
-		validTable := restoreAllTables || tableSet.MatchesFilter(tableFQN)
+
+		validSchema := schemaSet.MatchesFilter(entry.Schema)
+		validTable := restorePlanTableSet.MatchesFilter(tableFQN) && tableSet.MatchesFilter(tableFQN)
 		if validSchema && validTable {
 			matchingEntries = append(matchingEntries, entry)
 		}

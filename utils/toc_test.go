@@ -34,7 +34,7 @@ var _ = Describe("utils/toc tests", func() {
 	BeforeEach(func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "global")
 	})
-	Context("GetSqlStatementForObjectTypes", func() {
+	Describe("GetSqlStatementForObjectTypes", func() {
 		// Dummy variables to help clarify which arguments are non-empty in a given test
 		var noInObj, noExObj, noInSchema, noExSchema, noInRelation, noExRelation []string
 		It("returns statement for a single object type", func() {
@@ -218,44 +218,80 @@ var _ = Describe("utils/toc tests", func() {
 			Expect(statements).To(Equal([]utils.StatementWithType{}))
 		})
 	})
-	Context("GetDataEntriesMatching", func() {
-		It("returns matching entry on include schema", func() {
-			includeSchemas := []string{"schema1"}
+	Describe("GetDataEntriesMatching", func() {
+		BeforeEach(func() {
 			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0)
 			toc.AddMasterDataEntry("schema2", "table2", 1, "(i)", 0)
-			matchingEntries := toc.GetDataEntriesMatching(includeSchemas, []string{}, []string{}, []string{})
-			Expect(matchingEntries).To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
+			toc.AddMasterDataEntry("schema3", "table3", 1, "(i)", 0)
 		})
-		It("returns matching entry on exclude schema", func() {
-			excludeSchemas := []string{"schema2"}
-			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0)
-			toc.AddMasterDataEntry("schema2", "table2", 1, "(i)", 0)
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, excludeSchemas, []string{}, []string{})
-			Expect(matchingEntries).To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
+
+		Context("Non-empty restore plan", func() {
+			restorePlanTableFQNs := []string{"schema1.table1", "schema2.table2"}
+
+			It("returns matching entry on include schema", func() {
+				includeSchemas := []string{"schema1"}
+
+				matchingEntries := toc.GetDataEntriesMatching(includeSchemas, []string{},
+					[]string{}, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns matching entry on exclude schema", func() {
+				excludeSchemas := []string{"schema2"}
+
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, excludeSchemas,
+					[]string{}, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns matching entry on include table", func() {
+				includeTables := []string{"schema1.table1"}
+
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					includeTables, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns matching entry on exclude table", func() {
+				excludeTables := []string{"schema2.table2"}
+
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					[]string{}, excludeTables, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"}}))
+			})
+			It("returns all entries when not schema-filtered or table-filtered", func() {
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					[]string{}, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).
+					To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1",
+						Oid: 1, AttributeString: "(i)"},
+						{Schema: "schema2", Name: "table2", Oid: 1, AttributeString: "(i)"}}))
+			})
 		})
-		It("returns matching entry on include table", func() {
-			includeTables := []string{"schema1.table1"}
-			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0)
-			toc.AddMasterDataEntry("schema2", "table2", 1, "(i)", 0)
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{}, includeTables, []string{})
-			Expect(matchingEntries).To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
-		})
-		It("returns matching entry on exclude table", func() {
-			excludeTables := []string{"schema2.table2"}
-			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0)
-			toc.AddMasterDataEntry("schema2", "table2", 1, "(i)", 0)
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{}, []string{}, excludeTables)
-			Expect(matchingEntries).To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}}))
-		})
-		It("returns all entries when not schema-filtered or table-filtered", func() {
-			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0)
-			toc.AddMasterDataEntry("schema2", "table2", 1, "(i)", 0)
-			matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{}, []string{}, []string{})
-			Expect(matchingEntries).To(Equal([]utils.MasterDataEntry{{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"}, {Schema: "schema2", Name: "table2", Oid: 1, AttributeString: "(i)"}}))
+
+		Context("Empty restore plan", func() {
+			restorePlanTableFQNs := make([]string, 0)
+
+			Specify("That there are no matching entries", func() {
+				matchingEntries := toc.GetDataEntriesMatching([]string{}, []string{},
+					[]string{}, []string{}, restorePlanTableFQNs)
+
+				Expect(matchingEntries).To(BeEmpty())
+			})
 		})
 	})
 
-	Context("GetAllSqlStatements", func() {
+	Describe("GetAllSqlStatements", func() {
 		It("returns statement for a single object type", func() {
 			backupfile.ByteCount = createLen
 			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", 0, backupfile, "global")
@@ -285,7 +321,7 @@ var _ = Describe("utils/toc tests", func() {
 			Expect(statements).To(Equal([]utils.StatementWithType{}))
 		})
 	})
-	Context("SubstituteRedirectDatabaseInStatements", func() {
+	Describe("SubstituteRedirectDatabaseInStatements", func() {
 		wrongCreate := utils.StatementWithType{ObjectType: "TABLE", Statement: "CREATE DATABASE somedatabase;\n"}
 		encoding := utils.StatementWithType{ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase TEMPLATE template0 ENCODING 'UTF8';\n"}
 		gucs := utils.StatementWithType{ObjectType: "DATABASE GUC", Statement: "ALTER DATABASE somedatabase SET fsync TO off;\n"}

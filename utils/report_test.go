@@ -25,6 +25,33 @@ import (
 )
 
 var _ = Describe("utils/report tests", func() {
+	Describe("SetRestorePlanForLegacyBackup", func() {
+		legacyBackupConfig := utils.BackupConfig{}
+		legacyBackupConfig.RestorePlan = nil
+		legacyBackupTOC := utils.TOC{
+			DataEntries: []utils.MasterDataEntry{
+				{Schema: "schema1", Name: "table1"},
+				{Schema: "schema2", Name: "table2"},
+			},
+		}
+		legacyBackupTimestamp := "ts0"
+
+		utils.SetRestorePlanForLegacyBackup(&legacyBackupTOC, legacyBackupTimestamp, &legacyBackupConfig)
+
+		Specify("That there should be only one resultant restore plan entry", func() {
+			Expect(len(legacyBackupConfig.RestorePlan)).To(Equal(1))
+		})
+
+		Specify("That the restore plan entry should have the legacy backup's timestamp", func() {
+			Expect(legacyBackupConfig.RestorePlan[0].Timestamp).To(Equal(legacyBackupTimestamp))
+		})
+
+		Specify("That the restore plan entry should have all table FQNs as in the TOC's DataEntries", func() {
+			Expect(legacyBackupConfig.RestorePlan[0].TableFQNs).
+				To(Equal([]string{"schema1.table1", "schema2.table2"}))
+		})
+
+	})
 	Describe("ParseErrorMessage", func() {
 		It("Parses a CRITICAL error message and returns error code 1", func() {
 			errStr := "testProgram:testUser:testHost:000000-[CRITICAL]:-Error Message"
