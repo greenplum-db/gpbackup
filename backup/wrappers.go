@@ -168,27 +168,9 @@ func RetrieveSequences() ([]Sequence, map[string]string) {
 	return sequences, sequenceOwnerColumns
 }
 
-func RetrieveProtocols(funcInfoMap map[uint32]FunctionInfo) ([]ExternalProtocol, MetadataMap) {
+func RetrieveAndProcessProtocols(funcInfoMap map[uint32]FunctionInfo) ([]ExternalProtocol, MetadataMap) {
 	protocols := GetExternalProtocols(connectionPool)
-	protocolsToBackUp := make([]ExternalProtocol, 0, len(protocols))
-	for _, p := range protocols {
-		p.FuncMap = make(map[uint32]string)
-		funcOidList := []uint32{p.ReadFunction, p.WriteFunction, p.Validator}
-		hasUserDefinedFunc := false
-		for _, funcOid := range funcOidList {
-			if funcInfo, hasFunction := funcInfoMap[funcOid]; hasFunction {
-				if !funcInfo.IsInternal {
-					hasUserDefinedFunc = true
-				}
-				dependencyStr := fmt.Sprintf("%s(%s)", funcInfo.QualifiedName, funcInfo.Arguments)
-				p.DependsUpon = append(p.DependsUpon, dependencyStr)
-				p.FuncMap[funcOid] = funcInfo.QualifiedName
-			}
-		}
-		if hasUserDefinedFunc {
-			protocolsToBackUp = append(protocolsToBackUp, p)
-		}
-	}
+	protocolsToBackUp := ProcessProtocols(protocols, funcInfoMap)
 	objectCounts["Protocols"] = len(protocolsToBackUp)
 	protoMetadata := GetMetadataForObjectType(connectionPool, TYPE_PROTOCOL)
 	return protocolsToBackUp, protoMetadata

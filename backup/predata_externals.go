@@ -210,6 +210,29 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table R
 	}
 }
 
+func ProcessProtocols(protocols []ExternalProtocol, funcInfoMap map[uint32]FunctionInfo) []ExternalProtocol {
+	protocolsToBackUp := make([]ExternalProtocol, 0, len(protocols))
+	for _, p := range protocols {
+		p.FuncMap = make(map[uint32]string)
+		funcOidList := []uint32{p.ReadFunction, p.WriteFunction, p.Validator}
+		hasUserDefinedFunc := false
+		for _, funcOid := range funcOidList {
+			if funcInfo, hasFunction := funcInfoMap[funcOid]; hasFunction {
+				if !funcInfo.IsInternal {
+					hasUserDefinedFunc = true
+				}
+				dependencyStr := fmt.Sprintf("%s(%s)", funcInfo.QualifiedName, funcInfo.Arguments)
+				p.DependsUpon = append(p.DependsUpon, dependencyStr)
+				p.FuncMap[funcOid] = funcInfo.QualifiedName
+			}
+		}
+		if hasUserDefinedFunc {
+			protocolsToBackUp = append(protocolsToBackUp, p)
+		}
+	}
+	return protocolsToBackUp
+}
+
 func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, protocol ExternalProtocol, protoMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	protocolFunctions := []string{}
