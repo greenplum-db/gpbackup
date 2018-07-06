@@ -3,19 +3,47 @@ set -e
 
 setup_plugin_for_backup(){
   echo "setup_plugin_for_backup $1 $2 $3" >> /tmp/plugin_out.txt
+  if [ "$3" = "master" ]
+    then echo "setup_plugin_for_backup was called for scope = master" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment_host" ]
+    then echo "setup_plugin_for_backup was called for scope = segment_host" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment" ]
+    then echo "setup_plugin_for_backup was called for scope = segment" >> /tmp/plugin_out.txt
+  fi
   mkdir -p /tmp/plugin_dest
 }
 
 setup_plugin_for_restore(){
   echo "setup_plugin_for_restore $1 $2 $3" >> /tmp/plugin_out.txt
+  if [ "$3" = "master" ]
+    then echo "setup_plugin_for_restore was called for scope = master" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment_host" ]
+    then echo "setup_plugin_for_restore was called for scope = segment_host" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment" ]
+    then echo "setup_plugin_for_restore was called for scope = segment" >> /tmp/plugin_out.txt
+  fi
 }
 
 cleanup_plugin_for_backup(){
   echo "cleanup_plugin_for_backup $1 $2 $3" >> /tmp/plugin_out.txt
+  if [ "$3" = "master" ]
+    then echo "cleanup_plugin_for_backup was called for scope = master" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment_host" ]
+    then echo "cleanup_plugin_for_backup was called for scope = segment_host" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment" ]
+    then echo "cleanup_plugin_for_backup was called for scope = segment" >> /tmp/plugin_out.txt
+  fi
 }
 
 cleanup_plugin_for_restore(){
   echo "cleanup_plugin_for_restore $1 $2 $3" >> /tmp/plugin_out.txt
+  if [ "$3" = "master" ]
+    then echo "cleanup_plugin_for_restore was called for scope = master" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment_host" ]
+    then echo "cleanup_plugin_for_restore was called for scope = segment_host" >> /tmp/plugin_out.txt
+  elif [ "$3" = "segment" ]
+    then echo "cleanup_plugin_for_restore was called for scope = segment" >> /tmp/plugin_out.txt
+  fi
 }
 
 restore_file() {

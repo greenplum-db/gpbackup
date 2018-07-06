@@ -45,14 +45,25 @@ echo "[PASSED] plugin_api_version"
 # Setup and Backup/Restore file functions
 # ----------------------------------------------
 
-echo "[RUNNING] setup_plugin_for_backup"
-$plugin setup_plugin_for_backup $plugin_config $testdir
+echo "[RUNNING] setup_plugin_for_backup on master"
+$plugin setup_plugin_for_backup $plugin_config $testdir master
+echo "[RUNNING] setup_plugin_for_backup on segment_host"
+$plugin setup_plugin_for_backup $plugin_config $testdir segment_host
+echo "[RUNNING] setup_plugin_for_backup on segment"
+$plugin setup_plugin_for_backup $plugin_config $testdir segment
+
 echo "[RUNNING] backup_file"
 $plugin backup_file $plugin_config $testfile
 # plugins should leave copies of the files locally when they run backup_file
 test -f $testfile
-echo "[RUNNING] setup_plugin_for_restore"
-$plugin setup_plugin_for_restore $plugin_config $testdir
+
+echo "[RUNNING] setup_plugin_for_restore on master"
+$plugin setup_plugin_for_restore $plugin_config $testdir master
+echo "[RUNNING] setup_plugin_for_restore on segment_host"
+$plugin setup_plugin_for_restore $plugin_config $testdir segment_host
+echo "[RUNNING] setup_plugin_for_restore on segment"
+$plugin setup_plugin_for_restore $plugin_config $testdir segment
+
 echo "[RUNNING] restore_file"
 rm $testfile
 $plugin restore_file $plugin_config $testfile
@@ -106,11 +117,20 @@ echo "[PASSED] restore_data"
 # Cleanup functions
 # ----------------------------------------------
 
-echo "[RUNNING] cleanup_plugin_for_backup"
-$plugin cleanup_plugin_for_backup $plugin_config $testdir
+echo "[RUNNING] cleanup_plugin_for_backup on master"
+$plugin cleanup_plugin_for_backup $plugin_config $testdir master
+echo "[RUNNING] cleanup_plugin_for_backup on segment_host"
+$plugin cleanup_plugin_for_backup $plugin_config $testdir segment_host
+echo "[RUNNING] cleanup_plugin_for_backup on segment"
+$plugin cleanup_plugin_for_backup $plugin_config $testdir segment
 echo "[PASSED] cleanup_plugin_for_backup"
-echo "[RUNNING] cleanup_plugin_for_restore"
-$plugin cleanup_plugin_for_restore $plugin_config $testdir
+
+echo "[RUNNING] cleanup_plugin_for_restore on master"
+$plugin cleanup_plugin_for_restore $plugin_config $testdir master
+echo "[RUNNING] cleanup_plugin_for_restore on segment_host"
+$plugin cleanup_plugin_for_restore $plugin_config $testdir segment_host
+echo "[RUNNING] cleanup_plugin_for_restore on segment"
+$plugin cleanup_plugin_for_restore $plugin_config $testdir segment
 echo "[PASSED] cleanup_plugin_for_restore"
 
 
