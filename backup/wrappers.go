@@ -326,7 +326,7 @@ func BackupFunctionsAndTypesAndTablesAndProtocols(metadataFile *utils.FileWithBy
 	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, false)
 	sortedSlice := SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder(otherFuncs, types, tables, protocols)
 	filteredMetadata := ConstructFunctionAndTypeAndTableMetadataMap(functionMetadata, typeMetadata, relationMetadata, protoMetadata)
-	PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
+	PrintCreateDependentTypeAndFunctionAndTablesAndProtocolsStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
@@ -343,7 +343,7 @@ func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, rela
 		sortable = append(sortable, table)
 	}
 	sortedSlice := TopologicalSort(sortable)
-	PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints)
+	PrintCreateDependentTypeAndFunctionAndTablesAndProtocolsStatements(metadataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
