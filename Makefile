@@ -36,7 +36,7 @@ lint :
 		gometalinter --config=gometalinter.config -s vendor ./...
 
 unit :
-		ginkgo -r -randomizeSuites -noisySkippings=false -randomizeAllSpecs backup restore utils testutils 2>&1
+		ginkgo -r -keepGoing -randomizeSuites -noisySkippings=false -randomizeAllSpecs backup restore utils testutils 2>&1
 
 integration :
 		ginkgo -r -randomizeSuites -noisySkippings=false -randomizeAllSpecs integration 2>&1
