@@ -36,7 +36,7 @@ run:
     make end_to_end
     SCRIPT
 
-    ssh -t root@mdw "sudo zypper -n install wget git && wget https://storage.googleapis.com/golang/go1.10.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.10.linux-amd64.tar.gz"
+    ssh -t root@mdw "sudo zypper -n install wget git && wget https://storage.googleapis.com/golang/go1.10.3.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz"
     ssh -t root@mdw "sudo mkdir /home/gpadmin/go && sudo chown gpadmin:gpadmin -R /home/gpadmin/go"
     chmod +x /tmp/run_tests.bash
     scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash

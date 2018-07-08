@@ -45,7 +45,7 @@ run:
     popd
     SCRIPT
 
-    ssh -t centos@mdw "sudo yum -y install wget git && wget https://storage.googleapis.com/golang/go1.10.linux-amd64.tar.gz && tar -xzf go1.10.linux-amd64.tar.gz && sudo mv go /usr/local"
+    ssh -t centos@mdw "sudo yum -y install wget git && wget https://storage.googleapis.com/golang/go1.10.3.linux-amd64.tar.gz && tar -xzf go1.10.3.linux-amd64.tar.gz && sudo mv go /usr/local"
     chmod +x /tmp/setup_centos_env.bash
     scp /tmp/setup_centos_env.bash mdw:/home/gpadmin/setup_centos_env.bash
     ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"

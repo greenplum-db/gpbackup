@@ -214,7 +214,7 @@ jobs:
         type: docker-image
         source:
           repository: golang
-          tag: '1.9.5'
+          tag: '1.10.3'
       run:
         path: bash
         args:
