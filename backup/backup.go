@@ -191,12 +191,12 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	BackupCreateSequences(metadataFile, sequences, relationMetadata)
 
 	constraints, conMetadata := RetrieveConstraints()
+	protocols, protoMetadata := RetrieveAndProcessProtocols(funcInfoMap)
 
-	BackupFunctionsAndTypesAndTables(metadataFile, otherFuncs, types, tables, functionMetadata, typeMetadata, relationMetadata, tableDefs, constraints)
+	BackupDependentObjects(metadataFile, otherFuncs, types, tables, protocols, functionMetadata, typeMetadata, relationMetadata, protoMetadata, tableDefs, constraints)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
 	if len(*includeSchemas) == 0 {
-		BackupProtocols(metadataFile, funcInfoMap)
 		if connectionPool.Version.AtLeast("6") {
 			BackupForeignDataWrappers(metadataFile, funcInfoMap)
 			BackupForeignServers(metadataFile)

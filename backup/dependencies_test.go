@@ -26,12 +26,15 @@ var _ = Describe("backup/dependencies tests", func() {
 		view1     backup.View
 		view2     backup.View
 		view3     backup.View
+		protocol1 backup.ExternalProtocol
+		protocol2 backup.ExternalProtocol
+		protocol3 backup.ExternalProtocol
 	)
 
 	BeforeEach(func() {
 		function1 = backup.Function{Schema: "public", Name: "function1", Arguments: "integer, integer", DependsUpon: []string{}}
-		function2 = backup.Function{Schema: "public", Name: "function1", Arguments: "numeric, text", DependsUpon: []string{}}
-		function3 = backup.Function{Schema: "public", Name: "function2", Arguments: "integer, integer", DependsUpon: []string{}}
+		function2 = backup.Function{Schema: "public", Name: "function2", Arguments: "numeric, text", DependsUpon: []string{}}
+		function3 = backup.Function{Schema: "public", Name: "function3", Arguments: "integer, integer", DependsUpon: []string{}}
 		relation1 = backup.Relation{Schema: "public", Name: "relation1", DependsUpon: []string{}}
 		relation2 = backup.Relation{Schema: "public", Name: "relation2", DependsUpon: []string{}}
 		relation3 = backup.Relation{Schema: "public", Name: "relation3", DependsUpon: []string{}}
@@ -41,6 +44,9 @@ var _ = Describe("backup/dependencies tests", func() {
 		view1 = backup.View{Schema: "public", Name: "view1", DependsUpon: []string{}}
 		view2 = backup.View{Schema: "public", Name: "view2", DependsUpon: []string{}}
 		view3 = backup.View{Schema: "public", Name: "view3", DependsUpon: []string{}}
+		protocol1 = backup.ExternalProtocol{Name: "protocol1", DependsUpon: []string{}}
+		protocol2 = backup.ExternalProtocol{Name: "protocol2", DependsUpon: []string{}}
+		protocol3 = backup.ExternalProtocol{Name: "protocol3", DependsUpon: []string{}}
 	})
 	Describe("TopologicalSort", func() {
 		It("returns the original slice if there are no dependencies among objects", func() {
@@ -83,15 +89,15 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(types[1].FQN()).To(Equal("public.type3"))
 			Expect(types[2].FQN()).To(Equal("public.type2"))
 		})
-		It("sorts the slice correctly if there are complex dependencies", func() {
-			type2.DependsUpon = []string{"public.type1", "public.function2(integer, integer)"}
+		It("sorts the slice correctly if there are explicit dependencies", func() {
+			type2.DependsUpon = []string{"public.type1", "public.function3(integer, integer)"}
 			function3.DependsUpon = []string{"public.type1"}
 			sortable := []backup.Sortable{type1, type2, function3}
 
 			sortable = backup.TopologicalSort(sortable)
 
 			Expect(sortable[0].FQN()).To(Equal("public.type1"))
-			Expect(sortable[1].FQN()).To(Equal("public.function2(integer, integer)"))
+			Expect(sortable[1].FQN()).To(Equal("public.function3(integer, integer)"))
 			Expect(sortable[2].FQN()).To(Equal("public.type2"))
 		})
 		It("aborts if dependency loop (this shouldn't be possible)", func() {
@@ -111,35 +117,40 @@ var _ = Describe("backup/dependencies tests", func() {
 			sortable = backup.TopologicalSort(sortable)
 		})
 	})
-	Describe("SortFunctionsAndTypesAndTablesInDependencyOrder", func() {
-		It("returns a slice of unsorted functions followed by unsorted types followed by unsorted tables if there are no dependencies among objects", func() {
+	Describe("SortObjectsInDependencyOrder", func() {
+		It("returns a slice of unsorted functions followed by types followed by tables followed by protocols if there are no dependencies among objects", func() {
 			functions := []backup.Function{function1, function2, function3}
 			types := []backup.Type{type1, type2, type3}
 			relations := []backup.Relation{relation1, relation2, relation3}
-			results := backup.SortFunctionsAndTypesAndTablesInDependencyOrder(functions, types, relations)
-			expected := []backup.Sortable{function1, function2, function3, type1, type2, type3, relation1, relation2, relation3}
+			protocols := []backup.ExternalProtocol{protocol1, protocol2, protocol3}
+			results := backup.SortObjectsInDependencyOrder(functions, types, relations, protocols)
+			expected := []backup.Sortable{function1, function2, function3, type1, type2, type3, relation1, relation2, relation3, protocol1, protocol2, protocol3}
 			Expect(results).To(Equal(expected))
 		})
 		It("returns a slice of sorted functions, types, and relations if there are dependencies among objects of the same type", func() {
-			function2.DependsUpon = []string{"public.function2(integer, integer)"}
+			function2.DependsUpon = []string{"public.function3(integer, integer)"}
 			type2.DependsUpon = []string{"public.type3"}
 			relation2.DependsUpon = []string{"public.relation3"}
+			protocol2.DependsUpon = []string{"protocol3"}
 			functions := []backup.Function{function1, function2, function3}
 			types := []backup.Type{type1, type2, type3}
 			relations := []backup.Relation{relation1, relation2, relation3}
-			results := backup.SortFunctionsAndTypesAndTablesInDependencyOrder(functions, types, relations)
-			expected := []backup.Sortable{function1, function3, type1, type3, relation1, relation3, function2, type2, relation2}
+			protocols := []backup.ExternalProtocol{protocol1, protocol2, protocol3}
+			results := backup.SortObjectsInDependencyOrder(functions, types, relations, protocols)
+			expected := []backup.Sortable{function1, function3, type1, type3, relation1, relation3, protocol1, protocol3, function2, type2, relation2, protocol2}
 			Expect(results).To(Equal(expected))
 		})
 		It("returns a slice of sorted functions, types, and relations if there are dependencies among objects of different types", func() {
 			function2.DependsUpon = []string{"public.type3"}
 			type2.DependsUpon = []string{"public.relation3"}
 			relation2.DependsUpon = []string{"public.type1"}
+			protocol2.DependsUpon = []string{"public.function1(integer, integer)", "public.relation2"}
 			functions := []backup.Function{function1, function2, function3}
 			types := []backup.Type{type1, type2, type3}
 			relations := []backup.Relation{relation1, relation2, relation3}
-			results := backup.SortFunctionsAndTypesAndTablesInDependencyOrder(functions, types, relations)
-			expected := []backup.Sortable{function1, function3, type1, type3, relation1, relation3, relation2, function2, type2}
+			protocols := []backup.ExternalProtocol{protocol1, protocol2, protocol3}
+			results := backup.SortObjectsInDependencyOrder(functions, types, relations, protocols)
+			expected := []backup.Sortable{function1, function3, type1, type3, relation1, relation3, protocol1, protocol3, relation2, function2, type2, protocol2}
 			Expect(results).To(Equal(expected))
 		})
 	})
@@ -266,16 +277,18 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(types[0].DependsUpon).To(Equal([]string{"public.builtin"}))
 		})
 	})
-	Describe("ConstructFunctionAndTypeAndTableMetadataMap", func() {
+	Describe("ConstructDependentObjectMetadataMap", func() {
 		It("composes metadata maps for functions, types, and tables into one map", func() {
 			funcMap := backup.MetadataMap{1: backup.ObjectMetadata{Comment: "function"}}
 			typeMap := backup.MetadataMap{2: backup.ObjectMetadata{Comment: "type"}}
 			tableMap := backup.MetadataMap{3: backup.ObjectMetadata{Comment: "relation"}}
-			result := backup.ConstructFunctionAndTypeAndTableMetadataMap(funcMap, typeMap, tableMap)
+			protoMap := backup.MetadataMap{4: backup.ObjectMetadata{Comment: "protocol"}}
+			result := backup.ConstructDependentObjectMetadataMap(funcMap, typeMap, tableMap, protoMap)
 			expected := backup.MetadataMap{
 				1: backup.ObjectMetadata{Comment: "function"},
 				2: backup.ObjectMetadata{Comment: "type"},
 				3: backup.ObjectMetadata{Comment: "relation"},
+				4: backup.ObjectMetadata{Comment: "protocol"},
 			}
 			Expect(result).To(Equal(expected))
 		})

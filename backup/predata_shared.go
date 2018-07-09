@@ -464,7 +464,7 @@ func (obj ObjectMetadata) GetCommentStatement(objectName string, objectType stri
 	return commentStr
 }
 
-func PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, tableDefsMap map[uint32]TableDefinition, constraints []Constraint) {
+func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, tableDefsMap map[uint32]TableDefinition, constraints []Constraint) {
 	conMap := make(map[string][]Constraint)
 	for _, constraint := range constraints {
 		conMap[constraint.OwningObject] = append(conMap[constraint.OwningObject], constraint)
@@ -485,6 +485,8 @@ func PrintCreateDependentTypeAndFunctionAndTablesStatements(metadataFile *utils.
 			PrintCreateFunctionStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 		case Relation:
 			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], metadataMap[obj.Oid])
+		case ExternalProtocol:
+			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 		}
 	}
 }

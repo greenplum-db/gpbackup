@@ -107,6 +107,8 @@ type ExternalProtocol struct {
 	ReadFunction  uint32 `db:"ptcreadfn"`
 	WriteFunction uint32 `db:"ptcwritefn"`
 	Validator     uint32 `db:"ptcvalidatorfn"`
+	DependsUpon   []string
+	FuncMap       map[uint32]string
 }
 
 func GetExternalProtocols(connection *dbconn.DBConn) []ExternalProtocol {
