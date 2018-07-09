@@ -193,7 +193,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	constraints, conMetadata := RetrieveConstraints()
 	protocols, protoMetadata := RetrieveAndProcessProtocols(funcInfoMap)
 
-	BackupFunctionsAndTypesAndTablesAndProtocols(metadataFile, otherFuncs, types, tables, protocols, functionMetadata, typeMetadata, relationMetadata, protoMetadata, tableDefs, constraints)
+	BackupDependentObjects(metadataFile, otherFuncs, types, tables, protocols, functionMetadata, typeMetadata, relationMetadata, protoMetadata, tableDefs, constraints)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
 	if len(*includeSchemas) == 0 {

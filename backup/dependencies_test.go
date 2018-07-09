@@ -117,13 +117,13 @@ var _ = Describe("backup/dependencies tests", func() {
 			sortable = backup.TopologicalSort(sortable)
 		})
 	})
-	Describe("SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder", func() {
+	Describe("SortObjectsInDependencyOrder", func() {
 		It("returns a slice of unsorted functions followed by types followed by tables followed by protocols if there are no dependencies among objects", func() {
 			functions := []backup.Function{function1, function2, function3}
 			types := []backup.Type{type1, type2, type3}
 			relations := []backup.Relation{relation1, relation2, relation3}
 			protocols := []backup.ExternalProtocol{protocol1, protocol2, protocol3}
-			results := backup.SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder(functions, types, relations, protocols)
+			results := backup.SortObjectsInDependencyOrder(functions, types, relations, protocols)
 			expected := []backup.Sortable{function1, function2, function3, type1, type2, type3, relation1, relation2, relation3, protocol1, protocol2, protocol3}
 			Expect(results).To(Equal(expected))
 		})
@@ -136,7 +136,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			types := []backup.Type{type1, type2, type3}
 			relations := []backup.Relation{relation1, relation2, relation3}
 			protocols := []backup.ExternalProtocol{protocol1, protocol2, protocol3}
-			results := backup.SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder(functions, types, relations, protocols)
+			results := backup.SortObjectsInDependencyOrder(functions, types, relations, protocols)
 			expected := []backup.Sortable{function1, function3, type1, type3, relation1, relation3, protocol1, protocol3, function2, type2, relation2, protocol2}
 			Expect(results).To(Equal(expected))
 		})
@@ -149,7 +149,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			types := []backup.Type{type1, type2, type3}
 			relations := []backup.Relation{relation1, relation2, relation3}
 			protocols := []backup.ExternalProtocol{protocol1, protocol2, protocol3}
-			results := backup.SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder(functions, types, relations, protocols)
+			results := backup.SortObjectsInDependencyOrder(functions, types, relations, protocols)
 			expected := []backup.Sortable{function1, function3, type1, type3, relation1, relation3, protocol1, protocol3, relation2, function2, type2, protocol2}
 			Expect(results).To(Equal(expected))
 		})
@@ -277,13 +277,13 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(types[0].DependsUpon).To(Equal([]string{"public.builtin"}))
 		})
 	})
-	Describe("ConstructFunctionAndTypeAndTableMetadataMap", func() {
+	Describe("ConstructDependentObjectMetadataMap", func() {
 		It("composes metadata maps for functions, types, and tables into one map", func() {
 			funcMap := backup.MetadataMap{1: backup.ObjectMetadata{Comment: "function"}}
 			typeMap := backup.MetadataMap{2: backup.ObjectMetadata{Comment: "type"}}
 			tableMap := backup.MetadataMap{3: backup.ObjectMetadata{Comment: "relation"}}
 			protoMap := backup.MetadataMap{4: backup.ObjectMetadata{Comment: "protocol"}}
-			result := backup.ConstructFunctionAndTypeAndTableMetadataMap(funcMap, typeMap, tableMap, protoMap)
+			result := backup.ConstructDependentObjectMetadataMap(funcMap, typeMap, tableMap, protoMap)
 			expected := backup.MetadataMap{
 				1: backup.ObjectMetadata{Comment: "function"},
 				2: backup.ObjectMetadata{Comment: "type"},

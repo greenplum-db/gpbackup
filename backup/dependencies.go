@@ -8,7 +8,21 @@ import (
 	"github.com/pkg/errors"
 )
 
-func SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder(functions []Function, types []Type, tables []Relation, protocols []ExternalProtocol) []Sortable {
+/* This file contains functions to sort objects that have dependencies among themselves.
+ *  For example, functions and types can be dependent on one another, we cannot simply
+ *  dump all functions and then all types.
+ *  The following objects are included the dependency sorting logic:
+ *   - Functions
+ *   - Types
+ *   - Tables
+ *   - Protocols
+ */
+
+/*
+ * We need to include arguments to differentiate functions with the same name;
+ * we don't use IdentArgs because we already have Arguments in the funcInfoMap.
+ */
+func SortObjectsInDependencyOrder(functions []Function, types []Type, tables []Relation, protocols []ExternalProtocol) []Sortable {
 	objects := make([]Sortable, 0)
 	for _, function := range functions {
 		objects = append(objects, function)
@@ -28,7 +42,7 @@ func SortFunctionsAndTypesAndTablesAndProtocolsInDependencyOrder(functions []Fun
 	return sorted
 }
 
-func ConstructFunctionAndTypeAndTableMetadataMap(functions MetadataMap, types MetadataMap, tables MetadataMap, protocols MetadataMap) MetadataMap {
+func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMap, tables MetadataMap, protocols MetadataMap) MetadataMap {
 	metadataMap := make(MetadataMap, 0)
 	for k, v := range functions {
 		metadataMap[k] = v

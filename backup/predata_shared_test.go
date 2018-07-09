@@ -450,7 +450,7 @@ GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 	})
-	Describe("PrintCreateDependentTypeAndFunctionAndTablesStatements", func() {
+	Describe("PrintDependentObjectStatements", func() {
 		var (
 			objects      []backup.Sortable
 			metadataMap  backup.MetadataMap
@@ -487,7 +487,7 @@ GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 			constraints := []backup.Constraint{
 				{Name: "check_constraint", ConDef: "CHECK (VALUE > 2)", OwningObject: "public.domain"},
 			}
-			backup.PrintCreateDependentTypeAndFunctionAndTablesAndProtocolsStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints)
+			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints)
 			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
@@ -534,7 +534,7 @@ COMMENT ON PROTOCOL ext_protocol IS 'protocol';
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (no domain constraint)", func() {
 			constraints := []backup.Constraint{}
-			backup.PrintCreateDependentTypeAndFunctionAndTablesAndProtocolsStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints)
+			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints)
 			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
