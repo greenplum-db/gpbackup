@@ -89,7 +89,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(types[1].FQN()).To(Equal("public.type3"))
 			Expect(types[2].FQN()).To(Equal("public.type2"))
 		})
-		It("sorts the slice correctly if there are complex dependencies", func() {
+		It("sorts the slice correctly if there are explicit dependencies", func() {
 			type2.DependsUpon = []string{"public.type1", "public.function3(integer, integer)"}
 			function3.DependsUpon = []string{"public.type1"}
 			sortable := []backup.Sortable{type1, type2, function3}
