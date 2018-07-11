@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -17,6 +18,22 @@ import (
  *   - Tables
  *   - Protocols
  */
+func AddProtocolDependenciesForGPDB4(tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol) []Relation {
+	protocolMap := make(map[string]bool, len(protocols))
+	for _, p := range protocols {
+		protocolMap[p.Name] = true
+	}
+	for i, table := range tables {
+		extTableDef := tableDefs[table.Oid].ExtTableDef
+		if extTableDef.Location != "" {
+			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
+			if protocolMap[protocolName] {
+				tables[i].DependsUpon = append(tables[i].DependsUpon, protocolName)
+			}
+		}
+	}
+	return tables
+}
 
 /*
  * We need to include arguments to differentiate functions with the same name;

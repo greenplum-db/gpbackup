@@ -1043,7 +1043,7 @@ SET SUBPARTITION TEMPLATE
 			child.Oid = testutils.OidFromObjectName(connection, "public", "child", backup.TYPE_RELATION)
 			tables := []backup.Relation{child}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
 			Expect(len(tables)).To(Equal(1))
 			Expect(len(tables[0].DependsUpon)).To(Equal(1))
@@ -1063,7 +1063,7 @@ SET SUBPARTITION TEMPLATE
 			childTwo.Oid = testutils.OidFromObjectName(connection, "public", "child_two", backup.TYPE_RELATION)
 			tables := []backup.Relation{childOne, childTwo}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
 			Expect(len(tables)).To(Equal(2))
 			Expect(len(tables[0].DependsUpon)).To(Equal(1))
@@ -1086,7 +1086,7 @@ SET SUBPARTITION TEMPLATE
 			child.Oid = testutils.OidFromObjectName(connection, "public", "child", backup.TYPE_RELATION)
 			tables := []backup.Relation{child}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
 			sort.Strings(tables[0].DependsUpon)
 			sort.Strings(tables[0].Inherits)
@@ -1100,12 +1100,12 @@ SET SUBPARTITION TEMPLATE
 		})
 		It("constructs dependencies correctly if there are no table dependencies", func() {
 			tables := []backup.Relation{}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 			Expect(len(tables)).To(Equal(0))
 		})
 		It("constructs dependencies correctly if there are no table dependencies while filtering", func() {
 			tables := []backup.Relation{}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, true)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, true)
 			Expect(len(tables)).To(Equal(0))
 		})
 		It("constructs dependencies correctly if there are two dependent tables but one is not in the backup set", func() {
@@ -1119,7 +1119,7 @@ SET SUBPARTITION TEMPLATE
 			childOne.Oid = testutils.OidFromObjectName(connection, "public", "child_one", backup.TYPE_RELATION)
 			tables := []backup.Relation{childOne}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, true)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, true)
 
 			Expect(len(tables)).To(Equal(1))
 			Expect(len(tables[0].DependsUpon)).To(Equal(0))
@@ -1146,7 +1146,7 @@ FORMAT 'csv';`)
 			tables := []backup.Relation{partition}
 			partTableDefs := map[uint32]backup.TableDefinition{partition.Oid: {IsExternal: true, PartitionType: "l"}}
 
-			tables = backup.ConstructTableDependencies(connection, tables, partTableDefs, false)
+			tables = backup.ConstructTableDependencies(connection, tables, partTableDefs, []backup.ExternalProtocol{}, false)
 
 			Expect(len(tables)).To(Equal(1))
 			Expect(len(tables[0].DependsUpon)).To(Equal(0))
@@ -1171,7 +1171,9 @@ FORMAT 'csv';`)
 			child.Oid = testutils.OidFromObjectName(connection, "public", "ext_tbl", backup.TYPE_RELATION)
 			tables := []backup.Relation{child}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			tableOid := testutils.OidFromObjectName(connection, "public", "ext_tbl", backup.TYPE_RELATION)
+			tableDef := backup.TableDefinition{ExtTableDef: backup.ExternalTableDefinition{Location: "s3://192.168.0.1"}}
+			tables = backup.ConstructTableDependencies(connection, tables, map[uint32]backup.TableDefinition{tableOid: tableDef}, []backup.ExternalProtocol{{Name: "s3"}}, false)
 
 			Expect(len(tables)).To(Equal(1))
 			Expect(len(tables[0].DependsUpon)).To(Equal(1))

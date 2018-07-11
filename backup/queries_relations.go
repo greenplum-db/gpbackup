@@ -446,7 +446,7 @@ type Dependency struct {
 	ReferencedObject string
 }
 
-func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, tableDefs map[uint32]TableDefinition, isTableFiltered bool) []Relation {
+func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol, isTableFiltered bool) []Relation {
 	var tableNameSet *utils.FilterSet
 	var tableOidList []string
 	if isTableFiltered {
@@ -518,6 +518,10 @@ AND %s`, ExtensionFilterClause("p"))
 	for i := 0; i < len(tables); i++ {
 		tables[i].DependsUpon = dependencyMap[tables[i].Oid]
 		tables[i].Inherits = inheritanceMap[tables[i].Oid]
+	}
+
+	if connection.Version.Before("5") {
+		tables = AddProtocolDependenciesForGPDB4(tables, tableDefs, protocols)
 	}
 	return tables
 }

@@ -323,7 +323,7 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []
 	gplog.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
 	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
 	gplog.Verbose("Writing CREATE PROTOCOL statements to metadata file")
-	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, false)
+	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, protocols, false)
 	sortedSlice := SortObjectsInDependencyOrder(otherFuncs, types, tables, protocols)
 	filteredMetadata := ConstructDependentObjectMetadataMap(functionMetadata, typeMetadata, relationMetadata, protoMetadata)
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
@@ -337,7 +337,7 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []
 // This function should be used only with a table-only backup.  For an unfiltered backup, the above function is used.
 func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
 	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
-	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, true)
+	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, []ExternalProtocol{}, true)
 	sortable := make([]Sortable, 0)
 	for _, table := range tables {
 		sortable = append(sortable, table)

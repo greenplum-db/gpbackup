@@ -207,7 +207,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			tables := []backup.Relation{testTable}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
 			Expect(len(tables)).To(Equal(1))
 			Expect(len(tables[0].DependsUpon)).To(Equal(1))
@@ -230,7 +230,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			tables := []backup.Relation{testTable}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
 			sort.Strings(tables[0].DependsUpon)
 			sort.Strings(tables[0].Inherits)
