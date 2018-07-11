@@ -582,6 +582,69 @@ jobs:
   ensure:
     <<: *set_failed
 
+- name: backup-1.0.0-restore-latest
+  plan:
+  - aggregate:
+    - get: gpbackup
+      trigger: true
+    - get: bin_gpdb_5x_stable
+    - get: ccp_src
+    - get: gpdb_src
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_5x_stable
+      gpdb_src: gpdb_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: integration-tests
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '6-gcc6.2-llvm3.7'
+      inputs:
+      - name: gpbackup
+        path: go/src/github.com/greenplum-db/gpbackup
+      run:
+        path: "sh"
+        args:
+        - -exc
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+
+          cat <<SCRIPT > /tmp/run_tests.bash
+          set -ex
+          source env.sh
+
+          cd \$GOPATH/src/github.com/greenplum-db/gpbackup
+          export USE_OLD_BACKUP_VERSION=true
+          make end_to_end
+          SCRIPT
+
+          chmod +x /tmp/run_tests.bash
+          scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
+          ssh -t mdw "bash /home/gpadmin/run_tests.bash"
+    on_success:
+      <<: *ccp_destroy
+    on_failure:
+      *slack_alert
+  ensure:
+    <<: *set_failed
+
 - name: scale-master
   plan:
   - aggregate:
@@ -700,6 +763,7 @@ jobs:
        - integrations-GPDB5
        - integrations-GPDB4.3
        - integrations-GPDB5-sles
+       - backup-1.0.0-restore-latest
        - s3_plugin_tests
        - ddboost_plugin_tests
     - get: gpdb_release
