@@ -25,10 +25,21 @@ import (
 	"testing"
 )
 
+var useOldBackupVersion bool
+
 /* This function is a helper function to execute gpbackup and return a session
  * to allow checking its output.
  */
-func gpbackup(gpbackupPath string, args ...string) string {
+func gpbackup(gpbackupPath string, backupHelperPath string, args ...string) string {
+	if useOldBackupVersion {
+		os.Chdir("..")
+		output, err := exec.Command("make", "install_helper", fmt.Sprintf("helper_path=%s", backupHelperPath)).CombinedOutput()
+		if err != nil {
+			fmt.Printf("%s", output)
+			Fail(fmt.Sprintf("%v", err))
+		}
+		os.Chdir("end_to_end")
+	}
 	args = append([]string{"--dbname", "testdb"}, args...)
 	command := exec.Command(gpbackupPath, args...)
 	output, err := command.CombinedOutput()
@@ -40,7 +51,16 @@ func gpbackup(gpbackupPath string, args ...string) string {
 	return r.FindStringSubmatch(fmt.Sprintf("%s", output))[1]
 }
 
-func gprestore(gprestorePath string, timestamp string, args ...string) []byte {
+func gprestore(gprestorePath string, restoreHelperPath string, timestamp string, args ...string) []byte {
+	if useOldBackupVersion {
+		os.Chdir("..")
+		output, err := exec.Command("make", "install_helper", fmt.Sprintf("helper_path=%s", restoreHelperPath)).CombinedOutput()
+		if err != nil {
+			fmt.Printf("%s", output)
+			Fail(fmt.Sprintf("%v", err))
+		}
+		os.Chdir("end_to_end")
+	}
 	args = append([]string{"--timestamp", timestamp}, args...)
 	command := exec.Command(gprestorePath, args...)
 	output, err := command.CombinedOutput()
@@ -51,7 +71,7 @@ func gprestore(gprestorePath string, timestamp string, args ...string) []byte {
 	return output
 }
 
-func buildAndInstallBinaries() (string, string) {
+func buildAndInstallBinaries() (string, string, string) {
 	os.Chdir("..")
 	command := exec.Command("make", "build")
 	output, err := command.CombinedOutput()
@@ -61,7 +81,25 @@ func buildAndInstallBinaries() (string, string) {
 	}
 	os.Chdir("end_to_end")
 	binDir := fmt.Sprintf("%s/go/bin", operating.System.Getenv("HOME"))
-	return fmt.Sprintf("%s/gpbackup", binDir), fmt.Sprintf("%s/gprestore", binDir)
+	return fmt.Sprintf("%s/gpbackup", binDir), fmt.Sprintf("%s/gpbackup_helper", binDir), fmt.Sprintf("%s/gprestore", binDir)
+}
+
+func buildOldBinaries() (string, string) {
+	os.Chdir("..")
+	err := exec.Command("git", "checkout", "1.0.0").Run()
+	Expect(err).ShouldNot(HaveOccurred())
+	err = exec.Command("make", "depend").Run()
+	Expect(err).ShouldNot(HaveOccurred())
+	gpbackupOldPath, err := gexec.Build("github.com/greenplum-db/gpbackup", "-tags", "gpbackup", "-ldflags", "-X github.com/greenplum-db/gpbackup/backup.version=1.0.0")
+	Expect(err).ShouldNot(HaveOccurred())
+	gpbackupHelperOldPath, err := gexec.Build("github.com/greenplum-db/gpbackup", "-tags", "gpbackup_helper", "-ldflags", "-X github.com/greenplum-db/gpbackup/helper.version=1.0.0")
+	Expect(err).ShouldNot(HaveOccurred())
+	err = exec.Command("git", "checkout", "-").Run()
+	Expect(err).ShouldNot(HaveOccurred())
+	err = exec.Command("make", "depend").Run()
+	Expect(err).ShouldNot(HaveOccurred())
+	os.Chdir("end_to_end")
+	return gpbackupOldPath, gpbackupHelperOldPath
 }
 
 func assertDataRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
@@ -103,8 +141,10 @@ func TestEndToEnd(t *testing.T) {
 var _ = Describe("backup end to end integration tests", func() {
 
 	var backupConn, restoreConn *dbconn.DBConn
-	var gpbackupPath, gprestorePath string
+	var gpbackupPath, backupHelperPath, restoreHelperPath, gprestorePath string
 	BeforeSuite(func() {
+		// This is used to run tests from gpbackup 1.0.0 to gprestore latest
+		useOldBackupVersion = os.Getenv("USE_OLD_BACKUP_VERSION") == "true"
 		var err error
 		testhelper.SetupTestLogger()
 		exec.Command("dropdb", "testdb").Run()
@@ -124,7 +164,13 @@ var _ = Describe("backup end to end integration tests", func() {
 		restoreConn.MustConnect(1)
 		testutils.ExecuteSQLFile(backupConn, "test_tables_ddl.sql")
 		testutils.ExecuteSQLFile(backupConn, "test_tables_data.sql")
-		gpbackupPath, gprestorePath = buildAndInstallBinaries()
+		if useOldBackupVersion {
+			_, restoreHelperPath, gprestorePath = buildAndInstallBinaries()
+			gpbackupPath, backupHelperPath = buildOldBinaries()
+		} else {
+			gpbackupPath, backupHelperPath, gprestorePath = buildAndInstallBinaries()
+			restoreHelperPath = backupHelperPath
+		}
 	})
 	AfterSuite(func() {
 		if backupConn != nil {
@@ -152,15 +198,18 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		Context("Backup include filtering", func() {
 			It("runs gpbackup and gprestore with include-schema backup flag and compression level", func() {
-				timestamp := gpbackup(gpbackupPath, "--include-schema", "public", "--compression-level", "2")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-schema", "public", "--compression-level", "2")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 				assertRelationsCreated(restoreConn, 19)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			})
 			It("runs gpbackup and gprestore with include-table backup flag", func() {
-				timestamp := gpbackup(gpbackupPath, "--include-table", "public.foo", "--include-table", "public.sales", "--include-table", "public.myseq1", "--include-table", "public.myview1")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-table", "public.foo", "--include-table", "public.sales", "--include-table", "public.myseq1", "--include-table", "public.myview1")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{"public.foo": 40000})
@@ -168,10 +217,13 @@ var _ = Describe("backup end to end integration tests", func() {
 				os.Remove("/tmp/include-tables.txt")
 			})
 			It("runs gpbackup and gprestore with include-table-file backup flag", func() {
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 				utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
-				timestamp := gpbackup(gpbackupPath, "--include-table-file", "/tmp/include-tables.txt")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-table-file", "/tmp/include-tables.txt")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
@@ -183,8 +235,8 @@ var _ = Describe("backup end to end integration tests", func() {
 		Context("Restore include filtering", func() {
 			It("runs gpbackup and gprestore with include-schema restore flag", func() {
 				backupdir := "/tmp/include_schema"
-				timestamp := gpbackup(gpbackupPath, "--backup-dir", backupdir)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
 
 				assertRelationsCreated(restoreConn, 15)
 				assertDataRestored(restoreConn, schema2TupleCounts)
@@ -192,8 +244,8 @@ var _ = Describe("backup end to end integration tests", func() {
 				os.RemoveAll(backupdir)
 			})
 			It("runs gpbackup and gprestore with include-table restore flag", func() {
-				timestamp := gpbackup(gpbackupPath)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--include-table", "public.foo", "--include-table", "public.sales", "--include-table", "public.myseq1", "--include-table", "public.myview1")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--include-table", "public.foo", "--include-table", "public.sales", "--include-table", "public.myseq1", "--include-table", "public.myview1")
 
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
@@ -204,8 +256,8 @@ var _ = Describe("backup end to end integration tests", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 				utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
 				backupdir := "/tmp/include_table_file"
-				timestamp := gpbackup(gpbackupPath, "--backup-dir", backupdir)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
 
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
@@ -216,15 +268,18 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		Context("Backup exclude filtering", func() {
 			It("runs gpbackup and gprestore with exclude-schema backup flag", func() {
-				timestamp := gpbackup(gpbackupPath, "--exclude-schema", "public")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-schema", "public")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 				assertRelationsCreated(restoreConn, 15)
 				assertDataRestored(restoreConn, schema2TupleCounts)
 			})
 			It("runs gpbackup and gprestore with exclude-table backup flag", func() {
-				timestamp := gpbackup(gpbackupPath, "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq1", "--exclude-table", "public.myview1")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq1", "--exclude-table", "public.myview1")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 				assertRelationsCreated(restoreConn, 18)
 				assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000, "public.sales": 13})
@@ -232,10 +287,13 @@ var _ = Describe("backup end to end integration tests", func() {
 				os.Remove("/tmp/exclude-tables.txt")
 			})
 			It("runs gpbackup and gprestore with exclude-table-file backup flag", func() {
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
 				excludeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 				utils.MustPrintln(excludeFile, "schema2.foo2\nschema2.returns\npublic.sales\npublic.myseq1\npublic.myview1")
-				timestamp := gpbackup(gpbackupPath, "--exclude-table-file", "/tmp/exclude-tables.txt")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-table-file", "/tmp/exclude-tables.txt")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 				assertRelationsCreated(restoreConn, 5)
 				assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000})
@@ -245,15 +303,15 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		Context("Restore exclude filtering", func() {
 			It("runs gpbackup and gprestore with exclude-schema restore flag", func() {
-				timestamp := gpbackup(gpbackupPath)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--exclude-schema", "public")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--exclude-schema", "public")
 
 				assertRelationsCreated(restoreConn, 15)
 				assertDataRestored(restoreConn, schema2TupleCounts)
 			})
 			It("runs gpbackup and gprestore with exclude-table restore flag", func() {
-				timestamp := gpbackup(gpbackupPath)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq1", "--exclude-table", "public.myview1")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq1", "--exclude-table", "public.myview1")
 
 				assertRelationsCreated(restoreConn, 18)
 				assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000, "public.sales": 13})
@@ -264,8 +322,8 @@ var _ = Describe("backup end to end integration tests", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 				utils.MustPrintln(includeFile, "schema2.foo2\nschema2.returns\npublic.myseq1\npublic.myview1")
 				backupdir := "/tmp/exclude_table_file"
-				timestamp := gpbackup(gpbackupPath, "--backup-dir", backupdir)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--exclude-table-file", "/tmp/exclude-tables.txt")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--exclude-table-file", "/tmp/exclude-tables.txt")
 
 				assertRelationsCreated(restoreConn, 18)
 				assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
@@ -277,8 +335,8 @@ var _ = Describe("backup end to end integration tests", func() {
 		Context("Single data file", func() {
 			It("runs gpbackup and gprestore with single-data-file flag", func() {
 				backupdir := "/tmp/single_data_file"
-				timestamp := gpbackup(gpbackupPath, "--single-data-file", "--backup-dir", backupdir)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--backup-dir", backupdir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 
 				assertRelationsCreated(restoreConn, 34)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -289,8 +347,8 @@ var _ = Describe("backup end to end integration tests", func() {
 
 			It("runs gpbackup and gprestore with single-data-file flag without compression", func() {
 				backupdir := "/tmp/single_data_file"
-				timestamp := gpbackup(gpbackupPath, "--single-data-file", "--backup-dir", backupdir, "--no-compression")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--backup-dir", backupdir, "--no-compression")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 
 				assertRelationsCreated(restoreConn, 34)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -300,13 +358,17 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 
 			It("runs gpbackup and gprestore with plugin, single-data-file, and no-compression", func() {
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
+
 				pluginDir := "/tmp/plugin_dest"
 				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
 				pluginConfigPath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml", os.Getenv("HOME"))
 
-				timestamp := gpbackup(gpbackupPath, "--single-data-file", "--no-compression", "--plugin-config", pluginConfigPath)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--no-compression", "--plugin-config", pluginConfigPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
 
 				assertRelationsCreated(restoreConn, 34)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -315,13 +377,16 @@ var _ = Describe("backup end to end integration tests", func() {
 				os.RemoveAll(pluginDir)
 			})
 			It("runs gpbackup and gprestore with plugin and single-data-file", func() {
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
 				pluginDir := "/tmp/plugin_dest"
 				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
 				pluginConfigPath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml", os.Getenv("HOME"))
 
-				timestamp := gpbackup(gpbackupPath, "--single-data-file", "--plugin-config", pluginConfigPath)
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--plugin-config", pluginConfigPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
 
 				assertRelationsCreated(restoreConn, 34)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -333,8 +398,8 @@ var _ = Describe("backup end to end integration tests", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 				utils.MustPrintln(includeFile, "public.sales\npublic.foo")
 				backupdir := "/tmp/include_table_file"
-				timestamp := gpbackup(gpbackupPath, "--backup-dir", backupdir, "--single-data-file")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
 				assertRelationsCreated(restoreConn, 14)
 				assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
 
@@ -343,8 +408,8 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 			It("runs gpbackup and gprestore with include-schema restore flag with a single data file", func() {
 				backupdir := "/tmp/include_schema"
-				timestamp := gpbackup(gpbackupPath, "--backup-dir", backupdir, "--single-data-file")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
 
 				assertRelationsCreated(restoreConn, 15)
 				assertDataRestored(restoreConn, schema2TupleCounts)
@@ -363,36 +428,36 @@ var _ = Describe("backup end to end integration tests", func() {
 				if backupConn.Version.AtLeast("6") {
 					testutils.ExecuteSQLFile(backupConn, "gpdb6_objects.sql")
 				}
-				timestamp := gpbackup(gpbackupPath, "--leaf-partition-data", "--single-data-file")
-				gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--single-data-file")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 			})
 		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
-			timestamp := gpbackup(gpbackupPath)
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
 			backupConn.Close()
 			err := exec.Command("dropdb", "testdb").Run()
 			if err != nil {
 				Fail(fmt.Sprintf("%v", err))
 			}
-			gprestore(gprestorePath, timestamp, "--create-db")
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--create-db")
 			backupConn = dbconn.NewDBConnFromEnvironment("testdb")
 			backupConn.MustConnect(1)
 		})
 		It("runs basic gpbackup and gprestore with metadata and data-only flags", func() {
-			timestamp := gpbackup(gpbackupPath, "--metadata-only")
-			timestamp2 := gpbackup(gpbackupPath, "--data-only")
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only")
+			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--data-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 			assertDataRestored(restoreConn, map[string]int{"public.foo": 0, "schema2.foo3": 0})
 			assertRelationsCreated(restoreConn, 34)
-			gprestore(gprestorePath, timestamp2, "--redirect-db", "restoredb")
+			gprestore(gprestorePath, restoreHelperPath, timestamp2, "--redirect-db", "restoredb")
 
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
 		})
 		It("runs gpbackup and gprestore with metadata-only backup flag", func() {
-			timestamp := gpbackup(gpbackupPath, "--metadata-only")
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 			assertDataRestored(restoreConn, map[string]int{"public.foo": 0, "schema2.foo3": 0})
 			assertRelationsCreated(restoreConn, 34)
@@ -400,8 +465,8 @@ var _ = Describe("backup end to end integration tests", func() {
 		It("runs gpbackup and gprestore with data-only backup flag", func() {
 			testutils.ExecuteSQLFile(restoreConn, "test_tables_ddl.sql")
 
-			timestamp := gpbackup(gpbackupPath, "--data-only")
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--data-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
@@ -409,23 +474,23 @@ var _ = Describe("backup end to end integration tests", func() {
 
 		It("runs gpbackup and gprestore with the data-only restore flag", func() {
 			testutils.ExecuteSQLFile(restoreConn, "test_tables_ddl.sql")
-			timestamp := gpbackup(gpbackupPath)
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--data-only")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--data-only")
 
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
 		})
 		It("runs gpbackup and gprestore with the metadata-only restore flag", func() {
-			timestamp := gpbackup(gpbackupPath)
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--metadata-only")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--metadata-only")
 
 			assertDataRestored(restoreConn, map[string]int{"public.foo": 0, "schema2.foo3": 0})
 			assertRelationsCreated(restoreConn, 34)
 		})
 		It("runs gpbackup and gprestore with leaf-partition-data and backupdir flags", func() {
 			backupdir := "/tmp/leaf_partition_data"
-			timestamp := gpbackup(gpbackupPath, "--leaf-partition-data", "--backup-dir", backupdir)
-			output := gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--backup-dir", backupdir)
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 			Expect(strings.Contains(string(output), "Tables restored:  28 / 28")).To(BeTrue())
 
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -435,8 +500,8 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		It("runs gpbackup and gprestore with no-compression flag", func() {
 			backupdir := "/tmp/no_compression"
-			timestamp := gpbackup(gpbackupPath, "--no-compression", "--backup-dir", backupdir)
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupdir)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 			configFile, _ := filepath.Glob(filepath.Join(backupdir, "*-1/backups/*", timestamp, "*config.yaml"))
 			contents, _ := ioutil.ReadFile(configFile[0])
 
@@ -449,11 +514,11 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		It("runs gpbackup and gprestore with with-stats flag", func() {
 			backupdir := "/tmp/with_stats"
-			timestamp := gpbackup(gpbackupPath, "--with-stats", "--backup-dir", backupdir)
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats", "--backup-dir", backupdir)
 			files, _ := filepath.Glob(filepath.Join(backupdir, "*-1/backups/*", timestamp, "*statistics.sql"))
 
 			Expect(len(files)).To(Equal(1))
-			output := gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--with-stats", "--backup-dir", backupdir)
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--with-stats", "--backup-dir", backupdir)
 
 			Expect(strings.Contains(string(output), "Query planner statistics restore complete")).To(BeTrue())
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -462,9 +527,12 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and gprestore with jobs flag", func() {
+			if useOldBackupVersion {
+				Skip("Feature not supported in gpbackup 1.0.0")
+			}
 			backupdir := "/tmp/parallel"
-			timestamp := gpbackup(gpbackupPath, "--backup-dir", backupdir, "--jobs", "4")
-			gprestore(gprestorePath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--jobs", "4")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--jobs", "4")
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--jobs", "4")
 
 			assertRelationsCreated(restoreConn, 34)
 			assertDataRestored(restoreConn, schema2TupleCounts)
@@ -498,7 +566,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
 			backupdir := "/tmp/signals"
-			timestamp := gpbackup(gpbackupPath, "--backup-dir", backupdir, "--single-data-file")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 			args := []string{"--timestamp", timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2", "--verbose"}
 			cmd := exec.Command(gprestorePath, args...)
 			go func() {
@@ -522,6 +590,9 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs example_plugin.sh with plugin_test_bench", func() {
+			if useOldBackupVersion {
+				Skip("Feature not supported in gpbackup 1.0.0")
+			}
 			pluginsDir := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("HOME"))
 			copyPluginToAllHosts(backupConn, fmt.Sprintf("%s/example_plugin.sh", pluginsDir))
 			output, err := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test_bench.sh %s/example_plugin.sh %s/example_plugin_config.yaml", pluginsDir, pluginsDir, pluginsDir)).CombinedOutput()
@@ -533,6 +604,9 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll("/tmp/plugin_dest")
 		})
 		It("runs gpbackup with --version flag", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for gpbackup 1.0.0")
+			}
 			output, err := exec.Command(gpbackupPath, "--version").CombinedOutput()
 			if err != nil {
 				fmt.Printf("%s", output)
