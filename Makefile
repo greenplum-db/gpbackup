@@ -22,7 +22,7 @@ GOFLAGS :=
 dependencies :
 		go get github.com/alecthomas/gometalinter
 		gometalinter --install
-		go get github.com/golang/dep/cmd/dep
+		curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 		dep ensure
 		@cd vendor/golang.org/x/tools/cmd/goimports; go install .
 		@cd vendor/github.com/onsi/ginkgo/ginkgo; go install .

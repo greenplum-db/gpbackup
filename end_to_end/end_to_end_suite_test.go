@@ -88,7 +88,7 @@ func buildOldBinaries() (string, string) {
 	os.Chdir("..")
 	err := exec.Command("git", "checkout", "1.0.0").Run()
 	Expect(err).ShouldNot(HaveOccurred())
-	err = exec.Command("make", "depend").Run()
+	err = exec.Command("dep", "ensure").Run()
 	Expect(err).ShouldNot(HaveOccurred())
 	gpbackupOldPath, err := gexec.Build("github.com/greenplum-db/gpbackup", "-tags", "gpbackup", "-ldflags", "-X github.com/greenplum-db/gpbackup/backup.version=1.0.0")
 	Expect(err).ShouldNot(HaveOccurred())
@@ -96,7 +96,7 @@ func buildOldBinaries() (string, string) {
 	Expect(err).ShouldNot(HaveOccurred())
 	err = exec.Command("git", "checkout", "-").Run()
 	Expect(err).ShouldNot(HaveOccurred())
-	err = exec.Command("make", "depend").Run()
+	err = exec.Command("dep", "ensure").Run()
 	Expect(err).ShouldNot(HaveOccurred())
 	os.Chdir("end_to_end")
 	return gpbackupOldPath, gpbackupHelperOldPath
