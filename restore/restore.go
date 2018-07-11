@@ -211,6 +211,11 @@ func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, restorePlanTableFQNs []
 	filteredMasterDataEntries := toc.GetDataEntriesMatching(*includeSchemas,
 		*excludeSchemas, *includeRelations, *excludeRelations, restorePlanTableFQNs)
 
+	if len(filteredMasterDataEntries) == 0 {
+		gplog.Info("Found no tables to restore in restore plan for backup with timestamp: %s", fpInfo.Timestamp)
+		return
+	}
+
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
