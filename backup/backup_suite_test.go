@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+	"github.com/spf13/pflag"
 )
 
 var (
@@ -36,15 +37,23 @@ func TestBackup(t *testing.T) {
 	RunSpecs(t, "backup tests")
 }
 
+var cmdFlags *pflag.FlagSet
+
 var _ = BeforeSuite(func() {
 	connectionPool, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
-	backup.SetIncludeSchemas([]string{})
-	backup.SetExcludeSchemas([]string{})
-	backup.SetIncludeRelations([]string{})
-	backup.SetExcludeRelations([]string{})
 })
 
 var _ = BeforeEach(func() {
+	cmdFlags = pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
+
+	cmdFlags.Bool(backup.SINGLE_DATA_FILE, false, "")
+	cmdFlags.Bool(backup.LEAF_PARTITION_DATA, false, "")
+	cmdFlags.StringSlice(backup.INCLUDE_SCHEMA, []string{}, "")
+	cmdFlags.StringSlice(backup.EXCLUDE_SCHEMA, []string{}, "")
+	cmdFlags.StringSlice(backup.INCLUDE_RELATION, []string{}, "")
+	cmdFlags.StringSlice(backup.EXCLUDE_RELATION, []string{}, "")
+	backup.SetCmdFlags(cmdFlags)
+
 	buffer = gbytes.NewBuffer()
 	connectionPool, mock = testutils.CreateAndConnectMockDB(1)
 })

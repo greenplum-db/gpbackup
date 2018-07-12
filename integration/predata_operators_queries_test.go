@@ -64,7 +64,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR testschema.## (LEFTARG = bigint, PROCEDURE = numeric_fac)")
 			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR testschema.## (bigint, NONE)")
-			backup.SetIncludeSchemas([]string{"testschema"})
+			cmdFlags.Set(backup.INCLUDE_SCHEMA, "testschema")
 
 			expectedOperator := backup.Operator{Oid: 0, Schema: "testschema", Name: "##", Procedure: "numeric_fac", LeftArgType: "bigint", RightArgType: "-", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 
@@ -96,7 +96,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connection, "CREATE OPERATOR FAMILY testschema.testfam USING hash;")
 			defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testschema.testfam USING hash")
-			backup.SetIncludeSchemas([]string{"testschema"})
+			cmdFlags.Set(backup.INCLUDE_SCHEMA, "testschema")
 
 			expectedOperator := backup.OperatorFamily{Oid: 0, Schema: "testschema", Name: "testfam", IndexMethod: "hash"}
 
@@ -210,7 +210,7 @@ var _ = Describe("backup integration tests", func() {
 			} else {
 				defer testhelper.AssertQueryRuns(connection, "DROP OPERATOR FAMILY testschema.testclass USING hash")
 			}
-			backup.SetIncludeSchemas([]string{"testschema"})
+			cmdFlags.Set(backup.INCLUDE_SCHEMA, "testschema")
 
 			version4expected := backup.OperatorClass{Oid: 0, Schema: "testschema", Name: "testclass", FamilySchema: "", FamilyName: "", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
 			expected := backup.OperatorClass{Oid: 0, Schema: "testschema", Name: "testclass", FamilySchema: "testschema", FamilyName: "testclass", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}

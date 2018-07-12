@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/spf13/pflag"
 )
 
 var (
@@ -76,12 +77,20 @@ var _ = BeforeSuite(func() {
 	gpbackupHelperPath = buildAndInstallBinaries()
 })
 
+var cmdFlags *pflag.FlagSet
+
 var _ = BeforeEach(func() {
 	buffer = bytes.NewBuffer([]byte(""))
-	backup.SetExcludeSchemas([]string{})
-	backup.SetIncludeSchemas([]string{})
-	backup.SetExcludeRelations([]string{})
-	backup.SetIncludeRelations([]string{})
+
+	cmdFlags = pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
+
+	cmdFlags.Bool(backup.LEAF_PARTITION_DATA, false, "")
+	cmdFlags.StringSlice(backup.INCLUDE_SCHEMA, []string{}, "")
+	cmdFlags.StringSlice(backup.EXCLUDE_SCHEMA, []string{}, "")
+	cmdFlags.StringSlice(backup.INCLUDE_RELATION, []string{}, "")
+	cmdFlags.StringSlice(backup.EXCLUDE_RELATION, []string{}, "")
+
+	backup.SetCmdFlags(cmdFlags)
 })
 
 var _ = AfterSuite(func() {

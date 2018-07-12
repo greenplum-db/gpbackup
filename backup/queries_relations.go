@@ -17,12 +17,12 @@ import (
 
 func relationAndSchemaFilterClause() string {
 	filterClause := SchemaFilterClause("n")
-	if len(*excludeRelations) > 0 {
-		excludeOids := GetOidsFromRelationList(connectionPool, *excludeRelations)
+	if len(MustGetFlagStringSlice(EXCLUDE_RELATION)) > 0 {
+		excludeOids := GetOidsFromRelationList(connectionPool, MustGetFlagStringSlice(EXCLUDE_RELATION))
 		filterClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ", "))
 	}
-	if len(*includeRelations) > 0 {
-		includeOids := GetOidsFromRelationList(connectionPool, *includeRelations)
+	if len(MustGetFlagStringSlice(INCLUDE_RELATION)) > 0 {
+		includeOids := GetOidsFromRelationList(connectionPool, MustGetFlagStringSlice(INCLUDE_RELATION))
 		filterClause += fmt.Sprintf("\nAND c.oid IN (%s)", strings.Join(includeOids, ", "))
 	}
 	return filterClause
@@ -40,7 +40,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, relList)
 }
 
 func GetAllUserTables(connection *dbconn.DBConn) []Relation {
-	if len(*includeRelations) > 0 {
+	if len(MustGetFlagStringSlice(INCLUDE_RELATION)) > 0 {
 		return GetUserTablesWithIncludeFiltering(connection)
 	}
 	return GetUserTables(connection)
@@ -52,7 +52,7 @@ func GetAllUserTables(connection *dbconn.DBConn) []Relation {
  */
 func GetUserTables(connection *dbconn.DBConn) []Relation {
 	childPartitionFilter := ""
-	if !*leafPartitionData {
+	if !MustGetFlagBool(LEAF_PARTITION_DATA) {
 		//Filter out non-external child partitions
 		childPartitionFilter = `
 	AND c.oid NOT IN (
@@ -86,10 +86,10 @@ ORDER BY c.oid;`, relationAndSchemaFilterClause(), childPartitionFilter, Extensi
 }
 
 func GetUserTablesWithIncludeFiltering(connection *dbconn.DBConn) []Relation {
-	includeOids := GetOidsFromRelationList(connection, *includeRelations)
+	includeOids := GetOidsFromRelationList(connection, MustGetFlagStringSlice(INCLUDE_RELATION))
 	oidStr := strings.Join(includeOids, ", ")
 	childPartitionFilter := ""
-	if *leafPartitionData {
+	if MustGetFlagBool(LEAF_PARTITION_DATA) {
 		//Get all leaf partition tables whose parents are in the include list
 		childPartitionFilter = fmt.Sprintf(`
 	OR c.oid IN (

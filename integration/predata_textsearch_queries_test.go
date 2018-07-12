@@ -42,7 +42,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connection, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH PARSER testschema.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
 			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH PARSER testschema.testparser")
-			backup.SetIncludeSchemas([]string{"testschema"})
+			cmdFlags.Set(backup.INCLUDE_SCHEMA, "testschema")
 
 			parsers := backup.GetTextSearchParsers(connection)
 
@@ -84,7 +84,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH TEMPLATE testschema.testtemplate(LEXIZE = dsimple_lexize);")
 			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH TEMPLATE testschema.testtemplate")
 
-			backup.SetIncludeSchemas([]string{"testschema"})
+			cmdFlags.Set(backup.INCLUDE_SCHEMA, "testschema")
 			templates := backup.GetTextSearchTemplates(connection)
 
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "testschema", Name: "testtemplate", InitFunc: "", LexizeFunc: "dsimple_lexize"}
@@ -123,7 +123,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TEXT SEARCH DICTIONARY testschema.testdictionary (TEMPLATE = 'simple');")
 			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH DICTIONARY testschema.testdictionary")
 
-			backup.SetIncludeSchemas([]string{"testschema"})
+			cmdFlags.Set(backup.INCLUDE_SCHEMA, "testschema")
 			dictionaries := backup.GetTextSearchDictionaries(connection)
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "testschema", Name: "testdictionary", Template: "pg_catalog.simple", InitOption: ""}
@@ -178,7 +178,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connection, `CREATE TEXT SEARCH CONFIGURATION testschema.testconfiguration (PARSER = pg_catalog."default");`)
 			defer testhelper.AssertQueryRuns(connection, "DROP TEXT SEARCH CONFIGURATION testschema.testconfiguration")
 
-			backup.SetIncludeSchemas([]string{"testschema"})
+			cmdFlags.Set(backup.INCLUDE_SCHEMA, "testschema")
 			configurations := backup.GetTextSearchConfigurations(connection)
 
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "testschema", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}

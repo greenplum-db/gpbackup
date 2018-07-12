@@ -6,6 +6,9 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
+
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/spf13/pflag"
 )
 
 /*
@@ -38,32 +41,38 @@ var (
 /*
  * Command-line flags
  */
-var (
-	backupDir           *string
-	compressionLevel    *int
-	dataOnly            *bool
-	dbname              *string
-	debug               *bool
-	excludeSchemas      *[]string
-	excludeRelationFile *string
-	excludeRelations    *[]string
-	includeSchemas      *[]string
-	includeRelationFile *string
-	includeRelations    *[]string
-	numJobs             *int
-	leafPartitionData   *bool
-	metadataOnly        *bool
-	noCompression       *bool
-	pluginConfigFile    *string
-	quiet               *bool
-	singleDataFile      *bool
-	verbose             *bool
-	withStats           *bool
+var cmdFlags *pflag.FlagSet
+
+const (
+	BACKUP_DIR            = "backup-dir"
+	COMPRESSION_LEVEL     = "compression-level"
+	DATA_ONLY             = "data-only"
+	DBNAME                = "dbname"
+	DEBUG                 = "debug"
+	EXCLUDE_RELATION      = "exclude-table"
+	EXCLUDE_RELATION_FILE = "exclude-table-file"
+	EXCLUDE_SCHEMA        = "exclude-schema"
+	INCLUDE_RELATION      = "include-table-file"
+	INCLUDE_RELATION_FILE = "include-table-file"
+	INCLUDE_SCHEMA        = "include-schema"
+	JOBS                  = "jobs"
+	LEAF_PARTITION_DATA   = "leaf-partition-data"
+	METADATA_ONLY         = "metadata-only"
+	NO_COMPRESSION        = "no-compression"
+	PLUGIN_CONFIG         = "plugin-config"
+	QUIET                 = "quiet"
+	SINGLE_DATA_FILE      = "single-data-file"
+	VERBOSE               = "verbose"
+	WITH_STATS            = "with-stats"
 )
 
 /*
  * Setter functions
  */
+
+func SetCmdFlags(flagSet *pflag.FlagSet) {
+	cmdFlags = flagSet
+}
 
 func SetConnection(conn *dbconn.DBConn) {
 	connectionPool = conn
@@ -73,28 +82,8 @@ func SetCluster(cluster *cluster.Cluster) {
 	globalCluster = cluster
 }
 
-func SetExcludeSchemas(schemas []string) {
-	excludeSchemas = &schemas
-}
-
-func SetExcludeRelations(relations []string) {
-	excludeRelations = &relations
-}
-
 func SetFPInfo(fpInfo utils.FilePathInfo) {
 	globalFPInfo = fpInfo
-}
-
-func SetIncludeSchemas(schemas []string) {
-	includeSchemas = &schemas
-}
-
-func SetIncludeRelations(relations []string) {
-	includeRelations = &relations
-}
-
-func SetLeafPartitionData(which bool) {
-	leafPartitionData = &which
 }
 
 func SetReport(report *utils.Report) {
@@ -105,14 +94,34 @@ func GetReport() *utils.Report {
 	return backupReport
 }
 
-func SetSingleDataFile(which bool) {
-	singleDataFile = &which
-}
-
 func SetTOC(toc *utils.TOC) {
 	globalTOC = toc
 }
 
 func SetVersion(v string) {
 	version = v
+}
+
+func MustGetFlagString(flagName string) string {
+	value, err := cmdFlags.GetString(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagInt(flagName string) int {
+	value, err := cmdFlags.GetInt(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagBool(flagName string) bool {
+	value, err := cmdFlags.GetBool(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagStringSlice(flagName string) []string {
+	value, err := cmdFlags.GetStringSlice(flagName)
+	gplog.FatalOnError(err)
+	return value
 }

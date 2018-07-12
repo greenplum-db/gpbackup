@@ -23,18 +23,18 @@ import (
  */
 
 func SetLoggerVerbosity() {
-	if *quiet {
+	if MustGetFlagBool(QUIET) {
 		gplog.SetVerbosity(gplog.LOGERROR)
-	} else if *debug {
+	} else if MustGetFlagBool(DEBUG) {
 		gplog.SetVerbosity(gplog.LOGDEBUG)
-	} else if *verbose {
+	} else if MustGetFlagBool(VERBOSE) {
 		gplog.SetVerbosity(gplog.LOGVERBOSE)
 	}
 }
 
 func InitializeConnectionPool() {
-	connectionPool = dbconn.NewDBConnFromEnvironment(*dbname)
-	connectionPool.MustConnect(*numJobs)
+	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(DBNAME))
+	connectionPool.MustConnect(MustGetFlagInt(JOBS))
 	utils.SetDatabaseVersion(connectionPool)
 	InitializeMetadataParams(connectionPool)
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
@@ -64,12 +64,12 @@ func InitializeBackupReport() {
 		DatabaseVersion: connectionPool.Version.VersionString,
 		BackupVersion:   version,
 	}
-	isIncludeSchemaFiltered := len(*includeSchemas) > 0
-	isIncludeTableFiltered := len(*includeRelations) > 0
-	isExcludeSchemaFiltered := len(*excludeSchemas) > 0
-	isExcludeTableFiltered := len(*excludeRelations) > 0
+	isIncludeSchemaFiltered := len(MustGetFlagStringSlice(INCLUDE_SCHEMA)) > 0
+	isIncludeTableFiltered := len(MustGetFlagStringSlice(INCLUDE_RELATION)) > 0
+	isExcludeSchemaFiltered := len(MustGetFlagStringSlice(EXCLUDE_SCHEMA)) > 0
+	isExcludeTableFiltered := len(MustGetFlagStringSlice(EXCLUDE_RELATION)) > 0
 	dbSize := ""
-	if !*metadataOnly && !isIncludeSchemaFiltered && !isIncludeTableFiltered && !isExcludeSchemaFiltered && !isExcludeTableFiltered {
+	if !MustGetFlagBool(METADATA_ONLY) && !isIncludeSchemaFiltered && !isIncludeTableFiltered && !isExcludeSchemaFiltered && !isExcludeTableFiltered {
 		gplog.Verbose("Getting database size")
 		dbSize = GetDBSize(connectionPool)
 	}
@@ -78,17 +78,23 @@ func InitializeBackupReport() {
 		DatabaseSize: dbSize,
 		BackupConfig: config,
 	}
-	utils.InitializeCompressionParameters(!*noCompression, *compressionLevel)
-	backupReport.SetBackupParamsFromFlags(*dataOnly, *metadataOnly, "", isIncludeSchemaFiltered, isIncludeTableFiltered, isExcludeSchemaFiltered, isExcludeTableFiltered, *singleDataFile, *withStats)
+	utils.InitializeCompressionParameters(!MustGetFlagBool(NO_COMPRESSION), MustGetFlagInt(COMPRESSION_LEVEL))
+	backupReport.SetBackupParamsFromFlags(MustGetFlagBool(DATA_ONLY), MustGetFlagBool(METADATA_ONLY), "",
+		isIncludeSchemaFiltered, isIncludeTableFiltered, isExcludeSchemaFiltered, isExcludeTableFiltered,
+		MustGetFlagBool(SINGLE_DATA_FILE), MustGetFlagBool(WITH_STATS))
 	backupReport.ConstructBackupParamsString()
 }
 
 func InitializeFilterLists() {
-	if *excludeRelationFile != "" {
-		*excludeRelations = iohelper.MustReadLinesFromFile(*excludeRelationFile)
+	if MustGetFlagString(EXCLUDE_RELATION_FILE) != "" {
+		excludeRelations := iohelper.MustReadLinesFromFile(MustGetFlagString(EXCLUDE_RELATION_FILE))
+		err := cmdFlags.Set(EXCLUDE_RELATION, strings.Join(excludeRelations, ","))
+		gplog.FatalOnError(err)
 	}
-	if *includeRelationFile != "" {
-		*includeRelations = iohelper.MustReadLinesFromFile(*includeRelationFile)
+	if MustGetFlagString(INCLUDE_RELATION_FILE) != "" {
+		includeRelations := iohelper.MustReadLinesFromFile(MustGetFlagString(INCLUDE_RELATION_FILE))
+		err := cmdFlags.Set(INCLUDE_RELATION, strings.Join(includeRelations, ","))
+		gplog.FatalOnError(err)
 	}
 }
 
@@ -114,8 +120,8 @@ func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinit
 	 * We expand the includeRelations list to include parent and leaf partitions that may not have been
 	 * specified by the user but are used in the backup for metadata or data.
 	 */
-	userPassedIncludeRelations := *includeRelations
-	*includeRelations = ExpandIncludeRelations(tables)
+	userPassedIncludeRelations := MustGetFlagStringSlice(INCLUDE_RELATION)
+	ExpandIncludeRelations(tables)
 
 	tableDefs := ConstructDefinitionsForTables(connectionPool, tables)
 	metadataTables, dataTables := SplitTablesByPartitionType(tables, tableDefs, userPassedIncludeRelations)

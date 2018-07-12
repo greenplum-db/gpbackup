@@ -58,7 +58,7 @@ var _ bool = Describe("backup/data tests", func() {
 	})
 	Describe("CopyTableOut", func() {
 		It("will back up a table to its own file with compression", func() {
-			backup.SetSingleDataFile(false)
+			cmdFlags.Set(backup.SINGLE_DATA_FILE, "false")
 			utils.SetCompressionParameters(true, utils.Compression{Name: "gzip", CompressCommand: "gzip -c -8", DecompressCommand: "gzip -d -c", Extension: ".gz"})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
 			execStr := regexp.QuoteMeta("COPY public.foo TO PROGRAM 'gzip -c -8 > <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;")
@@ -68,7 +68,7 @@ var _ bool = Describe("backup/data tests", func() {
 			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
 		})
 		It("will back up a table to its own file without compression", func() {
-			backup.SetSingleDataFile(false)
+			cmdFlags.Set(backup.SINGLE_DATA_FILE, "false")
 			utils.SetCompressionParameters(false, utils.Compression{})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
 			execStr := regexp.QuoteMeta("COPY public.foo TO '<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;")
@@ -78,7 +78,7 @@ var _ bool = Describe("backup/data tests", func() {
 			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
 		})
 		It("will back up a table to a single file", func() {
-			backup.SetSingleDataFile(true)
+			cmdFlags.Set(backup.SINGLE_DATA_FILE, "true")
 			utils.SetCompressionParameters(false, utils.Compression{})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
 			execStr := regexp.QuoteMeta(`COPY public.foo TO PROGRAM '(test -p "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456" || (echo "Pipe not found">&2; exit 1)) && cat - > <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;`)
@@ -99,7 +99,7 @@ var _ bool = Describe("backup/data tests", func() {
 		BeforeEach(func() {
 			tableDef = backup.TableDefinition{IsExternal: false}
 			testTable = backup.Relation{Oid: 0, Schema: "public", Name: "testtable"}
-			backup.SetSingleDataFile(false)
+			cmdFlags.Set(backup.SINGLE_DATA_FILE, "false")
 			rowsCopiedMap = make(map[uint32]int64, 0)
 			counters = backup.BackupProgressCounters{NumRegTables: 0, TotalRegTables: 1}
 			counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
@@ -107,7 +107,7 @@ var _ bool = Describe("backup/data tests", func() {
 			counters.ProgressBar.Start()
 		})
 		It("backs up a single regular table with single data file", func() {
-			backup.SetSingleDataFile(true)
+			cmdFlags.Set(backup.SINGLE_DATA_FILE, "true")
 
 			backupFile := fmt.Sprintf("<SEG_DATA_DIR>/gpbackup_<SEGID>_20170101010101_pipe_(.*)_%d", testTable.Oid)
 			copyCmd := fmt.Sprintf(copyFmtStr, backupFile)
@@ -118,7 +118,7 @@ var _ bool = Describe("backup/data tests", func() {
 			Expect(counters.NumRegTables).To(Equal(int64(1)))
 		})
 		It("backs up a single regular table without a single data file", func() {
-			backup.SetSingleDataFile(false)
+			cmdFlags.Set(backup.SINGLE_DATA_FILE, "false")
 
 			backupFile := fmt.Sprintf("<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_%d", testTable.Oid)
 			copyCmd := fmt.Sprintf(copyFmtStr, backupFile)
@@ -129,7 +129,7 @@ var _ bool = Describe("backup/data tests", func() {
 			Expect(counters.NumRegTables).To(Equal(int64(1)))
 		})
 		It("backs up a single external table", func() {
-			backup.SetLeafPartitionData(false)
+			cmdFlags.Set(backup.LEAF_PARTITION_DATA, "false")
 			tableDef.IsExternal = true
 			backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
 

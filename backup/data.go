@@ -57,7 +57,7 @@ type BackupProgressCounters struct {
 func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, backupFile string, connNum int) int64 {
 	usingCompression, compressionProgram := utils.GetCompressionParameters()
 	copyCommand := ""
-	if *singleDataFile {
+	if MustGetFlagBool(SINGLE_DATA_FILE) {
 		/*
 		 * The segment TOC files are always written to the segment data directory for
 		 * performance reasons, in case the user-specified directory is on a mounted
@@ -75,7 +75,7 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, backupFile stri
 	result, err := connectionPool.Exec(query, connNum)
 	if err != nil {
 		errStr := ""
-		if *singleDataFile {
+		if MustGetFlagBool(SINGLE_DATA_FILE) {
 			helperLogName := globalFPInfo.GetHelperLogPath()
 			errStr = fmt.Sprintf("Check %s on the affected segment host for more info.", helperLogName)
 		}
@@ -99,7 +99,7 @@ func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedM
 		}
 
 		backupFile := ""
-		if *singleDataFile {
+		if MustGetFlagBool(SINGLE_DATA_FILE) {
 			backupFile = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), table.Oid)
 		} else {
 			backupFile = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, false)

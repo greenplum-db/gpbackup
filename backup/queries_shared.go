@@ -214,11 +214,11 @@ func InitializeMetadataParams(connection *dbconn.DBConn) {
 // A list of schemas we don't want to back up, formatted for use in a WHERE clause
 func SchemaFilterClause(namespace string) string {
 	schemaFilterClauseStr := ""
-	if len(*includeSchemas) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(*includeSchemas))
+	if len(MustGetFlagStringSlice(INCLUDE_SCHEMA)) > 0 {
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringSlice(INCLUDE_SCHEMA)))
 	}
-	if len(*excludeSchemas) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(*excludeSchemas))
+	if len(MustGetFlagStringSlice(EXCLUDE_SCHEMA)) > 0 {
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringSlice(EXCLUDE_SCHEMA)))
 	}
 	return fmt.Sprintf(`%s.nspname NOT LIKE 'pg_temp_%%' AND %s.nspname NOT LIKE 'pg_toast%%' AND %s.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog') %s`, namespace, namespace, namespace, schemaFilterClauseStr)
 }

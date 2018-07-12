@@ -15,10 +15,10 @@ import (
  */
 
 func validateFilterLists() {
-	ValidateFilterSchemas(connectionPool, *excludeSchemas)
-	ValidateFilterSchemas(connectionPool, *includeSchemas)
-	ValidateFilterTables(connectionPool, *excludeRelations)
-	ValidateFilterTables(connectionPool, *includeRelations)
+	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(EXCLUDE_SCHEMA))
+	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(INCLUDE_SCHEMA))
+	ValidateFilterTables(connectionPool, MustGetFlagStringSlice(EXCLUDE_RELATION))
+	ValidateFilterTables(connectionPool, MustGetFlagStringSlice(INCLUDE_RELATION))
 }
 
 func ValidateFilterSchemas(connection *dbconn.DBConn, schemaList []string) {
@@ -73,16 +73,16 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 }
 
 func ValidateFlagCombinations(flags *pflag.FlagSet) {
-	utils.CheckExclusiveFlags(flags, "debug", "quiet", "verbose")
-	utils.CheckExclusiveFlags(flags, "data-only", "metadata-only")
-	utils.CheckExclusiveFlags(flags, "include-schema", "include-table", "include-table-file")
-	utils.CheckExclusiveFlags(flags, "exclude-schema", "include-schema")
-	utils.CheckExclusiveFlags(flags, "exclude-schema", "exclude-table", "include-table", "exclude-table-file", "include-table-file")
-	utils.CheckExclusiveFlags(flags, "exclude-table", "exclude-table-file", "leaf-partition-data")
-	utils.CheckExclusiveFlags(flags, "jobs", "metadata-only", "single-data-file")
-	utils.CheckExclusiveFlags(flags, "metadata-only", "leaf-partition-data")
-	utils.CheckExclusiveFlags(flags, "no-compression", "compression-level")
-	if *pluginConfigFile != "" && !(*singleDataFile || *metadataOnly) {
+	utils.CheckExclusiveFlags(flags, DEBUG, QUIET, VERBOSE)
+	utils.CheckExclusiveFlags(flags, DATA_ONLY, METADATA_ONLY)
+	utils.CheckExclusiveFlags(flags, INCLUDE_SCHEMA, INCLUDE_RELATION, INCLUDE_RELATION_FILE)
+	utils.CheckExclusiveFlags(flags, EXCLUDE_SCHEMA, INCLUDE_SCHEMA)
+	utils.CheckExclusiveFlags(flags, EXCLUDE_SCHEMA, EXCLUDE_RELATION, INCLUDE_RELATION, EXCLUDE_RELATION_FILE, INCLUDE_RELATION_FILE)
+	utils.CheckExclusiveFlags(flags, EXCLUDE_RELATION, EXCLUDE_RELATION_FILE, LEAF_PARTITION_DATA)
+	utils.CheckExclusiveFlags(flags, JOBS, METADATA_ONLY, SINGLE_DATA_FILE)
+	utils.CheckExclusiveFlags(flags, METADATA_ONLY, LEAF_PARTITION_DATA)
+	utils.CheckExclusiveFlags(flags, NO_COMPRESSION, COMPRESSION_LEVEL)
+	if MustGetFlagString(PLUGIN_CONFIG) != "" && !(MustGetFlagBool(SINGLE_DATA_FILE) || MustGetFlagBool(METADATA_ONLY)) {
 		gplog.Fatal(errors.Errorf("--plugin-config must be specified with either --single-data-file or --metadata-only"), "")
 	}
 }
@@ -95,7 +95,7 @@ func ValidateCompressionLevel(compressionLevel int) {
 }
 
 func ValidateFlagValues() {
-	utils.ValidateFullPath(*backupDir)
-	utils.ValidateFullPath(*pluginConfigFile)
-	ValidateCompressionLevel(*compressionLevel)
+	utils.ValidateFullPath(MustGetFlagString(BACKUP_DIR))
+	utils.ValidateFullPath(MustGetFlagString(PLUGIN_CONFIG))
+	ValidateCompressionLevel(MustGetFlagInt(COMPRESSION_LEVEL))
 }

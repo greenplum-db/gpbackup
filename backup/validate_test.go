@@ -47,9 +47,6 @@ var _ = Describe("backup/validate tests", func() {
 			partitionTables = sqlmock.NewRows([]string{"oid", "value"})
 		})
 		Context("Non-partition tables", func() {
-			BeforeEach(func() {
-				backup.SetLeafPartitionData(false)
-			})
 			It("passes if there are no filter tables", func() {
 				backup.ValidateFilterTables(connectionPool, filterList)
 			})
@@ -77,9 +74,6 @@ var _ = Describe("backup/validate tests", func() {
 			})
 		})
 		Context("Partition tables", func() {
-			BeforeEach(func() {
-				backup.SetLeafPartitionData(false)
-			})
 			It("passes if given a parent partition table", func() {
 				tableRows.AddRow("1", "public.table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(tableRows)
@@ -97,8 +91,7 @@ var _ = Describe("backup/validate tests", func() {
 				backup.ValidateFilterTables(connectionPool, filterList)
 			})
 			It("panics if given an intermediate partition table and --leaf-partition-data is set", func() {
-				backup.SetLeafPartitionData(true)
-				defer backup.SetLeafPartitionData(false)
+				cmdFlags.Set(backup.LEAF_PARTITION_DATA, "true")
 				tableRows.AddRow("1", "public.table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(tableRows)
 				partitionTables.AddRow("1", "i")
