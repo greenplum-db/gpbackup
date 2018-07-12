@@ -20,30 +20,32 @@ import (
  * The flag variables, and setter functions for them, are in global_variables.go.
  */
 func initializeFlags(cmd *cobra.Command) {
-	backupDir = cmd.Flags().String("backup-dir", "", "The absolute path of the directory in which the backup files to be restored are located")
-	createDB = cmd.Flags().Bool("create-db", false, "Create the database before metadata restore")
-	dataOnly = cmd.Flags().Bool("data-only", false, "Only restore data, do not restore metadata")
-	debug = cmd.Flags().Bool("debug", false, "Print verbose and debug log messages")
-	excludeSchemas = cmd.Flags().StringSlice("exclude-schema", []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	excludeRelations = cmd.Flags().StringSlice("exclude-table", []string{}, "Restore all metadata except the specified relation(s). --exclude-table can be specified multiple times.")
-	excludeRelationFile = cmd.Flags().String("exclude-table-file", "", "A file containing a list of fully-qualified relation(s) that will not be restored")
+	cmd.Flags().String(BACKUP_DIR, "", "The absolute path of the directory in which the backup files to be restored are located")
+	cmd.Flags().Bool(CREATE_DB, false, "Create the database before metadata restore")
+	cmd.Flags().Bool(DATA_ONLY, false, "Only restore data, do not restore metadata")
+	cmd.Flags().Bool(DEBUG, false, "Print verbose and debug log messages")
+	cmd.Flags().StringSlice(EXCLUDE_SCHEMA, []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
+	cmd.Flags().StringSlice(EXCLUDE_RELATION, []string{}, "Restore all metadata except the specified relation(s). --exclude-table can be specified multiple times.")
+	cmd.Flags().String(EXCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will not be restored")
 	cmd.Flags().Bool("help", false, "Help for gprestore")
-	includeSchemas = cmd.Flags().StringSlice("include-schema", []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
-	includeRelations = cmd.Flags().StringSlice("include-table", []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
-	includeRelationFile = cmd.Flags().String("include-table-file", "", "A file containing a list of fully-qualified relation(s) that will be restored")
-	metadataOnly = cmd.Flags().Bool("metadata-only", false, "Only restore metadata, do not restore data")
-	numJobs = cmd.Flags().Int("jobs", 1, "Number of parallel connections to use when restoring table data and post-data")
-	onErrorContinue = cmd.Flags().Bool("on-error-continue", false, "Log errors and continue restore, instead of exiting on first error")
-	pluginConfigFile = cmd.Flags().String("plugin-config", "", "The configuration file to use for a plugin")
+	cmd.Flags().StringSlice(INCLUDE_SCHEMA, []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
+	cmd.Flags().StringSlice(INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
+	cmd.Flags().String(INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will be restored")
+	cmd.Flags().Bool(METADATA_ONLY, false, "Only restore metadata, do not restore data")
+	cmd.Flags().Int(JOBS, 1, "Number of parallel connections to use when restoring table data and post-data")
+	cmd.Flags().Bool(ON_ERROR_CONTINUE, false, "Log errors and continue restore, instead of exiting on first error")
+	cmd.Flags().String(PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
 	cmd.Flags().Bool("version", false, "Print version number and exit")
-	quiet = cmd.Flags().Bool("quiet", false, "Suppress non-warning, non-error log messages")
-	redirect = cmd.Flags().String("redirect-db", "", "Restore to the specified database instead of the database that was backed up")
-	restoreGlobals = cmd.Flags().Bool("with-globals", false, "Restore global metadata")
-	timestamp = cmd.Flags().String("timestamp", "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
-	verbose = cmd.Flags().Bool("verbose", false, "Print verbose log messages")
-	withStats = cmd.Flags().Bool("with-stats", false, "Restore query plan statistics")
+	cmd.Flags().Bool(QUIET, false, "Suppress non-warning, non-error log messages")
+	cmd.Flags().String(REDIRECT_DB, "", "Restore to the specified database instead of the database that was backed up")
+	cmd.Flags().Bool(WITH_GLOBALS, false, "Restore global metadata")
+	cmd.Flags().String(TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
+	cmd.Flags().Bool(VERBOSE, false, "Print verbose log messages")
+	cmd.Flags().Bool(WITH_STATS, false, "Restore query plan statistics")
 
-	_ = cmd.MarkFlagRequired("timestamp")
+	_ = cmd.MarkFlagRequired(TIMESTAMP)
+
+	cmdFlags = cmd.Flags()
 }
 
 // This function handles setup that can be done before parsing flags.
@@ -61,10 +63,10 @@ func DoInit(cmd *cobra.Command) {
  */
 func DoValidation(cmd *cobra.Command) {
 	ValidateFlagCombinations(cmd.Flags())
-	utils.ValidateFullPath(*backupDir)
-	utils.ValidateFullPath(*pluginConfigFile)
-	if !utils.IsValidTimestamp(*timestamp) {
-		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", *timestamp), "")
+	utils.ValidateFullPath(MustGetFlagString(BACKUP_DIR))
+	utils.ValidateFullPath(MustGetFlagString(PLUGIN_CONFIG))
+	if !utils.IsValidTimestamp(MustGetFlagString(TIMESTAMP)) {
+		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", MustGetFlagString(TIMESTAMP)), "")
 	}
 }
 
@@ -72,16 +74,16 @@ func DoValidation(cmd *cobra.Command) {
 func DoSetup() {
 	SetLoggerVerbosity()
 	restoreStartTime = utils.CurrentTimestamp()
-	gplog.Info("Restore Key = %s", *timestamp)
+	gplog.Info("Restore Key = %s", MustGetFlagString(TIMESTAMP))
 
 	InitializeConnection("postgres")
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := utils.ParseSegPrefix(*backupDir)
-	globalFPInfo = utils.NewFilePathInfo(globalCluster, *backupDir, *timestamp, segPrefix)
+	segPrefix := utils.ParseSegPrefix(MustGetFlagString(BACKUP_DIR))
+	globalFPInfo = utils.NewFilePathInfo(globalCluster, MustGetFlagString(BACKUP_DIR), MustGetFlagString(TIMESTAMP), segPrefix)
 
 	// Get restore metadata from plugin
-	if *pluginConfigFile != "" {
+	if MustGetFlagString(PLUGIN_CONFIG) != "" {
 		RecoverMetadataFilesUsingPlugin()
 	} else {
 		InitializeBackupConfig()
@@ -93,16 +95,16 @@ func DoSetup() {
 		gplog.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
 	restoreDatabase := backupConfig.DatabaseName
-	if *redirect != "" {
-		restoreDatabase = *redirect
+	if MustGetFlagString(REDIRECT_DB) != "" {
+		restoreDatabase = MustGetFlagString(REDIRECT_DB)
 	}
-	ValidateDatabaseExistence(restoreDatabase, *createDB, backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
-	if *createDB {
+	ValidateDatabaseExistence(restoreDatabase, MustGetFlagBool(CREATE_DB), backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
+	if MustGetFlagBool(CREATE_DB) {
 		createDatabase(metadataFilename)
 	}
 	InitializeConnection(restoreDatabase)
 
-	if *restoreGlobals {
+	if MustGetFlagBool(WITH_GLOBALS) {
 		restoreGlobal(metadataFilename)
 	}
 
@@ -110,22 +112,22 @@ func DoSetup() {
 	 * We don't need to validate anything if we're creating the database; we
 	 * should not error out for validation reasons once the restore database exists.
 	 */
-	if !*createDB {
-		ValidateFilterRelationsInRestoreDatabase(connectionPool, *includeRelations)
+	if !MustGetFlagBool(CREATE_DB) {
+		ValidateFilterRelationsInRestoreDatabase(connectionPool, MustGetFlagStringSlice(INCLUDE_RELATION))
 	}
 }
 
 func DoRestore() {
 	gucStatements := setGUCsForConnection(nil, 0)
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
-	isDataOnly := backupConfig.DataOnly || *dataOnly
-	isMetadataOnly := backupConfig.MetadataOnly || *metadataOnly
+	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(DATA_ONLY)
+	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(METADATA_ONLY)
 	if !isDataOnly {
 		restorePredata(metadataFilename)
 	}
 
 	if !isMetadataOnly {
-		if *pluginConfigFile == "" {
+		if MustGetFlagString(PLUGIN_CONFIG) == "" {
 			backupFileCount := 2 // 1 for the actual data file, 1 for the segment TOC file
 			if !backupConfig.SingleDataFile {
 				backupFileCount = len(globalTOC.DataEntries)
@@ -139,7 +141,7 @@ func DoRestore() {
 		restorePostdata(metadataFilename)
 	}
 
-	if *withStats && backupConfig.WithStatistics {
+	if MustGetFlagBool(WITH_STATS) && backupConfig.WithStatistics {
 		restoreStatistics()
 	}
 }
@@ -148,8 +150,8 @@ func createDatabase(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE", "DATABASE METADATA"}
 	gplog.Info("Creating database")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
-	if *redirect != "" {
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
+	if MustGetFlagString(REDIRECT_DB) != "" {
+		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, MustGetFlagString(REDIRECT_DB))
 	}
 	ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
 	gplog.Info("Database creation complete")
@@ -159,8 +161,8 @@ func restoreGlobal(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
 	gplog.Info("Restoring global metadata")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
-	if *redirect != "" {
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, *redirect)
+	if REDIRECT_DB != "" {
+		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, MustGetFlagString(REDIRECT_DB))
 	}
 	statements = utils.RemoveActiveRole(connectionPool.User, statements)
 	ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
@@ -191,7 +193,8 @@ func restoreData(gucStatements []utils.StatementWithType) {
 		return
 	}
 	gplog.Info("Restoring data")
-	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(*includeSchemas, *excludeSchemas, *includeRelations, *excludeRelations)
+	filteredMasterDataEntries := globalTOC.GetDataEntriesMatching(MustGetFlagStringSlice(INCLUDE_SCHEMA), MustGetFlagStringSlice(EXCLUDE_SCHEMA),
+		MustGetFlagStringSlice(INCLUDE_RELATION), MustGetFlagStringSlice(EXCLUDE_RELATION))
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
@@ -202,7 +205,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 		utils.WriteOidListToSegments(filteredOids, globalCluster, globalFPInfo)
 		firstOid := fmt.Sprintf("%d", filteredMasterDataEntries[0].Oid)
 		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, globalFPInfo)
-		utils.StartAgent(globalCluster, globalFPInfo, "--restore-agent", *pluginConfigFile, "")
+		utils.StartAgent(globalCluster, globalFPInfo, "--restore-agent", MustGetFlagString(PLUGIN_CONFIG), "")
 	}
 
 	totalTables := len(filteredMasterDataEntries)
@@ -243,7 +246,7 @@ func restoreData(gucStatements []utils.StatementWithType) {
 	err := CheckAgentErrorsOnSegments()
 	if err != nil {
 		errMsg := "Error restoring data for one or more tables"
-		if *onErrorContinue {
+		if MustGetFlagBool(ON_ERROR_CONTINUE) {
 			gplog.Error("%s: %v", errMsg, err)
 		} else {
 			gplog.Fatal(err, errMsg)

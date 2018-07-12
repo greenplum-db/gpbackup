@@ -5,7 +5,9 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/spf13/pflag"
 )
 
 /*
@@ -39,33 +41,39 @@ var (
 /*
  * Command-line flags
  */
+var cmdFlags *pflag.FlagSet
 
-var (
-	backupDir           *string
-	createDB            *bool
-	dataOnly            *bool
-	debug               *bool
-	excludeSchemas      *[]string
-	excludeRelationFile *string
-	excludeRelations    *[]string
-	includeSchemas      *[]string
-	includeRelationFile *string
-	includeRelations    *[]string
-	metadataOnly        *bool
-	numJobs             *int
-	onErrorContinue     *bool
-	pluginConfigFile    *string
-	quiet               *bool
-	redirect            *string
-	restoreGlobals      *bool
-	timestamp           *string
-	verbose             *bool
-	withStats           *bool
+const (
+	BACKUP_DIR            = "backup-dir"
+	CREATE_DB             = "create-db"
+	DATA_ONLY             = "data-only"
+	DEBUG                 = "debug"
+	EXCLUDE_RELATION      = "exclude-table"
+	EXCLUDE_RELATION_FILE = "exclude-table-file"
+	EXCLUDE_SCHEMA        = "exclude-schema"
+	INCLUDE_RELATION      = "include-table"
+	INCLUDE_RELATION_FILE = "include-table-file"
+	INCLUDE_SCHEMA        = "include-schema"
+	JOBS                  = "jobs"
+	LEAF_PARTITION_DATA   = "leaf-partition-data"
+	METADATA_ONLY         = "metadata-only"
+	ON_ERROR_CONTINUE     = "on-error-continue"
+	PLUGIN_CONFIG         = "plugin-config"
+	QUIET                 = "quiet"
+	REDIRECT_DB           = "redirect-db"
+	TIMESTAMP             = "timestamp"
+	VERBOSE               = "verbose"
+	WITH_GLOBALS          = "with-globals"
+	WITH_STATS            = "with-stats"
 )
 
 /*
  * Setter functions
  */
+
+func SetCmdFlags(flagSet *pflag.FlagSet) {
+	cmdFlags = flagSet
+}
 
 func SetBackupConfig(config *utils.BackupConfig) {
 	backupConfig = config
@@ -83,14 +91,30 @@ func SetFPInfo(fpInfo utils.FilePathInfo) {
 	globalFPInfo = fpInfo
 }
 
-func SetOnErrorContinue(errContinue bool) {
-	onErrorContinue = &errContinue
-}
-
-func SetNumJobs(jobs int) {
-	numJobs = &jobs
-}
-
 func SetTOC(toc *utils.TOC) {
 	globalTOC = toc
+}
+
+func MustGetFlagString(flagName string) string {
+	value, err := cmdFlags.GetString(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagInt(flagName string) int {
+	value, err := cmdFlags.GetInt(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagBool(flagName string) bool {
+	value, err := cmdFlags.GetBool(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagStringSlice(flagName string) []string {
+	value, err := cmdFlags.GetStringSlice(flagName)
+	gplog.FatalOnError(err)
+	return value
 }

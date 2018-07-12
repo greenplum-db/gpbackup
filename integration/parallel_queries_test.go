@@ -66,7 +66,6 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 		createQuery := "CREATE TABLE public.timestamps(exec_index int, exec_time timestamp);"
 		orderQuery := "SELECT exec_index AS string FROM public.timestamps ORDER BY exec_time;"
 		BeforeEach(func() {
-			restore.SetOnErrorContinue(false)
 			tempConn = dbconn.NewDBConnFromEnvironment("testdb")
 			restore.SetConnection(tempConn)
 		})

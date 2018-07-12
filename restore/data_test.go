@@ -69,14 +69,11 @@ var _ = Describe("restore/data tests", func() {
 			testFPInfo = utils.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 			backup.SetFPInfo(testFPInfo)
 		})
-		AfterEach(func() {
-			restore.SetOnErrorContinue(false)
-		})
 		It("does nothing if the number of rows match ", func() {
 			restore.CheckRowsRestored(10, expectedRows, name)
 		})
 		It("panics if the numbers of rows do not match and there is an error with a segment agent", func() {
-			restore.SetOnErrorContinue(false)
+			cmdFlags.Set(restore.ON_ERROR_CONTINUE, "false")
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				Stdouts: map[int]string{
 					1: "error",
@@ -91,7 +88,7 @@ var _ = Describe("restore/data tests", func() {
 			restore.CheckRowsRestored(5, expectedRows, name)
 		})
 		It("panics if the numbers of rows do not match and there is no error with a segment agent", func() {
-			restore.SetOnErrorContinue(false)
+			cmdFlags.Set(restore.ON_ERROR_CONTINUE, "false")
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				Stdouts: map[int]string{
 					1: "",
@@ -103,7 +100,7 @@ var _ = Describe("restore/data tests", func() {
 			restore.CheckRowsRestored(5, expectedRows, name)
 		})
 		It("prints an error if the numbers of rows do not match and onErrorContinue is set", func() {
-			restore.SetOnErrorContinue(true)
+			cmdFlags.Set(restore.ON_ERROR_CONTINUE, "true")
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				Stdouts: map[int]string{
 					1: "",

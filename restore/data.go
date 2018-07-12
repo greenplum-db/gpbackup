@@ -60,7 +60,7 @@ func restoreSingleTableData(entry utils.MasterDataEntry, tableNum uint32, totalT
 func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string) {
 	if rowsRestored != rowsBackedUp {
 		rowsErrMsg := fmt.Sprintf("Expected to restore %d rows to table %s, but restored %d instead", rowsBackedUp, tableName, rowsRestored)
-		if *onErrorContinue {
+		if MustGetFlagBool(ON_ERROR_CONTINUE) {
 			gplog.Error(rowsErrMsg)
 		} else {
 			agentErr := CheckAgentErrorsOnSegments()

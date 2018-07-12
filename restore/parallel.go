@@ -24,7 +24,7 @@ func executeStatement(statement utils.StatementWithType, showProgressBar int, wh
 	_, err := connectionPool.Exec(statement.Statement, whichConn)
 	if err != nil {
 		gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
-		if *onErrorContinue {
+		if MustGetFlagBool(ON_ERROR_CONTINUE) {
 			return 1
 		}
 		if showProgressBar >= utils.PB_INFO && gplog.GetVerbosity() == gplog.LOGINFO {

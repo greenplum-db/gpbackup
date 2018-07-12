@@ -22,18 +22,18 @@ import (
  */
 
 func SetLoggerVerbosity() {
-	if *quiet {
+	if MustGetFlagBool(QUIET) {
 		gplog.SetVerbosity(gplog.LOGERROR)
-	} else if *debug {
+	} else if MustGetFlagBool(DEBUG) {
 		gplog.SetVerbosity(gplog.LOGDEBUG)
-	} else if *verbose {
+	} else if MustGetFlagBool(VERBOSE) {
 		gplog.SetVerbosity(gplog.LOGVERBOSE)
 	}
 }
 
 func InitializeConnection(dbname string) {
 	connectionPool = dbconn.NewDBConnFromEnvironment(dbname)
-	connectionPool.MustConnect(*numJobs)
+	connectionPool.MustConnect(MustGetFlagInt(JOBS))
 	utils.SetDatabaseVersion(connectionPool)
 	setupQuery := `
 SET application_name TO 'gprestore';
@@ -65,11 +65,15 @@ func InitializeBackupConfig() {
 }
 
 func InitializeFilterLists() {
-	if *excludeRelationFile != "" {
-		*excludeRelations = iohelper.MustReadLinesFromFile(*excludeRelationFile)
+	if MustGetFlagString(INCLUDE_RELATION_FILE) != "" {
+		includeRelations := strings.Join(iohelper.MustReadLinesFromFile(MustGetFlagString(INCLUDE_RELATION_FILE)), ",")
+		err := cmdFlags.Set(INCLUDE_RELATION, includeRelations)
+		gplog.FatalOnError(err)
 	}
-	if *includeRelationFile != "" {
-		*includeRelations = iohelper.MustReadLinesFromFile(*includeRelationFile)
+	if MustGetFlagString(EXCLUDE_RELATION_FILE) != "" {
+		excludeRelations := strings.Join(iohelper.MustReadLinesFromFile(MustGetFlagString(EXCLUDE_RELATION_FILE)), ",")
+		err := cmdFlags.Set(EXCLUDE_RELATION, excludeRelations)
+		gplog.FatalOnError(err)
 	}
 }
 
@@ -79,7 +83,7 @@ func BackupConfigurationValidation() {
 	gplog.Verbose("Gathering information on backup directories")
 	VerifyBackupDirectoriesExistOnAllHosts()
 
-	VerifyMetadataFilePaths(*withStats)
+	VerifyMetadataFilePaths(MustGetFlagBool(WITH_STATS))
 
 	tocFilename := globalFPInfo.GetTOCFilePath()
 	globalTOC = utils.NewTOC(tocFilename)
@@ -90,16 +94,17 @@ func BackupConfigurationValidation() {
 }
 
 func RecoverMetadataFilesUsingPlugin() {
-	pluginConfig = utils.ReadPluginConfig(*pluginConfigFile)
+	pluginConfig = utils.ReadPluginConfig(MustGetFlagString(PLUGIN_CONFIG))
 	pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
-	pluginConfig.CopyPluginConfigToAllHosts(globalCluster, *pluginConfigFile)
+
+	pluginConfig.CopyPluginConfigToAllHosts(globalCluster, MustGetFlagString(PLUGIN_CONFIG))
 	pluginConfig.SetupPluginForRestore(globalCluster, globalFPInfo)
 	pluginConfig.RestoreFile(globalFPInfo.GetConfigFilePath())
 
 	InitializeBackupConfig()
 
 	metadataFiles := []string{globalFPInfo.GetMetadataFilePath(), globalFPInfo.GetTOCFilePath(), globalFPInfo.GetBackupReportFilePath()}
-	if *withStats {
+	if MustGetFlagBool(WITH_STATS) {
 		metadataFiles = append(metadataFiles, globalFPInfo.GetStatisticsFilePath())
 	}
 	for _, filename := range metadataFiles {
@@ -120,12 +125,12 @@ func GetRestoreMetadataStatements(section string, filename string, includeObject
 	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || filterSchemas || filterRelations {
 		var inSchemas, exSchemas, inRelations, exRelations []string
 		if filterSchemas {
-			inSchemas = *includeSchemas
-			exSchemas = *excludeSchemas
+			inSchemas = MustGetFlagStringSlice(INCLUDE_SCHEMA)
+			exSchemas = MustGetFlagStringSlice(EXCLUDE_SCHEMA)
 		}
 		if filterRelations {
-			inRelations = *includeRelations
-			exRelations = *excludeRelations
+			inRelations = MustGetFlagStringSlice(INCLUDE_RELATION)
+			exRelations = MustGetFlagStringSlice(EXCLUDE_RELATION)
 		}
 		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inRelations, exRelations)
 	} else {
