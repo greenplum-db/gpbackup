@@ -435,11 +435,8 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 }
 
 func (obj ObjectMetadata) GetOwnerStatement(objectName string, objectType string) string {
-	if objectType == "VIEW" {
-		return ""
-	}
 	typeStr := objectType
-	if objectType == "SEQUENCE" {
+	if connectionPool.Version.Before("6") && (objectType == "SEQUENCE" || objectType == "VIEW") {
 		typeStr = "TABLE"
 	} else if objectType == "FOREIGN SERVER" {
 		typeStr = "SERVER"
