@@ -57,3 +57,27 @@ func HandleSingleDashes(args []string) []string {
 	}
 	return newArgs
 }
+
+func MustGetFlagString(cmdFlags *pflag.FlagSet, flagName string) string {
+	value, err := cmdFlags.GetString(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagInt(cmdFlags *pflag.FlagSet, flagName string) int {
+	value, err := cmdFlags.GetInt(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagBool(cmdFlags *pflag.FlagSet, flagName string) bool {
+	value, err := cmdFlags.GetBool(flagName)
+	gplog.FatalOnError(err)
+	return value
+}
+
+func MustGetFlagStringSlice(cmdFlags *pflag.FlagSet, flagName string) []string {
+	value, err := cmdFlags.GetStringSlice(flagName)
+	gplog.FatalOnError(err)
+	return value
+}

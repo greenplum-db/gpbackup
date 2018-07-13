@@ -7,7 +7,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/utils"
 
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/spf13/pflag"
 )
 
@@ -102,26 +101,20 @@ func SetVersion(v string) {
 	version = v
 }
 
+// Util functions to enable ease of access to global flag values
+
 func MustGetFlagString(flagName string) string {
-	value, err := cmdFlags.GetString(flagName)
-	gplog.FatalOnError(err)
-	return value
+	return utils.MustGetFlagString(cmdFlags, flagName)
 }
 
 func MustGetFlagInt(flagName string) int {
-	value, err := cmdFlags.GetInt(flagName)
-	gplog.FatalOnError(err)
-	return value
+	return utils.MustGetFlagInt(cmdFlags, flagName)
 }
 
 func MustGetFlagBool(flagName string) bool {
-	value, err := cmdFlags.GetBool(flagName)
-	gplog.FatalOnError(err)
-	return value
+	return utils.MustGetFlagBool(cmdFlags, flagName)
 }
 
 func MustGetFlagStringSlice(flagName string) []string {
-	value, err := cmdFlags.GetStringSlice(flagName)
-	gplog.FatalOnError(err)
-	return value
+	return utils.MustGetFlagStringSlice(cmdFlags, flagName)
 }
