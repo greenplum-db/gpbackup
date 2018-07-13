@@ -14,6 +14,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const SUPPORTED_PLUGIN_VERSION = "0.3.0"
+
 type PluginConfig struct {
 	ExecutablePath string
 	ConfigPath     string
@@ -23,9 +25,9 @@ type PluginConfig struct {
 type PluginScope string
 
 const (
-	Master      PluginScope = "master"
-	SegmentHost PluginScope = "segment_host"
-	Segment     PluginScope = "segment"
+	MASTER       PluginScope = "master"
+	SEGMENT_HOST PluginScope = "segment_host"
+	SEGMENT      PluginScope = "segment"
 )
 
 func ReadPluginConfig(configFile string) *PluginConfig {
@@ -74,7 +76,7 @@ func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) {
 
 	numIncorrect := 0
 	for contentID := range remoteOutput.Stdouts {
-		supportedVersion, _ := semver.Make("0.2.0")
+		supportedVersion, _ := semver.Make(SUPPORTED_PLUGIN_VERSION)
 		version, err := semver.Make(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
 		if err != nil {
 			gplog.Fatal(fmt.Errorf("Unable to parse plugin API version: %s", err.Error()), "")
@@ -118,7 +120,7 @@ func (plugin *PluginConfig) CleanupPluginForRestore(c *cluster.Cluster, fpInfo F
 func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg string,
 	command string, fpInfo FilePathInfo, noFatal bool) {
 	// Execute command once on master
-	scope := Master
+	scope := MASTER
 	hookFunc := plugin.buildHookFunc(command, fpInfo, scope)
 	verboseErrorMsg, errorMsgFunc := plugin.buildHookErrorMsgAndFunc(command, scope)
 	masterContentID := -1
@@ -127,7 +129,7 @@ func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg st
 	gplog.FatalOnError(masterErr, masterOutput)
 
 	// Execute command once on each segment host
-	scope = SegmentHost
+	scope = SEGMENT_HOST
 	hookFunc = plugin.buildHookFunc(command, fpInfo, scope)
 	verboseErrorMsg, errorMsgFunc = plugin.buildHookErrorMsgAndFunc(command, scope)
 	verboseCommandHostMasterMsg := fmt.Sprintf(verboseCommandMsg, "segment hosts")
@@ -135,7 +137,7 @@ func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg st
 	c.CheckClusterError(remoteOutput, verboseErrorMsg, errorMsgFunc, noFatal)
 
 	// Execute command once for each segment
-	scope = Segment
+	scope = SEGMENT
 	hookFunc = plugin.buildHookFunc(command, fpInfo, scope)
 	verboseErrorMsg, errorMsgFunc = plugin.buildHookErrorMsgAndFunc(command, scope)
 	verboseCommandSegMsg := fmt.Sprintf(verboseCommandMsg, "segments")
@@ -152,9 +154,15 @@ func (plugin *PluginConfig) buildHookFunc(command string,
 
 func (plugin *PluginConfig) buildHookString(command string,
 	fpInfo FilePathInfo, scope PluginScope, contentID int) string {
+	contentIDStr := ""
+	if scope == MASTER || scope == SEGMENT {
+		contentIDStr = fmt.Sprintf(`\"%d\"`, contentID)
+	}
+
 	backupDir := fpInfo.GetDirForContent(contentID)
-	return fmt.Sprintf("source %s/greenplum_path.sh && %s %s %s %s %s",
-		operating.System.Getenv("GPHOME"), plugin.ExecutablePath, command, plugin.ConfigPath, backupDir, scope)
+	return fmt.Sprintf("source %s/greenplum_path.sh && %s %s %s %s %s %s",
+		operating.System.Getenv("GPHOME"), plugin.ExecutablePath, command, plugin.ConfigPath, backupDir, scope,
+		contentIDStr)
 }
 
 func (plugin *PluginConfig) buildHookErrorMsgAndFunc(command string,

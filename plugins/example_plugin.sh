@@ -2,7 +2,7 @@
 set -e
 
 setup_plugin_for_backup(){
-  echo "setup_plugin_for_backup $1 $2 $3" >> /tmp/plugin_out.txt
+  echo "setup_plugin_for_backup $1 $2 $3 $4" >> /tmp/plugin_out.txt
   if [ "$3" = "master" ]
     then echo "setup_plugin_for_backup was called for scope = master" >> /tmp/plugin_out.txt
   elif [ "$3" = "segment_host" ]
@@ -14,7 +14,7 @@ setup_plugin_for_backup(){
 }
 
 setup_plugin_for_restore(){
-  echo "setup_plugin_for_restore $1 $2 $3" >> /tmp/plugin_out.txt
+  echo "setup_plugin_for_restore $1 $2 $3 $4" >> /tmp/plugin_out.txt
   if [ "$3" = "master" ]
     then echo "setup_plugin_for_restore was called for scope = master" >> /tmp/plugin_out.txt
   elif [ "$3" = "segment_host" ]
@@ -25,7 +25,7 @@ setup_plugin_for_restore(){
 }
 
 cleanup_plugin_for_backup(){
-  echo "cleanup_plugin_for_backup $1 $2 $3" >> /tmp/plugin_out.txt
+  echo "cleanup_plugin_for_backup $1 $2 $3 $4" >> /tmp/plugin_out.txt
   if [ "$3" = "master" ]
     then echo "cleanup_plugin_for_backup was called for scope = master" >> /tmp/plugin_out.txt
   elif [ "$3" = "segment_host" ]
@@ -36,7 +36,7 @@ cleanup_plugin_for_backup(){
 }
 
 cleanup_plugin_for_restore(){
-  echo "cleanup_plugin_for_restore $1 $2 $3" >> /tmp/plugin_out.txt
+  echo "cleanup_plugin_for_restore $1 $2 $3 $4" >> /tmp/plugin_out.txt
   if [ "$3" = "master" ]
     then echo "cleanup_plugin_for_restore was called for scope = master" >> /tmp/plugin_out.txt
   elif [ "$3" = "segment_host" ]
@@ -71,8 +71,8 @@ restore_data() {
 }
 
 plugin_api_version(){
-  echo "0.2.0"
-  echo "0.2.0" >> /tmp/plugin_out.txt
+  echo "0.3.0"
+  echo "0.3.0" >> /tmp/plugin_out.txt
 }
 
 "$@"

@@ -3,7 +3,7 @@
 plugin=$1
 plugin_config=$2
 secondary_plugin_config=$3
-SUPPORTED_API_VERSION="0.2.0"
+SUPPORTED_API_VERSION="0.3.0"
 
 # ----------------------------------------------
 # Test suite setup
@@ -46,11 +46,11 @@ echo "[PASSED] plugin_api_version"
 # ----------------------------------------------
 
 echo "[RUNNING] setup_plugin_for_backup on master"
-$plugin setup_plugin_for_backup $plugin_config $testdir master
+$plugin setup_plugin_for_backup $plugin_config $testdir master -1
 echo "[RUNNING] setup_plugin_for_backup on segment_host"
 $plugin setup_plugin_for_backup $plugin_config $testdir segment_host
-echo "[RUNNING] setup_plugin_for_backup on segment"
-$plugin setup_plugin_for_backup $plugin_config $testdir segment
+echo "[RUNNING] setup_plugin_for_backup on segment 0"
+$plugin setup_plugin_for_backup $plugin_config $testdir segment 0
 
 echo "[RUNNING] backup_file"
 $plugin backup_file $plugin_config $testfile
@@ -58,11 +58,11 @@ $plugin backup_file $plugin_config $testfile
 test -f $testfile
 
 echo "[RUNNING] setup_plugin_for_restore on master"
-$plugin setup_plugin_for_restore $plugin_config $testdir master
+$plugin setup_plugin_for_restore $plugin_config $testdir master -1
 echo "[RUNNING] setup_plugin_for_restore on segment_host"
 $plugin setup_plugin_for_restore $plugin_config $testdir segment_host
-echo "[RUNNING] setup_plugin_for_restore on segment"
-$plugin setup_plugin_for_restore $plugin_config $testdir segment
+echo "[RUNNING] setup_plugin_for_restore on segment 0"
+$plugin setup_plugin_for_restore $plugin_config $testdir segment 0
 
 echo "[RUNNING] restore_file"
 rm $testfile
@@ -118,19 +118,19 @@ echo "[PASSED] restore_data"
 # ----------------------------------------------
 
 echo "[RUNNING] cleanup_plugin_for_backup on master"
-$plugin cleanup_plugin_for_backup $plugin_config $testdir master
+$plugin cleanup_plugin_for_backup $plugin_config $testdir master -1
 echo "[RUNNING] cleanup_plugin_for_backup on segment_host"
 $plugin cleanup_plugin_for_backup $plugin_config $testdir segment_host
-echo "[RUNNING] cleanup_plugin_for_backup on segment"
-$plugin cleanup_plugin_for_backup $plugin_config $testdir segment
+echo "[RUNNING] cleanup_plugin_for_backup on segment 0"
+$plugin cleanup_plugin_for_backup $plugin_config $testdir segment 0
 echo "[PASSED] cleanup_plugin_for_backup"
 
 echo "[RUNNING] cleanup_plugin_for_restore on master"
-$plugin cleanup_plugin_for_restore $plugin_config $testdir master
+$plugin cleanup_plugin_for_restore $plugin_config $testdir master -1
 echo "[RUNNING] cleanup_plugin_for_restore on segment_host"
 $plugin cleanup_plugin_for_restore $plugin_config $testdir segment_host
-echo "[RUNNING] cleanup_plugin_for_restore on segment"
-$plugin cleanup_plugin_for_restore $plugin_config $testdir segment
+echo "[RUNNING] cleanup_plugin_for_restore on segment 0"
+$plugin cleanup_plugin_for_restore $plugin_config $testdir segment 0
 echo "[PASSED] cleanup_plugin_for_restore"
 
 

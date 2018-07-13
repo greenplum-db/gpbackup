@@ -81,6 +81,7 @@ of each method with the parameter "master", offering a chance to perform some se
 
 Note: "segment_host" and "segment" are both provided as a single physical segment host may house multiple segment processes in Greenplum. There maybe some setup or cleanup required at the segment host level as compared to each segment process.
 
+[contentID](#contentID): The contentID corresponding to the scope. This is passed in only for the "master" and "segment" scopes.
 
 [filepath](#filepath): The local path to a file written by gpbackup and/or read by gprestore.
 
@@ -104,13 +105,16 @@ Called at the start of the backup process on the master and each segment host.
 
 [scope](#scope)
 
+[contentID](#contentID)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
-test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
-test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
 ```
 
 ### [setup_plugin_for_restore](#setup_plugin_for_restore)
@@ -129,13 +133,16 @@ Called at the start of the restore process on the master and each segment host.
 
 [scope](#scope)
 
+[contentID](#contentID)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
-test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
-test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
 ```
 
 ### [cleanup_plugin_for_backup](#cleanup_plugin_for_backup)
@@ -154,13 +161,16 @@ Called during the backup teardown phase on the master and each segment host. Thi
 
 [scope](#scope)
 
+[contentID](#contentID)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
-test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
-test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
 ```
 
 ### [cleanup_plugin_for_restore](#cleanup_plugin_for_restore)
@@ -179,13 +189,16 @@ Called during the restore teardown phase on the master and each segment host. Th
 
 [scope](#scope)
 
+[contentID](#contentID)
+
 **Return Value:** None
 
 **Example:**
 ```
-test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 master
-test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment_host
-test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir/backups/20180101/20180101010101 segment
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
 ```
 
 ### [backup_file](#backup_file)
