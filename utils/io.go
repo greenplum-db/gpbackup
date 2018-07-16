@@ -34,9 +34,13 @@ var (
 func SliceToQuotedString(slice []string) string {
 	quotedStrings := make([]string, len(slice))
 	for i, str := range slice {
-		quotedStrings[i] = fmt.Sprintf("'%s'", strings.Replace(str, "'", "''", -1))
+		quotedStrings[i] = fmt.Sprintf("'%s'", EscapeSingleQuotes(str))
 	}
 	return strings.Join(quotedStrings, ",")
+}
+
+func EscapeSingleQuotes(str string) string {
+	return strings.Replace(str, "'", "''", -1)
 }
 
 /*

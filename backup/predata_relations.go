@@ -344,7 +344,7 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table
 
 	for _, att := range tableDef.ColumnDefs {
 		if att.Comment != "" {
-			escapedComment := strings.Replace(att.Comment, "'", "''", -1)
+			escapedComment := utils.EscapeSingleQuotes(att.Comment)
 			metadataFile.MustPrintf("\n\nCOMMENT ON COLUMN %s.%s IS '%s';\n", table.ToString(), att.Name, escapedComment)
 		}
 		if len(att.ACL) > 0 {
@@ -406,7 +406,7 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 		}
 		metadataFile.MustPrintf("\tCACHE %d%s;", sequence.CacheVal, cycleStr)
 
-		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", seqFQN, sequence.LastVal, sequence.IsCalled)
+		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", utils.EscapeSingleQuotes(seqFQN), sequence.LastVal, sequence.IsCalled)
 
 		PrintObjectMetadata(metadataFile, sequenceMetadata[sequence.Oid], seqFQN, "SEQUENCE")
 		toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE", sequence.OwningTable, start, metadataFile)

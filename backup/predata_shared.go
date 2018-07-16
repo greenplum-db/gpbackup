@@ -455,7 +455,7 @@ func (obj ObjectMetadata) GetCommentStatement(objectName string, objectType stri
 		tableStr = fmt.Sprintf(" ON %s", owningTable[0])
 	}
 	if obj.Comment != "" {
-		escapedComment := strings.Replace(obj.Comment, "'", "''", -1)
+		escapedComment := utils.EscapeSingleQuotes(obj.Comment)
 		commentStr = fmt.Sprintf("\n\nCOMMENT ON %s %s%s IS '%s';", objectType, objectName, tableStr, escapedComment)
 	}
 	return commentStr

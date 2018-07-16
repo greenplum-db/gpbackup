@@ -44,7 +44,7 @@ AND relnamespace = %d;`
 		tupleQuery,
 		tupleStat.RelPages,
 		tupleStat.RelTuples,
-		strings.Replace(tupleStat.Table, "'", "''", -1),
+		utils.EscapeSingleQuotes(tupleStat.Table),
 		table.SchemaOid)
 }
 
@@ -55,7 +55,7 @@ func GenerateAttributeStatisticsQuery(table Relation, attStat AttributeStatistic
 	 * from the name to an OID in the below statements, rather than backing up the
 	 * OID in the source database.
 	 */
-	starelidStr := fmt.Sprintf("'%s'::regclass::oid", strings.Replace(table.ToString(), "'", "''", -1))
+	starelidStr := fmt.Sprintf("'%s'::regclass::oid", utils.EscapeSingleQuotes(table.ToString()))
 	// The entry may or may not already exist, so we can't either just UPDATE or just INSERT without a DELETE.
 	inheritStr := ""
 	if connectionPool.Version.AtLeast("6") {
@@ -135,7 +135,7 @@ INSERT INTO pg_statistic VALUES (
 func SliceToPostgresArray(slice []string) string {
 	quotedStrings := make([]string, len(slice))
 	for i, str := range slice {
-		escapedStr := strings.Replace(str, "'", "''", -1)
+		escapedStr := utils.EscapeSingleQuotes(str)
 		escapedStr = strings.Replace(escapedStr, `"`, `\"`, -1)
 		quotedStrings[i] = fmt.Sprintf(`"%s"`, escapedStr)
 	}

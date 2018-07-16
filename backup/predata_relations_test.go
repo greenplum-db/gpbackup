@@ -653,6 +653,19 @@ SELECT pg_catalog.setval('public.seq_name', 7, true);`)
 
 SELECT pg_catalog.setval('public.seq_name', 7, false);`)
 		})
+		It("escapes a sequence containing single quotes", func() {
+			baseSequenceWithQuote := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_'name", DependsUpon: nil, Inherits: nil}
+			seqWithQuote := backup.Sequence{Relation: baseSequenceWithQuote, SequenceDefinition: backup.SequenceDefinition{Name: "seq_'name", LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
+			sequences := []backup.Sequence{seqWithQuote}
+			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, emptySequenceMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SEQUENCE public.seq_'name
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 5;
+
+SELECT pg_catalog.setval('public.seq_''name', 7, true);`)
+		})
 		It("can print a sequence with privileges, an owner, and a comment for version < 6", func() {
 			testutils.SetDBVersion(connectionPool, "5.0.0")
 			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)
