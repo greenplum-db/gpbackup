@@ -390,6 +390,6 @@ func DoCleanup() {
 }
 
 func log(s string, v ...interface{}) {
-	s = fmt.Sprintf("SEGMENT %d: %s", *content, s)
+	s = fmt.Sprintf("Segment %d: %s", *content, s)
 	gplog.Verbose(s, v...)
 }
