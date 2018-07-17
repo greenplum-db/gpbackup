@@ -464,6 +464,15 @@ PARTITION BY RANGE (year)
 
 			Expect(distPolicies).To(Equal(`DISTRIBUTED BY ("group")`))
 		})
+		It("returns distribution policy info for a table DISTRIBUTED BY multiple columns in correct order", func() {
+			testhelper.AssertQueryRuns(connection, `CREATE TABLE public.dist_one (id int, memo varchar(20), dt date, col1 varchar(20)) DISTRIBUTED BY (memo, dt, id, col1); `)
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.dist_one")
+			oid := testutils.OidFromObjectName(connection, "public", "dist_one", backup.TYPE_RELATION)
+
+			distPolicies := backup.GetDistributionPolicies(connection)[oid]
+
+			Expect(distPolicies).To(Equal(`DISTRIBUTED BY (memo, dt, id, col1)`))
+		})
 		It("returns distribution policy info for a table DISTRIBUTED REPLICATED", func() {
 			testutils.SkipIfBefore6(connection)
 			testhelper.AssertQueryRuns(connection, `CREATE TABLE public.dist_one(a int, "group" text) DISTRIBUTED REPLICATED`)
