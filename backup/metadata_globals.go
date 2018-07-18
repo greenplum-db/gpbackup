@@ -288,17 +288,9 @@ func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *u
 func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, tablespaces []Tablespace, tablespaceMetadata MetadataMap) {
 	for _, tablespace := range tablespaces {
 		start := metadataFile.ByteCount
-		if tablespace.SegmentLocation != nil {
-			metadataFile.MustPrintf("\n\nCREATE TABLESPACE %s LOCATION %s\n\tOPTIONS (", tablespace.Tablespace, tablespace.FileLocation)
-			for i, seg := range tablespace.SegmentLocation {
-				if i != len(tablespace.SegmentLocation)-1 {
-					metadataFile.MustPrintf("%s %s, ", seg.Tablespace, seg.FileLocation)
-				} else {
-					metadataFile.MustPrintf("%s %s", seg.Tablespace, seg.FileLocation)
-				}
-
-			}
-			metadataFile.MustPrintf(");")
+		if tablespace.SegmentLocations != nil {
+			metadataFile.MustPrintf("\n\nCREATE TABLESPACE %s LOCATION %s\n\tOPTIONS (%s);",
+				tablespace.Tablespace, tablespace.FileLocation, strings.Join(tablespace.SegmentLocations, ", "))
 		} else {
 			metadataFile.MustPrintf("\n\nCREATE TABLESPACE %s FILESPACE %s;", tablespace.Tablespace, tablespace.FileLocation)
 		}

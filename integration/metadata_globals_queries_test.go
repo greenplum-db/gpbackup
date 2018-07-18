@@ -331,7 +331,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 				expectedTablespace = backup.Tablespace{Oid: 0, Tablespace: "test_tablespace", FileLocation: "test_dir"}
 			} else {
 				testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
-				expectedTablespace = backup.Tablespace{Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocation: []backup.SegmentTablespace{}}
+				expectedTablespace = backup.Tablespace{Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocations: []string{}}
 			}
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 
@@ -349,7 +349,10 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 			testutils.SkipIfBefore6(connection)
 
 			testhelper.AssertQueryRuns(connection, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir' OPTIONS (content0 '/tmp/test_dir1')")
-			expectedTablespace := backup.Tablespace{Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocation: []backup.SegmentTablespace{{Tablespace: "content0", FileLocation: "'/tmp/test_dir1'"}}}
+			expectedTablespace := backup.Tablespace{
+				Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'",
+				SegmentLocations: []string{"content0 '/tmp/test_dir1'"},
+			}
 
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 

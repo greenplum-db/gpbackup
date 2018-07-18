@@ -345,7 +345,10 @@ REVOKE ALL ON TABLESPACE test_tablespace FROM testrole;
 GRANT ALL ON TABLESPACE test_tablespace TO testrole;`)
 		})
 		It("prints a tablespace with per-segment tablespaces", func() {
-			expectedTablespace := backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/data/dir'", SegmentLocation: []backup.SegmentTablespace{{Tablespace: "content1", FileLocation: "'/data/dir1'"}, {Tablespace: "content2", FileLocation: "'/data/dir2'"}, {Tablespace: "content3", FileLocation: "'/data/dir3'"}}}
+			expectedTablespace := backup.Tablespace{
+				Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/data/dir'",
+				SegmentLocations: []string{"content1 '/data/dir1'", "content2 '/data/dir2'", "content3 '/data/dir3'"},
+			}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")

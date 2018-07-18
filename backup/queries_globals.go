@@ -320,15 +320,11 @@ ORDER BY roleid, member;`
 	return results
 }
 
-type SegmentTablespace struct {
-	Tablespace   string
-	FileLocation string
-}
 type Tablespace struct {
-	Oid             uint32
-	Tablespace      string
-	FileLocation    string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
-	SegmentLocation []SegmentTablespace
+	Oid              uint32
+	Tablespace       string
+	FileLocation     string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
+	SegmentLocations []string
 }
 
 func GetTablespaces(connection *dbconn.DBConn) []Tablespace {
@@ -358,28 +354,21 @@ AND spcname != 'pg_global';`
 	} else {
 		err = connection.Select(&results, query)
 		for i := 0; i < len(results); i++ {
-			results[i].SegmentLocation = GetSegmentTablespaces(connection, results[i].Oid)
+			results[i].SegmentLocations = GetSegmentTablespaces(connection, results[i].Oid)
 		}
 	}
 	gplog.FatalOnError(err)
 	return results
 }
 
-func GetSegmentTablespaces(connection *dbconn.DBConn, Oid uint32) []SegmentTablespace {
+func GetSegmentTablespaces(connection *dbconn.DBConn, Oid uint32) []string {
 	query := fmt.Sprintf(`
 SELECT
-	gp_segment_id AS tablespace,
-	'''' || tblspc_loc || '''' AS fileLocation
+	'content' || gp_segment_id || ' ''' || tblspc_loc || '''' AS string
 FROM gp_tablespace_segment_location(%d) WHERE tblspc_loc != pg_tablespace_location(%d)
 ORDER BY gp_segment_id;`, Oid, Oid)
-	results := make([]SegmentTablespace, 0)
-	var err error
-	err = connection.Select(&results, query)
-	gplog.FatalOnError(err)
-	for i := 0; i < len(results); i++ {
-		results[i].Tablespace = "content" + results[i].Tablespace
-	}
-	return results
+
+	return dbconn.MustSelectStringSlice(connection, query)
 }
 
 func GetDBSize(connection *dbconn.DBConn) string {

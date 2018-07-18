@@ -303,7 +303,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		var expectedTablespace backup.Tablespace
 		BeforeEach(func() {
 			if connection.Version.AtLeast("6") {
-				expectedTablespace = backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocation: []backup.SegmentTablespace{}}
+				expectedTablespace = backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocations: []string{}}
 			} else {
 				expectedTablespace = backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "test_dir"}
 			}
@@ -329,7 +329,10 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic tablespace with different filespace locations", func() {
 			testutils.SkipIfBefore6(connection)
 
-			expectedTablespace = backup.Tablespace{Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'", SegmentLocation: []backup.SegmentTablespace{{Tablespace: "content0", FileLocation: "'/tmp/test_dir1'"}, {Tablespace: "content1", FileLocation: "'/tmp/test_dir2'"}}}
+			expectedTablespace = backup.Tablespace{
+				Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'",
+				SegmentLocations: []string{"content0 '/tmp/test_dir1'", "content1 '/tmp/test_dir2'"},
+			}
 			numTablespaces := len(backup.GetTablespaces(connection))
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
