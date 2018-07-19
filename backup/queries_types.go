@@ -261,6 +261,10 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause(
 }
 
 func GetEnumTypes(connection *dbconn.DBConn) []Type {
+	enumSortClause := "ORDER BY e.enumsortorder"
+	if connection.Version.Is("5") {
+		enumSortClause = "ORDER BY e.oid"
+	}
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -271,12 +275,12 @@ SELECT
 FROM pg_type t
 LEFT JOIN pg_namespace n ON t.typnamespace = n.oid
 LEFT JOIN (
-	  SELECT enumtypid,string_agg(quote_literal(enumlabel), E',\n\t') AS enumlabels FROM pg_enum GROUP BY enumtypid
+	  SELECT e.enumtypid,string_agg(quote_literal(e.enumlabel), E',\n\t' %s) AS enumlabels FROM pg_enum e GROUP BY enumtypid
 	) e ON t.oid = e.enumtypid
 WHERE %s
 AND t.typtype = 'e'
 AND %s
-ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
+ORDER BY n.nspname, t.typname;`, enumSortClause, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
 	results := make([]Type, 0)
 	err := connection.Select(&results, query)

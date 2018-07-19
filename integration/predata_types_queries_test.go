@@ -21,6 +21,7 @@ var _ = Describe("backup integration tests", func() {
 			baseTypeCustom  backup.Type
 			compositeType   backup.Type
 			enumType        backup.Type
+			enumType2       backup.Type
 		)
 		BeforeEach(func() {
 			shellType = backup.Type{Type: "p", Schema: "public", Name: "shell_type"}
@@ -40,6 +41,9 @@ var _ = Describe("backup integration tests", func() {
 			}
 			enumType = backup.Type{
 				Oid: 1, Type: "e", Schema: "public", Name: "enum_type", EnumLabels: "'label1',\n\t'label2',\n\t'label3'",
+			}
+			enumType2 = backup.Type{
+				Oid: 1, Type: "e", Schema: "public", Name: "enum_type2", EnumLabels: "'label3',\n\t'label2',\n\t'label1'",
 			}
 		})
 		It("returns a slice for a shell type", func() {
@@ -110,6 +114,25 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 			structmatcher.ExpectStructsToMatchExcluding(&enumType, &results[0], "Oid")
+		})
+		It("returns a slice for enum types with labels in the correct order", func() {
+			testutils.SkipIfBefore5(connection)
+
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE public.enum_type AS ENUM ('label1','label2','label3')")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.enum_type")
+			if connection.Version.Before("6") {
+				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.enum_type2 AS ENUM ('label3','label2','label1')")
+			} else {
+				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.enum_type2 AS ENUM ('label3', 'label1')")
+				testhelper.AssertQueryRuns(connection, "ALTER TYPE public.enum_type2 ADD VALUE 'label2' BEFORE 'label1'")
+			}
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.enum_type2")
+
+			results := backup.GetEnumTypes(connection)
+
+			Expect(len(results)).To(Equal(2))
+			structmatcher.ExpectStructsToMatchExcluding(&enumType, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&enumType2, &results[1], "Oid")
 		})
 		It("does not return types for sequences or views", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE SEQUENCE public.my_sequence START 10")
