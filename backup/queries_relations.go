@@ -346,26 +346,19 @@ func GetDistributionPolicies(connection *dbconn.DBConn) map[uint32]string {
 		query = `
 		SELECT
 			p.localoid as oid,
-			CASE WHEN count(p.attnum) = 0 THEN 'DISTRIBUTED RANDOMLY'
-				 ELSE 'DISTRIBUTED BY (' || array_to_string(array_agg(quote_ident(a.attname) order by index), ', ') || ')'
-			END AS value	
+			'DISTRIBUTED BY (' || string_agg(quote_ident(a.attname) , ', ' order by index) || ')' AS value	
 		FROM
-			(
-			 SELECT
-			 	localoid,
-				attnum,
-				row_number() over () as index
-			 FROM
-			 (select localoid,
-			  	CASE WHEN attrnums is NULL THEN NULL
-			  	ELSE unnest(attrnums)
-				END AS attnum
-			  FROM gp_distribution_policy) x
-			 ) as p
-			LEFT JOIN
-			pg_attribute a
-			ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
-			GROUP BY localoid;`
+			(select localoid,
+				unnest(attrnums) AS attnum,
+				generate_series(1,array_upper(attrnums,1)) AS index
+			FROM gp_distribution_policy WHERE attrnums is NOT NULL
+			) p
+		JOIN pg_attribute a ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
+		GROUP BY localoid
+		UNION ALL
+		SELECT p.localoid as oid,
+			'DISTRIBUTED RANDOMLY' AS value
+		FROM gp_distribution_policy p WHERE attrnums is NULL;`
 	} else {
 		query = `
 		SELECT
