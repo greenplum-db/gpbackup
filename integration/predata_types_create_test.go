@@ -40,8 +40,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			enumType = backup.Type{Type: "e", Schema: "public", Name: "enum_type", EnumLabels: "'enum_labels'", Category: "U"}
 			domainType = testutils.DefaultTypeDefinition("d", "domain_type")
-			domainType.BaseType = "numeric"
-			domainType.DefaultVal = "5"
+			domainType.BaseType = "character(8)"
+			domainType.DefaultVal = "'abc'::bpchar"
 			domainType.NotNull = true
 			types = []backup.Type{shellType, baseType, compositeType, domainType}
 			if connection.Version.AtLeast("5") {
@@ -112,6 +112,11 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates domain types", func() {
 			constraints := []backup.Constraint{}
+			if connection.Version.AtLeast("6") {
+				domainType.Collation = "public.some_coll"
+				testhelper.AssertQueryRuns(connection, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+			}
 			backup.PrintCreateDomainStatement(backupfile, toc, domainType, typeMetadata, constraints)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
@@ -120,7 +125,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTypes := backup.GetDomainTypes(connection)
 
 			Expect(len(resultTypes)).To(Equal(1))
-			structmatcher.ExpectStructsToMatchIncluding(&domainType, &resultTypes[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
+			structmatcher.ExpectStructsToMatchIncluding(&domainType, &resultTypes[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull", "Collation")
 		})
 	})
 	Describe("PrintCreateCollationStatement", func() {

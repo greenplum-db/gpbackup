@@ -183,17 +183,18 @@ ALTER TYPE public.base_type
 		domainOne.DefaultVal = "4"
 		domainOne.BaseType = "numeric"
 		domainOne.NotNull = true
+		domainOne.Collation = "public.mycollation"
 		domainTwo := testutils.DefaultTypeDefinition("d", "domain2")
 		domainTwo.BaseType = "varchar"
 		It("prints a basic domain with a constraint", func() {
 			backup.PrintCreateDomainStatement(backupfile, toc, domainOne, emptyMetadata, checkConstraint)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "domain1", "DOMAIN")
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 NOT NULL
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL
 	CONSTRAINT domain1_check CHECK (VALUE > 2);`)
 		})
 		It("prints a basic domain without constraint", func() {
 			backup.PrintCreateDomainStatement(backupfile, toc, domainOne, emptyMetadata, emptyConstraint)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 NOT NULL;`)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL;`)
 		})
 		It("prints a domain without constraint with comment and owner", func() {
 			typeMetadata = testutils.DefaultMetadataMap("DOMAIN", false, true, true)[1]

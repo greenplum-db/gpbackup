@@ -115,6 +115,7 @@ type Type struct {
 	DependsUpon     []string
 	StorageOptions  string
 	Collatable      bool
+	Collation       string
 }
 
 func GetBaseTypes(connection *dbconn.DBConn) []Type {
@@ -242,7 +243,8 @@ GROUP BY t.oid`
 }
 
 func GetDomainTypes(connection *dbconn.DBConn) []Type {
-	query := fmt.Sprintf(`
+	results := make([]Type, 0)
+	version4query := fmt.Sprintf(`
 SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
@@ -258,8 +260,33 @@ AND t.typtype = 'd'
 AND %s
 ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	results := make([]Type, 0)
-	err := connection.Select(&results, query)
+	masterQuery := fmt.Sprintf(`
+SELECT
+	t.oid,
+	quote_ident(n.nspname) AS schema,
+	quote_ident(t.typname) AS name,
+	t.typtype,
+	coalesce(t.typdefault, '') AS defaultval,
+	CASE WHEN t.typcollation <> u.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(c.collname) ELSE '' END AS collation,
+	format_type(t.typbasetype, t.typtypmod) AS basetype,
+	t.typnotnull
+FROM pg_type t
+JOIN pg_namespace n ON t.typnamespace = n.oid
+LEFT JOIN pg_type u ON (t.typbasetype = u.oid)
+LEFT JOIN pg_collation c on (t.typcollation = c.oid)
+LEFT JOIN pg_namespace cn on (c.collnamespace = cn.oid)
+WHERE %s
+AND t.typtype = 'd'
+AND %s
+ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
+	var err error
+
+	if connection.Version.Before("6") {
+		err = connection.Select(&results, version4query)
+	} else {
+		err = connection.Select(&results, masterQuery)
+	}
+
 	gplog.FatalOnError(err)
 	return results
 }

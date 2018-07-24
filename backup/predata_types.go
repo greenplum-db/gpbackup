@@ -39,6 +39,9 @@ func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *util
 	if domain.DefaultVal != "" {
 		metadataFile.MustPrintf(" DEFAULT %s", domain.DefaultVal)
 	}
+	if domain.Collation != "" {
+		metadataFile.MustPrintf(" COLLATE %s", domain.Collation)
+	}
 	if domain.NotNull {
 		metadataFile.MustPrintf(" NOT NULL")
 	}

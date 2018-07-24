@@ -159,9 +159,16 @@ var _ = Describe("backup integration tests", func() {
 		})
 		It("returns a slice for a domain type", func() {
 			domainType := backup.Type{
-				Oid: 1, Type: "d", Schema: "public", Name: "domain1", DefaultVal: "4", BaseType: "numeric(8,2)", NotNull: false,
+				Oid: 1, Type: "d", Schema: "public", Name: "domain1", DefaultVal: "'abc'::bpchar", BaseType: "character(8)", NotNull: false,
 			}
-			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS numeric(8,2) DEFAULT 4")
+			if connection.Version.Before("6") {
+				testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc'")
+			} else {
+				domainType.Collation = "public.some_coll"
+				testhelper.AssertQueryRuns(connection, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+				testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc' COLLATE public.some_coll")
+			}
 			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN public.domain1")
 
 			results := backup.GetDomainTypes(connection)
