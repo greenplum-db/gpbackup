@@ -93,6 +93,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			if connection.Version.AtLeast("6") {
 				baseType.Category = "N"
 				baseType.Preferred = true
+				baseType.Collatable = true
 			}
 			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseType, typeMetadata)
 

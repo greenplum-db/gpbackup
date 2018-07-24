@@ -88,7 +88,7 @@ var _ = Describe("backup integration tests", func() {
 			if connection.Version.Before("6") {
 				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.base_type(INPUT=public.base_fn_in, OUTPUT=public.base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';')")
 			} else {
-				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.base_type(INPUT=public.base_fn_in, OUTPUT=public.base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';', CATEGORY='N', PREFERRED=true)")
+				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.base_type(INPUT=public.base_fn_in, OUTPUT=public.base_fn_out, INTERNALLENGTH=8, PASSEDBYVALUE, ALIGNMENT=double, STORAGE=plain, DEFAULT=0, ELEMENT=integer, DELIMITER=';', CATEGORY='N', PREFERRED=true, COLLATABLE=true)")
 			}
 			testhelper.AssertQueryRuns(connection, "ALTER TYPE public.base_type SET DEFAULT ENCODING (compresstype=zlib)")
 
@@ -102,6 +102,7 @@ var _ = Describe("backup integration tests", func() {
 			} else {
 				baseTypeCustom.Category = "N"
 				baseTypeCustom.Preferred = true
+				baseTypeCustom.Collatable = true
 				structmatcher.ExpectStructsToMatchExcluding(&baseTypeCustom, &results[0], "Oid")
 			}
 		})

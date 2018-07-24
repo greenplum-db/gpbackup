@@ -114,6 +114,9 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	if base.Preferred {
 		metadataFile.MustPrintf(",\n\tPREFERRED = true")
 	}
+	if base.Collatable {
+		metadataFile.MustPrintf(",\n\tCOLLATABLE = true")
+	}
 	metadataFile.MustPrintln("\n);")
 	if base.StorageOptions != "" {
 		metadataFile.MustPrintf("\nALTER TYPE %s\n\tSET DEFAULT ENCODING (%s);", typeFQN, base.StorageOptions)

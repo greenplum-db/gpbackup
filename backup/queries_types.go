@@ -114,6 +114,7 @@ type Type struct {
 	Attributes      pq.StringArray
 	DependsUpon     []string
 	StorageOptions  string
+	Collatable      bool
 }
 
 func GetBaseTypes(connection *dbconn.DBConn) []Type {
@@ -129,10 +130,12 @@ func GetBaseTypes(connection *dbconn.DBConn) []Type {
 	}
 
 	typCategoryClause := ""
+	typCollatableClause := ""
 	if connection.Version.Before("6") {
 		typCategoryClause = "'U' AS typcategory,"
 	} else {
 		typCategoryClause = "t.typcategory, t.typispreferred,"
+		typCollatableClause = "(t.typcollation <> 0) AS collatable,"
 	}
 	selectClause := fmt.Sprintf(`
 SELECT
@@ -151,17 +154,18 @@ SELECT
 	CASE WHEN t.typelem != 0::regproc THEN pg_catalog.format_type(t.typelem, NULL) ELSE '' END AS element,
 	%s
 	t.typdelim,
+	%s
 	coalesce(array_to_string(typoptions, ', '), '') AS storageoptions
 FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
-LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typModClause, typCategoryClause)
+LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typModClause, typCategoryClause, typCollatableClause)
 	groupBy := "t.oid, schema, name, t.typtype, t.typinput, t.typoutput, receive, send,%st.typlen, t.typbyval, alignment, t.typstorage, defaultval, element, t.typdelim, storageoptions"
 	if connection.Version.Before("5") {
 		groupBy = fmt.Sprintf(groupBy, " ")
 	} else if connection.Version.Before("6") {
 		groupBy = fmt.Sprintf(groupBy, " modin, modout, ")
 	} else {
-		groupBy = fmt.Sprintf(groupBy, " modin, modout, t.typcategory, t.typispreferred, ")
+		groupBy = fmt.Sprintf(groupBy, " modin, modout, t.typcategory, t.typispreferred, t.typcollation, ")
 
 	}
 	query := getTypeQuery(connection, selectClause, groupBy, "b")
