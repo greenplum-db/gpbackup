@@ -38,7 +38,6 @@ func InitializeConnection(dbname string) {
 	setupQuery := `
 SET application_name TO 'gprestore';
 SET search_path TO pg_catalog;
-SET gp_enable_segment_copy_checking TO false;
 SET gp_default_storage_options='';
 SET statement_timeout = 0;
 SET check_function_bodies = false;
