@@ -29,10 +29,9 @@ dependencies :
 
 format :
 		goimports -w .
-		gofmt -w -s .
 
 lint :
-		! gofmt -l backup/ restore/ utils/ helper/ testutils/ integration/ end_to_end/ | read
+		! goimports -l backup/ restore/ utils/ helper/ testutils/ integration/ end_to_end/ | read
 		gometalinter --config=gometalinter.config -s vendor ./...
 
 unit :
