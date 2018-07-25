@@ -47,7 +47,7 @@ ALTER TYPE public.enum_type OWNER TO testrole;`)
 		})
 	})
 	Describe("PrintCreateCompositeTypeStatement", func() {
-		oneAtt := pq.StringArray{"\tfoo integer"}
+		oneAtt := pq.StringArray{"\tfoo integer COLLATE public.some_coll"}
 		twoAtts := pq.StringArray{"\tfoo integer", "\tbar text"}
 		compType := backup.Type{Oid: 1, Schema: "public", Name: "composite_type", Type: "c", Category: "U"}
 
@@ -56,7 +56,7 @@ ALTER TYPE public.enum_type OWNER TO testrole;`)
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compType, typeMetadata)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "composite_type", "TYPE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
-	foo integer
+	foo integer COLLATE public.some_coll
 );`)
 		})
 		It("prints a composite type with multiple attributes", func() {

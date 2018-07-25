@@ -64,6 +64,11 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 
 		It("creates composite types", func() {
+			if connection.Version.AtLeast("6") {
+				testhelper.AssertQueryRuns(connection, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+				compositeType.Attributes = pq.StringArray{"\tatt1 text COLLATE public.some_coll", "\tatt2 integer"}
+			}
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, typeMetadata)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())

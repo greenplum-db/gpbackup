@@ -38,7 +38,7 @@ var _ = Describe("backup integration tests", func() {
 			}
 			compositeType = backup.Type{
 				Oid: 1, Type: "c", Schema: "public", Name: "composite_type",
-				Attributes: pq.StringArray{"\tname integer", "\tname2 numeric(8,2)", "\tname1 text"},
+				Attributes: pq.StringArray{"\tname integer", "\tname2 numeric(8,2)", "\tname1 character(8)"},
 			}
 			enumType = backup.Type{
 				Oid: 1, Type: "e", Schema: "public", Name: "enum_type", EnumLabels: "'label1',\n\t'label2',\n\t'label3'",
@@ -57,7 +57,14 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchIncluding(&shellType, &results[0], "Schema", "Name", "Type")
 		})
 		It("returns a slice of composite types", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 text);")
+			if connection.Version.AtLeast("6") {
+				testhelper.AssertQueryRuns(connection, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 character(8) COLLATE public.some_coll);")
+				compositeType.Attributes = pq.StringArray{"\tname integer", "\tname2 numeric(8,2)", "\tname1 character(8) COLLATE public.some_coll"}
+			} else {
+				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 character(8));")
+			}
 			defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.composite_type")
 
 			results := backup.GetCompositeTypes(connection)
