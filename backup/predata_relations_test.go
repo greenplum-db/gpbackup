@@ -98,6 +98,7 @@ ENCODING 'UTF-8';`)
 		colOptions := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", Options: "n_distinct=1", StatTarget: -1}
 		colStorageType := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, StorageType: "PLAIN"}
 		tableDefWithType := backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty, TableType: "public.some_type"}
+		colWithCollation := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "c", Type: "character (8)", StatTarget: -1, Collation: "public.some_coll"}
 
 		Context("No special table attributes", func() {
 			tableDef := backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty}
@@ -179,6 +180,15 @@ ENCODING 'UTF-8';`)
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
 	i integer DEFAULT 42,
 	j character varying(20) DEFAULT 'bar'::text
+) DISTRIBUTED RANDOMLY;`)
+			})
+			It("prints a CREATE TABLE block where one line contains COLLATE", func() {
+				col := []backup.ColumnDefinition{rowOne, colWithCollation}
+				tableDef.ColumnDefs = col
+				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
+	i integer,
+	c character (8) COLLATE public.some_coll
 ) DISTRIBUTED RANDOMLY;`)
 			})
 			It("prints a CREATE TABLE block followed by an ALTER COLUMN ... SET STATISTICS statement", func() {

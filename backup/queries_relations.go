@@ -208,6 +208,7 @@ type ColumnDefinition struct {
 	Comment     string
 	ACL         []ACL
 	Options     string
+	Collation   string
 }
 
 var storageTypeCodes = map[string]string{
@@ -219,11 +220,8 @@ var storageTypeCodes = map[string]string{
 
 func GetColumnDefinitions(connection *dbconn.DBConn, columnMetadata map[uint32]map[string][]ACL) map[uint32][]ColumnDefinition {
 	// This query is adapted from the getTableAttrs() function in pg_dump.c.
-	optionsQuery := ""
-	if connection.Version.AtLeast("6") {
-		optionsQuery = "coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,"
-	}
-	query := fmt.Sprintf(`
+	results := make([]ColumnDefinition, 0)
+	version4query := fmt.Sprintf(`
 SELECT
 	a.attrelid,
 	a.attnum,
@@ -235,7 +233,6 @@ SELECT
 	a.attstattarget,
 	CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
 	coalesce(pg_catalog.pg_get_expr(ad.adbin, ad.adrelid), '') AS defaultval,
-	%s
 	coalesce(d.description,'') AS comment
 FROM pg_catalog.pg_attribute a
 JOIN pg_class c ON a.attrelid = c.oid
@@ -247,10 +244,44 @@ LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'
 WHERE %s
 AND a.attnum > 0::pg_catalog.int2
 AND a.attisdropped = 'f'
-ORDER BY a.attrelid, a.attnum;`, optionsQuery, relationAndSchemaFilterClause())
+ORDER BY a.attrelid, a.attnum;`, relationAndSchemaFilterClause())
 
-	results := make([]ColumnDefinition, 0)
-	err := connection.Select(&results, query)
+	masterQuery := fmt.Sprintf(`
+SELECT
+	a.attrelid,
+	a.attnum,
+	quote_ident(a.attname) AS name,
+	a.attnotnull,
+	a.atthasdef,
+	pg_catalog.format_type(t.oid,a.atttypmod) AS type,
+	coalesce(pg_catalog.array_to_string(e.attoptions, ','), '') AS encoding,
+	a.attstattarget,
+	CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
+	coalesce(pg_catalog.pg_get_expr(ad.adbin, ad.adrelid), '') AS defaultval,
+	coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
+	CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
+	coalesce(d.description,'') AS comment
+FROM pg_catalog.pg_attribute a
+JOIN pg_class c ON a.attrelid = c.oid
+JOIN pg_namespace n ON c.relnamespace = n.oid
+LEFT JOIN pg_catalog.pg_attrdef ad ON (a.attrelid = ad.adrelid AND a.attnum = ad.adnum)
+LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
+LEFT JOIN pg_collation coll on (a.attcollation = coll.oid)
+LEFT JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
+LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
+LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
+WHERE %s
+AND a.attnum > 0::pg_catalog.int2
+AND a.attisdropped = 'f'
+ORDER BY a.attrelid, a.attnum;`, relationAndSchemaFilterClause())
+
+	var err error
+	if connection.Version.Before("6") {
+		err = connection.Select(&results, version4query)
+	} else {
+		err = connection.Select(&results, masterQuery)
+	}
+
 	gplog.FatalOnError(err)
 	resultMap := make(map[uint32][]ColumnDefinition, 0)
 	for _, result := range results {

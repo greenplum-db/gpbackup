@@ -383,16 +383,18 @@ PARTITION BY RANGE (year)
 
 			Expect(len(tableAtts)).To(Equal(0))
 		})
-		It("returns table attributes with per-attribute options", func() {
+		It("returns table attributes with options only applicable to master", func() {
 			testutils.SkipIfBefore6(connection)
-			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.atttable(i int)")
+			testhelper.AssertQueryRuns(connection, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.atttable(i character(8) COLLATE public.some_coll)")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.atttable")
 			testhelper.AssertQueryRuns(connection, "ALTER TABLE ONLY public.atttable ALTER COLUMN i SET (n_distinct=1);")
 			oid := testutils.OidFromObjectName(connection, "public", "atttable", backup.TYPE_RELATION)
 			privileges := backup.GetPrivilegesForColumns(connection)
 			tableAtts := backup.GetColumnDefinitions(connection, privileges)[oid]
 
-			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL, Options: "n_distinct=1"}
+			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "character(8)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL, Options: "n_distinct=1", Collation: "public.some_coll"}
 
 			Expect(len(tableAtts)).To(Equal(1))
 

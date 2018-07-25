@@ -124,6 +124,11 @@ SET SUBPARTITION TEMPLATE  ` + `
 			rowOneDefault := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "42", Comment: "", ACL: emptyACL}
 			rowNotNullDefault := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: true, HasDefault: true, Type: "character varying(20)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "'bar'::text", Comment: "", ACL: emptyACL}
 			rowNonDefaultStorageAndStats := backup.ColumnDefinition{Oid: 0, Num: 3, Name: "k", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: 3, StorageType: "PLAIN", DefaultVal: "", Comment: "", ACL: emptyACL}
+			if connection.Version.AtLeast("6") {
+				testhelper.AssertQueryRuns(connection, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
+				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll CASCADE")
+				rowNonDefaultStorageAndStats.Collation = "public.some_coll"
+			}
 			tableDef.DistPolicy = "DISTRIBUTED BY (i, j)"
 			tableDef.ColumnDefs = []backup.ColumnDefinition{rowOneDefault, rowNotNullDefault, rowNonDefaultStorageAndStats}
 
