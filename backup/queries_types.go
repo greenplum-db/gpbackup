@@ -118,24 +118,24 @@ type Type struct {
 }
 
 func GetBaseTypes(connection *dbconn.DBConn) []Type {
-	typModClause := ""
+	typeModClause := ""
 	if connection.Version.Before("5") {
-		typModClause = `t.typreceive AS receive,
+		typeModClause = `t.typreceive AS receive,
 	t.typsend AS send,`
 	} else {
-		typModClause = `CASE WHEN t.typreceive = '-'::regproc THEN '' ELSE t.typreceive::regproc::text END AS receive,
+		typeModClause = `CASE WHEN t.typreceive = '-'::regproc THEN '' ELSE t.typreceive::regproc::text END AS receive,
 	CASE WHEN t.typsend = '-'::regproc THEN '' ELSE t.typsend::regproc::text END AS send,
 	CASE WHEN t.typmodin = '-'::regproc THEN '' ELSE t.typmodin::regproc::text END AS modin,
 	CASE WHEN t.typmodout = '-'::regproc THEN '' ELSE t.typmodout::regproc::text END AS modout,`
 	}
 
-	typCategoryClause := ""
-	typCollatableClause := ""
+	typeCategoryClause := ""
+	typeCollatableClause := ""
 	if connection.Version.Before("6") {
-		typCategoryClause = "'U' AS typcategory,"
+		typeCategoryClause = "'U' AS typcategory,"
 	} else {
-		typCategoryClause = "t.typcategory, t.typispreferred,"
-		typCollatableClause = "(t.typcollation <> 0) AS collatable,"
+		typeCategoryClause = "t.typcategory, t.typispreferred,"
+		typeCollatableClause = "(t.typcollation <> 0) AS collatable,"
 	}
 	selectClause := fmt.Sprintf(`
 SELECT
@@ -158,7 +158,7 @@ SELECT
 	coalesce(array_to_string(typoptions, ', '), '') AS storageoptions
 FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
-LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typModClause, typCategoryClause, typCollatableClause)
+LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typeModClause, typeCategoryClause, typeCollatableClause)
 	groupBy := "t.oid, schema, name, t.typtype, t.typinput, t.typoutput, receive, send,%st.typlen, t.typbyval, alignment, t.typstorage, defaultval, element, t.typdelim, storageoptions"
 	if connection.Version.Before("5") {
 		groupBy = fmt.Sprintf(groupBy, " ")
