@@ -152,6 +152,7 @@ resources:
   type: slack-notification
   source:
     url: {{dpm_webhook_url}}
+    disable: {{dpm_disable_slack_alert}}
 
 - name: component_gpbackup
   type: s3
