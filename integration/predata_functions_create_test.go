@@ -380,11 +380,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultExtensions := backup.GetExtensions(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_EXTENSION)
 			plperlExtension.Oid = testutils.OidFromObjectName(connection, "", "plperl", backup.TYPE_EXTENSION)
-			if connection.Version.Before("6") {
-				Expect(len(resultExtensions)).To(Equal(1))
-			} else {
-				Expect(len(resultExtensions)).To(Equal(2))
-			}
+			Expect(len(resultExtensions)).To(Equal(1))
 			plperlMetadata := resultMetadataMap[plperlExtension.Oid]
 			structmatcher.ExpectStructsToMatch(&plperlExtension, &resultExtensions[0])
 			structmatcher.ExpectStructsToMatch(&extensionMetadata, &plperlMetadata)
