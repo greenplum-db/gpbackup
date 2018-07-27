@@ -603,7 +603,8 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 	})
 	Describe("PrintCreateForeignDataWrapperStatements", func() {
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "pg_catalog.postgresql_fdw_validator", Arguments: "", IsInternal: true},
+			1: {QualifiedName: "pg_catalog.postgresql_fdw_handler", Arguments: "", IsInternal: true},
+			2: {QualifiedName: "pg_catalog.postgresql_fdw_validator", Arguments: "", IsInternal: true},
 		}
 		It("prints a basic foreign data wrapper", func() {
 			foreignDataWrappers := []backup.ForeignDataWrapper{{Oid: 1, Name: "foreigndata"}}
@@ -611,8 +612,15 @@ ALTER CONVERSION public.conv_one OWNER TO testrole;`)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreigndata", "FOREIGN DATA WRAPPER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN DATA WRAPPER foreigndata;`)
 		})
+		It("prints a foreign data wrapper with a handler", func() {
+			foreignDataWrappers := []backup.ForeignDataWrapper{{Name: "foreigndata", Handler: 1}}
+			backup.PrintCreateForeignDataWrapperStatements(backupfile, toc, foreignDataWrappers, funcInfoMap, backup.MetadataMap{})
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreigndata", "FOREIGN DATA WRAPPER")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN DATA WRAPPER foreigndata
+	HANDLER pg_catalog.postgresql_fdw_handler;`)
+		})
 		It("prints a foreign data wrapper with a validator", func() {
-			foreignDataWrappers := []backup.ForeignDataWrapper{{Name: "foreigndata", Validator: 1}}
+			foreignDataWrappers := []backup.ForeignDataWrapper{{Name: "foreigndata", Validator: 2}}
 			backup.PrintCreateForeignDataWrapperStatements(backupfile, toc, foreignDataWrappers, funcInfoMap, backup.MetadataMap{})
 			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "foreigndata", "FOREIGN DATA WRAPPER")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN DATA WRAPPER foreigndata

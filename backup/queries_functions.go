@@ -620,7 +620,8 @@ AND t.typsend != p.oid%s;`, SchemaFilterClause("n"), modStr)
 type ForeignDataWrapper struct {
 	Oid       uint32
 	Name      string
-	Validator uint32 `db:"fdwvalidator"`
+	Handler   uint32
+	Validator uint32
 	Options   string
 }
 
@@ -630,7 +631,8 @@ func GetForeignDataWrappers(connection *dbconn.DBConn) []ForeignDataWrapper {
 SELECT
 	oid,
 	quote_ident (fdwname) AS name,
-	fdwvalidator,
+	fdwvalidator AS validator,
+	fdwhandler AS handler,
 	(
 		array_to_string(ARRAY(SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
 		FROM pg_options_to_table(fdwoptions)
