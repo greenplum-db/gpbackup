@@ -160,9 +160,9 @@ FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
 LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typeModClause, typeCategoryClause, typeCollatableClause)
 	groupBy := "t.oid, schema, name, t.typtype, t.typinput, t.typoutput, receive, send,%st.typlen, t.typbyval, alignment, t.typstorage, defaultval, element, t.typdelim, storageoptions"
-	if connection.Version.Before("5") {
+	if connection.Version.Is("4") {
 		groupBy = fmt.Sprintf(groupBy, " ")
-	} else if connection.Version.Before("6") {
+	} else if connection.Version.Is("5") {
 		groupBy = fmt.Sprintf(groupBy, " modin, modout, ")
 	} else {
 		groupBy = fmt.Sprintf(groupBy, " modin, modout, t.typcategory, t.typispreferred, t.typcollation, ")
