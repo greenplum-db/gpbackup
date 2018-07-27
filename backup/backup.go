@@ -89,15 +89,19 @@ func DoSetup() {
 	utils.InitializeCompressionParameters(!MustGetFlagBool(utils.NO_COMPRESSION), MustGetFlagInt(utils.COMPRESSION_LEVEL))
 
 	pluginConfigFlag := MustGetFlagString(utils.PLUGIN_CONFIG)
+
 	if pluginConfigFlag != "" {
 		pluginConfig = utils.ReadPluginConfig(pluginConfigFlag)
+	}
+
+	InitializeBackupReport()
+
+	if pluginConfigFlag != "" {
 		pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
 
 		pluginConfig.CopyPluginConfigToAllHosts(globalCluster, pluginConfigFlag)
 		pluginConfig.SetupPluginForBackup(globalCluster, globalFPInfo)
 	}
-
-	InitializeBackupReport()
 }
 
 func DoBackup() {
