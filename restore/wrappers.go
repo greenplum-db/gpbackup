@@ -159,7 +159,7 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 func GetBackupFPInfoList() []utils.FilePathInfo {
 	fpInfoList := make([]utils.FilePathInfo, 0)
 	for _, entry := range backupConfig.RestorePlan {
-		segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR))
+		segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp)
 
 		fpInfo := utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp, segPrefix)
 		fpInfoList = append(fpInfoList, fpInfo)

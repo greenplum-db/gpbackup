@@ -159,15 +159,17 @@ func GetSegPrefix(connection *dbconn.DBConn) string {
 	return segPrefix
 }
 
-func ParseSegPrefix(backupDir string) string {
+func ParseSegPrefix(backupDir string, timestamp string) string {
 	segPrefix := ""
 	if len(backupDir) > 0 {
-		masterDir, err := operating.System.Glob(fmt.Sprintf("%s/*-1", backupDir))
+		masterDir, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups/*/%s", backupDir, timestamp))
 		if err != nil || len(masterDir) == 0 {
 			gplog.Fatal(err, "Master backup directory in %s missing or inaccessible", backupDir)
 		}
-		_, segPrefix = path.Split(masterDir[0])
-		segPrefix = segPrefix[:len(segPrefix)-2] // Remove "-1" segment ID from string
+		indexOfBackupsSubstr := strings.LastIndex(masterDir[0], "-1/backups/")
+		segPrefix = masterDir[0][:indexOfBackupsSubstr]
+		_, segPrefix = path.Split(segPrefix)
+		fmt.Println(segPrefix)
 	}
 	return segPrefix
 }

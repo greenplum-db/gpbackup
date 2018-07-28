@@ -83,7 +83,7 @@ func DoSetup() {
 	InitializeConnection("postgres")
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR))
+	segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
 	globalFPInfo = utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP), segPrefix)
 
 	// Get restore metadata from plugin

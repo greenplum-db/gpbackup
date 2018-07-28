@@ -99,23 +99,26 @@ var _ = Describe("utils/filepath tests", func() {
 			operating.System.Glob = filepath.Glob
 		})
 		It("returns segment prefix from directory path if master backup directory exists", func() {
-			operating.System.Glob = func(pattern string) (matches []string, err error) { return []string{"/tmp/foo/gpseg-1"}, nil }
-			Expect(utils.ParseSegPrefix("/tmp/foo")).To(Equal("gpseg"))
+			operating.System.Glob = func(pattern string) (matches []string, err error) {
+				return []string{"/tmp/foo/gpseg-1/backups/datestamp1/timestamp1"}, nil
+			}
+
+			Expect(utils.ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
 		})
 		It("returns empty string if backup directory is empty", func() {
-			Expect(utils.ParseSegPrefix("")).To(Equal(""))
+			Expect(utils.ParseSegPrefix("", "timestamp1")).To(Equal(""))
 		})
 		It("panics if master backup directory does not exist", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) { return []string{}, nil }
 			defer testhelper.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
-			Expect(utils.ParseSegPrefix("/tmp/foo")).To(Equal("gpseg"))
+			Expect(utils.ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
 		})
 		It("panics if there is an error accessing master backup directory", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{""}, os.ErrPermission
 			}
 			defer testhelper.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
-			Expect(utils.ParseSegPrefix("/tmp/foo")).To(Equal("gpseg"))
+			Expect(utils.ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
 		})
 	})
 })
