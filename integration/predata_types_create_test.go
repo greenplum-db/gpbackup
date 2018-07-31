@@ -64,11 +64,21 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 
 		It("creates composite types", func() {
-			if connection.Version.AtLeast("6") {
-				testhelper.AssertQueryRuns(connection, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
-				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
-				compositeType.Attributes = pq.StringArray{"\tatt1 text COLLATE public.some_coll", "\tatt2 integer"}
-			}
+			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, typeMetadata)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.composite_type")
+
+			resultTypes := backup.GetCompositeTypes(connection)
+
+			Expect(len(resultTypes)).To(Equal(1))
+			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &resultTypes[0], "Type", "Schema", "Name", "Comment", "Owner", "Attributes")
+		})
+		It("creates composite types with a collation", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+			compositeType.Attributes = pq.StringArray{"\tatt1 text COLLATE public.some_coll", "\tatt2 integer"}
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, typeMetadata)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
@@ -118,9 +128,9 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates domain types", func() {
 			constraints := []backup.Constraint{}
 			if connection.Version.AtLeast("6") {
-				domainType.Collation = "public.some_coll"
 				testhelper.AssertQueryRuns(connection, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
 				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+				domainType.Collation = "public.some_coll"
 			}
 			backup.PrintCreateDomainStatement(backupfile, toc, domainType, typeMetadata, constraints)
 

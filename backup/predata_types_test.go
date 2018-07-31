@@ -47,12 +47,25 @@ ALTER TYPE public.enum_type OWNER TO testrole;`)
 		})
 	})
 	Describe("PrintCreateCompositeTypeStatement", func() {
-		oneAtt := pq.StringArray{"\tfoo integer COLLATE public.some_coll"}
-		twoAtts := pq.StringArray{"\tfoo integer", "\tbar text"}
-		compType := backup.Type{Oid: 1, Schema: "public", Name: "composite_type", Type: "c", Category: "U"}
+		var compType backup.Type
+		var oneAtt, oneAttWithCollation, twoAtts pq.StringArray
+		BeforeEach(func() {
+			compType = backup.Type{Oid: 1, Schema: "public", Name: "composite_type", Type: "c", Category: "U"}
+			oneAtt = pq.StringArray{"\tfoo integer"}
+			oneAttWithCollation = pq.StringArray{"\tfoo integer COLLATE public.some_coll"}
+			twoAtts = pq.StringArray{"\tfoo integer", "\tbar text"}
+		})
 
 		It("prints a composite type with one attribute", func() {
 			compType.Attributes = oneAtt
+			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compType, typeMetadata)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "composite_type", "TYPE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
+	foo integer
+);`)
+		})
+		It("prints a composite type with one attribute with a collation", func() {
+			compType.Attributes = oneAttWithCollation
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compType, typeMetadata)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "composite_type", "TYPE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
@@ -186,13 +199,13 @@ ALTER TYPE public.base_type
 		domainOne.Collation = "public.mycollation"
 		domainTwo := testutils.DefaultTypeDefinition("d", "domain2")
 		domainTwo.BaseType = "varchar"
-		It("prints a basic domain with a constraint", func() {
+		It("prints a domain with a constraint", func() {
 			backup.PrintCreateDomainStatement(backupfile, toc, domainOne, emptyMetadata, checkConstraint)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "domain1", "DOMAIN")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL
 	CONSTRAINT domain1_check CHECK (VALUE > 2);`)
 		})
-		It("prints a basic domain without constraint", func() {
+		It("prints a domain without constraint", func() {
 			backup.PrintCreateDomainStatement(backupfile, toc, domainOne, emptyMetadata, emptyConstraint)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL;`)
 		})

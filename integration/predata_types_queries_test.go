@@ -57,19 +57,25 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchIncluding(&shellType, &results[0], "Schema", "Name", "Type")
 		})
 		It("returns a slice of composite types", func() {
-			if connection.Version.AtLeast("6") {
-				testhelper.AssertQueryRuns(connection, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
-				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
-				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 character(8) COLLATE public.some_coll);")
-				compositeType.Attributes = pq.StringArray{"\tname integer", "\tname2 numeric(8,2)", "\tname1 character(8) COLLATE public.some_coll"}
-			} else {
-				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 character(8));")
-			}
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 character(8));")
 			defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.composite_type")
 
 			results := backup.GetCompositeTypes(connection)
 
 			Expect(len(results)).To(Equal(1))
+			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name", "Attributes")
+		})
+		It("returns a slice of composite types with collations", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+			testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 character(8) COLLATE public.some_coll);")
+			defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.composite_type")
+
+			results := backup.GetCompositeTypes(connection)
+
+			Expect(len(results)).To(Equal(1))
+			compositeType.Attributes = pq.StringArray{"\tname integer", "\tname2 numeric(8,2)", "\tname1 character(8) COLLATE public.some_coll"}
 			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name", "Attributes")
 		})
 		It("returns a slice for a base type with default values", func() {
@@ -168,14 +174,23 @@ var _ = Describe("backup integration tests", func() {
 			domainType := backup.Type{
 				Oid: 1, Type: "d", Schema: "public", Name: "domain1", DefaultVal: "'abc'::bpchar", BaseType: "character(8)", NotNull: false,
 			}
-			if connection.Version.Before("6") {
-				testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc'")
-			} else {
-				domainType.Collation = "public.some_coll"
-				testhelper.AssertQueryRuns(connection, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
-				defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
-				testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc' COLLATE public.some_coll")
+			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc'")
+			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN public.domain1")
+
+			results := backup.GetDomainTypes(connection)
+
+			Expect(len(results)).To(Equal(1))
+			structmatcher.ExpectStructsToMatchIncluding(&domainType, &results[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
+		})
+		It("returns a slice for a domain type with a collation", func() {
+			testutils.SkipIfBefore6(connection)
+			domainType := backup.Type{
+				Oid: 1, Type: "d", Schema: "public", Name: "domain1", DefaultVal: "'abc'::bpchar", BaseType: "character(8)", NotNull: false,
 			}
+			domainType.Collation = "public.some_coll"
+			testhelper.AssertQueryRuns(connection, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
+			defer testhelper.AssertQueryRuns(connection, "DROP COLLATION public.some_coll")
+			testhelper.AssertQueryRuns(connection, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc' COLLATE public.some_coll")
 			defer testhelper.AssertQueryRuns(connection, "DROP DOMAIN public.domain1")
 
 			results := backup.GetDomainTypes(connection)
