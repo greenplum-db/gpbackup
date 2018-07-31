@@ -197,46 +197,58 @@ func restoreData(fpInfoList []utils.FilePathInfo, gucStatements []utils.Statemen
 		return
 	}
 	latestRestorePlan := backupConfig.RestorePlan
+
+	totalTables := 0
+	filteredDataEntries := make([][]utils.MasterDataEntry, 0)
 	for i, fpInfo := range fpInfoList {
-		gplog.Info("Restoring data from backup with timestamp: %s", fpInfo.Timestamp)
+		tocFilename := fpInfo.GetTOCFilePath()
+		toc := utils.NewTOC(tocFilename)
 		restorePlanTableFQNs := latestRestorePlan[i].TableFQNs
-		restoreDataFromTimestamp(fpInfo, restorePlanTableFQNs, gucStatements)
+		filteredDataEntriesForTimestamp := toc.GetDataEntriesMatching(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA),
+			MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA), MustGetFlagStringSlice(utils.INCLUDE_RELATION),
+			MustGetFlagStringSlice(utils.EXCLUDE_RELATION), restorePlanTableFQNs)
+		filteredDataEntries = append(filteredDataEntries, filteredDataEntriesForTimestamp)
+
+		totalTables += len(filteredDataEntriesForTimestamp)
 	}
+	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", utils.PB_INFO)
+	dataProgressBar.Start()
+
+	for i, fpInfo := range fpInfoList {
+		gplog.Verbose("Restoring data from backup with timestamp: %s", fpInfo.Timestamp)
+		restoreDataFromTimestamp(fpInfo, filteredDataEntries[i], gucStatements, dataProgressBar)
+	}
+
+	dataProgressBar.Finish()
+	gplog.Info("Data restore complete")
 }
 
-func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, restorePlanTableFQNs []string, gucStatements []utils.StatementWithType) {
-	tocFilename := fpInfo.GetTOCFilePath()
-	toc := utils.NewTOC(tocFilename)
-	filteredMasterDataEntries := toc.GetDataEntriesMatching(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA), MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA),
-		MustGetFlagStringSlice(utils.INCLUDE_RELATION), MustGetFlagStringSlice(utils.EXCLUDE_RELATION), restorePlanTableFQNs)
-
-	if len(filteredMasterDataEntries) == 0 {
-		gplog.Info("No data to restore for timestamp = %s", fpInfo.Timestamp)
+func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, dataEntries []utils.MasterDataEntry,
+	gucStatements []utils.StatementWithType, dataProgressBar utils.ProgressBar) {
+	if len(dataEntries) == 0 {
+		gplog.Verbose("No data to restore for timestamp = %s", fpInfo.Timestamp)
 		return
 	}
 
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
-		filteredOids := make([]string, len(filteredMasterDataEntries))
-		for i, entry := range filteredMasterDataEntries {
+		filteredOids := make([]string, len(dataEntries))
+		for i, entry := range dataEntries {
 			filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
 		}
 		utils.WriteOidListToSegments(filteredOids, globalCluster, fpInfo)
-		firstOid := fmt.Sprintf("%d", filteredMasterDataEntries[0].Oid)
+		firstOid := fmt.Sprintf("%d", dataEntries[0].Oid)
 		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, fpInfo)
 		utils.StartAgent(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(utils.PLUGIN_CONFIG), "")
 	}
-	totalTables := len(filteredMasterDataEntries)
-	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", utils.PB_INFO)
-	dataProgressBar.Start()
 	/*
 	 * We break when an interrupt is received and rely on
 	 * TerminateHangingCopySessions to kill any COPY
 	 * statements in progress if they don't finish on their own.
 	 */
 	var tableNum uint32 = 1
-	tasks := make(chan utils.MasterDataEntry, totalTables)
+	tasks := make(chan utils.MasterDataEntry, len(dataEntries))
 	var workerPool sync.WaitGroup
 	for i := 0; i < connectionPool.NumConns; i++ {
 		workerPool.Add(1)
@@ -248,18 +260,17 @@ func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, restorePlanTableFQNs []
 					dataProgressBar.(*pb.ProgressBar).NotPrint = true
 					break
 				}
-				restoreSingleTableData(&fpInfo, entry, tableNum, totalTables, whichConn)
+				restoreSingleTableData(&fpInfo, entry, tableNum, len(dataEntries), whichConn)
 				atomic.AddUint32(&tableNum, 1)
 				dataProgressBar.Increment()
 			}
 		}(i)
 	}
-	for _, entry := range filteredMasterDataEntries {
+	for _, entry := range dataEntries {
 		tasks <- entry
 	}
 	close(tasks)
 	workerPool.Wait()
-	dataProgressBar.Finish()
 	err := CheckAgentErrorsOnSegments()
 	if err != nil {
 		errMsg := "Error restoring data for one or more tables"
@@ -269,7 +280,6 @@ func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, restorePlanTableFQNs []
 			gplog.Fatal(err, errMsg)
 		}
 	}
-	gplog.Info("Data restore complete")
 }
 
 func restorePostdata(metadataFilename string) {
