@@ -661,7 +661,7 @@ jobs:
       <<: *ccp_default_params
       terraform_source: ccp_src/google-nvme-block-device/
       vars:
-        instance_type: n1-highmem-2
+        instance_type: n1-standard-8
         ccp_reap_minutes: 720
   - task: gen_cluster
     params:
@@ -696,7 +696,7 @@ jobs:
       <<: *ccp_default_params
       terraform_source: ccp_src/google-nvme-block-device/
       vars:
-        instance_type: n1-highmem-2
+        instance_type: n1-standard-8
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
@@ -730,7 +730,7 @@ jobs:
       <<: *ccp_default_params
       terraform_source: ccp_src/google-nvme-block-device/
       vars:
-        instance_type: n1-highmem-2
+        instance_type: n1-standard-8
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
