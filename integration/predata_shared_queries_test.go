@@ -427,6 +427,10 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an external protocol", func() {
+				if connection.Version.Is("6") {
+					Skip("ACL bug currently in master, skipping test until bug is fixed")
+					// See https://github.com/greenplum-db/gpdb/issues/5382 for details.
+				}
 				testhelper.AssertQueryRuns(connection, `CREATE OR REPLACE FUNCTION public.read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;`)
 				defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.read_from_s3()")
 				testhelper.AssertQueryRuns(connection, `CREATE TRUSTED PROTOCOL s3_read (readfunc = public.read_from_s3);`)
