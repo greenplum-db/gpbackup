@@ -163,6 +163,14 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     regexp: components/gpbackup/gpbackup-(.*).tar.gz
 
+- name: gpbackup_github_release
+  type: github-release
+  source:
+    owner: greenplum-db
+    repository: gpbackup
+    access_token: {{gpbackup-git-access-token}}
+    release: {{dpm-enable-release}}
+
 jobs:
 - name: units
   plan:
@@ -846,7 +854,6 @@ jobs:
           ./smoke_test_gpdb_component
 
           tar -czvf bin_gpbackup.tar.gz bin/
-          rm -rf bin
 
           tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component smoke_test_gpdb_component version
           popd
@@ -891,6 +898,14 @@ jobs:
       params:
         repository: gpdb_release_output
         rebase: true
+    - put: gpbackup_github_release
+      params:
+        name: component_gpbackup/version
+        tag: component_gpbackup/version
+        globs:
+        - component_gpbackup/bin/gpbackup
+        - component_gpbackup/bin/gprestore
+        - component_gpbackup/bin/gpbackup_helper
 
 
 ccp_default_params_anchor: &ccp_default_params
