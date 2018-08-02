@@ -30,24 +30,34 @@ type AttributeStatistic struct {
 	Kind2        int            `db:"stakind2"`
 	Kind3        int            `db:"stakind3"`
 	Kind4        int            `db:"stakind4"`
+	Kind5        int            `db:"stakind5"`
 	Operator1    uint32         `db:"staop1"`
 	Operator2    uint32         `db:"staop2"`
 	Operator3    uint32         `db:"staop3"`
 	Operator4    uint32         `db:"staop4"`
+	Operator5    uint32         `db:"staop5"`
 	Numbers1     pq.StringArray `db:"stanumbers1"`
 	Numbers2     pq.StringArray `db:"stanumbers2"`
 	Numbers3     pq.StringArray `db:"stanumbers3"`
 	Numbers4     pq.StringArray `db:"stanumbers4"`
+	Numbers5     pq.StringArray `db:"stanumbers5"`
 	Values1      pq.StringArray `db:"stavalues1"`
 	Values2      pq.StringArray `db:"stavalues2"`
 	Values3      pq.StringArray `db:"stavalues3"`
 	Values4      pq.StringArray `db:"stavalues4"`
+	Values5      pq.StringArray `db:"stavalues5"`
 }
 
 func GetAttributeStatistics(connection *dbconn.DBConn, tables []Relation) map[uint32][]AttributeStatistic {
 	inheritClause := ""
+	statSlotClause := ""
 	if connection.Version.AtLeast("6") {
 		inheritClause = "s.stainherit,"
+		statSlotClause = `s.stakind5,
+	s.staop5,
+	s.stanumbers5,
+	s.stavalues5,
+`
 	}
 	tablenames := make([]string, 0)
 	for _, table := range tables {
@@ -66,6 +76,7 @@ SELECT
 	s.stanullfrac,
 	s.stawidth,
 	s.stadistinct,
+	%s
 	s.stakind1,
 	s.stakind2,
 	s.stakind3,
@@ -89,7 +100,7 @@ JOIN pg_statistic s ON (c.oid = s.starelid AND a.attnum = s.staattnum)
 JOIN pg_type t ON a.atttypid = t.oid
 WHERE %s
 AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
-ORDER BY n.nspname, c.relname, a.attnum;`, inheritClause, SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
+ORDER BY n.nspname, c.relname, a.attnum;`, inheritClause, statSlotClause, SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
 
 	results := make([]AttributeStatistic, 0)
 	err := connection.Select(&results, query)

@@ -31,12 +31,11 @@ WHERE relname = 'testtable'
 AND relnamespace = 0;`)
 		})
 		It("prints tuple and attribute stats for single table with stats", func() {
-			testutils.SetDBVersion(connectionPool, "6.0.0")
 			tableTestTable := backup.Relation{Schema: "testschema", Name: "testtable"}
 			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
 			attStats = []backup.AttributeStatistic{
 				{Schema: "testschema", Table: "testtable", AttName: "testattWithArray", Type: "_array"},
-				{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "_array", Relid: 2, AttNumber: 3, NullFraction: .4, Inherit: true,
+				{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "_array", Relid: 2, AttNumber: 3, NullFraction: .4,
 					Width: 10, Distinct: .5, Kind1: 20, Operator1: 10, Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})},
 			}
 			backup.PrintStatisticsStatementsForTable(backupfile, toc, tableTestTable, attStats, tupleStats)
@@ -54,7 +53,6 @@ DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable'::regclass::oid 
 INSERT INTO pg_statistic VALUES (
 	'testschema.testtable'::regclass::oid,
 	0::smallint,
-	false::boolean,
 	0.000000::real,
 	0::integer,
 	0.000000::real,
@@ -82,7 +80,6 @@ DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable'::regclass::oid 
 INSERT INTO pg_statistic VALUES (
 	'testschema.testtable'::regclass::oid,
 	3::smallint,
-	true::boolean,
 	0.400000::real,
 	10::integer,
 	0.500000::real,
@@ -121,19 +118,95 @@ AND relnamespace = 0;`))
 	})
 	Describe("GenerateAttributeStatisticsQuery", func() {
 		tableTestTable := backup.Relation{Schema: "testschema", Name: `"test'table"`}
-		attStats := backup.AttributeStatistic{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "", Relid: 2,
-			AttNumber: 3, NullFraction: .4, Width: 10, Distinct: .5, Kind1: 20, Operator1: 10,
-			Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})}
-		It("generates attribute statistics query for array type", func() {
-			testutils.SetDBVersion(connectionPool, "6.0.0")
-			attStats.Type = "_array"
-			attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
-			Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
+		Describe("GPDB version master", func() {
+			attStats := backup.AttributeStatistic{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "", Relid: 2,
+				AttNumber: 3, NullFraction: .4, Width: 10, Distinct: .5, Kind1: 20, Kind5: 10, Operator1: 10, Operator5: 12,
+				Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})}
+			It("generates attribute statistics query for array type for GPDB master", func() {
+				testutils.SetDBVersion(connectionPool, "6.0.0")
+				attStats.Type = "_array"
+				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
+				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
 
 INSERT INTO pg_statistic VALUES (
 	'testschema."test''table"'::regclass::oid,
 	3::smallint,
 	false::boolean,
+	0.400000::real,
+	10::integer,
+	0.500000::real,
+	0::smallint,
+	0::smallint,
+	0::smallint,
+	0::smallint,
+	0::smallint,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+);`))
+			})
+			It("generates attribute statistics query for non-array type for GPDB master", func() {
+				testutils.SetDBVersion(connectionPool, "6.0.0")
+				attStats.Type = "testtype"
+				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
+				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
+
+INSERT INTO pg_statistic VALUES (
+	'testschema."test''table"'::regclass::oid,
+	3::smallint,
+	false::boolean,
+	0.400000::real,
+	10::integer,
+	0.500000::real,
+	20::smallint,
+	0::smallint,
+	0::smallint,
+	0::smallint,
+	10::smallint,
+	10::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	12::oid,
+	'{"1","2","3"}'::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	array_in('{"4","5","6"}', 'testtype'::regtype::oid, -1),
+	NULL,
+	NULL,
+	NULL,
+	NULL
+);`))
+			})
+		})
+
+		Describe("GPDB version 4/5", func() {
+			attStats := backup.AttributeStatistic{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "", Relid: 2,
+				AttNumber: 3, NullFraction: .4, Width: 10, Distinct: .5, Kind1: 20, Operator1: 10,
+				Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})}
+			It("generates attribute statistics query for array type for GPDB4/5", func() {
+				testutils.SetDBVersion(connectionPool, "5.1.0")
+				attStats.Type = "_array"
+				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
+				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
+
+INSERT INTO pg_statistic VALUES (
+	'testschema."test''table"'::regclass::oid,
+	3::smallint,
 	0.400000::real,
 	10::integer,
 	0.500000::real,
@@ -154,17 +227,16 @@ INSERT INTO pg_statistic VALUES (
 	NULL,
 	NULL
 );`))
-		})
-		It("generates attribute statistics query for non-array type", func() {
-			testutils.SetDBVersion(connectionPool, "6.0.0")
-			attStats.Type = "testtype"
-			attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
-			Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
+			})
+			It("generates attribute statistics query for non-array type for GPDB4/5", func() {
+				testutils.SetDBVersion(connectionPool, "5.1.0")
+				attStats.Type = "testtype"
+				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
+				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
 
 INSERT INTO pg_statistic VALUES (
 	'testschema."test''table"'::regclass::oid,
 	3::smallint,
-	false::boolean,
 	0.400000::real,
 	10::integer,
 	0.500000::real,
@@ -185,6 +257,7 @@ INSERT INTO pg_statistic VALUES (
 	NULL,
 	NULL
 );`))
+			})
 		})
 	})
 	Describe("AnyValues", func() {

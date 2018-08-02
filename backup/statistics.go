@@ -58,9 +58,14 @@ func GenerateAttributeStatisticsQuery(table Relation, attStat AttributeStatistic
 	starelidStr := fmt.Sprintf("'%s'::regclass::oid", utils.EscapeSingleQuotes(table.ToString()))
 	// The entry may or may not already exist, so we can't either just UPDATE or just INSERT without a DELETE.
 	inheritStr := ""
+	attributeSlotsQueryStr := ""
 	if connectionPool.Version.AtLeast("6") {
 		inheritStr = fmt.Sprintf("\n\t%t::boolean,", attStat.Inherit)
+		attributeSlotsQueryStr = generateAttributeSlotsQueryMaster(attStat)
+	} else {
+		attributeSlotsQueryStr = generateAttributeSlotsQuery4(attStat)
 	}
+
 	attributeQuery := fmt.Sprintf(`DELETE FROM pg_statistic WHERE starelid = %s AND staattnum = %d;
 
 INSERT INTO pg_statistic VALUES (
@@ -68,16 +73,91 @@ INSERT INTO pg_statistic VALUES (
 	%d::smallint,%s
 	%f::real,
 	%d::integer,
-	%f::real,`, starelidStr, attStat.AttNumber, starelidStr, attStat.AttNumber, inheritStr, attStat.NullFraction, attStat.Width, attStat.Distinct)
+	%f::real,
+	%s
+);`, starelidStr, attStat.AttNumber, starelidStr, attStat.AttNumber, inheritStr, attStat.NullFraction, attStat.Width, attStat.Distinct, attributeSlotsQueryStr)
 
 	/*
 	 * If a type name starts with exactly one underscore, it describes an array
 	 * type.  We can't restore statistics of array columns, so we'll zero and
 	 * NULL everything out.
 	 */
+
+	return attributeQuery
+}
+
+// GPDB6 introduced an additional statistic slot that we account for in this function
+func generateAttributeSlotsQueryMaster(attStat AttributeStatistic) string {
+	attributeQuery := ""
 	if len(attStat.Type) > 1 && attStat.Type[0] == '_' && attStat.Type[1] != '_' {
-		attributeQuery += `
+		attributeQuery = `0::smallint,
 	0::smallint,
+	0::smallint,
+	0::smallint,
+	0::smallint,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL`
+	} else {
+		attributeQuery = fmt.Sprintf(`%d::smallint,
+	%d::smallint,
+	%d::smallint,
+	%d::smallint,
+	%d::smallint,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%s::real[],
+	%s::real[],
+	%s::real[],
+	%s::real[],
+	%s::real[],
+	%s,
+	%s,
+	%s,
+	%s,
+	%s`, attStat.Kind1,
+			attStat.Kind2,
+			attStat.Kind3,
+			attStat.Kind4,
+			attStat.Kind5,
+			attStat.Operator1,
+			attStat.Operator2,
+			attStat.Operator3,
+			attStat.Operator4,
+			attStat.Operator5,
+			RealValues(attStat.Numbers1),
+			RealValues(attStat.Numbers2),
+			RealValues(attStat.Numbers3),
+			RealValues(attStat.Numbers4),
+			RealValues(attStat.Numbers5),
+			AnyValues(attStat.Values1, attStat.Type),
+			AnyValues(attStat.Values2, attStat.Type),
+			AnyValues(attStat.Values3, attStat.Type),
+			AnyValues(attStat.Values4, attStat.Type),
+			AnyValues(attStat.Values5, attStat.Type))
+	}
+	return attributeQuery
+}
+
+func generateAttributeSlotsQuery4(attStat AttributeStatistic) string {
+	attributeQuery := ""
+	if len(attStat.Type) > 1 && attStat.Type[0] == '_' && attStat.Type[1] != '_' {
+		attributeQuery = `0::smallint,
 	0::smallint,
 	0::smallint,
 	0::smallint,
@@ -94,8 +174,7 @@ INSERT INTO pg_statistic VALUES (
 	NULL,
 	NULL`
 	} else {
-		attributeQuery += fmt.Sprintf(`
-	%d::smallint,
+		attributeQuery = fmt.Sprintf(`%d::smallint,
 	%d::smallint,
 	%d::smallint,
 	%d::smallint,
@@ -127,8 +206,6 @@ INSERT INTO pg_statistic VALUES (
 			AnyValues(attStat.Values3, attStat.Type),
 			AnyValues(attStat.Values4, attStat.Type))
 	}
-	attributeQuery += `
-);`
 	return attributeQuery
 }
 
