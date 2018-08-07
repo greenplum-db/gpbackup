@@ -62,4 +62,5 @@ var _ = BeforeEach(func() {
 	restore.SetCmdFlags(cmdFlags)
 
 	cmdFlags.Bool(utils.ON_ERROR_CONTINUE, false, "")
+	cmdFlags.Bool(utils.DATA_ONLY, false, "")
 })

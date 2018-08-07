@@ -117,7 +117,7 @@ func DoSetup() {
 	 * should not error out for validation reasons once the restore database exists.
 	 */
 	if !MustGetFlagBool(utils.CREATE_DB) {
-		ValidateFilterRelationsInRestoreDatabase(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_RELATION))
+		ValidateRelationsInRestoreDatabase(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_RELATION))
 	}
 }
 
