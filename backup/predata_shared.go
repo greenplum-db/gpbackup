@@ -148,6 +148,7 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 		quotedRoleNames := GetQuotedRoleNames(connectionPool)
 		currentOid := uint32(0)
 		// Collect all entries for the same object into one ObjectMetadata
+		aclRegex := regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
 		for _, result := range results {
 			privilegesStr := ""
 			if result.Kind == "Empty" {
@@ -166,7 +167,8 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 				metadata.Owner = result.Owner
 				metadata.Comment = result.Comment
 			}
-			privileges := ParseACL(privilegesStr, quotedRoleNames)
+
+			privileges := ParseACL(privilegesStr, quotedRoleNames, aclRegex)
 			if privileges != nil {
 				metadata.Privileges = append(metadata.Privileges, *privileges)
 			}
@@ -177,11 +179,10 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 	return metadataMap
 }
 
-func ParseACL(aclStr string, quotedRoleNames map[string]string) *ACL {
-	aclRegex := regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
+func ParseACL(aclStr string, quotedRoleNames map[string]string, reg *regexp.Regexp) *ACL {
 	grantee := ""
 	acl := ACL{}
-	if matches := aclRegex.FindStringSubmatch(aclStr); len(matches) != 0 {
+	if matches := reg.FindStringSubmatch(aclStr); len(matches) != 0 {
 		if matches[1] != "" {
 			grantee = matches[1]
 		} else {
