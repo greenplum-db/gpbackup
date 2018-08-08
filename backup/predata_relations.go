@@ -7,7 +7,6 @@ package backup
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"math"
@@ -211,7 +210,6 @@ func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uin
 		 * a nested map indexed by table oid.
 		 */
 		tableMetadata = make(map[string][]ACL, 0)
-		aclRegex := regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
 		for _, result := range results {
 			privilegesStr := ""
 			if result.Kind == "Empty" {
@@ -231,7 +229,7 @@ func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uin
 				currentColumn = result.Name
 				columnMetadata = make([]ACL, 0)
 			}
-			privileges := ParseACL(privilegesStr, quotedRoleNames, aclRegex)
+			privileges := ParseACL(privilegesStr, quotedRoleNames, ACLRegex)
 			if privileges != nil {
 				columnMetadata = append(columnMetadata, *privileges)
 			}

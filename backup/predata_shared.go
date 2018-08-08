@@ -24,6 +24,8 @@ type Schema struct {
 	Name string
 }
 
+var ACLRegex = regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
+
 func SchemaFromString(name string) Schema {
 	var schema string
 	var matches []string
@@ -148,7 +150,6 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 		quotedRoleNames := GetQuotedRoleNames(connectionPool)
 		currentOid := uint32(0)
 		// Collect all entries for the same object into one ObjectMetadata
-		aclRegex := regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
 		for _, result := range results {
 			privilegesStr := ""
 			if result.Kind == "Empty" {
@@ -168,7 +169,7 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 				metadata.Comment = result.Comment
 			}
 
-			privileges := ParseACL(privilegesStr, quotedRoleNames, aclRegex)
+			privileges := ParseACL(privilegesStr, quotedRoleNames, ACLRegex)
 			if privileges != nil {
 				metadata.Privileges = append(metadata.Privileges, *privileges)
 			}
