@@ -31,7 +31,12 @@ func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes st
 	query := fmt.Sprintf("COPY %s%s FROM %s WITH CSV DELIMITER '%s' ON SEGMENT;", tableName, tableAttributes, copyCommand, tableDelim)
 	result, err := connection.Exec(query, whichConn)
 	if err != nil {
-		gplog.Fatal(err, "Error loading data into table %s", tableName)
+		errMsg := fmt.Sprintf("Error loading data into table %s", tableName)
+		if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+			gplog.Error("%s: %v", errMsg, err)
+		} else {
+			gplog.Fatal(err, errMsg)
+		}
 	}
 	numRows, err := result.RowsAffected()
 	gplog.FatalOnError(err)
