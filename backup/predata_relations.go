@@ -229,7 +229,7 @@ func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uin
 				currentColumn = result.Name
 				columnMetadata = make([]ACL, 0)
 			}
-			privileges := ParseACL(privilegesStr, quotedRoleNames, ACLRegex)
+			privileges := ParseACL(privilegesStr, quotedRoleNames)
 			if privileges != nil {
 				columnMetadata = append(columnMetadata, *privileges)
 			}
