@@ -115,8 +115,10 @@ func DoSetup() {
 	/*
 	 * We don't need to validate anything if we're creating the database; we
 	 * should not error out for validation reasons once the restore database exists.
+	 * For on-error-continue, we will see the same errors later when we try to run SQL,
+	 * but since they will not stop the restore, it is not necessary to log them twice.
 	 */
-	if !MustGetFlagBool(utils.CREATE_DB) {
+	if !MustGetFlagBool(utils.CREATE_DB) && !MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
 		ValidateRelationsInRestoreDatabase(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_RELATION))
 	}
 }

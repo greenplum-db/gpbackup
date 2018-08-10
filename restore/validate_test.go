@@ -1,17 +1,13 @@
 package restore_test
 
 import (
-	"regexp"
-
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("restore/validate tests", func() {
@@ -66,25 +62,14 @@ var _ = Describe("restore/validate tests", func() {
 	Describe("ValidateRelationsInRestoreDatabase", func() {
 		BeforeEach(func() {
 			cmdFlags.Set(utils.DATA_ONLY, "false")
-			cmdFlags.Set(utils.ON_ERROR_CONTINUE, "false")
 			toc, _ = testutils.InitializeTestTOC(buffer, "metadata")
 			toc.AddMasterDataEntry("public", "table1", 1, "(j)", 0)
 			toc.AddMasterDataEntry("public", "table2", 2, "(j)", 0)
 			restore.SetTOC(toc)
 		})
-		Context("data-only", func() {
+		Context("data-only restore", func() {
 			BeforeEach(func() {
 				cmdFlags.Set(utils.DATA_ONLY, "true")
-			})
-			Context("on error continue", func() {
-				It("logs an error message, but does not panic with on-error-continue", func() {
-					cmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
-					no_table_rows := sqlmock.NewRows([]string{"string"})
-					mock.ExpectQuery("SELECT (.*)").WillReturnRows(no_table_rows)
-					filterList = []string{"public.table2"}
-					restore.ValidateRelationsInRestoreDatabase(connection, filterList)
-					Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Relation public.table2 must exist for data-only restore")))
-				})
 			})
 			Context("with filtering", func() {
 				It("panics if all tables missing from database", func() {
@@ -109,14 +94,6 @@ var _ = Describe("restore/validate tests", func() {
 					filterList = []string{"public.table1", "public.table2"}
 					restore.ValidateRelationsInRestoreDatabase(connection, filterList)
 				})
-				It("logs an error message, but does not panic with on-error-continue", func() {
-					cmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
-					no_table_rows := sqlmock.NewRows([]string{"string"})
-					mock.ExpectQuery("SELECT (.*)").WillReturnRows(no_table_rows)
-					filterList = []string{"public.table2"}
-					restore.ValidateRelationsInRestoreDatabase(connection, filterList)
-					Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Relation public.table2 must exist for data-only restore")))
-				})
 			})
 			Context("without filtering", func() {
 				It("panics if all tables missing from database", func() {
@@ -140,18 +117,7 @@ var _ = Describe("restore/validate tests", func() {
 				})
 			})
 		})
-		Context("all stages restore", func() {
-			Context("on error continue", func() {
-				It("logs an error message, but does not panic with on-error-continue", func() {
-					cmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
-					two_table_rows := sqlmock.NewRows([]string{"string"}).
-						AddRow("public.table1").AddRow("public.view1")
-					mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_table_rows)
-					filterList = []string{"public.table1", "public.view1"}
-					restore.ValidateRelationsInRestoreDatabase(connection, filterList)
-					Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Relation public.table1 already exists")))
-				})
-			})
+		Context("restore includes metadata", func() {
 			Context("with filtering", func() {
 				It("passes if table is not present in database", func() {
 					no_table_rows := sqlmock.NewRows([]string{"string"})

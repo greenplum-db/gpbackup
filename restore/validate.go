@@ -86,13 +86,13 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	errMsg := ""
 	if MustGetFlagBool(utils.DATA_ONLY) {
 		if len(relationsInDB) < len(relationList) {
-			dbMap := make(map[string]bool, 0)
-			for _, relation := range relationsInDB {
-				dbMap[relation] = true
-			}
-			for _, relation := range relationList {
-				if _, ok := dbMap[relation]; !ok {
-					errMsg = fmt.Sprintf("Relation %s must exist for data-only restore", relation)
+			dbRelationsSet := utils.NewIncludeSet(relationsInDB)
+			//The default behavior is to match when the set is empty, but we don't want this
+			dbRelationsSet.AlwaysMatchesFilter = false
+			for _, restoreRelation := range relationList {
+				matches := dbRelationsSet.MatchesFilter(restoreRelation)
+				if !matches {
+					errMsg = fmt.Sprintf("Relation %s must exist for data-only restore", restoreRelation)
 				}
 			}
 		}
@@ -100,11 +100,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 		errMsg = fmt.Sprintf("Relation %s already exists", relationsInDB[0])
 	}
 	if errMsg != "" {
-		if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
-			gplog.Error(errMsg)
-		} else {
-			gplog.Fatal(nil, errMsg)
-		}
+		gplog.Fatal(nil, errMsg)
 	}
 }
 
