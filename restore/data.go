@@ -17,21 +17,21 @@ var (
 	tableDelim = ","
 )
 
-func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes string, backupFile string, singleDataFile bool, whichConn int) (int64, error) {
+func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes string, destinationToRead string, singleDataFile bool, whichConn int) (int64, error) {
 	whichConn = connection.ValidateConnNum(whichConn)
 	compressionProgram := utils.GetCompressionProgram()
 	copyCommand := ""
-	pluginCommand := "cat"
-	decompressCommand := compressionProgram.DecompressCommand
+	readFromDestinationCommand := "cat"
+	customPipeThroughCommand := compressionProgram.DecompressCommand
 
 	if singleDataFile {
 		//helper.go handles compression, so we don't want to set it here
-		decompressCommand = "cat -"
+		customPipeThroughCommand = "cat -"
 	} else if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
-		pluginCommand = fmt.Sprintf("%s restore_data %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath)
+		readFromDestinationCommand = fmt.Sprintf("%s restore_data %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath)
 	}
 
-	copyCommand = fmt.Sprintf("PROGRAM '%s %s | %s'", pluginCommand, backupFile, decompressCommand)
+	copyCommand = fmt.Sprintf("PROGRAM '%s %s | %s'", readFromDestinationCommand, destinationToRead, customPipeThroughCommand)
 
 	query := fmt.Sprintf("COPY %s%s FROM %s WITH CSV DELIMITER '%s' ON SEGMENT;", tableName, tableAttributes, copyCommand, tableDelim)
 	result, err := connection.Exec(query, whichConn)
@@ -50,13 +50,13 @@ func restoreSingleTableData(fpInfo *utils.FilePathInfo, entry utils.MasterDataEn
 	} else {
 		gplog.Verbose("Reading data for table %s from file", name)
 	}
-	backupFile := ""
+	destinationToRead := ""
 	if backupConfig.SingleDataFile {
-		backupFile = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
+		destinationToRead = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
 	} else {
-		backupFile = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
+		destinationToRead = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
 	}
-	numRowsRestored, err := CopyTableIn(connectionPool, name, entry.AttributeString, backupFile, backupConfig.SingleDataFile, whichConn)
+	numRowsRestored, err := CopyTableIn(connectionPool, name, entry.AttributeString, destinationToRead, backupConfig.SingleDataFile, whichConn)
 	if err != nil {
 		return err
 	}

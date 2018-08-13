@@ -76,7 +76,8 @@ func (backupFPInfo *FilePathInfo) GetTableBackupFilePathForCopyCommand(tableOid 
 	if !singleDataFile {
 		backupFilePath += fmt.Sprintf("_%d", tableOid)
 	}
-	backupFilePath += compressionProgram.Extension
+
+	backupFilePath += GetCompressionProgram().Extension
 	baseDir := "<SEG_DATA_DIR>"
 	if backupFPInfo.IsUserSpecifiedBackupDir() {
 		baseDir = path.Join(backupFPInfo.UserSpecifiedBackupDir, fmt.Sprintf("%s<SEGID>", backupFPInfo.UserSpecifiedSegPrefix))

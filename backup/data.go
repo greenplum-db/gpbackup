@@ -54,11 +54,11 @@ type BackupProgressCounters struct {
 	ProgressBar    utils.ProgressBar
 }
 
-func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, backupFile string, connNum int) (int64, error) {
+func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, destinationToWrite string, connNum int) (int64, error) {
 	compressionProgram := utils.GetCompressionProgram()
 	checkPipeExistsCommand := ""
-	pluginCommand := ">"
-	compressCommand := compressionProgram.CompressCommand
+	sendToDestinationCommand := ">"
+	customPipeThroughCommand := compressionProgram.CompressCommand
 	if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
 		/*
 		 * The segment TOC files are always written to the segment data directory for
@@ -66,13 +66,13 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, backupFile stri
 		 * drive.  It will be copied to a user-specified directory, if any, once all
 		 * of the data is backed up.
 		 */
-		checkPipeExistsCommand = fmt.Sprintf("(test -p \"%s\" || (echo \"Pipe not found %s\">&2; exit 1)) && ", backupFile, backupFile)
-		compressCommand = "cat -"
+		checkPipeExistsCommand = fmt.Sprintf("(test -p \"%s\" || (echo \"Pipe not found %s\">&2; exit 1)) && ", destinationToWrite, destinationToWrite)
+		customPipeThroughCommand = "cat -"
 	} else if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
-		pluginCommand = fmt.Sprintf("| %s backup_data %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath)
+		sendToDestinationCommand = fmt.Sprintf("| %s backup_data %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath)
 	}
 
-	copyCommand := fmt.Sprintf("PROGRAM '%s%s %s %s'", checkPipeExistsCommand, compressCommand, pluginCommand, backupFile)
+	copyCommand := fmt.Sprintf("PROGRAM '%s%s %s %s'", checkPipeExistsCommand, customPipeThroughCommand, sendToDestinationCommand, destinationToWrite)
 
 	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.ToString(), copyCommand, tableDelim)
 	result, err := connectionPool.Exec(query, connNum)
@@ -96,13 +96,13 @@ func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedM
 			gplog.Verbose("Writing data for table %s to file", table.ToString())
 		}
 
-		backupFile := ""
+		destinationToWrite := ""
 		if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
-			backupFile = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), table.Oid)
+			destinationToWrite = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), table.Oid)
 		} else {
-			backupFile = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, false)
+			destinationToWrite = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, false)
 		}
-		rowsCopied, err := CopyTableOut(connectionPool, table, backupFile, whichConn)
+		rowsCopied, err := CopyTableOut(connectionPool, table, destinationToWrite, whichConn)
 		if err != nil {
 			return err
 		}
