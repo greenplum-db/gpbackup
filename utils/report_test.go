@@ -263,10 +263,10 @@ Restore Status: Success but non-fatal errors occurred. See log file .+ for detai
 	})
 	Describe("SetBackupParamFromFlags", func() {
 		AfterEach(func() {
-			utils.InitializeCompressionParameters(false, 0)
+			utils.InitializePipeThroughParameters(false, 0)
 		})
 		It("configures the Report struct correctly", func() {
-			utils.InitializeCompressionParameters(true, 0)
+			utils.InitializePipeThroughParameters(true, 0)
 			backupConfig := utils.NewBackupConfig("testdb",
 				"5.0.0 build test", "0.1.0",
 				"/tmp/plugin.sh", "timestamp1", backupCmdFlags)

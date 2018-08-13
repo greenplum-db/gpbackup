@@ -19,33 +19,50 @@ import (
 
 var _ = Describe("restore/data tests", func() {
 	Describe("CopyTableIn", func() {
+		BeforeEach(func() {
+			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "cat", OutputCommand: "cat -", InputCommand: "cat -", Extension: ""})
+			backup.SetPluginConfig(nil)
+			cmdFlags.Set(utils.PLUGIN_CONFIG, "")
+		})
 		It("will restore a table from its own file with compression", func() {
-			utils.SetCompressionParameters(true, utils.Compression{Name: "gzip", CompressCommand: "gzip -c -1", DecompressCommand: "gzip -d -c", Extension: ".gz"})
-			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'gzip -d -c < <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz' WITH CSV DELIMITER ',' ON SEGMENT;")
+			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "gzip", OutputCommand: "gzip -c -1", InputCommand: "gzip -d -c", Extension: ".gz"})
+			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz | gzip -d -c' WITH CSV DELIMITER ',' ON SEGMENT;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz"
 			restore.CopyTableIn(connection, "public.foo", "(i,j)", filename, false, 0)
 		})
 		It("will restore a table from its own file without compression", func() {
-			utils.SetCompressionParameters(false, utils.Compression{})
-			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM '<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT;")
+			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456 | cat -' WITH CSV DELIMITER ',' ON SEGMENT;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
 			restore.CopyTableIn(connection, "public.foo", "(i,j)", filename, false, 0)
 		})
-		It("will restore a table from a single data file with compression", func() {
-			utils.SetCompressionParameters(true, utils.Compression{Name: "gzip", CompressCommand: "gzip -c -1", DecompressCommand: "gzip -d -c", Extension: ".gz"})
-			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456' WITH CSV DELIMITER ',' ON SEGMENT;")
+		It("will restore a table from a single data file", func() {
+			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456 | cat -' WITH CSV DELIMITER ',' ON SEGMENT;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456"
 			restore.CopyTableIn(connection, "public.foo", "(i,j)", filename, true, 0)
 		})
-		It("will restore a table from a single data file without compression", func() {
-			utils.SetCompressionParameters(false, utils.Compression{})
-			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456' WITH CSV DELIMITER ',' ON SEGMENT;")
+		It("will restore a table from its own file with compression using a plugin", func() {
+			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "gzip", OutputCommand: "gzip -c -1", InputCommand: "gzip -d -c", Extension: ".gz"})
+			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
+			pluginConfig := utils.PluginConfig{ExecutablePath: "/tmp/fake-plugin.sh", ConfigPath: "/tmp/plugin_config"}
+			restore.SetPluginConfig(&pluginConfig)
+			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM '/tmp/fake-plugin.sh restore_data /tmp/plugin_config <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz | gzip -d -c' WITH CSV DELIMITER ',' ON SEGMENT;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
-			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456"
-			restore.CopyTableIn(connection, "public.foo", "(i,j)", filename, true, 0)
+
+			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz"
+			restore.CopyTableIn(connection, "public.foo", "(i,j)", filename, false, 0)
+		})
+		It("will restore a table from its own file without compression using a plugin", func() {
+			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
+			pluginConfig := utils.PluginConfig{ExecutablePath: "/tmp/fake-plugin.sh", ConfigPath: "/tmp/plugin_config"}
+			restore.SetPluginConfig(&pluginConfig)
+			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM '/tmp/fake-plugin.sh restore_data /tmp/plugin_config <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz | cat -' WITH CSV DELIMITER ',' ON SEGMENT;")
+			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
+
+			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz"
+			restore.CopyTableIn(connection, "public.foo", "(i,j)", filename, false, 0)
 		})
 	})
 	Describe("CheckRowsRestored", func() {

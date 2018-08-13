@@ -357,7 +357,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				os.RemoveAll(backupdir)
 			})
-
 			It("runs gpbackup and gprestore with single-data-file flag without compression", func() {
 				backupdir := "/tmp/single_data_file"
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--backup-dir", backupdir, "--no-compression")
@@ -365,68 +364,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				assertRelationsCreated(restoreConn, 36)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
-				assertDataRestored(restoreConn, schema2TupleCounts)
-
-				os.RemoveAll(backupdir)
-			})
-
-			It("runs gpbackup and gprestore with plugin, single-data-file, and no-compression", func() {
-				if useOldBackupVersion {
-					Skip("Feature not supported in gpbackup 1.0.0")
-				}
-
-				pluginDir := "/tmp/plugin_dest"
-				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
-
-				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--no-compression", "--plugin-config", pluginConfigPath)
-				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
-
-				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
-
-				assertRelationsCreated(restoreConn, 36)
-				assertDataRestored(restoreConn, publicSchemaTupleCounts)
-				assertDataRestored(restoreConn, schema2TupleCounts)
-
-				os.RemoveAll(pluginDir)
-			})
-			It("runs gpbackup and gprestore with plugin and single-data-file", func() {
-				if useOldBackupVersion {
-					Skip("Feature not supported in gpbackup 1.0.0")
-				}
-				pluginDir := "/tmp/plugin_dest"
-				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
-
-				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--plugin-config", pluginConfigPath)
-				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
-
-				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
-
-				assertRelationsCreated(restoreConn, 36)
-				assertDataRestored(restoreConn, publicSchemaTupleCounts)
-				assertDataRestored(restoreConn, schema2TupleCounts)
-
-				os.RemoveAll(pluginDir)
-			})
-			It("runs gpbackup and gprestore with include-table-file restore flag with a single data file", func() {
-				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
-				utils.MustPrintln(includeFile, "public.sales\npublic.foo")
-				backupdir := "/tmp/include_table_file"
-				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
-				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
-				assertRelationsCreated(restoreConn, 14)
-				assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
-
-				os.RemoveAll(backupdir)
-				os.Remove("/tmp/include-tables.txt")
-			})
-			It("runs gpbackup and gprestore with include-schema restore flag with a single data file", func() {
-				backupdir := "/tmp/include_schema"
-				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
-				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
-
-				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
 
 				os.RemoveAll(backupdir)
@@ -448,6 +385,132 @@ var _ = Describe("backup end to end integration tests", func() {
 				}
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--single-data-file")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
+			})
+
+			Context("with include filtering on restore", func() {
+				It("runs gpbackup and gprestore with include-table-file restore flag with a single data file", func() {
+					includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
+					utils.MustPrintln(includeFile, "public.sales\npublic.foo")
+					backupdir := "/tmp/include_table_file"
+					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
+					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
+					assertRelationsCreated(restoreConn, 14)
+					assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
+
+					os.RemoveAll(backupdir)
+					os.Remove("/tmp/include-tables.txt")
+				})
+				It("runs gpbackup and gprestore with include-schema restore flag with a single data file", func() {
+					backupdir := "/tmp/include_schema"
+					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
+					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
+
+					assertRelationsCreated(restoreConn, 17)
+					assertDataRestored(restoreConn, schema2TupleCounts)
+
+					os.RemoveAll(backupdir)
+				})
+			})
+
+			Context("with plugin", func() {
+				It("runs gpbackup and gprestore with plugin, single-data-file, and no-compression", func() {
+					if useOldBackupVersion {
+						Skip("Feature not supported in gpbackup 1.0.0")
+					}
+
+					pluginDir := "/tmp/plugin_dest"
+					pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
+					copyPluginToAllHosts(backupConn, pluginExecutablePath)
+
+					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--no-compression", "--plugin-config", pluginConfigPath)
+					forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
+
+					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
+
+					assertRelationsCreated(restoreConn, 36)
+					assertDataRestored(restoreConn, publicSchemaTupleCounts)
+					assertDataRestored(restoreConn, schema2TupleCounts)
+
+					os.RemoveAll(pluginDir)
+				})
+				It("runs gpbackup and gprestore with plugin and single-data-file", func() {
+					if useOldBackupVersion {
+						Skip("Feature not supported in gpbackup 1.0.0")
+					}
+					pluginDir := "/tmp/plugin_dest"
+					pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
+					copyPluginToAllHosts(backupConn, pluginExecutablePath)
+
+					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--plugin-config", pluginConfigPath)
+					forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
+
+					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
+
+					assertRelationsCreated(restoreConn, 36)
+					assertDataRestored(restoreConn, publicSchemaTupleCounts)
+					assertDataRestored(restoreConn, schema2TupleCounts)
+
+					os.RemoveAll(pluginDir)
+				})
+				It("runs gpbackup and gprestore with plugin and metadata-only", func() {
+					if useOldBackupVersion {
+						Skip("Feature not supported in gpbackup 1.0.0")
+					}
+					pluginDir := "/tmp/plugin_dest"
+					pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
+					copyPluginToAllHosts(backupConn, pluginExecutablePath)
+
+					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only", "--plugin-config", pluginConfigPath)
+					forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
+
+					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
+
+					assertRelationsCreated(restoreConn, 36)
+
+					os.RemoveAll(pluginDir)
+				})
+			})
+		})
+		Describe("Multi-file Plugin", func() {
+			It("runs gpbackup and gprestore with plugin and no-compression", func() {
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
+
+				pluginDir := "/tmp/plugin_dest"
+				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
+				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--plugin-config", pluginConfigPath)
+				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
+
+				assertRelationsCreated(restoreConn, 36)
+				assertDataRestored(restoreConn, publicSchemaTupleCounts)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+
+				os.RemoveAll(pluginDir)
+			})
+			It("runs gpbackup and gprestore with plugin and compression", func() {
+				if useOldBackupVersion {
+					Skip("Feature not supported in gpbackup 1.0.0")
+				}
+
+				pluginDir := "/tmp/plugin_dest"
+				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
+				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--plugin-config", pluginConfigPath)
+				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--plugin-config", pluginConfigPath)
+
+				assertRelationsCreated(restoreConn, 36)
+				assertDataRestored(restoreConn, publicSchemaTupleCounts)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+
+				os.RemoveAll(pluginDir)
 			})
 		})
 		Describe("Incremental", func() {

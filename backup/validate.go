@@ -82,9 +82,6 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	utils.CheckExclusiveFlags(flags, utils.JOBS, utils.METADATA_ONLY, utils.SINGLE_DATA_FILE)
 	utils.CheckExclusiveFlags(flags, utils.METADATA_ONLY, utils.LEAF_PARTITION_DATA)
 	utils.CheckExclusiveFlags(flags, utils.NO_COMPRESSION, utils.COMPRESSION_LEVEL)
-	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" && !(MustGetFlagBool(utils.SINGLE_DATA_FILE) || MustGetFlagBool(utils.METADATA_ONLY)) {
-		gplog.Fatal(errors.Errorf("--plugin-config must be specified with either --single-data-file or --metadata-only"), "")
-	}
 	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !MustGetFlagBool(utils.INCREMENTAL) {
 		gplog.Fatal(errors.Errorf("--from-timestamp must be specified with --incremental"), "")
 	}
@@ -104,8 +101,7 @@ func ValidateFlagValues() {
 }
 
 func ValidateCompressionLevel(compressionLevel int) {
-	//We treat 0 as a default value and so assume the flag is not set if it is 0
-	if compressionLevel < 0 || compressionLevel > 9 {
+	if compressionLevel < 1 || compressionLevel > 9 {
 		gplog.Fatal(errors.Errorf("Compression level must be between 1 and 9"), "")
 	}
 }

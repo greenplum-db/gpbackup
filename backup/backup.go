@@ -28,7 +28,7 @@ func initializeFlags(cmd *cobra.Command) {
 
 func SetFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.String(utils.BACKUP_DIR, "", "The absolute path of the directory to which all backup files will be written")
-	flagSet.Int(utils.COMPRESSION_LEVEL, 0, "Level of compression to use during data backup. Valid values are between 1 and 9.")
+	flagSet.Int(utils.COMPRESSION_LEVEL, 1, "Level of compression to use during data backup. Valid values are between 1 and 9.")
 	flagSet.Bool(utils.DATA_ONLY, false, "Only back up data, do not back up metadata")
 	flagSet.String(utils.DBNAME, "", "The database to be backed up")
 	flagSet.Bool(utils.DEBUG, false, "Print verbose and debug log messages")
@@ -86,7 +86,7 @@ func DoSetup() {
 	CreateBackupDirectoriesOnAllHosts()
 	globalTOC = &utils.TOC{}
 	globalTOC.InitializeMetadataEntryMap()
-	utils.InitializeCompressionParameters(!MustGetFlagBool(utils.NO_COMPRESSION), MustGetFlagInt(utils.COMPRESSION_LEVEL))
+	utils.InitializePipeThroughParameters(!MustGetFlagBool(utils.NO_COMPRESSION), MustGetFlagInt(utils.COMPRESSION_LEVEL))
 
 	pluginConfigFlag := MustGetFlagString(utils.PLUGIN_CONFIG)
 
@@ -313,8 +313,8 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo)
 		utils.CreateFirstSegmentPipeOnAllHosts(oidList[0], globalCluster, globalFPInfo)
 		compressStr := fmt.Sprintf(" --compression-level %d", MustGetFlagInt(utils.COMPRESSION_LEVEL))
-		if !MustGetFlagBool(utils.NO_COMPRESSION) && MustGetFlagInt(utils.COMPRESSION_LEVEL) == 0 {
-			compressStr = " --compression-level 1"
+		if MustGetFlagBool(utils.NO_COMPRESSION) {
+			compressStr = " --compression-level 0"
 		}
 		utils.StartAgent(globalCluster, globalFPInfo, "--backup-agent",
 			MustGetFlagString(utils.PLUGIN_CONFIG), compressStr)

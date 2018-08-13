@@ -66,6 +66,10 @@ func SetFPInfo(fpInfo utils.FilePathInfo) {
 	globalFPInfo = fpInfo
 }
 
+func SetPluginConfig(config *utils.PluginConfig) {
+	pluginConfig = config
+}
+
 func SetTOC(toc *utils.TOC) {
 	globalTOC = toc
 }

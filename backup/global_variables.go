@@ -64,6 +64,10 @@ func SetFPInfo(fpInfo utils.FilePathInfo) {
 	globalFPInfo = fpInfo
 }
 
+func SetPluginConfig(config *utils.PluginConfig) {
+	pluginConfig = config
+}
+
 func SetReport(report *utils.Report) {
 	backupReport = report
 }

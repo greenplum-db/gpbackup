@@ -138,46 +138,55 @@ echo "[PASSED] cleanup_plugin_for_restore"
 # Run test gpbackup and gprestore with plugin
 # ----------------------------------------------
 
-test_db=plugin_test_db
-log_file=/tmp/plugin_test_log_file
-psql -d postgres -qc "DROP DATABASE IF EXISTS $test_db" 2>/dev/null
-createdb $test_db
-psql -d $test_db -qc "CREATE TABLE test_table(i int) DISTRIBUTED RANDOMLY; INSERT INTO test_table select generate_series(1,50000)"
-echo "[RUNNING] gpbackup with test database"
-gpbackup --dbname $test_db --single-data-file --plugin-config $plugin_config --no-compression > $log_file
-if [ ! $? -eq 0 ]; then
-    echo "gpbackup failed. Check gpbackup log file in ~/gpAdminLogs for details."
-    exit 1
-fi
-timestamp=`head -4 $log_file | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}"`
-dropdb $test_db
-echo "[RUNNING] gprestore with test database"
-gprestore --timestamp $timestamp --plugin-config $plugin_config --create-db --quiet
-if [ ! $? -eq 0 ]; then
-    echo "gprestore failed. Check gprestore log file in ~/gpAdminLogs for details."
-    exit 1
-fi
-num_rows=`psql -d $test_db -tc "SELECT count(*) FROM test_table" | xargs`
-if [ "$num_rows" != "50000" ]; then
-    echo "Expected to restore 50000 rows, got $num_rows"
-    exit 1
-fi
+#gpbackup --dbname $test_db --plugin-config $plugin_config $further_options > $log_file
 
-if [ -n "$secondary_plugin_config" ]; then
-    dropdb $test_db
-    echo "[RUNNING] gprestore with test database from secondary destination"
-    gprestore --timestamp $timestamp --plugin-config $secondary_plugin_config --create-db --quiet
+
+test_backup_and_restore_with_plugin() {
+    flags=$1
+    test_db=plugin_test_db
+    log_file=/tmp/plugin_test_log_file
+    psql -d postgres -qc "DROP DATABASE IF EXISTS $test_db" 2>/dev/null
+    createdb $test_db
+    psql -d $test_db -qc "CREATE TABLE test_table(i int) DISTRIBUTED RANDOMLY; INSERT INTO test_table select generate_series(1,50000)"
+    echo "[RUNNING] gpbackup with test database (using ${flags})"
+    gpbackup --dbname $test_db --plugin-config $plugin_config $flags > $log_file
     if [ ! $? -eq 0 ]; then
-        echo "gprestore from secondary destination failed. Check gprestore log file in ~/gpAdminLogs for details."
+        echo "gpbackup failed. Check gpbackup log file in ~/gpAdminLogs for details."
+        exit 1
+    fi
+    timestamp=`head -4 $log_file | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}"`
+    dropdb $test_db
+    echo "[RUNNING] gprestore with test database"
+    gprestore --timestamp $timestamp --plugin-config $plugin_config --create-db --quiet
+    if [ ! $? -eq 0 ]; then
+        echo "gprestore failed. Check gprestore log file in ~/gpAdminLogs for details."
         exit 1
     fi
     num_rows=`psql -d $test_db -tc "SELECT count(*) FROM test_table" | xargs`
     if [ "$num_rows" != "50000" ]; then
-      echo "Expected to restore 50000 rows, got $num_rows"
-      exit 1
+        echo "Expected to restore 50000 rows, got $num_rows"
+        exit 1
     fi
-fi
-echo "[PASSED] gpbackup and gprestore"
+
+    if [ -n "$secondary_plugin_config" ]; then
+        dropdb $test_db
+        echo "[RUNNING] gprestore with test database from secondary destination"
+        gprestore --timestamp $timestamp --plugin-config $secondary_plugin_config --create-db --quiet
+        if [ ! $? -eq 0 ]; then
+            echo "gprestore from secondary destination failed. Check gprestore log file in ~/gpAdminLogs for details."
+            exit 1
+        fi
+        num_rows=`psql -d $test_db -tc "SELECT count(*) FROM test_table" | xargs`
+        if [ "$num_rows" != "50000" ]; then
+          echo "Expected to restore 50000 rows, got $num_rows"
+          exit 1
+        fi
+    fi
+    echo "[PASSED] gpbackup and gprestore (using ${flags})"
+}
+
+test_backup_and_restore_with_plugin "--no-compression --single-data-file"
+test_backup_and_restore_with_plugin "--no-compression"
 
 # ----------------------------------------------
 # Cleanup test artifacts

@@ -3,33 +3,28 @@ package utils
 import "fmt"
 
 var (
-	usingCompression   = true
-	compressionProgram Compression
+	pipeThroughProgram PipeThroughProgram
 )
 
-type Compression struct {
-	Name              string
-	CompressCommand   string
-	DecompressCommand string
-	Extension         string
+type PipeThroughProgram struct {
+	Name          string
+	OutputCommand string
+	InputCommand  string
+	Extension     string
 }
 
-func InitializeCompressionParameters(compress bool, compressionLevel int) {
-	usingCompression = compress
-	compressCommand := ""
-	if compressionLevel == 0 {
-		compressCommand = "gzip -c -1"
+func InitializePipeThroughParameters(compress bool, compressionLevel int) {
+	if compress {
+		pipeThroughProgram = PipeThroughProgram{Name: "gzip", OutputCommand: fmt.Sprintf("gzip -c -%d", compressionLevel), InputCommand: "gzip -d -c", Extension: ".gz"}
 	} else {
-		compressCommand = fmt.Sprintf("gzip -c -%d", compressionLevel)
+		pipeThroughProgram = PipeThroughProgram{Name: "cat", OutputCommand: "cat -", InputCommand: "cat -", Extension: ""}
 	}
-	compressionProgram = Compression{Name: "gzip", CompressCommand: compressCommand, DecompressCommand: "gzip -d -c", Extension: ".gz"}
 }
 
-func GetCompressionParameters() (bool, Compression) {
-	return usingCompression, compressionProgram
+func GetPipeThroughProgram() PipeThroughProgram {
+	return pipeThroughProgram
 }
 
-func SetCompressionParameters(compress bool, compression Compression) {
-	usingCompression = compress
-	compressionProgram = compression
+func SetPipeThroughProgram(compression PipeThroughProgram) {
+	pipeThroughProgram = compression
 }

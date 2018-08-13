@@ -10,7 +10,6 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("utils/compression tests", func() {
@@ -30,48 +29,32 @@ var _ = Describe("utils/compression tests", func() {
 		testCluster.Executor = testExecutor
 	})
 
-	Describe("InitializeCompressionParameters", func() {
-		It("initializes properly when passed no compression", func() {
-			useCompress, compression := utils.GetCompressionParameters()
-			defer utils.SetCompressionParameters(useCompress, compression)
-			expectedCompress := utils.Compression{
-				Name:              "gzip",
-				CompressCommand:   "gzip -c -3",
-				DecompressCommand: "gzip -d -c",
-				Extension:         ".gz",
+	Describe("InitializePipeThroughParameters", func() {
+		It("initializes to use cat when passed no compression", func() {
+			originalProgram := utils.GetPipeThroughProgram()
+			defer utils.SetPipeThroughProgram(originalProgram)
+			expectedProgram := utils.PipeThroughProgram{
+				Name:          "cat",
+				OutputCommand: "cat -",
+				InputCommand:  "cat -",
+				Extension:     "",
 			}
-			utils.InitializeCompressionParameters(false, 3)
-			resultUseCompress, resultCompression := utils.GetCompressionParameters()
-			Expect(resultUseCompress).To(BeFalse())
-			structmatcher.ExpectStructsToMatch(&expectedCompress, &resultCompression)
+			utils.InitializePipeThroughParameters(false, 3)
+			resultProgram := utils.GetPipeThroughProgram()
+			structmatcher.ExpectStructsToMatch(&expectedProgram, &resultProgram)
 		})
-		It("initializes properly when passed compression", func() {
-			useCompress, compression := utils.GetCompressionParameters()
-			defer utils.SetCompressionParameters(useCompress, compression)
-			expectedCompress := utils.Compression{
-				Name:              "gzip",
-				CompressCommand:   "gzip -c -7",
-				DecompressCommand: "gzip -d -c",
-				Extension:         ".gz",
+		It("initializes to use gzip when passed compression and a level", func() {
+			originalProgram := utils.GetPipeThroughProgram()
+			defer utils.SetPipeThroughProgram(originalProgram)
+			expectedProgram := utils.PipeThroughProgram{
+				Name:          "gzip",
+				OutputCommand: "gzip -c -7",
+				InputCommand:  "gzip -d -c",
+				Extension:     ".gz",
 			}
-			utils.InitializeCompressionParameters(true, 7)
-			resultUseCompress, resultCompression := utils.GetCompressionParameters()
-			Expect(resultUseCompress).To(BeTrue())
-			structmatcher.ExpectStructsToMatch(&expectedCompress, &resultCompression)
-		})
-		It("uses default gzip command when passed compression level 0", func() {
-			useCompress, compression := utils.GetCompressionParameters()
-			defer utils.SetCompressionParameters(useCompress, compression)
-			expectedCompress := utils.Compression{
-				Name:              "gzip",
-				CompressCommand:   "gzip -c -1",
-				DecompressCommand: "gzip -d -c",
-				Extension:         ".gz",
-			}
-			utils.InitializeCompressionParameters(true, 0)
-			resultUseCompress, resultCompression := utils.GetCompressionParameters()
-			Expect(resultUseCompress).To(BeTrue())
-			structmatcher.ExpectStructsToMatch(&expectedCompress, &resultCompression)
+			utils.InitializePipeThroughParameters(true, 7)
+			resultProgram := utils.GetPipeThroughProgram()
+			structmatcher.ExpectStructsToMatch(&expectedProgram, &resultProgram)
 		})
 	})
 })

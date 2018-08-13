@@ -140,7 +140,7 @@ func DoRestore() {
 			}
 			VerifyBackupFileCountOnSegments(backupFileCount)
 		}
-		restoreData(GetBackupFPInfoList(), gucStatements)
+		restoreData(GetBackupFPInfoListFromRestorePlan(), gucStatements)
 	}
 
 	if !isDataOnly {
@@ -382,7 +382,7 @@ func DoCleanup() {
 
 	gplog.Verbose("Beginning cleanup")
 	if backupConfig != nil && backupConfig.SingleDataFile {
-		fpInfoList := GetBackupFPInfoList()
+		fpInfoList := GetBackupFPInfoListFromRestorePlan()
 		for _, fpInfo := range fpInfoList {
 			utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore")
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, fpInfo)

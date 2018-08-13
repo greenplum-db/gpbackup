@@ -63,4 +63,5 @@ var _ = BeforeEach(func() {
 
 	cmdFlags.Bool(utils.ON_ERROR_CONTINUE, false, "")
 	cmdFlags.Bool(utils.DATA_ONLY, false, "")
+	cmdFlags.String(utils.PLUGIN_CONFIG, "", "")
 })
