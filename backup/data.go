@@ -55,10 +55,9 @@ type BackupProgressCounters struct {
 }
 
 func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, destinationToWrite string, connNum int) (int64, error) {
-	compressionProgram := utils.GetCompressionProgram()
 	checkPipeExistsCommand := ""
+	customPipeThroughCommand := utils.GetPipeThroughProgram().OutputCommand
 	sendToDestinationCommand := ">"
-	customPipeThroughCommand := compressionProgram.CompressCommand
 	if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
 		/*
 		 * The segment TOC files are always written to the segment data directory for

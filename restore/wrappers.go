@@ -61,7 +61,7 @@ SET default_with_oids = off;
 
 func InitializeBackupConfig() {
 	backupConfig = utils.ReadConfigFile(globalFPInfo.GetConfigFilePath())
-	utils.InitializeCompressionParameters(backupConfig.Compressed, 0)
+	utils.InitializePipeThroughParameters(backupConfig.Compressed, 0)
 	utils.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
 	utils.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
 }

@@ -58,7 +58,7 @@ var _ bool = Describe("backup/data tests", func() {
 	})
 	Describe("CopyTableOut", func() {
 		It("will back up a table to its own file with compression", func() {
-			utils.SetCompressionProgram(utils.Compression{Name: "gzip", CompressCommand: "gzip -c -8", DecompressCommand: "gzip -d -c", Extension: ".gz"})
+			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "gzip", OutputCommand: "gzip -c -8", InputCommand: "gzip -d -c", Extension: ".gz"})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
 			execStr := regexp.QuoteMeta("COPY public.foo TO PROGRAM 'gzip -c -8 > <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
@@ -70,7 +70,7 @@ var _ bool = Describe("backup/data tests", func() {
 			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
 			pluginConfig := utils.PluginConfig{ExecutablePath: "/tmp/fake-plugin.sh", ConfigPath: "/tmp/plugin_config"}
 			backup.SetPluginConfig(&pluginConfig)
-			utils.SetCompressionProgram(utils.Compression{Name: "gzip", CompressCommand: "gzip -c -8", DecompressCommand: "gzip -d -c", Extension: ".gz"})
+			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "gzip", OutputCommand: "gzip -c -8", InputCommand: "gzip -d -c", Extension: ".gz"})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
 			execStr := regexp.QuoteMeta("COPY public.foo TO PROGRAM 'gzip -c -8 | /tmp/fake-plugin.sh backup_data /tmp/plugin_config <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
@@ -79,7 +79,7 @@ var _ bool = Describe("backup/data tests", func() {
 			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
 		})
 		It("will back up a table to its own file without compression", func() {
-			utils.SetCompressionProgram(utils.Compression{Name: "cat", CompressCommand: "cat -", DecompressCommand: "cat -", Extension: ""})
+			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "cat", OutputCommand: "cat -", InputCommand: "cat -", Extension: ""})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
 			execStr := regexp.QuoteMeta("COPY public.foo TO PROGRAM 'cat - > <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
@@ -91,7 +91,7 @@ var _ bool = Describe("backup/data tests", func() {
 			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
 			pluginConfig := utils.PluginConfig{ExecutablePath: "/tmp/fake-plugin.sh", ConfigPath: "/tmp/plugin_config"}
 			backup.SetPluginConfig(&pluginConfig)
-			utils.SetCompressionProgram(utils.Compression{Name: "cat", CompressCommand: "cat -", DecompressCommand: "cat -", Extension: ""})
+			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "cat", OutputCommand: "cat -", InputCommand: "cat -", Extension: ""})
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo", DependsUpon: nil, Inherits: nil}
 			execStr := regexp.QuoteMeta("COPY public.foo TO PROGRAM 'cat - | /tmp/fake-plugin.sh backup_data /tmp/plugin_config <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))

@@ -50,7 +50,7 @@ var _ = BeforeEach(func() {
 
 	backup.SetCmdFlags(cmdFlags)
 
-	utils.SetCompressionProgram(utils.Compression{})
+	utils.SetPipeThroughProgram(utils.PipeThroughProgram{})
 
 	buffer = gbytes.NewBuffer()
 	connectionPool, mock = testutils.CreateAndConnectMockDB(1)

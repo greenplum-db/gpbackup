@@ -19,10 +19,9 @@ var (
 
 func CopyTableIn(connection *dbconn.DBConn, tableName string, tableAttributes string, destinationToRead string, singleDataFile bool, whichConn int) (int64, error) {
 	whichConn = connection.ValidateConnNum(whichConn)
-	compressionProgram := utils.GetCompressionProgram()
 	copyCommand := ""
 	readFromDestinationCommand := "cat"
-	customPipeThroughCommand := compressionProgram.DecompressCommand
+	customPipeThroughCommand := utils.GetPipeThroughProgram().InputCommand
 
 	if singleDataFile {
 		//helper.go handles compression, so we don't want to set it here
