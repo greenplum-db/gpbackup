@@ -5,9 +5,11 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +31,7 @@ var (
 )
 
 const (
+	defaultData  = "here is some data"
 	expectedData = `here is some data
 here is some data
 here is some data
@@ -90,15 +93,22 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		})
 		It("runs backup gpbackup_helper without compression", func() {
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "0", "--data-file", dataFileFullPath)
-			writeToPipes()
+			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
 			Expect(err).ToNot(HaveOccurred())
 			assertBackupArtifacts(false, false)
 		})
+		It("runs backup gpbackup_helper with data exceeding pipe buffer size", func() {
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "0", "--data-file", dataFileFullPath)
+			writeToPipes(strings.Repeat("a", int(math.Pow(2, 17))))
+			err := helperCmd.Wait()
+			printHelperLogOnError(err)
+			Expect(err).ToNot(HaveOccurred())
+		})
 		It("runs backup gpbackup_helper with compression", func() {
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "1", "--data-file", dataFileFullPath+".gz")
-			writeToPipes()
+			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
 			Expect(err).ToNot(HaveOccurred())
@@ -106,7 +116,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		})
 		It("runs backup gpbackup_helper without compression with plugin", func() {
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "0", "--data-file", dataFileFullPath, "--plugin-config", pluginConfigPath)
-			writeToPipes()
+			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
 			Expect(err).ToNot(HaveOccurred())
@@ -114,7 +124,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		})
 		It("runs backup gpbackup_helper with compression with plugin", func() {
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "1", "--data-file", dataFileFullPath+".gz", "--plugin-config", pluginConfigPath)
-			writeToPipes()
+			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
 			Expect(err).ToNot(HaveOccurred())
@@ -258,18 +268,14 @@ func printHelperLogOnError(helperErr error) {
 	}
 }
 
-func writeToPipes() {
+func writeToPipes(data string) {
 	for i := 1; i <= 3; i++ {
 		currentPipe := fmt.Sprintf("%s_%d", pipeFile, i)
-		// Wait until pipe exists before writing
-		for {
-			_, err := os.Stat(currentPipe)
-			if err == nil {
-				break
-			}
-			time.Sleep(50 * time.Millisecond)
+		_, err := os.Stat(currentPipe)
+		if err != nil {
+			Fail(fmt.Sprintf("%v", err))
 		}
-		output, err := exec.Command("bash", "-c", fmt.Sprintf("echo here is some data > %s", currentPipe)).CombinedOutput()
+		output, err := exec.Command("bash", "-c", fmt.Sprintf("echo %s > %s", data, currentPipe)).CombinedOutput()
 		if err != nil {
 			fmt.Printf("%s", output)
 			Fail(fmt.Sprintf("%v", err))

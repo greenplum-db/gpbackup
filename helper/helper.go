@@ -94,26 +94,35 @@ func InitializeGlobals() {
 
 func doBackupAgent() {
 	var lastRead uint64
+	var (
+		finalWriter io.Writer
+		gzipWriter  *gzip.Writer
+		bufIoWriter *bufio.Writer
+		writeHandle io.WriteCloser
+		writeCmd    *exec.Cmd
+	)
 	toc := &utils.SegmentTOC{}
 	toc.DataEntries = make(map[uint]utils.SegmentDataEntry, 0)
 
 	oidList := getOidListFromFile()
 
 	currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[0])
-	log(fmt.Sprintf("Opening pipe for oid %d", oidList[0]))
 	/*
 	 * It is important that we create the reader before creating the writer
 	 * so that we establish a connection to the first pipe (created by gpbackup)
 	 * and properly clean it up if an error occurs while creating the writer.
 	 */
-	reader, readHandle := getBackupPipeReader(currentPipe)
-	finalWriter, gzipWriter, bufIoWriter, writeHandle, writeCmd := getBackupPipeWriter(*compressionLevel)
 	for i, oid := range oidList {
 		if i < len(oidList)-1 {
+			log(fmt.Sprintf("Creating pipe for oid %d\n", oidList[i+1]))
 			nextPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i+1])
 			createPipe(nextPipe)
-		} else {
-			nextPipe = ""
+		}
+
+		log(fmt.Sprintf("Opening pipe for oid %d\n", oid))
+		reader, readHandle := getBackupPipeReader(currentPipe)
+		if i == 0 {
+			finalWriter, gzipWriter, bufIoWriter, writeHandle, writeCmd = getBackupPipeWriter(*compressionLevel)
 		}
 
 		log(fmt.Sprintf("Backing up table with oid %d\n", oid))
@@ -129,10 +138,6 @@ func doBackupAgent() {
 		currentPipe = nextPipe
 		_ = readHandle.Close()
 		removeFileIfExists(lastPipe)
-		if currentPipe != "" {
-			log(fmt.Sprintf("Opening pipe for oid %d\n", oidList[i+1]))
-			reader, readHandle = getBackupPipeReader(currentPipe)
-		}
 	}
 
 	/*
