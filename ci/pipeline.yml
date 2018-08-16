@@ -152,7 +152,7 @@ resources:
   type: slack-notification
   source:
     url: {{dpm_webhook_url}}
-    disable: {{dpm_disable_slack_alert}}
+    disable: ((dpm_disable_slack_alert))
 
 - name: component_gpbackup
   type: s3
@@ -169,7 +169,7 @@ resources:
     owner: greenplum-db
     repository: gpbackup
     access_token: {{gpbackup-git-access-token}}
-    release: {{dpm-enable-release}}
+    release: ((dpm-enable-release))
 
 jobs:
 - name: units
