@@ -1,6 +1,7 @@
 package end_to_end_test
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -24,9 +25,16 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
+var custom_backup_dir string
+
 var useOldBackupVersion bool
 
 var backupCluster *cluster.Cluster
+
+// This function is run automatically by ginkgo before any tests are run.
+func init() {
+	flag.StringVar(&custom_backup_dir, "custom_backup_dir", "/tmp", "custom_backup_flag for testing against a configurable directory")
+}
 
 /* This function is a helper function to execute gpbackup and return a session
  * to allow checking its output.
@@ -141,6 +149,7 @@ var _ = Describe("backup end to end integration tests", func() {
 	var gpbackupPath, backupHelperPath, restoreHelperPath, gprestorePath, pluginConfigPath string
 
 	BeforeSuite(func() {
+
 		// This is used to run tests from gpbackup 1.0.0 to gprestore latest
 		useOldBackupVersion = os.Getenv("USE_OLD_BACKUP_VERSION") == "true"
 		pluginConfigPath =
@@ -247,7 +256,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		Describe("Restore include filtering", func() {
 			It("runs gpbackup and gprestore with include-schema restore flag", func() {
-				backupdir := "/tmp/include_schema"
+				backupdir := filepath.Join(custom_backup_dir, "include_schema")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
 
@@ -268,7 +277,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			It("runs gpbackup and gprestore with include-table-file restore flag", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 				utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
-				backupdir := "/tmp/include_table_file"
+				backupdir := filepath.Join(custom_backup_dir, "include_table_file")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
 
@@ -334,7 +343,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			It("runs gpbackup and gprestore with exclude-table-file restore flag", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 				utils.MustPrintln(includeFile, "schema2.foo2\nschema2.returns\npublic.myseq1\npublic.myview1")
-				backupdir := "/tmp/exclude_table_file"
+				backupdir := filepath.Join(custom_backup_dir, "exclude_table_file")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--exclude-table-file", "/tmp/exclude-tables.txt")
 
@@ -347,7 +356,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		Describe("Single data file", func() {
 			It("runs gpbackup and gprestore with single-data-file flag", func() {
-				backupdir := "/tmp/single_data_file"
+				backupdir := filepath.Join(custom_backup_dir, "single_data_file")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 
@@ -358,7 +367,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				os.RemoveAll(backupdir)
 			})
 			It("runs gpbackup and gprestore with single-data-file flag without compression", func() {
-				backupdir := "/tmp/single_data_file"
+				backupdir := filepath.Join(custom_backup_dir, "single_data_file")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--backup-dir", backupdir, "--no-compression")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 
@@ -391,7 +400,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				It("runs gpbackup and gprestore with include-table-file restore flag with a single data file", func() {
 					includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 					utils.MustPrintln(includeFile, "public.sales\npublic.foo")
-					backupdir := "/tmp/include_table_file"
+					backupdir := filepath.Join(custom_backup_dir, "include_table_file")
 					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
 					assertRelationsCreated(restoreConn, 14)
@@ -401,7 +410,7 @@ var _ = Describe("backup end to end integration tests", func() {
 					os.Remove("/tmp/include-tables.txt")
 				})
 				It("runs gpbackup and gprestore with include-schema restore flag with a single data file", func() {
-					backupdir := "/tmp/include_schema"
+					backupdir := filepath.Join(custom_backup_dir, "include_schema")
 					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
 
@@ -541,7 +550,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 			Context("Without a timestamp", func() {
 				It("restores from a filtered incremental backup specified with a backup directory", func() {
-					backupdir := "/tmp/test_incremental"
+					backupdir := filepath.Join(custom_backup_dir, "test_incremental")
 					_ = gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--backup-dir", backupdir)
 
 					testhelper.AssertQueryRuns(backupConn, "INSERT into schema2.ao1 values(1001)")
@@ -678,7 +687,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertRelationsCreated(restoreConn, 36)
 		})
 		It("runs gpbackup and gprestore with leaf-partition-data and backupdir flags", func() {
-			backupdir := "/tmp/leaf_partition_data"
+			backupdir := filepath.Join(custom_backup_dir, "leaf_partition_data")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--backup-dir", backupdir)
 			output := gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 			Expect(string(output)).To(ContainSubstring("Tables restored:  30 / 30"))
@@ -689,7 +698,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and gprestore with no-compression flag", func() {
-			backupdir := "/tmp/no_compression"
+			backupdir := filepath.Join(custom_backup_dir, "no_compression")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupdir)
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 			configFile, _ := filepath.Glob(filepath.Join(backupdir, "*-1/backups/*", timestamp, "*config.yaml"))
@@ -703,7 +712,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and gprestore with with-stats flag", func() {
-			backupdir := "/tmp/with_stats"
+			backupdir := filepath.Join(custom_backup_dir, "with_stats")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats", "--backup-dir", backupdir)
 			files, _ := filepath.Glob(filepath.Join(backupdir, "*-1/backups/*", timestamp, "*statistics.sql"))
 
@@ -720,7 +729,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			if useOldBackupVersion {
 				Skip("Feature not supported in gpbackup 1.0.0")
 			}
-			backupdir := "/tmp/parallel"
+			backupdir := filepath.Join(custom_backup_dir, "parallel")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--jobs", "4")
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--jobs", "4")
 
@@ -731,7 +740,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {
-			backupdir := "/tmp/signals"
+			backupdir := filepath.Join(custom_backup_dir, "signals")
 			args := []string{"--dbname", "testdb", "--backup-dir", backupdir, "--single-data-file", "--verbose"}
 			cmd := exec.Command(gpbackupPath, args...)
 			go func() {
@@ -755,7 +764,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
-			backupdir := "/tmp/signals"
+			backupdir := filepath.Join(custom_backup_dir, "signals")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 			args := []string{"--timestamp", timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2", "--verbose"}
 			cmd := exec.Command(gprestorePath, args...)

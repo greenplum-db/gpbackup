@@ -269,7 +269,7 @@ jobs:
   ensure:
     <<: *set_failed
 
-- name: ddboost_plugin_tests
+- name: ddboost_plugin_and_boostfs_tests
   plan:
   - aggregate:
     - get: gpbackup_ddboost_plugin
@@ -445,6 +445,8 @@ jobs:
 
           pushd \$GOPATH/src/github.com/greenplum-db/gpbackup/plugins
           ./plugin_test_bench.sh \$GPHOME/bin/gpbackup_ddboost_plugin \$HOME/ddboost_config_replication.yaml \$HOME/ddboost_config_replication_restore.yaml
+          pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
+          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end
           SCRIPT
 
           chmod +x /tmp/run_tests.bash
@@ -776,7 +778,7 @@ jobs:
        - integrations-GPDB5-sles
        - backup-1.0.0-restore-latest
        - s3_plugin_tests
-       - ddboost_plugin_tests
+       - ddboost_plugin_and_boostfs_tests
     - get: gpdb_release
   - task: compile_package_gpbackup
     config:
