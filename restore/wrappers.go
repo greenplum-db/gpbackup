@@ -53,6 +53,10 @@ SET default_with_oids = off;
 	}
 	if connectionPool.Version.Before("6") {
 		setupQuery += "SET gp_max_csv_line_length = 4194304;\n"
+		setupQuery += "SET allow_system_table_mods = 'DML';\n"
+	}
+	if connectionPool.Version.AtLeast("6") {
+		setupQuery += "SET allow_system_table_mods = true;\n"
 	}
 	for i := 0; i < connectionPool.NumConns; i++ {
 		connectionPool.MustExec(setupQuery, i)

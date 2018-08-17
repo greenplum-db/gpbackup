@@ -14,9 +14,6 @@ import (
 )
 
 func PrintStatisticsStatements(statisticsFile *utils.FileWithByteCount, toc *utils.TOC, tables []Relation, attStats map[uint32][]AttributeStatistic, tupleStats map[uint32]TupleStatistic) {
-	start := statisticsFile.ByteCount
-	statisticsFile.MustPrintf(`SET allow_system_table_mods="DML";`)
-	toc.AddStatisticsEntry("", "", "STATISTICS GUC", start, statisticsFile)
 	for _, table := range tables {
 		PrintStatisticsStatementsForTable(statisticsFile, toc, table, attStats[table.Oid], tupleStats[table.Oid])
 	}
