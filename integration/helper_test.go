@@ -31,7 +31,7 @@ var (
 )
 
 const (
-	defaultData  = "here is some data"
+	defaultData  = "here is some data\n"
 	expectedData = `here is some data
 here is some data
 here is some data
@@ -275,7 +275,11 @@ func writeToPipes(data string) {
 		if err != nil {
 			Fail(fmt.Sprintf("%v", err))
 		}
-		output, err := exec.Command("bash", "-c", fmt.Sprintf("echo %s > %s", data, currentPipe)).CombinedOutput()
+		f, _ := os.Create("/tmp/tmpdata.txt")
+		f.WriteString(data)
+		output, err := exec.Command("bash", "-c", fmt.Sprintf("cat %s > %s", "/tmp/tmpdata.txt", currentPipe)).CombinedOutput()
+		f.Close()
+		os.Remove("/tmp/tmpdata.txt")
 		if err != nil {
 			fmt.Printf("%s", output)
 			Fail(fmt.Sprintf("%v", err))
