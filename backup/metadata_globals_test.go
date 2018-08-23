@@ -14,7 +14,7 @@ var _ = Describe("backup/metadata_globals tests", func() {
 	})
 	Describe("PrintSessionGUCs", func() {
 		It("prints session GUCs", func() {
-			testutils.SetDBVersion(connectionPool, "4.3.0")
+			testhelper.SetDBVersion(connectionPool, "4.3.0")
 			gucs := backup.SessionGUCs{ClientEncoding: "UTF8"}
 
 			backup.PrintSessionGUCs(backupfile, toc, gucs)

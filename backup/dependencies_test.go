@@ -5,7 +5,6 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/testutils"
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
@@ -156,7 +155,7 @@ var _ = Describe("backup/dependencies tests", func() {
 	})
 	Describe("ConstructFunctionDependencies", func() {
 		It("queries function dependencies in GPDB 5", func() {
-			testutils.SetDBVersion(connectionPool, "5.0.0")
+			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			header := []string{"oid", "referencedobject"}
 			functionRows := sqlmock.NewRows(header).AddRow([]driver.Value{"1", "public.type"}...)
 
@@ -169,7 +168,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(functions[0].DependsUpon).To(Equal([]string{"public.type"}))
 		})
 		It("queries function dependencies in GPDB 4.3", func() {
-			testutils.SetDBVersion(connectionPool, "4.3.0")
+			testhelper.SetDBVersion(connectionPool, "4.3.0")
 			header := []string{"oid", "referencedobject"}
 			functionRows := sqlmock.NewRows(header).AddRow([]driver.Value{"1", "public.type"}...)
 
@@ -184,7 +183,7 @@ var _ = Describe("backup/dependencies tests", func() {
 	})
 	Describe("ConstructBaseTypeDependencies", func() {
 		It("queries base type dependencies in GPDB 5", func() {
-			testutils.SetDBVersion(connectionPool, "5.0.0")
+			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			header := []string{"oid", "referencedobject"}
 			baseTypeRows := sqlmock.NewRows(header).AddRow([]driver.Value{"2", "public.func(integer, integer)"}...)
 
@@ -198,7 +197,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(types[0].DependsUpon).To(Equal([]string{"public.func(integer, integer)"}))
 		})
 		It("queries base type dependencies in GPDB 4.3", func() {
-			testutils.SetDBVersion(connectionPool, "4.3.0")
+			testhelper.SetDBVersion(connectionPool, "4.3.0")
 			funcInfoMap := map[uint32]backup.FunctionInfo{
 				5: {QualifiedName: "public.func", Arguments: "integer, integer"},
 			}
@@ -217,7 +216,7 @@ var _ = Describe("backup/dependencies tests", func() {
 	})
 	Describe("ConstructCompositeTypeDependencies", func() {
 		It("queries composite type dependencies in GPDB 5", func() {
-			testutils.SetDBVersion(connectionPool, "5.0.0")
+			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			header := []string{"oid", "referencedobject"}
 			compTypeRows := sqlmock.NewRows(header).AddRow([]driver.Value{"3", "public.othertype"}...)
 
@@ -231,7 +230,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(types[0].DependsUpon).To(Equal([]string{"public.othertype"}))
 		})
 		It("queries composite type dependencies in GPDB 4.3", func() {
-			testutils.SetDBVersion(connectionPool, "4.3.0")
+			testhelper.SetDBVersion(connectionPool, "4.3.0")
 			header := []string{"oid", "referencedobject"}
 			compTypeRows := sqlmock.NewRows(header).AddRow([]driver.Value{"3", "public.othertype"}...)
 
@@ -248,7 +247,7 @@ var _ = Describe("backup/dependencies tests", func() {
 	})
 	Describe("ConstructDomainDependencies", func() {
 		It("queries domain dependencies in GPDB 5", func() {
-			testutils.SetDBVersion(connectionPool, "5.0.0")
+			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			header := []string{"oid", "referencedobject"}
 			domainRows := sqlmock.NewRows(header).AddRow([]driver.Value{"4", "public.builtin"}...)
 
@@ -263,7 +262,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(types[0].DependsUpon).To(Equal([]string{"public.builtin"}))
 		})
 		It("queries domain dependencies in GPDB 4.3", func() {
-			testutils.SetDBVersion(connectionPool, "4.3.0")
+			testhelper.SetDBVersion(connectionPool, "4.3.0")
 			header := []string{"oid", "referencedobject"}
 			domainRows := sqlmock.NewRows(header).AddRow([]driver.Value{"4", "public.builtin"}...)
 

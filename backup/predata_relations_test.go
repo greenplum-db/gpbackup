@@ -679,7 +679,7 @@ SELECT pg_catalog.setval('public.seq_name', 7, false);`)
 SELECT pg_catalog.setval('public.seq_''name', 7, true);`)
 		})
 		It("can print a sequence with privileges, an owner, and a comment for version < 6", func() {
-			testutils.SetDBVersion(connectionPool, "5.0.0")
+			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)
 			sequenceMetadata := sequenceMetadataMap[1]
 			sequenceMetadata.Privileges[0].Update = false
@@ -704,10 +704,10 @@ ALTER TABLE public.seq_name OWNER TO testrole;
 REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
-			testutils.SetDBVersion(connectionPool, "5.1.0")
+			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
 		It("can print a sequence with privileges, an owner, and a comment for version >= 6", func() {
-			testutils.SetDBVersion(connectionPool, "6.0.0")
+			testhelper.SetDBVersion(connectionPool, "6.0.0")
 			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)
 			sequenceMetadata := sequenceMetadataMap[1]
 			sequenceMetadata.Privileges[0].Update = false
@@ -733,7 +733,7 @@ ALTER SEQUENCE public.seq_name OWNER TO testrole;
 REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
-			testutils.SetDBVersion(connectionPool, "5.1.0")
+			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
 		It("can print a sequence with privileges WITH GRANT OPTION", func() {
 			sequenceMetadataMap := backup.MetadataMap{
@@ -768,8 +768,8 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;`)
 		})
 		It("can print a view with privileges, an owner, and a comment for version < 6", func() {
-			testutils.SetDBVersion(connectionPool, "5.0.0")
-			defer testutils.SetDBVersion(connectionPool, "5.1.0")
+			testhelper.SetDBVersion(connectionPool, "5.0.0")
+			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
 			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", DependsUpon: []string{}}
 			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;", DependsUpon: []string{}}
@@ -791,8 +791,8 @@ REVOKE ALL ON shamwow.shazam FROM testrole;
 GRANT ALL ON shamwow.shazam TO testrole;`)
 		})
 		It("can print a view with privileges, an owner, and a comment for version >= 6", func() {
-			testutils.SetDBVersion(connectionPool, "6.0.0")
-			defer testutils.SetDBVersion(connectionPool, "5.1.0")
+			testhelper.SetDBVersion(connectionPool, "6.0.0")
+			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
 			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", DependsUpon: []string{}}
 			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;", DependsUpon: []string{}}

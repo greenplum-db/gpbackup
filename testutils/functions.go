@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
@@ -34,7 +33,6 @@ func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *gbytes.Buffer, *g
 
 func CreateAndConnectMockDB(numConns int) (*dbconn.DBConn, sqlmock.Sqlmock) {
 	connection, mock := testhelper.CreateAndConnectMockDB(numConns)
-	SetDBVersion(connection, "5.1.0")
 	backup.SetConnection(connection)
 	restore.SetConnection(connection)
 	backup.InitializeMetadataParams(connection)
@@ -345,8 +343,4 @@ func InitializeTestTOC(buffer io.Writer, which string) (*utils.TOC, *utils.FileW
 	backupfile := utils.NewFileWithByteCount(buffer)
 	backupfile.Filename = which
 	return toc, backupfile
-}
-
-func SetDBVersion(connection *dbconn.DBConn, versionStr string) {
-	connection.Version = dbconn.GPDBVersion{VersionString: versionStr, SemVer: semver.MustParse(versionStr)}
 }

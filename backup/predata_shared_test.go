@@ -350,31 +350,31 @@ GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 		Context("Views and sequences have owners", func() {
 			objectMetadata := backup.ObjectMetadata{Owner: "testrole"}
 			AfterEach(func() {
-				testutils.SetDBVersion(connectionPool, "5.1.0")
+				testhelper.SetDBVersion(connectionPool, "5.1.0")
 			})
 			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a sequence if version < 6", func() {
-				testutils.SetDBVersion(connectionPool, "5.0.0")
+				testhelper.SetDBVersion(connectionPool, "5.0.0")
 				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.sequencename", "SEQUENCE")
 				testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.sequencename OWNER TO testrole;`)
 			})
 			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a view if version < 6", func() {
-				testutils.SetDBVersion(connectionPool, "5.0.0")
+				testhelper.SetDBVersion(connectionPool, "5.0.0")
 				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.viewname", "VIEW")
 				testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.viewname OWNER TO testrole;`)
 			})
 			It("prints an ALTER SEQUENCE ... OWNER TO statement to set the owner for a sequence if version >= 6", func() {
-				testutils.SetDBVersion(connectionPool, "6.0.0")
+				testhelper.SetDBVersion(connectionPool, "6.0.0")
 				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.sequencename", "SEQUENCE")
 				testhelper.ExpectRegexp(buffer, `
 
 ALTER SEQUENCE public.sequencename OWNER TO testrole;`)
 			})
 			It("prints an ALTER VIEW ... OWNER TO statement to set the owner for a view if version >= 6", func() {
-				testutils.SetDBVersion(connectionPool, "6.0.0")
+				testhelper.SetDBVersion(connectionPool, "6.0.0")
 				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.viewname", "VIEW")
 				testhelper.ExpectRegexp(buffer, `
 

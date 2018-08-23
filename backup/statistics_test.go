@@ -1,6 +1,7 @@
 package backup_test
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
@@ -123,7 +124,7 @@ AND relnamespace = 0;`))
 				AttNumber: 3, NullFraction: .4, Width: 10, Distinct: .5, Kind1: 20, Kind5: 10, Operator1: 10, Operator5: 12,
 				Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})}
 			It("generates attribute statistics query for array type for GPDB master", func() {
-				testutils.SetDBVersion(connectionPool, "6.0.0")
+				testhelper.SetDBVersion(connectionPool, "6.0.0")
 				attStats.Type = "_array"
 				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
 				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
@@ -158,7 +159,7 @@ INSERT INTO pg_statistic VALUES (
 );`))
 			})
 			It("generates attribute statistics query for non-array type for GPDB master", func() {
-				testutils.SetDBVersion(connectionPool, "6.0.0")
+				testhelper.SetDBVersion(connectionPool, "6.0.0")
 				attStats.Type = "testtype"
 				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
 				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
@@ -199,7 +200,7 @@ INSERT INTO pg_statistic VALUES (
 				AttNumber: 3, NullFraction: .4, Width: 10, Distinct: .5, Kind1: 20, Operator1: 10,
 				Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})}
 			It("generates attribute statistics query for array type for GPDB4/5", func() {
-				testutils.SetDBVersion(connectionPool, "5.1.0")
+				testhelper.SetDBVersion(connectionPool, "5.1.0")
 				attStats.Type = "_array"
 				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
 				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
@@ -229,7 +230,7 @@ INSERT INTO pg_statistic VALUES (
 );`))
 			})
 			It("generates attribute statistics query for non-array type for GPDB4/5", func() {
-				testutils.SetDBVersion(connectionPool, "5.1.0")
+				testhelper.SetDBVersion(connectionPool, "5.1.0")
 				attStats.Type = "testtype"
 				attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
 				Expect(attStatsQuery).To(Equal(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
