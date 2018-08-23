@@ -94,12 +94,7 @@ AND procpid <> pg_backend_pid()`, appName, copyFileName)
 	_, _ = connection.Exec(query)
 }
 
-func SetDatabaseVersion(connection *dbconn.DBConn) {
-	connection.Version.Initialize(connection)
-	validateGPDBVersionCompatibility(connection)
-}
-
-func validateGPDBVersionCompatibility(connection *dbconn.DBConn) {
+func ValidateGPDBVersionCompatibility(connection *dbconn.DBConn) {
 	if connection.Version.Before(MINIMUM_GPDB4_VERSION) {
 		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s.0 or later.`, connection.Version.VersionString, MINIMUM_GPDB4_VERSION), "")
 	} else if connection.Version.Is("5") && connection.Version.Before(MINIMUM_GPDB5_VERSION) {

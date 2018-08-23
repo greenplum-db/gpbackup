@@ -37,7 +37,7 @@ func SetLoggerVerbosity() {
 func InitializeConnectionPool() {
 	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(utils.DBNAME))
 	connectionPool.MustConnect(MustGetFlagInt(utils.JOBS))
-	utils.SetDatabaseVersion(connectionPool)
+	utils.ValidateGPDBVersionCompatibility(connectionPool)
 	InitializeMetadataParams(connectionPool)
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
 		connectionPool.MustExec("SET application_name TO 'gpbackup'", connNum)

@@ -51,7 +51,6 @@ func SetupTestCluster() {
 func SetupTestDbConn(dbname string) *dbconn.DBConn {
 	conn := dbconn.NewDBConnFromEnvironment(dbname)
 	conn.MustConnect(1)
-	utils.SetDatabaseVersion(conn)
 	return conn
 }
 

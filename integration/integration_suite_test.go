@@ -50,7 +50,6 @@ var _ = BeforeSuite(func() {
 	// We can't use AssertQueryRuns since if a role already exists it will error
 	connection.Exec("CREATE ROLE testrole SUPERUSER")
 	connection.Exec("CREATE ROLE anothertestrole SUPERUSER")
-	utils.SetDatabaseVersion(connection)
 	backup.InitializeMetadataParams(connection)
 	backup.SetConnection(connection)
 	segConfig := cluster.MustGetSegmentConfiguration(connection)

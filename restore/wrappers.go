@@ -34,7 +34,7 @@ func SetLoggerVerbosity() {
 func InitializeConnection(dbname string) {
 	connectionPool = dbconn.NewDBConnFromEnvironment(dbname)
 	connectionPool.MustConnect(MustGetFlagInt(utils.JOBS))
-	utils.SetDatabaseVersion(connectionPool)
+	utils.ValidateGPDBVersionCompatibility(connectionPool)
 	setupQuery := `
 SET application_name TO 'gprestore';
 SET search_path TO pg_catalog;
