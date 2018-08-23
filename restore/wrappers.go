@@ -52,15 +52,33 @@ SET default_with_oids = off;
 		setupQuery += "SET gp_ignore_error_table = on;\n"
 	}
 	if connectionPool.Version.Before("6") {
-		setupQuery += "SET gp_max_csv_line_length = 4194304;\n"
 		setupQuery += "SET allow_system_table_mods = 'DML';\n"
 	}
 	if connectionPool.Version.AtLeast("6") {
 		setupQuery += "SET allow_system_table_mods = true;\n"
 	}
+	setupQuery += SetMaxCsvLineLengthQuery(connectionPool)
+
 	for i := 0; i < connectionPool.NumConns; i++ {
 		connectionPool.MustExec(setupQuery, i)
 	}
+}
+
+func SetMaxCsvLineLengthQuery(connectionPool *dbconn.DBConn) string {
+	if connectionPool.Version.AtLeast("6") {
+		return ""
+	}
+
+	var maxLineLength int
+	if connectionPool.Version.Is("4") && connectionPool.Version.AtLeast("4.3.30") {
+		maxLineLength = 1024 * 1024 * 1024 // 1GB
+	} else if connectionPool.Version.Is("5") && connectionPool.Version.AtLeast("5.11.0") {
+		maxLineLength = 1024 * 1024 * 1024
+	} else {
+		maxLineLength = 4 * 1024 * 1024 // 4MB
+	}
+
+	return fmt.Sprintf("SET gp_max_csv_line_length = %d;\n", maxLineLength)
 }
 
 func InitializeBackupConfig() {
