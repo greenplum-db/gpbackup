@@ -216,9 +216,9 @@ SET SUBPARTITION TEMPLATE  ` + `
 			tables := []backup.Relation{testTable}
 			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
-			Expect(len(tables)).To(Equal(1))
-			Expect(len(tables[0].DependsUpon)).To(Equal(1))
-			Expect(len(tables[0].Inherits)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
+			Expect(tables[0].DependsUpon).To(HaveLen(1))
+			Expect(tables[0].Inherits).To(HaveLen(1))
 			Expect(tables[0].DependsUpon[0]).To(Equal("public.parent"))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
 		})
@@ -241,11 +241,11 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			sort.Strings(tables[0].DependsUpon)
 			sort.Strings(tables[0].Inherits)
-			Expect(len(tables)).To(Equal(1))
-			Expect(len(tables[0].DependsUpon)).To(Equal(2))
+			Expect(tables).To(HaveLen(1))
+			Expect(tables[0].DependsUpon).To(HaveLen(2))
 			Expect(tables[0].DependsUpon[0]).To(Equal("public.parent_one"))
 			Expect(tables[0].DependsUpon[1]).To(Equal("public.parent_two"))
-			Expect(len(tables[0].Inherits)).To(Equal(2))
+			Expect(tables[0].Inherits).To(HaveLen(2))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent_one"))
 			Expect(tables[0].Inherits[1]).To(Equal("public.parent_two"))
 		})
@@ -335,7 +335,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_RELATION)
 
 			viewDef.Oid = testutils.OidFromObjectName(connection, "public", "simpleview", backup.TYPE_RELATION)
-			Expect(len(resultViews)).To(Equal(1))
+			Expect(resultViews).To(HaveLen(1))
 			resultMetadata := resultMetadataMap[viewDef.Oid]
 			structmatcher.ExpectStructsToMatch(&viewDef, &resultViews[0])
 			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
@@ -368,7 +368,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			resultSequences := backup.GetAllSequences(connection, map[string]string{})
 
-			Expect(len(resultSequences)).To(Equal(1))
+			Expect(resultSequences).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
 			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
 		})
@@ -385,7 +385,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			resultSequences := backup.GetAllSequences(connection, map[string]string{})
 
-			Expect(len(resultSequences)).To(Equal(1))
+			Expect(resultSequences).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
 			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
 		})
@@ -407,7 +407,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			resultSequences := backup.GetAllSequences(connection, map[string]string{})
 
-			Expect(len(resultSequences)).To(Equal(1))
+			Expect(resultSequences).To(HaveLen(1))
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_RELATION)
 			oid := testutils.OidFromObjectName(connection, "public", "my_sequence", backup.TYPE_RELATION)
 			resultMetadata := resultMetadataMap[oid]
@@ -438,8 +438,8 @@ SET SUBPARTITION TEMPLATE  ` + `
 			defer testhelper.AssertQueryRuns(connection, "DROP SEQUENCE public.my_sequence")
 
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connection)
-			Expect(len(sequenceOwnerTables)).To(Equal(1))
-			Expect(len(sequenceOwnerColumns)).To(Equal(1))
+			Expect(sequenceOwnerTables).To(HaveLen(1))
+			Expect(sequenceOwnerColumns).To(HaveLen(1))
 			Expect(sequenceOwnerTables["public.my_sequence"]).To(Equal("public.sequence_table"))
 			Expect(sequenceOwnerColumns["public.my_sequence"]).To(Equal("public.sequence_table.a"))
 		})

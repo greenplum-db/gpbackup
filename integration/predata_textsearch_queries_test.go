@@ -23,7 +23,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedParser := backup.TextSearchParser{Oid: 1, Schema: "public", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: ""}
 
-			Expect(len(parsers)).To(Equal(1))
+			Expect(parsers).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
 		})
 		It("returns a text search parser with a headline", func() {
@@ -33,7 +33,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedParser := backup.TextSearchParser{Oid: 1, Schema: "public", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: "prsd_headline"}
 
-			Expect(len(parsers)).To(Equal(1))
+			Expect(parsers).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
 		})
 		It("returns a text search parser from a specific schema ", func() {
@@ -49,7 +49,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedParser := backup.TextSearchParser{Oid: 1, Schema: "testschema", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: ""}
 
-			Expect(len(parsers)).To(Equal(1))
+			Expect(parsers).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedParser, &parsers[0], "Oid")
 		})
 	})
@@ -64,7 +64,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "public", Name: "testtemplate", InitFunc: "", LexizeFunc: "dsimple_lexize"}
 
-			Expect(len(templates)).To(Equal(1))
+			Expect(templates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
 		})
 		It("returns a text search template with an init function", func() {
@@ -74,7 +74,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "public", Name: "testtemplate", InitFunc: "dsimple_init", LexizeFunc: "dsimple_lexize"}
 
-			Expect(len(templates)).To(Equal(1))
+			Expect(templates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
 		})
 		It("returns a text search template from a specific schema", func() {
@@ -90,7 +90,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "testschema", Name: "testtemplate", InitFunc: "", LexizeFunc: "dsimple_lexize"}
 
-			Expect(len(templates)).To(Equal(1))
+			Expect(templates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedTemplate, &templates[0], "Oid")
 		})
 	})
@@ -104,7 +104,7 @@ var _ = Describe("backup integration tests", func() {
 			dictionaries := backup.GetTextSearchDictionaries(connection)
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "public", Name: "testdictionary", Template: "pg_catalog.snowball", InitOption: "language = 'russian', stopwords = 'russian'"}
-			Expect(len(dictionaries)).To(Equal(1))
+			Expect(dictionaries).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
 		})
 		It("returns a text search dictionary without init options", func() {
@@ -113,7 +113,7 @@ var _ = Describe("backup integration tests", func() {
 			dictionaries := backup.GetTextSearchDictionaries(connection)
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "public", Name: "testdictionary", Template: "pg_catalog.simple", InitOption: ""}
-			Expect(len(dictionaries)).To(Equal(1))
+			Expect(dictionaries).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
 		})
 		It("returns a text search dictionary from a specific schema", func() {
@@ -128,7 +128,7 @@ var _ = Describe("backup integration tests", func() {
 			dictionaries := backup.GetTextSearchDictionaries(connection)
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "testschema", Name: "testdictionary", Template: "pg_catalog.simple", InitOption: ""}
-			Expect(len(dictionaries)).To(Equal(1))
+			Expect(dictionaries).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedDictionary, &dictionaries[0], "Oid")
 		})
 	})
@@ -143,7 +143,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 
-			Expect(len(configurations)).To(Equal(1))
+			Expect(configurations).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 		It("returns a text search configuration with an init function", func() {
@@ -153,7 +153,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 
-			Expect(len(configurations)).To(Equal(1))
+			Expect(configurations).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 		It("returns a text search configuration with mappings", func() {
@@ -168,7 +168,7 @@ var _ = Describe("backup integration tests", func() {
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 			expectedConfiguration.TokenToDicts = map[string][]string{"uint": {"simple"}, "asciiword": {"danish_stem"}}
 
-			Expect(len(configurations)).To(Equal(1))
+			Expect(configurations).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 		It("returns a text search configuration from a specific schema", func() {
@@ -184,7 +184,7 @@ var _ = Describe("backup integration tests", func() {
 
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "testschema", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 
-			Expect(len(configurations)).To(Equal(1))
+			Expect(configurations).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedConfiguration, &configurations[0], "Oid")
 		})
 	})

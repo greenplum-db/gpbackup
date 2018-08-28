@@ -119,7 +119,7 @@ var _ = Describe("backup/incremental tests", func() {
 			restorePlan = backup.PopulateRestorePlan(backupSetTables, restorePlan, allTables)
 
 			It("Should populate a restore plan with a single entry", func() {
-				Expect(len(restorePlan)).To(Equal(1))
+				Expect(restorePlan).To(HaveLen(1))
 			})
 
 			Specify("That the single entry should have the latest timestamp", func() {
@@ -150,7 +150,7 @@ var _ = Describe("backup/incremental tests", func() {
 
 				It("should append 1 more entry to the previous restore plan", func() {
 					Expect(restorePlan[0:2]).To(Equal(previousRestorePlan[0:2]))
-					Expect(len(restorePlan)).To(Equal(len(previousRestorePlan) + 1))
+					Expect(restorePlan).To(HaveLen(len(previousRestorePlan) + 1))
 				})
 
 				Specify("That the added entry should have the current backup set FQNs", func() {

@@ -272,7 +272,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultRoleMembers := backup.GetRoleMembers(connection)
-			Expect(len(resultRoleMembers)).To(Equal(numRoleMembers + 1))
+			Expect(resultRoleMembers).To(HaveLen(numRoleMembers + 1))
 			for _, roleMember := range resultRoleMembers {
 				if roleMember.Role == "usergroup" {
 					structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
@@ -289,7 +289,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultRoleMembers := backup.GetRoleMembers(connection)
-			Expect(len(resultRoleMembers)).To(Equal(numRoleMembers + 1))
+			Expect(resultRoleMembers).To(HaveLen(numRoleMembers + 1))
 			for _, roleMember := range resultRoleMembers {
 				if roleMember.Role == "usergroup" {
 					structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
@@ -317,7 +317,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 
 			resultTablespaces := backup.GetTablespaces(connection)
-			Expect(len(resultTablespaces)).To(Equal(numTablespaces + 1))
+			Expect(resultTablespaces).To(HaveLen(numTablespaces + 1))
 			for _, tablespace := range resultTablespaces {
 				if tablespace.Tablespace == "test_tablespace" {
 					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
@@ -341,7 +341,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLESPACE test_tablespace")
 
 			resultTablespaces := backup.GetTablespaces(connection)
-			Expect(len(resultTablespaces)).To(Equal(numTablespaces + 1))
+			Expect(resultTablespaces).To(HaveLen(numTablespaces + 1))
 			for _, tablespace := range resultTablespaces {
 				if tablespace.Tablespace == "test_tablespace" {
 					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
@@ -377,7 +377,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			oid := testutils.OidFromObjectName(connection, "", "test_tablespace", backup.TYPE_TABLESPACE)
 			resultMetadata := resultMetadataMap[oid]
 			structmatcher.ExpectStructsToMatchExcluding(&tablespaceMetadata, &resultMetadata, "Oid")
-			Expect(len(resultTablespaces)).To(Equal(numTablespaces + 1))
+			Expect(resultTablespaces).To(HaveLen(numTablespaces + 1))
 			for _, tablespace := range resultTablespaces {
 				if tablespace.Tablespace == "test_tablespace" {
 					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")

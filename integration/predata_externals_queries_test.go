@@ -108,7 +108,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 
 			protocolDef := backup.ExternalProtocol{Oid: 1, Name: "s3", Owner: "testrole", Trusted: false, ReadFunction: readFunctionOid, WriteFunction: writeFunctionOid, Validator: 0}
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&protocolDef, &results[0], "Oid")
 		})
 	})
@@ -133,8 +133,8 @@ FORMAT 'csv';`)
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
 
-			Expect(len(resultExtPartitions)).To(Equal(1))
-			Expect(len(resultPartInfoMap)).To(Equal(3))
+			Expect(resultExtPartitions).To(HaveLen(1))
+			Expect(resultPartInfoMap).To(HaveLen(3))
 			expectedExternalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       1,
 				PartitionParentRuleOid: 0,
@@ -162,8 +162,8 @@ FORMAT 'csv';`)
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
 
-			Expect(len(resultExtPartitions)).To(Equal(1))
-			Expect(len(resultPartInfoMap)).To(Equal(2))
+			Expect(resultExtPartitions).To(HaveLen(1))
+			Expect(resultPartInfoMap).To(HaveLen(2))
 			expectedExternalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       1,
 				PartitionParentRuleOid: 0,
@@ -200,7 +200,7 @@ SUBPARTITION eur values ('eur'))
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 
-			Expect(len(resultExtPartitions)).To(Equal(1))
+			Expect(resultExtPartitions).To(HaveLen(1))
 			expectedExternalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       1,
 				PartitionParentRuleOid: 0,
@@ -237,7 +237,7 @@ PARTITION BY RANGE (year)
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 
-			Expect(len(resultExtPartitions)).To(Equal(1))
+			Expect(resultExtPartitions).To(HaveLen(1))
 			expectedExternalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       10,
 				PartitionParentRuleOid: 11,

@@ -38,7 +38,7 @@ var _ = Describe("utils/report tests", func() {
 		utils.SetRestorePlanForLegacyBackup(&legacyBackupTOC, legacyBackupTimestamp, &legacyBackupConfig)
 
 		Specify("That there should be only one resultant restore plan entry", func() {
-			Expect(len(legacyBackupConfig.RestorePlan)).To(Equal(1))
+			Expect(legacyBackupConfig.RestorePlan).To(HaveLen(1))
 		})
 
 		Specify("That the restore plan entry should have the legacy backup's timestamp", func() {

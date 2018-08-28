@@ -821,14 +821,14 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 		It("prints nothing for a sequence without an owning column", func() {
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintAlterSequenceStatements(backupfile, toc, sequences, emptyColumnOwnerMap)
-			Expect(len(toc.PredataEntries)).To(Equal(0))
+			Expect(toc.PredataEntries).To(BeEmpty())
 			testhelper.NotExpectRegexp(buffer, `ALTER SEQUENCE`)
 		})
 		It("does not write an alter sequence statement for a sequence that is not in the backup", func() {
 			columnOwnerMap := map[string]string{"public.seq_name2": "public.tablename.col_one"}
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintAlterSequenceStatements(backupfile, toc, sequences, columnOwnerMap)
-			Expect(len(toc.PredataEntries)).To(Equal(0))
+			Expect(toc.PredataEntries).To(BeEmpty())
 			testhelper.NotExpectRegexp(buffer, `ALTER SEQUENCE`)
 		})
 		It("can print an ALTER SEQUENCE statement for a sequence with an owning column", func() {
@@ -886,7 +886,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 				}
 				sort.Strings(dataTableNames)
 
-				Expect(len(dataTables)).To(Equal(5))
+				Expect(dataTables).To(HaveLen(5))
 				Expect(dataTableNames).To(Equal(expectedDataTables))
 			})
 		})
@@ -905,7 +905,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 				}
 				sort.Strings(dataTableNames)
 
-				Expect(len(dataTables)).To(Equal(5))
+				Expect(dataTables).To(HaveLen(5))
 				Expect(dataTableNames).To(Equal(expectedDataTables))
 			})
 		})
@@ -924,7 +924,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 				}
 				sort.Strings(dataTableNames)
 
-				Expect(len(dataTables)).To(Equal(4))
+				Expect(dataTables).To(HaveLen(4))
 				Expect(dataTableNames).To(Equal(expectedDataTables))
 			})
 		})
@@ -954,7 +954,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 				}
 				sort.Strings(dataTableNames)
 
-				Expect(len(dataTables)).To(Equal(3))
+				Expect(dataTables).To(HaveLen(3))
 				Expect(dataTableNames).To(Equal(expectedDataTables))
 			})
 			It("adds a suffix to external partition tables", func() {
@@ -975,7 +975,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 					{Oid: 1, Schema: "public", Name: "part_parent1_prt_1_ext_part_"},
 					{Oid: 2, Schema: "public", Name: "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_ext_part_"},
 				}
-				Expect(len(metadataTables)).To(Equal(2))
+				Expect(metadataTables).To(HaveLen(2))
 				structmatcher.ExpectStructsToMatch(&expectedTables[0], &metadataTables[0])
 				structmatcher.ExpectStructsToMatch(&expectedTables[1], &metadataTables[1])
 			})
@@ -1013,13 +1013,13 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			cmdFlags.Set(utils.INCLUDE_RELATION, "")
 			backup.ExpandIncludeRelations(testTables)
 
-			Expect(len(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION))).To(Equal(0))
+			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).To(BeEmpty())
 		})
 		It("returns original include list if the new tables list is a subset of existing list", func() {
 			cmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo1,testschema.foo2,testschema.foo3")
 			backup.ExpandIncludeRelations(testTables)
 
-			Expect(len(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION))).To(Equal(3))
+			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).To(HaveLen(3))
 			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).
 				To(ConsistOf([]string{"testschema.foo1", "testschema.foo2", "testschema.foo3"}))
 		})
@@ -1027,7 +1027,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			cmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo2,testschema.foo3")
 			backup.ExpandIncludeRelations(testTables)
 
-			Expect(len(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION))).To(Equal(3))
+			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).To(HaveLen(3))
 			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).
 				To(ConsistOf([]string{"testschema.foo1", "testschema.foo2", "testschema.foo3"}))
 		})
@@ -1051,20 +1051,20 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 		})
 		It("No columns", func() {
 			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-			Expect(len(metadataMap)).To(Equal(0))
+			Expect(metadataMap).To(BeEmpty())
 		})
 		It("One column", func() {
 			privileges = []backup.ColumnPrivilegesQueryStruct{colI}
 			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-			Expect(len(metadataMap)).To(Equal(1))
-			Expect(len(metadataMap[1])).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
+			Expect(metadataMap[1]).To(HaveLen(1))
 			Expect(metadataMap[1]["i"]).To(Equal(expectedACL))
 		})
 		It("Multiple columns on same table", func() {
 			privileges = []backup.ColumnPrivilegesQueryStruct{colI, colJ}
 			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-			Expect(len(metadataMap)).To(Equal(1))
-			Expect(len(metadataMap[1])).To(Equal(2))
+			Expect(metadataMap).To(HaveLen(1))
+			Expect(metadataMap[1]).To(HaveLen(2))
 			Expect(metadataMap[1]["i"]).To(Equal(expectedACL))
 			Expect(metadataMap[1]["j"]).To(Equal(expectedACL))
 		})
@@ -1074,9 +1074,9 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 
 			expectedACLForK := []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}
 
-			Expect(len(metadataMap)).To(Equal(2))
-			Expect(len(metadataMap[1])).To(Equal(2))
-			Expect(len(metadataMap[2])).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(2))
+			Expect(metadataMap[1]).To(HaveLen(2))
+			Expect(metadataMap[2]).To(HaveLen(1))
 			Expect(metadataMap[1]["i"]).To(Equal(expectedACL))
 			Expect(metadataMap[1]["j"]).To(Equal(expectedACL))
 			Expect(metadataMap[2]["k"]).To(Equal(expectedACLForK))
@@ -1087,8 +1087,8 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 
 			expectedACLForDefaultKind := []backup.ACL{}
 
-			Expect(len(metadataMap)).To(Equal(1))
-			Expect(len(metadataMap[2])).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
+			Expect(metadataMap[2]).To(HaveLen(1))
 			Expect(metadataMap[2]["l"]).To(Equal(expectedACLForDefaultKind))
 		})
 		It("'Empty' kind", func() {
@@ -1097,8 +1097,8 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 
 			expectedACLForEmptyKind := []backup.ACL{{Grantee: "GRANTEE"}}
 
-			Expect(len(metadataMap)).To(Equal(1))
-			Expect(len(metadataMap[2])).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
+			Expect(metadataMap[2]).To(HaveLen(1))
 			Expect(metadataMap[2]["m"]).To(Equal(expectedACLForEmptyKind))
 		})
 	})

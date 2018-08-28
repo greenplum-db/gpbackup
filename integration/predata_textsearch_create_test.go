@@ -25,7 +25,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultParsers := backup.GetTextSearchParsers(connection)
 
-			Expect(len(resultParsers)).To(Equal(1))
+			Expect(resultParsers).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&parsers[0], &resultParsers[0], "Oid")
 		})
 		It("creates a basic text search parser with a comment", func() {
@@ -41,7 +41,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultParsers := backup.GetTextSearchParsers(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_TSPARSER)
 
-			Expect(len(resultParsers)).To(Equal(1))
+			Expect(resultParsers).To(HaveLen(1))
 			oid := testutils.OidFromObjectName(connection, "public", "testparser", backup.TYPE_TSPARSER)
 			resultMetadata := resultMetadataMap[oid]
 			structmatcher.ExpectStructsToMatchExcluding(&parsers[0], &resultParsers[0], "Oid")
@@ -58,7 +58,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTemplates := backup.GetTextSearchTemplates(connection)
 
-			Expect(len(resultTemplates)).To(Equal(1))
+			Expect(resultTemplates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&templates[0], &resultTemplates[0], "Oid")
 		})
 		It("creates a basic text search template with a comment", func() {
@@ -74,7 +74,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTemplates := backup.GetTextSearchTemplates(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_TSTEMPLATE)
 
-			Expect(len(resultTemplates)).To(Equal(1))
+			Expect(resultTemplates).To(HaveLen(1))
 			oid := testutils.OidFromObjectName(connection, "public", "testtemplate", backup.TYPE_TSTEMPLATE)
 			resultMetadata := resultMetadataMap[oid]
 			structmatcher.ExpectStructsToMatchExcluding(&templates[0], &resultTemplates[0], "Oid")
@@ -92,7 +92,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultDictionaries := backup.GetTextSearchDictionaries(connection)
 
-			Expect(len(resultDictionaries)).To(Equal(1))
+			Expect(resultDictionaries).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&dictionaries[0], &resultDictionaries[0], "Oid")
 		})
 		It("creates a basic text search dictionary with a comment and owner", func() {
@@ -108,7 +108,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultDictionaries := backup.GetTextSearchDictionaries(connection)
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_TSDICTIONARY)
 
-			Expect(len(resultDictionaries)).To(Equal(1))
+			Expect(resultDictionaries).To(HaveLen(1))
 			oid := testutils.OidFromObjectName(connection, "public", "testdictionary", backup.TYPE_TSDICTIONARY)
 			resultMetadata := resultMetadataMap[oid]
 			structmatcher.ExpectStructsToMatchExcluding(&dictionaries[0], &resultDictionaries[0], "Oid")
@@ -126,7 +126,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultConfigurations := backup.GetTextSearchConfigurations(connection)
 
-			Expect(len(resultConfigurations)).To(Equal(1))
+			Expect(resultConfigurations).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&configurations[0], &resultConfigurations[0], "Oid")
 		})
 		It("creates a basic text search configuration with a comment and owner", func() {
@@ -142,7 +142,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultConfigurations := backup.GetTextSearchConfigurations(connection)
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_TSCONFIGURATION)
 
-			Expect(len(resultConfigurations)).To(Equal(1))
+			Expect(resultConfigurations).To(HaveLen(1))
 			oid := testutils.OidFromObjectName(connection, "public", "testconfiguration", backup.TYPE_TSCONFIGURATION)
 			resultMetadata := resultMetadataMap[oid]
 			structmatcher.ExpectStructsToMatchExcluding(&configurations[0], &resultConfigurations[0], "Oid")

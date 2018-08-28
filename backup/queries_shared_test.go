@@ -101,7 +101,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 			expectedTwo := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is a metadata comment."}
 			resultOne := resultMetadataMap[1]
 			resultTwo := resultMetadataMap[2]
-			Expect(len(resultMetadataMap)).To(Equal(2))
+			Expect(resultMetadataMap).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatch(&expectedOne, &resultOne)
 			structmatcher.ExpectStructsToMatch(&expectedTwo, &resultTwo)
 		})
@@ -148,7 +148,7 @@ FROM table o JOIN pg_shdescription d ON (d.objoid = oid AND d.classoid = 'table'
 			expectedTwo := backup.ObjectMetadata{Privileges: []backup.ACL{}, Comment: "This is also a metadata comment."}
 			resultOne := resultMetadataMap[1]
 			resultTwo := resultMetadataMap[2]
-			Expect(len(resultMetadataMap)).To(Equal(2))
+			Expect(resultMetadataMap).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatch(&expectedOne, &resultOne)
 			structmatcher.ExpectStructsToMatch(&expectedTwo, &resultTwo)
 		})

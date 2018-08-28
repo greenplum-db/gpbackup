@@ -50,10 +50,10 @@ var _ = Describe("backup integration tests", func() {
 			newAtts := afterAttStats[newTableOid]
 
 			// Ensure the statistics match
-			Expect(len(afterTupleStats)).To(Equal(len(beforeTupleStats)))
+			Expect(afterTupleStats).To(HaveLen(len(beforeTupleStats)))
 			structmatcher.ExpectStructsToMatchExcluding(&beforeTupleStat, &afterTupleStat, "Oid")
-			Expect(len(oldAtts)).To(Equal(3))
-			Expect(len(newAtts)).To(Equal(3))
+			Expect(oldAtts).To(HaveLen(3))
+			Expect(newAtts).To(HaveLen(3))
 			for i := range oldAtts {
 				structmatcher.ExpectStructsToMatchExcluding(&oldAtts[i], &newAtts[i], "Oid", "Relid")
 			}

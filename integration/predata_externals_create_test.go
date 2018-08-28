@@ -131,7 +131,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultExternalProtocols := backup.GetExternalProtocols(connection)
 
-			Expect(len(resultExternalProtocols)).To(Equal(1))
+			Expect(resultExternalProtocols).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&protocolReadOnly, &resultExternalProtocols[0], "Oid", "ReadFunction", "FuncMap")
 		})
 		It("creates a protocol with a write function", func() {
@@ -145,7 +145,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultExternalProtocols := backup.GetExternalProtocols(connection)
 
-			Expect(len(resultExternalProtocols)).To(Equal(1))
+			Expect(resultExternalProtocols).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&protocolWriteOnly, &resultExternalProtocols[0], "Oid", "WriteFunction", "FuncMap")
 		})
 		It("creates a protocol with a read and write function", func() {
@@ -162,7 +162,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultExternalProtocols := backup.GetExternalProtocols(connection)
 
-			Expect(len(resultExternalProtocols)).To(Equal(1))
+			Expect(resultExternalProtocols).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&protocolReadWrite, &resultExternalProtocols[0], "Oid", "ReadFunction", "WriteFunction", "FuncMap")
 		})
 	})
@@ -204,8 +204,8 @@ FORMAT 'csv';`)
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
-			Expect(len(resultExtPartitions)).To(Equal(1))
-			Expect(len(resultPartInfoMap)).To(Equal(3))
+			Expect(resultExtPartitions).To(HaveLen(1))
+			Expect(resultPartInfoMap).To(HaveLen(3))
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for an unnamed range partition", func() {
@@ -235,8 +235,8 @@ FORMAT 'csv';`)
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connection)
-			Expect(len(resultExtPartitions)).To(Equal(1))
-			Expect(len(resultPartInfoMap)).To(Equal(2))
+			Expect(resultExtPartitions).To(HaveLen(1))
+			Expect(resultPartInfoMap).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a two level partition", func() {
@@ -288,7 +288,7 @@ SUBPARTITION eur values ('eur'))
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 			externalPartition.RelationOid = testutils.OidFromObjectName(connection, "public", "part_tbl_1_prt_dec16_2_prt_apj", backup.TYPE_RELATION)
-			Expect(len(resultExtPartitions)).To(Equal(1))
+			Expect(resultExtPartitions).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a three level partition", func() {
@@ -351,7 +351,7 @@ PARTITION BY RANGE (year)
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connection)
 			externalPartition.RelationOid = testutils.OidFromObjectName(connection, "public", "part_tbl_1_prt_3_2_prt_1_3_prt_europe", backup.TYPE_RELATION)
-			Expect(len(resultExtPartitions)).To(Equal(1))
+			Expect(resultExtPartitions).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 	})

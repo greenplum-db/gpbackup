@@ -399,20 +399,20 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 		})
 		It("No objects", func() {
 			metadataMap := backup.ConstructMetadataMap(metadataList)
-			Expect(len(metadataMap)).To(Equal(0))
+			Expect(metadataMap).To(BeEmpty())
 		})
 		It("One object", func() {
 			metadataList = []backup.MetadataQueryStruct{object2}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment"}
-			Expect(len(metadataMap)).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[2]).To(Equal(expectedObjectMetadata))
 		})
 		It("One object with two ACL entries", func() {
 			metadataList = []backup.MetadataQueryStruct{object1A, object1B}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}, Owner: "testrole"}
-			Expect(len(metadataMap)).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[1]).To(Equal(expectedObjectMetadata))
 		})
 		It("Multiple objects", func() {
@@ -420,7 +420,7 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadataOne := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}, Owner: "testrole"}
 			expectedObjectMetadataTwo := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment"}
-			Expect(len(metadataMap)).To(Equal(2))
+			Expect(metadataMap).To(HaveLen(2))
 			Expect(metadataMap[1]).To(Equal(expectedObjectMetadataOne))
 			Expect(metadataMap[2]).To(Equal(expectedObjectMetadataTwo))
 		})
@@ -428,14 +428,14 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 			metadataList = []backup.MetadataQueryStruct{objectDefaultKind}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole"}
-			Expect(len(metadataMap)).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[3]).To(Equal(expectedObjectMetadata))
 		})
 		It("'Empty' Kind", func() {
 			metadataList = []backup.MetadataQueryStruct{objectEmptyKind}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole"}
-			Expect(len(metadataMap)).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[4]).To(Equal(expectedObjectMetadata))
 		})
 	})

@@ -26,7 +26,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultSchemas := backup.GetAllUserSchemas(connection)
 
-			Expect(len(resultSchemas)).To(Equal(2))
+			Expect(resultSchemas).To(HaveLen(2))
 			Expect(resultSchemas[0].Name).To(Equal("public"))
 
 			structmatcher.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[1], "Oid")
@@ -44,7 +44,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultSchemas := backup.GetAllUserSchemas(connection)
 
-			Expect(len(resultSchemas)).To(Equal(1))
+			Expect(resultSchemas).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[0])
 		})
 	})
@@ -77,7 +77,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultConstraints := backup.GetConstraints(connection)
 
-			Expect(len(resultConstraints)).To(Equal(1))
+			Expect(resultConstraints).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates a primary key constraint", func() {
@@ -90,7 +90,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultConstraints := backup.GetConstraints(connection)
 
-			Expect(len(resultConstraints)).To(Equal(1))
+			Expect(resultConstraints).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates a foreign key constraint", func() {
@@ -103,7 +103,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultConstraints := backup.GetConstraints(connection)
 
-			Expect(len(resultConstraints)).To(Equal(2))
+			Expect(resultConstraints).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[1], "Oid")
 		})
@@ -115,7 +115,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultConstraints := backup.GetConstraints(connection)
 
-			Expect(len(resultConstraints)).To(Equal(1))
+			Expect(resultConstraints).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&checkConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates multiple constraints on one table", func() {
@@ -128,7 +128,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultConstraints := backup.GetConstraints(connection)
 
-			Expect(len(resultConstraints)).To(Equal(4))
+			Expect(resultConstraints).To(HaveLen(4))
 			structmatcher.ExpectStructsToMatchExcluding(&checkConstraint, &resultConstraints[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[1], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[2], "Oid")
@@ -157,7 +157,7 @@ PARTITION BY RANGE (year)
 
 			resultConstraints := backup.GetConstraints(connection)
 
-			Expect(len(resultConstraints)).To(Equal(1))
+			Expect(resultConstraints).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&partitionCheckConstraint, &resultConstraints[0], "Oid")
 		})
 	})

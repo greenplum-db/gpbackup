@@ -53,7 +53,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetShellTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&shellType, &results[0], "Schema", "Name", "Type")
 		})
 		It("returns a slice of composite types", func() {
@@ -62,7 +62,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetCompositeTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name", "Attributes")
 		})
 		It("returns a slice of composite types with collations", func() {
@@ -74,7 +74,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetCompositeTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			compositeType.Attributes = pq.StringArray{"\tname integer", "\tname2 numeric(8,2)", "\tname1 character(8) COLLATE public.some_coll"}
 			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name", "Attributes")
 		})
@@ -87,7 +87,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetBaseTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			if connection.Version.Before("5") {
 				structmatcher.ExpectStructsToMatchExcluding(&baseTypeDefault, &results[0], "Oid", "ModIn", "ModOut")
 			} else {
@@ -108,7 +108,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetBaseTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			if connection.Version.Before("5") {
 				structmatcher.ExpectStructsToMatchExcluding(&baseTypeCustom, &results[0], "Oid", "ModIn", "ModOut")
 			} else if connection.Version.Before("6") {
@@ -127,7 +127,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetEnumTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&enumType, &results[0], "Oid")
 		})
 		It("returns a slice for enum types with labels in the correct order", func() {
@@ -145,7 +145,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetEnumTypes(connection)
 
-			Expect(len(results)).To(Equal(2))
+			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&enumType, &results[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&enumType2, &results[1], "Oid")
 		})
@@ -157,7 +157,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetCompositeTypes(connection)
 
-			Expect(len(results)).To(Equal(0))
+			Expect(results).To(BeEmpty())
 		})
 		It("does not return implicit base or composite types for tables with length > NAMEDATALEN", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong(i int)")
@@ -167,8 +167,8 @@ var _ = Describe("backup integration tests", func() {
 			bases := backup.GetBaseTypes(connection)
 			composites := backup.GetCompositeTypes(connection)
 
-			Expect(len(bases)).To(Equal(0))
-			Expect(len(composites)).To(Equal(0))
+			Expect(bases).To(BeEmpty())
+			Expect(composites).To(BeEmpty())
 		})
 		It("returns a slice for a domain type", func() {
 			domainType := backup.Type{
@@ -179,7 +179,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetDomainTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&domainType, &results[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
 		})
 		It("returns a slice for a domain type with a collation", func() {
@@ -195,7 +195,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetDomainTypes(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&domainType, &results[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
 		})
 		It("returns a slice for a type in a specific schema", func() {
@@ -210,7 +210,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetShellTypes(connection)
 			shellTypeOtherSchema := backup.Type{Type: "p", Schema: "testschema", Name: "shell_type"}
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&shellTypeOtherSchema, &results[0], "Schema", "Name", "Type")
 		})
 	})
@@ -234,8 +234,8 @@ var _ = Describe("backup integration tests", func() {
 			composites := backup.GetCompositeTypes(connection)
 			compTypes := backup.ConstructCompositeTypeDependencies(connection, composites)
 
-			Expect(len(compTypes)).To(Equal(1))
-			Expect(len(compTypes[0].DependsUpon)).To(Equal(1))
+			Expect(compTypes).To(HaveLen(1))
+			Expect(compTypes[0].DependsUpon).To(HaveLen(1))
 			Expect(compTypes[0].DependsUpon[0]).To(Equal("public.base_type"))
 		})
 		It("constructs dependencies correctly for a composite type dependent on multiple user-defined types", func() {
@@ -245,8 +245,8 @@ var _ = Describe("backup integration tests", func() {
 			composites := backup.GetCompositeTypes(connection)
 			compTypes := backup.ConstructCompositeTypeDependencies(connection, composites)
 
-			Expect(len(compTypes)).To(Equal(1))
-			Expect(len(compTypes[0].DependsUpon)).To(Equal(2))
+			Expect(compTypes).To(HaveLen(1))
+			Expect(compTypes[0].DependsUpon).To(HaveLen(2))
 			sort.Strings(compTypes[0].DependsUpon)
 			Expect(compTypes[0].DependsUpon).To(Equal([]string{"public.base_type", "public.base_type2"}))
 		})
@@ -257,8 +257,8 @@ var _ = Describe("backup integration tests", func() {
 			composites := backup.GetCompositeTypes(connection)
 			compTypes := backup.ConstructCompositeTypeDependencies(connection, composites)
 
-			Expect(len(compTypes)).To(Equal(1))
-			Expect(len(compTypes[0].DependsUpon)).To(Equal(1))
+			Expect(compTypes).To(HaveLen(1))
+			Expect(compTypes[0].DependsUpon).To(HaveLen(1))
 			Expect(compTypes[0].DependsUpon[0]).To(Equal("public.base_type"))
 		})
 	})
@@ -282,8 +282,8 @@ var _ = Describe("backup integration tests", func() {
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies4(connection, bases, funcInfoMap)
 
-			Expect(len(baseTypes)).To(Equal(1))
-			Expect(len(baseTypes[0].DependsUpon)).To(Equal(2))
+			Expect(baseTypes).To(HaveLen(1))
+			Expect(baseTypes[0].DependsUpon).To(HaveLen(2))
 			sort.Strings(baseTypes[0].DependsUpon)
 			Expect(baseTypes[0].DependsUpon[0]).To(Equal("public.base_fn_in(cstring)"))
 			Expect(baseTypes[0].DependsUpon[1]).To(Equal("public.base_fn_out(public.base_type)"))
@@ -294,8 +294,8 @@ var _ = Describe("backup integration tests", func() {
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies4(connection, bases, funcInfoMap)
 
-			Expect(len(baseTypes)).To(Equal(1))
-			Expect(len(baseTypes[0].DependsUpon)).To(Equal(2))
+			Expect(baseTypes).To(HaveLen(1))
+			Expect(baseTypes[0].DependsUpon).To(HaveLen(2))
 			sort.Strings(baseTypes[0].DependsUpon)
 			Expect(baseTypes[0].DependsUpon[0]).To(Equal("public.base_fn_in(cstring)"))
 			Expect(baseTypes[0].DependsUpon[1]).To(Equal("public.base_fn_out(public.base_type)"))
@@ -316,8 +316,8 @@ var _ = Describe("backup integration tests", func() {
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies5(connection, bases)
 
-			Expect(len(baseTypes)).To(Equal(1))
-			Expect(len(baseTypes[0].DependsUpon)).To(Equal(2))
+			Expect(baseTypes).To(HaveLen(1))
+			Expect(baseTypes[0].DependsUpon).To(HaveLen(2))
 			sort.Strings(baseTypes[0].DependsUpon)
 			Expect(baseTypes[0].DependsUpon[0]).To(Equal("public.base_fn_in(cstring)"))
 			Expect(baseTypes[0].DependsUpon[1]).To(Equal("public.base_fn_out(public.base_type)"))
@@ -328,8 +328,8 @@ var _ = Describe("backup integration tests", func() {
 			bases := backup.GetBaseTypes(connection)
 			baseTypes := backup.ConstructBaseTypeDependencies5(connection, bases)
 
-			Expect(len(baseTypes)).To(Equal(1))
-			Expect(len(baseTypes[0].DependsUpon)).To(Equal(2))
+			Expect(baseTypes).To(HaveLen(1))
+			Expect(baseTypes[0].DependsUpon).To(HaveLen(2))
 			sort.Strings(baseTypes[0].DependsUpon)
 			Expect(baseTypes[0].DependsUpon[0]).To(Equal("public.base_fn_in(cstring)"))
 			Expect(baseTypes[0].DependsUpon[1]).To(Equal("public.base_fn_out(public.base_type)"))
@@ -345,8 +345,8 @@ var _ = Describe("backup integration tests", func() {
 			domains := backup.GetDomainTypes(connection)
 			domains = backup.ConstructDomainDependencies(connection, domains)
 
-			Expect(len(domains)).To(Equal(2))
-			Expect(len(domains[0].DependsUpon)).To(Equal(1))
+			Expect(domains).To(HaveLen(2))
+			Expect(domains[0].DependsUpon).To(HaveLen(1))
 			Expect(domains[0].DependsUpon[0]).To(Equal("public.parent_domain"))
 		})
 		It("doesn't construct dependencies on built-in types", func() {
@@ -356,7 +356,7 @@ var _ = Describe("backup integration tests", func() {
 			domains := backup.GetDomainTypes(connection)
 			domains = backup.ConstructDomainDependencies(connection, domains)
 
-			Expect(len(domains)).To(Equal(1))
+			Expect(domains).To(HaveLen(1))
 			Expect(domains[0].DependsUpon).To(BeNil())
 		})
 	})
@@ -368,7 +368,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetCollations(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 
 			collationDef := backup.Collation{Oid: 0, Schema: "public", Name: "some_coll", Collate: "POSIX", Ctype: "POSIX"}
 			structmatcher.ExpectStructsToMatchExcluding(&collationDef, &results[0], "Oid")
@@ -386,7 +386,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetCollations(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 
 			collationDef := backup.Collation{Oid: 0, Schema: "testschema", Name: "some_coll", Collate: "POSIX", Ctype: "POSIX"}
 			structmatcher.ExpectStructsToMatchExcluding(&collationDef, &results[0], "Oid")

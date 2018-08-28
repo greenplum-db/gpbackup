@@ -154,7 +154,7 @@ var _ bool = Describe("backup/data tests", func() {
 			tableDef.IsExternal = true
 			backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
 
-			Expect(len(rowsCopiedMap)).To(Equal(0))
+			Expect(rowsCopiedMap).To(BeEmpty())
 			Expect(counters.NumRegTables).To(Equal(int64(0)))
 		})
 	})

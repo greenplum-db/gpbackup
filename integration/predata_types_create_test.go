@@ -58,7 +58,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.base_type")
 
 			shells := backup.GetShellTypes(connection)
-			Expect(len(shells)).To(Equal(2))
+			Expect(shells).To(HaveLen(2))
 			Expect(shells[0].Name).To(Equal("base_type"))
 			Expect(shells[1].Name).To(Equal("shell_type"))
 		})
@@ -71,7 +71,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTypes := backup.GetCompositeTypes(connection)
 
-			Expect(len(resultTypes)).To(Equal(1))
+			Expect(resultTypes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &resultTypes[0], "Type", "Schema", "Name", "Comment", "Owner", "Attributes")
 		})
 		It("creates composite types with a collation", func() {
@@ -86,7 +86,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTypes := backup.GetCompositeTypes(connection)
 
-			Expect(len(resultTypes)).To(Equal(1))
+			Expect(resultTypes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &resultTypes[0], "Type", "Schema", "Name", "Comment", "Owner", "Attributes")
 		})
 
@@ -100,7 +100,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTypes := backup.GetEnumTypes(connection)
 
-			Expect(len(resultTypes)).To(Equal(1))
+			Expect(resultTypes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&resultTypes[0], &enumType, "Type", "Schema", "Name", "Comment", "Owner", "EnumLabels")
 		})
 
@@ -122,7 +122,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTypes := backup.GetBaseTypes(connection)
 
-			Expect(len(resultTypes)).To(Equal(1))
+			Expect(resultTypes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&baseType, &resultTypes[0], "Oid")
 		})
 		It("creates domain types", func() {
@@ -139,7 +139,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTypes := backup.GetDomainTypes(connection)
 
-			Expect(len(resultTypes)).To(Equal(1))
+			Expect(resultTypes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchIncluding(&domainType, &resultTypes[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull", "Collation")
 		})
 	})
@@ -155,7 +155,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultCollations := backup.GetCollations(connection)
 
-			Expect(len(resultCollations)).To(Equal(1))
+			Expect(resultCollations).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")
 		})
 		It("creates a basic collation with comment and owner", func() {
@@ -172,7 +172,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultCollations := backup.GetCollations(connection)
 			resultMetadataMap := backup.GetMetadataForObjectType(connection, backup.TYPE_COLLATION)
 
-			Expect(len(resultCollations)).To(Equal(1))
+			Expect(resultCollations).To(HaveLen(1))
 			oid := testutils.OidFromObjectName(connection, "public", "testcollation", backup.TYPE_COLLATION)
 			resultMetadata := resultMetadataMap[oid]
 			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")

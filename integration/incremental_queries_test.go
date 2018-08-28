@@ -244,7 +244,7 @@ var _ = Describe("backup integration tests", func() {
 					backupCmdFlags.Set(utils.INCLUDE_RELATION, aoTableFQN)
 
 					aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connection)
-					Expect(len(aoIncrementalMetadata)).To(Equal(1))
+					Expect(aoIncrementalMetadata).To(HaveLen(1))
 				})
 			})
 			Context("During a schema-filtered backup", func() {
@@ -256,7 +256,7 @@ var _ = Describe("backup integration tests", func() {
 					backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 					aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connection)
-					Expect(len(aoIncrementalMetadata)).To(Equal(1))
+					Expect(aoIncrementalMetadata).To(HaveLen(1))
 				})
 			})
 		})

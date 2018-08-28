@@ -390,13 +390,13 @@ ENCODING 'UTF-8'`)
 		It("does not include an internal protocol", func() {
 			protos := []backup.ExternalProtocol{protocolInternal, protocolUntrustedReadOnly}
 			resultProtos := backup.ProcessProtocols(protos, funcInfoMap)
-			Expect(len(resultProtos)).To(Equal(1))
+			Expect(resultProtos).To(HaveLen(1))
 			Expect(resultProtos[0].Name).To(Equal("s4"))
 		})
 		It("does not include an internal protocol without a validator", func() {
 			protos := []backup.ExternalProtocol{protocolInternalReadWrite, protocolUntrustedReadOnly}
 			resultProtos := backup.ProcessProtocols(protos, funcInfoMap)
-			Expect(len(resultProtos)).To(Equal(1))
+			Expect(resultProtos).To(HaveLen(1))
 			Expect(resultProtos[0].Name).To(Equal("s4"))
 		})
 	})

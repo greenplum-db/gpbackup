@@ -32,7 +32,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultIndexes := backup.GetIndexes(connection)
-			Expect(len(resultIndexes)).To(Equal(1))
+			Expect(resultIndexes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index used for clustering", func() {
@@ -46,7 +46,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultIndexes := backup.GetIndexes(connection)
-			Expect(len(resultIndexes)).To(Equal(1))
+			Expect(resultIndexes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index with a comment", func() {
@@ -65,7 +65,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultIndexes := backup.GetIndexes(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_INDEX)
 			resultMetadata := resultMetadataMap[indexes[0].Oid]
-			Expect(len(resultIndexes)).To(Equal(1))
+			Expect(resultIndexes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &indexMetadata)
 		})
@@ -86,7 +86,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultIndexes := backup.GetIndexes(connection)
-			Expect(len(resultIndexes)).To(Equal(1))
+			Expect(resultIndexes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 	})
@@ -107,7 +107,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultRules := backup.GetRules(connection)
-			Expect(len(resultRules)).To(Equal(1))
+			Expect(resultRules).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 		})
 		It("creates a rule with a comment", func() {
@@ -125,7 +125,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultRules := backup.GetRules(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_RULE)
 			resultMetadata := resultMetadataMap[rules[0].Oid]
-			Expect(len(resultRules)).To(Equal(1))
+			Expect(resultRules).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &ruleMetadata)
 		})
@@ -147,7 +147,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connection, buffer.String())
 
 			resultTriggers := backup.GetTriggers(connection)
-			Expect(len(resultTriggers)).To(Equal(1))
+			Expect(resultTriggers).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 		})
 		It("creates a trigger with a comment", func() {
@@ -165,7 +165,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTriggers := backup.GetTriggers(connection)
 			resultMetadataMap := backup.GetCommentsForObjectType(connection, backup.TYPE_TRIGGER)
 			resultMetadata := resultMetadataMap[triggers[0].Oid]
-			Expect(len(resultTriggers)).To(Equal(1))
+			Expect(resultTriggers).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &triggerMetadata)
 		})

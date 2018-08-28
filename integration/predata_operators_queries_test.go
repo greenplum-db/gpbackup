@@ -21,7 +21,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperators(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 		It("returns a slice of operators with a full-featured operator", func() {
@@ -51,7 +51,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperators(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			if connection.Version.Before("5") {
 				structmatcher.ExpectStructsToMatchExcluding(&version4expectedOperator, &results[0], "Oid")
 			} else {
@@ -71,7 +71,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperators(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 	})
@@ -87,7 +87,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperatorFamilies(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 		It("returns a slice of operator families in a specific schema", func() {
@@ -103,7 +103,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperatorFamilies(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedOperator, &results[0], "Oid")
 		})
 	})
@@ -121,7 +121,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperatorClasses(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			if connection.Version.Before("5") {
 				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
 			} else {
@@ -141,7 +141,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperatorClasses(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expected, &results[0], "Oid")
 		})
 		It("returns a slice of operator classes with different type and storage type", func() {
@@ -157,7 +157,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperatorClasses(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			if connection.Version.Before("5") {
 				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
 			} else {
@@ -189,7 +189,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperatorClasses(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			if connection.Version.Before("5") {
 				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid", "Operators.ClassOid", "Functions.ClassOid")
 			} else {
@@ -218,7 +218,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetOperatorClasses(connection)
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			if connection.Version.Before("5") {
 				structmatcher.ExpectStructsToMatchExcluding(&version4expected, &results[0], "Oid")
 			} else {

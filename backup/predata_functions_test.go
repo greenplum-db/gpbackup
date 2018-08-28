@@ -495,22 +495,22 @@ COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';`)
 		It("handles a case where all functions are language-associated functions", func() {
 			funcDefs := []backup.Function{langFunc}
 			langFuncs, otherFuncs := backup.ExtractLanguageFunctions(funcDefs, procLangs)
-			Expect(len(langFuncs)).To(Equal(1))
-			Expect(len(otherFuncs)).To(Equal(0))
+			Expect(langFuncs).To(HaveLen(1))
+			Expect(otherFuncs).To(BeEmpty())
 			Expect(langFuncs[0].Name).To(Equal("custom_handler"))
 		})
 		It("handles a case where no functions are language-associated functions", func() {
 			funcDefs := []backup.Function{nonLangFunc}
 			langFuncs, otherFuncs := backup.ExtractLanguageFunctions(funcDefs, procLangs)
-			Expect(len(langFuncs)).To(Equal(0))
-			Expect(len(otherFuncs)).To(Equal(1))
+			Expect(langFuncs).To(BeEmpty())
+			Expect(otherFuncs).To(HaveLen(1))
 			Expect(otherFuncs[0].Name).To(Equal("random_function"))
 		})
 		It("handles a case where some functions are language-associated functions", func() {
 			funcDefs := []backup.Function{langFunc, nonLangFunc}
 			langFuncs, otherFuncs := backup.ExtractLanguageFunctions(funcDefs, procLangs)
-			Expect(len(langFuncs)).To(Equal(1))
-			Expect(len(otherFuncs)).To(Equal(1))
+			Expect(langFuncs).To(HaveLen(1))
+			Expect(otherFuncs).To(HaveLen(1))
 			Expect(langFuncs[0].Name).To(Equal("custom_handler"))
 			Expect(otherFuncs[0].Name).To(Equal("random_function"))
 		})

@@ -27,8 +27,8 @@ var _ = Describe("backup integration tests", func() {
 	Describe("GetAttributeStatistics", func() {
 		It("returns attribute statistics for a table", func() {
 			attStats := backup.GetAttributeStatistics(connection, tables)
-			Expect(len(attStats)).To(Equal(1))
-			Expect(len(attStats[tableOid])).To(Equal(3))
+			Expect(attStats).To(HaveLen(1))
+			Expect(attStats[tableOid]).To(HaveLen(3))
 			tableAttStatsI := attStats[tableOid][0]
 			tableAttStatsJ := attStats[tableOid][1]
 			tableAttStatsK := attStats[tableOid][2]
@@ -75,7 +75,7 @@ var _ = Describe("backup integration tests", func() {
 	Describe("GetTupleStatistics", func() {
 		It("returns tuple statistics for a table", func() {
 			tupleStats := backup.GetTupleStatistics(connection, tables)
-			Expect(len(tupleStats)).To(Equal(1))
+			Expect(tupleStats).To(HaveLen(1))
 			tableTupleStats := tupleStats[tableOid]
 
 			// Tuple statistics will not vary by GPDB version. Relpages may vary based on the hardware.

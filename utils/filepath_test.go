@@ -29,7 +29,7 @@ var _ = Describe("utils/filepath tests", func() {
 		It("returns content dir for a single-host, single-segment nodes", func() {
 			c.Segments[0] = cluster.SegConfig{DataDir: segDirOne}
 			fpInfo := utils.NewFilePathInfo(c, "", "20170101010101", "gpseg")
-			Expect(len(fpInfo.SegDirMap)).To(Equal(2))
+			Expect(fpInfo.SegDirMap).To(HaveLen(2))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg0/backups/20170101/20170101010101"))
 		})
@@ -37,14 +37,14 @@ var _ = Describe("utils/filepath tests", func() {
 			c.Segments[0] = cluster.SegConfig{DataDir: segDirOne}
 			c.Segments[1] = cluster.SegConfig{DataDir: segDirTwo}
 			fpInfo := utils.NewFilePathInfo(c, "", "20170101010101", "gpseg")
-			Expect(len(fpInfo.SegDirMap)).To(Equal(3))
+			Expect(fpInfo.SegDirMap).To(HaveLen(3))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg0/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(1)).To(Equal("/data/gpseg1/backups/20170101/20170101010101"))
 		})
 		It("returns the content directory based on the user specified path", func() {
 			fpInfo := utils.NewFilePathInfo(c, "/foo/bar", "20170101010101", "gpseg")
-			Expect(len(fpInfo.SegDirMap)).To(Equal(1))
+			Expect(fpInfo.SegDirMap).To(HaveLen(1))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/foo/bar/gpseg-1/backups/20170101/20170101010101"))
 		})
 	})

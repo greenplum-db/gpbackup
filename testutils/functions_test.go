@@ -25,7 +25,7 @@ var _ = Describe("testutils/functions", func() {
 			entries := []utils.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: bufferLen}}
 			results, remaining := SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal("CREATE TABLE foo (i int);"))
 		})
 		It("returns a multi-item slice with spaces and newlines", func() {
@@ -34,7 +34,7 @@ var _ = Describe("testutils/functions", func() {
 			entries := []utils.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: table1Len}, {Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: table1Len, EndByte: table1Len + table2Len}}
 			results, remaining := SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
-			Expect(len(results)).To(Equal(2))
+			Expect(results).To(HaveLen(2))
 			Expect(results[0]).To(Equal("CREATE TABLE foo (i int);"))
 			Expect(results[1]).To(Equal("CREATE TABLE bar (j int);"))
 		})
@@ -43,7 +43,7 @@ var _ = Describe("testutils/functions", func() {
 			entries := []utils.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: bufferLen + 10}}
 			results, remaining := SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal("CREATE TABLE foo (i int);"))
 		})
 		It("returns multiple slices with start outside buffer, end outside buffer", func() {
@@ -51,7 +51,7 @@ var _ = Describe("testutils/functions", func() {
 			entries := []utils.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: bufferLen + 10}, {Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: bufferLen + 10, EndByte: bufferLen + 40}}
 			results, remaining := SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
-			Expect(len(results)).To(Equal(2))
+			Expect(results).To(HaveLen(2))
 			Expect(results[0]).To(Equal("CREATE TABLE foo (i int);"))
 			Expect(results[1]).To(Equal(""))
 		})

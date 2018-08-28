@@ -30,7 +30,7 @@ var _ = Describe("backup integration tests", func() {
 
 			tableTestTable := backup.Relation{Schema: "testschema", Name: "testtable"}
 
-			Expect(len(tables)).To(Equal(2))
+			Expect(tables).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&tableTestTable, &tables[1], "SchemaOid", "Oid")
 		})
@@ -60,7 +60,7 @@ FORMAT 'csv';`)
 				}
 				sort.Strings(tableNames)
 
-				Expect(len(tables)).To(Equal(3))
+				Expect(tables).To(HaveLen(3))
 				Expect(tableNames).To(Equal(expectedTableNames))
 			})
 			It("returns external partition tables for an included parent table if the filter includes a parent partition table", func() {
@@ -111,7 +111,7 @@ FORMAT 'csv';`)
 				}
 				sort.Strings(tableNames)
 
-				Expect(len(tables)).To(Equal(5))
+				Expect(tables).To(HaveLen(5))
 				Expect(tableNames).To(Equal(expectedTableNames))
 			})
 		})
@@ -131,7 +131,7 @@ PARTITION BY LIST (gender)
 
 				tableRank := backup.Relation{Schema: "public", Name: "rank"}
 
-				Expect(len(tables)).To(Equal(1))
+				Expect(tables).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&tableRank, &tables[0], "SchemaOid", "Oid")
 			})
 			It("returns both parent and leaf partition tables if the leaf-partition-data flag is set and there are no include tables", func() {
@@ -155,7 +155,7 @@ PARTITION BY LIST (gender)
 				}
 				sort.Strings(tableNames)
 
-				Expect(len(tables)).To(Equal(4))
+				Expect(tables).To(HaveLen(4))
 				Expect(tableNames).To(Equal(expectedTableNames))
 			})
 			It("returns parent and included child partition table if the filter includes a leaf table; with and without leaf-partition-data", func() {
@@ -179,7 +179,7 @@ PARTITION BY LIST (gender)
 				}
 				sort.Strings(tableNames)
 
-				Expect(len(tables)).To(Equal(2))
+				Expect(tables).To(HaveLen(2))
 				Expect(tableNames).To(Equal(expectedTableNames))
 
 				backupCmdFlags.Set(utils.LEAF_PARTITION_DATA, "true")
@@ -190,7 +190,7 @@ PARTITION BY LIST (gender)
 				}
 				sort.Strings(tableNames)
 
-				Expect(len(tables)).To(Equal(2))
+				Expect(tables).To(HaveLen(2))
 				Expect(tableNames).To(Equal(expectedTableNames))
 			})
 			It("returns child partition tables for an included parent table if the leaf-partition-data flag is set and the filter includes a parent partition table", func() {
@@ -217,7 +217,7 @@ PARTITION BY LIST (gender)
 				}
 				sort.Strings(tableNames)
 
-				Expect(len(tables)).To(Equal(4))
+				Expect(tables).To(HaveLen(4))
 				Expect(tableNames).To(Equal(expectedTableNames))
 			})
 		})
@@ -234,7 +234,7 @@ PARTITION BY LIST (gender)
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "foo"}
 
-			Expect(len(tables)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 		It("returns user table information for tables in includeTables", func() {
@@ -250,7 +250,7 @@ PARTITION BY LIST (gender)
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "foo"}
 
-			Expect(len(tables)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 		It("returns user table information for tables not in excludeTables", func() {
@@ -266,7 +266,7 @@ PARTITION BY LIST (gender)
 
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
 
-			Expect(len(tables)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 		It("returns user table information for tables in includeSchema but not in excludeTables", func() {
@@ -284,7 +284,7 @@ PARTITION BY LIST (gender)
 			tables := backup.GetAllUserTables(connection)
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "bar"}
-			Expect(len(tables)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
 	})
@@ -318,7 +318,7 @@ PARTITION BY RANGE (year)
 			leaf33 := testutils.OidFromObjectName(connection, "public", "summer_sales_1_prt_3_2_prt_other_months", backup.TYPE_RELATION)
 			partTableMap := backup.GetPartitionTableMap(connection)
 
-			Expect(len(partTableMap)).To(Equal(13))
+			Expect(partTableMap).To(HaveLen(13))
 			structmatcher.ExpectStructsToMatch(partTableMap[parent], &backup.PartitionLevelInfo{Oid: parent, Level: "p", RootName: ""})
 			structmatcher.ExpectStructsToMatch(partTableMap[intermediate1], &backup.PartitionLevelInfo{Oid: intermediate1, Level: "i", RootName: "summer_sales"})
 			structmatcher.ExpectStructsToMatch(partTableMap[intermediate2], &backup.PartitionLevelInfo{Oid: intermediate2, Level: "i", RootName: "summer_sales"})
@@ -351,7 +351,7 @@ PARTITION BY RANGE (year)
 			columnD := backup.ColumnDefinition{Oid: 0, Num: 4, Name: "d", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "5", Comment: "", ACL: emptyColumnACL}
 			columnE := backup.ColumnDefinition{Oid: 0, Num: 5, Name: "e", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "PLAIN", DefaultVal: "", Comment: "", ACL: emptyColumnACL}
 
-			Expect(len(tableAtts)).To(Equal(4))
+			Expect(tableAtts).To(HaveLen(4))
 
 			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&columnC, &tableAtts[1], "Oid")
@@ -368,7 +368,7 @@ PARTITION BY RANGE (year)
 			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "double precision", Encoding: "compresstype=none,blocksize=32768,compresslevel=0", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL}
 			columnB := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "b", NotNull: false, HasDefault: false, Type: "text", Encoding: "blocksize=65536,compresstype=none,compresslevel=0", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL}
 
-			Expect(len(tableAtts)).To(Equal(2))
+			Expect(tableAtts).To(HaveLen(2))
 
 			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&columnB, &tableAtts[1], "Oid")
@@ -381,7 +381,7 @@ PARTITION BY RANGE (year)
 			privileges := backup.GetPrivilegesForColumns(connection)
 			tableAtts := backup.GetColumnDefinitions(connection, privileges)[oid]
 
-			Expect(len(tableAtts)).To(Equal(0))
+			Expect(tableAtts).To(BeEmpty())
 		})
 		It("returns table attributes with options only applicable to master", func() {
 			testutils.SkipIfBefore6(connection)
@@ -396,7 +396,7 @@ PARTITION BY RANGE (year)
 
 			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "character(8)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL, Options: "n_distinct=1", Collation: "public.some_coll"}
 
-			Expect(len(tableAtts)).To(Equal(1))
+			Expect(tableAtts).To(HaveLen(1))
 
 			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
 		})
@@ -411,8 +411,8 @@ PARTITION BY RANGE (year)
 
 			oid := testutils.OidFromObjectName(connection, "public", "default_privileges", backup.TYPE_RELATION)
 			expectedACL := []backup.ACL{}
-			Expect(len(metadataMap)).To(Equal(1))
-			Expect(len(metadataMap[oid])).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
+			Expect(metadataMap[oid]).To(HaveLen(1))
 			Expect(metadataMap[oid]["i"]).To(Equal(expectedACL))
 		})
 		It("Column with granted privileges", func() {
@@ -425,8 +425,8 @@ PARTITION BY RANGE (year)
 
 			oid := testutils.OidFromObjectName(connection, "public", "granted_privileges", backup.TYPE_RELATION)
 			expectedACL := []backup.ACL{{Grantee: "testrole", Select: true}}
-			Expect(len(metadataMap)).To(Equal(1))
-			Expect(len(metadataMap[oid])).To(Equal(1))
+			Expect(metadataMap).To(HaveLen(1))
+			Expect(metadataMap[oid]).To(HaveLen(1))
 			Expect(metadataMap[oid]["i"]).To(Equal(expectedACL))
 		})
 	})
@@ -544,7 +544,7 @@ PARTITION BY LIST (gender)
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
 
 			results := backup.GetPartitionDefinitions(connection)
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
 			// The spacing is very specific here and is output from the postgres function
@@ -581,7 +581,7 @@ PARTITION BY LIST (gender)
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 			results := backup.GetPartitionDefinitions(connection)
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
 			// The spacing is very specific here and is output from the postgres function
@@ -667,7 +667,7 @@ SET SUBPARTITION TEMPLATE
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
 
 			results := backup.GetPartitionTemplates(connection)
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
 			// The spacing is very specific here and is output from the postgres function
@@ -716,7 +716,7 @@ SET SUBPARTITION TEMPLATE
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 			results := backup.GetPartitionTemplates(connection)
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
 			// The spacing is very specific here and is output from the postgres function
@@ -743,7 +743,7 @@ SET SUBPARTITION TEMPLATE
 			oid := testutils.OidFromObjectName(connection, "public", "some_table", backup.TYPE_RELATION)
 
 			result := backup.GetTableType(connection)
-			Expect(len(result)).To(Equal(1))
+			Expect(result).To(HaveLen(1))
 
 			Expect(result[oid]).To(Equal("public.some_type"))
 		})
@@ -752,7 +752,7 @@ SET SUBPARTITION TEMPLATE
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.some_table")
 
 			result := backup.GetTableType(connection)
-			Expect(len(result)).To(Equal(0))
+			Expect(result).To(BeEmpty())
 		})
 	})
 
@@ -764,7 +764,7 @@ SET SUBPARTITION TEMPLATE
 			oid := testutils.OidFromObjectName(connection, "public", "some_table", backup.TYPE_RELATION)
 
 			result := backup.GetUnloggedTables(connection)
-			Expect(len(result)).To(Equal(1))
+			Expect(result).To(HaveLen(1))
 
 			Expect(result[oid]).To(BeTrue())
 		})
@@ -773,7 +773,7 @@ SET SUBPARTITION TEMPLATE
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.some_table")
 
 			result := backup.GetUnloggedTables(connection)
-			Expect(len(result)).To(Equal(0))
+			Expect(result).To(BeEmpty())
 		})
 	})
 
@@ -812,7 +812,7 @@ SET SUBPARTITION TEMPLATE
 			mySequence := backup.Relation{Schema: "public", Name: "my_sequence"}
 			mySequence2 := backup.Relation{Schema: "testschema", Name: "my_sequence2"}
 
-			Expect(len(sequences)).To(Equal(2))
+			Expect(sequences).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&mySequence2, &sequences[1], "SchemaOid", "Oid")
 		})
@@ -828,7 +828,7 @@ SET SUBPARTITION TEMPLATE
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 			sequences := backup.GetAllSequenceRelations(connection)
 
-			Expect(len(sequences)).To(Equal(1))
+			Expect(sequences).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
 		})
 		It("does not return sequences owned by included tables", func() {
@@ -841,7 +841,7 @@ SET SUBPARTITION TEMPLATE
 
 			sequences := backup.GetAllSequenceRelations(connection)
 
-			Expect(len(sequences)).To(Equal(0))
+			Expect(sequences).To(BeEmpty())
 		})
 		It("returns sequences owned by excluded tables if the sequence is not excluded", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE SEQUENCE public.my_sequence START 10")
@@ -854,7 +854,7 @@ SET SUBPARTITION TEMPLATE
 			backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.seq_table")
 			sequences := backup.GetAllSequenceRelations(connection)
 
-			Expect(len(sequences)).To(Equal(1))
+			Expect(sequences).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
 		})
 		It("does not return an excluded sequence", func() {
@@ -868,7 +868,7 @@ SET SUBPARTITION TEMPLATE
 			backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.sequence1")
 			sequences := backup.GetAllSequenceRelations(connection)
 
-			Expect(len(sequences)).To(Equal(1))
+			Expect(sequences).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&sequence2, &sequences[0], "SchemaOid", "Oid")
 		})
 		It("returns only the included sequence", func() {
@@ -882,7 +882,7 @@ SET SUBPARTITION TEMPLATE
 
 			sequences := backup.GetAllSequenceRelations(connection)
 
-			Expect(len(sequences)).To(Equal(1))
+			Expect(sequences).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&sequence1, &sequences[0], "SchemaOid", "Oid")
 		})
 	})
@@ -938,8 +938,8 @@ SET SUBPARTITION TEMPLATE
 
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connection)
 
-			Expect(len(sequenceOwnerTables)).To(Equal(1))
-			Expect(len(sequenceOwnerColumns)).To(Equal(1))
+			Expect(sequenceOwnerTables).To(HaveLen(1))
+			Expect(sequenceOwnerColumns).To(HaveLen(1))
 			Expect(sequenceOwnerTables["public.my_sequence"]).To(Equal("public.with_sequence"))
 			Expect(sequenceOwnerColumns["public.my_sequence"]).To(Equal("public.with_sequence.a"))
 		})
@@ -952,8 +952,8 @@ SET SUBPARTITION TEMPLATE
 			backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.my_table")
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connection)
 
-			Expect(len(sequenceOwnerTables)).To(Equal(0))
-			Expect(len(sequenceOwnerColumns)).To(Equal(0))
+			Expect(sequenceOwnerTables).To(BeEmpty())
+			Expect(sequenceOwnerColumns).To(BeEmpty())
 
 		})
 		It("returns sequence owner if both table and sequence are backed up", func() {
@@ -964,8 +964,8 @@ SET SUBPARTITION TEMPLATE
 
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.my_sequence,public.my_table")
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connection)
-			Expect(len(sequenceOwnerTables)).To(Equal(1))
-			Expect(len(sequenceOwnerColumns)).To(Equal(1))
+			Expect(sequenceOwnerTables).To(HaveLen(1))
+			Expect(sequenceOwnerColumns).To(HaveLen(1))
 		})
 		It("returns sequence owner if only the table is backed up", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.my_table(a int, b char(20));")
@@ -975,8 +975,8 @@ SET SUBPARTITION TEMPLATE
 
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.my_table")
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connection)
-			Expect(len(sequenceOwnerTables)).To(Equal(1))
-			Expect(len(sequenceOwnerColumns)).To(Equal(1))
+			Expect(sequenceOwnerTables).To(HaveLen(1))
+			Expect(sequenceOwnerColumns).To(HaveLen(1))
 		})
 	})
 	Describe("GetAllSequences", func() {
@@ -1021,7 +1021,7 @@ SET SUBPARTITION TEMPLATE
 
 			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: "SELECT pg_roles.rolname FROM pg_roles;", DependsUpon: nil}
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
 		})
 		It("returns a slice for view in a specific schema", func() {
@@ -1037,7 +1037,7 @@ SET SUBPARTITION TEMPLATE
 
 			viewDef := backup.View{Oid: 1, Schema: "testschema", Name: "simpleview", Definition: "SELECT pg_roles.rolname FROM pg_roles;", DependsUpon: nil}
 
-			Expect(len(results)).To(Equal(1))
+			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
 		})
 	})
@@ -1058,10 +1058,10 @@ SET SUBPARTITION TEMPLATE
 
 			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
-			Expect(len(tables)).To(Equal(1))
-			Expect(len(tables[0].DependsUpon)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
+			Expect(tables[0].DependsUpon).To(HaveLen(1))
 			Expect(tables[0].DependsUpon[0]).To(Equal("public.parent"))
-			Expect(len(tables[0].Inherits)).To(Equal(1))
+			Expect(tables[0].Inherits).To(HaveLen(1))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
 		})
 		It("constructs dependencies correctly if there are two tables dependent on one table", func() {
@@ -1078,14 +1078,14 @@ SET SUBPARTITION TEMPLATE
 
 			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
 
-			Expect(len(tables)).To(Equal(2))
-			Expect(len(tables[0].DependsUpon)).To(Equal(1))
+			Expect(tables).To(HaveLen(2))
+			Expect(tables[0].DependsUpon).To(HaveLen(1))
 			Expect(tables[0].DependsUpon[0]).To(Equal("public.parent"))
-			Expect(len(tables[0].Inherits)).To(Equal(1))
+			Expect(tables[0].Inherits).To(HaveLen(1))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
-			Expect(len(tables[1].DependsUpon)).To(Equal(1))
+			Expect(tables[1].DependsUpon).To(HaveLen(1))
 			Expect(tables[1].DependsUpon[0]).To(Equal("public.parent"))
-			Expect(len(tables[1].Inherits)).To(Equal(1))
+			Expect(tables[1].Inherits).To(HaveLen(1))
 			Expect(tables[1].Inherits[0]).To(Equal("public.parent"))
 		})
 		It("constructs dependencies correctly if there is one table dependent on two tables", func() {
@@ -1103,23 +1103,23 @@ SET SUBPARTITION TEMPLATE
 
 			sort.Strings(tables[0].DependsUpon)
 			sort.Strings(tables[0].Inherits)
-			Expect(len(tables)).To(Equal(1))
-			Expect(len(tables[0].DependsUpon)).To(Equal(2))
+			Expect(tables).To(HaveLen(1))
+			Expect(tables[0].DependsUpon).To(HaveLen(2))
 			Expect(tables[0].DependsUpon[0]).To(Equal("public.parent_one"))
 			Expect(tables[0].DependsUpon[1]).To(Equal("public.parent_two"))
-			Expect(len(tables[0].Inherits)).To(Equal(2))
+			Expect(tables[0].Inherits).To(HaveLen(2))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent_one"))
 			Expect(tables[0].Inherits[1]).To(Equal("public.parent_two"))
 		})
 		It("constructs dependencies correctly if there are no table dependencies", func() {
 			tables := []backup.Relation{}
 			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
-			Expect(len(tables)).To(Equal(0))
+			Expect(tables).To(BeEmpty())
 		})
 		It("constructs dependencies correctly if there are no table dependencies while filtering", func() {
 			tables := []backup.Relation{}
 			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, true)
-			Expect(len(tables)).To(Equal(0))
+			Expect(tables).To(BeEmpty())
 		})
 		It("constructs dependencies correctly if there are two dependent tables but one is not in the backup set", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent(i int)")
@@ -1134,9 +1134,9 @@ SET SUBPARTITION TEMPLATE
 
 			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, true)
 
-			Expect(len(tables)).To(Equal(1))
-			Expect(len(tables[0].DependsUpon)).To(Equal(0))
-			Expect(len(tables[0].Inherits)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
+			Expect(tables[0].DependsUpon).To(BeEmpty())
+			Expect(tables[0].Inherits).To(HaveLen(1))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
 		})
 		It("does not record a dependency of an external leaf partition on a parent table", func() {
@@ -1161,9 +1161,9 @@ FORMAT 'csv';`)
 
 			tables = backup.ConstructTableDependencies(connection, tables, partTableDefs, []backup.ExternalProtocol{}, false)
 
-			Expect(len(tables)).To(Equal(1))
-			Expect(len(tables[0].DependsUpon)).To(Equal(0))
-			Expect(len(tables[0].Inherits)).To(Equal(0))
+			Expect(tables).To(HaveLen(1))
+			Expect(tables[0].DependsUpon).To(BeEmpty())
+			Expect(tables[0].Inherits).To(BeEmpty())
 		})
 		It("constructs dependencies correctly if there is one table dependent on one protocol", func() {
 			testhelper.AssertQueryRuns(connection, `CREATE FUNCTION read_from_s3() RETURNS integer
@@ -1188,10 +1188,10 @@ FORMAT 'csv';`)
 			tableDef := backup.TableDefinition{ExtTableDef: backup.ExternalTableDefinition{Location: "s3://192.168.0.1"}}
 			tables = backup.ConstructTableDependencies(connection, tables, map[uint32]backup.TableDefinition{tableOid: tableDef}, []backup.ExternalProtocol{{Name: "s3"}}, false)
 
-			Expect(len(tables)).To(Equal(1))
-			Expect(len(tables[0].DependsUpon)).To(Equal(1))
+			Expect(tables).To(HaveLen(1))
+			Expect(tables[0].DependsUpon).To(HaveLen(1))
 			Expect(tables[0].DependsUpon[0]).To(Equal("s3"))
-			Expect(len(tables[0].Inherits)).To(Equal(0))
+			Expect(tables[0].Inherits).To(BeEmpty())
 		})
 	})
 	Describe("ConstructViewDependencies", func() {
@@ -1209,8 +1209,8 @@ FORMAT 'csv';`)
 
 			views = backup.ConstructViewDependencies(connection, views)
 
-			Expect(len(views)).To(Equal(1))
-			Expect(len(views[0].DependsUpon)).To(Equal(2))
+			Expect(views).To(HaveLen(1))
+			Expect(views[0].DependsUpon).To(HaveLen(2))
 			Expect(views[0].DependsUpon[0]).To(Equal("public.parent1"))
 			Expect(views[0].DependsUpon[1]).To(Equal("public.parent2"))
 		})
