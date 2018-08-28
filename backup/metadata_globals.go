@@ -273,7 +273,7 @@ ALTER ROLE %s %s;`, role.Name, roleGUC)
 }
 
 func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roleMembers []RoleMember) {
-	metadataFile.MustPrintln("\n")
+	metadataFile.MustPrintf("\n\n")
 	for _, roleMember := range roleMembers {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nGRANT %s TO %s", roleMember.Role, roleMember.Member)

@@ -21,7 +21,7 @@ import (
  */
 func PrintCreateShellTypeStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, types []Type) {
 	start := metadataFile.ByteCount
-	metadataFile.MustPrintln("\n")
+	metadataFile.MustPrintf("\n\n")
 	for _, typ := range types {
 		if typ.Type == "b" || typ.Type == "p" {
 			typeFQN := utils.MakeFQN(typ.Schema, typ.Name)
