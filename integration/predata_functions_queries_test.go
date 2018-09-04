@@ -259,8 +259,7 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			}
 			if connection.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
-				// FIXME: The below line should be "aggregateDef.CombineFunction = prelimOid" once GPDB6 accepts the prefunc syntax
-				aggregateDef.CombineFunction = 0
+				aggregateDef.CombineFunction = prelimOid
 			}
 
 			Expect(len(result)).To(Equal(1))
@@ -313,8 +312,7 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 			}
 			if connection.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
-				// FIXME: The below line should be "aggregateDef.CombineFunction = prelimOid" once GPDB6 accepts the prefunc syntax
-				aggregateDef.CombineFunction = 0
+				aggregateDef.CombineFunction = prelimOid
 			}
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
