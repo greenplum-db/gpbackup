@@ -667,7 +667,7 @@ func GetViews(connection *dbconn.DBConn) []View {
 	results := make([]View, 0)
 	optionsStr := ""
 	if connection.Version.AtLeast("6") {
-		optionsStr = "coalesce(' WITH (' || array_to_string(reloptions, ', ') || ')', '') AS options,"
+		optionsStr = "coalesce(' WITH (' || array_to_string(c.reloptions, ', ') || ')', '') AS options,"
 	}
 	query := fmt.Sprintf(`
 SELECT
