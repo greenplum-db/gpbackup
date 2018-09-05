@@ -111,6 +111,10 @@ type ExternalProtocol struct {
 	FuncMap       map[uint32]string
 }
 
+func (p ExternalProtocol) FQN() string {
+	return p.Name
+}
+
 func GetExternalProtocols(connection *dbconn.DBConn) []ExternalProtocol {
 	results := make([]ExternalProtocol, 0)
 	query := `

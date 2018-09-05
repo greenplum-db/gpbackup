@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -83,30 +82,6 @@ func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMa
 type Sortable interface {
 	FQN() string
 	Dependencies() []string
-}
-
-func (r Relation) FQN() string {
-	return utils.MakeFQN(r.Schema, r.Name)
-}
-
-func (v View) FQN() string {
-	return utils.MakeFQN(v.Schema, v.Name)
-}
-
-func (f Function) FQN() string {
-	/*
-	 * We need to include arguments to differentiate functions with the same name;
-	 * we don't use IdentArgs because we already have Arguments in the funcInfoMap.
-	 */
-	return fmt.Sprintf("%s(%s)", utils.MakeFQN(f.Schema, f.Name), f.Arguments)
-}
-
-func (t Type) FQN() string {
-	return utils.MakeFQN(t.Schema, t.Name)
-}
-
-func (p ExternalProtocol) FQN() string {
-	return p.Name
 }
 
 func (r Relation) Dependencies() []string {

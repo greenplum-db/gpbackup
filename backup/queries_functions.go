@@ -38,6 +38,14 @@ type Function struct {
 	ExecLocation      string `db:"proexeclocation"`
 }
 
+func (f Function) FQN() string {
+	/*
+	 * We need to include arguments to differentiate functions with the same name;
+	 * we don't use IdentArgs because we already have Arguments in the funcInfoMap.
+	 */
+	return fmt.Sprintf("%s(%s)", utils.MakeFQN(f.Schema, f.Name), f.Arguments)
+}
+
 /*
  * The functions pg_get_function_arguments, pg_getfunction_identity_arguments,
  * and pg_get_function_result were introduced in GPDB 5, so we can use those

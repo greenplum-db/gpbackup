@@ -46,6 +46,19 @@ func GetAllUserTables(connection *dbconn.DBConn) []Relation {
 	return GetUserTables(connection)
 }
 
+type Relation struct {
+	SchemaOid   uint32
+	Oid         uint32
+	Schema      string
+	Name        string
+	DependsUpon []string // Used for dependency sorting
+	Inherits    []string // Only used for printing INHERITS statement
+}
+
+func (r Relation) FQN() string {
+	return utils.MakeFQN(r.Schema, r.Name)
+}
+
 /*
  * This function also handles exclude table filtering since the way we do
  * it is currently much simpler than the include case.
@@ -656,6 +669,10 @@ type View struct {
 	Name        string
 	Definition  string
 	DependsUpon []string
+}
+
+func (v View) FQN() string {
+	return utils.MakeFQN(v.Schema, v.Name)
 }
 
 func GetViews(connection *dbconn.DBConn) []View {

@@ -16,15 +16,6 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-type Relation struct {
-	SchemaOid   uint32
-	Oid         uint32
-	Schema      string
-	Name        string
-	DependsUpon []string // Used for dependency sorting
-	Inherits    []string // Only used for printing INHERITS statement
-}
-
 /*
  * Given a list of Relations, this function returns a sorted list of their Schemas.
  * It assumes that the Relation list is sorted by schema and then by table, so it

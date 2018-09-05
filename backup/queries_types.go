@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/lib/pq"
 )
 
@@ -116,6 +117,10 @@ type Type struct {
 	StorageOptions  string
 	Collatable      bool
 	Collation       string
+}
+
+func (t Type) FQN() string {
+	return utils.MakeFQN(t.Schema, t.Name)
 }
 
 func GetBaseTypes(connection *dbconn.DBConn) []Type {
