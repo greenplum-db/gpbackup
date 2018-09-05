@@ -434,7 +434,7 @@ func PrintCreateViewStatements(metadataFile *utils.FileWithByteCount, toc *utils
 	for _, view := range views {
 		start := metadataFile.ByteCount
 		viewFQN := utils.MakeFQN(view.Schema, view.Name)
-		metadataFile.MustPrintf("\n\nCREATE VIEW %s AS %s\n", viewFQN, view.Definition)
+		metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", viewFQN, view.Options, view.Definition)
 		PrintObjectMetadata(metadataFile, viewMetadata[view.Oid], viewFQN, "VIEW")
 		toc.AddPredataEntry(view.Schema, view.Name, "VIEW", "", start, metadataFile)
 	}

@@ -340,6 +340,21 @@ SET SUBPARTITION TEMPLATE  ` + `
 			structmatcher.ExpectStructsToMatch(&viewDef, &resultViews[0])
 			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
 		})
+		It("creates a view with options", func() {
+			testutils.SkipIfBefore6(connection)
+			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Options: " WITH (security_barrier=true)", Definition: "SELECT pg_roles.rolname FROM pg_roles;", DependsUpon: nil}
+
+			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewDef}, backup.MetadataMap{})
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.simpleview")
+
+			resultViews := backup.GetViews(connection)
+
+			viewDef.Oid = testutils.OidFromObjectName(connection, "public", "simpleview", backup.TYPE_RELATION)
+			Expect(resultViews).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatch(&viewDef, &resultViews[0])
+		})
 	})
 	Describe("PrintCreateSequenceStatements", func() {
 		var (

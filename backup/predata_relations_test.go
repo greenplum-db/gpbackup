@@ -813,6 +813,14 @@ REVOKE ALL ON shamwow.shazam FROM PUBLIC;
 REVOKE ALL ON shamwow.shazam FROM testrole;
 GRANT ALL ON shamwow.shazam TO testrole;`)
 		})
+		It("can print a view with options", func() {
+			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", Options: " WITH (security_barrier=true)", DependsUpon: []string{}}
+			viewMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne}, viewMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", `"WowZa"`, "VIEW")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer,
+				`CREATE VIEW public."WowZa" WITH (security_barrier=true) AS SELECT rolname FROM pg_role;`)
+		})
 	})
 	Describe("PrintAlterSequenceStatements", func() {
 		baseSequence := backup.Relation{Schema: "public", Name: "seq_name"}

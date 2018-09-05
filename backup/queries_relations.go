@@ -654,6 +654,7 @@ type View struct {
 	Oid         uint32
 	Schema      string
 	Name        string
+	Options     string
 	Definition  string
 	DependsUpon []string
 }
@@ -664,18 +665,22 @@ func (v View) ToString() string {
 
 func GetViews(connection *dbconn.DBConn) []View {
 	results := make([]View, 0)
-
+	optionsStr := ""
+	if connection.Version.AtLeast("6") {
+		optionsStr = "coalesce(' WITH (' || array_to_string(reloptions, ', ') || ')', '') AS options,"
+	}
 	query := fmt.Sprintf(`
 SELECT
 	c.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(c.relname) AS name,
+	%s
 	pg_get_viewdef(c.oid) AS definition
 FROM pg_class c
 LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE c.relkind = 'v'::"char"
 AND %s
-AND %s;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+AND %s;`, optionsStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results

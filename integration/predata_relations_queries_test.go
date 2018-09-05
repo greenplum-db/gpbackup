@@ -1040,6 +1040,18 @@ SET SUBPARTITION TEMPLATE
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
 		})
+		It("returns a slice for a view with options", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE VIEW public.simpleview WITH (security_barrier=true) AS SELECT rolname FROM pg_roles")
+			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.simpleview")
+
+			results := backup.GetViews(connection)
+
+			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: "SELECT pg_roles.rolname FROM pg_roles;", DependsUpon: nil, Options: " WITH (security_barrier=true)"}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
+		})
 	})
 	Describe("ConstructTableDependencies", func() {
 		child := backup.Relation{Schema: "public", Name: "child"}
