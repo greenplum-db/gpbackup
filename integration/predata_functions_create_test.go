@@ -207,6 +207,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 3, FinalFunction: 4,
 			TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 		}
+		gpdb6AggregateDef := backup.Aggregate{
+			Schema: "public", Name: "agg_6_features", Arguments: "numeric, numeric",
+			IdentArgs: "numeric, numeric", TransitionFunction: 1, CombineFunction: 2,
+			FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", TransitionDataSize: 1000,
+			InitialValue: "0", IsOrdered: false,
+		}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc_accum", Arguments: "numeric, numeric, numeric"},
 			2: {QualifiedName: "public.mypre_accum", Arguments: "numeric, numeric"},
@@ -273,6 +279,17 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			Expect(len(resultAggregates)).To(Equal(1))
 			structmatcher.ExpectStructsToMatchExcluding(&complexAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction")
+		})
+		It("creates an aggregate with features specific to GPDB6", func() {
+			testutils.SkipIfBefore6(connection)
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{gpdb6AggregateDef}, funcInfoMap, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP AGGREGATE public.agg_6_features(numeric, numeric)`)
+			resultAggregates := backup.GetAggregates(connection)
+
+			Expect(len(resultAggregates)).To(Equal(1))
+			structmatcher.ExpectStructsToMatchExcluding(&gpdb6AggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction", "CombineFunction")
 		})
 	})
 	Describe("PrintCreateCastStatements", func() {

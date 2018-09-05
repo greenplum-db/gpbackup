@@ -354,6 +354,16 @@ $_$`)
 	SORTOP = public.mysortop
 );`)
 		})
+		It("prints an aggregate with a specified transition data size", func() {
+			aggDefs[0].TransitionDataSize = 1000
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	SSPACE = 1000
+);`)
+		})
 		It("prints an aggregate with multiple specifications", func() {
 			aggDefs[0].FinalFunction = 3
 			aggDefs[0].SortOperator = 4

@@ -257,6 +257,7 @@ type Aggregate struct {
 	SortOperator        uint32 `db:"aggsortop"`
 	Hypothetical        bool
 	TransitionDataType  string
+	TransitionDataSize  int `db:"aggtransspace"`
 	InitialValue        string
 	InitValIsNull       bool
 	IsOrdered           bool `db:"aggordered"`
@@ -318,6 +319,7 @@ SELECT
 	a.aggsortop::regproc::oid,
 	(a.aggkind = 'h') AS hypothetical,
 	format_type(a.aggtranstype, NULL) as transitiondatatype,
+	aggtransspace,
 	coalesce(a.agginitval, '') AS initialvalue,
 	(a.agginitval IS NULL) AS initvalisnull
 FROM pg_aggregate a

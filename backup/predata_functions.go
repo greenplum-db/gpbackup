@@ -112,6 +112,9 @@ func PrintCreateAggregateStatements(metadataFile *utils.FileWithByteCount, toc *
 		metadataFile.MustPrintf("\tSFUNC = %s,\n", funcInfoMap[aggDef.TransitionFunction].QualifiedName)
 		metadataFile.MustPrintf("\tSTYPE = %s", aggDef.TransitionDataType)
 
+		if aggDef.TransitionDataSize != 0 {
+			metadataFile.MustPrintf(",\n\tSSPACE = %d", aggDef.TransitionDataSize)
+		}
 		if aggDef.PreliminaryFunction != 0 {
 			metadataFile.MustPrintf(",\n\tPREFUNC = %s", funcInfoMap[aggDef.PreliminaryFunction].QualifiedName)
 		}

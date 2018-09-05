@@ -373,6 +373,7 @@ CREATE FUNCTION public.mycombine_accum(numeric, numeric)
 CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 	SFUNC = public.mysfunc_accum,
 	STYPE = numeric,
+	SSPACE = 1000,
 	COMBINEFUNC = public.mycombine_accum,
 	INITCOND = 0 );
 `)
@@ -386,7 +387,8 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "agg_combinefunc", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, CombineFunction: combineOid,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", IsOrdered: false,
+				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", TransitionDataSize: 1000,
+				InitialValue: "0", IsOrdered: false,
 			}
 
 			Expect(len(result)).To(Equal(1))
