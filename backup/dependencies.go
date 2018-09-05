@@ -86,7 +86,7 @@ type Sortable interface {
 }
 
 func (r Relation) FQN() string {
-	return r.ToString()
+	return utils.MakeFQN(r.Schema, r.Name)
 }
 
 func (v View) FQN() string {

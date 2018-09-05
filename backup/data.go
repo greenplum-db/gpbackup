@@ -73,7 +73,7 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, destinationToWr
 
 	copyCommand := fmt.Sprintf("PROGRAM '%s%s %s %s'", checkPipeExistsCommand, customPipeThroughCommand, sendToDestinationCommand, destinationToWrite)
 
-	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.ToString(), copyCommand, tableDelim)
+	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.FQN(), copyCommand, tableDelim)
 	result, err := connectionPool.Exec(query, connNum)
 	if err != nil {
 		return 0, err
@@ -90,9 +90,9 @@ func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedM
 		counters.mutex.Unlock()
 		if gplog.GetVerbosity() > gplog.LOGINFO {
 			// No progress bar at this log level, so we note table count here
-			gplog.Verbose("Writing data for table %s to file (table %d of %d)", table.ToString(), numTables, counters.TotalRegTables)
+			gplog.Verbose("Writing data for table %s to file (table %d of %d)", table.FQN(), numTables, counters.TotalRegTables)
 		} else {
-			gplog.Verbose("Writing data for table %s to file", table.ToString())
+			gplog.Verbose("Writing data for table %s to file", table.FQN())
 		}
 
 		destinationToWrite := ""
@@ -108,7 +108,7 @@ func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedM
 		rowsCopiedMap[table.Oid] = rowsCopied
 		counters.ProgressBar.Increment()
 	} else {
-		gplog.Verbose("Skipping data backup of table %s because it is an external table.", table.ToString())
+		gplog.Verbose("Skipping data backup of table %s because it is an external table.", table.FQN())
 	}
 	return nil
 }

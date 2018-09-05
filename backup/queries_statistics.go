@@ -61,7 +61,7 @@ func GetAttributeStatistics(connection *dbconn.DBConn, tables []Relation) map[ui
 	}
 	tablenames := make([]string, 0)
 	for _, table := range tables {
-		tablenames = append(tablenames, table.ToString())
+		tablenames = append(tablenames, table.FQN())
 	}
 	query := fmt.Sprintf(`
 SELECT
@@ -123,7 +123,7 @@ type TupleStatistic struct {
 func GetTupleStatistics(connection *dbconn.DBConn, tables []Relation) map[uint32]TupleStatistic {
 	tablenames := make([]string, 0)
 	for _, table := range tables {
-		tablenames = append(tablenames, table.ToString())
+		tablenames = append(tablenames, table.FQN())
 	}
 	query := fmt.Sprintf(`
 SELECT

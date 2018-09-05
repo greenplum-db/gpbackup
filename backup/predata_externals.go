@@ -57,7 +57,7 @@ func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, to
 	}
 	extTableDef := tableDef.ExtTableDef
 	extTableDef.Type, extTableDef.Protocol = DetermineExternalTableCharacteristics(extTableDef)
-	metadataFile.MustPrintf("\n\nCREATE %s TABLE %s (\n", tableTypeStrMap[extTableDef.Type], table.ToString())
+	metadataFile.MustPrintf("\n\nCREATE %s TABLE %s (\n", tableTypeStrMap[extTableDef.Type], table.FQN())
 	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, "")
 	metadataFile.MustPrintf(") ")
 	PrintExternalTableStatements(metadataFile, table, extTableDef)
@@ -193,7 +193,7 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table R
 		 * the value of pg_exttable.fmterrtbl will match the table's own name.
 		 */
 		errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
-		if errTableFQN == table.ToString() {
+		if errTableFQN == table.FQN() {
 			metadataFile.MustPrintf("\nLOG ERRORS")
 		} else if extTableDef.ErrTableName != "" {
 			metadataFile.MustPrintf("\nLOG ERRORS INTO %s", errTableFQN)

@@ -9,12 +9,12 @@ import (
 func FilterTablesForIncremental(lastBackupTOC, currentTOC *utils.TOC, tables []Relation) []Relation {
 	var filteredTables []Relation
 	for _, table := range tables {
-		currentAOEntry, isAOTable := currentTOC.IncrementalMetadata.AO[table.ToString()]
+		currentAOEntry, isAOTable := currentTOC.IncrementalMetadata.AO[table.FQN()]
 		if !isAOTable {
 			filteredTables = append(filteredTables, table)
 			continue
 		}
-		previousAOEntry := lastBackupTOC.IncrementalMetadata.AO[table.ToString()]
+		previousAOEntry := lastBackupTOC.IncrementalMetadata.AO[table.FQN()]
 
 		if previousAOEntry.Modcount != currentAOEntry.Modcount || previousAOEntry.LastDDLTimestamp != currentAOEntry.LastDDLTimestamp {
 			filteredTables = append(filteredTables, table)
@@ -77,19 +77,19 @@ func PopulateRestorePlan(changedTables []Relation,
 	}
 
 	for _, changedTable := range changedTables {
-		changedTableFQN := changedTable.ToString()
+		changedTableFQN := changedTable.FQN()
 		currBackupRestorePlanEntry.TableFQNs = append(currBackupRestorePlanEntry.TableFQNs, changedTableFQN)
 	}
 
 	changedTableFQNs := make(map[string]bool)
 	for _, changedTable := range changedTables {
-		changedTableFQN := changedTable.ToString()
+		changedTableFQN := changedTable.FQN()
 		changedTableFQNs[changedTableFQN] = true
 	}
 
 	allTableFQNs := make(map[string]bool)
 	for _, table := range allTables {
-		tableFQN := table.ToString()
+		tableFQN := table.FQN()
 		allTableFQNs[tableFQN] = true
 	}
 

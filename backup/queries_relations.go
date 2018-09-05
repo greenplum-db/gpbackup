@@ -496,7 +496,7 @@ func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, ta
 		tableNameSet = utils.NewIncludeSet([]string{})
 		tableOidList = make([]string, len(tables))
 		for i, table := range tables {
-			tableNameSet.Add(table.ToString())
+			tableNameSet.Add(table.FQN())
 			tableOidList[i] = fmt.Sprintf("%d", table.Oid)
 		}
 	}
@@ -658,10 +658,6 @@ type View struct {
 	DependsUpon []string
 }
 
-func (v View) ToString() string {
-	return utils.MakeFQN(v.Schema, v.Name)
-}
-
 func GetViews(connection *dbconn.DBConn) []View {
 	results := make([]View, 0)
 
@@ -716,7 +712,7 @@ func LockTables(connection *dbconn.DBConn, tables []Relation) {
 	progressBar := utils.NewProgressBar(len(tables), "Locks acquired: ", utils.PB_VERBOSE)
 	progressBar.Start()
 	for _, table := range tables {
-		connection.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", table.ToString()))
+		connection.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", table.FQN()))
 		progressBar.Increment()
 	}
 	progressBar.Finish()

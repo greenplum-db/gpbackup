@@ -26,14 +26,6 @@ type Relation struct {
 }
 
 /*
- * This function prints a table in fully-qualified schema.table format, with
- * everything quoted and escaped appropriately.
- */
-func (t Relation) ToString() string {
-	return utils.MakeFQN(t.Schema, t.Name)
-}
-
-/*
  * Given a list of Relations, this function returns a sorted list of their Schemas.
  * It assumes that the Relation list is sorted by schema and then by table, so it
  * doesn't need to do any sorting itself.
@@ -82,7 +74,7 @@ func SplitTablesByPartitionType(tables []Relation, tableDefs map[uint32]TableDef
 					dataTables = append(dataTables, table)
 				}
 			} else if len(includeList) > 0 {
-				if includeSet.MatchesFilter(table.ToString()) {
+				if includeSet.MatchesFilter(table.FQN()) {
 					dataTables = append(dataTables, table)
 				}
 			}
@@ -271,7 +263,7 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 		unloggedStr = "UNLOGGED "
 	}
 
-	metadataFile.MustPrintf("\n\nCREATE %sTABLE %s %s(\n", unloggedStr, table.ToString(), typeStr)
+	metadataFile.MustPrintf("\n\nCREATE %sTABLE %s %s(\n", unloggedStr, table.FQN(), typeStr)
 
 	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, tableDef.TableType)
 	metadataFile.MustPrintf(") ")
@@ -328,13 +320,13 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Relation, columnDefs []ColumnDefinition) {
 	for _, column := range columnDefs {
 		if column.StatTarget > -1 {
-			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STATISTICS %d;", table.ToString(), column.Name, column.StatTarget)
+			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STATISTICS %d;", table.FQN(), column.Name, column.StatTarget)
 		}
 		if column.StorageType != "" {
-			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STORAGE %s;", table.ToString(), column.Name, column.StorageType)
+			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STORAGE %s;", table.FQN(), column.Name, column.StorageType)
 		}
 		if column.Options != "" {
-			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET (%s);", table.ToString(), column.Name, column.Options)
+			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET (%s);", table.FQN(), column.Name, column.Options)
 		}
 	}
 }
@@ -344,16 +336,16 @@ func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Rel
  * statement for both regular and external tables.
  */
 func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
-	PrintObjectMetadata(metadataFile, tableMetadata, table.ToString(), "TABLE")
+	PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "TABLE")
 
 	for _, att := range tableDef.ColumnDefs {
 		if att.Comment != "" {
 			escapedComment := utils.EscapeSingleQuotes(att.Comment)
-			metadataFile.MustPrintf("\n\nCOMMENT ON COLUMN %s.%s IS '%s';\n", table.ToString(), att.Name, escapedComment)
+			metadataFile.MustPrintf("\n\nCOMMENT ON COLUMN %s.%s IS '%s';\n", table.FQN(), att.Name, escapedComment)
 		}
 		if len(att.ACL) > 0 {
 			columnMetadata := ObjectMetadata{Privileges: att.ACL, Owner: tableMetadata.Owner}
-			columnPrivileges := columnMetadata.GetPrivilegesStatements(table.ToString(), "COLUMN", att.Name)
+			columnPrivileges := columnMetadata.GetPrivilegesStatements(table.FQN(), "COLUMN", att.Name)
 			metadataFile.MustPrintln(columnPrivileges)
 		}
 	}
@@ -368,8 +360,8 @@ func GetAllSequences(connection *dbconn.DBConn, sequenceOwnerTables map[string]s
 	sequenceRelations := GetAllSequenceRelations(connection)
 	sequences := make([]Sequence, 0)
 	for _, seqRelation := range sequenceRelations {
-		seqDef := GetSequenceDefinition(connection, seqRelation.ToString())
-		seqDef.OwningTable = sequenceOwnerTables[seqRelation.ToString()]
+		seqDef := GetSequenceDefinition(connection, seqRelation.FQN())
+		seqDef.OwningTable = sequenceOwnerTables[seqRelation.FQN()]
 		sequence := Sequence{seqRelation, seqDef}
 		sequences = append(sequences, sequence)
 	}
@@ -385,7 +377,7 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 	minVal := int64(math.MinInt64)
 	for _, sequence := range sequences {
 		start := metadataFile.ByteCount
-		seqFQN := sequence.ToString()
+		seqFQN := sequence.FQN()
 		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", seqFQN)
 		if connectionPool.Version.AtLeast("6") {
 			metadataFile.MustPrintln("\tSTART WITH", sequence.StartVal)
@@ -420,7 +412,7 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, sequences []Sequence, sequenceColumnOwners map[string]string) {
 	gplog.Verbose("Writing ALTER SEQUENCE statements to metadata file")
 	for _, sequence := range sequences {
-		seqFQN := sequence.ToString()
+		seqFQN := sequence.FQN()
 		// owningColumn is quoted when the map is constructed in GetSequenceColumnOwnerMap() and doesn't need to be quoted again
 		if owningColumn, hasColumnOwner := sequenceColumnOwners[seqFQN]; hasColumnOwner {
 			start := metadataFile.ByteCount
