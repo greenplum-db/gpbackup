@@ -127,8 +127,12 @@ func ValidateFilterRelationsInBackupSet(relationList []string) {
 			return
 		}
 	}
-	for _, entry := range globalTOC.DataEntries {
-		fqn := utils.MakeFQN(entry.Schema, entry.Name)
+
+	dataEntries := make([]string, 0)
+	for _, restorePlanEntry := range backupConfig.RestorePlan {
+		dataEntries = append(dataEntries, restorePlanEntry.TableFQNs...)
+	}
+	for _, fqn := range dataEntries {
 		if _, ok := relationMap[fqn]; ok {
 			delete(relationMap, fqn)
 		}

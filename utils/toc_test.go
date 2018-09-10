@@ -34,7 +34,7 @@ var _ = Describe("utils/toc tests", func() {
 	BeforeEach(func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "global")
 	})
-	Describe("GetSqlStatementForObjectTypes", func() {
+	Describe("GetSQLStatementForObjectTypes", func() {
 		// Dummy variables to help clarify which arguments are non-empty in a given test
 		var noInObj, noExObj, noInSchema, noExSchema, noInRelation, noExRelation []string
 		It("returns statement for a single object type", func() {

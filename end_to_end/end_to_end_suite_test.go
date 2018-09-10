@@ -291,9 +291,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				os.Remove("/tmp/include-tables.txt")
 			})
 			It("runs gpbackup and gprestore with include-table restore flag against a leaf partition", func() {
-				if useOldBackupVersion {
-					Skip("Feature not supported in gpbackup 1.0.0")
-				}
+				skipIfOldBackupVersionBefore("1.7.2")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--include-table", "public.sales_1_prt_jan17")
 
