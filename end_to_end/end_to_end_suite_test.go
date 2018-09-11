@@ -585,6 +585,20 @@ var _ = Describe("backup end to end integration tests", func() {
 						"public.sales_1_prt_mar17": 2,
 					})
 				})
+				It("restores from full incremental backup with partition tables with restore table filtering", func() {
+					testhelper.AssertQueryRuns(backupConn, "INSERT into sales VALUES(19, '2017-02-15'::date, 100)")
+					defer testhelper.AssertQueryRuns(backupConn, "DELETE from sales where id=19")
+					_ = gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data")
+
+					incremental1Timestamp := gpbackup(gpbackupPath, backupHelperPath, "--incremental", "--leaf-partition-data")
+
+					gprestore(gprestorePath, restoreHelperPath, incremental1Timestamp, "--redirect-db", "restoredb", "--include-table", "public.sales_1_prt_feb17")
+
+					assertDataRestored(restoreConn, map[string]int{
+						"public.sales":             2,
+						"public.sales_1_prt_feb17": 2,
+					})
+				})
 				It("restores from a new incremental backup", func() {
 					if !useOldBackupVersion {
 						Skip("This test is only needed for old backup versions")
@@ -736,7 +750,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats", "--backup-dir", backupdir)
 			files, _ := filepath.Glob(filepath.Join(backupdir, "*-1/backups/*", timestamp, "*statistics.sql"))
 
-			Expect(len(files)).To(Equal(1))
+			Expect(files).To(HaveLen(1))
 			output := gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--with-stats", "--backup-dir", backupdir)
 
 			Expect(string(output)).To(ContainSubstring("Query planner statistics restore complete"))

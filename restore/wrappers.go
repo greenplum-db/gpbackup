@@ -172,6 +172,12 @@ func GetRestoreMetadataStatements(section string, filename string, includeObject
 		if filterRelations {
 			inRelations = MustGetFlagStringSlice(utils.INCLUDE_RELATION)
 			exRelations = MustGetFlagStringSlice(utils.EXCLUDE_RELATION)
+			fpInfoList := GetBackupFPInfoListFromRestorePlan()
+			for _, fpInfo := range fpInfoList {
+				tocFilename := fpInfo.GetTOCFilePath()
+				toc := utils.NewTOC(tocFilename)
+				inRelations = append(inRelations, utils.GetPartitionRootData(toc.DataEntries, inRelations)...)
+			}
 		}
 	}
 	statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inRelations, exRelations)
