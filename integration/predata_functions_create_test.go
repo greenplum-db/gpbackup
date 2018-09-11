@@ -218,6 +218,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			2: {QualifiedName: "public.mypre_accum", Arguments: "numeric, numeric"},
 			3: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
 			4: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
+			5: {QualifiedName: "pg_catalog.numeric_avg", Arguments: `internal`},
+			6: {QualifiedName: "pg_catalog.numeric_avg_serialize", Arguments: `internal`},
+			7: {QualifiedName: "pg_catalog.numeric_avg_deserialize", Arguments: `bytea, internal`},
+			8: {QualifiedName: "pg_catalog.numeric_avg_accum", Arguments: `numeric, numeric`},
 		}
 		BeforeEach(func() {
 			//Run queries to set up the database state so we can successfully create an aggregate
@@ -288,8 +292,26 @@ var _ = Describe("backup integration create statement tests", func() {
 			defer testhelper.AssertQueryRuns(connection, `DROP AGGREGATE public.agg_6_features(numeric, numeric)`)
 			resultAggregates := backup.GetAggregates(connection)
 
-			Expect(len(resultAggregates)).To(Equal(1))
+			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&gpdb6AggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction", "CombineFunction")
+		})
+		It("creates an aggregate with serial/deserial functions", func() {
+			testutils.SkipIfBefore6(connection)
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "myavg", Arguments: "numeric",
+				IdentArgs: "numeric", TransitionFunction: 8,
+				FinalFunction: 5, SerialFunction: 6, DeserialFunction: 7, TransitionDataType: "internal",
+				IsOrdered: false, InitValIsNull: true,
+			}
+
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggregateDef}, funcInfoMap, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP AGGREGATE public.myavg(numeric)`)
+			resultAggregates := backup.GetAggregates(connection)
+
+			Expect(resultAggregates).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction", "SerialFunction", "DeserialFunction")
 		})
 	})
 	Describe("PrintCreateCastStatements", func() {

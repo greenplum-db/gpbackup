@@ -326,6 +326,24 @@ $_$`)
 	COMBINEFUNC = public.mypfunc
 );`)
 		})
+		It("prints an aggregate with a serial function", func() {
+			aggDefs[0].SerialFunction = 2
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	SERIALFUNC = public.mypfunc
+);`)
+		})
+		It("prints an aggregate with a deserial function", func() {
+			aggDefs[0].DeserialFunction = 2
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	DESERIALFUNC = public.mypfunc
+);`)
+		})
 		It("prints an aggregate with a final function", func() {
 			aggDefs[0].FinalFunction = 3
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)

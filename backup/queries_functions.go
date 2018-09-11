@@ -260,6 +260,8 @@ type Aggregate struct {
 	TransitionFunction  uint32 `db:"aggtransfn"`
 	PreliminaryFunction uint32 `db:"aggprelimfn"`
 	CombineFunction     uint32 `db:"aggcombinefn"`
+	SerialFunction      uint32 `db:"aggserialfn"`
+	DeserialFunction    uint32 `db:"aggdeserialfn"`
 	FinalFunction       uint32 `db:"aggfinalfn"`
 	FinalFuncExtra      bool
 	SortOperator        uint32 `db:"aggsortop"`
@@ -322,6 +324,8 @@ SELECT
 	pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
 	a.aggtransfn::regproc::oid,
 	a.aggcombinefn::regproc::oid,
+	a.aggserialfn::regproc::oid,
+	a.aggdeserialfn::regproc::oid,
 	a.aggfinalfn::regproc::oid,
 	a.aggfinalextra AS finalfuncextra,
 	a.aggsortop::regproc::oid,

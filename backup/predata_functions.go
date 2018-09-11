@@ -121,6 +121,12 @@ func PrintCreateAggregateStatements(metadataFile *utils.FileWithByteCount, toc *
 		if aggDef.CombineFunction != 0 {
 			metadataFile.MustPrintf(",\n\tCOMBINEFUNC = %s", funcInfoMap[aggDef.CombineFunction].QualifiedName)
 		}
+		if aggDef.SerialFunction != 0 {
+			metadataFile.MustPrintf(",\n\tSERIALFUNC = %s", funcInfoMap[aggDef.SerialFunction].QualifiedName)
+		}
+		if aggDef.DeserialFunction != 0 {
+			metadataFile.MustPrintf(",\n\tDESERIALFUNC = %s", funcInfoMap[aggDef.DeserialFunction].QualifiedName)
+		}
 		if aggDef.FinalFunction != 0 {
 			metadataFile.MustPrintf(",\n\tFINALFUNC = %s", funcInfoMap[aggDef.FinalFunction].QualifiedName)
 		}

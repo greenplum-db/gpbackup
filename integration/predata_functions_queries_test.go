@@ -391,8 +391,35 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 				InitialValue: "0", IsOrdered: false,
 			}
 
-			Expect(len(result)).To(Equal(1))
+			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
+		})
+		It("returns a slice of aggregates with serial/deserial functions", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `
+CREATE AGGREGATE public.myavg (numeric) (
+	stype = internal,
+	sfunc = numeric_avg_accum,
+	finalfunc = numeric_avg,
+	serialfunc = numeric_avg_serialize,
+	deserialfunc = numeric_avg_deserialize);
+`)
+			defer testhelper.AssertQueryRuns(connection, "DROP AGGREGATE public.myavg(numeric)")
+
+			serialOid := testutils.OidFromObjectName(connection, "pg_catalog", "numeric_avg_serialize", backup.TYPE_FUNCTION)
+			deserialOid := testutils.OidFromObjectName(connection, "pg_catalog", "numeric_avg_deserialize", backup.TYPE_FUNCTION)
+
+			result := backup.GetAggregates(connection)
+
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "myavg", Arguments: "numeric",
+				IdentArgs: "numeric", SerialFunction: serialOid, DeserialFunction: deserialOid,
+				FinalFunction: 0, SortOperator: 0, TransitionDataType: "internal",
+				IsOrdered: false, InitValIsNull: true,
+			}
+
+			Expect(result).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid", "TransitionFunction", "FinalFunction")
 		})
 	})
 	Describe("GetFunctionOidToInfoMap", func() {
@@ -764,7 +791,7 @@ LANGUAGE SQL`)
 
 			resultMappings := backup.GetUserMappings(connection)
 
-			Expect(len(resultMappings)).To(Equal(2))
+			Expect(resultMappings).To(HaveLen(2))
 			for idx := range expectedMapping {
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMapping[idx], &resultMappings[idx], "Oid")
 			}
