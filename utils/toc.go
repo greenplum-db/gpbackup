@@ -102,6 +102,9 @@ type StatementWithType struct {
 }
 
 func GetPartitionRootData(tocDataEntries []MasterDataEntry, includeRelations []string) []string {
+	if len(includeRelations) == 0 {
+		return []string{}
+	}
 	rootPartitions := make([]string, 0)
 
 	FQNToPartitionRoot := make(map[string]string, 0)
@@ -167,18 +170,6 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *FilterSet, schemaSet
 		(entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) // Include relations that filtered tables depend on
 
 	return shouldIncludeObject && shouldIncludeSchema && shouldIncludeRelation
-}
-
-func (toc *TOC) GetAllSQLStatements(section string, metadataFile io.ReaderAt) []StatementWithType {
-	entries := *toc.metadataEntryMap[section]
-	statements := make([]StatementWithType, 0)
-	for _, entry := range entries {
-		contents := make([]byte, entry.EndByte-entry.StartByte)
-		_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
-		gplog.FatalOnError(err)
-		statements = append(statements, StatementWithType{Schema: entry.Schema, Name: entry.Name, ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
-	}
-	return statements
 }
 
 func getLeafPartitions(tableFQNs []string, tocDataEntries []MasterDataEntry) (leafPartitions []string) {

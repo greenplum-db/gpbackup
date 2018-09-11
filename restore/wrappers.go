@@ -163,8 +163,8 @@ func RecoverMetadataFilesUsingPlugin() {
 func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, filterSchemas bool, filterRelations bool) []utils.StatementWithType {
 	metadataFile := iohelper.MustOpenFileForReading(filename)
 	var statements []utils.StatementWithType
+	var inSchemas, exSchemas, inRelations, exRelations []string
 	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || filterSchemas || filterRelations {
-		var inSchemas, exSchemas, inRelations, exRelations []string
 		if filterSchemas {
 			inSchemas = MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)
 			exSchemas = MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)
@@ -173,10 +173,8 @@ func GetRestoreMetadataStatements(section string, filename string, includeObject
 			inRelations = MustGetFlagStringSlice(utils.INCLUDE_RELATION)
 			exRelations = MustGetFlagStringSlice(utils.EXCLUDE_RELATION)
 		}
-		statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inRelations, exRelations)
-	} else {
-		statements = globalTOC.GetAllSQLStatements(section, metadataFile)
 	}
+	statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inRelations, exRelations)
 	return statements
 }
 

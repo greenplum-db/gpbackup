@@ -226,7 +226,6 @@ var _ = Describe("utils/toc tests", func() {
 			toc.AddMasterDataEntry("schema3", "table3_partition1", 1, "(i)", 0, "table3")
 			toc.AddMasterDataEntry("schema3", "table3_partition2", 1, "(i)", 0, "table3")
 		})
-
 		Context("Non-empty restore plan", func() {
 			restorePlanTableFQNs := []string{"schema1.table1", "schema2.table2", "schema3.table3", "schema3.table3_partition1", "schema3.table3_partition2"}
 
@@ -365,37 +364,6 @@ var _ = Describe("utils/toc tests", func() {
 
 				Expect(matchingEntries).To(BeEmpty())
 			})
-		})
-	})
-
-	Describe("GetAllSqlStatements", func() {
-		It("returns statement for a single object type", func() {
-			backupfile.ByteCount = createLen
-			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", 0, backupfile, "global")
-
-			metadataFile := bytes.NewReader([]byte(create.Statement))
-			statements := toc.GetAllSQLStatements("global", metadataFile)
-
-			Expect(statements).To(Equal([]utils.StatementWithType{create}))
-		})
-		It("returns statement for a multiple object types", func() {
-			backupfile.ByteCount = createLen
-			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", 0, backupfile, "global")
-			backupfile.ByteCount += role1Len
-			toc.AddMetadataEntry("", "somerole1", "ROLE", "", createLen, backupfile, "global")
-			backupfile.ByteCount += role2Len
-			toc.AddMetadataEntry("", "somerole2", "ROLE", "", createLen+role1Len, backupfile, "global")
-
-			metadataFile := bytes.NewReader([]byte(create.Statement + role1.Statement + role2.Statement))
-			statements := toc.GetAllSQLStatements("global", metadataFile)
-
-			Expect(statements).To(Equal([]utils.StatementWithType{create, role1, role2}))
-		})
-		It("returns empty statement when no object types are found", func() {
-			metadataFile := bytes.NewReader([]byte(create.Statement))
-			statements := toc.GetAllSQLStatements("global", metadataFile)
-
-			Expect(statements).To(Equal([]utils.StatementWithType{}))
 		})
 	})
 	Describe("SubstituteRedirectDatabaseInStatements", func() {
