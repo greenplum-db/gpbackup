@@ -142,6 +142,27 @@ func PrintCreateAggregateStatements(metadataFile *utils.FileWithByteCount, toc *
 		if aggDef.Hypothetical {
 			metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
 		}
+		if aggDef.MTransitionFunction != 0 {
+			metadataFile.MustPrintf(",\n\tMSFUNC = %s", funcInfoMap[aggDef.MTransitionFunction].QualifiedName)
+		}
+		if aggDef.MInverseTransitionFunction != 0 {
+			metadataFile.MustPrintf(",\n\tMINVFUNC = %s", funcInfoMap[aggDef.MInverseTransitionFunction].QualifiedName)
+		}
+		if aggDef.MTransitionDataType != "" {
+			metadataFile.MustPrintf(",\n\tMSTYPE = %s", aggDef.MTransitionDataType)
+		}
+		if aggDef.MTransitionDataSize != 0 {
+			metadataFile.MustPrintf(",\n\tMSSPACE = %d", aggDef.MTransitionDataSize)
+		}
+		if aggDef.MFinalFunction != 0 {
+			metadataFile.MustPrintf(",\n\tMFINALFUNC = %s", funcInfoMap[aggDef.MFinalFunction].QualifiedName)
+		}
+		if aggDef.MFinalFuncExtra {
+			metadataFile.MustPrintf(",\n\tMFINALFUNC_EXTRA")
+		}
+		if !aggDef.MInitValIsNull {
+			metadataFile.MustPrintf(",\n\tMINITCOND = '%s'", aggDef.MInitialValue)
+		}
 		metadataFile.MustPrintln("\n);")
 
 		identArgumentsStr := "*"

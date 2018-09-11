@@ -252,25 +252,33 @@ WHERE %s`, SchemaFilterClause("n"))
 }
 
 type Aggregate struct {
-	Oid                 uint32
-	Schema              string
-	Name                string
-	Arguments           string
-	IdentArgs           string
-	TransitionFunction  uint32 `db:"aggtransfn"`
-	PreliminaryFunction uint32 `db:"aggprelimfn"`
-	CombineFunction     uint32 `db:"aggcombinefn"`
-	SerialFunction      uint32 `db:"aggserialfn"`
-	DeserialFunction    uint32 `db:"aggdeserialfn"`
-	FinalFunction       uint32 `db:"aggfinalfn"`
-	FinalFuncExtra      bool
-	SortOperator        uint32 `db:"aggsortop"`
-	Hypothetical        bool
-	TransitionDataType  string
-	TransitionDataSize  int `db:"aggtransspace"`
-	InitialValue        string
-	InitValIsNull       bool
-	IsOrdered           bool `db:"aggordered"`
+	Oid                        uint32
+	Schema                     string
+	Name                       string
+	Arguments                  string
+	IdentArgs                  string
+	TransitionFunction         uint32 `db:"aggtransfn"`
+	PreliminaryFunction        uint32 `db:"aggprelimfn"`
+	CombineFunction            uint32 `db:"aggcombinefn"`
+	SerialFunction             uint32 `db:"aggserialfn"`
+	DeserialFunction           uint32 `db:"aggdeserialfn"`
+	FinalFunction              uint32 `db:"aggfinalfn"`
+	FinalFuncExtra             bool
+	SortOperator               uint32 `db:"aggsortop"`
+	Hypothetical               bool
+	TransitionDataType         string
+	TransitionDataSize         int `db:"aggtransspace"`
+	InitialValue               string
+	InitValIsNull              bool
+	IsOrdered                  bool   `db:"aggordered"`
+	MTransitionFunction        uint32 `db:"aggmtransfn"`
+	MInverseTransitionFunction uint32 `db:"aggminvtransfn"`
+	MTransitionDataType        string
+	MTransitionDataSize        int    `db:"aggmtransspace"`
+	MFinalFunction             uint32 `db:"aggmfinalfn"`
+	MFinalFuncExtra            bool
+	MInitialValue              string
+	MInitValIsNull             bool
 }
 
 func GetAggregates(connection *dbconn.DBConn) []Aggregate {
@@ -288,6 +296,7 @@ SELECT
 	format_type(a.aggtranstype, NULL) as transitiondatatype,
 	coalesce(a.agginitval, '') AS initialvalue,
 	(a.agginitval IS NULL) AS initvalisnull,
+	true AS minitvalisnull,
 	a.aggordered
 FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
@@ -308,6 +317,7 @@ SELECT
 	format_type(a.aggtranstype, NULL) as transitiondatatype,
 	coalesce(a.agginitval, '') AS initialvalue,
 	(a.agginitval IS NULL) AS initvalisnull,
+	true AS minitvalisnull,
 	a.aggordered
 FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
@@ -333,7 +343,15 @@ SELECT
 	format_type(a.aggtranstype, NULL) as transitiondatatype,
 	aggtransspace,
 	coalesce(a.agginitval, '') AS initialvalue,
-	(a.agginitval IS NULL) AS initvalisnull
+	(a.agginitval IS NULL) AS initvalisnull,
+	a.aggmtransfn::regproc::oid,
+	a.aggminvtransfn::regproc::oid,
+	a.aggmfinalfn::regproc::oid,
+	a.aggmfinalextra AS mfinalfuncextra,
+	format_type(a.aggmtranstype, NULL) as mtransitiondatatype,
+	aggmtransspace,
+	(a.aggminitval IS NULL) AS minitvalisnull,
+	coalesce(a.aggminitval, '') AS minitialvalue
 FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
@@ -351,6 +369,11 @@ AND %s;`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 	}
 	err := connection.Select(&aggregates, query)
 	gplog.FatalOnError(err)
+	for i := range aggregates {
+		if aggregates[i].MTransitionDataType == "-" {
+			aggregates[i].MTransitionDataType = ""
+		}
+	}
 	if connection.Version.Before("5") {
 		arguments, _ := GetFunctionArgsAndIdentArgs(connection)
 		for i := range aggregates {

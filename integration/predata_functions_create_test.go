@@ -200,19 +200,9 @@ var _ = Describe("backup integration create statement tests", func() {
 		basicAggregateDef := backup.Aggregate{
 			Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: "numeric, numeric",
 			IdentArgs: "numeric, numeric", TransitionFunction: 1, PreliminaryFunction: 2,
-			TransitionDataType: "numeric", InitialValue: "0",
+			TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true,
 		}
-		complexAggregateDef := backup.Aggregate{
-			Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
-			IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 3, FinalFunction: 4,
-			TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
-		}
-		gpdb6AggregateDef := backup.Aggregate{
-			Schema: "public", Name: "agg_6_features", Arguments: "numeric, numeric",
-			IdentArgs: "numeric, numeric", TransitionFunction: 1, CombineFunction: 2,
-			FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", TransitionDataSize: 1000,
-			InitialValue: "0", IsOrdered: false,
-		}
+
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc_accum", Arguments: "numeric, numeric, numeric"},
 			2: {QualifiedName: "public.mypre_accum", Arguments: "numeric, numeric"},
@@ -230,8 +220,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			   RETURNS numeric
 			   AS 'select $1 + $2 + $3'
 			   LANGUAGE SQL
-			   IMMUTABLE
-			   RETURNS NULL ON NULL INPUT;
+			   IMMUTABLE;
 			`)
 			testhelper.AssertQueryRuns(connection, `
 			CREATE FUNCTION public.mypre_accum(numeric, numeric)
@@ -274,6 +263,11 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a hypothetical ordered-set aggregate", func() {
 			testutils.SkipIfBefore6(connection)
+			complexAggregateDef := backup.Aggregate{
+				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
+				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 3, FinalFunction: 4,
+				TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true, MInitValIsNull: true,
+			}
 
 			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{complexAggregateDef}, funcInfoMap, emptyMetadataMap)
 
@@ -284,16 +278,22 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&complexAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction")
 		})
-		It("creates an aggregate with features specific to GPDB6", func() {
+		It("creates an aggregate with combine function and transition data size", func() {
 			testutils.SkipIfBefore6(connection)
-			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{gpdb6AggregateDef}, funcInfoMap, emptyMetadataMap)
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "agg_6_features", Arguments: "numeric, numeric",
+				IdentArgs: "numeric, numeric", TransitionFunction: 1, CombineFunction: 2,
+				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", TransitionDataSize: 1000,
+				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
+			}
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggregateDef}, funcInfoMap, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, `DROP AGGREGATE public.agg_6_features(numeric, numeric)`)
 			resultAggregates := backup.GetAggregates(connection)
 
 			Expect(resultAggregates).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&gpdb6AggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction", "CombineFunction")
+			structmatcher.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction", "CombineFunction")
 		})
 		It("creates an aggregate with serial/deserial functions", func() {
 			testutils.SkipIfBefore6(connection)
@@ -301,7 +301,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				Schema: "public", Name: "myavg", Arguments: "numeric",
 				IdentArgs: "numeric", TransitionFunction: 8,
 				FinalFunction: 5, SerialFunction: 6, DeserialFunction: 7, TransitionDataType: "internal",
-				IsOrdered: false, InitValIsNull: true,
+				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
 			}
 
 			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggregateDef}, funcInfoMap, emptyMetadataMap)
@@ -312,6 +312,25 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction", "SerialFunction", "DeserialFunction")
+		})
+		It("creates an aggregate with moving attributes", func() {
+			testutils.SkipIfBefore6(connection)
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "moving_agg", Arguments: "numeric, numeric",
+				IdentArgs: "numeric, numeric", TransitionFunction: 1, TransitionDataType: "numeric",
+				InitValIsNull: true, MTransitionFunction: 1, MInverseTransitionFunction: 1,
+				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: 1,
+				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
+			}
+
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggregateDef}, funcInfoMap, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, `DROP AGGREGATE public.moving_agg(numeric, numeric)`)
+			resultAggregates := backup.GetAggregates(connection)
+
+			Expect(resultAggregates).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "MTransitionFunction", "MInverseTransitionFunction", "MFinalFunction")
 		})
 	})
 	Describe("PrintCreateCastStatements", func() {

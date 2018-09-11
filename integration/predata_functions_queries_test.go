@@ -219,16 +219,14 @@ LANGUAGE SQL`)
 		})
 	})
 	Describe("GetAggregates", func() {
-		It("returns a slice of aggregates", func() {
+		BeforeEach(func() {
 			testhelper.AssertQueryRuns(connection, `
 CREATE FUNCTION public.mysfunc_accum(numeric, numeric, numeric)
    RETURNS numeric
    AS 'select $1 + $2 + $3'
    LANGUAGE SQL
-   IMMUTABLE
-   RETURNS NULL ON NULL INPUT;
+   IMMUTABLE;
 `)
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
 			testhelper.AssertQueryRuns(connection, `
 CREATE FUNCTION public.mypre_accum(numeric, numeric)
    RETURNS numeric
@@ -237,7 +235,12 @@ CREATE FUNCTION public.mypre_accum(numeric, numeric)
    IMMUTABLE
    RETURNS NULL ON NULL INPUT;
 `)
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mypre_accum(numeric, numeric)")
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
+			testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mypre_accum(numeric, numeric)")
+		})
+		It("returns a slice of aggregates", func() {
 			testhelper.AssertQueryRuns(connection, `
 CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 	SFUNC = public.mysfunc_accum,
@@ -255,7 +258,7 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "agg_prefunc", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", IsOrdered: false,
+				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 			if connection.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
@@ -266,24 +269,6 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
 		})
 		It("returns a slice of aggregates in a specific schema", func() {
-			testhelper.AssertQueryRuns(connection, `
-CREATE FUNCTION public.mysfunc_accum(numeric, numeric, numeric)
-   RETURNS numeric
-   AS 'select $1 + $2 + $3'
-   LANGUAGE SQL
-   IMMUTABLE
-   RETURNS NULL ON NULL INPUT;
-`)
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
-			testhelper.AssertQueryRuns(connection, `
-CREATE FUNCTION public.mypre_accum(numeric, numeric)
-   RETURNS numeric
-   AS 'select $1 + $2'
-   LANGUAGE SQL
-   IMMUTABLE
-   RETURNS NULL ON NULL INPUT;
-`)
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mypre_accum(numeric, numeric)")
 			testhelper.AssertQueryRuns(connection, `
 CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 	SFUNC = public.mysfunc_accum,
@@ -308,7 +293,7 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 			aggregateDef := backup.Aggregate{
 				Schema: "testschema", Name: "agg_prefunc", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", IsOrdered: false,
+				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 			if connection.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
@@ -343,44 +328,26 @@ CREATE AGGREGATE public.agg_hypo_ord (VARIADIC "any" ORDER BY VARIADIC "any")
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
 				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: transitionOid, FinalFunction: finalOid,
-				TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
+				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
 		})
-		It("returns a slice of aggregates with features specific to GPDB6", func() {
+		It("returns a slice of aggregates with a combine function and transition data size", func() {
 			testutils.SkipIfBefore6(connection)
-			testhelper.AssertQueryRuns(connection, `
-CREATE FUNCTION public.mysfunc_accum(numeric, numeric, numeric)
-   RETURNS numeric
-   AS 'select $1 + $2 + $3'
-   LANGUAGE SQL
-   IMMUTABLE
-   RETURNS NULL ON NULL INPUT;
-`)
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
-			testhelper.AssertQueryRuns(connection, `
-CREATE FUNCTION public.mycombine_accum(numeric, numeric)
-   RETURNS numeric
-   AS 'select $1 + $2'
-   LANGUAGE SQL
-   IMMUTABLE
-   RETURNS NULL ON NULL INPUT;
-`)
-			defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.mycombine_accum(numeric, numeric)")
 			testhelper.AssertQueryRuns(connection, `
 CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 	SFUNC = public.mysfunc_accum,
 	STYPE = numeric,
 	SSPACE = 1000,
-	COMBINEFUNC = public.mycombine_accum,
+	COMBINEFUNC = public.mypre_accum,
 	INITCOND = 0 );
 `)
 			defer testhelper.AssertQueryRuns(connection, "DROP AGGREGATE public.agg_combinefunc(numeric, numeric)")
 
 			transitionOid := testutils.OidFromObjectName(connection, "public", "mysfunc_accum", backup.TYPE_FUNCTION)
-			combineOid := testutils.OidFromObjectName(connection, "public", "mycombine_accum", backup.TYPE_FUNCTION)
+			combineOid := testutils.OidFromObjectName(connection, "public", "mypre_accum", backup.TYPE_FUNCTION)
 
 			result := backup.GetAggregates(connection)
 
@@ -388,7 +355,7 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 				Schema: "public", Name: "agg_combinefunc", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, CombineFunction: combineOid,
 				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", TransitionDataSize: 1000,
-				InitialValue: "0", IsOrdered: false,
+				InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -415,11 +382,43 @@ CREATE AGGREGATE public.myavg (numeric) (
 				Schema: "public", Name: "myavg", Arguments: "numeric",
 				IdentArgs: "numeric", SerialFunction: serialOid, DeserialFunction: deserialOid,
 				FinalFunction: 0, SortOperator: 0, TransitionDataType: "internal",
-				IsOrdered: false, InitValIsNull: true,
+				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
 			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid", "TransitionFunction", "FinalFunction")
+		})
+		It("returns a slice of aggregates with moving attributes", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, `
+CREATE AGGREGATE public.moving_agg(numeric,numeric) (
+	SFUNC = public.mysfunc_accum,
+	STYPE = numeric,
+	MSFUNC = public.mysfunc_accum,
+	MINVFUNC = public.mysfunc_accum,
+	MSTYPE = numeric,
+	MSSPACE = 100,
+	MFINALFUNC = public.mysfunc_accum,
+	MFINALFUNC_EXTRA,
+	MINITCOND = 0
+	);
+`)
+			defer testhelper.AssertQueryRuns(connection, "DROP AGGREGATE public.moving_agg(numeric, numeric)")
+
+			sfuncOid := testutils.OidFromObjectName(connection, "public", "mysfunc_accum", backup.TYPE_FUNCTION)
+
+			result := backup.GetAggregates(connection)
+
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "moving_agg", Arguments: "numeric, numeric",
+				IdentArgs: "numeric, numeric", TransitionFunction: sfuncOid, TransitionDataType: "numeric",
+				InitValIsNull: true, MTransitionFunction: sfuncOid, MInverseTransitionFunction: sfuncOid,
+				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: sfuncOid,
+				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
+			}
+
+			Expect(result).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
 		})
 	})
 	Describe("GetFunctionOidToInfoMap", func() {

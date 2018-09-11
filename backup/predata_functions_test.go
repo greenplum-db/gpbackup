@@ -263,12 +263,7 @@ $_$`)
 	})
 	Describe("PrintCreateAggregateStatements", func() {
 		aggDefs := make([]backup.Aggregate, 1)
-		aggDefinition := backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true}
-		complexAggDefinition := backup.Aggregate{
-			Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
-			IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 5, FinalFunction: 6,
-			TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
-		}
+		aggDefinition := backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc", Arguments: "integer"},
 			2: {QualifiedName: "public.mypfunc", Arguments: "numeric, numeric"},
@@ -353,6 +348,15 @@ $_$`)
 	FINALFUNC = public.myffunc
 );`)
 		})
+		It("prints an aggregate with a final function extra attribute", func() {
+			aggDefs[0].FinalFuncExtra = true
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	FINALFUNC_EXTRA
+);`)
+		})
 		It("prints an aggregate with an initial condition", func() {
 			aggDefs[0].InitialValue = "0"
 			aggDefs[0].InitValIsNull = false
@@ -382,6 +386,76 @@ $_$`)
 	SSPACE = 1000
 );`)
 		})
+		It("prints an aggregate with a specified moving transition function", func() {
+			aggDefs[0].MTransitionFunction = 1
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	MSFUNC = public.mysfunc
+);`)
+		})
+		It("prints an aggregate with a specified moving inverse transition function", func() {
+			aggDefs[0].MInverseTransitionFunction = 1
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	MINVFUNC = public.mysfunc
+);`)
+		})
+		It("prints an aggregate with a specified moving state type", func() {
+			aggDefs[0].MTransitionDataType = "numeric"
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	MSTYPE = numeric
+);`)
+		})
+		It("prints an aggregate with a specified moving transition size", func() {
+			aggDefs[0].MTransitionDataSize = 100
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	MSSPACE = 100
+);`)
+		})
+		It("prints an aggregate with a specified moving final function", func() {
+			aggDefs[0].MFinalFunction = 3
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	MFINALFUNC = public.myffunc
+);`)
+		})
+		It("prints an aggregate with a moving final function extra attribute", func() {
+			aggDefs[0].MFinalFuncExtra = true
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	MFINALFUNC_EXTRA
+);`)
+		})
+		It("prints an aggregate with a moving initial condition", func() {
+			aggDefs[0].MInitialValue = "0"
+			aggDefs[0].MInitValIsNull = false
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	MINITCOND = '0'
+);`)
+		})
 		It("prints an aggregate with multiple specifications", func() {
 			aggDefs[0].FinalFunction = 3
 			aggDefs[0].SortOperator = 4
@@ -394,6 +468,11 @@ $_$`)
 );`)
 		})
 		It("prints a hypothetical ordered-set aggregate", func() {
+			complexAggDefinition := backup.Aggregate{
+				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
+				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 5, FinalFunction: 6,
+				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
+			}
 			aggDefs[0] = complexAggDefinition
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_hypo_ord(VARIADIC "any" ORDER BY VARIADIC "any") (
