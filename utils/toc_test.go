@@ -422,17 +422,17 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 			Expect(resultStatements).To(Equal([]utils.StatementWithType{user1, user2}))
 		})
 	})
-	Describe("GetPartitionRootData", func() {
+	Describe("GetIncludedPartitionRoots", func() {
 		It("does not return anything if relations are not leaf partitions", func() {
 			toc.AddMasterDataEntry("schema0", "name0", 0, "attribute0", 1, "")
 			toc.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "")
-			roots := utils.GetPartitionRootData(toc.DataEntries, []string{"schema0.name0", "schema1.name1"})
+			roots := utils.GetIncludedPartitionRoots(toc.DataEntries, []string{"schema0.name0", "schema1.name1"})
 			Expect(roots).To(BeEmpty())
 		})
 		It("returns root parition of leaf partitions", func() {
 			toc.AddMasterDataEntry("schema0", "name0", 2, "attribute0", 1, "root0")
 			toc.AddMasterDataEntry("schema1", "name1", 3, "attribute0", 1, "root1")
-			roots := utils.GetPartitionRootData(toc.DataEntries, []string{"schema0.name0", "schema1.name1"})
+			roots := utils.GetIncludedPartitionRoots(toc.DataEntries, []string{"schema0.name0", "schema1.name1"})
 			Expect(roots).To(ConsistOf("schema0.root0", "schema1.root1"))
 		})
 		It("only returns root partitions of leaf partitions", func() {
@@ -440,11 +440,11 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 			toc.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "")
 			toc.AddMasterDataEntry("schema2", "name2", 2, "attribute0", 1, "root2")
 			toc.AddMasterDataEntry("schema3", "name3", 3, "attribute0", 1, "root3")
-			roots := utils.GetPartitionRootData(toc.DataEntries, []string{"schema2.name2", "schema3.name3"})
+			roots := utils.GetIncludedPartitionRoots(toc.DataEntries, []string{"schema2.name2", "schema3.name3"})
 			Expect(roots).To(ConsistOf("schema2.root2", "schema3.root3"))
 		})
 		It("returns nothing if toc data entries are empty", func() {
-			roots := utils.GetPartitionRootData(toc.DataEntries, []string{"schema2.name2", "schema3.name3"})
+			roots := utils.GetIncludedPartitionRoots(toc.DataEntries, []string{"schema2.name2", "schema3.name3"})
 			Expect(roots).To(BeEmpty())
 		})
 		It("returns nothing if relation is not part of TOC data entries", func() {
@@ -452,7 +452,7 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 			toc.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "")
 			toc.AddMasterDataEntry("schema2", "name2", 2, "attribute0", 1, "root2")
 			toc.AddMasterDataEntry("schema3", "name3", 3, "attribute0", 1, "root3")
-			roots := utils.GetPartitionRootData(toc.DataEntries, []string{"schema4.name4", "schema5.name5"})
+			roots := utils.GetIncludedPartitionRoots(toc.DataEntries, []string{"schema4.name4", "schema5.name5"})
 			Expect(roots).To(BeEmpty())
 		})
 		It("returns empty if no relations are passed in", func() {
@@ -460,7 +460,7 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 			toc.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "")
 			toc.AddMasterDataEntry("schema2", "name2", 2, "attribute0", 1, "root2")
 			toc.AddMasterDataEntry("schema3", "name3", 3, "attribute0", 1, "root3")
-			roots := utils.GetPartitionRootData(toc.DataEntries, []string{})
+			roots := utils.GetIncludedPartitionRoots(toc.DataEntries, []string{})
 			Expect(roots).To(BeEmpty())
 		})
 	})

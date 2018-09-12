@@ -176,7 +176,7 @@ func GetRestoreMetadataStatements(section string, filename string, includeObject
 			for _, fpInfo := range fpInfoList {
 				tocFilename := fpInfo.GetTOCFilePath()
 				toc := utils.NewTOC(tocFilename)
-				inRelations = append(inRelations, utils.GetPartitionRootData(toc.DataEntries, inRelations)...)
+				inRelations = append(inRelations, utils.GetIncludedPartitionRoots(toc.DataEntries, inRelations)...)
 			}
 		}
 	}

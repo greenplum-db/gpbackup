@@ -101,7 +101,7 @@ type StatementWithType struct {
 	Statement       string
 }
 
-func GetPartitionRootData(tocDataEntries []MasterDataEntry, includeRelations []string) []string {
+func GetIncludedPartitionRoots(tocDataEntries []MasterDataEntry, includeRelations []string) []string {
 	if len(includeRelations) == 0 {
 		return []string{}
 	}
