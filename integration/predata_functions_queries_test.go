@@ -592,8 +592,10 @@ LANGUAGE SQL`)
 		})
 	})
 	Describe("GetForeignDataWrappers", func() {
-		It("returns a slice of foreign data wrappers", func() {
+		BeforeEach(func() {
 			testutils.SkipIfBefore6(connection)
+		})
+		It("returns a slice of foreign data wrappers", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper")
 			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper")
 
@@ -605,7 +607,6 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrapper[0], "Oid")
 		})
 		It("returns a slice of foreign data wrappers with a validator", func() {
-			testutils.SkipIfBefore6(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper VALIDATOR postgresql_fdw_validator")
 			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper")
 
@@ -618,7 +619,6 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedForeignDataWrapper, &resultForeignDataWrapper[0], "Oid")
 		})
 		It("returns a slice of foreign data wrappers with options", func() {
-			testutils.SkipIfBefore6(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper OPTIONS (dbname 'testdb', debug 'true')")
 			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper")
 
@@ -631,10 +631,14 @@ LANGUAGE SQL`)
 		})
 	})
 	Describe("GetForeignServers", func() {
-		It("returns a slice of foreign servers", func() {
+		BeforeEach(func() {
 			testutils.SkipIfBefore6(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper")
-			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
+		})
+		It("returns a slice of foreign servers", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE SERVER foreignserver FOREIGN DATA WRAPPER foreigndatawrapper")
 
 			expectedServer := backup.ForeignServer{Oid: 1, Name: "foreignserver", ForeignDataWrapper: "foreigndatawrapper"}
@@ -645,9 +649,6 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
 		})
 		It("returns a slice of foreign servers with a type and version", func() {
-			testutils.SkipIfBefore6(connection)
-			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper")
-			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
 			testhelper.AssertQueryRuns(connection, "CREATE SERVER foreignserver TYPE 'mytype' VERSION 'myversion' FOREIGN DATA WRAPPER foreigndatawrapper")
 
 			expectedServer := backup.ForeignServer{Oid: 1, Name: "foreignserver", Type: "mytype", Version: "myversion", ForeignDataWrapper: "foreigndatawrapper"}
@@ -658,9 +659,6 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedServer, &resultServers[0], "Oid")
 		})
 		It("returns a slice of foreign servers with options", func() {
-			testutils.SkipIfBefore6(connection)
-			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper")
-			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
 			testhelper.AssertQueryRuns(connection, "CREATE SERVER foreignserver FOREIGN DATA WRAPPER foreigndatawrapper OPTIONS (dbname 'testdb', host 'localhost')")
 
 			expectedServer := backup.ForeignServer{Oid: 1, Name: "foreignserver", ForeignDataWrapper: "foreigndatawrapper", Options: "dbname 'testdb', host 'localhost'"}
@@ -672,11 +670,15 @@ LANGUAGE SQL`)
 		})
 	})
 	Describe("GetUserMappings", func() {
-		It("returns a slice of user mappings", func() {
+		BeforeEach(func() {
 			testutils.SkipIfBefore6(connection)
 			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper")
-			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
 			testhelper.AssertQueryRuns(connection, "CREATE SERVER foreignserver FOREIGN DATA WRAPPER foreigndatawrapper")
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
+		})
+		It("returns a slice of user mappings", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE USER MAPPING FOR testrole SERVER foreignserver")
 
 			expectedMapping := backup.UserMapping{Oid: 1, User: "testrole", Server: "foreignserver"}
@@ -687,10 +689,6 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedMapping, &resultMappings[0], "Oid")
 		})
 		It("returns a slice of user mappings with options", func() {
-			testutils.SkipIfBefore6(connection)
-			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper")
-			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
-			testhelper.AssertQueryRuns(connection, "CREATE SERVER foreignserver FOREIGN DATA WRAPPER foreigndatawrapper")
 			testhelper.AssertQueryRuns(connection, "CREATE USER MAPPING FOR public SERVER foreignserver OPTIONS (dbname 'testdb', host 'localhost')")
 
 			expectedMapping := backup.UserMapping{Oid: 1, User: "public", Server: "foreignserver", Options: "dbname 'testdb', host 'localhost'"}
@@ -701,10 +699,6 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedMapping, &resultMappings[0], "Oid")
 		})
 		It("returns a slice of user mappings in sorted order", func() {
-			testutils.SkipIfBefore6(connection)
-			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreigndatawrapper")
-			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE")
-			testhelper.AssertQueryRuns(connection, "CREATE SERVER foreignserver FOREIGN DATA WRAPPER foreigndatawrapper")
 			testhelper.AssertQueryRuns(connection, "CREATE USER MAPPING FOR testrole SERVER foreignserver")
 			testhelper.AssertQueryRuns(connection, "CREATE USER MAPPING FOR anothertestrole SERVER foreignserver")
 
