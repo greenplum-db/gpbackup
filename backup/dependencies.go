@@ -1,10 +1,10 @@
 package backup
 
 import (
-	"strings"
+	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
 
@@ -17,46 +17,22 @@ import (
  *   - Tables
  *   - Protocols
  */
-func AddProtocolDependenciesForGPDB4(tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol) []Relation {
-	protocolMap := make(map[string]bool, len(protocols))
-	for _, p := range protocols {
-		protocolMap[p.Name] = true
-	}
-	for i, table := range tables {
-		extTableDef := tableDefs[table.Oid].ExtTableDef
-		if extTableDef.Location != "" {
-			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
-			if protocolMap[protocolName] {
-				tables[i].DependsUpon = append(tables[i].DependsUpon, protocolName)
-			}
-		}
-	}
-	return tables
-}
-
-/*
- * We need to include arguments to differentiate functions with the same name;
- * we don't use IdentArgs because we already have Arguments in the funcInfoMap.
- */
-func SortObjectsInDependencyOrder(functions []Function, types []Type, tables []Relation, protocols []ExternalProtocol) []Sortable {
-	objects := make([]Sortable, 0)
-	for _, function := range functions {
-		objects = append(objects, function)
-	}
-	for _, typ := range types {
-		if typ.Type != "e" && typ.Type != "p" {
-			objects = append(objects, typ)
-		}
-	}
-	for _, table := range tables {
-		objects = append(objects, table)
-	}
-	for _, protocol := range protocols {
-		objects = append(objects, protocol)
-	}
-	sorted := TopologicalSort(objects)
-	return sorted
-}
+// func AddProtocolDependenciesForGPDB4(tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol) []Relation {
+// 	protocolMap := make(map[string]bool, len(protocols))
+// 	for _, p := range protocols {
+// 		protocolMap[p.Name] = true
+// 	}
+// 	for i, table := range tables {
+// 		extTableDef := tableDefs[table.Oid].ExtTableDef
+// 		if extTableDef.Location != "" {
+// 			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
+// 			if protocolMap[protocolName] {
+// 				tables[i].DependsUpon = append(tables[i].DependsUpon, protocolName)
+// 			}
+// 		}
+// 	}
+// 	return tables
+// }
 
 func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMap, tables MetadataMap, protocols MetadataMap) MetadataMap {
 	metadataMap := make(MetadataMap, 0)
@@ -81,27 +57,7 @@ func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMa
 
 type Sortable interface {
 	FQN() string
-	Dependencies() []string
-}
-
-func (r Relation) Dependencies() []string {
-	return r.DependsUpon
-}
-
-func (v View) Dependencies() []string {
-	return v.DependsUpon
-}
-
-func (f Function) Dependencies() []string {
-	return f.DependsUpon
-}
-
-func (t Type) Dependencies() []string {
-	return t.DependsUpon
-}
-
-func (p ExternalProtocol) Dependencies() []string {
-	return p.DependsUpon
+	GetDepEntry() DepEntry
 }
 
 func SortViews(views []View) []View {
@@ -109,29 +65,30 @@ func SortViews(views []View) []View {
 	for i := range views {
 		sortable[i] = views[i]
 	}
-	sortable = TopologicalSort(sortable)
+	tmp := make(DependencyMap, 0)
+	sortable = TopologicalSort(sortable, tmp)
 	for i := range views {
 		views[i] = sortable[i].(View)
 	}
 	return views
 }
 
-func TopologicalSort(slice []Sortable) []Sortable {
-	inDegrees := make(map[string]int, 0)
-	dependencyIndexes := make(map[string]int, 0)
-	isDependentOn := make(map[string][]string, 0)
+func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
+	inDegrees := make(map[DepEntry]int, 0)
+	dependencyIndexes := make(map[DepEntry]int, 0)
+	isDependentOn := make(map[DepEntry][]DepEntry, 0)
 	queue := make([]Sortable, 0)
 	sorted := make([]Sortable, 0)
-	notVisited := utils.NewIncludeSet([]string{})
+	notVisited := make(map[DepEntry]bool, 0)
 	for i, item := range slice {
-		name := item.FQN()
-		deps := item.Dependencies()
-		notVisited.Add(name)
-		inDegrees[name] = len(deps)
+		depEntry := item.GetDepEntry()
+		deps := dependencies[item.GetDepEntry()]
+		notVisited[item.GetDepEntry()] = true
+		inDegrees[depEntry] = len(deps)
 		for _, dep := range deps {
-			isDependentOn[dep] = append(isDependentOn[dep], name)
+			isDependentOn[dep] = append(isDependentOn[dep], depEntry)
 		}
-		dependencyIndexes[name] = i
+		dependencyIndexes[depEntry] = i
 		if len(deps) == 0 {
 			queue = append(queue, item)
 		}
@@ -140,8 +97,8 @@ func TopologicalSort(slice []Sortable) []Sortable {
 		item := queue[0]
 		queue = queue[1:]
 		sorted = append(sorted, item)
-		notVisited.Delete(item.FQN())
-		for _, dep := range isDependentOn[item.FQN()] {
+		notVisited[item.GetDepEntry()] = false
+		for _, dep := range isDependentOn[item.GetDepEntry()] {
 			inDegrees[dep]--
 			if inDegrees[dep] == 0 {
 				queue = append(queue, slice[dependencyIndexes[dep]])
@@ -152,11 +109,113 @@ func TopologicalSort(slice []Sortable) []Sortable {
 		gplog.Verbose("Failed to sort dependencies.")
 		gplog.Verbose("Not yet visited:")
 		for _, item := range slice {
-			if notVisited.MatchesFilter(item.FQN()) {
-				gplog.Verbose("Object: %s; Dependencies: %s", item.FQN(), item.Dependencies())
+			if notVisited[item.GetDepEntry()] {
+				gplog.Verbose("Object: %s; TODO:ADD DEPENDENCIES", item.FQN())
 			}
 		}
 		gplog.Fatal(errors.Errorf("Dependency resolution failed; see log file %s for details. This is a bug, please report.", gplog.GetLogFilePath()), "")
 	}
 	return sorted
+}
+
+type DependencyMap map[DepEntry][]DepEntry
+
+type DepEntry struct {
+	Classid uint32
+	Objid   uint32
+}
+
+// This function only returns depedencies that are referenced in the backup set
+func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[DepEntry]bool) DependencyMap {
+	query := fmt.Sprintf(`SELECT
+    d.classid,
+    d.objid,
+    CASE
+        WHEN id.refclassid IS NOT NULL
+        THEN id.refclassid
+        ELSE d.refclassid
+    END AS refclassid,
+    CASE
+        WHEN id.refobjid IS NOT NULL
+        THEN id.refobjid
+        ELSE d.refobjid
+    END AS refobjid
+FROM pg_depend d
+LEFT JOIN pg_depend id ON ( d.refobjid = id.objid and d.refclassid = id.classid and id.deptype='i')
+WHERE d.classid != 0`)
+
+	pgDependDeps := make([]struct {
+		ClassID    uint32
+		ObjID      uint32
+		RefClassID uint32
+		RefObjID   uint32
+	}, 0)
+
+	err := connectionPool.Select(&pgDependDeps, query)
+	gplog.FatalOnError(err)
+
+	// Specifically for composite types that depend on tables
+	compQuery := `SELECT
+	d.refclassid as classid,
+	d.refobjid as objid,
+	comp.refclassid as refclassid,
+	comp.refobjid as refobjid
+FROM pg_depend d
+JOIN pg_depend imcomp on (d.objid = imcomp.objid AND imcomp.deptype = 'n')
+JOIN pg_depend comp on (imcomp.refobjid = comp.objid and comp.deptype = 'i')
+WHERE d.classid != 0;`
+
+	err = connectionPool.Select(&pgDependDeps, compQuery)
+	gplog.FatalOnError(err)
+
+	dependencyMap := make(DependencyMap, 0)
+	for _, dep := range pgDependDeps {
+		object := DepEntry{
+			Classid: dep.ClassID,
+			Objid:   dep.ObjID,
+		}
+		referenceObject := DepEntry{
+			Classid: dep.RefClassID,
+			Objid:   dep.RefObjID,
+		}
+
+		_, objInBackup := backupSet[object]
+		_, referenceInBackup := backupSet[referenceObject]
+
+		if !objInBackup || !referenceInBackup {
+			continue
+		}
+
+		if _, ok := dependencyMap[object]; !ok {
+			dependencyMap[object] = make([]DepEntry, 0)
+		}
+
+		dependencyMap[object] = append(dependencyMap[object], referenceObject)
+	}
+
+	breakCircularDependencies(dependencyMap)
+
+	fmt.Printf("\n\nbackupset\n%+v\n\n", backupSet)
+	fmt.Printf("\n\ndependencyMap\n%+v\n\n", dependencyMap)
+
+	return dependencyMap
+}
+
+func breakCircularDependencies(depMap DependencyMap) {
+	for key, dep := range depMap {
+		for _, entry := range dep {
+			if _, ok := depMap[entry]; ok {
+				for entry2Index, entry2 := range depMap[entry] {
+					if key == entry2 {
+						// Break circular dep where function depends on something.
+						if entry.Classid == 1255 {
+							last := len(depMap[entry]) - 1
+							depMap[entry][entry2Index] = depMap[entry][last]
+							depMap[entry] = depMap[entry][:last]
+						}
+					}
+				}
+			}
+		}
+	}
 }

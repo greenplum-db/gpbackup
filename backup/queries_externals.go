@@ -107,8 +107,11 @@ type ExternalProtocol struct {
 	ReadFunction  uint32 `db:"ptcreadfn"`
 	WriteFunction uint32 `db:"ptcwritefn"`
 	Validator     uint32 `db:"ptcvalidatorfn"`
-	DependsUpon   []string
 	FuncMap       map[uint32]string
+}
+
+func (p ExternalProtocol) GetDepEntry() DepEntry {
+	return DepEntry{Classid: 7175, Objid: p.Oid}
 }
 
 func (p ExternalProtocol) FQN() string {

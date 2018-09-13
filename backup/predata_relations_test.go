@@ -440,13 +440,11 @@ SET SUBPARTITION TEMPLATE
 				tableDef = backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty}
 			})
 			AfterEach(func() {
-				testTable.DependsUpon = []string{}
 				testTable.Inherits = []string{}
 			})
 			It("prints a CREATE TABLE block with a single-inheritance INHERITS clause", func() {
 				col := []backup.ColumnDefinition{rowOne}
 				tableDef.ColumnDefs = col
-				testTable.DependsUpon = []string{"public.parent"}
 				testTable.Inherits = []string{"public.parent"}
 				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
@@ -456,7 +454,6 @@ SET SUBPARTITION TEMPLATE
 			It("prints a CREATE TABLE block with a multiple-inheritance INHERITS clause", func() {
 				col := []backup.ColumnDefinition{rowOne, rowTwo}
 				tableDef.ColumnDefs = col
-				testTable.DependsUpon = []string{"public.parent_one", "public.parent_two"}
 				testTable.Inherits = []string{"public.parent_one", "public.parent_two"}
 				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
@@ -621,7 +618,7 @@ GRANT ALL (j) ON TABLE public.tablename TO testrole2;`)
 		})
 	})
 	Describe("PrintCreateSequenceStatements", func() {
-		baseSequence := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_name", DependsUpon: nil, Inherits: nil}
+		baseSequence := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_name", Inherits: nil}
 		seqDefault := backup.Sequence{Relation: baseSequence, SequenceDefinition: backup.SequenceDefinition{Name: "seq_name", LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
 		seqNegIncr := backup.Sequence{Relation: baseSequence, SequenceDefinition: backup.SequenceDefinition{Name: "seq_name", LastVal: 7, Increment: -1, MaxVal: -1, MinVal: math.MinInt64, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
 		seqMaxPos := backup.Sequence{Relation: baseSequence, SequenceDefinition: backup.SequenceDefinition{Name: "seq_name", LastVal: 7, Increment: 1, MaxVal: 100, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
@@ -724,7 +721,7 @@ SELECT pg_catalog.setval('public.seq_name', 7, true);`)
 SELECT pg_catalog.setval('public.seq_name', 7, false);`)
 		})
 		It("escapes a sequence containing single quotes", func() {
-			baseSequenceWithQuote := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_'name", DependsUpon: nil, Inherits: nil}
+			baseSequenceWithQuote := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_'name", Inherits: nil}
 			seqWithQuote := backup.Sequence{Relation: baseSequenceWithQuote, SequenceDefinition: backup.SequenceDefinition{Name: "seq_'name", LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
 			sequences := []backup.Sequence{seqWithQuote}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, emptySequenceMetadataMap)
@@ -816,8 +813,8 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 	})
 	Describe("PrintCreateViewStatements", func() {
 		It("can print a basic view", func() {
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", DependsUpon: []string{}}
-			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;", DependsUpon: []string{}}
+			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;"}
+			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
 			viewMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne, viewTwo}, viewMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", `"WowZa"`, "VIEW")
@@ -829,8 +826,8 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", DependsUpon: []string{}}
-			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;", DependsUpon: []string{}}
+			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;"}
+			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
 			viewMetadataMap := testutils.DefaultMetadataMap("VIEW", true, true, true)
 			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne, viewTwo}, viewMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
@@ -852,8 +849,8 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			testhelper.SetDBVersion(connectionPool, "6.0.0")
 			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", DependsUpon: []string{}}
-			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;", DependsUpon: []string{}}
+			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;"}
+			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
 			viewMetadataMap := testutils.DefaultMetadataMap("VIEW", true, true, true)
 			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne, viewTwo}, viewMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
@@ -872,7 +869,7 @@ REVOKE ALL ON shamwow.shazam FROM testrole;
 GRANT ALL ON shamwow.shazam TO testrole;`)
 		})
 		It("can print a view with options", func() {
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", Options: " WITH (security_barrier=true)", DependsUpon: []string{}}
+			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", Options: " WITH (security_barrier=true)"}
 			viewMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne}, viewMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", `"WowZa"`, "VIEW")

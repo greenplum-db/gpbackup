@@ -221,8 +221,6 @@ func ProcessProtocols(protocols []ExternalProtocol, funcInfoMap map[uint32]Funct
 				if !funcInfo.IsInternal {
 					hasUserDefinedFunc = true
 				}
-				dependencyStr := fmt.Sprintf("%s(%s)", funcInfo.QualifiedName, funcInfo.Arguments)
-				p.DependsUpon = append(p.DependsUpon, dependencyStr)
 				p.FuncMap[funcOid] = funcInfo.QualifiedName
 			}
 		}

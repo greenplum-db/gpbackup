@@ -33,9 +33,12 @@ type Function struct {
 	NumRows           float32 `db:"prorows"`
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
-	DependsUpon       []string
 	IsWindow          bool   `db:"proiswindow"`
 	ExecLocation      string `db:"proexeclocation"`
+}
+
+func (f Function) GetDepEntry() DepEntry {
+	return DepEntry{Classid: 1255, Objid: f.Oid}
 }
 
 func (f Function) FQN() string {
@@ -54,8 +57,9 @@ func (f Function) FQN() string {
  * those values here.
  */
 func GetFunctionsAllVersions(connection *dbconn.DBConn) []Function {
+	var functions []Function
 	if connection.Version.Before("5") {
-		functions := GetFunctions4(connection)
+		functions = GetFunctions4(connection)
 		arguments, tableArguments := GetFunctionArgsAndIdentArgs(connection)
 		returns := GetFunctionReturnTypes(connection)
 		for i := range functions {
@@ -69,9 +73,10 @@ func GetFunctionsAllVersions(connection *dbconn.DBConn) []Function {
 				functions[i].ResultType = returns[oid].ResultType
 			}
 		}
-		return functions
+	} else {
+		functions = GetFunctionsMaster(connection)
 	}
-	return GetFunctionsMaster(connection)
+	return functions
 }
 
 func GetFunctionsMaster(connection *dbconn.DBConn) []Function {
@@ -612,48 +617,6 @@ ORDER BY n.nspname, c.conname;`, SchemaFilterClause("n"), ExtensionFilterClause(
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
-}
-
-/*
- * When we retrieve function dependencies, we don't record a dependency of a
- * function on a base type if the function is part of the definition of the
- * base type, as we print out shell types for all base types at the beginning
- * of the backup and so do not need to consider those dependencies when sorting
- * functions and types.
- */
-func ConstructFunctionDependencies(connection *dbconn.DBConn, functions []Function) []Function {
-	modStr := ""
-	if connection.Version.AtLeast("5") {
-		modStr = `
-	AND t.typmodin != p.oid
-	AND t.typmodout != p.oid`
-	}
-	query := fmt.Sprintf(`
-SELECT
-	p.oid,
-	coalesce((SELECT quote_ident(n.nspname) || '.' || quote_ident(typname) FROM pg_type WHERE t.typelem = oid), quote_ident(n.nspname) || '.' || quote_ident(t.typname)) AS referencedobject
-FROM pg_depend d
-JOIN pg_type t ON (d.refobjid = t.oid AND t.typtype != 'e' AND t.typtype != 'p')
-JOIN pg_proc p ON d.objid = p.oid
-JOIN pg_namespace n ON n.oid = t.typnamespace
-WHERE %s
-AND d.refclassid = 'pg_type'::regclass
-AND t.typinput != p.oid
-AND t.typoutput != p.oid
-AND t.typreceive != p.oid
-AND t.typsend != p.oid%s;`, SchemaFilterClause("n"), modStr)
-
-	results := make([]Dependency, 0)
-	dependencyMap := make(map[uint32][]string, 0)
-	err := connection.Select(&results, query)
-	gplog.FatalOnError(err)
-	for _, dependency := range results {
-		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
-	}
-	for i := 0; i < len(functions); i++ {
-		functions[i].DependsUpon = dependencyMap[functions[i].Oid]
-	}
-	return functions
 }
 
 type ForeignDataWrapper struct {

@@ -15,7 +15,7 @@ var _ = Describe("backup/predata_functions tests", func() {
 	})
 	Describe("Functions involved in printing CREATE FUNCTION statements", func() {
 		var funcDef backup.Function
-		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", DependsUpon: nil, ExecLocation: "a"}
+		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
 		BeforeEach(func() {
 			funcDef = funcDefault
 		})

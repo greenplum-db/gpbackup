@@ -379,13 +379,11 @@ ENCODING 'UTF-8'`)
 			6: {QualifiedName: "pg_catalog.write_internal_fn", Arguments: "", IsInternal: true},
 			7: {QualifiedName: "pg_catalog.validate_internal_fn", Arguments: "", IsInternal: true},
 		}
-		It("adds function name and dependency information to external protocols", func() {
+		It("adds function name to external protocols", func() {
 			protos := []backup.ExternalProtocol{protocolUntrustedReadOnly}
 			expectedFuncMap := map[uint32]string{4: "public.read_fn_s4"}
-			expectedDependencies := []string{"public.read_fn_s4(integer, integer)"}
 			resultProtos := backup.ProcessProtocols(protos, funcInfoMap)
 			Expect(resultProtos[0].FuncMap).To(Equal(expectedFuncMap))
-			Expect(resultProtos[0].DependsUpon).To(Equal(expectedDependencies))
 		})
 		It("does not include an internal protocol", func() {
 			protos := []backup.ExternalProtocol{protocolInternal, protocolUntrustedReadOnly}

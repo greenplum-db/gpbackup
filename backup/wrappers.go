@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -148,7 +149,6 @@ func RetrieveFunctions(procLangs []ProceduralLanguage) ([]Function, []Function, 
 	functions := GetFunctionsAllVersions(connectionPool)
 	objectCounts["Functions"] = len(functions)
 	functionMetadata := GetMetadataForObjectType(connectionPool, TYPE_FUNCTION)
-	functions = ConstructFunctionDependencies(connectionPool, functions)
 	langFuncs, otherFuncs := ExtractLanguageFunctions(functions, procLangs)
 	return langFuncs, otherFuncs, functionMetadata
 }
@@ -158,17 +158,10 @@ func RetrieveTypes() ([]Type, MetadataMap, map[uint32]FunctionInfo) {
 	shells := GetShellTypes(connectionPool)
 	bases := GetBaseTypes(connectionPool)
 	funcInfoMap := GetFunctionOidToInfoMap(connectionPool)
-	if connectionPool.Version.Before("5") {
-		bases = ConstructBaseTypeDependencies4(connectionPool, bases, funcInfoMap)
-	} else {
-		bases = ConstructBaseTypeDependencies5(connectionPool, bases)
-	}
 	types := append(shells, bases...)
 	composites := GetCompositeTypes(connectionPool)
-	composites = ConstructCompositeTypeDependencies(connectionPool, composites)
 	types = append(types, composites...)
 	domains := GetDomainTypes(connectionPool)
-	domains = ConstructDomainDependencies(connectionPool, domains)
 	types = append(types, domains...)
 	objectCounts["Types"] = len(types)
 	typeMetadata := GetMetadataForObjectType(connectionPool, TYPE_TYPE)
@@ -334,16 +327,63 @@ func BackupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Se
 	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
 }
 
+func createBackupSet(objSlice []Sortable) (backupSet map[DepEntry]bool) {
+	backupSet = make(map[DepEntry]bool, 0)
+	for _, obj := range objSlice {
+		backupSet[obj.GetDepEntry()] = true
+	}
+
+	return backupSet
+}
+
+var globalSortable []Sortable
+
+func convertToSortableSlice(objSlice interface{}) []Sortable {
+	sortableSlice := make([]Sortable, 0)
+	s := reflect.ValueOf(objSlice)
+
+	ret := make([]interface{}, s.Len())
+
+	for i := 0; i < s.Len(); i++ {
+		ret[i] = s.Index(i).Interface()
+	}
+
+	for _, obj := range ret {
+		newObj := obj.(Sortable)
+
+		// TODO: when types are broken out into separate structs don't pass enums and pseuo types in here.
+		typeObj, ok := obj.(Type)
+		if ok && (typeObj.Type == "e" || typeObj.Type == "p") {
+			continue
+		}
+
+		sortableSlice = append(sortableSlice, newObj)
+	}
+
+	return sortableSlice
+}
+
 // This function is fairly unwieldy, but there's not really a good way to break it down
 func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []Function, types []Type, tables []Relation,
 	protocols []ExternalProtocol, functionMetadata MetadataMap, typeMetadata MetadataMap, relationMetadata MetadataMap, protoMetadata MetadataMap,
 	tableDefs map[uint32]TableDefinition, constraints []Constraint) {
+
 	gplog.Verbose("Writing CREATE FUNCTION statements to metadata file")
 	gplog.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
 	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
 	gplog.Verbose("Writing CREATE PROTOCOL statements to metadata file")
-	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, protocols, false)
-	sortedSlice := SortObjectsInDependencyOrder(otherFuncs, types, tables, protocols)
+	// TODO: move out table inheritance out of table dependencies
+	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, false)
+
+	sortables := make([]Sortable, 0)
+	sortables = append(sortables, convertToSortableSlice(types)...)
+	sortables = append(sortables, convertToSortableSlice(tables)...)
+	sortables = append(sortables, convertToSortableSlice(otherFuncs)...)
+	sortables = append(sortables, convertToSortableSlice(protocols)...)
+	backupSet := createBackupSet(sortables)
+	relevantDeps := GetDependencies(connectionPool, backupSet)
+	sortedSlice := TopologicalSort(sortables, relevantDeps)
+
 	filteredMetadata := ConstructDependentObjectMetadataMap(functionMetadata, typeMetadata, relationMetadata, protoMetadata)
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
@@ -356,12 +396,13 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []
 // This function should be used only with a table-only backup.  For an unfiltered backup, the above function is used.
 func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
 	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
-	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, []ExternalProtocol{}, true)
+	tables = ConstructTableDependencies(connectionPool, tables, tableDefs, true)
 	sortable := make([]Sortable, 0)
 	for _, table := range tables {
 		sortable = append(sortable, table)
 	}
-	sortedSlice := TopologicalSort(sortable)
+	tmp := make(DependencyMap, 0)
+	sortedSlice := TopologicalSort(sortable, tmp)
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {

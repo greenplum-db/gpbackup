@@ -47,16 +47,19 @@ func GetAllUserTables(connection *dbconn.DBConn) []Relation {
 }
 
 type Relation struct {
-	SchemaOid   uint32
-	Oid         uint32
-	Schema      string
-	Name        string
-	DependsUpon []string // Used for dependency sorting
-	Inherits    []string // Only used for printing INHERITS statement
+	SchemaOid uint32
+	Oid       uint32
+	Schema    string
+	Name      string
+	Inherits  []string // Only used for printing INHERITS statement
 }
 
 func (r Relation) FQN() string {
 	return utils.MakeFQN(r.Schema, r.Name)
+}
+
+func (r Relation) GetDepEntry() DepEntry {
+	return DepEntry{Classid: 1259, Objid: r.Oid}
 }
 
 /*
@@ -95,6 +98,7 @@ ORDER BY c.oid;`, relationAndSchemaFilterClause(), childPartitionFilter, Extensi
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
+
 	return results
 }
 
@@ -551,7 +555,7 @@ type Dependency struct {
 	ReferencedObject string
 }
 
-func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol, isTableFiltered bool) []Relation {
+func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, tableDefs map[uint32]TableDefinition, isTableFiltered bool) []Relation {
 	var tableNameSet *utils.FilterSet
 	var tableOidList []string
 	if isTableFiltered {
@@ -621,13 +625,9 @@ AND %s`, ExtensionFilterClause("p"))
 		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
 	}
 	for i := 0; i < len(tables); i++ {
-		tables[i].DependsUpon = dependencyMap[tables[i].Oid]
 		tables[i].Inherits = inheritanceMap[tables[i].Oid]
 	}
 
-	if connection.Version.Before("5") {
-		tables = AddProtocolDependenciesForGPDB4(tables, tableDefs, protocols)
-	}
 	return tables
 }
 
@@ -719,6 +719,10 @@ type View struct {
 	Options     string
 	Definition  string
 	DependsUpon []string
+}
+
+func (v View) GetDepEntry() DepEntry {
+	return DepEntry{Classid: 0, Objid: 0}
 }
 
 func (v View) FQN() string {

@@ -77,7 +77,6 @@ SET SUBPARTITION TEMPLATE  ` + `
 			tableDefs = map[uint32]backup.TableDefinition{}
 		})
 		AfterEach(func() {
-			testTable.DependsUpon = []string{}
 			testTable.Inherits = []string{}
 			testhelper.AssertQueryRuns(connection, "DROP TABLE IF EXISTS public.testtable")
 		})
@@ -205,7 +204,6 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent (i int)")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.parent")
 			tableDef.ColumnDefs = []backup.ColumnDefinition{}
-			testTable.DependsUpon = []string{"public.parent"}
 			testTable.Inherits = []string{"public.parent"}
 
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
@@ -214,12 +212,10 @@ SET SUBPARTITION TEMPLATE  ` + `
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			tables := []backup.Relation{testTable}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
 
 			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].DependsUpon).To(HaveLen(1))
 			Expect(tables[0].Inherits).To(HaveLen(1))
-			Expect(tables[0].DependsUpon[0]).To(Equal("public.parent"))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
 		})
 		It("creates a table that inherits from two tables", func() {
@@ -228,7 +224,6 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent_two (j character varying(20))")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.parent_two")
 			tableDef.ColumnDefs = []backup.ColumnDefinition{}
-			testTable.DependsUpon = []string{"public.parent_one", "public.parent_two"}
 			testTable.Inherits = []string{"public.parent_one", "public.parent_two"}
 
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
@@ -237,14 +232,10 @@ SET SUBPARTITION TEMPLATE  ` + `
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
 			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
 			tables := []backup.Relation{testTable}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, []backup.ExternalProtocol{}, false)
+			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
 
-			sort.Strings(tables[0].DependsUpon)
 			sort.Strings(tables[0].Inherits)
 			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].DependsUpon).To(HaveLen(2))
-			Expect(tables[0].DependsUpon[0]).To(Equal("public.parent_one"))
-			Expect(tables[0].DependsUpon[1]).To(Equal("public.parent_two"))
 			Expect(tables[0].Inherits).To(HaveLen(2))
 			Expect(tables[0].Inherits[0]).To(Equal("public.parent_one"))
 			Expect(tables[0].Inherits[1]).To(Equal("public.parent_two"))
@@ -392,7 +383,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			sequenceMetadataMap backup.MetadataMap
 		)
 		BeforeEach(func() {
-			sequence = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence", DependsUpon: nil, Inherits: nil}
+			sequence = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence", Inherits: nil}
 			sequenceDef = backup.Sequence{Relation: sequence}
 			sequenceMetadataMap = backup.MetadataMap{}
 		})
@@ -466,7 +457,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			if connection.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequenceDef := backup.Sequence{Relation: backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence", DependsUpon: nil, Inherits: nil}}
+			sequenceDef := backup.Sequence{Relation: backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence", Inherits: nil}}
 			columnOwnerMap := map[string]string{"public.my_sequence": "public.sequence_table.a"}
 
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence",
