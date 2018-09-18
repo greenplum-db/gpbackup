@@ -38,7 +38,7 @@ type Function struct {
 }
 
 func (f Function) GetDepEntry() DepEntry {
-	return DepEntry{Classid: 1255, Objid: f.Oid}
+	return DepEntry{Classid: PG_PROC_OID, Objid: f.Oid}
 }
 
 func (f Function) FQN() string {

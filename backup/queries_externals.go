@@ -111,7 +111,7 @@ type ExternalProtocol struct {
 }
 
 func (p ExternalProtocol) GetDepEntry() DepEntry {
-	return DepEntry{Classid: 7175, Objid: p.Oid}
+	return DepEntry{Classid: PG_EXTPROTOCOL_OID, Objid: p.Oid}
 }
 
 func (p ExternalProtocol) FQN() string {

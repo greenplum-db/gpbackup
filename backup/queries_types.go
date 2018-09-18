@@ -118,7 +118,7 @@ type Type struct {
 }
 
 func (t Type) GetDepEntry() DepEntry {
-	return DepEntry{Classid: 1247, Objid: t.Oid}
+	return DepEntry{Classid: PG_TYPE_OID, Objid: t.Oid}
 }
 
 func (t Type) FQN() string {

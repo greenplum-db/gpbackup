@@ -33,7 +33,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(relations[2].FQN()).To(Equal("public.relation3"))
 		})
 		It("sorts the slice correctly if there is an object dependent on one other object", func() {
-			depMap[backup.DepEntry{Classid: 1259, Objid: 1}] = []backup.DepEntry{{Classid: 1259, Objid: 3}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 1}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 3}}
 			relations := []backup.Sortable{relation1, relation2, relation3}
 
 			relations = backup.TopologicalSort(relations, depMap)
@@ -43,8 +43,8 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(relations[2].FQN()).To(Equal("public.relation1"))
 		})
 		It("sorts the slice correctly if there are two objects dependent on one other object", func() {
-			depMap[backup.DepEntry{Classid: 1259, Objid: 1}] = []backup.DepEntry{{Classid: 1259, Objid: 2}}
-			depMap[backup.DepEntry{Classid: 1259, Objid: 3}] = []backup.DepEntry{{Classid: 1259, Objid: 2}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 1}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 2}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 3}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 2}}
 			relations := []backup.Sortable{relation1, relation2, relation3}
 
 			relations = backup.TopologicalSort(relations, depMap)
@@ -54,7 +54,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(relations[2].FQN()).To(Equal("public.relation3"))
 		})
 		It("sorts the slice correctly if there is one object dependent on two other objects", func() {
-			depMap[backup.DepEntry{Classid: 1259, Objid: 2}] = []backup.DepEntry{{Classid: 1259, Objid: 1}, {Classid: 1259, Objid: 1}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 2}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 1}, {Classid: backup.PG_CLASS_OID, Objid: 1}}
 			relations := []backup.Sortable{relation1, relation2, relation3}
 
 			relations = backup.TopologicalSort(relations, depMap)
@@ -64,9 +64,9 @@ var _ = Describe("backup/dependencies tests", func() {
 			Expect(relations[2].FQN()).To(Equal("public.relation2"))
 		})
 		It("aborts if dependency loop (this shouldn't be possible)", func() {
-			depMap[backup.DepEntry{Classid: 1259, Objid: 1}] = []backup.DepEntry{{Classid: 1259, Objid: 3}}
-			depMap[backup.DepEntry{Classid: 1259, Objid: 2}] = []backup.DepEntry{{Classid: 1259, Objid: 1}}
-			depMap[backup.DepEntry{Classid: 1259, Objid: 3}] = []backup.DepEntry{{Classid: 1259, Objid: 2}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 1}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 3}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 2}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 1}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 3}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 2}}
 
 			sortable := []backup.Sortable{relation1, relation2, relation3}
 
@@ -74,8 +74,8 @@ var _ = Describe("backup/dependencies tests", func() {
 			sortable = backup.TopologicalSort(sortable, depMap)
 		})
 		It("aborts if dependencies are not met", func() {
-			depMap[backup.DepEntry{Classid: 1259, Objid: 1}] = []backup.DepEntry{{Classid: 1259, Objid: 2}}
-			depMap[backup.DepEntry{Classid: 1259, Objid: 1}] = []backup.DepEntry{{Classid: 1259, Objid: 4}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 1}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 2}}
+			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 1}] = []backup.DepEntry{{Classid: backup.PG_CLASS_OID, Objid: 4}}
 			sortable := []backup.Sortable{relation1, relation2}
 
 			defer testhelper.ShouldPanicWithMessage("Dependency resolution failed; see log file gbytes.Buffer for details. This is a bug, please report.")

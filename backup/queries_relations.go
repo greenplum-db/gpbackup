@@ -59,7 +59,7 @@ func (r Relation) FQN() string {
 }
 
 func (r Relation) GetDepEntry() DepEntry {
-	return DepEntry{Classid: 1259, Objid: r.Oid}
+	return DepEntry{Classid: PG_CLASS_OID, Objid: r.Oid}
 }
 
 /*

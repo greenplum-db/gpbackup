@@ -34,6 +34,13 @@ import (
 // 	return tables
 // }
 
+var (
+	PG_PROC_OID        uint32 = 1255
+	PG_CLASS_OID       uint32 = 1259
+	PG_TYPE_OID        uint32 = 1247
+	PG_EXTPROTOCOL_OID uint32 = 7175
+)
+
 func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMap, tables MetadataMap, protocols MetadataMap) MetadataMap {
 	metadataMap := make(MetadataMap, 0)
 	for k, v := range functions {
@@ -201,7 +208,7 @@ func breakCircularDependencies(depMap DependencyMap) {
 				for entry2Index, entry2 := range depMap[entry] {
 					if key == entry2 {
 						// Break circular dep where function depends on something.
-						if entry.Classid == 1255 {
+						if entry.Classid == PG_PROC_OID {
 							last := len(depMap[entry]) - 1
 							if last == 0 {
 								delete(depMap, entry)

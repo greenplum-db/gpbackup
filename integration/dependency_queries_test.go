@@ -18,8 +18,8 @@ var _ = Describe("backup integration tests", func() {
 
 			oidFoo := testutils.OidFromObjectName(connection, "public", "foo", backup.TYPE_RELATION)
 			oidBar := testutils.OidFromObjectName(connection, "public", "bar", backup.TYPE_RELATION)
-			fooEntry := backup.DepEntry{Classid: 1259, Objid: oidFoo}
-			barEntry := backup.DepEntry{Classid: 1259, Objid: oidBar}
+			fooEntry := backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: oidFoo}
+			barEntry := backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: oidBar}
 			backupSet := map[backup.DepEntry]bool{fooEntry: true, barEntry: true}
 
 			deps := backup.GetDependencies(connection, backupSet)
@@ -47,9 +47,9 @@ var _ = Describe("backup integration tests", func() {
 			protocolOid := testutils.OidFromObjectName(connection, "", "s3", backup.TYPE_PROTOCOL)
 			functionOid := testutils.OidFromObjectName(connection, "public", "read_from_s3", backup.TYPE_FUNCTION)
 
-			tableEntry := backup.DepEntry{Classid: 1259, Objid: tableOid}
-			protocolEntry := backup.DepEntry{Classid: 7175, Objid: protocolOid}
-			functionEntry := backup.DepEntry{Classid: 1255, Objid: functionOid}
+			tableEntry := backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: tableOid}
+			protocolEntry := backup.DepEntry{Classid: backup.PG_EXTPROTOCOL_OID, Objid: protocolOid}
+			functionEntry := backup.DepEntry{Classid: backup.PG_PROC_OID, Objid: functionOid}
 			backupSet := map[backup.DepEntry]bool{tableEntry: true, protocolEntry: true, functionEntry: true}
 
 			deps := backup.GetDependencies(connection, backupSet)
@@ -63,7 +63,7 @@ var _ = Describe("backup integration tests", func() {
 			BeforeEach(func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.composite_ints AS (one integer, two integer)")
 				compositeOid := testutils.OidFromObjectName(connection, "public", "composite_ints", backup.TYPE_TYPE)
-				compositeEntry = backup.DepEntry{Classid: 1247, Objid: compositeOid}
+				compositeEntry = backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: compositeOid}
 			})
 			AfterEach(func() {
 				testhelper.AssertQueryRuns(connection, "DROP TYPE public.composite_ints CASCADE")
@@ -73,7 +73,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.add(public.composite_ints)")
 
 				functionOid := testutils.OidFromObjectName(connection, "public", "add", backup.TYPE_FUNCTION)
-				funcEntry := backup.DepEntry{Classid: 1255, Objid: functionOid}
+				funcEntry := backup.DepEntry{Classid: backup.PG_PROC_OID, Objid: functionOid}
 				backupSet := map[backup.DepEntry]bool{funcEntry: true, compositeEntry: true}
 
 				functionDeps := backup.GetDependencies(connection, backupSet)
@@ -86,7 +86,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.compose(integer, integer)")
 
 				functionOid := testutils.OidFromObjectName(connection, "public", "compose", backup.TYPE_FUNCTION)
-				funcEntry := backup.DepEntry{Classid: 1255, Objid: functionOid}
+				funcEntry := backup.DepEntry{Classid: backup.PG_PROC_OID, Objid: functionOid}
 				backupSet := map[backup.DepEntry]bool{funcEntry: true, compositeEntry: true}
 
 				functionDeps := backup.GetDependencies(connection, backupSet)
@@ -105,9 +105,9 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION public.compose(public.base_type[], public.composite_ints)")
 
 				functionOid := testutils.OidFromObjectName(connection, "public", "compose", backup.TYPE_FUNCTION)
-				funcEntry := backup.DepEntry{Classid: 1255, Objid: functionOid}
+				funcEntry := backup.DepEntry{Classid: backup.PG_PROC_OID, Objid: functionOid}
 				baseOid := testutils.OidFromObjectName(connection, "public", "base_type", backup.TYPE_TYPE)
-				baseEntry := backup.DepEntry{Classid: 1247, Objid: baseOid}
+				baseEntry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: baseOid}
 				backupSet := map[backup.DepEntry]bool{funcEntry: true, compositeEntry: true, baseEntry: true}
 
 				functionDeps := backup.GetDependencies(connection, backupSet)
@@ -128,7 +128,7 @@ var _ = Describe("backup integration tests", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.base_type(INPUT=public.base_fn_in, OUTPUT=public.base_fn_out)")
 
 				baseOid = testutils.OidFromObjectName(connection, "public", "base_type", backup.TYPE_TYPE)
-				baseEntry = backup.DepEntry{Classid: 1247, Objid: baseOid}
+				baseEntry = backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: baseOid}
 			})
 			AfterEach(func() {
 				testhelper.AssertQueryRuns(connection, "DROP TYPE public.base_type CASCADE")
@@ -142,8 +142,8 @@ var _ = Describe("backup integration tests", func() {
 				domainOid := testutils.OidFromObjectName(connection, "public", "parent_domain", backup.TYPE_TYPE)
 				domain2Oid := testutils.OidFromObjectName(connection, "public", "domain_type", backup.TYPE_TYPE)
 
-				domainEntry := backup.DepEntry{Classid: 1247, Objid: domainOid}
-				domain2Entry := backup.DepEntry{Classid: 1247, Objid: domain2Oid}
+				domainEntry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: domainOid}
+				domain2Entry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: domain2Oid}
 				backupSet := map[backup.DepEntry]bool{domainEntry: true, domain2Entry: true}
 
 				deps := backup.GetDependencies(connection, backupSet)
@@ -156,8 +156,8 @@ var _ = Describe("backup integration tests", func() {
 				baseInOid := testutils.OidFromObjectName(connection, "public", "base_fn_in", backup.TYPE_FUNCTION)
 				baseOutOid := testutils.OidFromObjectName(connection, "public", "base_fn_out", backup.TYPE_FUNCTION)
 
-				baseInEntry := backup.DepEntry{Classid: 1255, Objid: baseInOid}
-				baseOutEntry := backup.DepEntry{Classid: 1255, Objid: baseOutOid}
+				baseInEntry := backup.DepEntry{Classid: backup.PG_PROC_OID, Objid: baseInOid}
+				baseOutEntry := backup.DepEntry{Classid: backup.PG_PROC_OID, Objid: baseOutOid}
 				backupSet := map[backup.DepEntry]bool{baseEntry: true, baseInEntry: true, baseOutEntry: true}
 
 				deps := backup.GetDependencies(connection, backupSet)
@@ -170,7 +170,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.comp_type")
 
 				compositeOid := testutils.OidFromObjectName(connection, "public", "comp_type", backup.TYPE_TYPE)
-				compositeEntry := backup.DepEntry{Classid: 1247, Objid: compositeOid}
+				compositeEntry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: compositeOid}
 				backupSet := map[backup.DepEntry]bool{baseEntry: true, compositeEntry: true}
 
 				deps := backup.GetDependencies(connection, backupSet)
@@ -189,9 +189,9 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.comp_type")
 
 				base2Oid := testutils.OidFromObjectName(connection, "public", "base_type2", backup.TYPE_TYPE)
-				base2Entry := backup.DepEntry{Classid: 1247, Objid: base2Oid}
+				base2Entry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: base2Oid}
 				compositeOid := testutils.OidFromObjectName(connection, "public", "comp_type", backup.TYPE_TYPE)
-				compositeEntry := backup.DepEntry{Classid: 1247, Objid: compositeOid}
+				compositeEntry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: compositeOid}
 				backupSet := map[backup.DepEntry]bool{baseEntry: true, base2Entry: true, compositeEntry: true}
 
 				deps := backup.GetDependencies(connection, backupSet)
@@ -205,7 +205,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.comp_type")
 
 				compositeOid := testutils.OidFromObjectName(connection, "public", "comp_type", backup.TYPE_TYPE)
-				compositeEntry := backup.DepEntry{Classid: 1247, Objid: compositeOid}
+				compositeEntry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: compositeOid}
 				backupSet := map[backup.DepEntry]bool{baseEntry: true, compositeEntry: true}
 
 				deps := backup.GetDependencies(connection, backupSet)
@@ -222,8 +222,8 @@ var _ = Describe("backup integration tests", func() {
 				tableOid := testutils.OidFromObjectName(connection, "public", "my_table", backup.TYPE_RELATION)
 				typeOid := testutils.OidFromObjectName(connection, "public", "my_type", backup.TYPE_TYPE)
 
-				tableEntry := backup.DepEntry{Classid: 1259, Objid: tableOid}
-				typeEntry := backup.DepEntry{Classid: 1247, Objid: typeOid}
+				tableEntry := backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: tableOid}
+				typeEntry := backup.DepEntry{Classid: backup.PG_TYPE_OID, Objid: typeOid}
 				backupSet := map[backup.DepEntry]bool{tableEntry: true, typeEntry: true}
 
 				deps := backup.GetDependencies(connection, backupSet)
