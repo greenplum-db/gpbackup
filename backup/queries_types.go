@@ -67,12 +67,12 @@ GROUP BY %s`, selectClause, groupBy)
 	tableTypesClause := fmt.Sprintf(`
 %s
 AND %s
-JOIN pg_class c ON t.typrelid = c.oid AND c.relkind IN ('r', 'S', 'v')
+JOIN pg_class c ON t.typrelid = c.oid AND c.relkind IN ('f', 'r', 'S', 'v')
 GROUP BY %s
 UNION ALL
 %s
 JOIN pg_type it ON t.typelem = it.oid
-JOIN pg_class c ON it.typrelid = c.oid AND c.relkind IN ('r', 'S', 'v')
+JOIN pg_class c ON it.typrelid = c.oid AND c.relkind IN ('f', 'r', 'S', 'v')
 GROUP BY %s`, selectClause, ExtensionFilterClause("t"), groupBy, selectClause, groupBy)
 	return fmt.Sprintf(`
 %s

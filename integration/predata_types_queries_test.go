@@ -177,6 +177,18 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(results).To(BeEmpty())
 		})
+		It("does not return types for foreign tables", func() {
+			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER foreignwrapper")
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER foreignwrapper")
+			testhelper.AssertQueryRuns(connection, "CREATE SERVER foreignserver FOREIGN DATA WRAPPER foreignwrapper")
+			defer testhelper.AssertQueryRuns(connection, "DROP SERVER foreignserver")
+			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN TABLE public.ft1 (c1 integer) SERVER foreignserver;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN TABLE public.ft1")
+
+			results := backup.GetCompositeTypes(connection)
+
+			Expect(results).To(BeEmpty())
+		})
 		It("does not return implicit base or composite types for tables with length > NAMEDATALEN", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong(i int)")
 			// The table's name will be truncated to 63 characters upon creation, as will the names of its implicit types
