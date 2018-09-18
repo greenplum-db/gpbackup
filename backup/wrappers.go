@@ -336,8 +336,6 @@ func createBackupSet(objSlice []Sortable) (backupSet map[DepEntry]bool) {
 	return backupSet
 }
 
-var globalSortable []Sortable
-
 func convertToSortableSlice(objSlice interface{}) []Sortable {
 	sortableSlice := make([]Sortable, 0)
 	s := reflect.ValueOf(objSlice)

@@ -125,24 +125,34 @@ type DepEntry struct {
 	Objid   uint32
 }
 
-// This function only returns depedencies that are referenced in the backup set
+// This function only returns dependencies that are referenced in the backup set
 func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[DepEntry]bool) DependencyMap {
 	query := fmt.Sprintf(`SELECT
-    d.classid,
-    d.objid,
     CASE
-        WHEN id.refclassid IS NOT NULL
-        THEN id.refclassid
+        WHEN id1.refclassid IS NOT NULL
+        THEN id1.refclassid
+        ELSE d.classid
+    END AS classid,
+    CASE
+        WHEN id1.refobjid IS NOT NULL
+        THEN id1.refobjid
+        ELSE d.objid
+    END AS objid,
+    CASE
+        WHEN id2.refclassid IS NOT NULL
+        THEN id2.refclassid
         ELSE d.refclassid
     END AS refclassid,
     CASE
-        WHEN id.refobjid IS NOT NULL
-        THEN id.refobjid
+        WHEN id2.refobjid IS NOT NULL
+        THEN id2.refobjid
         ELSE d.refobjid
     END AS refobjid
 FROM pg_depend d
-LEFT JOIN pg_depend id ON ( d.refobjid = id.objid and d.refclassid = id.classid and id.deptype='i')
-WHERE d.classid != 0`)
+LEFT JOIN pg_depend id1 ON (d.objid = id1.objid and d.classid = id1.classid and id1.deptype='i')
+LEFT JOIN pg_depend id2 ON (d.refobjid = id2.objid and d.refclassid = id2.classid and id2.deptype='i')
+WHERE d.classid != 0
+AND d.deptype != 'i'`)
 
 	pgDependDeps := make([]struct {
 		ClassID    uint32
@@ -152,20 +162,6 @@ WHERE d.classid != 0`)
 	}, 0)
 
 	err := connectionPool.Select(&pgDependDeps, query)
-	gplog.FatalOnError(err)
-
-	// Specifically for composite types that depend on tables
-	compQuery := `SELECT
-	d.refclassid as classid,
-	d.refobjid as objid,
-	comp.refclassid as refclassid,
-	comp.refobjid as refobjid
-FROM pg_depend d
-JOIN pg_depend imcomp on (d.objid = imcomp.objid AND imcomp.deptype = 'n')
-JOIN pg_depend comp on (imcomp.refobjid = comp.objid and comp.deptype = 'i')
-WHERE d.classid != 0;`
-
-	err = connectionPool.Select(&pgDependDeps, compQuery)
 	gplog.FatalOnError(err)
 
 	dependencyMap := make(DependencyMap, 0)
@@ -195,9 +191,6 @@ WHERE d.classid != 0;`
 
 	breakCircularDependencies(dependencyMap)
 
-	fmt.Printf("\n\nbackupset\n%+v\n\n", backupSet)
-	fmt.Printf("\n\ndependencyMap\n%+v\n\n", dependencyMap)
-
 	return dependencyMap
 }
 
@@ -210,8 +203,12 @@ func breakCircularDependencies(depMap DependencyMap) {
 						// Break circular dep where function depends on something.
 						if entry.Classid == 1255 {
 							last := len(depMap[entry]) - 1
-							depMap[entry][entry2Index] = depMap[entry][last]
-							depMap[entry] = depMap[entry][:last]
+							if last == 0 {
+								delete(depMap, entry)
+							} else {
+								depMap[entry][entry2Index] = depMap[entry][last]
+								depMap[entry] = depMap[entry][:last]
+							}
 						}
 					}
 				}

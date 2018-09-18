@@ -10,40 +10,16 @@ import (
 
 var _ = Describe("backup/dependencies tests", func() {
 	var (
-		function1 backup.Function
-		function2 backup.Function
-		function3 backup.Function
 		relation1 backup.Relation
 		relation2 backup.Relation
 		relation3 backup.Relation
-		type1     backup.Type
-		type2     backup.Type
-		type3     backup.Type
-		view1     backup.View
-		view2     backup.View
-		view3     backup.View
-		protocol1 backup.ExternalProtocol
-		protocol2 backup.ExternalProtocol
-		protocol3 backup.ExternalProtocol
 		depMap    map[backup.DepEntry][]backup.DepEntry
 	)
 
 	BeforeEach(func() {
-		function1 = backup.Function{Schema: "public", Name: "function1", Arguments: "integer, integer"}
-		function2 = backup.Function{Schema: "public", Name: "function2", Arguments: "numeric, text"}
-		function3 = backup.Function{Schema: "public", Name: "function3", Arguments: "integer, integer"}
 		relation1 = backup.Relation{Schema: "public", Name: "relation1", Oid: 1}
 		relation2 = backup.Relation{Schema: "public", Name: "relation2", Oid: 2}
 		relation3 = backup.Relation{Schema: "public", Name: "relation3", Oid: 3}
-		type1 = backup.Type{Schema: "public", Name: "type1"}
-		type2 = backup.Type{Schema: "public", Name: "type2"}
-		type3 = backup.Type{Schema: "public", Name: "type3"}
-		view1 = backup.View{Schema: "public", Name: "view1"}
-		view2 = backup.View{Schema: "public", Name: "view2"}
-		view3 = backup.View{Schema: "public", Name: "view3"}
-		protocol1 = backup.ExternalProtocol{Name: "protocol1"}
-		protocol2 = backup.ExternalProtocol{Name: "protocol2"}
-		protocol3 = backup.ExternalProtocol{Name: "protocol3"}
 		depMap = make(map[backup.DepEntry][]backup.DepEntry, 0)
 	})
 	Describe("TopologicalSort", func() {

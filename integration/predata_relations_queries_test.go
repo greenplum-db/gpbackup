@@ -1244,33 +1244,6 @@ FORMAT 'csv';`)
 			Expect(tables).To(HaveLen(1))
 			Expect(tables[0].Inherits).To(BeEmpty())
 		})
-		// TODO: convert this into correct test for new method of creating dependencies
-		// It("constructs dependencies correctly if there is one table dependent on one protocol", func() {
-		// 	testhelper.AssertQueryRuns(connection, `CREATE FUNCTION read_from_s3() RETURNS integer
-		// AS '$libdir/gps3ext.so', 's3_import'
-		// LANGUAGE c STABLE NO SQL;`)
-		// 	defer testhelper.AssertQueryRuns(connection, "DROP FUNCTION read_from_s3()")
-		// 	testhelper.AssertQueryRuns(connection, `CREATE PROTOCOL s3 (readfunc = 'read_from_s3'); `)
-		// 	defer testhelper.AssertQueryRuns(connection, "DROP PROTOCOL s3")
-		// 	testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL TABLE public.ext_tbl (
-		// i int
-		// ) LOCATION (
-		// 's3://192.168.0.1'
-		// )
-		// FORMAT 'csv' (delimiter E',' null E'' escape E'"' quote E'"')
-		// ENCODING 'UTF8';`)
-
-		// 	defer testhelper.AssertQueryRuns(connection, "DROP EXTERNAL TABLE public.ext_tbl")
-		// 	child.Oid = testutils.OidFromObjectName(connection, "public", "ext_tbl", backup.TYPE_RELATION)
-		// 	tables := []backup.Relation{child}
-
-		// 	tableOid := testutils.OidFromObjectName(connection, "public", "ext_tbl", backup.TYPE_RELATION)
-		// 	tableDef := backup.TableDefinition{ExtTableDef: backup.ExternalTableDefinition{Location: "s3://192.168.0.1"}}
-		// 	tables = backup.ConstructTableDependencies(connection, tables, map[uint32]backup.TableDefinition{tableOid: tableDef}, []backup.ExternalProtocol{{Name: "s3"}}, false)
-
-		// 	Expect(tables).To(HaveLen(1))
-		// 	Expect(tables[0].Inherits).To(BeEmpty())
-		// })
 	})
 	Describe("ConstructViewDependencies", func() {
 		It("constructs dependencies correctly for a view that depends on two other views", func() {
