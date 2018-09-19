@@ -89,10 +89,10 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 	notVisited := make(map[DepEntry]bool, 0)
 	for i, item := range slice {
 		depEntry := item.GetDepEntry()
-		deps := dependencies[item.GetDepEntry()]
-		notVisited[item.GetDepEntry()] = true
+		deps := dependencies[depEntry]
+		notVisited[depEntry] = true
 		inDegrees[depEntry] = len(deps)
-		for _, dep := range deps {
+		for dep := range deps {
 			isDependentOn[dep] = append(isDependentOn[dep], depEntry)
 		}
 		dependencyIndexes[depEntry] = i
@@ -125,7 +125,7 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 	return sorted
 }
 
-type DependencyMap map[DepEntry][]DepEntry
+type DependencyMap map[DepEntry]map[DepEntry]bool
 
 type DepEntry struct {
 	Classid uint32
@@ -190,10 +190,10 @@ AND d.deptype != 'i'`)
 		}
 
 		if _, ok := dependencyMap[object]; !ok {
-			dependencyMap[object] = make([]DepEntry, 0)
+			dependencyMap[object] = make(map[DepEntry]bool, 0)
 		}
 
-		dependencyMap[object] = append(dependencyMap[object], referenceObject)
+		dependencyMap[object][referenceObject] = true
 	}
 
 	breakCircularDependencies(dependencyMap)
@@ -202,21 +202,14 @@ AND d.deptype != 'i'`)
 }
 
 func breakCircularDependencies(depMap DependencyMap) {
-	for key, dep := range depMap {
-		for _, entry := range dep {
-			if _, ok := depMap[entry]; ok {
-				for entry2Index, entry2 := range depMap[entry] {
-					if key == entry2 {
-						// Break circular dep where function depends on something.
-						if entry.Classid == PG_PROC_OID {
-							last := len(depMap[entry]) - 1
-							if last == 0 {
-								delete(depMap, entry)
-							} else {
-								depMap[entry][entry2Index] = depMap[entry][last]
-								depMap[entry] = depMap[entry][:last]
-							}
-						}
+	for entry, deps := range depMap {
+		for dep := range deps {
+			if _, ok := depMap[dep]; ok && entry.Classid == PG_TYPE_OID && dep.Classid == PG_PROC_OID {
+				if _, ok := depMap[dep][entry]; ok {
+					if len(depMap[dep]) == 1 {
+						delete(depMap, dep)
+					} else {
+						delete(depMap[dep], entry)
 					}
 				}
 			}

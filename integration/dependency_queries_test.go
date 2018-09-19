@@ -25,7 +25,8 @@ var _ = Describe("backup integration tests", func() {
 			deps := backup.GetDependencies(connection, backupSet)
 
 			Expect(deps).To(HaveLen(1))
-			Expect(deps[barEntry]).To(ConsistOf(fooEntry))
+			Expect(deps[barEntry]).To(HaveLen(1))
+			Expect(deps[barEntry]).To(HaveKey(fooEntry))
 		})
 		It("constructs dependencies correctly for a table dependent on a protocol", func() {
 			testhelper.AssertQueryRuns(connection, `CREATE FUNCTION public.read_from_s3() RETURNS integer
@@ -55,8 +56,10 @@ var _ = Describe("backup integration tests", func() {
 			deps := backup.GetDependencies(connection, backupSet)
 
 			Expect(deps).To(HaveLen(2))
-			Expect(deps[tableEntry]).To(ConsistOf(protocolEntry))
-			Expect(deps[protocolEntry]).To(ConsistOf(functionEntry))
+			Expect(deps[tableEntry]).To(HaveLen(1))
+			Expect(deps[tableEntry]).To(HaveKey(protocolEntry))
+			Expect(deps[protocolEntry]).To(HaveLen(1))
+			Expect(deps[protocolEntry]).To(HaveKey(functionEntry))
 		})
 		Describe("function dependencies", func() {
 			var compositeEntry backup.DepEntry
@@ -79,7 +82,8 @@ var _ = Describe("backup integration tests", func() {
 				functionDeps := backup.GetDependencies(connection, backupSet)
 
 				Expect(functionDeps).To(HaveLen(1))
-				Expect(functionDeps[funcEntry]).To(ConsistOf(compositeEntry))
+				Expect(functionDeps[funcEntry]).To(HaveLen(1))
+				Expect(functionDeps[funcEntry]).To(HaveKey(compositeEntry))
 			})
 			It("constructs dependencies correctly for a function dependent on a user-defined type in the return type", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE FUNCTION public.compose(integer, integer) RETURNS public.composite_ints STRICT IMMUTABLE LANGUAGE PLPGSQL AS 'DECLARE comp public.composite_ints; BEGIN SELECT $1, $2 INTO comp; RETURN comp; END;';")
@@ -92,9 +96,9 @@ var _ = Describe("backup integration tests", func() {
 				functionDeps := backup.GetDependencies(connection, backupSet)
 
 				Expect(functionDeps).To(HaveLen(1))
-				Expect(functionDeps[funcEntry]).To(ConsistOf(compositeEntry))
+				Expect(functionDeps[funcEntry]).To(HaveLen(1))
+				Expect(functionDeps[funcEntry]).To(HaveKey(compositeEntry))
 			})
-			// TODO: look into why it records dependencies multiple times.
 			It("constructs dependencies correctly for a function dependent on an implicit array type", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.base_type")
 				defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.base_type CASCADE")
@@ -113,7 +117,9 @@ var _ = Describe("backup integration tests", func() {
 				functionDeps := backup.GetDependencies(connection, backupSet)
 
 				Expect(functionDeps).To(HaveLen(1))
-				Expect(functionDeps[funcEntry]).To(ConsistOf(compositeEntry, compositeEntry, baseEntry))
+				Expect(functionDeps[funcEntry]).To(HaveLen(2))
+				Expect(functionDeps[funcEntry]).To(HaveKey(compositeEntry))
+				Expect(functionDeps[funcEntry]).To(HaveKey(baseEntry))
 			})
 		})
 		Describe("type dependencies", func() {
@@ -149,7 +155,8 @@ var _ = Describe("backup integration tests", func() {
 				deps := backup.GetDependencies(connection, backupSet)
 
 				Expect(deps).To(HaveLen(1))
-				Expect(deps[domain2Entry]).To(ConsistOf(domainEntry))
+				Expect(deps[domain2Entry]).To(HaveLen(1))
+				Expect(deps[domain2Entry]).To(HaveKey(domainEntry))
 			})
 
 			It("constructs dependencies correctly for a function/base type dependency loop", func() {
@@ -163,7 +170,9 @@ var _ = Describe("backup integration tests", func() {
 				deps := backup.GetDependencies(connection, backupSet)
 
 				Expect(deps).To(HaveLen(1))
-				Expect(deps[baseEntry]).To(ConsistOf(baseInEntry, baseOutEntry))
+				Expect(deps[baseEntry]).To(HaveLen(2))
+				Expect(deps[baseEntry]).To(HaveKey(baseInEntry))
+				Expect(deps[baseEntry]).To(HaveKey(baseOutEntry))
 			})
 			It("constructs dependencies correctly for a composite type dependent on one user-defined type", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.comp_type AS (base public.base_type, builtin integer)")
@@ -176,7 +185,8 @@ var _ = Describe("backup integration tests", func() {
 				deps := backup.GetDependencies(connection, backupSet)
 
 				Expect(deps).To(HaveLen(1))
-				Expect(deps[compositeEntry]).To(ConsistOf(baseEntry))
+				Expect(deps[compositeEntry]).To(HaveLen(1))
+				Expect(deps[compositeEntry]).To(HaveKey(baseEntry))
 			})
 			It("constructs dependencies correctly for a composite type dependent on multiple user-defined types", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.base_type2")
@@ -197,9 +207,10 @@ var _ = Describe("backup integration tests", func() {
 				deps := backup.GetDependencies(connection, backupSet)
 
 				Expect(deps).To(HaveLen(1))
-				Expect(deps[compositeEntry]).To(ConsistOf(baseEntry, base2Entry))
+				Expect(deps[compositeEntry]).To(HaveLen(2))
+				Expect(deps[compositeEntry]).To(HaveKey(baseEntry))
+				Expect(deps[compositeEntry]).To(HaveKey(base2Entry))
 			})
-			// TODO: look into why it records dependencies multiple times.
 			It("constructs dependencies correctly for a composite type dependent on the same user-defined type multiple times", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TYPE public.comp_type AS (base public.base_type, base2 public.base_type)")
 				defer testhelper.AssertQueryRuns(connection, "DROP TYPE public.comp_type")
@@ -211,7 +222,8 @@ var _ = Describe("backup integration tests", func() {
 				deps := backup.GetDependencies(connection, backupSet)
 
 				Expect(deps).To(HaveLen(1))
-				Expect(deps[compositeEntry]).To(ConsistOf(baseEntry, baseEntry))
+				Expect(deps[compositeEntry]).To(HaveLen(1))
+				Expect(deps[compositeEntry]).To(HaveKey(baseEntry))
 			})
 			It("constructs dependencies correctly for a composite type dependent on a table", func() {
 				testhelper.AssertQueryRuns(connection, "CREATE TABLE public.my_table(i int)")
@@ -229,7 +241,8 @@ var _ = Describe("backup integration tests", func() {
 				deps := backup.GetDependencies(connection, backupSet)
 
 				Expect(deps).To(HaveLen(1))
-				Expect(deps[typeEntry]).To(ConsistOf(tableEntry))
+				Expect(deps[typeEntry]).To(HaveLen(1))
+				Expect(deps[typeEntry]).To(HaveKey(tableEntry))
 			})
 		})
 	})
