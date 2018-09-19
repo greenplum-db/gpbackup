@@ -777,6 +777,58 @@ SET SUBPARTITION TEMPLATE
 		})
 	})
 
+	Describe("GetForeignTableDefinitions", func() {
+		It("Returns a map when a FOREIGN table exists", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER dummy")
+			testhelper.AssertQueryRuns(connection, "CREATE SERVER sc FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP SERVER sc")
+			testhelper.AssertQueryRuns(connection, `CREATE FOREIGN TABLE public.ft1 (
+	c1 integer OPTIONS (param1 'val1') NOT NULL,
+	c3 date
+) SERVER sc OPTIONS (delimiter ',', quote '"');`)
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN TABLE public.ft1")
+			oid := testutils.OidFromObjectName(connection, "public", "ft1", backup.TYPE_RELATION)
+			result := backup.GetForeignTableDefinitions(connection)
+			expectedResult := backup.ForeignTableDefinition{Oid: oid, Options: "delimiter ',',    quote '\"'", Server: "sc"}
+			Expect(result).To(HaveLen(1))
+			Expect(result[oid]).To(Equal(expectedResult))
+		})
+		It("Returns an empty map when no FOREIGN table exists", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.some_table (i int, j int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.some_table")
+
+			result := backup.GetForeignTableDefinitions(connection)
+			Expect(result).To(BeEmpty())
+		})
+	})
+	Describe("GetForeignTableRelations", func() {
+		It("Returns a list with FOREIGN table", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER dummy")
+			testhelper.AssertQueryRuns(connection, "CREATE SERVER sc FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP SERVER sc")
+			testhelper.AssertQueryRuns(connection, `CREATE FOREIGN TABLE public.ft1 (
+	c1 integer OPTIONS (param1 'val1') NOT NULL,
+	c3 date
+) SERVER sc OPTIONS (delimiter ',', quote '"');`)
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN TABLE public.ft1")
+			result := backup.GetForeignTableRelations(connection)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Schema).To(Equal("public"))
+			Expect(result[0].Name).To(Equal("ft1"))
+		})
+		It("Returns an empty list when no FOREIGN table exits", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.some_table (i int, j int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.some_table")
+			result := backup.GetForeignTableRelations(connection)
+			Expect(result).To(HaveLen(0))
+		})
+	})
 	Describe("GetTableStorageOptions", func() {
 		It("returns an empty string when no table storage options exist ", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.simple_table(i int)")

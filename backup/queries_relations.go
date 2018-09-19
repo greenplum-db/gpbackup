@@ -163,9 +163,30 @@ AND (
 	)
 	%s
 )
-AND relkind = 'r'
+AND (relkind = 'r')
 AND %s
 ORDER BY c.oid;`, SchemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter, ExtensionFilterClause("c"))
+
+	results := make([]Relation, 0)
+	err := connection.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}
+
+func GetForeignTableRelations(connection *dbconn.DBConn) []Relation {
+	query := fmt.Sprintf(`
+SELECT
+	n.oid AS schemaoid,
+	c.oid AS oid,
+	quote_ident(n.nspname) AS schema,
+	quote_ident(c.relname) AS name
+FROM pg_class c
+JOIN pg_namespace n
+	ON c.relnamespace = n.oid
+WHERE %s
+AND relkind = 'f'
+AND %s
+ORDER BY c.oid;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 	results := make([]Relation, 0)
 	err := connection.Select(&results, query)
@@ -495,6 +516,32 @@ func GetUnloggedTables(connection *dbconn.DBConn) map[uint32]bool {
 	}
 	query := `SELECT oid FROM pg_class WHERE relpersistence = 'u'`
 	return SelectAsOidToBoolMap(connection, query)
+}
+
+func GetForeignTableDefinitions(connection *dbconn.DBConn) map[uint32]ForeignTableDefinition {
+	if connection.Version.Before("6") {
+		return map[uint32]ForeignTableDefinition{}
+	}
+	queryResults := make([]ForeignTableDefinition, 0)
+
+	query := `SELECT ftrelid, fs.srvname as ftserver,
+              pg_catalog.array_to_string(array
+       (
+                select pg_catalog.quote_ident(option_name) ||' ' || pg_catalog.quote_literal(option_value)
+                FROM pg_catalog.pg_options_to_table(ftoptions)
+                ORDER BY option_name), e',    ')
+              AS ftoptions
+FROM pg_foreign_table ft JOIN pg_foreign_server fs on ft.ftserver = fs.oid;
+`
+	err := connection.Select(&queryResults, query)
+	gplog.FatalOnError(err)
+
+	resultMap := make(map[uint32]ForeignTableDefinition, len(queryResults))
+	for _, foreignTableDef := range queryResults {
+		resultMap[foreignTableDef.Oid] = foreignTableDef
+	}
+
+	return resultMap
 }
 
 type Dependency struct {

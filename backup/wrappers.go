@@ -132,6 +132,10 @@ func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinit
 	userPassedIncludeRelations := MustGetFlagStringSlice(utils.INCLUDE_RELATION)
 	ExpandIncludeRelations(tables)
 
+	if connectionPool.Version.AtLeast("6") {
+		tables = append(tables, GetForeignTableRelations(connectionPool)...)
+	}
+
 	tableDefs := ConstructDefinitionsForTables(connectionPool, tables)
 	metadataTables, dataTables := SplitTablesByPartitionType(tables, tableDefs, userPassedIncludeRelations)
 	objectCounts["Tables"] = len(metadataTables)

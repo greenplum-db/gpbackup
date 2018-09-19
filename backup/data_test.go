@@ -55,6 +55,13 @@ var _ bool = Describe("backup/data tests", func() {
 			backup.AddTableDataEntriesToTOC(tables, tableDefs, rowsCopiedMaps)
 			Expect(toc.DataEntries).To(BeNil())
 		})
+		It("does not add an entry for a foreign table to the TOC", func() {
+			columnDefs := []backup.ColumnDefinition{{Oid: 1, Name: "a"}}
+			tableDefs := map[uint32]backup.TableDefinition{1: {ColumnDefs: columnDefs, ForeignDef: backup.ForeignTableDefinition{23, "", "fs"}}}
+			tables := []backup.Relation{{Oid: 1, Schema: "public", Name: "table"}}
+			backup.AddTableDataEntriesToTOC(tables, tableDefs, rowsCopiedMaps)
+			Expect(toc.DataEntries).To(BeNil())
+		})
 	})
 	Describe("CopyTableOut", func() {
 		It("will back up a table to its own file with compression", func() {
@@ -157,6 +164,14 @@ var _ bool = Describe("backup/data tests", func() {
 			Expect(rowsCopiedMap).To(BeEmpty())
 			Expect(counters.NumRegTables).To(Equal(int64(0)))
 		})
+		It("backs up a single foreign table", func() {
+			cmdFlags.Set(utils.LEAF_PARTITION_DATA, "false")
+			tableDef.ForeignDef = backup.ForeignTableDefinition{23, "", "fs"}
+			backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
+
+			Expect(rowsCopiedMap).To(BeEmpty())
+			Expect(counters.NumRegTables).To(Equal(int64(0)))
+		})
 	})
 	Describe("CheckDBContainsData", func() {
 		config := utils.BackupConfig{}
@@ -170,7 +185,7 @@ var _ bool = Describe("backup/data tests", func() {
 			backup.CheckTablesContainData([]backup.Relation{}, map[uint32]backup.TableDefinition{})
 			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
 		})
-		It("changes backup type to metadata if only external tables in database", func() {
+		It("changes backup type to metadata if only external or foreign tables in database", func() {
 			tableDef := backup.TableDefinition{IsExternal: true}
 			backup.CheckTablesContainData(testTable, map[uint32]backup.TableDefinition{0: tableDef})
 			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())

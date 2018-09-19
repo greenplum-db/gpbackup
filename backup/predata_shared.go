@@ -273,7 +273,7 @@ func ParseACL(aclStr string, quotedRoleNames map[string]string) *ACL {
 func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType string, columnName ...string) string {
 	statements := []string{}
 	typeStr := fmt.Sprintf("%s ", objectType)
-	if objectType == "VIEW" {
+	if objectType == "VIEW" || objectType == "FOREIGN TABLE" {
 		typeStr = ""
 	} else if objectType == "COLUMN" {
 		typeStr = "TABLE "
@@ -316,6 +316,10 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 			case "FOREIGN SERVER":
 				hasAllPrivileges = acl.Usage
 				hasAllPrivilegesWithGrant = acl.UsageWithGrant
+			case "FOREIGN TABLE":
+				hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.References && acl.Trigger
+				hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
+					acl.ReferencesWithGrant && acl.TriggerWithGrant
 			case "FUNCTION":
 				hasAllPrivileges = acl.Execute
 				hasAllPrivilegesWithGrant = acl.ExecuteWithGrant

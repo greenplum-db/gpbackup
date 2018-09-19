@@ -119,6 +119,12 @@ func ExpandIncludeRelations(tables []Relation) {
 	}
 }
 
+type ForeignTableDefinition struct {
+	Oid     uint32 `db:"ftrelid"`
+	Options string `db:"ftoptions"`
+	Server  string `db:"ftserver"`
+}
+
 type TableDefinition struct {
 	DistPolicy         string
 	PartDef            string
@@ -131,6 +137,11 @@ type TableDefinition struct {
 	PartitionLevelInfo PartitionLevelInfo
 	TableType          string
 	IsUnlogged         bool
+	ForeignDef         ForeignTableDefinition
+}
+
+func (td TableDefinition) SkipDataBackup() bool {
+	return td.IsExternal || (td.ForeignDef != ForeignTableDefinition{})
 }
 
 /*
@@ -157,6 +168,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 	partTableMap := GetPartitionTableMap(connection)
 	tableTypeMap := GetTableType(connection)
 	unloggedTableMap := GetUnloggedTables(connection)
+	foreignTableDefs := GetForeignTableDefinitions(connection)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, table := range tables {
@@ -173,6 +185,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 			partTableMap[oid],
 			tableTypeMap[oid],
 			unloggedTableMap[oid],
+			foreignTableDefs[oid],
 		}
 		tableDefinitionMap[oid] = tableDef
 	}
@@ -249,18 +262,26 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 		typeStr = fmt.Sprintf("OF %s ", tableDef.TableType)
 	}
 
-	unloggedStr := ""
+	tableModifier := ""
 	if tableDef.IsUnlogged {
-		unloggedStr = "UNLOGGED "
+		tableModifier = "UNLOGGED "
+	} else if tableDef.ForeignDef != (ForeignTableDefinition{}) {
+		tableModifier = "FOREIGN "
 	}
 
-	metadataFile.MustPrintf("\n\nCREATE %sTABLE %s %s(\n", unloggedStr, table.FQN(), typeStr)
+	metadataFile.MustPrintf("\n\nCREATE %sTABLE %s %s(\n", tableModifier, table.FQN(), typeStr)
 
 	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, tableDef.TableType)
 	metadataFile.MustPrintf(") ")
 	if len(table.Inherits) != 0 {
 		dependencyList := strings.Join(table.Inherits, ", ")
 		metadataFile.MustPrintf("INHERITS (%s) ", dependencyList)
+	}
+	if tableDef.ForeignDef != (ForeignTableDefinition{}) {
+		metadataFile.MustPrintf("SERVER %s ", tableDef.ForeignDef.Server)
+		if tableDef.ForeignDef.Options != "" {
+			metadataFile.MustPrintf("OPTIONS (%s) ", tableDef.ForeignDef.Options)
+		}
 	}
 	if tableDef.StorageOpts != "" {
 		metadataFile.MustPrintf("WITH (%s) ", tableDef.StorageOpts)
@@ -327,7 +348,11 @@ func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Rel
  * statement for both regular and external tables.
  */
 func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
-	PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "TABLE")
+	if (tableDef.ForeignDef != ForeignTableDefinition{}) {
+		PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "FOREIGN TABLE")
+	} else {
+		PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "TABLE")
+	}
 
 	for _, att := range tableDef.ColumnDefs {
 		if att.Comment != "" {

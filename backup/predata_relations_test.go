@@ -102,7 +102,7 @@ ENCODING 'UTF-8';`)
 
 		Context("No special table attributes", func() {
 			tableDef := backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty}
-			It("prints a CREATE TABLE OF type block with one line", func() {
+			It("prints a CREATE TABLE OF type block with one attribute", func() {
 				col := []backup.ColumnDefinition{rowOne}
 				tableDefWithType.ColumnDefs = col
 				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDefWithType)
@@ -111,7 +111,7 @@ ENCODING 'UTF-8';`)
 ) DISTRIBUTED RANDOMLY;`)
 			})
 
-			It("prints a CREATE TABLE block with one line", func() {
+			It("prints a CREATE TABLE block with one attribute", func() {
 				col := []backup.ColumnDefinition{rowOne}
 				tableDef.ColumnDefs = col
 				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
@@ -465,6 +465,35 @@ SET SUBPARTITION TEMPLATE
 ) INHERITS (public.parent_one, public.parent_two) DISTRIBUTED RANDOMLY;`)
 			})
 		})
+		Context("Foreign Table", func() {
+			tableDef := backup.TableDefinition{}
+			BeforeEach(func() {
+				tableDef = backup.TableDefinition{DistPolicy: "", PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty}
+			})
+			It("prints a CREATE TABLE block without options", func() {
+				col := []backup.ColumnDefinition{rowOne, rowTwo}
+				tableDef.ColumnDefs = col
+				foreignTable := backup.ForeignTableDefinition{Options: "", Server: "fs"}
+				tableDef.ForeignDef = foreignTable
+				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN TABLE public.tablename (
+	i integer,
+	j character varying(20)
+) SERVER fs ;`)
+			})
+			It("prints a CREATE TABLE block with options", func() {
+				col := []backup.ColumnDefinition{rowOne, rowTwo}
+				tableDef.ColumnDefs = col
+				foreignTable := backup.ForeignTableDefinition{Options: "delimiter=',' quote='\"'", Server: "fs"}
+				tableDef.ForeignDef = foreignTable
+				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN TABLE public.tablename (
+	i integer,
+	j character varying(20)
+) SERVER fs OPTIONS (delimiter=',' quote='"') ;`)
+			})
+		})
+
 	})
 	Describe("PrintPostCreateTableStatements", func() {
 		rowCommentOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Comment: "This is a column comment.", ACL: []backup.ACL{}}
@@ -521,6 +550,24 @@ COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;`)
+		})
+		It("prints owner, comment, and ACL statements for foreign table", func() {
+			col := []backup.ColumnDefinition{rowOne}
+			tableDef.ColumnDefs = col
+			tableDef.ForeignDef = backup.ForeignTableDefinition{23, "", "fs"}
+			tableMetadata := backup.ObjectMetadata{Owner: "testrole", Comment: "This is a table comment.", Privileges: []backup.ACL{testutils.DefaultACLForType("testrole", "FOREIGN TABLE")}}
+			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
+			testhelper.ExpectRegexp(buffer, `
+
+COMMENT ON FOREIGN TABLE public.tablename IS 'This is a table comment.';
+
+
+ALTER FOREIGN TABLE public.tablename OWNER TO testrole;
+
+
+REVOKE ALL ON public.tablename FROM PUBLIC;
+REVOKE ALL ON public.tablename FROM testrole;
+GRANT ALL ON public.tablename TO testrole;`)
 		})
 		It("prints both an ALTER TABLE ... OWNER TO statement and comments", func() {
 			col := []backup.ColumnDefinition{rowCommentOne, rowCommentTwo}

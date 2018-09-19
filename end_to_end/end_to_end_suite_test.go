@@ -396,8 +396,8 @@ var _ = Describe("backup end to end integration tests", func() {
 				}
 				if backupConn.Version.AtLeast("6") {
 					testutils.ExecuteSQLFile(backupConn, "gpdb6_objects.sql")
-					defer testhelper.AssertQueryRuns(backupConn, "DROP FOREIGN DATA WRAPPER fdw;")
-					defer testhelper.AssertQueryRuns(restoreConn, "DROP FOREIGN DATA WRAPPER fdw;")
+					defer testhelper.AssertQueryRuns(backupConn, "DROP FOREIGN DATA WRAPPER fdw CASCADE;")
+					defer testhelper.AssertQueryRuns(restoreConn, "DROP FOREIGN DATA WRAPPER fdw CASCADE;")
 				}
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--single-data-file")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")

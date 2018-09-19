@@ -263,6 +263,27 @@ SET SUBPARTITION TEMPLATE  ` + `
 			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
 			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
 		})
+		It("creates a foreign table", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER dummy")
+			testhelper.AssertQueryRuns(connection, "CREATE SERVER sc FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP SERVER sc")
+
+			tableDef = backup.TableDefinition{DistPolicy: "", ExtTableDef: extTableEmpty}
+			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
+			tableDef.ColumnDefs = []backup.ColumnDefinition{rowOne}
+			tableDef.ForeignDef = backup.ForeignTableDefinition{0, "", "sc"}
+			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+
+			testhelper.AssertQueryRuns(connection, buffer.String())
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN TABLE public.testtable")
+
+			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
+			tableDef.ForeignDef.Oid = testTable.Oid
+			resultTableDef := backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})[testTable.Oid]
+			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ExtTableDef")
+		})
 	})
 	Describe("PrintPostCreateTableStatements", func() {
 		var (

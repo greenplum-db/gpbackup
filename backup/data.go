@@ -33,7 +33,7 @@ func ConstructTableAttributesList(columnDefs []ColumnDefinition) string {
 
 func AddTableDataEntriesToTOC(tables []Relation, tableDefs map[uint32]TableDefinition, rowsCopiedMaps []map[uint32]int64) {
 	for _, table := range tables {
-		if !tableDefs[table.Oid].IsExternal {
+		if !tableDefs[table.Oid].SkipDataBackup() {
 			var rowsCopied int64
 			for _, rowsCopiedMap := range rowsCopiedMaps {
 				if val, ok := rowsCopiedMap[table.Oid]; ok {
@@ -83,7 +83,9 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, destinationToWr
 }
 
 func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedMap map[uint32]int64, counters *BackupProgressCounters, whichConn int) error {
-	if !tableDef.IsExternal {
+	if tableDef.SkipDataBackup() {
+		gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
+	} else {
 		counters.mutex.Lock()
 		counters.NumRegTables++
 		numTables := counters.NumRegTables //We save this so it won't be modified before we log it
@@ -107,20 +109,18 @@ func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedM
 		}
 		rowsCopiedMap[table.Oid] = rowsCopied
 		counters.ProgressBar.Increment()
-	} else {
-		gplog.Verbose("Skipping data backup of table %s because it is an external table.", table.FQN())
 	}
 	return nil
 }
 
 func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinition) []map[uint32]int64 {
-	var totalExtTables int64
+	var numExtOrForeignTables int64
 	for _, table := range tables {
-		if tableDefs[table.Oid].IsExternal {
-			totalExtTables++
+		if tableDefs[table.Oid].SkipDataBackup() {
+			numExtOrForeignTables++
 		}
 	}
-	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables)) - totalExtTables}
+	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables)) - numExtOrForeignTables}
 	counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
 	counters.ProgressBar.Start()
 	rowsCopiedMaps := make([]map[uint32]int64, connectionPool.NumConns)
@@ -164,17 +164,13 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 	}
 	counters.ProgressBar.Finish()
 
-	printDataBackupWarnings(totalExtTables)
+	printDataBackupWarnings(numExtOrForeignTables)
 	return rowsCopiedMaps
 }
 
 func printDataBackupWarnings(numExtTables int64) {
 	if numExtTables > 0 {
-		s := ""
-		if numExtTables > 1 {
-			s = "s"
-		}
-		gplog.Info("Skipped data backup of %d external table%s.", numExtTables, s)
+		gplog.Info("Skipped data backup of %d external/foreign table(s).", numExtTables)
 	}
 	if numExtTables > 0 {
 		gplog.Info("See %s for a complete list of skipped tables.", gplog.GetLogFilePath())
@@ -184,7 +180,7 @@ func printDataBackupWarnings(numExtTables int64) {
 func CheckTablesContainData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 	if !backupReport.MetadataOnly {
 		for _, table := range tables {
-			if !tableDefs[table.Oid].IsExternal {
+			if !tableDefs[table.Oid].SkipDataBackup() {
 				return
 			}
 		}

@@ -235,6 +235,14 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 		BackupEnumTypes(metadataFile, typeMetadata)
 	}
 
+	if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
+		if connectionPool.Version.AtLeast("6") {
+			BackupForeignDataWrappers(metadataFile, funcInfoMap)
+			BackupForeignServers(metadataFile)
+			BackupUserMappings(metadataFile)
+		}
+	}
+
 	relationMetadata := GetMetadataForObjectType(connectionPool, TYPE_RELATION)
 	sequences, sequenceOwnerColumns := RetrieveSequences()
 	BackupCreateSequences(metadataFile, sequences, relationMetadata)
@@ -244,14 +252,6 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 
 	BackupDependentObjects(metadataFile, otherFuncs, types, tables, protocols, functionMetadata, typeMetadata, relationMetadata, protoMetadata, tableDefs, constraints)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
-
-	if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
-		if connectionPool.Version.AtLeast("6") {
-			BackupForeignDataWrappers(metadataFile, funcInfoMap)
-			BackupForeignServers(metadataFile)
-			BackupUserMappings(metadataFile)
-		}
-	}
 
 	if connectionPool.Version.AtLeast("5") {
 		BackupTSParsers(metadataFile)
@@ -306,7 +306,7 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		oidList := make([]string, 0, len(tables))
 		for _, table := range tables {
-			if !tableDefs[table.Oid].IsExternal {
+			if !tableDefs[table.Oid].SkipDataBackup() {
 				oidList = append(oidList, fmt.Sprintf("%d", table.Oid))
 			}
 		}
