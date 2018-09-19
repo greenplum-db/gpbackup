@@ -1132,12 +1132,14 @@ SET SUBPARTITION TEMPLATE
 			structmatcher.ExpectStructsToMatchExcluding(&viewDef, &results[0], "Oid")
 		})
 	})
-	Describe("ConstructTableDependencies", func() {
+	Describe("GetTableInheritance", func() {
 		child := backup.Relation{Schema: "public", Name: "child"}
 		childOne := backup.Relation{Schema: "public", Name: "child_one"}
 		childTwo := backup.Relation{Schema: "public", Name: "child_two"}
+		parent := backup.Relation{Schema: "public", Name: "parent"}
+		parentOne := backup.Relation{Schema: "public", Name: "parent_one"}
+		parentTwo := backup.Relation{Schema: "public", Name: "parent_two"}
 
-		tableDefs := map[uint32]backup.TableDefinition{}
 		It("constructs dependencies correctly if there is one table dependent on one table", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent(i int)")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.parent")
@@ -1145,13 +1147,12 @@ SET SUBPARTITION TEMPLATE
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.child")
 
 			child.Oid = testutils.OidFromObjectName(connection, "public", "child", backup.TYPE_RELATION)
-			tables := []backup.Relation{child}
+			tables := []backup.Relation{child, parent}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			inheritanceMap := backup.GetTableInheritance(connection, tables)
 
-			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].Inherits).To(HaveLen(1))
-			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
+			Expect(inheritanceMap).To(HaveLen(1))
+			Expect(inheritanceMap[child.Oid]).To(ConsistOf("public.parent"))
 		})
 		It("constructs dependencies correctly if there are two tables dependent on one table", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent(i int)")
@@ -1163,15 +1164,13 @@ SET SUBPARTITION TEMPLATE
 
 			childOne.Oid = testutils.OidFromObjectName(connection, "public", "child_one", backup.TYPE_RELATION)
 			childTwo.Oid = testutils.OidFromObjectName(connection, "public", "child_two", backup.TYPE_RELATION)
-			tables := []backup.Relation{childOne, childTwo}
+			tables := []backup.Relation{parent, childOne, childTwo}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			inheritanceMap := backup.GetTableInheritance(connection, tables)
 
-			Expect(tables).To(HaveLen(2))
-			Expect(tables[0].Inherits).To(HaveLen(1))
-			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
-			Expect(tables[1].Inherits).To(HaveLen(1))
-			Expect(tables[1].Inherits[0]).To(Equal("public.parent"))
+			Expect(inheritanceMap).To(HaveLen(2))
+			Expect(inheritanceMap[childOne.Oid]).To(ConsistOf("public.parent"))
+			Expect(inheritanceMap[childTwo.Oid]).To(ConsistOf("public.parent"))
 		})
 		It("constructs dependencies correctly if there is one table dependent on two tables", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent_one(i int)")
@@ -1182,25 +1181,32 @@ SET SUBPARTITION TEMPLATE
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.child")
 
 			child.Oid = testutils.OidFromObjectName(connection, "public", "child", backup.TYPE_RELATION)
-			tables := []backup.Relation{child}
+			tables := []backup.Relation{parentOne, parentTwo, child}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
+			inheritanceMap := backup.GetTableInheritance(connection, tables)
 
-			sort.Strings(tables[0].Inherits)
-			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].Inherits).To(HaveLen(2))
-			Expect(tables[0].Inherits[0]).To(Equal("public.parent_one"))
-			Expect(tables[0].Inherits[1]).To(Equal("public.parent_two"))
+			Expect(inheritanceMap).To(HaveLen(1))
+			Expect(inheritanceMap[child.Oid]).To(Equal([]string{"public.parent_one", "public.parent_two"}))
 		})
 		It("constructs dependencies correctly if there are no table dependencies", func() {
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.parent")
 			tables := []backup.Relation{}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
-			Expect(tables).To(BeEmpty())
+
+			inheritanceMap := backup.GetTableInheritance(connection, tables)
+
+			Expect(inheritanceMap).To(BeEmpty())
 		})
 		It("constructs dependencies correctly if there are no table dependencies while filtering", func() {
+			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent(i int)")
+			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.parent")
+
+			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.parent")
 			tables := []backup.Relation{}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, true)
-			Expect(tables).To(BeEmpty())
+
+			inheritanceMap := backup.GetTableInheritance(connection, tables)
+
+			Expect(inheritanceMap).To(BeEmpty())
 		})
 		It("constructs dependencies correctly if there are two dependent tables but one is not in the backup set", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent(i int)")
@@ -1210,26 +1216,26 @@ SET SUBPARTITION TEMPLATE
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.child_two() INHERITS (public.parent)")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.child_two")
 
+			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.child_one")
 			childOne.Oid = testutils.OidFromObjectName(connection, "public", "child_one", backup.TYPE_RELATION)
 			tables := []backup.Relation{childOne}
 
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, true)
+			inheritanceMap := backup.GetTableInheritance(connection, tables)
 
-			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].Inherits).To(HaveLen(1))
-			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
+			Expect(inheritanceMap).To(HaveLen(1))
+			Expect(inheritanceMap[childOne.Oid]).To(ConsistOf("public.parent"))
 		})
 		It("does not record a dependency of an external leaf partition on a parent table", func() {
 			testhelper.AssertQueryRuns(connection, `CREATE TABLE public.partition_table (id int, gender char(1))
-DISTRIBUTED BY (id)
-PARTITION BY LIST (gender)
-( PARTITION girls VALUES ('F'),
-  PARTITION boys VALUES ('M'),
-  DEFAULT PARTITION other );`)
+		DISTRIBUTED BY (id)
+		PARTITION BY LIST (gender)
+		( PARTITION girls VALUES ('F'),
+		  PARTITION boys VALUES ('M'),
+		  DEFAULT PARTITION other );`)
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.partition_table")
 			testhelper.AssertQueryRuns(connection, `CREATE EXTERNAL WEB TABLE public.partition_table_ext_part_ (like public.partition_table_1_prt_girls)
-EXECUTE 'echo -e "2\n1"' on host
-FORMAT 'csv';`)
+		EXECUTE 'echo -e "2\n1"' on host
+		FORMAT 'csv';`)
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.partition_table_ext_part_")
 			testhelper.AssertQueryRuns(connection, `ALTER TABLE public.partition_table EXCHANGE PARTITION girls WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;`)
 
@@ -1237,12 +1243,10 @@ FORMAT 'csv';`)
 
 			partition.Oid = testutils.OidFromObjectName(connection, "public", "partition_table_ext_part_", backup.TYPE_RELATION)
 			tables := []backup.Relation{partition}
-			partTableDefs := map[uint32]backup.TableDefinition{partition.Oid: {IsExternal: true, PartitionLevelInfo: backup.PartitionLevelInfo{Level: "l"}}}
 
-			tables = backup.ConstructTableDependencies(connection, tables, partTableDefs, false)
+			inheritanceMap := backup.GetTableInheritance(connection, tables)
 
-			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].Inherits).To(BeEmpty())
+			Expect(inheritanceMap).To(Not(HaveKey(partition.Oid)))
 		})
 	})
 	Describe("ConstructViewDependencies", func() {

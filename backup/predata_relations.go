@@ -169,9 +169,10 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 	tableTypeMap := GetTableType(connection)
 	unloggedTableMap := GetUnloggedTables(connection)
 	foreignTableDefs := GetForeignTableDefinitions(connection)
+	inheritanceMap := GetTableInheritance(connection, tables)
 
 	gplog.Verbose("Constructing table definition map")
-	for _, table := range tables {
+	for i, table := range tables {
 		oid := table.Oid
 		tableDef := TableDefinition{
 			distributionPolicies[oid],
@@ -187,6 +188,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 			unloggedTableMap[oid],
 			foreignTableDefs[oid],
 		}
+		tables[i].Inherits = inheritanceMap[oid]
 		tableDefinitionMap[oid] = tableDef
 	}
 	return tableDefinitionMap

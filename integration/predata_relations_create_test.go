@@ -1,8 +1,6 @@
 package integration
 
 import (
-	"sort"
-
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -23,7 +21,6 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTableEmpty backup.ExternalTableDefinition
 			testTable     backup.Relation
 			tableDef      backup.TableDefinition
-			tableDefs     map[uint32]backup.TableDefinition
 			/*
 			 * We need to construct partitionDef and partTemplateDef piecemeal like this,
 			 * or go fmt will remove the trailing whitespace and prevent literal comparison.
@@ -74,7 +71,6 @@ SET SUBPARTITION TEMPLATE  ` + `
 			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: "", ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
 			testTable = backup.Relation{Schema: "public", Name: "testtable"}
 			tableDef = backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ExtTableDef: extTableEmpty}
-			tableDefs = map[uint32]backup.TableDefinition{}
 		})
 		AfterEach(func() {
 			testTable.Inherits = []string{}
@@ -210,13 +206,10 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
-			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
-			tables := []backup.Relation{testTable}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
 
-			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].Inherits).To(HaveLen(1))
-			Expect(tables[0].Inherits[0]).To(Equal("public.parent"))
+			backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})
+
+			Expect(testTable.Inherits).To(ConsistOf("public.parent"))
 		})
 		It("creates a table that inherits from two tables", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent_one (i int)")
@@ -230,15 +223,10 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
-			testTable.Oid = testutils.OidFromObjectName(connection, "public", "testtable", backup.TYPE_RELATION)
-			tables := []backup.Relation{testTable}
-			tables = backup.ConstructTableDependencies(connection, tables, tableDefs, false)
 
-			sort.Strings(tables[0].Inherits)
-			Expect(tables).To(HaveLen(1))
-			Expect(tables[0].Inherits).To(HaveLen(2))
-			Expect(tables[0].Inherits[0]).To(Equal("public.parent_one"))
-			Expect(tables[0].Inherits[1]).To(Equal("public.parent_two"))
+			backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})
+
+			Expect(testTable.Inherits).To(Equal([]string{"public.parent_one", "public.parent_two"}))
 		})
 		It("creates an unlogged table", func() {
 			testutils.SkipIfBefore6(connection)

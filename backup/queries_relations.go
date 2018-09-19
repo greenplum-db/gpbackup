@@ -555,80 +555,37 @@ type Dependency struct {
 	ReferencedObject string
 }
 
-func ConstructTableDependencies(connection *dbconn.DBConn, tables []Relation, tableDefs map[uint32]TableDefinition, isTableFiltered bool) []Relation {
-	var tableNameSet *utils.FilterSet
-	var tableOidList []string
-	if isTableFiltered {
-		tableNameSet = utils.NewIncludeSet([]string{})
-		tableOidList = make([]string, len(tables))
+func GetTableInheritance(connection *dbconn.DBConn, tables []Relation) map[uint32][]string {
+	tableFilterStr := ""
+	if len(MustGetFlagStringSlice(utils.INCLUDE_RELATION)) > 0 {
+		tableOidList := make([]string, len(tables))
 		for i, table := range tables {
-			tableNameSet.Add(table.FQN())
 			tableOidList[i] = fmt.Sprintf("%d", table.Oid)
 		}
+		// If we are filtering on tables, we only want to record dependencies on other tables in the list
+		if len(tableOidList) > 0 {
+			tableFilterStr = fmt.Sprintf("\nAND i.inhrelid IN (%s)", strings.Join(tableOidList, ","))
+		}
 	}
-	typeQuery := fmt.Sprintf(`
-SELECT
-	objid AS oid,
-	quote_ident(n.nspname) || '.' || quote_ident(p.typname) AS referencedobject,
-	'f' AS istable
-FROM pg_depend d
-JOIN pg_type p ON d.refobjid = p.oid
-JOIN pg_namespace n ON p.typnamespace = n.oid
-JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'r'
-WHERE %s
-AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
-	protocolQuery := fmt.Sprintf(`
-SELECT
-	objid AS oid,
-	quote_ident(ptc.ptcname) AS referencedobject,
-	'f' AS istable
-FROM pg_depend d
-JOIN pg_extprotocol ptc ON d.refobjid = ptc.oid
-AND %s`, ExtensionFilterClause("ptc"))
-	tableQuery := fmt.Sprintf(`
-SELECT
-	objid AS oid,
-	quote_ident(n.nspname) || '.' || quote_ident(p.relname) AS referencedobject,
-	't' AS istable
-FROM pg_depend d
-JOIN pg_class p ON d.refobjid = p.oid AND p.relkind = 'r'
-JOIN pg_namespace n ON p.relnamespace = n.oid
-JOIN pg_class c ON d.objid = c.oid AND c.relkind = 'r'
-AND %s`, ExtensionFilterClause("p"))
 
-	query := ""
-	// If we are filtering on tables, we only want to record dependencies on other tables in the list
-	if isTableFiltered && len(tableOidList) > 0 {
-		query = fmt.Sprintf("%s\nWHERE objid IN (%s);", tableQuery, strings.Join(tableOidList, ","))
-	} else {
-		query = fmt.Sprintf("%s\nUNION\n%s\nUNION\n%s;", typeQuery, protocolQuery, tableQuery)
-	}
-	results := make([]struct {
-		Oid              uint32
-		ReferencedObject string
-		IsTable          bool
-	}, 0)
-	dependencyMap := make(map[uint32][]string, 0)
+	query := fmt.Sprintf(`
+SELECT
+	i.inhrelid AS oid,
+	quote_ident(n.nspname) || '.' || quote_ident(p.relname) AS referencedobject
+FROM pg_inherits i
+JOIN pg_class p ON i.inhparent = p.oid
+JOIN pg_namespace n ON p.relnamespace = n.oid
+WHERE %s%s
+ORDER BY i.inhrelid, i.inhseqno`, ExtensionFilterClause("p"), tableFilterStr)
+
+	results := make([]Dependency, 0)
 	inheritanceMap := make(map[uint32][]string, 0)
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
 	for _, dependency := range results {
-		if tableDefs[dependency.Oid].IsExternal && tableDefs[dependency.Oid].PartitionLevelInfo.Level == "l" {
-			continue
-		}
-		if dependency.IsTable {
-			inheritanceMap[dependency.Oid] = append(inheritanceMap[dependency.Oid], dependency.ReferencedObject)
-		}
-		if isTableFiltered && !tableNameSet.MatchesFilter(dependency.ReferencedObject) {
-			continue
-		}
-		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
+		inheritanceMap[dependency.Oid] = append(inheritanceMap[dependency.Oid], dependency.ReferencedObject)
 	}
-	for i := 0; i < len(tables); i++ {
-		tables[i].Inherits = inheritanceMap[tables[i].Oid]
-	}
-
-	return tables
+	return inheritanceMap
 }
 
 func GetAllSequenceRelations(connection *dbconn.DBConn) []Relation {
