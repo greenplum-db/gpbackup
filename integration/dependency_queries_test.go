@@ -54,6 +54,12 @@ var _ = Describe("backup integration tests", func() {
 			backupSet := map[backup.DepEntry]bool{tableEntry: true, protocolEntry: true, functionEntry: true}
 
 			deps := backup.GetDependencies(connection, backupSet)
+			if connection.Version.Is("4") {
+				tables := backup.GetAllUserTables(connection)
+				tableDefs := backup.ConstructDefinitionsForTables(connection, tables)
+				protocols := backup.GetExternalProtocols(connection)
+				backup.AddProtocolDependenciesForGPDB4(deps, tables, tableDefs, protocols)
+			}
 
 			Expect(deps).To(HaveLen(2))
 			Expect(deps[tableEntry]).To(HaveLen(1))

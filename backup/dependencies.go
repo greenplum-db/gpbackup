@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -17,22 +18,25 @@ import (
  *   - Tables
  *   - Protocols
  */
-// func AddProtocolDependenciesForGPDB4(tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol) []Relation {
-// 	protocolMap := make(map[string]bool, len(protocols))
-// 	for _, p := range protocols {
-// 		protocolMap[p.Name] = true
-// 	}
-// 	for i, table := range tables {
-// 		extTableDef := tableDefs[table.Oid].ExtTableDef
-// 		if extTableDef.Location != "" {
-// 			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
-// 			if protocolMap[protocolName] {
-// 				tables[i].DependsUpon = append(tables[i].DependsUpon, protocolName)
-// 			}
-// 		}
-// 	}
-// 	return tables
-// }
+func AddProtocolDependenciesForGPDB4(depMap DependencyMap, tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol) {
+	protocolMap := make(map[string]DepEntry, len(protocols))
+	for _, p := range protocols {
+		protocolMap[p.Name] = p.GetDepEntry()
+	}
+	for _, table := range tables {
+		extTableDef := tableDefs[table.Oid].ExtTableDef
+		if extTableDef.Location != "" {
+			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
+			if protocolEntry, ok := protocolMap[protocolName]; ok {
+				tableEntry := table.GetDepEntry()
+				if _, ok := depMap[tableEntry]; !ok {
+					depMap[tableEntry] = make(map[DepEntry]bool, 0)
+				}
+				depMap[tableEntry][protocolEntry] = true
+			}
+		}
+	}
+}
 
 var (
 	PG_PROC_OID        uint32 = 1255

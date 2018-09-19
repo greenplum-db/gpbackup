@@ -380,6 +380,9 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []
 	sortables = append(sortables, convertToSortableSlice(protocols)...)
 	backupSet := createBackupSet(sortables)
 	relevantDeps := GetDependencies(connectionPool, backupSet)
+	if connectionPool.Version.Is("4") {
+		AddProtocolDependenciesForGPDB4(relevantDeps, tables, tableDefs, protocols)
+	}
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
 	filteredMetadata := ConstructDependentObjectMetadataMap(functionMetadata, typeMetadata, relationMetadata, protoMetadata)
