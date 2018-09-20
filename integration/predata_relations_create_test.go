@@ -271,7 +271,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			defer testhelper.AssertQueryRuns(connection, "DROP SERVER sc")
 
 			tableDef = backup.TableDefinition{DistPolicy: "", ExtTableDef: extTableEmpty}
-			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL}
+			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL, FdwOptions: "option1 'value1', option2 'value2'"}
 			tableDef.ColumnDefs = []backup.ColumnDefinition{rowOne}
 			tableDef.ForeignDef = backup.ForeignTableDefinition{0, "", "sc"}
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)

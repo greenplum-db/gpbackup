@@ -400,6 +400,25 @@ PARTITION BY RANGE (year)
 
 			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
 		})
+		It("returns table attributes with foriegn data options", func() {
+			testutils.SkipIfBefore6(connection)
+			testhelper.AssertQueryRuns(connection, "CREATE FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN DATA WRAPPER dummy")
+			testhelper.AssertQueryRuns(connection, "CREATE SERVER sc FOREIGN DATA WRAPPER dummy;")
+			defer testhelper.AssertQueryRuns(connection, "DROP SERVER sc")
+			testhelper.AssertQueryRuns(connection, `CREATE FOREIGN TABLE public.ft1 (
+	c1 integer OPTIONS (param1 'val1', param2 'val2') NOT NULL
+) SERVER sc ;`)
+			defer testhelper.AssertQueryRuns(connection, "DROP FOREIGN TABLE public.ft1")
+
+			privileges := backup.GetPrivilegesForColumns(connection)
+			oid := testutils.OidFromObjectName(connection, "public", "ft1", backup.TYPE_RELATION)
+			tableAtts := backup.GetColumnDefinitions(connection, privileges)[oid]
+
+			Expect(tableAtts).To(HaveLen(1))
+			column1 := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "c1", NotNull: true, HasDefault: false, Type: "integer", StatTarget: -1, ACL: emptyColumnACL, FdwOptions: "param1 'val1', param2 'val2'"}
+			structmatcher.ExpectStructsToMatchExcluding(column1, &tableAtts[0], "Oid")
+		})
 	})
 	Describe("GetPrivilegesForColumns", func() {
 		It("Default column", func() {

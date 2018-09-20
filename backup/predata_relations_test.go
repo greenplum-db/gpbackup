@@ -492,8 +492,19 @@ SET SUBPARTITION TEMPLATE
 	j character varying(20)
 ) SERVER fs OPTIONS (delimiter=',' quote='"') ;`)
 			})
+			It("prints a CREATE TABLE block with foreign data options on attributes", func() {
+				rowWithFdwOptions := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, ACL: []backup.ACL{}, FdwOptions: "option1 'val1', option2 'val2'"}
+				col := []backup.ColumnDefinition{rowWithFdwOptions, rowTwo}
+				tableDef.ColumnDefs = col
+				foreignTable := backup.ForeignTableDefinition{Server: "fs"}
+				tableDef.ForeignDef = foreignTable
+				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FOREIGN TABLE public.tablename (
+	i integer OPTIONS (option1 'val1', option2 'val2'),
+	j character varying(20)
+) SERVER fs ;`)
+			})
 		})
-
 	})
 	Describe("PrintPostCreateTableStatements", func() {
 		rowCommentOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Comment: "This is a column comment.", ACL: []backup.ACL{}}

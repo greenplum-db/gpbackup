@@ -310,6 +310,9 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 		if tableType != "" {
 			line = fmt.Sprintf("\t%s WITH OPTIONS", column.Name)
 		}
+		if column.FdwOptions != "" {
+			line += fmt.Sprintf(" OPTIONS (%s)", column.FdwOptions)
+		}
 		if column.Collation != "" {
 			line += fmt.Sprintf(" COLLATE %s", column.Collation)
 		}
