@@ -670,16 +670,15 @@ AND %s;`, relationAndSchemaFilterClause())
 }
 
 type View struct {
-	Oid         uint32
-	Schema      string
-	Name        string
-	Options     string
-	Definition  string
-	DependsUpon []string
+	Oid        uint32
+	Schema     string
+	Name       string
+	Options    string
+	Definition string
 }
 
 func (v View) GetDepEntry() DepEntry {
-	return DepEntry{Classid: 0, Objid: 0}
+	return DepEntry{Classid: PG_CLASS_OID, Objid: v.Oid}
 }
 
 func (v View) FQN() string {
@@ -707,36 +706,6 @@ AND %s;`, optionsStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"
 	err := connection.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
-}
-
-func ConstructViewDependencies(connection *dbconn.DBConn, views []View) []View {
-	query := fmt.Sprintf(`
-SELECT DISTINCT
-	v2.oid,
-	quote_ident(n.nspname) || '.' || quote_ident(v1.relname) AS referencedobject
-FROM pg_class v1
-JOIN pg_depend d ON d.refobjid = v1.oid
-JOIN pg_rewrite rw ON rw.oid = d.objid
-JOIN pg_class v2 ON rw.ev_class = v2.oid
-JOIN pg_namespace n ON v1.relnamespace = n.oid
-WHERE d.classid = 'pg_rewrite'::regclass::oid
-	AND v1.oid != v2.oid
-	AND v1.relkind = 'v'
-	AND %s
-	AND %s
-ORDER BY v2.oid, referencedobject;`, SchemaFilterClause("n"), ExtensionFilterClause("v1"))
-
-	results := make([]Dependency, 0)
-	dependencyMap := make(map[uint32][]string, 0)
-	err := connection.Select(&results, query)
-	gplog.FatalOnError(err)
-	for _, dependency := range results {
-		dependencyMap[dependency.Oid] = append(dependencyMap[dependency.Oid], dependency.ReferencedObject)
-	}
-	for i := 0; i < len(views); i++ {
-		views[i].DependsUpon = dependencyMap[views[i].Oid]
-	}
-	return views
 }
 
 func LockTables(connection *dbconn.DBConn, tables []Relation) {

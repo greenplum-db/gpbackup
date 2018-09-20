@@ -443,12 +443,10 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 	}
 }
 
-func PrintCreateViewStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, views []View, viewMetadata MetadataMap) {
-	for _, view := range views {
-		start := metadataFile.ByteCount
-		viewFQN := utils.MakeFQN(view.Schema, view.Name)
-		metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", viewFQN, view.Options, view.Definition)
-		PrintObjectMetadata(metadataFile, viewMetadata[view.Oid], viewFQN, "VIEW")
-		toc.AddPredataEntry(view.Schema, view.Name, "VIEW", "", start, metadataFile)
-	}
+func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, view View, viewMetadata ObjectMetadata) {
+	start := metadataFile.ByteCount
+	viewFQN := utils.MakeFQN(view.Schema, view.Name)
+	metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", viewFQN, view.Options, view.Definition)
+	PrintObjectMetadata(metadataFile, viewMetadata, viewFQN, "VIEW")
+	toc.AddPredataEntry(view.Schema, view.Name, "VIEW", "", start, metadataFile)
 }

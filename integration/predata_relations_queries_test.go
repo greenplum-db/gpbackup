@@ -1249,22 +1249,4 @@ SET SUBPARTITION TEMPLATE
 			Expect(inheritanceMap).To(Not(HaveKey(partition.Oid)))
 		})
 	})
-	Describe("ConstructViewDependencies", func() {
-		It("constructs dependencies correctly for a view that depends on two other views", func() {
-			testhelper.AssertQueryRuns(connection, "CREATE VIEW public.parent1 AS SELECT relname FROM pg_class")
-			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.parent1")
-			testhelper.AssertQueryRuns(connection, "CREATE VIEW public.parent2 AS SELECT relname FROM pg_class")
-			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.parent2")
-			testhelper.AssertQueryRuns(connection, "CREATE VIEW public.child AS (SELECT * FROM public.parent1 UNION SELECT * FROM public.parent2)")
-			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.child")
-
-			childView := backup.View{}
-			childView.Oid = testutils.OidFromObjectName(connection, "public", "child", backup.TYPE_RELATION)
-			views := []backup.View{childView}
-
-			views = backup.ConstructViewDependencies(connection, views)
-
-			Expect(views).To(HaveLen(1))
-		})
-	})
 })

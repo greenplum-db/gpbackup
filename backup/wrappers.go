@@ -188,6 +188,12 @@ func RetrieveAndProcessProtocols(funcInfoMap map[uint32]FunctionInfo) ([]Externa
 	return protocolsToBackUp, protoMetadata
 }
 
+func RetrieveViews() []View {
+	views := GetViews(connectionPool)
+	objectCounts["Views"] = len(views)
+	return views
+}
+
 /*
  * Generic metadata wrapper functions
  */
@@ -362,20 +368,15 @@ func convertToSortableSlice(objSlice interface{}) []Sortable {
 }
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
-func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []Function, types []Type, tables []Relation,
-	protocols []ExternalProtocol, functionMetadata MetadataMap, typeMetadata MetadataMap, relationMetadata MetadataMap, protoMetadata MetadataMap,
-	tableDefs map[uint32]TableDefinition, constraints []Constraint) {
+func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Relation,
+	protocols []ExternalProtocol, filteredMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint, sortables []Sortable) {
 
 	gplog.Verbose("Writing CREATE FUNCTION statements to metadata file")
 	gplog.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
 	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
+	gplog.Verbose("Writing CREATE VIEW statements to metadata file")
 	gplog.Verbose("Writing CREATE PROTOCOL statements to metadata file")
 
-	sortables := make([]Sortable, 0)
-	sortables = append(sortables, convertToSortableSlice(types)...)
-	sortables = append(sortables, convertToSortableSlice(tables)...)
-	sortables = append(sortables, convertToSortableSlice(otherFuncs)...)
-	sortables = append(sortables, convertToSortableSlice(protocols)...)
 	backupSet := createBackupSet(sortables)
 	relevantDeps := GetDependencies(connectionPool, backupSet)
 	if connectionPool.Version.Is("4") {
@@ -383,7 +384,6 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []
 	}
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
-	filteredMetadata := ConstructDependentObjectMetadataMap(functionMetadata, typeMetadata, relationMetadata, protoMetadata)
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
@@ -393,14 +393,17 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, otherFuncs []
 }
 
 // This function should be used only with a table-only backup.  For an unfiltered backup, the above function is used.
-func BackupTables(metadataFile *utils.FileWithByteCount, tables []Relation, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
+func BackupDependentTablesAndViews(metadataFile *utils.FileWithByteCount, tables []Relation, views []View, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
 	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
-	sortable := make([]Sortable, 0)
-	for _, table := range tables {
-		sortable = append(sortable, table)
-	}
-	tmp := make(DependencyMap, 0)
-	sortedSlice := TopologicalSort(sortable, tmp)
+	gplog.Verbose("Writing CREATE VIEW statements to metadata file")
+
+	sortables := make([]Sortable, 0)
+	sortables = append(sortables, convertToSortableSlice(tables)...)
+	sortables = append(sortables, convertToSortableSlice(views)...)
+	backupSet := createBackupSet(sortables)
+	relevantDeps := GetDependencies(connectionPool, backupSet)
+	sortedSlice := TopologicalSort(sortables, relevantDeps)
+
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
@@ -505,17 +508,9 @@ func BackupExtensions(metadataFile *utils.FileWithByteCount) {
 	PrintCreateExtensionStatements(metadataFile, globalTOC, extensions, extensionMetadata)
 }
 
-func BackupViews(metadataFile *utils.FileWithByteCount, relationMetadata MetadataMap) {
-	gplog.Verbose("Writing CREATE VIEW statements to metadata file")
-	views := GetViews(connectionPool)
-	objectCounts["Views"] = len(views)
-	views = ConstructViewDependencies(connectionPool, views)
-	views = SortViews(views)
-	PrintCreateViewStatements(metadataFile, globalTOC, views, relationMetadata)
-}
-
 func BackupConstraints(metadataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
 	gplog.Verbose("Writing ADD CONSTRAINT statements to metadata file")
+	objectCounts["Constraints"] = len(constraints)
 	PrintConstraintStatements(metadataFile, globalTOC, constraints, conMetadata)
 }
 

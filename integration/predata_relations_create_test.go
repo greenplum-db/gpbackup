@@ -329,12 +329,11 @@ SET SUBPARTITION TEMPLATE  ` + `
 				viewDef = " SELECT 1;"
 			}
 		})
-		It("creates a view with privileges and a comment (can't specify owner in GPDB5)", func() {
-			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef, DependsUpon: nil}
-			viewMetadataMap := testutils.DefaultMetadataMap("VIEW", true, true, true)
-			viewMetadata := viewMetadataMap[1]
+		It("creates a view with privileges and a comment and owner", func() {
+			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef}
+			viewMetadata := testutils.DefaultMetadataMap("VIEW", true, true, true)[1]
 
-			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewDef}, viewMetadataMap)
+			backup.PrintCreateViewStatement(backupfile, toc, viewDef, viewMetadata)
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.simpleview")
@@ -350,9 +349,9 @@ SET SUBPARTITION TEMPLATE  ` + `
 		})
 		It("creates a view with options", func() {
 			testutils.SkipIfBefore6(connection)
-			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Options: " WITH (security_barrier=true)", Definition: viewDef, DependsUpon: nil}
+			viewDef := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Options: " WITH (security_barrier=true)", Definition: viewDef}
 
-			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewDef}, backup.MetadataMap{})
+			backup.PrintCreateViewStatement(backupfile, toc, viewDef, backup.ObjectMetadata{})
 
 			testhelper.AssertQueryRuns(connection, buffer.String())
 			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.simpleview")

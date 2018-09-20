@@ -251,7 +251,16 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	constraints, conMetadata := RetrieveConstraints()
 	protocols, protoMetadata := RetrieveAndProcessProtocols(funcInfoMap)
 
-	BackupDependentObjects(metadataFile, otherFuncs, types, tables, protocols, functionMetadata, typeMetadata, relationMetadata, protoMetadata, tableDefs, constraints)
+	views := RetrieveViews()
+
+	sortables := make([]Sortable, 0)
+	sortables = append(sortables, convertToSortableSlice(types)...)
+	sortables = append(sortables, convertToSortableSlice(tables)...)
+	sortables = append(sortables, convertToSortableSlice(otherFuncs)...)
+	sortables = append(sortables, convertToSortableSlice(protocols)...)
+	sortables = append(sortables, convertToSortableSlice(views)...)
+	filteredMetadata := ConstructDependentObjectMetadataMap(functionMetadata, typeMetadata, relationMetadata, protoMetadata)
+	BackupDependentObjects(metadataFile, tables, protocols, filteredMetadata, tableDefs, constraints, sortables)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
 	if connectionPool.Version.AtLeast("5") {
@@ -270,7 +279,6 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	BackupConversions(metadataFile)
 	BackupAggregates(metadataFile, funcInfoMap)
 	BackupCasts(metadataFile)
-	BackupViews(metadataFile, relationMetadata)
 	BackupConstraints(metadataFile, constraints, conMetadata)
 	if wasTerminated {
 		gplog.Info("Pre-data metadata backup incomplete")
@@ -292,10 +300,10 @@ func backupRelationPredata(metadataFile *utils.FileWithByteCount, tables []Relat
 
 	constraints, conMetadata := RetrieveConstraints(tables...)
 
-	BackupTables(metadataFile, tables, relationMetadata, tableDefs, constraints)
-	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
+	views := RetrieveViews()
 
-	BackupViews(metadataFile, relationMetadata)
+	BackupDependentTablesAndViews(metadataFile, tables, views, relationMetadata, tableDefs, constraints)
+	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
 	BackupConstraints(metadataFile, constraints, conMetadata)
 	gplog.Info("Table metadata backup complete")

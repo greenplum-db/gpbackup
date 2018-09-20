@@ -494,6 +494,8 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], metadataMap[obj.Oid])
 		case ExternalProtocol:
 			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
+		case View:
+			PrintCreateViewStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
 		}
 	}
 }

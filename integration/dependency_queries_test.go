@@ -67,6 +67,30 @@ var _ = Describe("backup integration tests", func() {
 			Expect(deps[protocolEntry]).To(HaveLen(1))
 			Expect(deps[protocolEntry]).To(HaveKey(functionEntry))
 		})
+		It("constructs dependencies correctly for a view that depends on two other views", func() {
+			testhelper.AssertQueryRuns(connection, "CREATE VIEW public.parent1 AS SELECT relname FROM pg_class")
+			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.parent1")
+			testhelper.AssertQueryRuns(connection, "CREATE VIEW public.parent2 AS SELECT relname FROM pg_class")
+			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.parent2")
+			testhelper.AssertQueryRuns(connection, "CREATE VIEW public.child AS (SELECT * FROM public.parent1 UNION SELECT * FROM public.parent2)")
+			defer testhelper.AssertQueryRuns(connection, "DROP VIEW public.child")
+
+			parent1Oid := testutils.OidFromObjectName(connection, "public", "parent1", backup.TYPE_RELATION)
+			parent2Oid := testutils.OidFromObjectName(connection, "public", "parent2", backup.TYPE_RELATION)
+			childOid := testutils.OidFromObjectName(connection, "public", "child", backup.TYPE_RELATION)
+
+			parent1Entry := backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: parent1Oid}
+			parent2Entry := backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: parent2Oid}
+			childEntry := backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: childOid}
+			backupSet := map[backup.DepEntry]bool{parent1Entry: true, parent2Entry: true, childEntry: true}
+
+			deps := backup.GetDependencies(connection, backupSet)
+
+			Expect(deps).To(HaveLen(1))
+			Expect(deps[childEntry]).To(HaveLen(2))
+			Expect(deps[childEntry]).To(HaveKey(parent1Entry))
+			Expect(deps[childEntry]).To(HaveKey(parent2Entry))
+		})
 		Describe("function dependencies", func() {
 			var compositeEntry backup.DepEntry
 			BeforeEach(func() {

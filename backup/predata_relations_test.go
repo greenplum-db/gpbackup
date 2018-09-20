@@ -811,27 +811,29 @@ REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 		})
 	})
-	Describe("PrintCreateViewStatements", func() {
+	Describe("PrintCreateViewStatement", func() {
+		var (
+			view          backup.View
+			emptyMetadata backup.ObjectMetadata
+			viewMetadata  backup.ObjectMetadata
+		)
+		BeforeEach(func() {
+			view = backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
+			emptyMetadata = backup.ObjectMetadata{}
+			viewMetadata = testutils.DefaultMetadataMap("VIEW", true, true, true)[1]
+		})
 		It("can print a basic view", func() {
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;"}
-			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
-			viewMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne, viewTwo}, viewMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", `"WowZa"`, "VIEW")
+			backup.PrintCreateViewStatement(backupfile, toc, view, emptyMetadata)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "shamwow", "", "shazam", "VIEW")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
-				`CREATE VIEW public."WowZa" AS SELECT rolname FROM pg_role;`,
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;`)
 		})
 		It("can print a view with privileges, an owner, and a comment for version < 6", func() {
 			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;"}
-			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
-			viewMetadataMap := testutils.DefaultMetadataMap("VIEW", true, true, true)
-			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne, viewTwo}, viewMetadataMap)
+			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
-				`CREATE VIEW public."WowZa" AS SELECT rolname FROM pg_role;`,
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;
 
 
@@ -849,12 +851,8 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			testhelper.SetDBVersion(connectionPool, "6.0.0")
 			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;"}
-			viewTwo := backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
-			viewMetadataMap := testutils.DefaultMetadataMap("VIEW", true, true, true)
-			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne, viewTwo}, viewMetadataMap)
+			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
-				`CREATE VIEW public."WowZa" AS SELECT rolname FROM pg_role;`,
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;
 
 
@@ -869,12 +867,11 @@ REVOKE ALL ON shamwow.shazam FROM testrole;
 GRANT ALL ON shamwow.shazam TO testrole;`)
 		})
 		It("can print a view with options", func() {
-			viewOne := backup.View{Oid: 0, Schema: "public", Name: `"WowZa"`, Definition: "SELECT rolname FROM pg_role;", Options: " WITH (security_barrier=true)"}
-			viewMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateViewStatements(backupfile, toc, []backup.View{viewOne}, viewMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", `"WowZa"`, "VIEW")
+			view.Options = " WITH (security_barrier=true)"
+			backup.PrintCreateViewStatement(backupfile, toc, view, emptyMetadata)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "shamwow", "", "shazam", "VIEW")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
-				`CREATE VIEW public."WowZa" WITH (security_barrier=true) AS SELECT rolname FROM pg_role;`)
+				`CREATE VIEW shamwow.shazam WITH (security_barrier=true) AS SELECT count(*) FROM pg_tables;`)
 		})
 	})
 	Describe("PrintAlterSequenceStatements", func() {

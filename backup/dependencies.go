@@ -71,19 +71,6 @@ type Sortable interface {
 	GetDepEntry() DepEntry
 }
 
-func SortViews(views []View) []View {
-	sortable := make([]Sortable, len(views))
-	for i := range views {
-		sortable[i] = views[i]
-	}
-	tmp := make(DependencyMap, 0)
-	sortable = TopologicalSort(sortable, tmp)
-	for i := range views {
-		views[i] = sortable[i].(View)
-	}
-	return views
-}
-
 func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 	inDegrees := make(map[DepEntry]int, 0)
 	dependencyIndexes := make(map[DepEntry]int, 0)
@@ -189,7 +176,7 @@ AND d.deptype != 'i'`)
 		_, objInBackup := backupSet[object]
 		_, referenceInBackup := backupSet[referenceObject]
 
-		if !objInBackup || !referenceInBackup {
+		if (object == referenceObject) || (!objInBackup || !referenceInBackup) {
 			continue
 		}
 
