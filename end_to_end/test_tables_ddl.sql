@@ -28,16 +28,16 @@ CREATE SEQUENCE myseq1 START 100;
 
 CREATE SEQUENCE myseq2 START 100;
 
-CREATE VIEW myview1 AS SELECT '1';
-
 CREATE VIEW myview2 AS SELECT '1';
 
 --
 --
 
 CREATE TABLE foo (
-    i integer
+    i integer DEFAULT nextval('myseq1') NOT NULL
 ) DISTRIBUTED BY (i);
+
+CREATE VIEW myview1 AS SELECT * from foo;
 
 --
 --

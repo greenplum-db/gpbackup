@@ -309,7 +309,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 			It("runs gpbackup and gprestore with exclude-table backup flag", func() {
 				skipIfOldBackupVersionBefore("1.4.0")
-				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq1", "--exclude-table", "public.myview1")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq2", "--exclude-table", "public.myview2")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
 				assertRelationsCreated(restoreConn, 20)
@@ -320,7 +320,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			It("runs gpbackup and gprestore with exclude-table-file backup flag", func() {
 				skipIfOldBackupVersionBefore("1.4.0")
 				excludeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
-				utils.MustPrintln(excludeFile, "schema2.foo2\nschema2.returns\npublic.sales\npublic.myseq1\npublic.myview1")
+				utils.MustPrintln(excludeFile, "schema2.foo2\nschema2.returns\npublic.sales\npublic.myseq2\npublic.myview2")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-table-file", "/tmp/exclude-tables.txt")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 
@@ -340,7 +340,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 			It("runs gpbackup and gprestore with exclude-table restore flag", func() {
 				timestamp := gpbackup(gpbackupPath, backupHelperPath)
-				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq1", "--exclude-table", "public.myview1")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq2", "--exclude-table", "public.myview2")
 
 				assertRelationsCreated(restoreConn, 20)
 				assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000, "public.sales": 13})
@@ -349,7 +349,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 			It("runs gpbackup and gprestore with exclude-table-file restore flag", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
-				utils.MustPrintln(includeFile, "schema2.foo2\nschema2.returns\npublic.myseq1\npublic.myview1")
+				utils.MustPrintln(includeFile, "schema2.foo2\nschema2.returns\npublic.myseq2\npublic.myview2")
 				backupdir := filepath.Join(custom_backup_dir, "exclude_table_file")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--exclude-table-file", "/tmp/exclude-tables.txt")
@@ -406,11 +406,11 @@ var _ = Describe("backup end to end integration tests", func() {
 			Context("with include filtering on restore", func() {
 				It("runs gpbackup and gprestore with include-table-file restore flag with a single data file", func() {
 					includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
-					utils.MustPrintln(includeFile, "public.sales\npublic.foo")
+					utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
 					backupdir := filepath.Join(custom_backup_dir, "include_table_file")
 					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
-					assertRelationsCreated(restoreConn, 14)
+					assertRelationsCreated(restoreConn, 16)
 					assertDataRestored(restoreConn, map[string]int{"public.sales": 13, "public.foo": 40000})
 
 					os.RemoveAll(backupdir)
