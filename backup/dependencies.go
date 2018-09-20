@@ -126,31 +126,28 @@ type DepEntry struct {
 // This function only returns dependencies that are referenced in the backup set
 func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[DepEntry]bool) DependencyMap {
 	query := fmt.Sprintf(`SELECT
-    CASE
-        WHEN id1.refclassid IS NOT NULL
-        THEN id1.refclassid
-        ELSE d.classid
-    END AS classid,
-    CASE
-        WHEN id1.refobjid IS NOT NULL
-        THEN id1.refobjid
-        ELSE d.objid
-    END AS objid,
-    CASE
-        WHEN id2.refclassid IS NOT NULL
-        THEN id2.refclassid
-        ELSE d.refclassid
-    END AS refclassid,
-    CASE
-        WHEN id2.refobjid IS NOT NULL
-        THEN id2.refobjid
-        ELSE d.refobjid
-    END AS refobjid
+	coalesce(id1.refclassid, d.classid) AS classid,
+	coalesce(id1.refobjid, d.objid) AS objid,
+	coalesce(id2.refclassid, d.refclassid) AS refclassid,
+	coalesce(id2.refobjid, d.refobjid) AS refobjid
 FROM pg_depend d
+-- link implicit objects, using objid and refobjid, to the objects that created them
 LEFT JOIN pg_depend id1 ON (d.objid = id1.objid and d.classid = id1.classid and id1.deptype='i')
 LEFT JOIN pg_depend id2 ON (d.refobjid = id2.objid and d.refclassid = id2.classid and id2.deptype='i')
 WHERE d.classid != 0
-AND d.deptype != 'i'`)
+AND d.deptype != 'i'
+UNION
+-- this converts function dependencies on array types to the underlying type
+-- this is needed because pg_depend in 4.3.x doesn't have the info we need
+SELECT
+	d.classid,
+	d.objid,
+	d.refclassid,
+	t.typelem AS refobjid
+FROM pg_depend d
+JOIN pg_type t ON d.refobjid = t.oid
+WHERE d.classid = 'pg_proc'::regclass::oid
+AND typelem != 0`)
 
 	pgDependDeps := make([]struct {
 		ClassID    uint32
