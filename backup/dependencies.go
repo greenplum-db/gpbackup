@@ -78,8 +78,10 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 	queue := make([]Sortable, 0)
 	sorted := make([]Sortable, 0)
 	notVisited := make(map[DepEntry]bool, 0)
+	nameForDepEntries := make(map[DepEntry]string, 0)
 	for i, item := range slice {
 		depEntry := item.GetDepEntry()
+		nameForDepEntries[depEntry] = item.FQN()
 		deps := dependencies[depEntry]
 		notVisited[depEntry] = true
 		inDegrees[depEntry] = len(deps)
@@ -108,7 +110,11 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 		gplog.Verbose("Not yet visited:")
 		for _, item := range slice {
 			if notVisited[item.GetDepEntry()] {
-				gplog.Verbose("Object: %s; TODO:ADD DEPENDENCIES", item.FQN())
+				gplog.Verbose("Object: %s %+v ", item.FQN(), item.GetDepEntry())
+				gplog.Verbose("Dependencies: ")
+				for depEntry := range dependencies[item.GetDepEntry()] {
+					gplog.Verbose("\t%s %+v", nameForDepEntries[depEntry], depEntry)
+				}
 			}
 		}
 		gplog.Fatal(errors.Errorf("Dependency resolution failed; see log file %s for details. This is a bug, please report.", gplog.GetLogFilePath()), "")

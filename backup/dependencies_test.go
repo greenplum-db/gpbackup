@@ -69,7 +69,17 @@ var _ = Describe("backup/dependencies tests", func() {
 			depMap[backup.DepEntry{Classid: backup.PG_CLASS_OID, Objid: 3}] = map[backup.DepEntry]bool{{Classid: backup.PG_CLASS_OID, Objid: 2}: true}
 
 			sortable := []backup.Sortable{relation1, relation2, relation3}
-
+			defer func() {
+				testhelper.ExpectRegexp(logfile, "Object: public.relation1 {Classid:1259 Objid:1}")
+				testhelper.ExpectRegexp(logfile, "Dependencies:")
+				testhelper.ExpectRegexp(logfile, "\tpublic.relation3 {Classid:1259 Objid:3}")
+				testhelper.ExpectRegexp(logfile, "Object: public.relation2 {Classid:1259 Objid:2}")
+				testhelper.ExpectRegexp(logfile, "Dependencies:")
+				testhelper.ExpectRegexp(logfile, "\tpublic.relation1 {Classid:1259 Objid:1}")
+				testhelper.ExpectRegexp(logfile, "Object: public.relation3 {Classid:1259 Objid:3}")
+				testhelper.ExpectRegexp(logfile, "Dependencies:")
+				testhelper.ExpectRegexp(logfile, "\tpublic.relation2 {Classid:1259 Objid:2}")
+			}()
 			defer testhelper.ShouldPanicWithMessage("Dependency resolution failed; see log file gbytes.Buffer for details. This is a bug, please report.")
 			sortable = backup.TopologicalSort(sortable, depMap)
 		})
