@@ -51,7 +51,6 @@ type Relation struct {
 	Oid       uint32
 	Schema    string
 	Name      string
-	Inherits  []string // Only used for printing INHERITS statement
 }
 
 func (r Relation) FQN() string {

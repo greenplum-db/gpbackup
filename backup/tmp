@@ -1,0 +1,52 @@
+type entry struct {
+	classid uint32
+	relname string	
+	objid   unint32
+}
+
+
+dependencyMap := make(map[entry]map[entry]bool, 0)
+
+
+no duplicates
+returned objects fits into dep struct
+no extra non user dependencies
+
+
+select d.classid, c.relname, d.objid, d.refclassid, rc.relname, d.refobjid, id.refclassid, ic.relname, id.refobjid from pg_depend d left join pg_depend id on (d.refobjid=id.objid and id.deptype='i') join pg_class c on c.oid=d.classid join pg_class rc on rc.oid=d.refclassid left join pg_class ic on id.refclassid=ic.oid where d.classid != 0;
+
+type dep struct {
+	classid unint32
+	CatalogTable string
+	objid uint32
+	refclassid unint32
+	RefCatalogTable string
+	refobjid uint32
+}
+
+var alldeps []dep
+
+for _, dep := range alldeps {
+	entry1 := entry{
+		classid: dep.classid,
+		relname: dep.CatalogTable,
+		objid: dep.objid  
+	}
+	entry2 := entry{
+		classid: dep.refclassid,
+		relname: dep.RefCatalogTable,
+		objid: dep.refobjid  
+	}
+	var val entry
+	
+	if ok, val := dependencyMap[entry1]; !ok {
+		val = make(map[entry]bool, 0)
+	}
+	val[entry2] = true
+
+}
+
+
+
+
+

@@ -437,15 +437,12 @@ SET SUBPARTITION TEMPLATE
 		Context("Inheritance", func() {
 			tableDef := backup.TableDefinition{}
 			BeforeEach(func() {
-				tableDef = backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty}
-			})
-			AfterEach(func() {
-				testTable.Inherits = []string{}
+				tableDef = backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, ExtTableDef: extTableEmpty, Inherits: []string{}}
 			})
 			It("prints a CREATE TABLE block with a single-inheritance INHERITS clause", func() {
 				col := []backup.ColumnDefinition{rowOne}
 				tableDef.ColumnDefs = col
-				testTable.Inherits = []string{"public.parent"}
+				tableDef.Inherits = []string{"public.parent"}
 				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
 	i integer
@@ -454,7 +451,7 @@ SET SUBPARTITION TEMPLATE
 			It("prints a CREATE TABLE block with a multiple-inheritance INHERITS clause", func() {
 				col := []backup.ColumnDefinition{rowOne, rowTwo}
 				tableDef.ColumnDefs = col
-				testTable.Inherits = []string{"public.parent_one", "public.parent_two"}
+				tableDef.Inherits = []string{"public.parent_one", "public.parent_two"}
 				backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
 	i integer,
@@ -618,7 +615,7 @@ GRANT ALL (j) ON TABLE public.tablename TO testrole2;`)
 		})
 	})
 	Describe("PrintCreateSequenceStatements", func() {
-		baseSequence := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_name", Inherits: nil}
+		baseSequence := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_name"}
 		seqDefault := backup.Sequence{Relation: baseSequence, SequenceDefinition: backup.SequenceDefinition{Name: "seq_name", LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
 		seqNegIncr := backup.Sequence{Relation: baseSequence, SequenceDefinition: backup.SequenceDefinition{Name: "seq_name", LastVal: 7, Increment: -1, MaxVal: -1, MinVal: math.MinInt64, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
 		seqMaxPos := backup.Sequence{Relation: baseSequence, SequenceDefinition: backup.SequenceDefinition{Name: "seq_name", LastVal: 7, Increment: 1, MaxVal: 100, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
@@ -721,7 +718,7 @@ SELECT pg_catalog.setval('public.seq_name', 7, true);`)
 SELECT pg_catalog.setval('public.seq_name', 7, false);`)
 		})
 		It("escapes a sequence containing single quotes", func() {
-			baseSequenceWithQuote := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_'name", Inherits: nil}
+			baseSequenceWithQuote := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_'name"}
 			seqWithQuote := backup.Sequence{Relation: baseSequenceWithQuote, SequenceDefinition: backup.SequenceDefinition{Name: "seq_'name", LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
 			sequences := []backup.Sequence{seqWithQuote}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, emptySequenceMetadataMap)

@@ -194,11 +194,11 @@ GRANT ALL ON SCHEMA schemaname TO testrole;`)
 		})
 	})
 	Describe("GetUniqueSchemas", func() {
-		alphabeticalAFoo := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "foo", Inherits: nil}
-		alphabeticalABar := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "bar", Inherits: nil}
+		alphabeticalAFoo := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "foo"}
+		alphabeticalABar := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "bar"}
 		schemaOther := backup.Schema{Oid: 2, Name: "otherschema"}
-		alphabeticalBFoo := backup.Relation{SchemaOid: 2, Oid: 0, Schema: "public", Name: "foo", Inherits: nil}
-		alphabeticalBBar := backup.Relation{SchemaOid: 2, Oid: 0, Schema: "public", Name: "bar", Inherits: nil}
+		alphabeticalBFoo := backup.Relation{SchemaOid: 2, Oid: 0, Schema: "public", Name: "foo"}
+		alphabeticalBBar := backup.Relation{SchemaOid: 2, Oid: 0, Schema: "public", Name: "bar"}
 		schemaPublic := backup.Schema{Oid: 1, Name: "public"}
 		schemas := []backup.Schema{schemaOther, schemaPublic}
 

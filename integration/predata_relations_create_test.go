@@ -70,10 +70,9 @@ SET SUBPARTITION TEMPLATE  ` + `
 		BeforeEach(func() {
 			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: "", ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
 			testTable = backup.Relation{Schema: "public", Name: "testtable"}
-			tableDef = backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ExtTableDef: extTableEmpty}
+			tableDef = backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ExtTableDef: extTableEmpty, Inherits: []string{}}
 		})
 		AfterEach(func() {
-			testTable.Inherits = []string{}
 			testhelper.AssertQueryRuns(connection, "DROP TABLE IF EXISTS public.testtable")
 		})
 		It("creates a table with no attributes", func() {
@@ -200,7 +199,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent (i int)")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.parent")
 			tableDef.ColumnDefs = []backup.ColumnDefinition{}
-			testTable.Inherits = []string{"public.parent"}
+			tableDef.Inherits = []string{"public.parent"}
 
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 
@@ -209,7 +208,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})
 
-			Expect(testTable.Inherits).To(ConsistOf("public.parent"))
+			Expect(tableDef.Inherits).To(ConsistOf("public.parent"))
 		})
 		It("creates a table that inherits from two tables", func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent_one (i int)")
@@ -217,7 +216,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.parent_two (j character varying(20))")
 			defer testhelper.AssertQueryRuns(connection, "DROP TABLE public.parent_two")
 			tableDef.ColumnDefs = []backup.ColumnDefinition{}
-			testTable.Inherits = []string{"public.parent_one", "public.parent_two"}
+			tableDef.Inherits = []string{"public.parent_one", "public.parent_two"}
 
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 
@@ -226,7 +225,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			backup.ConstructDefinitionsForTables(connection, []backup.Relation{testTable})
 
-			Expect(testTable.Inherits).To(Equal([]string{"public.parent_one", "public.parent_two"}))
+			Expect(tableDef.Inherits).To(Equal([]string{"public.parent_one", "public.parent_two"}))
 		})
 		It("creates an unlogged table", func() {
 			testutils.SkipIfBefore6(connection)
@@ -249,7 +248,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			testhelper.AssertQueryRuns(connection, "CREATE SERVER sc FOREIGN DATA WRAPPER dummy;")
 			defer testhelper.AssertQueryRuns(connection, "DROP SERVER sc")
 
-			tableDef = backup.TableDefinition{DistPolicy: "", ExtTableDef: extTableEmpty}
+			tableDef = backup.TableDefinition{DistPolicy: "", ExtTableDef: extTableEmpty, Inherits: []string{}}
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL, FdwOptions: "option1 'value1', option2 'value2'"}
 			tableDef.ColumnDefs = []backup.ColumnDefinition{rowOne}
 			tableDef.ForeignDef = backup.ForeignTableDefinition{0, "", "sc"}
@@ -275,7 +274,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 		BeforeEach(func() {
 			testhelper.AssertQueryRuns(connection, "CREATE TABLE public.testtable(i int)")
 			tableMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}}
-			tableDef = backup.TableDefinition{DistPolicy: "DISTRIBUTED BY (i)", ColumnDefs: []backup.ColumnDefinition{tableRow}, ExtTableDef: extTableEmpty}
+			tableDef = backup.TableDefinition{DistPolicy: "DISTRIBUTED BY (i)", ColumnDefs: []backup.ColumnDefinition{tableRow}, ExtTableDef: extTableEmpty, Inherits: []string{}}
 		})
 		AfterEach(func() {
 			testhelper.AssertQueryRuns(connection, "DROP TABLE public.testtable")
@@ -370,7 +369,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			sequenceMetadataMap backup.MetadataMap
 		)
 		BeforeEach(func() {
-			sequence = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence", Inherits: nil}
+			sequence = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}
 			sequenceDef = backup.Sequence{Relation: sequence}
 			sequenceMetadataMap = backup.MetadataMap{}
 		})
@@ -444,7 +443,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			if connection.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequenceDef := backup.Sequence{Relation: backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence", Inherits: nil}}
+			sequenceDef := backup.Sequence{Relation: backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}}
 			columnOwnerMap := map[string]string{"public.my_sequence": "public.sequence_table.a"}
 
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence",

@@ -138,6 +138,7 @@ type TableDefinition struct {
 	TableType          string
 	IsUnlogged         bool
 	ForeignDef         ForeignTableDefinition
+	Inherits           []string
 }
 
 func (td TableDefinition) SkipDataBackup() bool {
@@ -172,7 +173,7 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 	inheritanceMap := GetTableInheritance(connection, tables)
 
 	gplog.Verbose("Constructing table definition map")
-	for i, table := range tables {
+	for _, table := range tables {
 		oid := table.Oid
 		tableDef := TableDefinition{
 			distributionPolicies[oid],
@@ -187,8 +188,11 @@ func ConstructDefinitionsForTables(connection *dbconn.DBConn, tables []Relation)
 			tableTypeMap[oid],
 			unloggedTableMap[oid],
 			foreignTableDefs[oid],
+			inheritanceMap[oid],
 		}
-		tables[i].Inherits = inheritanceMap[oid]
+		if tableDef.Inherits == nil {
+			tableDef.Inherits = []string{}
+		}
 		tableDefinitionMap[oid] = tableDef
 	}
 	return tableDefinitionMap
@@ -275,8 +279,8 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 
 	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, tableDef.TableType)
 	metadataFile.MustPrintf(") ")
-	if len(table.Inherits) != 0 {
-		dependencyList := strings.Join(table.Inherits, ", ")
+	if len(tableDef.Inherits) != 0 {
+		dependencyList := strings.Join(tableDef.Inherits, ", ")
 		metadataFile.MustPrintf("INHERITS (%s) ", dependencyList)
 	}
 	if tableDef.ForeignDef != (ForeignTableDefinition{}) {
