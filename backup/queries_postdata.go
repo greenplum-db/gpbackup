@@ -80,6 +80,7 @@ LEFT JOIN pg_partitions p
 LEFT JOIN pg_tablespace s
 	ON (ic.reltablespace = s.oid)
 WHERE %s
+AND i.indisvalid
 AND i.indisprimary = 'f'
 AND n.nspname || '.' || c.relname NOT IN (SELECT partitionschemaname || '.' || partitiontablename FROM pg_partitions)
 AND %s
@@ -119,6 +120,8 @@ LEFT JOIN pg_tablespace s
 LEFT JOIN pg_constraint con
 	ON (i.indexrelid = con.conindid)
 WHERE %s
+AND i.indisvalid
+AND i.indisready
 AND i.indisprimary = 'f'
 AND n.nspname || '.' || c.relname NOT IN (SELECT partitionschemaname || '.' || partitiontablename FROM pg_partitions)
 AND con.conindid IS NULL
