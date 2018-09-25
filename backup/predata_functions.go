@@ -171,7 +171,7 @@ func PrintCreateAggregateStatements(metadataFile *utils.FileWithByteCount, toc *
 		}
 		aggFQN = fmt.Sprintf("%s(%s)", aggFQN, identArgumentsStr)
 		aggWithArgs := fmt.Sprintf("%s(%s)", aggDef.Name, identArgumentsStr)
-		PrintObjectMetadata(metadataFile, aggMetadata[aggDef.Oid], aggFQN, "AGGREGATE")
+		PrintObjectMetadata(metadataFile, aggMetadata[aggDef.GetUniqueID()], aggFQN, "AGGREGATE")
 		toc.AddPredataEntry(aggDef.Schema, aggWithArgs, "AGGREGATE", "", start, metadataFile)
 	}
 }
@@ -198,7 +198,7 @@ func PrintCreateCastStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		case "e": // Default case, don't print anything else
 		}
 		metadataFile.MustPrintf(";")
-		PrintObjectMetadata(metadataFile, castMetadata[castDef.Oid], castStr, "CAST")
+		PrintObjectMetadata(metadataFile, castMetadata[castDef.GetUniqueID()], castStr, "CAST")
 		filterSchema := "pg_catalog"
 		if castDef.CastMethod == "f" {
 			filterSchema = castDef.FunctionSchema // Use the function's schema to allow restore filtering
@@ -211,7 +211,7 @@ func PrintCreateExtensionStatements(metadataFile *utils.FileWithByteCount, toc *
 	for _, extensionDef := range extensionDefs {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nSET search_path=%s,pg_catalog;\nCREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;\nSET search_path=pg_catalog;", extensionDef.Schema, extensionDef.Name, extensionDef.Schema)
-		PrintObjectMetadata(metadataFile, extensionMetadata[extensionDef.Oid], extensionDef.Name, "EXTENSION")
+		PrintObjectMetadata(metadataFile, extensionMetadata[extensionDef.GetUniqueID()], extensionDef.Name, "EXTENSION")
 		toc.AddPredataEntry("", extensionDef.Name, "EXTENSION", "", start, metadataFile)
 	}
 }
@@ -279,7 +279,7 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *u
 		}
 		metadataFile.MustPrintf("%s;", paramsStr)
 		metadataFile.MustPrintf(alterStr)
-		PrintObjectMetadata(metadataFile, procLangMetadata[procLang.Oid], procLang.Name, "LANGUAGE")
+		PrintObjectMetadata(metadataFile, procLangMetadata[procLang.GetUniqueID()], procLang.Name, "LANGUAGE")
 		metadataFile.MustPrintln()
 		toc.AddPredataEntry("", procLang.Name, "PROCEDURAL LANGUAGE", "", start, metadataFile)
 	}
@@ -295,7 +295,7 @@ func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc 
 		}
 		metadataFile.MustPrintf("\n\nCREATE%s CONVERSION %s FOR '%s' TO '%s' FROM %s;",
 			defaultStr, convFQN, conversion.ForEncoding, conversion.ToEncoding, conversion.ConversionFunction)
-		PrintObjectMetadata(metadataFile, conversionMetadata[conversion.Oid], convFQN, "CONVERSION")
+		PrintObjectMetadata(metadataFile, conversionMetadata[conversion.GetUniqueID()], convFQN, "CONVERSION")
 		metadataFile.MustPrintln()
 		toc.AddPredataEntry(conversion.Schema, conversion.Name, "CONVERSION", "", start, metadataFile)
 	}
@@ -317,7 +317,7 @@ func PrintCreateForeignDataWrapperStatements(metadataFile *utils.FileWithByteCou
 			metadataFile.MustPrintf("\n\tOPTIONS (%s)", fdw.Options)
 		}
 		metadataFile.MustPrintf(";")
-		PrintObjectMetadata(metadataFile, fdwMetadata[fdw.Oid], fdw.Name, "FOREIGN DATA WRAPPER")
+		PrintObjectMetadata(metadataFile, fdwMetadata[fdw.GetUniqueID()], fdw.Name, "FOREIGN DATA WRAPPER")
 		toc.AddPredataEntry("", fdw.Name, "FOREIGN DATA WRAPPER", "", start, metadataFile)
 	}
 }
@@ -339,7 +339,7 @@ func PrintCreateServerStatements(metadataFile *utils.FileWithByteCount, toc *uti
 		metadataFile.MustPrintf(";")
 
 		//NOTE: We must specify SERVER when creating and dropping, but FOREIGN SERVER when granting and revoking
-		PrintObjectMetadata(metadataFile, serverMetadata[server.Oid], server.Name, "FOREIGN SERVER")
+		PrintObjectMetadata(metadataFile, serverMetadata[server.GetUniqueID()], server.Name, "FOREIGN SERVER")
 		toc.AddPredataEntry("", server.Name, "FOREIGN SERVER", "", start, metadataFile)
 	}
 }

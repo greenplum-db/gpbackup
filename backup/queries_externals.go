@@ -110,8 +110,8 @@ type ExternalProtocol struct {
 	FuncMap       map[uint32]string
 }
 
-func (p ExternalProtocol) GetDepEntry() DepEntry {
-	return DepEntry{Classid: PG_EXTPROTOCOL_OID, Objid: p.Oid}
+func (p ExternalProtocol) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_EXTPROTOCOL_OID, Oid: p.Oid}
 }
 
 func (p ExternalProtocol) FQN() string {

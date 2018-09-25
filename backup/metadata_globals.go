@@ -42,7 +42,7 @@ func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	metadataFile.MustPrintf(";")
 	toc.AddGlobalEntry("", dbname, "DATABASE", start, metadataFile)
 	start = metadataFile.ByteCount
-	PrintObjectMetadata(metadataFile, dbMetadata[db.Oid], dbname, "DATABASE")
+	PrintObjectMetadata(metadataFile, dbMetadata[db.GetUniqueID()], dbname, "DATABASE")
 	if metadataFile.ByteCount > start {
 		toc.AddGlobalEntry("", dbname, "DATABASE METADATA", start, metadataFile)
 	}
@@ -87,7 +87,7 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 			action = "ALTER"
 		}
 		metadataFile.MustPrintf("\n\n%s RESOURCE QUEUE %s WITH (%s);", action, resQueue.Name, strings.Join(attributes, ", "))
-		PrintObjectMetadata(metadataFile, resQueueMetadata[resQueue.Oid], resQueue.Name, "RESOURCE QUEUE")
+		PrintObjectMetadata(metadataFile, resQueueMetadata[resQueue.GetUniqueID()], resQueue.Name, "RESOURCE QUEUE")
 		toc.AddGlobalEntry("", resQueue.Name, "RESOURCE QUEUE", start, metadataFile)
 	}
 }
@@ -140,7 +140,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 				/* cpuset mode */
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
 			}
-			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.Oid], resGroup.Name, "RESOURCE GROUP")
+			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
 			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 		} else {
 			start = metadataFile.ByteCount
@@ -173,7 +173,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			attributes = append(attributes, fmt.Sprintf("MEMORY_SPILL_RATIO=%d", resGroup.MemorySpillRatio))
 			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%d", resGroup.Concurrency))
 			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
-			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.Oid], resGroup.Name, "RESOURCE GROUP")
+			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
 			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 		}
 	}
@@ -267,7 +267,7 @@ ALTER ROLE %s %s;`, role.Name, roleGUC)
 				metadataFile.MustPrintf("\nALTER ROLE %s DENY BETWEEN DAY %d TIME '%s' AND DAY %d TIME '%s';", role.Name, timeConstraint.StartDay, timeConstraint.StartTime, timeConstraint.EndDay, timeConstraint.EndTime)
 			}
 		}
-		PrintObjectMetadata(metadataFile, roleMetadata[role.Oid], role.Name, "ROLE")
+		PrintObjectMetadata(metadataFile, roleMetadata[role.GetUniqueID()], role.Name, "ROLE")
 		toc.AddGlobalEntry("", role.Name, "ROLE", start, metadataFile)
 	}
 }
@@ -296,7 +296,7 @@ func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc 
 		}
 		toc.AddGlobalEntry("", tablespace.Tablespace, "TABLESPACE", start, metadataFile)
 		start = metadataFile.ByteCount
-		PrintObjectMetadata(metadataFile, tablespaceMetadata[tablespace.Oid], tablespace.Tablespace, "TABLESPACE")
+		PrintObjectMetadata(metadataFile, tablespaceMetadata[tablespace.GetUniqueID()], tablespace.Tablespace, "TABLESPACE")
 		if metadataFile.ByteCount > start {
 			toc.AddGlobalEntry("", tablespace.Tablespace, "TABLESPACE METADATA", start, metadataFile)
 		}

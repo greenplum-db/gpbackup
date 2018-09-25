@@ -173,7 +173,6 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			collations := []backup.Collation{{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}}
 			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
-			collationMetadata := collationMetadataMap[1]
 
 			backup.PrintCreateCollationStatements(backupfile, toc, collations, collationMetadataMap)
 
@@ -183,8 +182,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultCollations := backup.GetCollations(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_COLLATION)
 
+			collationMetadata := testutils.DefaultMetadata("COLLATION", false, true, true)
 			Expect(resultCollations).To(HaveLen(1))
-			oid := testutils.OidFromObjectName(connectionPool, "public", "testcollation", backup.TYPE_COLLATION)
+			oid := testutils.UniqueIDFromObjectName(connectionPool, "public", "testcollation", backup.TYPE_COLLATION)
 			resultMetadata := resultMetadataMap[oid]
 			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)

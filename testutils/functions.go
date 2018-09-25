@@ -63,8 +63,7 @@ func SetDefaultSegmentConfiguration() *cluster.Cluster {
 	return cluster
 }
 
-// objType should be an all-caps string like TABLE, INDEX, etc.
-func DefaultMetadataMap(objType string, hasPrivileges bool, hasOwner bool, hasComment bool) backup.MetadataMap {
+func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComment bool) backup.ObjectMetadata {
 	privileges := []backup.ACL{}
 	if hasPrivileges {
 		privileges = []backup.ACL{DefaultACLForType("testrole", objType)}
@@ -82,11 +81,57 @@ func DefaultMetadataMap(objType string, hasPrivileges bool, hasOwner bool, hasCo
 		}
 		comment = fmt.Sprintf("This is a%s %s comment.", n, strings.ToLower(objType))
 	}
+	return backup.ObjectMetadata{Privileges: privileges, Owner: owner, Comment: comment}
+
+}
+
+// objType should be an all-caps string like TABLE, INDEX, etc.
+func DefaultMetadataMap(objType string, hasPrivileges bool, hasOwner bool, hasComment bool) backup.MetadataMap {
 	return backup.MetadataMap{
-		1: {Privileges: privileges, Owner: owner, Comment: comment},
+		backup.UniqueID{Classid: ClassIDFromObjectName(objType), Oid: 1}: DefaultMetadata(objType, hasPrivileges, hasOwner, hasComment),
 	}
 }
 
+var objNameToClassid = map[string]uint32{
+	"AGGREGATE":                 1255,
+	"CAST":                      2605,
+	"COLLATION":                 3456,
+	"CONVERSION":                2607,
+	"CONSTRAINT":                2606,
+	"DATABASE":                  1262,
+	"DOMAIN  ":                  1247,
+	"EXTENSION":                 3079,
+	"FOREIGN DATA WRAPPER":      2328,
+	"FOREIGN SERVER":            1417,
+	"FUNCTION":                  1255,
+	"INDEX":                     2610,
+	"LANGUAGE":                  2612,
+	"OPERATOR":                  2617,
+	"OPERATOR CLASS":            2616,
+	"OPERATOR FAMILY":           2753,
+	"PROTOCOL":                  7175,
+	"RESOURCE QUEUE":            6026,
+	"RESOURCE GROUP":            6436,
+	"ROLE":                      1260,
+	"RULE":                      2618,
+	"SCHEMA":                    2615,
+	"SEQUENCE":                  1259,
+	"TABLE":                     1259,
+	"TABLESPACE":                1213,
+	"TEXT SEARCH CONFIGURATION": 3602,
+	"TEXT SEARCH DICTIONARY":    3600,
+	"TEXT SEARCH PARSER":        3601,
+	"TEXT SEARCH TEMPLATE":      3764,
+	"TRIGGER":                   2620,
+	"TYPE":                      1247,
+	"USER MAPPING":              1418,
+	"VIEW":                      1259,
+}
+
+func ClassIDFromObjectName(objName string) uint32 {
+	return objNameToClassid[objName]
+
+}
 func DefaultACLForType(grantee string, objType string) backup.ACL {
 	return backup.ACL{
 		Grantee:    grantee,
@@ -322,6 +367,19 @@ func OidFromObjectName(connectionPool *dbconn.DBConn, schemaName string, objectN
 		Fail(fmt.Sprintf("Execution of query failed: %v", err))
 	}
 	return result.Oid
+}
+
+func UniqueIDFromObjectName(connectionPool *dbconn.DBConn, schemaName string, objectName string, params backup.MetadataQueryParams) backup.UniqueID {
+	query := fmt.Sprintf("SELECT '%s'::regclass::oid", params.CatalogTable)
+	result := struct {
+		Oid uint32
+	}{}
+	err := connectionPool.Get(&result, query)
+	if err != nil {
+		Fail(fmt.Sprintf("Execution of query failed: %v", err))
+	}
+
+	return backup.UniqueID{Classid: result.Oid, Oid: OidFromObjectName(connectionPool, schemaName, objectName, params)}
 }
 
 func GetUserByID(connectionPool *dbconn.DBConn, oid uint32) string {

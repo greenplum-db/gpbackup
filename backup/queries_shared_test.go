@@ -23,6 +23,7 @@ var _ = Describe("backup/queries_shared tests", func() {
 		})
 		It("queries metadata for an object with default params", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+	'table'::regclass::oid AS classid,
 	o.oid,
 	'' AS privileges,
 	'' AS kind,
@@ -35,6 +36,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 		})
 		It("queries metadata for an object with a schema field", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+	'table'::regclass::oid AS classid,
 	o.oid,
 	'' AS privileges,
 	'' AS kind,
@@ -50,6 +52,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 		})
 		It("queries metadata for an object with an ACL field", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+	'table'::regclass::oid AS classid,
 	o.oid,
 	CASE
 		WHEN acl IS NULL OR array_upper(acl, 1) = 0 THEN acl[0]
@@ -69,6 +72,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 		})
 		It("queries metadata for a shared object", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+	'table'::regclass::oid AS classid,
 	o.oid,
 	'' AS privileges,
 	'' AS kind,
@@ -99,8 +103,8 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 				{Grantee: "testrole", Insert: true},
 			}, Owner: "testrole"}
 			expectedTwo := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is a metadata comment."}
-			resultOne := resultMetadataMap[1]
-			resultTwo := resultMetadataMap[2]
+			resultOne := resultMetadataMap[backup.UniqueID{Oid: 1}]
+			resultTwo := resultMetadataMap[backup.UniqueID{Oid: 2}]
 			Expect(resultMetadataMap).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatch(&expectedOne, &resultOne)
 			structmatcher.ExpectStructsToMatch(&expectedTwo, &resultTwo)
@@ -116,6 +120,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 		})
 		It("returns comment for object with default params", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+	'table'::regclass::oid AS classid,
 	o.oid AS oid,
 	coalesce(description,'') AS comment
 FROM table o JOIN pg_description d ON (d.objoid = oid AND d.classoid = 'table'::regclass AND d.objsubid = 0);`)).WillReturnRows(emptyRows)
@@ -124,6 +129,7 @@ FROM table o JOIN pg_description d ON (d.objoid = oid AND d.classoid = 'table'::
 		It("returns comment for object with different comment table", func() {
 			params.CommentTable = "comment_table"
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+	'table'::regclass::oid AS classid,
 	o.oid AS oid,
 	coalesce(description,'') AS comment
 FROM table o JOIN pg_description d ON (d.objoid = oid AND d.classoid = 'comment_table'::regclass AND d.objsubid = 0);`)).WillReturnRows(emptyRows)
@@ -132,6 +138,7 @@ FROM table o JOIN pg_description d ON (d.objoid = oid AND d.classoid = 'comment_
 		It("returns comment for a shared object", func() {
 			params.Shared = true
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+	'table'::regclass::oid AS classid,
 	o.oid AS oid,
 	coalesce(description,'') AS comment
 FROM table o JOIN pg_shdescription d ON (d.objoid = oid AND d.classoid = 'table'::regclass);`)).WillReturnRows(emptyRows)
@@ -146,8 +153,8 @@ FROM table o JOIN pg_shdescription d ON (d.objoid = oid AND d.classoid = 'table'
 
 			expectedOne := backup.ObjectMetadata{Privileges: []backup.ACL{}, Comment: "This is a metadata comment."}
 			expectedTwo := backup.ObjectMetadata{Privileges: []backup.ACL{}, Comment: "This is also a metadata comment."}
-			resultOne := resultMetadataMap[1]
-			resultTwo := resultMetadataMap[2]
+			resultOne := resultMetadataMap[backup.UniqueID{Oid: 1}]
+			resultTwo := resultMetadataMap[backup.UniqueID{Oid: 2}]
 			Expect(resultMetadataMap).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatch(&expectedOne, &resultOne)
 			structmatcher.ExpectStructsToMatch(&expectedTwo, &resultTwo)

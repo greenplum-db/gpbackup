@@ -57,8 +57,8 @@ func (r Relation) FQN() string {
 	return utils.MakeFQN(r.Schema, r.Name)
 }
 
-func (r Relation) GetDepEntry() DepEntry {
-	return DepEntry{Classid: PG_CLASS_OID, Objid: r.Oid}
+func (r Relation) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_CLASS_OID, Oid: r.Oid}
 }
 
 /*
@@ -676,8 +676,8 @@ type View struct {
 	Definition string
 }
 
-func (v View) GetDepEntry() DepEntry {
-	return DepEntry{Classid: PG_CLASS_OID, Objid: v.Oid}
+func (v View) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_CLASS_OID, Oid: v.Oid}
 }
 
 func (v View) FQN() string {
@@ -692,7 +692,7 @@ func GetViews(connectionPool *dbconn.DBConn) []View {
 	}
 	query := fmt.Sprintf(`
 SELECT
-	c.oid,
+	c.oid AS oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(c.relname) AS name,
 	%s

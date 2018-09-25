@@ -247,17 +247,16 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates an aggregate with an owner and a comment", func() {
 			aggMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
-			aggMetadataMap := backup.MetadataMap{1: aggMetadata}
+			aggMetadataMap := backup.MetadataMap{basicAggregateDef.GetUniqueID(): aggMetadata}
 			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{basicAggregateDef}, funcInfoMap, aggMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP AGGREGATE public.agg_prefunc(numeric, numeric)")
 
-			oid := testutils.OidFromObjectName(connectionPool, "", "agg_prefunc", backup.TYPE_AGGREGATE)
 			resultAggregates := backup.GetAggregates(connectionPool)
 			Expect(resultAggregates).To(HaveLen(1))
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_AGGREGATE)
-			resultMetadata := resultMetadataMap[oid]
+			resultMetadata := resultMetadataMap[resultAggregates[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction", "CombineFunction")
 			structmatcher.ExpectStructsToMatch(&aggMetadata, &resultMetadata)
 		})
@@ -375,7 +374,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("prints a cast with a comment", func() {
 			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "pg_catalog.money", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "money_to_text", FunctionArgs: "money", CastContext: "a", CastMethod: "f"}
 			castMetadataMap = testutils.DefaultMetadataMap("CAST", false, false, true)
-			castMetadata := castMetadataMap[1]
+			castMetadata := castMetadataMap[castDef.GetUniqueID()]
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.money_to_text(money) RETURNS TEXT AS $$ SELECT textin(cash_out($1)) $$ LANGUAGE SQL;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.money_to_text(money)")
@@ -388,7 +387,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultCasts := backup.GetCasts(connectionPool)
 			Expect(resultCasts).To(HaveLen(1))
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_CAST)
-			resultMetadata := resultMetadataMap[resultCasts[0].Oid]
+			resultMetadata := resultMetadataMap[resultCasts[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&castDef, &resultCasts[0], "Oid", "FunctionOid")
 			structmatcher.ExpectStructsToMatchExcluding(&resultMetadata, &castMetadata, "Oid")
 		})
@@ -422,7 +421,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			plpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: langOwner, IsPl: true, PlTrusted: false, Handler: 1, Inline: 2}
 			langMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment"}
-			langMetadataMap := map[uint32]backup.ObjectMetadata{1: langMetadata}
+			langMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{plpythonInfo.GetUniqueID(): langMetadata}
 			if connectionPool.Version.Before("5") {
 				plpythonInfo.Inline = 0
 			}
@@ -438,7 +437,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			plpythonInfo.Oid = testutils.OidFromObjectName(connectionPool, "", "plpythonu", backup.TYPE_PROCLANGUAGE)
 			Expect(resultProcLangs).To(HaveLen(1))
-			resultMetadata := resultMetadataMap[plpythonInfo.Oid]
+			resultMetadata := resultMetadataMap[plpythonInfo.GetUniqueID()]
 			structmatcher.ExpectStructsToMatchIncluding(&plpythonInfo, &resultProcLangs[0], "Name", "IsPl", "PlTrusted")
 			structmatcher.ExpectStructsToMatch(&langMetadata, &resultMetadata)
 		})
@@ -449,7 +448,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			plperlExtension := backup.Extension{Oid: 1, Name: "plperl", Schema: "pg_catalog"}
 			extensions := []backup.Extension{plperlExtension}
 			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
-			extensionMetadata := extensionMetadataMap[1]
+			extensionMetadata := extensionMetadataMap[plperlExtension.GetUniqueID()]
 			backup.PrintCreateExtensionStatements(backupfile, toc, extensions, extensionMetadataMap)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION plperl; SET search_path=pg_catalog")
@@ -457,7 +456,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_EXTENSION)
 			plperlExtension.Oid = testutils.OidFromObjectName(connectionPool, "", "plperl", backup.TYPE_EXTENSION)
 			Expect(resultExtensions).To(HaveLen(1))
-			plperlMetadata := resultMetadataMap[plperlExtension.Oid]
+			plperlMetadata := resultMetadataMap[plperlExtension.GetUniqueID()]
 			structmatcher.ExpectStructsToMatch(&plperlExtension, &resultExtensions[0])
 			structmatcher.ExpectStructsToMatch(&extensionMetadata, &plperlMetadata)
 		})
@@ -468,7 +467,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			convTwo := backup.Conversion{Oid: 0, Schema: "public", Name: "conv_two", ForEncoding: "LATIN1", ToEncoding: "MULE_INTERNAL", ConversionFunction: "pg_catalog.latin1_to_mic", IsDefault: true}
 			conversions := []backup.Conversion{convOne, convTwo}
 			convMetadataMap := testutils.DefaultMetadataMap("CONVERSION", false, true, true)
-			convMetadata := convMetadataMap[1]
+			convMetadata := convMetadataMap[convOne.GetUniqueID()]
 
 			backup.PrintCreateConversionStatements(backupfile, toc, conversions, convMetadataMap)
 
@@ -482,7 +481,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			convOne.Oid = testutils.OidFromObjectName(connectionPool, "public", "conv_one", backup.TYPE_CONVERSION)
 			convTwo.Oid = testutils.OidFromObjectName(connectionPool, "public", "conv_two", backup.TYPE_CONVERSION)
 			Expect(resultConversions).To(HaveLen(2))
-			resultMetadata := resultMetadataMap[convOne.Oid]
+			resultMetadata := resultMetadataMap[convOne.GetUniqueID()]
 			structmatcher.ExpectStructsToMatch(&convOne, &resultConversions[0])
 			structmatcher.ExpectStructsToMatch(&convTwo, &resultConversions[1])
 			structmatcher.ExpectStructsToMatch(&convMetadata, &resultMetadata)

@@ -26,6 +26,10 @@ type TextSearchParser struct {
 	HeadlineFunc string
 }
 
+func (tsp TextSearchParser) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_TS_PARSER_OID, Oid: tsp.Oid}
+}
+
 func GetTextSearchParsers(connectionPool *dbconn.DBConn) []TextSearchParser {
 	query := fmt.Sprintf(`
 SELECT
@@ -57,6 +61,10 @@ type TextSearchTemplate struct {
 	LexizeFunc string
 }
 
+func (tst TextSearchTemplate) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_TS_TEMPLATE_OID, Oid: tst.Oid}
+}
+
 func GetTextSearchTemplates(connectionPool *dbconn.DBConn) []TextSearchTemplate {
 	query := fmt.Sprintf(`
 SELECT
@@ -83,6 +91,10 @@ type TextSearchDictionary struct {
 	Name       string
 	Template   string
 	InitOption string
+}
+
+func (tsd TextSearchDictionary) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_TS_DICT_OID, Oid: tsd.Oid}
 }
 
 func GetTextSearchDictionaries(connectionPool *dbconn.DBConn) []TextSearchDictionary {
@@ -113,6 +125,10 @@ type TextSearchConfiguration struct {
 	Name         string
 	Parser       string
 	TokenToDicts map[string][]string
+}
+
+func (tsc TextSearchConfiguration) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_TS_CONFIG_OID, Oid: tsc.Oid}
 }
 
 func GetTextSearchConfigurations(connectionPool *dbconn.DBConn) []TextSearchConfiguration {

@@ -38,11 +38,11 @@ var _ = Describe("backup/metadata_globals tests", func() {
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE "table" TEMPLATE template0;`)
 		})
 		It("prints a CREATE DATABASE statement with privileges, an owner, and a comment", func() {
-			dbMetadataMap := testutils.DefaultMetadataMap("DATABASE", true, true, true)
-			dbMetadata := dbMetadataMap[1]
-			dbMetadata.Privileges[0].Create = false
-			dbMetadataMap[1] = dbMetadata
 			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "pg_default"}
+			dbMetadataMap := testutils.DefaultMetadataMap("DATABASE", true, true, true)
+			dbMetadata := dbMetadataMap[db.GetUniqueID()]
+			dbMetadata.Privileges[0].Create = false
+			dbMetadataMap[db.GetUniqueID()] = dbMetadata
 			backup.PrintCreateDatabaseStatement(backupfile, toc, db, dbMetadataMap)
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE testdb TEMPLATE template0;`,
 				`COMMENT ON DATABASE testdb IS 'This is a database comment.';
@@ -86,7 +86,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`)
 		})
 	})
 	Describe("PrintCreateResourceQueueStatements", func() {
-		var emptyResQueueMetadata = map[uint32]backup.ObjectMetadata{}
+		var emptyResQueueMetadata = backup.MetadataMap{}
 		It("prints resource queues", func() {
 			someQueue := backup.ResourceQueue{Oid: 1, Name: "some_queue", ActiveStatements: 1, MaxCost: "-1.00", CostOvercommit: false, MinCost: "0.00", Priority: "medium", MemoryLimit: "-1"}
 			maxCostQueue := backup.ResourceQueue{Oid: 1, Name: `"someMaxCostQueue"`, ActiveStatements: -1, MaxCost: "99.9", CostOvercommit: true, MinCost: "0.00", Priority: "medium", MemoryLimit: "-1"}
@@ -131,7 +131,7 @@ COMMENT ON RESOURCE QUEUE "commentQueue" IS 'This is a resource queue comment.';
 		})
 	})
 	Describe("PrintCreateResourceGroupStatements", func() {
-		var emptyResGroupMetadata = map[uint32]backup.ObjectMetadata{}
+		var emptyResGroupMetadata = backup.MetadataMap{}
 		It("prints resource groups", func() {
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30}
 			someGroup2 := backup.ResourceGroup{Oid: 2, Name: "some_group2", CPURateLimit: 20, MemoryLimit: 30, Concurrency: 25, MemorySharedQuota: 35, MemorySpillRatio: 10}

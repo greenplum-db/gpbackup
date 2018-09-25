@@ -162,7 +162,7 @@ func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, toc *u
 	for _, enum := range enums {
 		typeFQN := utils.MakeFQN(enum.Schema, enum.Name)
 		metadataFile.MustPrintf("\n\nCREATE TYPE %s AS ENUM (\n\t%s\n);\n", typeFQN, enum.EnumLabels)
-		PrintObjectMetadata(metadataFile, typeMetadata[enum.Oid], typeFQN, "TYPE")
+		PrintObjectMetadata(metadataFile, typeMetadata[enum.GetUniqueID()], typeFQN, "TYPE")
 		toc.AddPredataEntry(enum.Schema, enum.Name, "TYPE", "", start, metadataFile)
 	}
 }
@@ -172,7 +172,7 @@ func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, toc *
 		collationFQN := utils.MakeFQN(collation.Schema, collation.Name)
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nCREATE COLLATION %s (LC_COLLATE = '%s', LC_CTYPE = '%s');", collationFQN, collation.Collate, collation.Ctype)
-		PrintObjectMetadata(metadataFile, collationMetadata[collation.Oid], collationFQN, "COLLATION")
+		PrintObjectMetadata(metadataFile, collationMetadata[collation.GetUniqueID()], collationFQN, "COLLATION")
 		toc.AddPredataEntry(collation.Schema, collation.Name, "COLLATION", "", start, metadataFile)
 	}
 }

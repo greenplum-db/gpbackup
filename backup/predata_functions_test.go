@@ -484,7 +484,7 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with owner and comment", func() {
-			aggMetadataMap[1] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
+			aggMetadataMap[backup.UniqueID{Classid: backup.PG_AGGREGATE_OID, Oid: 1}] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -500,7 +500,7 @@ ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;`)
 		It("prints an aggregate with owner, comment, and no arguments", func() {
 			aggDefs[0].Arguments = ""
 			aggDefs[0].IdentArgs = ""
-			aggMetadataMap[1] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
+			aggMetadataMap[backup.UniqueID{Classid: backup.PG_AGGREGATE_OID, Oid: 1}] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(*) (
 	SFUNC = public.mysfunc,

@@ -29,7 +29,7 @@ func PrintCreateTextSearchParserStatements(metadataFile *utils.FileWithByteCount
 			metadataFile.MustPrintf(",\n\tHEADLINE = %s", parser.HeadlineFunc)
 		}
 		metadataFile.MustPrintf("\n);")
-		PrintObjectMetadata(metadataFile, parserMetadata[parser.Oid], parserFQN, "TEXT SEARCH PARSER")
+		PrintObjectMetadata(metadataFile, parserMetadata[parser.GetUniqueID()], parserFQN, "TEXT SEARCH PARSER")
 		toc.AddPredataEntry(parser.Schema, parser.Name, "TEXT SEARCH PARSER", "", start, metadataFile)
 	}
 }
@@ -44,7 +44,7 @@ func PrintCreateTextSearchTemplateStatements(metadataFile *utils.FileWithByteCou
 		}
 		metadataFile.MustPrintf("\n\tLEXIZE = %s", template.LexizeFunc)
 		metadataFile.MustPrintf("\n);")
-		PrintObjectMetadata(metadataFile, templateMetadata[template.Oid], templateFQN, "TEXT SEARCH TEMPLATE")
+		PrintObjectMetadata(metadataFile, templateMetadata[template.GetUniqueID()], templateFQN, "TEXT SEARCH TEMPLATE")
 		toc.AddPredataEntry(template.Schema, template.Name, "TEXT SEARCH TEMPLATE", "", start, metadataFile)
 	}
 }
@@ -59,7 +59,7 @@ func PrintCreateTextSearchDictionaryStatements(metadataFile *utils.FileWithByteC
 			metadataFile.MustPrintf(",\n\t%s", dictionary.InitOption)
 		}
 		metadataFile.MustPrintf("\n);")
-		PrintObjectMetadata(metadataFile, dictionaryMetadata[dictionary.Oid], dictionaryFQN, "TEXT SEARCH DICTIONARY")
+		PrintObjectMetadata(metadataFile, dictionaryMetadata[dictionary.GetUniqueID()], dictionaryFQN, "TEXT SEARCH DICTIONARY")
 		toc.AddPredataEntry(dictionary.Schema, dictionary.Name, "TEXT SEARCH DICTIONARY", "", start, metadataFile)
 	}
 }
@@ -81,7 +81,7 @@ func PrintCreateTextSearchConfigurationStatements(metadataFile *utils.FileWithBy
 			metadataFile.MustPrintf("\n\nALTER TEXT SEARCH CONFIGURATION %s", configurationFQN)
 			metadataFile.MustPrintf("\n\tADD MAPPING FOR \"%s\" WITH %s;", token, strings.Join(dicts, ", "))
 		}
-		PrintObjectMetadata(metadataFile, configurationMetadata[configuration.Oid], configurationFQN, "TEXT SEARCH CONFIGURATION")
+		PrintObjectMetadata(metadataFile, configurationMetadata[configuration.GetUniqueID()], configurationFQN, "TEXT SEARCH CONFIGURATION")
 		toc.AddPredataEntry(configuration.Schema, configuration.Name, "TEXT SEARCH CONFIGURATION", "", start, metadataFile)
 	}
 }

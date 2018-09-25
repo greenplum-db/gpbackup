@@ -81,7 +81,7 @@ ALTER TYPE public.enum_type OWNER TO testrole;`)
 		})
 		It("prints a composite type with comment and owner", func() {
 			compType.Attributes = twoAtts
-			typeMetadata = testutils.DefaultMetadataMap("TYPE", false, true, true)[1]
+			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true)
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compType, typeMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
 	foo integer,
@@ -219,7 +219,7 @@ ALTER TYPE public.base_type
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL;`)
 		})
 		It("prints a domain without constraint with comment and owner", func() {
-			typeMetadata = testutils.DefaultMetadataMap("DOMAIN", false, true, true)[1]
+			typeMetadata = testutils.DefaultMetadata("DOMAIN", false, true, true)
 			backup.PrintCreateDomainStatement(backupfile, toc, domainTwo, typeMetadata, emptyConstraint)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain2 AS varchar;
 

@@ -287,7 +287,7 @@ func BackupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs 
 	gplog.Verbose("Writing CREATE PROCEDURAL LANGUAGE statements to metadata file")
 	objectCounts["Procedural Languages"] = len(procLangs)
 	for _, langFunc := range langFuncs {
-		PrintCreateFunctionStatement(metadataFile, globalTOC, langFunc, functionMetadata[langFunc.Oid])
+		PrintCreateFunctionStatement(metadataFile, globalTOC, langFunc, functionMetadata[langFunc.GetUniqueID()])
 	}
 	procLangMetadata := GetMetadataForObjectType(connectionPool, TYPE_PROCLANGUAGE)
 	PrintCreateLanguageStatements(metadataFile, globalTOC, procLangs, funcInfoMap, procLangMetadata)
@@ -334,10 +334,10 @@ func BackupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Se
 	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
 }
 
-func createBackupSet(objSlice []Sortable) (backupSet map[DepEntry]bool) {
-	backupSet = make(map[DepEntry]bool, 0)
+func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]bool) {
+	backupSet = make(map[UniqueID]bool, 0)
 	for _, obj := range objSlice {
-		backupSet[obj.GetDepEntry()] = true
+		backupSet[obj.GetUniqueID()] = true
 	}
 
 	return backupSet

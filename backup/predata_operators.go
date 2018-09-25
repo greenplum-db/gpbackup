@@ -55,7 +55,7 @@ CREATE OPERATOR %s (
 	%s
 );`, operatorFQN, operator.Procedure, strings.Join(optionalFields, ",\n\t"))
 		operatorStr := fmt.Sprintf("%s (%s, %s)", operatorFQN, leftArg, rightArg)
-		PrintObjectMetadata(metadataFile, operatorMetadata[operator.Oid], operatorStr, "OPERATOR")
+		PrintObjectMetadata(metadataFile, operatorMetadata[operator.GetUniqueID()], operatorStr, "OPERATOR")
 		toc.AddPredataEntry(operator.Schema, operator.Name, "OPERATOR", "", start, metadataFile)
 	}
 }
@@ -70,7 +70,7 @@ func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, 
 		operatorFamilyFQN := utils.MakeFQN(operatorFamily.Schema, operatorFamily.Name)
 		operatorFamilyStr := fmt.Sprintf("%s USING %s", operatorFamilyFQN, operatorFamily.IndexMethod)
 		metadataFile.MustPrintf("\n\nCREATE OPERATOR FAMILY %s;", operatorFamilyStr)
-		PrintObjectMetadata(metadataFile, operatorFamilyMetadata[operatorFamily.Oid], operatorFamilyStr, "OPERATOR FAMILY")
+		PrintObjectMetadata(metadataFile, operatorFamilyMetadata[operatorFamily.GetUniqueID()], operatorFamilyStr, "OPERATOR FAMILY")
 		toc.AddPredataEntry(operatorFamily.Schema, operatorFamily.Name, "OPERATOR FAMILY", "", start, metadataFile)
 	}
 }
@@ -122,7 +122,7 @@ func PrintCreateOperatorClassStatements(metadataFile *utils.FileWithByteCount, t
 		metadataFile.MustPrintf(" AS\n\t%s;", strings.Join(opClassClauses, ",\n\t"))
 
 		operatorClassStr := fmt.Sprintf("%s USING %s", operatorClassFQN, operatorClass.IndexMethod)
-		PrintObjectMetadata(metadataFile, operatorClassMetadata[operatorClass.Oid], operatorClassStr, "OPERATOR CLASS")
+		PrintObjectMetadata(metadataFile, operatorClassMetadata[operatorClass.GetUniqueID()], operatorClassStr, "OPERATOR CLASS")
 		toc.AddPredataEntry(operatorClass.Schema, operatorClass.Name, "OPERATOR CLASS", "", start, metadataFile)
 	}
 }

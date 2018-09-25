@@ -28,6 +28,14 @@ import (
  * for use with the functions immediately following them.  Structs in the utils
  * package (especially Table and Schema) are intended for more general use.
  */
+type Schema struct {
+	Oid  uint32
+	Name string
+}
+
+func (s Schema) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_NAMESPACE_OID, Oid: s.Oid}
+}
 
 func GetAllUserSchemas(connectionPool *dbconn.DBConn) []Schema {
 	/*
@@ -60,6 +68,10 @@ type Constraint struct {
 	OwningObject       string
 	IsDomainConstraint bool
 	IsPartitionParent  bool
+}
+
+func (c Constraint) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_CONSTRAINT_OID, Oid: c.Oid}
 }
 
 func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []Constraint {
@@ -233,7 +245,7 @@ func ExtensionFilterClause(namespace string) string {
 }
 
 type MetadataQueryStruct struct {
-	Oid        uint32
+	UniqueID
 	Privileges sql.NullString
 	Kind       string
 	Owner      string
@@ -274,6 +286,7 @@ WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 
 	query := fmt.Sprintf(`
 SELECT
+	'%s'::regclass::oid AS classid,
 	o.oid,
 	%s AS privileges,
 	%s AS kind,
@@ -283,7 +296,7 @@ FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
 %s
 AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;
-`, aclStr, kindStr, ownerStr, params.CatalogTable, descFunc, params.CatalogTable, subidStr, schemaStr)
+`, params.CatalogTable, aclStr, kindStr, ownerStr, params.CatalogTable, descFunc, params.CatalogTable, subidStr, schemaStr)
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
@@ -334,13 +347,14 @@ func GetCommentsForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	}
 	query := fmt.Sprintf(`
 SELECT
+	'%s'::regclass::oid AS classid,
 	o.%s AS oid,
 	coalesce(description,'') AS comment
 	FROM %s o JOIN %s d ON (d.objoid = %s AND d.classoid = '%s'::regclass%s)%s;
-`, params.OidField, params.CatalogTable, descTable, params.OidField, commentTable, subidStr, schemaStr)
+`, params.CatalogTable, params.OidField, params.CatalogTable, descTable, params.OidField, commentTable, subidStr, schemaStr)
 
 	results := make([]struct {
-		Oid     uint32
+		UniqueID
 		Comment string
 	}, 0)
 	err := connectionPool.Select(&results, query)
@@ -349,7 +363,7 @@ SELECT
 	metadataMap := make(MetadataMap)
 	if len(results) > 0 {
 		for _, result := range results {
-			metadataMap[result.Oid] = ObjectMetadata{[]ACL{}, "", result.Comment}
+			metadataMap[result.UniqueID] = ObjectMetadata{[]ACL{}, "", result.Comment}
 		}
 	}
 	return metadataMap

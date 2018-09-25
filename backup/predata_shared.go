@@ -21,10 +21,6 @@ var ACLRegex = regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
 /*
  * Generic functions and structs relating to schemas
  */
-type Schema struct {
-	Oid  uint32
-	Name string
-}
 
 func SchemaFromString(name string) Schema {
 	var schema string
@@ -36,7 +32,7 @@ func SchemaFromString(name string) Schema {
 	} else {
 		gplog.Fatal(errors.Errorf("%s is not a valid identifier", name), "")
 	}
-	return Schema{0, schema}
+	return Schema{Name: schema}
 }
 
 /*
@@ -71,7 +67,7 @@ func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *utils
 			objStr = "TABLE"
 		}
 		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef)
-		PrintObjectMetadata(metadataFile, conMetadata[constraint.Oid], constraint.Name, "CONSTRAINT", constraint.OwningObject)
+		PrintObjectMetadata(metadataFile, conMetadata[constraint.GetUniqueID()], constraint.Name, "CONSTRAINT", constraint.OwningObject)
 		toc.AddPredataEntry(constraint.Schema, constraint.Name, "CONSTRAINT", constraint.OwningObject, start, metadataFile)
 	}
 }
@@ -83,7 +79,7 @@ func PrintCreateSchemaStatements(backupfile *utils.FileWithByteCount, toc *utils
 		if schema.Name != "public" {
 			backupfile.MustPrintf("\nCREATE SCHEMA %s;", schema.Name)
 		}
-		PrintObjectMetadata(backupfile, schemaMetadata[schema.Oid], schema.Name, "SCHEMA")
+		PrintObjectMetadata(backupfile, schemaMetadata[schema.GetUniqueID()], schema.Name, "SCHEMA")
 		toc.AddPredataEntry(schema.Name, schema.Name, "SCHEMA", "", start, backupfile)
 	}
 }
@@ -126,7 +122,7 @@ type ACL struct {
 	ConnectWithGrant    bool
 }
 
-type MetadataMap map[uint32]ObjectMetadata
+type MetadataMap map[UniqueID]ObjectMetadata
 
 func PrintObjectMetadata(file *utils.FileWithByteCount, obj ObjectMetadata, objectName string, objectType string, owningTable ...string) {
 	if comment := obj.GetCommentStatement(objectName, objectType, owningTable...); comment != "" {
@@ -148,7 +144,7 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 	var metadata ObjectMetadata
 	if len(results) > 0 {
 		quotedRoleNames := GetQuotedRoleNames(connectionPool)
-		currentOid := uint32(0)
+		currentUniqueID := UniqueID{}
 		// Collect all entries for the same object into one ObjectMetadata
 		for _, result := range results {
 			privilegesStr := ""
@@ -157,12 +153,12 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 			} else if result.Privileges.Valid {
 				privilegesStr = result.Privileges.String
 			}
-			if result.Oid != currentOid {
-				if currentOid != 0 {
+			if result.UniqueID != currentUniqueID {
+				if (currentUniqueID != UniqueID{}) {
 					metadata.Privileges = sortACLs(metadata.Privileges)
-					metadataMap[currentOid] = metadata
+					metadataMap[currentUniqueID] = metadata
 				}
-				currentOid = result.Oid
+				currentUniqueID = result.UniqueID
 				metadata = ObjectMetadata{}
 				metadata.Privileges = make([]ACL, 0)
 				metadata.Owner = result.Owner
@@ -175,7 +171,7 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 			}
 		}
 		metadata.Privileges = sortACLs(metadata.Privileges)
-		metadataMap[currentOid] = metadata
+		metadataMap[currentUniqueID] = metadata
 	}
 	return metadataMap
 }
@@ -481,21 +477,21 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 		case Type:
 			switch obj.Type {
 			case "b":
-				PrintCreateBaseTypeStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
+				PrintCreateBaseTypeStatement(metadataFile, toc, obj, metadataMap[obj.GetUniqueID()])
 			case "c":
-				PrintCreateCompositeTypeStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
+				PrintCreateCompositeTypeStatement(metadataFile, toc, obj, metadataMap[obj.GetUniqueID()])
 			case "d":
 				domainName := utils.MakeFQN(obj.Schema, obj.Name)
-				PrintCreateDomainStatement(metadataFile, toc, obj, metadataMap[obj.Oid], conMap[domainName])
+				PrintCreateDomainStatement(metadataFile, toc, obj, metadataMap[obj.GetUniqueID()], conMap[domainName])
 			}
 		case Function:
-			PrintCreateFunctionStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
+			PrintCreateFunctionStatement(metadataFile, toc, obj, metadataMap[obj.GetUniqueID()])
 		case Relation:
-			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], metadataMap[obj.Oid])
+			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], metadataMap[obj.GetUniqueID()])
 		case ExternalProtocol:
-			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
+			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, metadataMap[obj.GetUniqueID()])
 		case View:
-			PrintCreateViewStatement(metadataFile, toc, obj, metadataMap[obj.Oid])
+			PrintCreateViewStatement(metadataFile, toc, obj, metadataMap[obj.GetUniqueID()])
 		}
 	}
 }

@@ -55,6 +55,10 @@ type IndexDefinition struct {
 	IsClustered  bool
 }
 
+func (i IndexDefinition) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_INDEX_OID, Oid: i.Oid}
+}
+
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 	resultIndexes := make([]IndexDefinition, 0)
 	if connectionPool.Version.Before("6") {
@@ -140,11 +144,16 @@ ORDER BY name;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c")) //
  * statements can require it.
  */
 type QuerySimpleDefinition struct {
+	Classid      uint32
 	Oid          uint32
 	Name         string
 	OwningSchema string
 	OwningTable  string
 	Def          string
+}
+
+func (sd QuerySimpleDefinition) GetUniqueID() UniqueID {
+	return UniqueID{Classid: sd.Classid, Oid: sd.Oid}
 }
 
 /*
@@ -155,7 +164,8 @@ type QuerySimpleDefinition struct {
 func GetRules(connectionPool *dbconn.DBConn) []QuerySimpleDefinition {
 	query := fmt.Sprintf(`
 SELECT
-	r.oid,
+	'pg_rewrite'::regclass::oid AS classid,
+	r.oid AS oid,
 	quote_ident(r.rulename) AS name,
 	quote_ident(n.nspname) AS owningschema,
 	quote_ident(c.relname) AS owningtable,
@@ -184,7 +194,8 @@ func GetTriggers(connectionPool *dbconn.DBConn) []QuerySimpleDefinition {
 	}
 	query := fmt.Sprintf(`
 SELECT
-	t.oid,
+	'pg_trigger'::regclass::oid AS classid,
+	t.oid AS oid,
 	quote_ident(t.tgname) AS name,
 	quote_ident(n.nspname) AS owningschema,
 	quote_ident(c.relname) AS owningtable,

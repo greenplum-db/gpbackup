@@ -19,18 +19,18 @@ import (
  *   - Protocols
  */
 func AddProtocolDependenciesForGPDB4(depMap DependencyMap, tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol) {
-	protocolMap := make(map[string]DepEntry, len(protocols))
+	protocolMap := make(map[string]UniqueID, len(protocols))
 	for _, p := range protocols {
-		protocolMap[p.Name] = p.GetDepEntry()
+		protocolMap[p.Name] = p.GetUniqueID()
 	}
 	for _, table := range tables {
 		extTableDef := tableDefs[table.Oid].ExtTableDef
 		if extTableDef.Location != "" {
 			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
 			if protocolEntry, ok := protocolMap[protocolName]; ok {
-				tableEntry := table.GetDepEntry()
+				tableEntry := table.GetUniqueID()
 				if _, ok := depMap[tableEntry]; !ok {
-					depMap[tableEntry] = make(map[DepEntry]bool, 0)
+					depMap[tableEntry] = make(map[UniqueID]bool, 0)
 				}
 				depMap[tableEntry][protocolEntry] = true
 			}
@@ -39,10 +39,36 @@ func AddProtocolDependenciesForGPDB4(depMap DependencyMap, tables []Relation, ta
 }
 
 var (
-	PG_PROC_OID        uint32 = 1255
-	PG_CLASS_OID       uint32 = 1259
-	PG_TYPE_OID        uint32 = 1247
-	PG_EXTPROTOCOL_OID uint32 = 7175
+	PG_AGGREGATE_OID            uint32 = 1255
+	PG_AUTHID_OID               uint32 = 1260
+	PG_CAST_OID                 uint32 = 2605
+	PG_CLASS_OID                uint32 = 1259
+	PG_COLLATION_OID            uint32 = 3456
+	PG_CONSTRAINT_OID           uint32 = 2606
+	PG_CONVERSION_OID           uint32 = 2607
+	PG_DATABASE_OID             uint32 = 1262
+	PG_EXTENSION_OID            uint32 = 3079
+	PG_EXTPROTOCOL_OID          uint32 = 7175
+	PG_FOREIGN_DATA_WRAPPER_OID uint32 = 2328
+	PG_FOREIGN_SERVER_OID       uint32 = 1417
+	PG_INDEX_OID                uint32 = 2610
+	PG_LANGUAGE_OID             uint32 = 2612
+	PG_NAMESPACE_OID            uint32 = 2615
+	PG_OPCLASS_OID              uint32 = 2616
+	PG_OPERATOR_OID             uint32 = 2617
+	PG_OPFAMILY_OID             uint32 = 2753
+	PG_PROC_OID                 uint32 = 1255
+	PG_RESGROUP_OID             uint32 = 6436
+	PG_RESQUEUE_OID             uint32 = 6026
+	PG_RULE_OID                 uint32 = 2618
+	PG_TABLESPACE_OID           uint32 = 1213
+	PG_TRIGGER_OID              uint32 = 2620
+	PG_TS_CONFIG_OID            uint32 = 3602
+	PG_TS_DICT_OID              uint32 = 3600
+	PG_TS_PARSER_OID            uint32 = 3601
+	PG_TS_TEMPLATE_OID          uint32 = 3764
+	PG_TYPE_OID                 uint32 = 1247
+	PG_USER_MAPPING_OID         uint32 = 1418
 )
 
 func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMap, tables MetadataMap, protocols MetadataMap) MetadataMap {
@@ -68,27 +94,27 @@ func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMa
 
 type Sortable interface {
 	FQN() string
-	GetDepEntry() DepEntry
+	GetUniqueID() UniqueID
 }
 
 func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
-	inDegrees := make(map[DepEntry]int, 0)
-	dependencyIndexes := make(map[DepEntry]int, 0)
-	isDependentOn := make(map[DepEntry][]DepEntry, 0)
+	inDegrees := make(map[UniqueID]int, 0)
+	dependencyIndexes := make(map[UniqueID]int, 0)
+	isDependentOn := make(map[UniqueID][]UniqueID, 0)
 	queue := make([]Sortable, 0)
 	sorted := make([]Sortable, 0)
-	notVisited := make(map[DepEntry]bool, 0)
-	nameForDepEntries := make(map[DepEntry]string, 0)
+	notVisited := make(map[UniqueID]bool, 0)
+	nameForUniqueID := make(map[UniqueID]string, 0)
 	for i, item := range slice {
-		depEntry := item.GetDepEntry()
-		nameForDepEntries[depEntry] = item.FQN()
-		deps := dependencies[depEntry]
-		notVisited[depEntry] = true
-		inDegrees[depEntry] = len(deps)
+		uniqueID := item.GetUniqueID()
+		nameForUniqueID[uniqueID] = item.FQN()
+		deps := dependencies[uniqueID]
+		notVisited[uniqueID] = true
+		inDegrees[uniqueID] = len(deps)
 		for dep := range deps {
-			isDependentOn[dep] = append(isDependentOn[dep], depEntry)
+			isDependentOn[dep] = append(isDependentOn[dep], uniqueID)
 		}
-		dependencyIndexes[depEntry] = i
+		dependencyIndexes[uniqueID] = i
 		if len(deps) == 0 {
 			queue = append(queue, item)
 		}
@@ -97,8 +123,8 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 		item := queue[0]
 		queue = queue[1:]
 		sorted = append(sorted, item)
-		notVisited[item.GetDepEntry()] = false
-		for _, dep := range isDependentOn[item.GetDepEntry()] {
+		notVisited[item.GetUniqueID()] = false
+		for _, dep := range isDependentOn[item.GetUniqueID()] {
 			inDegrees[dep]--
 			if inDegrees[dep] == 0 {
 				queue = append(queue, slice[dependencyIndexes[dep]])
@@ -109,11 +135,11 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 		gplog.Verbose("Failed to sort dependencies.")
 		gplog.Verbose("Not yet visited:")
 		for _, item := range slice {
-			if notVisited[item.GetDepEntry()] {
-				gplog.Verbose("Object: %s %+v ", item.FQN(), item.GetDepEntry())
+			if notVisited[item.GetUniqueID()] {
+				gplog.Verbose("Object: %s %+v ", item.FQN(), item.GetUniqueID())
 				gplog.Verbose("Dependencies: ")
-				for depEntry := range dependencies[item.GetDepEntry()] {
-					gplog.Verbose("\t%s %+v", nameForDepEntries[depEntry], depEntry)
+				for uniqueID := range dependencies[item.GetUniqueID()] {
+					gplog.Verbose("\t%s %+v", nameForUniqueID[uniqueID], uniqueID)
 				}
 			}
 		}
@@ -122,15 +148,15 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 	return sorted
 }
 
-type DependencyMap map[DepEntry]map[DepEntry]bool
+type DependencyMap map[UniqueID]map[UniqueID]bool
 
-type DepEntry struct {
+type UniqueID struct {
 	Classid uint32
-	Objid   uint32
+	Oid     uint32
 }
 
 // This function only returns dependencies that are referenced in the backup set
-func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[DepEntry]bool) DependencyMap {
+func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool) DependencyMap {
 	query := fmt.Sprintf(`SELECT
 	coalesce(id1.refclassid, d.classid) AS classid,
 	coalesce(id1.refobjid, d.objid) AS objid,
@@ -167,13 +193,13 @@ AND typelem != 0`)
 
 	dependencyMap := make(DependencyMap, 0)
 	for _, dep := range pgDependDeps {
-		object := DepEntry{
+		object := UniqueID{
 			Classid: dep.ClassID,
-			Objid:   dep.ObjID,
+			Oid:     dep.ObjID,
 		}
-		referenceObject := DepEntry{
+		referenceObject := UniqueID{
 			Classid: dep.RefClassID,
-			Objid:   dep.RefObjID,
+			Oid:     dep.RefObjID,
 		}
 
 		_, objInBackup := backupSet[object]
@@ -184,7 +210,7 @@ AND typelem != 0`)
 		}
 
 		if _, ok := dependencyMap[object]; !ok {
-			dependencyMap[object] = make(map[DepEntry]bool, 0)
+			dependencyMap[object] = make(map[UniqueID]bool, 0)
 		}
 
 		dependencyMap[object][referenceObject] = true

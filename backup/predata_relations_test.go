@@ -733,9 +733,9 @@ SELECT pg_catalog.setval('public.seq_''name', 7, true);`)
 		It("can print a sequence with privileges, an owner, and a comment for version < 6", func() {
 			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)
-			sequenceMetadata := sequenceMetadataMap[1]
+			sequenceMetadata := sequenceMetadataMap[seqDefault.GetUniqueID()]
 			sequenceMetadata.Privileges[0].Update = false
-			sequenceMetadataMap[1] = sequenceMetadata
+			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, sequenceMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
@@ -761,9 +761,9 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
 		It("can print a sequence with privileges, an owner, and a comment for version >= 6", func() {
 			testhelper.SetDBVersion(connectionPool, "6.0.0")
 			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)
-			sequenceMetadata := sequenceMetadataMap[1]
+			sequenceMetadata := sequenceMetadataMap[seqDefault.GetUniqueID()]
 			sequenceMetadata.Privileges[0].Update = false
-			sequenceMetadataMap[1] = sequenceMetadata
+			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, sequenceMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
@@ -788,11 +788,8 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
 			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
 		It("can print a sequence with privileges WITH GRANT OPTION", func() {
-			sequenceMetadataMap := backup.MetadataMap{
-				1: {Privileges: []backup.ACL{testutils.DefaultACLWithGrantWithout("testrole", "SEQUENCE", "UPDATE")}}}
-			sequenceMetadata := sequenceMetadataMap[1]
-			sequenceMetadata.Privileges[0].Update = false
-			sequenceMetadataMap[1] = sequenceMetadata
+			sequenceMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLWithGrantWithout("testrole", "SEQUENCE", "UPDATE")}}
+			sequenceMetadataMap := backup.MetadataMap{seqDefault.GetUniqueID(): sequenceMetadata}
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, sequenceMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
@@ -817,7 +814,7 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 		BeforeEach(func() {
 			view = backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
 			emptyMetadata = backup.ObjectMetadata{}
-			viewMetadata = testutils.DefaultMetadataMap("VIEW", true, true, true)[1]
+			viewMetadata = testutils.DefaultMetadata("VIEW", true, true, true)
 		})
 		It("can print a basic view", func() {
 			backup.PrintCreateViewStatement(backupfile, toc, view, emptyMetadata)

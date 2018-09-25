@@ -38,7 +38,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic resource queue with a comment", func() {
 			basicQueue := backup.ResourceQueue{Oid: 1, Name: `"basicQueue"`, ActiveStatements: -1, MaxCost: "32.80", CostOvercommit: false, MinCost: "0.00", Priority: "medium", MemoryLimit: "-1"}
 			resQueueMetadataMap := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true)
-			resQueueMetadata := resQueueMetadataMap[1]
+			resQueueMetadata := resQueueMetadataMap[backup.UniqueID{Oid: 1}]
 
 			backup.PrintCreateResourceQueueStatements(backupfile, toc, []backup.ResourceQueue{basicQueue}, resQueueMetadataMap)
 
@@ -52,7 +52,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultResourceQueues := backup.GetResourceQueues(connectionPool)
 			resQueueOid := testutils.OidFromObjectName(connectionPool, "", "basicQueue", backup.TYPE_RESOURCEQUEUE)
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RESOURCEQUEUE)
-			resultMetadata := resultMetadataMap[resQueueOid]
+			resultMetadata := resultMetadataMap[backup.UniqueID{Oid: resQueueOid}]
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &resQueueMetadata)
 
 			for _, resultQueue := range resultResourceQueues {
@@ -64,7 +64,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a resource queue with all attributes", func() {
 			everythingQueue := backup.ResourceQueue{Oid: 1, Name: `"everythingQueue"`, ActiveStatements: 7, MaxCost: "32.80", CostOvercommit: true, MinCost: "22.80", Priority: "low", MemoryLimit: "2GB"}
-			emptyMetadataMap := map[uint32]backup.ObjectMetadata{}
+			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
 			backup.PrintCreateResourceQueueStatements(backupfile, toc, []backup.ResourceQueue{everythingQueue}, emptyMetadataMap)
 
@@ -88,7 +88,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic resource group", func() {
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
-			emptyMetadataMap := map[uint32]backup.ObjectMetadata{}
+			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{someGroup}, emptyMetadataMap)
 
@@ -107,7 +107,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("alters a default resource group", func() {
 			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
-			emptyMetadataMap := map[uint32]backup.ObjectMetadata{}
+			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{defaultGroup}, emptyMetadataMap)
 
@@ -128,7 +128,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateRoleStatements", func() {
 		role1 := backup.Role{
-			Oid:             0,
+			Oid:             1,
 			Name:            "role1",
 			Super:           true,
 			Inherit:         false,
@@ -353,7 +353,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a tablespace with permissions, an owner, and a comment", func() {
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
 			tablespaceMetadataMap := testutils.DefaultMetadataMap("TABLESPACE", true, true, true)
-			tablespaceMetadata := tablespaceMetadataMap[1]
+			tablespaceMetadata := tablespaceMetadataMap[expectedTablespace.GetUniqueID()]
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, tablespaceMetadataMap)
 
 			if connectionPool.Version.AtLeast("6") {
@@ -374,8 +374,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTablespaces := backup.GetTablespaces(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TABLESPACE)
-			oid := testutils.OidFromObjectName(connectionPool, "", "test_tablespace", backup.TYPE_TABLESPACE)
-			resultMetadata := resultMetadataMap[oid]
+			resultMetadata := resultMetadataMap[resultTablespaces[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&tablespaceMetadata, &resultMetadata, "Oid")
 			Expect(resultTablespaces).To(HaveLen(numTablespaces + 1))
 			for _, tablespace := range resultTablespaces {

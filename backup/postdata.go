@@ -22,7 +22,7 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *util
 		if index.IsClustered {
 			metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
 		}
-		PrintObjectMetadata(metadataFile, indexMetadata[index.Oid], indexFQN, "INDEX")
+		PrintObjectMetadata(metadataFile, indexMetadata[index.GetUniqueID()], indexFQN, "INDEX")
 		toc.AddPostdataEntry(index.OwningSchema, index.Name, "INDEX", tableFQN, start, metadataFile)
 	}
 }
@@ -32,7 +32,7 @@ func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s", rule.Def)
 		tableFQN := utils.MakeFQN(rule.OwningSchema, rule.OwningTable)
-		PrintObjectMetadata(metadataFile, ruleMetadata[rule.Oid], rule.Name, "RULE", tableFQN)
+		PrintObjectMetadata(metadataFile, ruleMetadata[rule.GetUniqueID()], rule.Name, "RULE", tableFQN)
 		toc.AddPostdataEntry(rule.OwningSchema, rule.Name, "RULE", tableFQN, start, metadataFile)
 	}
 }
@@ -42,7 +42,7 @@ func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *ut
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s;", trigger.Def)
 		tableFQN := utils.MakeFQN(trigger.OwningSchema, trigger.OwningTable)
-		PrintObjectMetadata(metadataFile, triggerMetadata[trigger.Oid], trigger.Name, "TRIGGER", tableFQN)
+		PrintObjectMetadata(metadataFile, triggerMetadata[trigger.GetUniqueID()], trigger.Name, "TRIGGER", tableFQN)
 		toc.AddPostdataEntry(trigger.OwningSchema, trigger.Name, "TRIGGER", tableFQN, start, metadataFile)
 	}
 }

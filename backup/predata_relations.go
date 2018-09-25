@@ -429,7 +429,7 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 
 		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", utils.EscapeSingleQuotes(seqFQN), sequence.LastVal, sequence.IsCalled)
 
-		PrintObjectMetadata(metadataFile, sequenceMetadata[sequence.Oid], seqFQN, "SEQUENCE")
+		PrintObjectMetadata(metadataFile, sequenceMetadata[sequence.Relation.GetUniqueID()], seqFQN, "SEQUENCE")
 		toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE", sequence.OwningTable, start, metadataFile)
 	}
 }

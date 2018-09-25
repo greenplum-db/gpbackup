@@ -27,11 +27,15 @@ type Operator struct {
 	CanMerge         bool
 }
 
+func (o Operator) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_OPERATOR_OID, Oid: o.Oid}
+}
+
 func GetOperators(connectionPool *dbconn.DBConn) []Operator {
 	results := make([]Operator, 0)
 	version4query := fmt.Sprintf(`
 SELECT
-	o.oid,
+	o.oid AS oid,
 	quote_ident(n.nspname) AS schema,
 	oprname AS name,
 	oprcode::regproc AS procedure,
@@ -48,7 +52,7 @@ WHERE %s AND oprcode != 0`, SchemaFilterClause("n"))
 
 	masterQuery := fmt.Sprintf(`
 SELECT
-	o.oid,
+	o.oid AS oid,
 	quote_ident(n.nspname) AS schema,
 	oprname AS name,
 	oprcode::regproc AS procedure,
@@ -87,11 +91,15 @@ type OperatorFamily struct {
 	IndexMethod string
 }
 
+func (opf OperatorFamily) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_OPFAMILY_OID, Oid: opf.Oid}
+}
+
 func GetOperatorFamilies(connectionPool *dbconn.DBConn) []OperatorFamily {
 	results := make([]OperatorFamily, 0)
 	query := fmt.Sprintf(`
 SELECT
-	o.oid,
+	o.oid AS oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(opfname) AS name,
 	(SELECT quote_ident(amname) FROM pg_am WHERE oid = opfmethod) AS indexMethod
@@ -118,6 +126,10 @@ type OperatorClass struct {
 	Functions    []OperatorClassFunction
 }
 
+func (opc OperatorClass) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_OPCLASS_OID, Oid: opc.Oid}
+}
+
 func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 	results := make([]OperatorClass, 0)
 	/*
@@ -128,7 +140,7 @@ func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 	 */
 	version4query := fmt.Sprintf(`
 SELECT
-	c.oid,
+	c.oid AS oid,
 	quote_ident(cls_ns.nspname) AS schema,
 	quote_ident(opcname) AS name,
 	'' AS familyschema,
@@ -143,7 +155,7 @@ WHERE %s`, SchemaFilterClause("cls_ns"))
 
 	masterQuery := fmt.Sprintf(`
 SELECT
-	c.oid,
+	c.oid AS oid,
 	quote_ident(cls_ns.nspname) AS schema,
 	quote_ident(opcname) AS name,
 	quote_ident(fam_ns.nspname) AS familyschema,

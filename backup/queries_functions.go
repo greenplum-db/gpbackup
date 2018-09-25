@@ -37,8 +37,8 @@ type Function struct {
 	ExecLocation      string `db:"proexeclocation"`
 }
 
-func (f Function) GetDepEntry() DepEntry {
-	return DepEntry{Classid: PG_PROC_OID, Objid: f.Oid}
+func (f Function) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_PROC_OID, Oid: f.Oid}
 }
 
 func (f Function) FQN() string {
@@ -286,6 +286,10 @@ type Aggregate struct {
 	MInitValIsNull             bool
 }
 
+func (a Aggregate) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_AGGREGATE_OID, Oid: a.Oid}
+}
+
 func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 	version4query := fmt.Sprintf(`
 SELECT
@@ -458,6 +462,10 @@ type Cast struct {
 	CastMethod     string
 }
 
+func (c Cast) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_CAST_OID, Oid: c.Oid}
+}
+
 func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 	/* This query retrieves all casts where either the source type, the target
 	 * type, or the cast function is user-defined.
@@ -517,6 +525,10 @@ type Extension struct {
 	Schema string
 }
 
+func (e Extension) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_EXTENSION_OID, Oid: e.Oid}
+}
+
 func GetExtensions(connectionPool *dbconn.DBConn) []Extension {
 	results := make([]Extension, 0)
 
@@ -542,6 +554,10 @@ type ProceduralLanguage struct {
 	Handler   uint32 `db:"lanplcallfoid"`
 	Inline    uint32 `db:"laninline"`
 	Validator uint32 `db:"lanvalidator"`
+}
+
+func (pl ProceduralLanguage) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_LANGUAGE_OID, Oid: pl.Oid}
 }
 
 func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage {
@@ -595,6 +611,10 @@ type Conversion struct {
 	IsDefault          bool `db:"condefault"`
 }
 
+func (c Conversion) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_CONVERSION_OID, Oid: c.Oid}
+}
+
 func GetConversions(connectionPool *dbconn.DBConn) []Conversion {
 	results := make([]Conversion, 0)
 	query := fmt.Sprintf(`
@@ -627,6 +647,10 @@ type ForeignDataWrapper struct {
 	Options   string
 }
 
+func (fdw ForeignDataWrapper) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_FOREIGN_DATA_WRAPPER_OID, Oid: fdw.Oid}
+}
+
 func GetForeignDataWrappers(connectionPool *dbconn.DBConn) []ForeignDataWrapper {
 	results := make([]ForeignDataWrapper, 0)
 	query := fmt.Sprintf(`
@@ -657,6 +681,10 @@ type ForeignServer struct {
 	Options            string
 }
 
+func (fs ForeignServer) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_FOREIGN_SERVER_OID, Oid: fs.Oid}
+}
+
 func GetForeignServers(connectionPool *dbconn.DBConn) []ForeignServer {
 	results := make([]ForeignServer, 0)
 	query := fmt.Sprintf(`
@@ -685,6 +713,10 @@ type UserMapping struct {
 	User    string
 	Server  string
 	Options string
+}
+
+func (um UserMapping) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_USER_MAPPING_OID, Oid: um.Oid}
 }
 
 func GetUserMappings(connectionPool *dbconn.DBConn) []UserMapping {

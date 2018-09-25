@@ -52,7 +52,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates an index with a comment", func() {
 			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
 			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true)
-			indexMetadata := indexMetadataMap[1]
+			indexMetadata := indexMetadataMap[indexes[0].GetUniqueID()]
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
@@ -64,7 +64,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			indexes[0].Oid = testutils.OidFromObjectName(connectionPool, "", "index1", backup.TYPE_INDEX)
 			resultIndexes := backup.GetIndexes(connectionPool)
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_INDEX)
-			resultMetadata := resultMetadataMap[indexes[0].Oid]
+			resultMetadata := resultMetadataMap[resultIndexes[0].GetUniqueID()]
 			Expect(resultIndexes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &indexMetadata)
@@ -104,7 +104,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 		})
 		It("creates a basic rule", func() {
-			rules := []backup.QuerySimpleDefinition{{Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
+			rules := []backup.QuerySimpleDefinition{{Classid: backup.PG_RULE_OID, Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -117,9 +117,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 		})
 		It("creates a rule with a comment", func() {
-			rules := []backup.QuerySimpleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
+			rules := []backup.QuerySimpleDefinition{{Classid: backup.PG_RULE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
 			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true)
-			ruleMetadata := ruleMetadataMap[1]
+			ruleMetadata := ruleMetadataMap[backup.UniqueID{Oid: 1}]
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -130,7 +130,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			rules[0].Oid = testutils.OidFromObjectName(connectionPool, "", "update_notify", backup.TYPE_RULE)
 			resultRules := backup.GetRules(connectionPool)
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RULE)
-			resultMetadata := resultMetadataMap[rules[0].Oid]
+			resultMetadata := resultMetadataMap[backup.UniqueID{Oid: rules[0].Oid}]
 			Expect(resultRules).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &ruleMetadata)
@@ -144,7 +144,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggerMetadataMap = backup.MetadataMap{}
 		})
 		It("creates a basic trigger", func() {
-			triggers := []backup.QuerySimpleDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
+			triggers := []backup.QuerySimpleDefinition{{Classid: backup.PG_TRIGGER_OID, Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -157,9 +157,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 		})
 		It("creates a trigger with a comment", func() {
-			triggers := []backup.QuerySimpleDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
+			triggers := []backup.QuerySimpleDefinition{{Classid: backup.PG_TRIGGER_OID, Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
 			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true)
-			triggerMetadata := triggerMetadataMap[1]
+			triggerMetadata := triggerMetadataMap[backup.UniqueID{Oid: 1}]
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -170,7 +170,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggers[0].Oid = testutils.OidFromObjectName(connectionPool, "", "sync_testtable", backup.TYPE_TRIGGER)
 			resultTriggers := backup.GetTriggers(connectionPool)
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_TRIGGER)
-			resultMetadata := resultMetadataMap[triggers[0].Oid]
+			resultMetadata := resultMetadataMap[backup.UniqueID{Oid: triggers[0].Oid}]
 			Expect(resultTriggers).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &triggerMetadata)

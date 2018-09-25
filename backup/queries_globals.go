@@ -34,6 +34,10 @@ type Database struct {
 	Encoding   string
 }
 
+func (db Database) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_DATABASE_OID, Oid: db.Oid}
+}
+
 func GetDatabaseInfo(connectionPool *dbconn.DBConn) Database {
 	lcQuery := ""
 	if connectionPool.Version.AtLeast("6") {
@@ -89,6 +93,10 @@ type ResourceQueue struct {
 	MemoryLimit      string
 }
 
+func (rq ResourceQueue) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_RESQUEUE_OID, Oid: rq.Oid}
+}
+
 func GetResourceQueues(connectionPool *dbconn.DBConn) []ResourceQueue {
 	/*
 	 * maxcost and mincost are represented as real types in the database, but we round to two decimals
@@ -129,6 +137,10 @@ type ResourceGroup struct {
 	MemorySpillRatio  int
 	MemoryAuditor     int
 	Cpuset            string
+}
+
+func (rg ResourceGroup) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_RESGROUP_OID, Oid: rg.Oid}
 }
 
 func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
@@ -191,6 +203,10 @@ type Role struct {
 	Createrexthdfs  bool `db:"rolcreaterexthdfs"`
 	Createwexthdfs  bool `db:"rolcreatewexthdfs"`
 	TimeConstraints []TimeConstraint
+}
+
+func (r Role) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_AUTHID_OID, Oid: r.Oid}
 }
 
 /*
@@ -325,6 +341,10 @@ type Tablespace struct {
 	Tablespace       string
 	FileLocation     string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
 	SegmentLocations []string
+}
+
+func (t Tablespace) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_TABLESPACE_OID, Oid: t.Oid}
 }
 
 func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {

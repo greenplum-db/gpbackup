@@ -42,8 +42,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION testschema.\"testFunc\" (path,path)")
 
 			operatorMetadataMap := testutils.DefaultMetadataMap("OPERATOR", false, false, true)
-			operatorMetadata := operatorMetadataMap[1]
 			operator := backup.Operator{Oid: 1, Schema: "testschema", Name: "##", Procedure: "testschema.\"testFunc\"", LeftArgType: "path", RightArgType: "path", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
+			operatorMetadata := operatorMetadataMap[operator.GetUniqueID()]
 			operators := []backup.Operator{operator}
 
 			backup.PrintCreateOperatorStatements(backupfile, toc, operators, operatorMetadataMap)
@@ -53,7 +53,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultOperators := backup.GetOperators(connectionPool)
 			Expect(resultOperators).To(HaveLen(1))
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_OPERATOR)
-			resultMetadata := resultMetadataMap[resultOperators[0].Oid]
+			resultMetadata := resultMetadataMap[resultOperators[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&operator, &resultOperators[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&resultMetadata, &operatorMetadata, "Oid")
 		})
@@ -76,10 +76,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&operatorFamily, &resultOperatorFamilies[0], "Oid")
 		})
 		It("creates operator family with owner and comment", func() {
-			operatorFamilyMetadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true)
-			operatorFamilyMetadata := operatorFamilyMetadataMap[1]
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 			operatorFamilies := []backup.OperatorFamily{operatorFamily}
+			operatorFamilyMetadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true)
+			operatorFamilyMetadata := operatorFamilyMetadataMap[operatorFamily.GetUniqueID()]
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, toc, operatorFamilies, operatorFamilyMetadataMap)
 
@@ -89,7 +89,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultOperatorFamilies := backup.GetOperatorFamilies(connectionPool)
 			Expect(resultOperatorFamilies).To(HaveLen(1))
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORFAMILY)
-			resultMetadata := resultMetadataMap[resultOperatorFamilies[0].Oid]
+			resultMetadata := resultMetadataMap[resultOperatorFamilies[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&operatorFamily, &resultOperatorFamilies[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&resultMetadata, &operatorFamilyMetadata, "Oid")
 		})
@@ -160,10 +160,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&operatorClass, &resultOperatorClasses[0], "Oid", "Operators.ClassOid", "Functions.ClassOid")
 		})
 		It("creates basic operator class with a comment and owner", func() {
-			operatorClassMetadataMap := testutils.DefaultMetadataMap("OPERATOR CLASS", false, true, true)
-			operatorClassMetadata := operatorClassMetadataMap[1]
-
 			operatorClass := backup.OperatorClass{Oid: 1, Schema: "public", Name: "testclass", FamilySchema: "public", FamilyName: "testclass", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
+			operatorClassMetadataMap := testutils.DefaultMetadataMap("OPERATOR CLASS", false, true, true)
+			operatorClassMetadata := operatorClassMetadataMap[operatorClass.GetUniqueID()]
 			if connectionPool.Version.Before("5") { // Operator families do not exist prior to GPDB5
 				operatorClass.FamilySchema = ""
 				operatorClass.FamilyName = ""
@@ -183,7 +182,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&operatorClass, &resultOperatorClasses[0], "Oid")
 
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORCLASS)
-			resultMetadata := resultMetadataMap[resultOperatorClasses[0].Oid]
+			resultMetadata := resultMetadataMap[resultOperatorClasses[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&resultMetadata, &operatorClassMetadata, "Oid")
 
 		})

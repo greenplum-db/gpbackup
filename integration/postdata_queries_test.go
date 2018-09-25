@@ -207,8 +207,8 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE update_notify ON public.rule_table1")
 			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON RULE update_notify ON public.rule_table1 IS 'This is a rule comment.'")
 
-			rule1 := backup.QuerySimpleDefinition{Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
-			rule2 := backup.QuerySimpleDefinition{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef2}
+			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
+			rule2 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef2}
 
 			results := backup.GetRules(connectionPool)
 
@@ -229,7 +229,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "public")
 
-			rule1 := backup.QuerySimpleDefinition{Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
+			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 
 			results := backup.GetRules(connectionPool)
 
@@ -249,7 +249,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.rule_table1")
 
-			rule1 := backup.QuerySimpleDefinition{Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
+			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 
 			results := backup.GetRules(connectionPool)
 
@@ -274,8 +274,8 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table2 ON public.trigger_table2")
 			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TRIGGER sync_trigger_table2 ON public.trigger_table2 IS 'This is a trigger comment.'")
 
-			trigger1 := backup.QuerySimpleDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
-			trigger2 := backup.QuerySimpleDefinition{Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
+			trigger1 := backup.QuerySimpleDefinition{Classid: backup.PG_TRIGGER_OID, Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
+			trigger2 := backup.QuerySimpleDefinition{Classid: backup.PG_TRIGGER_OID, Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -307,7 +307,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
-			trigger1 := backup.QuerySimpleDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
+			trigger1 := backup.QuerySimpleDefinition{Classid: backup.PG_TRIGGER_OID, Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -327,7 +327,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "testschema.trigger_table1")
 
-			trigger1 := backup.QuerySimpleDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
+			trigger1 := backup.QuerySimpleDefinition{Classid: backup.PG_TRIGGER_OID, Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
 
 			results := backup.GetTriggers(connectionPool)
 

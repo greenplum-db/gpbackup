@@ -284,9 +284,12 @@ SET SUBPARTITION TEMPLATE  ` + `
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTableUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+
 			resultMetadata := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
-			resultTableMetadata := resultMetadata[testTable.Oid]
+			resultTableMetadata := resultMetadata[testTableUniqueID]
+
 			structmatcher.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
 			resultTableDef := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable})[testTable.Oid]
 			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
@@ -298,11 +301,12 @@ SET SUBPARTITION TEMPLATE  ` + `
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTableUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
 			resultTableDef := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable})[testTable.Oid]
 			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
 			resultMetadata := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
-			resultTableMetadata := resultMetadata[testTable.Oid]
+			resultTableMetadata := resultMetadata[testTableUniqueID]
 			structmatcher.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
 		})
 		It("prints column level privileges", func() {
@@ -330,7 +334,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 		})
 		It("creates a view with privileges and a comment and owner", func() {
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef}
-			viewMetadata := testutils.DefaultMetadataMap("VIEW", true, true, true)[1]
+			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true)
 
 			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
 
@@ -342,7 +346,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simpleview", backup.TYPE_RELATION)
 			Expect(resultViews).To(HaveLen(1))
-			resultMetadata := resultMetadataMap[view.Oid]
+			resultMetadata := resultMetadataMap[view.GetUniqueID()]
 			structmatcher.ExpectStructsToMatch(&view, &resultViews[0])
 			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
 		})
@@ -417,7 +421,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			}
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence", LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			sequenceMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLWithout("testrole", "SEQUENCE", "UPDATE")}, Owner: "testrole", Comment: "This is a sequence comment."}
-			sequenceMetadataMap[1] = sequenceMetadata
+			sequenceMetadataMap[backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {
 				sequenceDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
@@ -430,8 +434,8 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			Expect(resultSequences).To(HaveLen(1))
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
-			oid := testutils.OidFromObjectName(connectionPool, "public", "my_sequence", backup.TYPE_RELATION)
-			resultMetadata := resultMetadataMap[oid]
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "my_sequence", backup.TYPE_RELATION)
+			resultMetadata := resultMetadataMap[uniqueID]
 			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
 			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
 			structmatcher.ExpectStructsToMatch(&sequenceMetadata, &resultMetadata)

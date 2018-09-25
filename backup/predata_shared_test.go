@@ -382,11 +382,11 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 		})
 	})
 	Describe("ConstructMetadataMap", func() {
-		object1A := backup.MetadataQueryStruct{Oid: 1, Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
-		object1B := backup.MetadataQueryStruct{Oid: 1, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
-		object2 := backup.MetadataQueryStruct{Oid: 2, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: "this is a comment"}
-		objectDefaultKind := backup.MetadataQueryStruct{Oid: 3, Privileges: sql.NullString{String: "", Valid: false}, Kind: "Default", Owner: "testrole", Comment: ""}
-		objectEmptyKind := backup.MetadataQueryStruct{Oid: 4, Privileges: sql.NullString{String: "", Valid: false}, Kind: "Empty", Owner: "testrole", Comment: ""}
+		object1A := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 1}, Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
+		object1B := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 1}, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
+		object2 := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 2}, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: "this is a comment"}
+		objectDefaultKind := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 3}, Privileges: sql.NullString{String: "", Valid: false}, Kind: "Default", Owner: "testrole", Comment: ""}
+		objectEmptyKind := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 4}, Privileges: sql.NullString{String: "", Valid: false}, Kind: "Empty", Owner: "testrole", Comment: ""}
 		var metadataList []backup.MetadataQueryStruct
 		BeforeEach(func() {
 			rolnames := sqlmock.NewRows([]string{"rolename", "quotedrolename"}).
@@ -405,14 +405,14 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment"}
 			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[2]).To(Equal(expectedObjectMetadata))
+			Expect(metadataMap[backup.UniqueID{Oid: 2}]).To(Equal(expectedObjectMetadata))
 		})
 		It("One object with two ACL entries", func() {
 			metadataList = []backup.MetadataQueryStruct{object1A, object1B}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}, Owner: "testrole"}
 			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[1]).To(Equal(expectedObjectMetadata))
+			Expect(metadataMap[backup.UniqueID{Oid: 1}]).To(Equal(expectedObjectMetadata))
 		})
 		It("Multiple objects", func() {
 			metadataList = []backup.MetadataQueryStruct{object1A, object1B, object2}
@@ -420,22 +420,22 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 			expectedObjectMetadataOne := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}, Owner: "testrole"}
 			expectedObjectMetadataTwo := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment"}
 			Expect(metadataMap).To(HaveLen(2))
-			Expect(metadataMap[1]).To(Equal(expectedObjectMetadataOne))
-			Expect(metadataMap[2]).To(Equal(expectedObjectMetadataTwo))
+			Expect(metadataMap[backup.UniqueID{Oid: 1}]).To(Equal(expectedObjectMetadataOne))
+			Expect(metadataMap[backup.UniqueID{Oid: 2}]).To(Equal(expectedObjectMetadataTwo))
 		})
 		It("Default Kind", func() {
 			metadataList = []backup.MetadataQueryStruct{objectDefaultKind}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole"}
 			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[3]).To(Equal(expectedObjectMetadata))
+			Expect(metadataMap[backup.UniqueID{Oid: 3}]).To(Equal(expectedObjectMetadata))
 		})
 		It("'Empty' Kind", func() {
 			metadataList = []backup.MetadataQueryStruct{objectEmptyKind}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole"}
 			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[4]).To(Equal(expectedObjectMetadata))
+			Expect(metadataMap[backup.UniqueID{Oid: 4}]).To(Equal(expectedObjectMetadata))
 		})
 	})
 	Describe("ParseACL", func() {
@@ -518,12 +518,12 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 				},
 			}
 			metadataMap = backup.MetadataMap{
-				1: backup.ObjectMetadata{Comment: "function"},
-				2: backup.ObjectMetadata{Comment: "base type"},
-				3: backup.ObjectMetadata{Comment: "composite type"},
-				4: backup.ObjectMetadata{Comment: "domain"},
-				5: backup.ObjectMetadata{Comment: "relation"},
-				6: backup.ObjectMetadata{Comment: "protocol"},
+				backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: 1}:        backup.ObjectMetadata{Comment: "function"},
+				backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: 2}:        backup.ObjectMetadata{Comment: "base type"},
+				backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: 3}:        backup.ObjectMetadata{Comment: "composite type"},
+				backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: 4}:        backup.ObjectMetadata{Comment: "domain"},
+				backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: 5}:       backup.ObjectMetadata{Comment: "relation"},
+				backup.UniqueID{Classid: backup.PG_EXTPROTOCOL_OID, Oid: 6}: backup.ObjectMetadata{Comment: "protocol"},
 			}
 			tableDefsMap = map[uint32]backup.TableDefinition{
 				5: {DistPolicy: "DISTRIBUTED RANDOMLY", ColumnDefs: []backup.ColumnDefinition{}},

@@ -117,8 +117,8 @@ type Type struct {
 	Collation       string
 }
 
-func (t Type) GetDepEntry() DepEntry {
-	return DepEntry{Classid: PG_TYPE_OID, Objid: t.Oid}
+func (t Type) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_TYPE_OID, Oid: t.Oid}
 }
 
 func (t Type) FQN() string {
@@ -382,6 +382,10 @@ type Collation struct {
 	Name    string
 	Collate string
 	Ctype   string
+}
+
+func (c Collation) GetUniqueID() UniqueID {
+	return UniqueID{Classid: PG_COLLATION_OID, Oid: c.Oid}
 }
 
 func GetCollations(connectionPool *dbconn.DBConn) []Collation {
