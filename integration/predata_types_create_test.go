@@ -184,8 +184,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			collationMetadata := testutils.DefaultMetadata("COLLATION", false, true, true)
 			Expect(resultCollations).To(HaveLen(1))
-			oid := testutils.UniqueIDFromObjectName(connectionPool, "public", "testcollation", backup.TYPE_COLLATION)
-			resultMetadata := resultMetadataMap[oid]
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testcollation", backup.TYPE_COLLATION)
+			resultMetadata := resultMetadataMap[uniqueID]
 			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
 

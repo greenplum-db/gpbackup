@@ -181,6 +181,7 @@ PARTITION BY RANGE (date)
 		var (
 			ruleDef1 string
 			ruleDef2 string
+			rule1    backup.QuerySimpleDefinition
 		)
 		BeforeEach(func() {
 			if connectionPool.Version.Before("6") {
@@ -190,6 +191,7 @@ PARTITION BY RANGE (date)
 				ruleDef1 = "CREATE RULE double_insert AS\n    ON INSERT TO public.rule_table1 DO  INSERT INTO public.rule_table1 (i) \n  VALUES (1);"
 				ruleDef2 = "CREATE RULE update_notify AS\n    ON UPDATE TO public.rule_table1 DO \n NOTIFY rule_table1;"
 			}
+			rule1 = backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 		})
 		It("returns no slice when no rule exists", func() {
 			results := backup.GetRules(connectionPool)
@@ -207,7 +209,6 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE update_notify ON public.rule_table1")
 			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON RULE update_notify ON public.rule_table1 IS 'This is a rule comment.'")
 
-			rule1 := backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 			rule2 := backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef2}
 
 			results := backup.GetRules(connectionPool)
@@ -229,8 +230,6 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "public")
 
-			rule1 := backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
-
 			results := backup.GetRules(connectionPool)
 
 			Expect(results).To(HaveLen(1))
@@ -248,8 +247,6 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE RULE double_insert AS ON INSERT TO testschema.rule_table1 DO INSERT INTO testschema.rule_table1 (i) VALUES (1)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.rule_table1")
-
-			rule1 := backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 
 			results := backup.GetRules(connectionPool)
 
