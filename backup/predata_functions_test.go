@@ -262,8 +262,10 @@ $_$`)
 
 	})
 	Describe("PrintCreateAggregateStatements", func() {
-		aggDefs := make([]backup.Aggregate, 1)
-		aggDefinition := backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
+		var (
+			aggDefinition  backup.Aggregate
+			aggMetadataMap backup.MetadataMap
+		)
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc", Arguments: "integer"},
 			2: {QualifiedName: "public.mypfunc", Arguments: "numeric, numeric"},
@@ -272,14 +274,13 @@ $_$`)
 			5: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
 			6: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
 		}
-		aggMetadataMap := backup.MetadataMap{}
 		BeforeEach(func() {
-			aggDefs[0] = aggDefinition
+			aggDefinition = backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
 			aggMetadataMap = backup.MetadataMap{}
 		})
 
 		It("prints an aggregate definition for an unordered aggregate with no optional specifications", func() {
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -287,25 +288,25 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate definition for an ordered aggregate with no optional specifications", func() {
-			aggDefs[0].IsOrdered = true
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.IsOrdered = true
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE ORDERED AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer
 );`)
 		})
 		It("prints an aggregate definition for an unordered aggregate with no arguments", func() {
-			aggDefs[0].Arguments = ""
-			aggDefs[0].IdentArgs = ""
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.Arguments = ""
+			aggDefinition.IdentArgs = ""
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(*) (
 	SFUNC = public.mysfunc,
 	STYPE = integer
 );`)
 		})
 		It("prints an aggregate with a preliminary function", func() {
-			aggDefs[0].PreliminaryFunction = 2
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.PreliminaryFunction = 2
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -313,8 +314,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a combine function", func() {
-			aggDefs[0].CombineFunction = 2
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.CombineFunction = 2
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -322,8 +323,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a serial function", func() {
-			aggDefs[0].SerialFunction = 2
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.SerialFunction = 2
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -331,8 +332,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a deserial function", func() {
-			aggDefs[0].DeserialFunction = 2
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.DeserialFunction = 2
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -340,8 +341,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a final function", func() {
-			aggDefs[0].FinalFunction = 3
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.FinalFunction = 3
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -349,8 +350,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a final function extra attribute", func() {
-			aggDefs[0].FinalFuncExtra = true
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.FinalFuncExtra = true
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -358,9 +359,9 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with an initial condition", func() {
-			aggDefs[0].InitialValue = "0"
-			aggDefs[0].InitValIsNull = false
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.InitialValue = "0"
+			aggDefinition.InitValIsNull = false
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -368,8 +369,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a sort operator", func() {
-			aggDefs[0].SortOperator = 4
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.SortOperator = 4
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -377,8 +378,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a specified transition data size", func() {
-			aggDefs[0].TransitionDataSize = 1000
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.TransitionDataSize = 1000
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -387,8 +388,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a specified moving transition function", func() {
-			aggDefs[0].MTransitionFunction = 1
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.MTransitionFunction = 1
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -397,8 +398,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a specified moving inverse transition function", func() {
-			aggDefs[0].MInverseTransitionFunction = 1
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.MInverseTransitionFunction = 1
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -407,8 +408,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a specified moving state type", func() {
-			aggDefs[0].MTransitionDataType = "numeric"
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.MTransitionDataType = "numeric"
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -417,8 +418,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a specified moving transition size", func() {
-			aggDefs[0].MTransitionDataSize = 100
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.MTransitionDataSize = 100
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -427,8 +428,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a specified moving final function", func() {
-			aggDefs[0].MFinalFunction = 3
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.MFinalFunction = 3
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -437,8 +438,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a moving final function extra attribute", func() {
-			aggDefs[0].MFinalFuncExtra = true
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.MFinalFuncExtra = true
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -447,9 +448,9 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a moving initial condition", func() {
-			aggDefs[0].MInitialValue = "0"
-			aggDefs[0].MInitValIsNull = false
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.MInitialValue = "0"
+			aggDefinition.MInitValIsNull = false
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -457,9 +458,9 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with multiple specifications", func() {
-			aggDefs[0].FinalFunction = 3
-			aggDefs[0].SortOperator = 4
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.FinalFunction = 3
+			aggDefinition.SortOperator = 4
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
@@ -473,8 +474,8 @@ $_$`)
 				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 5, FinalFunction: 6,
 				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
-			aggDefs[0] = complexAggDefinition
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition = complexAggDefinition
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_hypo_ord(VARIADIC "any" ORDER BY VARIADIC "any") (
 	SFUNC = pg_catalog.ordered_set_transition_multi,
 	STYPE = internal,
@@ -484,8 +485,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with owner and comment", func() {
-			aggMetadataMap[backup.UniqueID{Classid: backup.PG_AGGREGATE_OID, Oid: 1}] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggMetadataMap[aggDefinition.GetUniqueID()] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer
@@ -498,10 +499,10 @@ COMMENT ON AGGREGATE public.agg_name(integer, integer) IS 'This is an aggregate 
 ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;`)
 		})
 		It("prints an aggregate with owner, comment, and no arguments", func() {
-			aggDefs[0].Arguments = ""
-			aggDefs[0].IdentArgs = ""
-			aggMetadataMap[backup.UniqueID{Classid: backup.PG_AGGREGATE_OID, Oid: 1}] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
-			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefs, funcInfoMap, aggMetadataMap)
+			aggDefinition.Arguments = ""
+			aggDefinition.IdentArgs = ""
+			aggMetadataMap[aggDefinition.GetUniqueID()] = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
+			backup.PrintCreateAggregateStatements(backupfile, toc, []backup.Aggregate{aggDefinition}, funcInfoMap, aggMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(*) (
 	SFUNC = public.mysfunc,
 	STYPE = integer
