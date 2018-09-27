@@ -60,7 +60,7 @@ var (
 	PG_PROC_OID                 uint32 = 1255
 	PG_RESGROUP_OID             uint32 = 6436
 	PG_RESQUEUE_OID             uint32 = 6026
-	PG_RULE_OID                 uint32 = 2618
+	PG_REWRITE_OID              uint32 = 2618
 	PG_TABLESPACE_OID           uint32 = 1213
 	PG_TRIGGER_OID              uint32 = 2620
 	PG_TS_CONFIG_OID            uint32 = 3602

@@ -48,7 +48,7 @@ COMMENT ON INDEX public.testindex IS 'This is an index comment.';`)
 		})
 	})
 	Context("PrintCreateRuleStatements", func() {
-		rule := backup.QuerySimpleDefinition{Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}
+		rule := backup.QuerySimpleDefinition{Classid: backup.PG_REWRITE_OID, Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}
 		It("can print a basic rule", func() {
 			rules := []backup.QuerySimpleDefinition{rule}
 			emptyMetadataMap := backup.MetadataMap{}
@@ -66,7 +66,7 @@ COMMENT ON RULE testrule ON public.testtable IS 'This is a rule comment.';`)
 		})
 	})
 	Context("PrintCreateTriggerStatements", func() {
-		trigger := backup.QuerySimpleDefinition{Oid: 1, Name: "testtrigger", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}
+		trigger := backup.QuerySimpleDefinition{Classid: backup.PG_TRIGGER_OID, Oid: 1, Name: "testtrigger", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}
 		It("can print a basic trigger", func() {
 			triggers := []backup.QuerySimpleDefinition{trigger}
 			emptyMetadataMap := backup.MetadataMap{}

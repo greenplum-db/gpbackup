@@ -104,7 +104,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 		})
 		It("creates a basic rule", func() {
-			rules := []backup.QuerySimpleDefinition{{Classid: backup.PG_RULE_OID, Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
+			rules := []backup.QuerySimpleDefinition{{Classid: backup.PG_REWRITE_OID, Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -117,7 +117,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 		})
 		It("creates a rule with a comment", func() {
-			rules := []backup.QuerySimpleDefinition{{Classid: backup.PG_RULE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
+			rules := []backup.QuerySimpleDefinition{{Classid: backup.PG_REWRITE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
 			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true)
 			ruleMetadata := ruleMetadataMap[backup.UniqueID{Oid: 1}]
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)

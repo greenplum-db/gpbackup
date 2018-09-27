@@ -207,8 +207,8 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE update_notify ON public.rule_table1")
 			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON RULE update_notify ON public.rule_table1 IS 'This is a rule comment.'")
 
-			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
-			rule2 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef2}
+			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
+			rule2 := backup.QuerySimpleDefinition{Classid: backup.PG_REWRITE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef2}
 
 			results := backup.GetRules(connectionPool)
 
@@ -229,7 +229,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "public")
 
-			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
+			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 
 			results := backup.GetRules(connectionPool)
 
@@ -249,7 +249,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.rule_table1")
 
-			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_RULE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
+			rule1 := backup.QuerySimpleDefinition{Classid: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 
 			results := backup.GetRules(connectionPool)
 
