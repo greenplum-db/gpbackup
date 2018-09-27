@@ -38,7 +38,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic resource queue with a comment", func() {
 			basicQueue := backup.ResourceQueue{Oid: 1, Name: `"basicQueue"`, ActiveStatements: -1, MaxCost: "32.80", CostOvercommit: false, MinCost: "0.00", Priority: "medium", MemoryLimit: "-1"}
 			resQueueMetadataMap := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true)
-			resQueueMetadata := resQueueMetadataMap[backup.UniqueID{Oid: 1}]
+			resQueueMetadata := resQueueMetadataMap[basicQueue.GetUniqueID()]
 
 			backup.PrintCreateResourceQueueStatements(backupfile, toc, []backup.ResourceQueue{basicQueue}, resQueueMetadataMap)
 
@@ -50,9 +50,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, hunks[1])
 
 			resultResourceQueues := backup.GetResourceQueues(connectionPool)
-			resQueueOid := testutils.OidFromObjectName(connectionPool, "", "basicQueue", backup.TYPE_RESOURCEQUEUE)
+			resQueueUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "basicQueue", backup.TYPE_RESOURCEQUEUE)
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RESOURCEQUEUE)
-			resultMetadata := resultMetadataMap[backup.UniqueID{Oid: resQueueOid}]
+			resultMetadata := resultMetadataMap[resQueueUniqueID]
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &resQueueMetadata)
 
 			for _, resultQueue := range resultResourceQueues {

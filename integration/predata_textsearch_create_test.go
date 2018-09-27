@@ -16,9 +16,9 @@ var _ = Describe("backup integration create statement tests", func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateTextSearchParserStatements", func() {
+		parser := backup.TextSearchParser{Oid: 0, Schema: "public", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: "prsd_headline"}
 		It("creates a basic text search parser", func() {
-			parsers := []backup.TextSearchParser{{Oid: 0, Schema: "public", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: "prsd_headline"}}
-			backup.PrintCreateTextSearchParserStatements(backupfile, toc, parsers, backup.MetadataMap{})
+			backup.PrintCreateTextSearchParserStatements(backupfile, toc, []backup.TextSearchParser{parser}, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH PARSER public.testparser")
@@ -26,14 +26,13 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultParsers := backup.GetTextSearchParsers(connectionPool)
 
 			Expect(resultParsers).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&parsers[0], &resultParsers[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&parser, &resultParsers[0], "Oid")
 		})
 		It("creates a basic text search parser with a comment", func() {
-			parsers := []backup.TextSearchParser{{Oid: 1, Schema: "public", Name: "testparser", StartFunc: "prsd_start", TokenFunc: "prsd_nexttoken", EndFunc: "prsd_end", LexTypesFunc: "prsd_lextype", HeadlineFunc: "prsd_headline"}}
 			parserMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH PARSER", false, false, true)
-			parserMetadata := parserMetadataMap[parsers[0].GetUniqueID()]
+			parserMetadata := parserMetadataMap[parser.GetUniqueID()]
 
-			backup.PrintCreateTextSearchParserStatements(backupfile, toc, parsers, parserMetadataMap)
+			backup.PrintCreateTextSearchParserStatements(backupfile, toc, []backup.TextSearchParser{parser}, parserMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH PARSER public.testparser")
@@ -42,15 +41,16 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_TSPARSER)
 
 			Expect(resultParsers).To(HaveLen(1))
-			resultMetadata := resultMetadataMap[resultParsers[0].GetUniqueID()]
-			structmatcher.ExpectStructsToMatchExcluding(&parsers[0], &resultParsers[0], "Oid")
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testparser", backup.TYPE_TSPARSER)
+			resultMetadata := resultMetadataMap[uniqueID]
+			structmatcher.ExpectStructsToMatchExcluding(&parser, &resultParsers[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
 		})
 	})
 	Describe("PrintCreateTextSearchTemplateStatements", func() {
+		template := backup.TextSearchTemplate{Oid: 1, Schema: "public", Name: "testtemplate", InitFunc: "dsimple_init", LexizeFunc: "dsimple_lexize"}
 		It("creates a basic text search template", func() {
-			templates := []backup.TextSearchTemplate{{Oid: 0, Schema: "public", Name: "testtemplate", InitFunc: "dsimple_init", LexizeFunc: "dsimple_lexize"}}
-			backup.PrintCreateTextSearchTemplateStatements(backupfile, toc, templates, backup.MetadataMap{})
+			backup.PrintCreateTextSearchTemplateStatements(backupfile, toc, []backup.TextSearchTemplate{template}, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH TEMPLATE public.testtemplate")
@@ -58,14 +58,13 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTemplates := backup.GetTextSearchTemplates(connectionPool)
 
 			Expect(resultTemplates).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&templates[0], &resultTemplates[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&template, &resultTemplates[0], "Oid")
 		})
 		It("creates a basic text search template with a comment", func() {
-			templates := []backup.TextSearchTemplate{{Oid: 1, Schema: "public", Name: "testtemplate", InitFunc: "dsimple_init", LexizeFunc: "dsimple_lexize"}}
 			templateMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH TEMPLATE", false, false, true)
-			templateMetadata := templateMetadataMap[backup.UniqueID{Oid: 1}]
+			templateMetadata := templateMetadataMap[template.GetUniqueID()]
 
-			backup.PrintCreateTextSearchTemplateStatements(backupfile, toc, templates, templateMetadataMap)
+			backup.PrintCreateTextSearchTemplateStatements(backupfile, toc, []backup.TextSearchTemplate{template}, templateMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH TEMPLATE public.testtemplate")
@@ -74,16 +73,17 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_TSTEMPLATE)
 
 			Expect(resultTemplates).To(HaveLen(1))
-			resultMetadata := resultMetadataMap[templates[0].GetUniqueID()]
-			structmatcher.ExpectStructsToMatchExcluding(&templates[0], &resultTemplates[0], "Oid")
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtemplate", backup.TYPE_TSTEMPLATE)
+			resultMetadata := resultMetadataMap[uniqueID]
+			structmatcher.ExpectStructsToMatchExcluding(&template, &resultTemplates[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
 		})
 	})
 	Describe("PrintCreateTextSearchDictionaryStatements", func() {
+		dictionary := backup.TextSearchDictionary{Oid: 1, Schema: "public", Name: "testdictionary", Template: "pg_catalog.snowball", InitOption: "language = 'russian', stopwords = 'russian'"}
 		It("creates a basic text search dictionary", func() {
-			dictionaries := []backup.TextSearchDictionary{{Oid: 0, Schema: "public", Name: "testdictionary", Template: "pg_catalog.snowball", InitOption: "language = 'russian', stopwords = 'russian'"}}
 
-			backup.PrintCreateTextSearchDictionaryStatements(backupfile, toc, dictionaries, backup.MetadataMap{})
+			backup.PrintCreateTextSearchDictionaryStatements(backupfile, toc, []backup.TextSearchDictionary{dictionary}, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
@@ -91,14 +91,13 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultDictionaries := backup.GetTextSearchDictionaries(connectionPool)
 
 			Expect(resultDictionaries).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&dictionaries[0], &resultDictionaries[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&dictionary, &resultDictionaries[0], "Oid")
 		})
 		It("creates a basic text search dictionary with a comment and owner", func() {
-			dictionaries := []backup.TextSearchDictionary{{Oid: 1, Schema: "public", Name: "testdictionary", Template: "pg_catalog.snowball", InitOption: "language = 'russian', stopwords = 'russian'"}}
 			dictionaryMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH DICTIONARY", false, true, true)
-			dictionaryMetadata := dictionaryMetadataMap[backup.UniqueID{Oid: 1}]
+			dictionaryMetadata := dictionaryMetadataMap[dictionary.GetUniqueID()]
 
-			backup.PrintCreateTextSearchDictionaryStatements(backupfile, toc, dictionaries, dictionaryMetadataMap)
+			backup.PrintCreateTextSearchDictionaryStatements(backupfile, toc, []backup.TextSearchDictionary{dictionary}, dictionaryMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
@@ -107,16 +106,16 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TSDICTIONARY)
 
 			Expect(resultDictionaries).To(HaveLen(1))
-			resultMetadata := resultMetadataMap[dictionaries[0].GetUniqueID()]
-			structmatcher.ExpectStructsToMatchExcluding(&dictionaries[0], &resultDictionaries[0], "Oid")
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testdictionary", backup.TYPE_TSDICTIONARY)
+			resultMetadata := resultMetadataMap[uniqueID]
+			structmatcher.ExpectStructsToMatchExcluding(&dictionary, &resultDictionaries[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 		})
 	})
 	Describe("PrintCreateTextSearchConfigurationStatements", func() {
+		configuration := backup.TextSearchConfiguration{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}
 		It("creates a basic text search configuration", func() {
-			configurations := []backup.TextSearchConfiguration{{Oid: 0, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}}
-
-			backup.PrintCreateTextSearchConfigurationStatements(backupfile, toc, configurations, backup.MetadataMap{})
+			backup.PrintCreateTextSearchConfigurationStatements(backupfile, toc, []backup.TextSearchConfiguration{configuration}, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH CONFIGURATION public.testconfiguration")
@@ -124,14 +123,13 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultConfigurations := backup.GetTextSearchConfigurations(connectionPool)
 
 			Expect(resultConfigurations).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&configurations[0], &resultConfigurations[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&configuration, &resultConfigurations[0], "Oid")
 		})
 		It("creates a basic text search configuration with a comment and owner", func() {
-			configurations := []backup.TextSearchConfiguration{{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}}
 			configurationMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH CONFIGURATION", false, true, true)
-			configurationMetadata := configurationMetadataMap[backup.UniqueID{ClassID: backup.PG_TS_CONFIG_OID, Oid: 1}]
+			configurationMetadata := configurationMetadataMap[configuration.GetUniqueID()]
 
-			backup.PrintCreateTextSearchConfigurationStatements(backupfile, toc, configurations, configurationMetadataMap)
+			backup.PrintCreateTextSearchConfigurationStatements(backupfile, toc, []backup.TextSearchConfiguration{configuration}, configurationMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH CONFIGURATION public.testconfiguration")
@@ -140,8 +138,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TSCONFIGURATION)
 
 			Expect(resultConfigurations).To(HaveLen(1))
-			resultMetadata := resultMetadataMap[resultConfigurations[0].GetUniqueID()]
-			structmatcher.ExpectStructsToMatchExcluding(&configurations[0], &resultConfigurations[0], "Oid")
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testconfiguration", backup.TYPE_TSCONFIGURATION)
+			resultMetadata := resultMetadataMap[uniqueID]
+			structmatcher.ExpectStructsToMatchExcluding(&configuration, &resultConfigurations[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&configurationMetadata, &resultMetadata)
 		})
 	})

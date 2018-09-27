@@ -285,7 +285,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTableUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
-			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			testTable.Oid = testTableUniqueID.Oid
 
 			resultMetadata := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 			resultTableMetadata := resultMetadata[testTableUniqueID]

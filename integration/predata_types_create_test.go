@@ -155,11 +155,11 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateCollationStatement", func() {
+		collation := backup.Collation{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}
 		It("creates a basic collation", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			collations := []backup.Collation{{Oid: 0, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}}
 
-			backup.PrintCreateCollationStatements(backupfile, toc, collations, backup.MetadataMap{})
+			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.testcollation")
@@ -167,14 +167,14 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultCollations := backup.GetCollations(connectionPool)
 
 			Expect(resultCollations).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&collation, &resultCollations[0], "Oid")
 		})
 		It("creates a basic collation with comment and owner", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			collations := []backup.Collation{{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}}
 			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
+			collationMetadata := collationMetadataMap[collation.GetUniqueID()]
 
-			backup.PrintCreateCollationStatements(backupfile, toc, collations, collationMetadataMap)
+			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, collationMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.testcollation")
@@ -182,11 +182,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultCollations := backup.GetCollations(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_COLLATION)
 
-			collationMetadata := testutils.DefaultMetadata("COLLATION", false, true, true)
 			Expect(resultCollations).To(HaveLen(1))
 			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testcollation", backup.TYPE_COLLATION)
 			resultMetadata := resultMetadataMap[uniqueID]
-			structmatcher.ExpectStructsToMatchExcluding(&collations[0], &resultCollations[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&collation, &resultCollations[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
 
 		})
