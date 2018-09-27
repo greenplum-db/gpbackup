@@ -567,6 +567,14 @@ func BackupTriggers(metadataFile *utils.FileWithByteCount) {
 	PrintCreateTriggerStatements(metadataFile, globalTOC, triggers, triggerMetadata)
 }
 
+func BackupEventTriggers(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing CREATE EVENT TRIGGER statements to metadata file")
+	eventTriggers := GetEventTriggers(connectionPool)
+	objectCounts["Event Triggers"] = len(eventTriggers)
+	eventTriggerMetadata := GetMetadataForObjectType(connectionPool, TYPE_EVENTTRIGGER)
+	PrintCreateEventTriggerStatements(metadataFile, globalTOC, eventTriggers, eventTriggerMetadata)
+}
+
 /*
  * Data wrapper functions
  */

@@ -216,3 +216,35 @@ ORDER BY tgname;`, relationAndSchemaFilterClause(), constraintClause, ExtensionF
 	gplog.FatalOnError(err)
 	return results
 }
+
+type EventTrigger struct {
+	Oid          uint32
+	Name         string
+	Event        string
+	FunctionName string
+	Enabled      string
+	EventTags    string
+}
+
+func (et EventTrigger) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_EVENT_TRIGGER, Oid: et.Oid}
+}
+
+func GetEventTriggers(connectionPool *dbconn.DBConn) []EventTrigger {
+	query := fmt.Sprintf(`
+SELECT
+	et.oid,
+	quote_ident(et.evtname) AS name,
+	et.evtevent AS event,
+	array_to_string(array(select quote_literal(x) from unnest(evttags) as t(x)), ', ') AS eventtags,
+	et.evtfoid::regproc AS functionname,
+	et.evtenabled AS enabled
+FROM pg_event_trigger et
+WHERE %s
+ORDER BY name;`, ExtensionFilterClause("et"))
+
+	results := make([]EventTrigger, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}

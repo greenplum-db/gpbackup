@@ -588,6 +588,25 @@ LANGUAGE SQL`)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
 			})
+			It("returns a slice of default metadata for an event trigger", func() {
+				testutils.SkipIfBefore6(connectionPool)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION abort_any_command()
+RETURNS event_trigger LANGUAGE plpgsql
+AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
+				defer testhelper.AssertQueryRuns(connectionPool, `DROP FUNCTION abort_any_command()`)
+				testhelper.AssertQueryRuns(connectionPool, "CREATE EVENT TRIGGER test_event_trigger ON ddl_command_start EXECUTE PROCEDURE abort_any_command();")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER test_event_trigger")
+
+				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON EVENT TRIGGER test_event_trigger IS 'This is an event trigger comment.'")
+
+				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_EVENTTRIGGER)
+
+				Expect(resultMetadataMap).To(HaveLen(1))
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "test_event_trigger", backup.TYPE_EVENTTRIGGER)
+				eventTriggerMetadata := testutils.DefaultMetadata("EVENT TRIGGER", false, true, true)
+				resultMetadata := resultMetadataMap[uniqueID]
+				structmatcher.ExpectStructsToMatch(&eventTriggerMetadata, &resultMetadata)
+			})
 		})
 		Context("metadata for objects in a specific schema", func() {
 			It("returns a slice of default metadata for a table in a specific schema", func() {

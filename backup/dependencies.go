@@ -47,6 +47,7 @@ var (
 	PG_CONSTRAINT_OID           uint32 = 2606
 	PG_CONVERSION_OID           uint32 = 2607
 	PG_DATABASE_OID             uint32 = 1262
+	PG_EVENT_TRIGGER            uint32 = 3466
 	PG_EXTENSION_OID            uint32 = 3079
 	PG_EXTPROTOCOL_OID          uint32 = 7175
 	PG_FOREIGN_DATA_WRAPPER_OID uint32 = 2328

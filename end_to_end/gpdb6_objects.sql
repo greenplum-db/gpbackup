@@ -35,3 +35,15 @@ CREATE FOREIGN TABLE ft1 (
     c1 integer OPTIONS (param1 'val1') NOT NULL,
     c2 text OPTIONS (param2 'val2', param3 'val3')
 ) SERVER sc OPTIONS (delimiter ',', quote '"');
+
+CREATE OR REPLACE FUNCTION abort_any_command()
+  RETURNS event_trigger
+ LANGUAGE plpgsql
+  AS $$
+BEGIN
+  RAISE EXCEPTION 'command % is disabled', tg_tag;
+END;
+$$;
+
+CREATE EVENT TRIGGER abort_ddl ON ddl_command_start
+   EXECUTE PROCEDURE abort_any_command();

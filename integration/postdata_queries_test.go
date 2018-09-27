@@ -207,7 +207,6 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON public.rule_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE RULE update_notify AS ON UPDATE TO public.rule_table1 DO NOTIFY rule_table1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE update_notify ON public.rule_table1")
-			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON RULE update_notify ON public.rule_table1 IS 'This is a rule comment.'")
 
 			rule2 := backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef2}
 
@@ -269,7 +268,6 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON public.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table2 ON public.trigger_table2")
-			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TRIGGER sync_trigger_table2 ON public.trigger_table2 IS 'This is a trigger comment.'")
 
 			trigger1 := backup.QuerySimpleDefinition{ClassID: backup.PG_TRIGGER_OID, Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
 			trigger2 := backup.QuerySimpleDefinition{ClassID: backup.PG_TRIGGER_OID, Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
@@ -330,6 +328,63 @@ PARTITION BY RANGE (date)
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&trigger1, &results[0], "Oid")
+		})
+	})
+	Describe("GetEventTriggers", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION abort_any_command()
+RETURNS event_trigger LANGUAGE plpgsql
+AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connectionPool, `DROP FUNCTION abort_any_command()`)
+		})
+		It("returns no slice when no event trigger exists", func() {
+			results := backup.GetEventTriggers(connectionPool)
+
+			Expect(results).To(BeEmpty())
+		})
+		It("returns a slice of multiple event triggers ", func() {
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE EVENT TRIGGER testeventtrigger1 ON ddl_command_start EXECUTE PROCEDURE abort_any_command();")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE EVENT TRIGGER testeventtrigger2 ON ddl_command_start EXECUTE PROCEDURE abort_any_command();")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger2")
+
+			results := backup.GetEventTriggers(connectionPool)
+
+			eventTrigger1 := backup.EventTrigger{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
+			eventTrigger2 := backup.EventTrigger{Oid: 1, Name: "testeventtrigger2", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
+
+			Expect(results).To(HaveLen(2))
+			structmatcher.ExpectStructsToMatchExcluding(&eventTrigger1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&eventTrigger2, &results[1], "Oid")
+
+		})
+		It("returns a slice of event trigger with a filter tag", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE EVENT TRIGGER testeventtrigger1 ON ddl_command_start WHEN TAG IN ('DROP FUNCTION') EXECUTE PROCEDURE abort_any_command();")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
+
+			results := backup.GetEventTriggers(connectionPool)
+
+			eventTrigger1 := backup.EventTrigger{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O", EventTags: `'DROP FUNCTION'`}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&eventTrigger1, &results[0], "Oid")
+
+		})
+		It("returns a slice of event trigger with multiple filter tags", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE EVENT TRIGGER testeventtrigger1 ON ddl_command_start WHEN TAG IN ('DROP FUNCTION', 'DROP TABLE') EXECUTE PROCEDURE abort_any_command();")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
+
+			results := backup.GetEventTriggers(connectionPool)
+
+			eventTrigger1 := backup.EventTrigger{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O", EventTags: `'DROP FUNCTION', 'DROP TABLE'`}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&eventTrigger1, &results[0], "Oid")
+
 		})
 	})
 })

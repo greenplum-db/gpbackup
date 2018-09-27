@@ -175,4 +175,74 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &triggerMetadata)
 		})
 	})
+	Describe("PrintCreateEventTriggerStatements", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION abort_any_command()
+RETURNS event_trigger LANGUAGE plpgsql
+AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connectionPool, `DROP FUNCTION abort_any_command()`)
+		})
+		It("creates a basic event trigger", func() {
+			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}}
+			eventTriggerMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
+
+			results := backup.GetEventTriggers(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&eventTriggers[0], &results[0], "Oid")
+		})
+		It("creates an event trigger with multiple filter tags", func() {
+			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O", EventTags: `'DROP FUNCTION', 'DROP TABLE'`}}
+			eventTriggerMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
+
+			results := backup.GetEventTriggers(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&eventTriggers[0], &results[0], "Oid")
+		})
+		It("creates an event trigger with a single filter tag and enable option", func() {
+			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "R", EventTags: `'DROP FUNCTION'`}}
+			eventTriggerMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
+
+			results := backup.GetEventTriggers(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&eventTriggers[0], &results[0], "Oid")
+		})
+		It("creates an event trigger with comment and owner", func() {
+			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "test_event_trigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}}
+			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, true, true)
+			eventTriggerMetadata := eventTriggerMetadataMap[eventTriggers[0].GetUniqueID()]
+
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, []backup.EventTrigger{eventTriggers[0]}, eventTriggerMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER test_event_trigger")
+
+			resultEventTriggers := backup.GetEventTriggers(connectionPool)
+			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_EVENTTRIGGER)
+
+			Expect(resultEventTriggers).To(HaveLen(1))
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "test_event_trigger", backup.TYPE_EVENTTRIGGER)
+			resultMetadata := resultMetadataMap[uniqueID]
+			structmatcher.ExpectStructsToMatchExcluding(&eventTriggers[0], &resultEventTriggers[0], "Oid")
+			structmatcher.ExpectStructsToMatch(&eventTriggerMetadata, &resultMetadata)
+
+		})
+	})
 })

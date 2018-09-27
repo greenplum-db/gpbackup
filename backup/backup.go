@@ -349,6 +349,9 @@ func backupPostdata(metadataFile *utils.FileWithByteCount) {
 	BackupIndexes(metadataFile)
 	BackupRules(metadataFile)
 	BackupTriggers(metadataFile)
+	if connectionPool.Version.AtLeast("6") && len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
+		BackupEventTriggers(metadataFile)
+	}
 	if wasTerminated {
 		gplog.Info("Post-data metadata backup incomplete")
 	} else {

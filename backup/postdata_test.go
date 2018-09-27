@@ -83,4 +83,95 @@ COMMENT ON RULE testrule ON public.testtable IS 'This is a rule comment.';`)
 COMMENT ON TRIGGER testtrigger ON public.testtable IS 'This is a trigger comment.';`)
 		})
 	})
+	Context("PrintCreateEventTriggerStatements", func() {
+		It("can print a basic event trigger", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+EXECUTE PROCEDURE abort_any_command();`)
+		})
+		It("can print a basic event trigger with a comment", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			eventTriggerMetadataMap := backup.MetadataMap{eventTrigger.GetUniqueID(): {Comment: "This is an event trigger comment."}}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+EXECUTE PROCEDURE abort_any_command();
+
+COMMENT ON EVENT TRIGGER testeventtrigger IS 'This is an event trigger comment.';`)
+		})
+		It("can print a basic event trigger with an owner", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			eventTriggerMetadataMap := backup.MetadataMap{eventTrigger.GetUniqueID(): {Owner: "testOwner"}}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+EXECUTE PROCEDURE abort_any_command();
+
+ALTER EVENT TRIGGER testeventtrigger OWNER TO testOwner;`)
+		})
+		It("can print an event trigger with filter variables", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O", EventTags: `'DROP FUNCTION','DROP TABLE'`}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+WHEN TAG IN ('DROP FUNCTION','DROP TABLE')
+EXECUTE PROCEDURE abort_any_command();`)
+		})
+		It("can print an event trigger with filter variables with enable option DISABLE", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "D"}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+EXECUTE PROCEDURE abort_any_command();
+ALTER EVENT TRIGGER testeventtrigger DISABLE;`)
+		})
+		It("can print an event trigger with filter variables with enable option ENABLE", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: ""}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+EXECUTE PROCEDURE abort_any_command();
+ALTER EVENT TRIGGER testeventtrigger ENABLE;`)
+		})
+		It("can print an event trigger with filter variables with enable option ENABLE REPLICA", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "R"}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+EXECUTE PROCEDURE abort_any_command();
+ALTER EVENT TRIGGER testeventtrigger ENABLE REPLICA;`)
+		})
+		It("can print an event trigger with filter variables with enable option ENABLE ALWAYS", func() {
+			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "A"}
+			eventTriggers := []backup.EventTrigger{eventTrigger}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE EVENT TRIGGER testeventtrigger
+ON ddl_command_start
+EXECUTE PROCEDURE abort_any_command();
+ALTER EVENT TRIGGER testeventtrigger ENABLE ALWAYS;`)
+		})
+	})
 })

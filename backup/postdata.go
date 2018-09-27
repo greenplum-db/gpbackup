@@ -46,3 +46,30 @@ func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *ut
 		toc.AddPostdataEntry(trigger.OwningSchema, trigger.Name, "TRIGGER", tableFQN, start, metadataFile)
 	}
 }
+
+func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, eventTriggers []EventTrigger, eventTriggerMetadata MetadataMap) {
+	for _, eventTrigger := range eventTriggers {
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintf("\n\nCREATE EVENT TRIGGER %s\nON %s", eventTrigger.Name, eventTrigger.Event)
+		if eventTrigger.EventTags != "" {
+			metadataFile.MustPrintf("\nWHEN TAG IN (%s)", eventTrigger.EventTags)
+		}
+		metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
+		if eventTrigger.Enabled != "O" {
+			var enableOption string
+			switch eventTrigger.Enabled {
+			case "D":
+				enableOption = "DISABLE"
+			case "A":
+				enableOption = "ENABLE ALWAYS"
+			case "R":
+				enableOption = "ENABLE REPLICA"
+			default:
+				enableOption = "ENABLE"
+			}
+			metadataFile.MustPrintf("\nALTER EVENT TRIGGER %s %s;", eventTrigger.Name, enableOption)
+		}
+		PrintObjectMetadata(metadataFile, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger.Name, "EVENT TRIGGER")
+		toc.AddPostdataEntry("", eventTrigger.Name, "EVENT TRIGGER", "", start, metadataFile)
+	}
+}
