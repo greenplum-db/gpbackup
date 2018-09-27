@@ -151,7 +151,7 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 type DependencyMap map[UniqueID]map[UniqueID]bool
 
 type UniqueID struct {
-	Classid uint32
+	ClassID uint32
 	Oid     uint32
 }
 
@@ -194,11 +194,11 @@ AND typelem != 0`)
 	dependencyMap := make(DependencyMap, 0)
 	for _, dep := range pgDependDeps {
 		object := UniqueID{
-			Classid: dep.ClassID,
+			ClassID: dep.ClassID,
 			Oid:     dep.ObjID,
 		}
 		referenceObject := UniqueID{
-			Classid: dep.RefClassID,
+			ClassID: dep.RefClassID,
 			Oid:     dep.RefObjID,
 		}
 
@@ -224,7 +224,7 @@ AND typelem != 0`)
 func breakCircularDependencies(depMap DependencyMap) {
 	for entry, deps := range depMap {
 		for dep := range deps {
-			if _, ok := depMap[dep]; ok && entry.Classid == PG_TYPE_OID && dep.Classid == PG_PROC_OID {
+			if _, ok := depMap[dep]; ok && entry.ClassID == PG_TYPE_OID && dep.ClassID == PG_PROC_OID {
 				if _, ok := depMap[dep][entry]; ok {
 					if len(depMap[dep]) == 1 {
 						delete(depMap, dep)

@@ -18,8 +18,8 @@ var _ = Describe("backup integration tests", func() {
 
 			oidFoo := testutils.OidFromObjectName(connectionPool, "public", "foo", backup.TYPE_RELATION)
 			oidBar := testutils.OidFromObjectName(connectionPool, "public", "bar", backup.TYPE_RELATION)
-			fooEntry := backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: oidFoo}
-			barEntry := backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: oidBar}
+			fooEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: oidFoo}
+			barEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: oidBar}
 			backupSet := map[backup.UniqueID]bool{fooEntry: true, barEntry: true}
 
 			deps := backup.GetDependencies(connectionPool, backupSet)
@@ -48,9 +48,9 @@ var _ = Describe("backup integration tests", func() {
 			protocolOid := testutils.OidFromObjectName(connectionPool, "", "s3", backup.TYPE_PROTOCOL)
 			functionOid := testutils.OidFromObjectName(connectionPool, "public", "read_from_s3", backup.TYPE_FUNCTION)
 
-			tableEntry := backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: tableOid}
-			protocolEntry := backup.UniqueID{Classid: backup.PG_EXTPROTOCOL_OID, Oid: protocolOid}
-			functionEntry := backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: functionOid}
+			tableEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: tableOid}
+			protocolEntry := backup.UniqueID{ClassID: backup.PG_EXTPROTOCOL_OID, Oid: protocolOid}
+			functionEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: functionOid}
 			backupSet := map[backup.UniqueID]bool{tableEntry: true, protocolEntry: true, functionEntry: true}
 
 			deps := backup.GetDependencies(connectionPool, backupSet)
@@ -79,9 +79,9 @@ var _ = Describe("backup integration tests", func() {
 			parent2Oid := testutils.OidFromObjectName(connectionPool, "public", "parent2", backup.TYPE_RELATION)
 			childOid := testutils.OidFromObjectName(connectionPool, "public", "child", backup.TYPE_RELATION)
 
-			parent1Entry := backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: parent1Oid}
-			parent2Entry := backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: parent2Oid}
-			childEntry := backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: childOid}
+			parent1Entry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: parent1Oid}
+			parent2Entry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: parent2Oid}
+			childEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: childOid}
 			backupSet := map[backup.UniqueID]bool{parent1Entry: true, parent2Entry: true, childEntry: true}
 
 			deps := backup.GetDependencies(connectionPool, backupSet)
@@ -96,7 +96,7 @@ var _ = Describe("backup integration tests", func() {
 			BeforeEach(func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.composite_ints AS (one integer, two integer)")
 				compositeOid := testutils.OidFromObjectName(connectionPool, "public", "composite_ints", backup.TYPE_TYPE)
-				compositeEntry = backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: compositeOid}
+				compositeEntry = backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: compositeOid}
 			})
 			AfterEach(func() {
 				testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_ints CASCADE")
@@ -106,7 +106,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(public.composite_ints)")
 
 				functionOid := testutils.OidFromObjectName(connectionPool, "public", "add", backup.TYPE_FUNCTION)
-				funcEntry := backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: functionOid}
+				funcEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: functionOid}
 				backupSet := map[backup.UniqueID]bool{funcEntry: true, compositeEntry: true}
 
 				functionDeps := backup.GetDependencies(connectionPool, backupSet)
@@ -120,7 +120,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.compose(integer, integer)")
 
 				functionOid := testutils.OidFromObjectName(connectionPool, "public", "compose", backup.TYPE_FUNCTION)
-				funcEntry := backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: functionOid}
+				funcEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: functionOid}
 				backupSet := map[backup.UniqueID]bool{funcEntry: true, compositeEntry: true}
 
 				functionDeps := backup.GetDependencies(connectionPool, backupSet)
@@ -139,9 +139,9 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.compose(public.base_type[], public.composite_ints)")
 
 				functionOid := testutils.OidFromObjectName(connectionPool, "public", "compose", backup.TYPE_FUNCTION)
-				funcEntry := backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: functionOid}
+				funcEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: functionOid}
 				baseOid := testutils.OidFromObjectName(connectionPool, "public", "base_type", backup.TYPE_TYPE)
-				baseEntry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: baseOid}
+				baseEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: baseOid}
 				backupSet := map[backup.UniqueID]bool{funcEntry: true, compositeEntry: true, baseEntry: true}
 
 				functionDeps := backup.GetDependencies(connectionPool, backupSet)
@@ -164,7 +164,7 @@ var _ = Describe("backup integration tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_type(INPUT=public.base_fn_in, OUTPUT=public.base_fn_out)")
 
 				baseOid = testutils.OidFromObjectName(connectionPool, "public", "base_type", backup.TYPE_TYPE)
-				baseEntry = backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: baseOid}
+				baseEntry = backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: baseOid}
 			})
 			AfterEach(func() {
 				testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.base_type CASCADE")
@@ -178,8 +178,8 @@ var _ = Describe("backup integration tests", func() {
 				domainOid := testutils.OidFromObjectName(connectionPool, "public", "parent_domain", backup.TYPE_TYPE)
 				domain2Oid := testutils.OidFromObjectName(connectionPool, "public", "domain_type", backup.TYPE_TYPE)
 
-				domainEntry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: domainOid}
-				domain2Entry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: domain2Oid}
+				domainEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: domainOid}
+				domain2Entry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: domain2Oid}
 				backupSet := map[backup.UniqueID]bool{domainEntry: true, domain2Entry: true}
 
 				deps := backup.GetDependencies(connectionPool, backupSet)
@@ -193,8 +193,8 @@ var _ = Describe("backup integration tests", func() {
 				baseInOid := testutils.OidFromObjectName(connectionPool, "public", "base_fn_in", backup.TYPE_FUNCTION)
 				baseOutOid := testutils.OidFromObjectName(connectionPool, "public", "base_fn_out", backup.TYPE_FUNCTION)
 
-				baseInEntry := backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: baseInOid}
-				baseOutEntry := backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: baseOutOid}
+				baseInEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: baseInOid}
+				baseOutEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: baseOutOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, baseInEntry: true, baseOutEntry: true}
 
 				deps := backup.GetDependencies(connectionPool, backupSet)
@@ -209,7 +209,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.comp_type")
 
 				compositeOid := testutils.OidFromObjectName(connectionPool, "public", "comp_type", backup.TYPE_TYPE)
-				compositeEntry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: compositeOid}
+				compositeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: compositeOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, compositeEntry: true}
 
 				deps := backup.GetDependencies(connectionPool, backupSet)
@@ -229,9 +229,9 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.comp_type")
 
 				base2Oid := testutils.OidFromObjectName(connectionPool, "public", "base_type2", backup.TYPE_TYPE)
-				base2Entry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: base2Oid}
+				base2Entry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: base2Oid}
 				compositeOid := testutils.OidFromObjectName(connectionPool, "public", "comp_type", backup.TYPE_TYPE)
-				compositeEntry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: compositeOid}
+				compositeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: compositeOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, base2Entry: true, compositeEntry: true}
 
 				deps := backup.GetDependencies(connectionPool, backupSet)
@@ -246,7 +246,7 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.comp_type")
 
 				compositeOid := testutils.OidFromObjectName(connectionPool, "public", "comp_type", backup.TYPE_TYPE)
-				compositeEntry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: compositeOid}
+				compositeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: compositeOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, compositeEntry: true}
 
 				deps := backup.GetDependencies(connectionPool, backupSet)
@@ -264,8 +264,8 @@ var _ = Describe("backup integration tests", func() {
 				tableOid := testutils.OidFromObjectName(connectionPool, "public", "my_table", backup.TYPE_RELATION)
 				typeOid := testutils.OidFromObjectName(connectionPool, "public", "my_type", backup.TYPE_TYPE)
 
-				tableEntry := backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: tableOid}
-				typeEntry := backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: typeOid}
+				tableEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: tableOid}
+				typeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: typeOid}
 				backupSet := map[backup.UniqueID]bool{tableEntry: true, typeEntry: true}
 
 				deps := backup.GetDependencies(connectionPool, backupSet)

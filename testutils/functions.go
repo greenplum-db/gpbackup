@@ -88,11 +88,11 @@ func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComme
 // objType should be an all-caps string like TABLE, INDEX, etc.
 func DefaultMetadataMap(objType string, hasPrivileges bool, hasOwner bool, hasComment bool) backup.MetadataMap {
 	return backup.MetadataMap{
-		backup.UniqueID{Classid: ClassIDFromObjectName(objType), Oid: 1}: DefaultMetadata(objType, hasPrivileges, hasOwner, hasComment),
+		backup.UniqueID{ClassID: ClassIDFromObjectName(objType), Oid: 1}: DefaultMetadata(objType, hasPrivileges, hasOwner, hasComment),
 	}
 }
 
-var objNameToClassid = map[string]uint32{
+var objNameToClassID = map[string]uint32{
 	"AGGREGATE":                 1255,
 	"CAST":                      2605,
 	"COLLATION":                 3456,
@@ -129,7 +129,7 @@ var objNameToClassid = map[string]uint32{
 }
 
 func ClassIDFromObjectName(objName string) uint32 {
-	return objNameToClassid[objName]
+	return objNameToClassID[objName]
 
 }
 func DefaultACLForType(grantee string, objType string) backup.ACL {
@@ -379,7 +379,7 @@ func UniqueIDFromObjectName(connectionPool *dbconn.DBConn, schemaName string, ob
 		Fail(fmt.Sprintf("Execution of query failed: %v", err))
 	}
 
-	return backup.UniqueID{Classid: result.Oid, Oid: OidFromObjectName(connectionPool, schemaName, objectName, params)}
+	return backup.UniqueID{ClassID: result.Oid, Oid: OidFromObjectName(connectionPool, schemaName, objectName, params)}
 }
 
 func GetUserByID(connectionPool *dbconn.DBConn, oid uint32) string {

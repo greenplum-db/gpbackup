@@ -421,7 +421,7 @@ SET SUBPARTITION TEMPLATE  ` + `
 			}
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence", LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			sequenceMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLWithout("testrole", "SEQUENCE", "UPDATE")}, Owner: "testrole", Comment: "This is a sequence comment."}
-			sequenceMetadataMap[backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
+			sequenceMetadataMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {
 				sequenceDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed

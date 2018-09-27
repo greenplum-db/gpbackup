@@ -58,7 +58,7 @@ func (r Relation) FQN() string {
 }
 
 func (r Relation) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_CLASS_OID, Oid: r.Oid}
+	return UniqueID{ClassID: PG_CLASS_OID, Oid: r.Oid}
 }
 
 /*
@@ -677,7 +677,7 @@ type View struct {
 }
 
 func (v View) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_CLASS_OID, Oid: v.Oid}
+	return UniqueID{ClassID: PG_CLASS_OID, Oid: v.Oid}
 }
 
 func (v View) FQN() string {

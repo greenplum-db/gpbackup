@@ -38,7 +38,7 @@ type Function struct {
 }
 
 func (f Function) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_PROC_OID, Oid: f.Oid}
+	return UniqueID{ClassID: PG_PROC_OID, Oid: f.Oid}
 }
 
 func (f Function) FQN() string {
@@ -287,7 +287,7 @@ type Aggregate struct {
 }
 
 func (a Aggregate) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_AGGREGATE_OID, Oid: a.Oid}
+	return UniqueID{ClassID: PG_AGGREGATE_OID, Oid: a.Oid}
 }
 
 func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
@@ -463,7 +463,7 @@ type Cast struct {
 }
 
 func (c Cast) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_CAST_OID, Oid: c.Oid}
+	return UniqueID{ClassID: PG_CAST_OID, Oid: c.Oid}
 }
 
 func GetCasts(connectionPool *dbconn.DBConn) []Cast {
@@ -526,7 +526,7 @@ type Extension struct {
 }
 
 func (e Extension) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_EXTENSION_OID, Oid: e.Oid}
+	return UniqueID{ClassID: PG_EXTENSION_OID, Oid: e.Oid}
 }
 
 func GetExtensions(connectionPool *dbconn.DBConn) []Extension {
@@ -557,7 +557,7 @@ type ProceduralLanguage struct {
 }
 
 func (pl ProceduralLanguage) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_LANGUAGE_OID, Oid: pl.Oid}
+	return UniqueID{ClassID: PG_LANGUAGE_OID, Oid: pl.Oid}
 }
 
 func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage {
@@ -612,7 +612,7 @@ type Conversion struct {
 }
 
 func (c Conversion) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_CONVERSION_OID, Oid: c.Oid}
+	return UniqueID{ClassID: PG_CONVERSION_OID, Oid: c.Oid}
 }
 
 func GetConversions(connectionPool *dbconn.DBConn) []Conversion {
@@ -648,7 +648,7 @@ type ForeignDataWrapper struct {
 }
 
 func (fdw ForeignDataWrapper) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_FOREIGN_DATA_WRAPPER_OID, Oid: fdw.Oid}
+	return UniqueID{ClassID: PG_FOREIGN_DATA_WRAPPER_OID, Oid: fdw.Oid}
 }
 
 func GetForeignDataWrappers(connectionPool *dbconn.DBConn) []ForeignDataWrapper {
@@ -682,7 +682,7 @@ type ForeignServer struct {
 }
 
 func (fs ForeignServer) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_FOREIGN_SERVER_OID, Oid: fs.Oid}
+	return UniqueID{ClassID: PG_FOREIGN_SERVER_OID, Oid: fs.Oid}
 }
 
 func GetForeignServers(connectionPool *dbconn.DBConn) []ForeignServer {
@@ -716,7 +716,7 @@ type UserMapping struct {
 }
 
 func (um UserMapping) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_USER_MAPPING_OID, Oid: um.Oid}
+	return UniqueID{ClassID: PG_USER_MAPPING_OID, Oid: um.Oid}
 }
 
 func GetUserMappings(connectionPool *dbconn.DBConn) []UserMapping {

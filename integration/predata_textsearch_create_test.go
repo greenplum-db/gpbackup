@@ -129,7 +129,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic text search configuration with a comment and owner", func() {
 			configurations := []backup.TextSearchConfiguration{{Oid: 1, Schema: "public", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}}
 			configurationMetadataMap := testutils.DefaultMetadataMap("TEXT SEARCH CONFIGURATION", false, true, true)
-			configurationMetadata := configurationMetadataMap[backup.UniqueID{Classid: backup.PG_TS_CONFIG_OID, Oid: 1}]
+			configurationMetadata := configurationMetadataMap[backup.UniqueID{ClassID: backup.PG_TS_CONFIG_OID, Oid: 1}]
 
 			backup.PrintCreateTextSearchConfigurationStatements(backupfile, toc, configurations, configurationMetadataMap)
 

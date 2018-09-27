@@ -111,7 +111,7 @@ type ExternalProtocol struct {
 }
 
 func (p ExternalProtocol) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_EXTPROTOCOL_OID, Oid: p.Oid}
+	return UniqueID{ClassID: PG_EXTPROTOCOL_OID, Oid: p.Oid}
 }
 
 func (p ExternalProtocol) FQN() string {

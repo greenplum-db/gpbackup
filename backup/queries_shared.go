@@ -34,7 +34,7 @@ type Schema struct {
 }
 
 func (s Schema) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_NAMESPACE_OID, Oid: s.Oid}
+	return UniqueID{ClassID: PG_NAMESPACE_OID, Oid: s.Oid}
 }
 
 func GetAllUserSchemas(connectionPool *dbconn.DBConn) []Schema {
@@ -71,7 +71,7 @@ type Constraint struct {
 }
 
 func (c Constraint) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_CONSTRAINT_OID, Oid: c.Oid}
+	return UniqueID{ClassID: PG_CONSTRAINT_OID, Oid: c.Oid}
 }
 
 func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []Constraint {

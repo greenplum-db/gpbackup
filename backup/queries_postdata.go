@@ -56,7 +56,7 @@ type IndexDefinition struct {
 }
 
 func (i IndexDefinition) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_INDEX_OID, Oid: i.Oid}
+	return UniqueID{ClassID: PG_INDEX_OID, Oid: i.Oid}
 }
 
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
@@ -144,7 +144,7 @@ ORDER BY name;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c")) //
  * statements can require it.
  */
 type QuerySimpleDefinition struct {
-	Classid      uint32
+	ClassID      uint32
 	Oid          uint32
 	Name         string
 	OwningSchema string
@@ -153,7 +153,7 @@ type QuerySimpleDefinition struct {
 }
 
 func (sd QuerySimpleDefinition) GetUniqueID() UniqueID {
-	return UniqueID{Classid: sd.Classid, Oid: sd.Oid}
+	return UniqueID{ClassID: sd.ClassID, Oid: sd.Oid}
 }
 
 /*

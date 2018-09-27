@@ -35,7 +35,7 @@ type Database struct {
 }
 
 func (db Database) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_DATABASE_OID, Oid: db.Oid}
+	return UniqueID{ClassID: PG_DATABASE_OID, Oid: db.Oid}
 }
 
 func GetDatabaseInfo(connectionPool *dbconn.DBConn) Database {
@@ -94,7 +94,7 @@ type ResourceQueue struct {
 }
 
 func (rq ResourceQueue) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_RESQUEUE_OID, Oid: rq.Oid}
+	return UniqueID{ClassID: PG_RESQUEUE_OID, Oid: rq.Oid}
 }
 
 func GetResourceQueues(connectionPool *dbconn.DBConn) []ResourceQueue {
@@ -140,7 +140,7 @@ type ResourceGroup struct {
 }
 
 func (rg ResourceGroup) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_RESGROUP_OID, Oid: rg.Oid}
+	return UniqueID{ClassID: PG_RESGROUP_OID, Oid: rg.Oid}
 }
 
 func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
@@ -206,7 +206,7 @@ type Role struct {
 }
 
 func (r Role) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_AUTHID_OID, Oid: r.Oid}
+	return UniqueID{ClassID: PG_AUTHID_OID, Oid: r.Oid}
 }
 
 /*
@@ -344,7 +344,7 @@ type Tablespace struct {
 }
 
 func (t Tablespace) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_TABLESPACE_OID, Oid: t.Oid}
+	return UniqueID{ClassID: PG_TABLESPACE_OID, Oid: t.Oid}
 }
 
 func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {

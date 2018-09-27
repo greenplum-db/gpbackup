@@ -27,7 +27,7 @@ type TextSearchParser struct {
 }
 
 func (tsp TextSearchParser) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_TS_PARSER_OID, Oid: tsp.Oid}
+	return UniqueID{ClassID: PG_TS_PARSER_OID, Oid: tsp.Oid}
 }
 
 func GetTextSearchParsers(connectionPool *dbconn.DBConn) []TextSearchParser {
@@ -62,7 +62,7 @@ type TextSearchTemplate struct {
 }
 
 func (tst TextSearchTemplate) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_TS_TEMPLATE_OID, Oid: tst.Oid}
+	return UniqueID{ClassID: PG_TS_TEMPLATE_OID, Oid: tst.Oid}
 }
 
 func GetTextSearchTemplates(connectionPool *dbconn.DBConn) []TextSearchTemplate {
@@ -94,7 +94,7 @@ type TextSearchDictionary struct {
 }
 
 func (tsd TextSearchDictionary) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_TS_DICT_OID, Oid: tsd.Oid}
+	return UniqueID{ClassID: PG_TS_DICT_OID, Oid: tsd.Oid}
 }
 
 func GetTextSearchDictionaries(connectionPool *dbconn.DBConn) []TextSearchDictionary {
@@ -128,7 +128,7 @@ type TextSearchConfiguration struct {
 }
 
 func (tsc TextSearchConfiguration) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_TS_CONFIG_OID, Oid: tsc.Oid}
+	return UniqueID{ClassID: PG_TS_CONFIG_OID, Oid: tsc.Oid}
 }
 
 func GetTextSearchConfigurations(connectionPool *dbconn.DBConn) []TextSearchConfiguration {

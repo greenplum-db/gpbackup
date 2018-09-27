@@ -28,7 +28,7 @@ type Operator struct {
 }
 
 func (o Operator) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_OPERATOR_OID, Oid: o.Oid}
+	return UniqueID{ClassID: PG_OPERATOR_OID, Oid: o.Oid}
 }
 
 func GetOperators(connectionPool *dbconn.DBConn) []Operator {
@@ -92,7 +92,7 @@ type OperatorFamily struct {
 }
 
 func (opf OperatorFamily) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_OPFAMILY_OID, Oid: opf.Oid}
+	return UniqueID{ClassID: PG_OPFAMILY_OID, Oid: opf.Oid}
 }
 
 func GetOperatorFamilies(connectionPool *dbconn.DBConn) []OperatorFamily {
@@ -127,7 +127,7 @@ type OperatorClass struct {
 }
 
 func (opc OperatorClass) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_OPCLASS_OID, Oid: opc.Oid}
+	return UniqueID{ClassID: PG_OPCLASS_OID, Oid: opc.Oid}
 }
 
 func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {

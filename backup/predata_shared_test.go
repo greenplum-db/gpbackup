@@ -518,12 +518,12 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 				},
 			}
 			metadataMap = backup.MetadataMap{
-				backup.UniqueID{Classid: backup.PG_PROC_OID, Oid: 1}:        backup.ObjectMetadata{Comment: "function"},
-				backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: 2}:        backup.ObjectMetadata{Comment: "base type"},
-				backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: 3}:        backup.ObjectMetadata{Comment: "composite type"},
-				backup.UniqueID{Classid: backup.PG_TYPE_OID, Oid: 4}:        backup.ObjectMetadata{Comment: "domain"},
-				backup.UniqueID{Classid: backup.PG_CLASS_OID, Oid: 5}:       backup.ObjectMetadata{Comment: "relation"},
-				backup.UniqueID{Classid: backup.PG_EXTPROTOCOL_OID, Oid: 6}: backup.ObjectMetadata{Comment: "protocol"},
+				backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: 1}:        backup.ObjectMetadata{Comment: "function"},
+				backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: 2}:        backup.ObjectMetadata{Comment: "base type"},
+				backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: 3}:        backup.ObjectMetadata{Comment: "composite type"},
+				backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: 4}:        backup.ObjectMetadata{Comment: "domain"},
+				backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 5}:       backup.ObjectMetadata{Comment: "relation"},
+				backup.UniqueID{ClassID: backup.PG_EXTPROTOCOL_OID, Oid: 6}: backup.ObjectMetadata{Comment: "protocol"},
 			}
 			tableDefsMap = map[uint32]backup.TableDefinition{
 				5: {DistPolicy: "DISTRIBUTED RANDOMLY", ColumnDefs: []backup.ColumnDefinition{}},

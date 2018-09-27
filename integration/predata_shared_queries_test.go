@@ -940,7 +940,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadata("CAST", false, false, true)
 
 				Expect(resultMetadataMap).To(HaveLen(numCasts + 1))
-				resultMetadata := resultMetadataMap[backup.UniqueID{Classid: backup.PG_CAST_OID, Oid: oid}]
+				resultMetadata := resultMetadataMap[backup.UniqueID{ClassID: backup.PG_CAST_OID, Oid: oid}]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a cast in 5", func() {
@@ -961,7 +961,7 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadata("CAST", false, false, true)
 
 				Expect(resultMetadataMap).To(HaveLen(numCasts + 1))
-				resultMetadata := resultMetadataMap[backup.UniqueID{Classid: backup.PG_CAST_OID, Oid: oid}]
+				resultMetadata := resultMetadataMap[backup.UniqueID{ClassID: backup.PG_CAST_OID, Oid: oid}]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a resource queue", func() {

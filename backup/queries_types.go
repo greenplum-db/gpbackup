@@ -118,7 +118,7 @@ type Type struct {
 }
 
 func (t Type) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_TYPE_OID, Oid: t.Oid}
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
 }
 
 func (t Type) FQN() string {
@@ -385,7 +385,7 @@ type Collation struct {
 }
 
 func (c Collation) GetUniqueID() UniqueID {
-	return UniqueID{Classid: PG_COLLATION_OID, Oid: c.Oid}
+	return UniqueID{ClassID: PG_COLLATION_OID, Oid: c.Oid}
 }
 
 func GetCollations(connectionPool *dbconn.DBConn) []Collation {
