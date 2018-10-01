@@ -15,6 +15,20 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 )
 
+func UnquoteIdent(ident string) string {
+	if len(ident) <= 1 {
+		return ident
+	}
+
+	if ident[0] == '"' && ident[len(ident)-1] == '"' {
+		ident = ident[1 : len(ident)-1]
+		unescape := strings.NewReplacer(`""`, `"`)
+		ident = unescape.Replace(ident)
+	}
+
+	return ident
+}
+
 func SliceToQuotedString(slice []string) string {
 	quotedStrings := make([]string, len(slice))
 	for i, str := range slice {

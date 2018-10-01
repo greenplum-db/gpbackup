@@ -98,7 +98,7 @@ func DoSetup() {
 	if !backupConfig.DataOnly {
 		gplog.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
-	restoreDatabase := backupConfig.DatabaseName
+	restoreDatabase := utils.UnquoteIdent(backupConfig.DatabaseName)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
 		restoreDatabase = MustGetFlagString(utils.REDIRECT_DB)
 	}

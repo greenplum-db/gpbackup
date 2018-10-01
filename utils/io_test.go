@@ -13,6 +13,38 @@ import (
 )
 
 var _ = Describe("utils/io tests", func() {
+	Describe("UnquoteIdent", func() {
+		It("returns unchanged ident when passed a single char", func() {
+			dbname := `a`
+			resultString := utils.UnquoteIdent(dbname)
+
+			Expect(resultString).To(Equal(`a`))
+		})
+		It("returns unchanged ident when passed an unquoted ident", func() {
+			dbname := `test`
+			resultString := utils.UnquoteIdent(dbname)
+
+			Expect(resultString).To(Equal(`test`))
+		})
+		It("returns single quote when passed a single quote", func() {
+			dbname := `"`
+			resultString := utils.UnquoteIdent(dbname)
+
+			Expect(resultString).To(Equal(`"`))
+		})
+		It("returns empty string when passed and empty string", func() {
+			dbname := ""
+			resultString := utils.UnquoteIdent(dbname)
+
+			Expect(resultString).To(Equal(``))
+		})
+		It("properly unquotes an identfier string and unescapes double quotes", func() {
+			dbname := `"""test"`
+			resultString := utils.UnquoteIdent(dbname)
+
+			Expect(resultString).To(Equal(`"test`))
+		})
+	})
 	Describe("SliceToQuotedString", func() {
 		It("quotes and joins a slice of strings into a single string", func() {
 			inputStrings := []string{"string1", "string2", "string3"}
