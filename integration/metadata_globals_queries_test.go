@@ -348,10 +348,10 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 		It("returns a tablespace with segment locations", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
-			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir' OPTIONS (content0 '/tmp/test_dir1')")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir' WITH (content0='/tmp/test_dir1')")
 			expectedTablespace := backup.Tablespace{
 				Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'",
-				SegmentLocations: []string{"content0 '/tmp/test_dir1'"},
+				SegmentLocations: []string{"content0='/tmp/test_dir1'"},
 			}
 
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")

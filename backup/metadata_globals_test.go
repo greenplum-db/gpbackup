@@ -344,16 +344,26 @@ REVOKE ALL ON TABLESPACE test_tablespace FROM PUBLIC;
 REVOKE ALL ON TABLESPACE test_tablespace FROM testrole;
 GRANT ALL ON TABLESPACE test_tablespace TO testrole;`)
 		})
+		It("prints a tablespace with no per-segment tablespaces", func() {
+			expectedTablespace := backup.Tablespace{
+				Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/data/dir'",
+				SegmentLocations: []string{},
+			}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE TABLESPACE test_tablespace LOCATION '/data/dir';`)
+		})
 		It("prints a tablespace with per-segment tablespaces", func() {
 			expectedTablespace := backup.Tablespace{
 				Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/data/dir'",
-				SegmentLocations: []string{"content1 '/data/dir1'", "content2 '/data/dir2'", "content3 '/data/dir3'"},
+				SegmentLocations: []string{"content1='/data/dir1'", "content2='/data/dir2'", "content3='/data/dir3'"},
 			}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE TABLESPACE test_tablespace LOCATION '/data/dir'
-	OPTIONS (content1 '/data/dir1', content2 '/data/dir2', content3 '/data/dir3');`)
+	WITH (content1='/data/dir1', content2='/data/dir2', content3='/data/dir3');`)
 		})
 	})
 })

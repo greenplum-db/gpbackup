@@ -384,7 +384,7 @@ AND spcname != 'pg_global';`
 func GetSegmentTablespaces(connectionPool *dbconn.DBConn, Oid uint32) []string {
 	query := fmt.Sprintf(`
 SELECT
-	'content' || gp_segment_id || ' ''' || tblspc_loc || '''' AS string
+	'content' || gp_segment_id || '=''' || tblspc_loc || '''' AS string
 FROM gp_tablespace_segment_location(%d) WHERE tblspc_loc != pg_tablespace_location(%d)
 ORDER BY gp_segment_id;`, Oid, Oid)
 

@@ -331,7 +331,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			expectedTablespace = backup.Tablespace{
 				Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'",
-				SegmentLocations: []string{"content0 '/tmp/test_dir1'", "content1 '/tmp/test_dir2'"},
+				SegmentLocations: []string{"content0='/tmp/test_dir1'", "content1='/tmp/test_dir2'"},
 			}
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
 			emptyMetadataMap := backup.MetadataMap{}
