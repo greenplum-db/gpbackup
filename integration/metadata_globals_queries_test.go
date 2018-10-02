@@ -40,16 +40,19 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetDatabaseInfo", func() {
 		It("returns a database info struct", func() {
-			if connectionPool.Version.Before("6") {
-				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
-			} else {
-				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
-			}
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
-
 			result := backup.GetDatabaseInfo(connectionPool)
 
 			testdbExpected := backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default", Encoding: "UTF8"}
+			structmatcher.ExpectStructsToMatchExcluding(&testdbExpected, &result, "Oid", "Collate", "CType")
+		})
+		It("returns a database info struct if database contains single quote", func() {
+			testhelper.AssertQueryRuns(connectionPool, `CREATE DATABASE "test'db"`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP DATABASE "test'db"`)
+			connectionPool.DBName = `test'db`
+			result := backup.GetDatabaseInfo(connectionPool)
+			connectionPool.DBName = `testdb`
+
+			testdbExpected := backup.Database{Oid: 0, Name: `"test'db"`, Tablespace: "pg_default", Encoding: "UTF8"}
 			structmatcher.ExpectStructsToMatchExcluding(&testdbExpected, &result, "Oid", "Collate", "CType")
 		})
 	})

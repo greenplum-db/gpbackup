@@ -62,7 +62,7 @@ func SetSessionGUCs(connNum int) {
 }
 
 func InitializeBackupReport() {
-	escapedDBName := dbconn.MustSelectString(connectionPool, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", connectionPool.DBName))
+	escapedDBName := dbconn.MustSelectString(connectionPool, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", utils.EscapeSingleQuotes(connectionPool.DBName)))
 	plugin := ""
 	if pluginConfig != nil {
 		plugin = pluginConfig.ExecutablePath

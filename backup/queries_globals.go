@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/lib/pq"
 )
 
@@ -53,7 +54,7 @@ SELECT
 FROM pg_database d
 JOIN pg_tablespace t
 ON d.dattablespace = t.oid
-WHERE d.datname = '%s';`, lcQuery, connectionPool.DBName)
+WHERE d.datname = '%s';`, lcQuery, utils.EscapeSingleQuotes(connectionPool.DBName))
 
 	result := Database{}
 	err := connectionPool.Get(&result, query)
@@ -73,10 +74,10 @@ FROM pg_options_to_table(
 	(%s)
 );`
 	if connectionPool.Version.Before("6") {
-		subquery := fmt.Sprintf("SELECT datconfig FROM pg_database WHERE datname = '%s'", connectionPool.DBName)
+		subquery := fmt.Sprintf("SELECT datconfig FROM pg_database WHERE datname = '%s'", utils.EscapeSingleQuotes(connectionPool.DBName))
 		query = fmt.Sprintf(query, subquery)
 	} else {
-		subquery := fmt.Sprintf("SELECT setconfig FROM pg_db_role_setting WHERE setdatabase = (SELECT oid FROM pg_database WHERE datname = '%s')", connectionPool.DBName)
+		subquery := fmt.Sprintf("SELECT setconfig FROM pg_db_role_setting WHERE setdatabase = (SELECT oid FROM pg_database WHERE datname = '%s')", utils.EscapeSingleQuotes(connectionPool.DBName))
 		query = fmt.Sprintf(query, subquery)
 	}
 	return dbconn.MustSelectStringSlice(connectionPool, query)
@@ -394,7 +395,7 @@ ORDER BY gp_segment_id;`, Oid, Oid)
 //Potentially expensive query
 func GetDBSize(connectionPool *dbconn.DBConn) string {
 	size := struct{ DBSize string }{}
-	sizeQuery := fmt.Sprintf("SELECT pg_size_pretty(pg_database_size(E'%s')) as dbsize", dbconn.EscapeConnectionParam(connectionPool.DBName))
+	sizeQuery := fmt.Sprintf("SELECT pg_size_pretty(pg_database_size('%s')) as dbsize", utils.EscapeSingleQuotes(connectionPool.DBName))
 	err := connectionPool.Get(&size, sizeQuery)
 	gplog.FatalOnError(err)
 	return size.DBSize
