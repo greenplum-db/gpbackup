@@ -8,25 +8,11 @@ package utils
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-)
-
-var (
-	/* To be used in a Postgres query without being quoted, an identifier (schema or
-	 * table) must begin with a lowercase letter or underscore, and may contain only
-	 * lowercast letters, digits, and underscores.
-	 */
-	UnquotedIdentifier = regexp.MustCompile(`^([a-z_][a-z0-9_]*)$`)
-	QuotedIdentifier   = regexp.MustCompile(`^"(.+)"$`)
-
-	// Swap between double quotes and paired double quotes, and between literal whitespace characters and escape sequences
-	ReplacerEscape   = strings.NewReplacer(`"`, `""`, `\`, `\\`)
-	ReplacerUnescape = strings.NewReplacer(`""`, `"`, `\\`, `\`)
 )
 
 func SliceToQuotedString(slice []string) string {

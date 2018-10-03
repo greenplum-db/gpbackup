@@ -174,25 +174,6 @@ REVOKE ALL ON SCHEMA schemaname FROM testrole;
 GRANT ALL ON SCHEMA schemaname TO testrole;`)
 		})
 	})
-	Describe("SchemaFromString", func() {
-		It("can parse an unquoted string", func() {
-			testString := `schemaname`
-			newSchema := backup.SchemaFromString(testString)
-			Expect(newSchema.Oid).To(Equal(uint32(0)))
-			Expect(newSchema.Name).To(Equal(`schemaname`))
-		})
-		It("can parse a quoted string", func() {
-			testString := `"schema,name"`
-			newSchema := backup.SchemaFromString(testString)
-			Expect(newSchema.Oid).To(Equal(uint32(0)))
-			Expect(newSchema.Name).To(Equal(`schema,name`))
-		})
-		It("panics if given an invalid string", func() {
-			testString := `schema.name`
-			defer testhelper.ShouldPanicWithMessage(`schema.name is not a valid identifier`)
-			backup.SchemaFromString(testString)
-		})
-	})
 	Describe("GetUniqueSchemas", func() {
 		alphabeticalAFoo := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "foo"}
 		alphabeticalABar := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "bar"}

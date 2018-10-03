@@ -11,29 +11,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/pkg/errors"
 )
 
 var ACLRegex = regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
-
-/*
- * Generic functions and structs relating to schemas
- */
-
-func SchemaFromString(name string) Schema {
-	var schema string
-	var matches []string
-	if matches = utils.QuotedIdentifier.FindStringSubmatch(name); len(matches) != 0 {
-		schema = utils.ReplacerUnescape.Replace(matches[1])
-	} else if matches = utils.UnquotedIdentifier.FindStringSubmatch(name); len(matches) != 0 {
-		schema = utils.ReplacerUnescape.Replace(matches[1])
-	} else {
-		gplog.Fatal(errors.Errorf("%s is not a valid identifier", name), "")
-	}
-	return Schema{Name: schema}
-}
 
 /*
  * There's no built-in function to generate constraint definitions like there is for other types of
