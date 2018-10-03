@@ -157,7 +157,8 @@ func createDatabase(metadataFilename string) {
 	gplog.Info("Creating database")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, MustGetFlagString(utils.REDIRECT_DB))
+		redirectDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
+		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, redirectDBName)
 	}
 	ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
 	gplog.Info("Database creation complete")
@@ -168,7 +169,8 @@ func restoreGlobal(metadataFilename string) {
 	gplog.Info("Restoring global metadata")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, MustGetFlagString(utils.REDIRECT_DB))
+		redirectDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
+		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, redirectDBName)
 	}
 	statements = utils.RemoveActiveRole(connectionPool.User, statements)
 	ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)

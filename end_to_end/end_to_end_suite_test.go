@@ -712,6 +712,14 @@ var _ = Describe("backup end to end integration tests", func() {
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--create-db")
 			backupConn = testutils.SetupTestDbConn("testdb")
 		})
+		It("runs gpbackup and gprestore with redirecting restore to another db containing special capital letters", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--create-db", "--redirect-db", "CAPS")
+			err := exec.Command("dropdb", `CAPS`).Run()
+			if err != nil {
+				Fail(fmt.Sprintf("%v", err))
+			}
+		})
 		It("runs basic gpbackup and gprestore with metadata and data-only flags", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only")
 			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--data-only")

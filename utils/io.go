@@ -10,6 +10,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
@@ -27,6 +28,10 @@ func UnquoteIdent(ident string) string {
 	}
 
 	return ident
+}
+
+func QuoteIdent(connectionPool *dbconn.DBConn, ident string) string {
+	return dbconn.MustSelectString(connectionPool, fmt.Sprintf(`SELECT quote_ident('%s')`, EscapeSingleQuotes(ident)))
 }
 
 func SliceToQuotedString(slice []string) string {
