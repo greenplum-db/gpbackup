@@ -240,6 +240,31 @@ CREATE FUNCTION public.mypre_accum(numeric, numeric)
 			testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
 			testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.mypre_accum(numeric, numeric)")
 		})
+		It("creates an aggregate with sortop in pg_catalog", func() {
+			testhelper.AssertQueryRuns(connectionPool, `
+CREATE FUNCTION public.ascii_larger(prev character, curr character) RETURNS character
+AS $$
+begin if (prev ~>~ curr) then return prev; end if; return curr; end; $$
+LANGUAGE plpgsql IMMUTABLE NO SQL;`)
+			transitionOid := testutils.OidFromObjectName(connectionPool, "public", "ascii_larger", backup.TYPE_FUNCTION)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.ascii_larger(character, character)")
+
+			testhelper.AssertQueryRuns(connectionPool, `
+CREATE AGGREGATE public.ascii_max(character) (
+SFUNC = public.ascii_larger,
+STYPE = character,
+SORTOP = ~>~ );`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP AGGREGATE public.ascii_max(character)")
+
+			resultAggregates := backup.GetAggregates(connectionPool)
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "ascii_max", Arguments: "character", IdentArgs: "character",
+				TransitionFunction: transitionOid, FinalFunction: 0, SortOperator: "~>~", SortOperatorSchema: "pg_catalog", TransitionDataType: "character",
+				InitialValue: "", InitValIsNull: true, MInitValIsNull: true, IsOrdered: false,
+			}
+			Expect(resultAggregates).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&resultAggregates[0], &aggregateDef, "Oid")
+		})
 		It("returns a slice of aggregates", func() {
 			testhelper.AssertQueryRuns(connectionPool, `
 CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
@@ -258,7 +283,7 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "agg_prefunc", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
+				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 			if connectionPool.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
@@ -293,7 +318,7 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 			aggregateDef := backup.Aggregate{
 				Schema: "testschema", Name: "agg_prefunc", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
+				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 			if connectionPool.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
@@ -354,7 +379,7 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "agg_combinefunc", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, CombineFunction: combineOid,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", TransitionDataSize: 1000,
+				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 
@@ -381,7 +406,7 @@ CREATE AGGREGATE public.myavg (numeric) (
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "myavg", Arguments: "numeric",
 				IdentArgs: "numeric", SerialFunction: serialOid, DeserialFunction: deserialOid,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "internal",
+				FinalFunction: 0, SortOperator: "", TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
 			}
 

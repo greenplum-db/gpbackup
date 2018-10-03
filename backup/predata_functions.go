@@ -135,8 +135,8 @@ func PrintCreateAggregateStatements(metadataFile *utils.FileWithByteCount, toc *
 	if !aggDef.InitValIsNull {
 		metadataFile.MustPrintf(",\n\tINITCOND = '%s'", aggDef.InitialValue)
 	}
-	if aggDef.SortOperator != 0 {
-		metadataFile.MustPrintf(",\n\tSORTOP = %s", funcInfoMap[aggDef.SortOperator].QualifiedName)
+	if aggDef.SortOperator != "" {
+		metadataFile.MustPrintf(",\n\tSORTOP = %s.\"%s\"", aggDef.SortOperatorSchema, aggDef.SortOperator)
 	}
 	if aggDef.Hypothetical {
 		metadataFile.MustPrintf(",\n\tHYPOTHETICAL")

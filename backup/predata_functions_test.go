@@ -271,9 +271,8 @@ $_$`)
 			1: {QualifiedName: "public.mysfunc", Arguments: "integer"},
 			2: {QualifiedName: "public.mypfunc", Arguments: "numeric, numeric"},
 			3: {QualifiedName: "public.myffunc", Arguments: "text"},
-			4: {QualifiedName: "public.mysortop", Arguments: "bigint"},
-			5: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
-			6: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
+			4: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
+			5: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
 		}
 		BeforeEach(func() {
 			aggDefinition = backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
@@ -371,12 +370,13 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate with a sort operator", func() {
-			aggDefinition.SortOperator = 4
+			aggDefinition.SortOperator = "+"
+			aggDefinition.SortOperatorSchema = "myschema"
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefinition, funcInfoMap, emptyMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
-	SORTOP = public.mysortop
+	SORTOP = myschema."+"
 );`)
 		})
 		It("prints an aggregate with a specified transition data size", func() {
@@ -461,19 +461,20 @@ $_$`)
 		})
 		It("prints an aggregate with multiple specifications", func() {
 			aggDefinition.FinalFunction = 3
-			aggDefinition.SortOperator = 4
+			aggDefinition.SortOperator = "~>~"
+			aggDefinition.SortOperatorSchema = "myschema"
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggDefinition, funcInfoMap, emptyMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer,
 	FINALFUNC = public.myffunc,
-	SORTOP = public.mysortop
+	SORTOP = myschema."~>~"
 );`)
 		})
 		It("prints a hypothetical ordered-set aggregate", func() {
 			complexAggDefinition := backup.Aggregate{
 				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
-				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 5, FinalFunction: 6,
+				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 4, FinalFunction: 5,
 				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
 			aggDefinition = complexAggDefinition

@@ -212,6 +212,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			6: {QualifiedName: "pg_catalog.numeric_avg_serialize", Arguments: `internal`},
 			7: {QualifiedName: "pg_catalog.numeric_avg_deserialize", Arguments: `bytea, internal`},
 			8: {QualifiedName: "pg_catalog.numeric_avg_accum", Arguments: `numeric, numeric`},
+			9: {QualifiedName: "pg_catalog.div", Arguments: `numeric, numeric`},
 		}
 		BeforeEach(func() {
 			//Run queries to set up the database state so we can successfully create an aggregate
@@ -276,12 +277,27 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&complexAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction")
 		})
+		It("creates an aggregate with a sort operator", func() {
+			aggregateDef := backup.Aggregate{
+				Schema: "public", Name: "agg_sort", Arguments: "numeric",
+				IdentArgs: "numeric", TransitionFunction: 9, FinalFunction: 0, SortOperator: "+", SortOperatorSchema: "pg_catalog", TransitionDataType: "numeric",
+				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
+			}
+			backup.PrintCreateAggregateStatements(backupfile, toc, aggregateDef, funcInfoMap, emptyMetadata)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP AGGREGATE public.agg_sort(numeric)`)
+			resultAggregates := backup.GetAggregates(connectionPool)
+
+			Expect(resultAggregates).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "FinalFunction", "CombineFunction")
+		})
 		It("creates an aggregate with combine function and transition data size", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "agg_6_features", Arguments: "numeric, numeric",
 				IdentArgs: "numeric, numeric", TransitionFunction: 1, CombineFunction: 2,
-				FinalFunction: 0, SortOperator: 0, TransitionDataType: "numeric", TransitionDataSize: 1000,
+				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
 			}
 			backup.PrintCreateAggregateStatements(backupfile, toc, aggregateDef, funcInfoMap, emptyMetadata)

@@ -269,7 +269,8 @@ type Aggregate struct {
 	DeserialFunction           uint32 `db:"aggdeserialfn"`
 	FinalFunction              uint32 `db:"aggfinalfn"`
 	FinalFuncExtra             bool
-	SortOperator               uint32 `db:"aggsortop"`
+	SortOperator               string
+	SortOperatorSchema         string
 	Hypothetical               bool
 	TransitionDataType         string
 	TransitionDataSize         int `db:"aggtransspace"`
@@ -305,7 +306,8 @@ SELECT
 	a.aggtransfn::regproc::oid,
 	a.aggprelimfn::regproc::oid,
 	a.aggfinalfn::regproc::oid,
-	a.aggsortop::regproc::oid,
+	coalesce(o.oprname, '') AS sortoperator,
+	coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema, 
 	format_type(a.aggtranstype, NULL) as transitiondatatype,
 	coalesce(a.agginitval, '') AS initialvalue,
 	(a.agginitval IS NULL) AS initvalisnull,
@@ -314,6 +316,8 @@ SELECT
 FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+LEFT JOIN pg_operator o ON a.aggsortop = o.oid
+LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
 WHERE %s;`, SchemaFilterClause("n"))
 
 	version5query := fmt.Sprintf(`
@@ -326,7 +330,8 @@ SELECT
 	a.aggtransfn::regproc::oid,
 	a.aggprelimfn::regproc::oid,
 	a.aggfinalfn::regproc::oid,
-	a.aggsortop::regproc::oid,
+	coalesce(o.oprname, '') AS sortoperator,
+	coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema, 
 	format_type(a.aggtranstype, NULL) as transitiondatatype,
 	coalesce(a.agginitval, '') AS initialvalue,
 	(a.agginitval IS NULL) AS initvalisnull,
@@ -335,6 +340,8 @@ SELECT
 FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+LEFT JOIN pg_operator o ON a.aggsortop = o.oid
+LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
 WHERE %s
 AND %s;`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
@@ -351,7 +358,8 @@ SELECT
 	a.aggdeserialfn::regproc::oid,
 	a.aggfinalfn::regproc::oid,
 	a.aggfinalextra AS finalfuncextra,
-	a.aggsortop::regproc::oid,
+	coalesce(o.oprname, '') AS sortoperator,
+	coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema, 
 	(a.aggkind = 'h') AS hypothetical,
 	format_type(a.aggtranstype, NULL) as transitiondatatype,
 	aggtransspace,
@@ -368,6 +376,8 @@ SELECT
 FROM pg_aggregate a
 LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+LEFT JOIN pg_operator o ON a.aggsortop = o.oid
+LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
 WHERE %s
 AND %s;`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
