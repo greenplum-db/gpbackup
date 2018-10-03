@@ -194,9 +194,9 @@ func restorePredata(metadataFilename string) {
 
 	progressBar.Finish()
 	if wasTerminated {
-		gplog.Info("Pre-data metadata restore complete")
-	} else {
 		gplog.Info("Pre-data metadata restore incomplete")
+	} else {
+		gplog.Info("Pre-data metadata restore complete")
 	}
 }
 
@@ -325,9 +325,9 @@ func restorePostdata(metadataFilename string) {
 	ExecuteRestoreMetadataStatements(secondBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
 	progressBar.Finish()
 	if wasTerminated {
-		gplog.Info("Post-data metadata restore complete")
-	} else {
 		gplog.Info("Post-data metadata restore incomplete")
+	} else {
+		gplog.Info("Post-data metadata restore complete")
 	}
 }
 
