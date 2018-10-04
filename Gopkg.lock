@@ -19,7 +19,7 @@
     "structmatcher",
     "testhelper"
   ]
-  revision = "4e4542430302c7f243701ebea15a888520643260"
+  revision = "e3e578d3260ecfcf64773bf793d6a04cf127776f"
 
 [[projects]]
   name = "github.com/hpcloud/tail"
@@ -158,8 +158,8 @@
 [[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "9a97c102cda95a86cec2345a6f09f55a939babf5"
-  version = "v1.0.2"
+  revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
+  version = "v1.0.3"
 
 [[projects]]
   branch = "master"
@@ -169,13 +169,13 @@
     "html/atom",
     "html/charset"
   ]
-  revision = "f04abc6bdfa7a0171a8a0c9fd2ada9391044d056"
+  revision = "f5e5bdd778241bfefa8627f7124c39cd6ad8d74f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "b09afc3d579e346c4a7e4705953acaf6f9e551bd"
+  revision = "8469e314837c2e2471561de5c47bbf8bfd0d9099"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -210,7 +210,7 @@
     "imports",
     "internal/fastwalk"
   ]
-  revision = "0b24b358f4c7eaa92895f67a3f6cea2a0cf525d5"
+  revision = "59602fdee893255faef9b2cd3aa8f880ea85265c"
 
 [[projects]]
   name = "gopkg.in/DATA-DOG/go-sqlmock.v1"
