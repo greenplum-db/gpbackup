@@ -95,11 +95,11 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	if base.Storage != "" {
 		switch base.Storage {
 		case "e":
-			metadataFile.MustPrintf(",\n\tSTORAGE = extended")
+			metadataFile.MustPrintf(",\n\tSTORAGE = external")
 		case "m":
 			metadataFile.MustPrintf(",\n\tSTORAGE = main")
 		case "x":
-			metadataFile.MustPrintf(",\n\tSTORAGE = external")
+			metadataFile.MustPrintf(",\n\tSTORAGE = extended")
 		case "p": // Default case, don't print anything else
 		}
 	}

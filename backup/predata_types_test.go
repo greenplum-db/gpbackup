@@ -146,7 +146,7 @@ COMMENT ON COLUMN public.composite_type.foo IS 'attribute comment';`)
 	INTERNALLENGTH = 16,
 	PASSEDBYVALUE,
 	ALIGNMENT = int2,
-	STORAGE = extended,
+	STORAGE = external,
 	DEFAULT = '42',
 	ELEMENT = int4,
 	DELIMITER = ',',
@@ -173,7 +173,7 @@ ALTER TYPE public.base_type
 	INPUT = input_fn,
 	OUTPUT = output_fn,
 	ALIGNMENT = int4,
-	STORAGE = external
+	STORAGE = extended
 );`)
 		})
 		It("prints a base type with comment and owner", func() {
