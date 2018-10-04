@@ -150,22 +150,22 @@ func ValidateFilterRelationsInBackupSet(relationList []string) {
 	gplog.Fatal(errors.Errorf("Could not find the following relation(s) in the backup set: %s", strings.Join(keys, ", ")), "")
 }
 
-func ValidateDatabaseExistence(dbname string, createDatabase bool, isFiltered bool) {
+func ValidateDatabaseExistence(unquotedDBName string, createDatabase bool, isFiltered bool) {
 	qry := fmt.Sprintf(`
 SELECT CASE
 	WHEN EXISTS (SELECT 1 FROM pg_database WHERE datname='%s') THEN 'true'
 	ELSE 'false'
-END AS string;`, utils.EscapeSingleQuotes(dbname))
+END AS string;`, utils.EscapeSingleQuotes(unquotedDBName))
 	databaseExists, err := strconv.ParseBool(dbconn.MustSelectString(connectionPool, qry))
 	gplog.FatalOnError(err)
 	if !databaseExists {
 		if isFiltered {
-			gplog.Fatal(errors.Errorf(`Database "%s" must be created manually to restore table-filtered or data-only backups.`, dbname), "")
+			gplog.Fatal(errors.Errorf(`Database "%s" must be created manually to restore table-filtered or data-only backups.`, unquotedDBName), "")
 		} else if !createDatabase {
-			gplog.Fatal(errors.Errorf(`Database "%s" does not exist. Use the --create-db flag to create "%s" as part of the restore process.`, dbname, dbname), "")
+			gplog.Fatal(errors.Errorf(`Database "%s" does not exist. Use the --create-db flag to create "%s" as part of the restore process.`, unquotedDBName, unquotedDBName), "")
 		}
 	} else if createDatabase {
-		gplog.Fatal(errors.Errorf(`Database "%s" already exists. Run gprestore again without --create-db flag.`, dbname), "")
+		gplog.Fatal(errors.Errorf(`Database "%s" already exists. Run gprestore again without --create-db flag.`, unquotedDBName), "")
 	}
 }
 

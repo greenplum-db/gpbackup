@@ -26,13 +26,13 @@ var _ = Describe("utils/io tests", func() {
 
 			Expect(resultString).To(Equal(`test`))
 		})
-		It("returns single quote when passed a single quote", func() {
+		It("returns one double quote when passed a double quote", func() {
 			dbname := `"`
 			resultString := utils.UnquoteIdent(dbname)
 
 			Expect(resultString).To(Equal(`"`))
 		})
-		It("returns empty string when passed and empty string", func() {
+		It("returns empty string when passed an empty string", func() {
 			dbname := ""
 			resultString := utils.UnquoteIdent(dbname)
 

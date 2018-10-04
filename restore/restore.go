@@ -98,15 +98,15 @@ func DoSetup() {
 	if !backupConfig.DataOnly {
 		gplog.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
-	restoreDatabase := utils.UnquoteIdent(backupConfig.DatabaseName)
+	unquotedRestoreDatabase := utils.UnquoteIdent(backupConfig.DatabaseName)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		restoreDatabase = MustGetFlagString(utils.REDIRECT_DB)
+		unquotedRestoreDatabase = MustGetFlagString(utils.REDIRECT_DB)
 	}
-	ValidateDatabaseExistence(restoreDatabase, MustGetFlagBool(utils.CREATE_DB), backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
+	ValidateDatabaseExistence(unquotedRestoreDatabase, MustGetFlagBool(utils.CREATE_DB), backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
 	if MustGetFlagBool(utils.CREATE_DB) {
 		createDatabase(metadataFilename)
 	}
-	InitializeConnection(restoreDatabase)
+	InitializeConnection(unquotedRestoreDatabase)
 
 	if MustGetFlagBool(utils.WITH_GLOBALS) {
 		restoreGlobal(metadataFilename)
@@ -157,8 +157,8 @@ func createDatabase(metadataFilename string) {
 	gplog.Info("Creating database")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		redirectDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, redirectDBName)
+		quotedDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
+		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
 	ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
 	gplog.Info("Database creation complete")
@@ -169,8 +169,8 @@ func restoreGlobal(metadataFilename string) {
 	gplog.Info("Restoring global metadata")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		redirectDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, redirectDBName)
+		quotedDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
+		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
 	statements = utils.RemoveActiveRole(connectionPool.User, statements)
 	ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
