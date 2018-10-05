@@ -135,12 +135,12 @@ func DoBackup() {
 
 	BackupSessionGUCs(metadataFile)
 	if !MustGetFlagBool(utils.DATA_ONLY) {
-		if len(MustGetFlagStringSlice(utils.INCLUDE_RELATION)) > 0 {
-			backupRelationPredata(metadataFile, metadataTables, tableDefs)
-		} else {
+		tableOnlyBackup := true
+		if len(MustGetFlagStringSlice(utils.INCLUDE_RELATION)) == 0 {
+			tableOnlyBackup = false
 			backupGlobal(metadataFile)
-			backupPredata(metadataFile, metadataTables, tableDefs)
 		}
+		backupPredata(metadataFile, metadataTables, tableDefs, tableOnlyBackup)
 		backupPostdata(metadataFile)
 	}
 
@@ -208,7 +208,7 @@ func backupGlobal(metadataFile *utils.FileWithByteCount) {
 	}
 }
 
-func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
+func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition, tableOnly bool) {
 	if wasTerminated {
 		return
 	}
@@ -216,63 +216,67 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 
 	sortables := make([]Sortable, 0)
 	metadataMap := make(MetadataMap)
-
 	sortables = append(sortables, convertToSortableSlice(tables)...)
 	relationMetadata := GetMetadataForObjectType(connectionPool, TYPE_RELATION)
 	addToMetadataMap(relationMetadata, metadataMap)
 
-	BackupSchemas(metadataFile)
-	if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 && connectionPool.Version.AtLeast("5") {
-		BackupExtensions(metadataFile)
-	}
+	var protocols []ExternalProtocol
+	funcInfoMap := GetFunctionOidToInfoMap(connectionPool)
 
-	if connectionPool.Version.AtLeast("6") {
-		BackupCollations(metadataFile)
-	}
+	if !tableOnly {
+		BackupSchemas(metadataFile)
+		if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 && connectionPool.Version.AtLeast("5") {
+			BackupExtensions(metadataFile)
+		}
 
-	procLangs := GetProceduralLanguages(connectionPool)
-	langFuncs, functionMetadata := RetrieveFunctions(&sortables, metadataMap, procLangs)
-	types, typeMetadata, funcInfoMap := RetrieveTypes(&sortables, metadataMap)
-
-	if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
-		BackupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
-	}
-
-	BackupShellTypes(metadataFile, types)
-	if connectionPool.Version.AtLeast("5") {
-		BackupEnumTypes(metadataFile, typeMetadata)
-	}
-
-	if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
 		if connectionPool.Version.AtLeast("6") {
+			BackupCollations(metadataFile)
+		}
+
+		procLangs := GetProceduralLanguages(connectionPool)
+		langFuncs, functionMetadata := RetrieveFunctions(&sortables, metadataMap, procLangs)
+		types, typeMetadata := RetrieveTypes(&sortables, metadataMap)
+
+		if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
+			BackupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
+		}
+
+		BackupShellTypes(metadataFile, types)
+		if connectionPool.Version.AtLeast("5") {
+			BackupEnumTypes(metadataFile, typeMetadata)
+		}
+
+		if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 &&
+			connectionPool.Version.AtLeast("6") {
 			BackupForeignDataWrappers(metadataFile, funcInfoMap)
 			BackupForeignServers(metadataFile)
 			BackupUserMappings(metadataFile)
 		}
+
+		protocols = RetrieveProtocols(&sortables, metadataMap)
+
+		if connectionPool.Version.AtLeast("5") {
+			RetrieveTSParsers(&sortables, metadataMap)
+			RetrieveTSConfigurations(&sortables, metadataMap)
+			RetrieveTSTemplates(&sortables, metadataMap)
+			RetrieveTSDictionaries(&sortables, metadataMap)
+
+			BackupOperatorFamilies(metadataFile)
+		}
+
+		RetrieveOperators(&sortables, metadataMap)
+		RetrieveOperatorClasses(&sortables, metadataMap)
+		RetrieveAggregates(&sortables, metadataMap)
+		RetrieveCasts(&sortables, metadataMap)
 	}
-
-	sequences, sequenceOwnerColumns := RetrieveSequences()
-	BackupCreateSequences(metadataFile, sequences, relationMetadata)
-
-	constraints, conMetadata := RetrieveConstraints()
-	protocols := RetrieveProtocols(&sortables, metadataMap)
 
 	RetrieveViews(&sortables)
-	if connectionPool.Version.AtLeast("5") {
-		RetrieveTSParsers(&sortables, metadataMap)
-		RetrieveTSConfigurations(&sortables, metadataMap)
-		RetrieveTSTemplates(&sortables, metadataMap)
-		RetrieveTSDictionaries(&sortables, metadataMap)
+	sequences, sequenceOwnerColumns := RetrieveSequences()
+	BackupCreateSequences(metadataFile, sequences, relationMetadata)
+	constraints, conMetadata := RetrieveConstraints()
 
-		BackupOperatorFamilies(metadataFile)
-	}
+	BackupDependentObjects(metadataFile, tables, protocols, metadataMap, tableDefs, constraints, sortables, funcInfoMap, tableOnly)
 
-	RetrieveOperators(&sortables, metadataMap)
-	RetrieveOperatorClasses(&sortables, metadataMap)
-	RetrieveAggregates(&sortables, metadataMap)
-	RetrieveCasts(&sortables, metadataMap)
-
-	BackupDependentObjects(metadataFile, tables, protocols, metadataMap, tableDefs, constraints, sortables, funcInfoMap)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
 	BackupConversions(metadataFile)
@@ -282,31 +286,6 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	} else {
 		gplog.Info("Pre-data metadata backup complete")
 	}
-}
-
-func backupRelationPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition) {
-	if wasTerminated {
-		return
-	}
-	gplog.Info("Writing table metadata")
-
-	sortables := make([]Sortable, 0)
-	sortables = append(sortables, convertToSortableSlice(tables)...)
-
-	relationMetadata := GetMetadataForObjectType(connectionPool, TYPE_RELATION)
-
-	sequences, sequenceOwnerColumns := RetrieveSequences()
-	BackupCreateSequences(metadataFile, sequences, relationMetadata)
-
-	constraints, conMetadata := RetrieveConstraints(tables...)
-
-	RetrieveViews(&sortables)
-
-	BackupDependentTablesAndViews(metadataFile, tables, sortables, relationMetadata, tableDefs, constraints)
-	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
-
-	BackupConstraints(metadataFile, constraints, conMetadata)
-	gplog.Info("Table metadata backup complete")
 }
 
 func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {

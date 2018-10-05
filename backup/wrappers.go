@@ -158,11 +158,10 @@ func RetrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap, procLangs
 	return langFuncs, functionMetadata
 }
 
-func RetrieveTypes(sortables *[]Sortable, metadataMap MetadataMap) ([]Type, MetadataMap, map[uint32]FunctionInfo) {
+func RetrieveTypes(sortables *[]Sortable, metadataMap MetadataMap) ([]Type, MetadataMap) {
 	gplog.Verbose("Retrieving type information")
 	shells := GetShellTypes(connectionPool)
 	bases := GetBaseTypes(connectionPool)
-	funcInfoMap := GetFunctionOidToInfoMap(connectionPool)
 	types := append(shells, bases...)
 	composites := GetCompositeTypes(connectionPool)
 	types = append(types, composites...)
@@ -174,7 +173,7 @@ func RetrieveTypes(sortables *[]Sortable, metadataMap MetadataMap) ([]Type, Meta
 	*sortables = append(*sortables, convertToSortableSlice(types)...)
 	addToMetadataMap(typeMetadata, metadataMap)
 
-	return types, typeMetadata, funcInfoMap
+	return types, typeMetadata
 }
 
 func RetrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
@@ -468,7 +467,8 @@ func addToMetadataMap(newMetadata MetadataMap, metadataMap MetadataMap) {
 // This function is fairly unwieldy, but there's not really a good way to break it down
 func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Relation,
 	protocols []ExternalProtocol, filteredMetadata MetadataMap, tableDefs map[uint32]TableDefinition,
-	constraints []Constraint, sortables []Sortable, funcInfoMap map[uint32]FunctionInfo) {
+	constraints []Constraint, sortables []Sortable, funcInfoMap map[uint32]FunctionInfo,
+	tableOnly bool) {
 
 	gplog.Verbose("Writing CREATE FUNCTION statements to metadata file")
 	gplog.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
@@ -479,29 +479,12 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Rela
 
 	backupSet := createBackupSet(sortables)
 	relevantDeps := GetDependencies(connectionPool, backupSet)
-	if connectionPool.Version.Is("4") {
+	if connectionPool.Version.Is("4") && !tableOnly {
 		AddProtocolDependenciesForGPDB4(relevantDeps, tables, tableDefs, protocols)
 	}
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints, funcInfoMap)
-	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
-	if len(extPartInfo) > 0 {
-		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
-		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
-	}
-}
-
-// This function should be used only with a table-only backup.  For an unfiltered backup, the above function is used.
-func BackupDependentTablesAndViews(metadataFile *utils.FileWithByteCount, tables []Relation, sortables []Sortable, relationMetadata MetadataMap, tableDefs map[uint32]TableDefinition, constraints []Constraint) {
-	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
-	gplog.Verbose("Writing CREATE VIEW statements to metadata file")
-
-	backupSet := createBackupSet(sortables)
-	relevantDeps := GetDependencies(connectionPool, backupSet)
-	sortedSlice := TopologicalSort(sortables, relevantDeps)
-
-	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, relationMetadata, tableDefs, constraints, map[uint32]FunctionInfo{})
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
