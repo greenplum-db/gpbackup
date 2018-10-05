@@ -216,7 +216,7 @@ func RetrieveTSParsers(sortables *[]Sortable, metadataMap MetadataMap) {
 }
 
 func RetrieveTSTemplates(sortables *[]Sortable, metadataMap MetadataMap) {
-	gplog.Verbose("Writing CREATE TEXT SEARCH TEMPLATE statements to metadata file")
+	gplog.Verbose("Retrieving TEXT SEARCH TEMPLATE information")
 	templates := GetTextSearchTemplates(connectionPool)
 	objectCounts["Text Search Templates"] = len(templates)
 	templateMetadata := GetCommentsForObjectType(connectionPool, TYPE_TSTEMPLATE)
@@ -226,7 +226,7 @@ func RetrieveTSTemplates(sortables *[]Sortable, metadataMap MetadataMap) {
 }
 
 func RetrieveTSDictionaries(sortables *[]Sortable, metadataMap MetadataMap) {
-	gplog.Verbose("Writing CREATE TEXT SEARCH DICTIONARY statements to metadata file")
+	gplog.Verbose("Retrieving TEXT SEARCH DICTIONARY information")
 	dictionaries := GetTextSearchDictionaries(connectionPool)
 	objectCounts["Text Search Dictionaries"] = len(dictionaries)
 	dictionaryMetadata := GetMetadataForObjectType(connectionPool, TYPE_TSDICTIONARY)
@@ -236,7 +236,7 @@ func RetrieveTSDictionaries(sortables *[]Sortable, metadataMap MetadataMap) {
 }
 
 func RetrieveTSConfigurations(sortables *[]Sortable, metadataMap MetadataMap) {
-	gplog.Verbose("Writing CREATE TEXT SEARCH CONFIGURATION statements to metadata file")
+	gplog.Verbose("Retrieving TEXT SEARCH CONFIGURATION information")
 	configurations := GetTextSearchConfigurations(connectionPool)
 	objectCounts["Text Search Configurations"] = len(configurations)
 	configurationMetadata := GetMetadataForObjectType(connectionPool, TYPE_TSCONFIGURATION)
@@ -246,7 +246,7 @@ func RetrieveTSConfigurations(sortables *[]Sortable, metadataMap MetadataMap) {
 }
 
 func RetrieveOperators(sortables *[]Sortable, metadataMap MetadataMap) {
-	gplog.Verbose("Writing CREATE OPERATOR statements to metadata file")
+	gplog.Verbose("Retrieving OPERATOR information")
 	operators := GetOperators(connectionPool)
 	objectCounts["Operators"] = len(operators)
 	operatorMetadata := GetMetadataForObjectType(connectionPool, TYPE_OPERATOR)
@@ -256,7 +256,7 @@ func RetrieveOperators(sortables *[]Sortable, metadataMap MetadataMap) {
 }
 
 func RetrieveOperatorClasses(sortables *[]Sortable, metadataMap MetadataMap) {
-	gplog.Verbose("Writing CREATE OPERATOR CLASS statements to metadata file")
+	gplog.Verbose("Retrieving OPERATOR CLASS information")
 	operatorClasses := GetOperatorClasses(connectionPool)
 	objectCounts["Operator Classes"] = len(operatorClasses)
 	operatorClassMetadata := GetMetadataForObjectType(connectionPool, TYPE_OPERATORCLASS)
@@ -266,7 +266,7 @@ func RetrieveOperatorClasses(sortables *[]Sortable, metadataMap MetadataMap) {
 }
 
 func RetrieveAggregates(sortables *[]Sortable, metadataMap MetadataMap) {
-	gplog.Verbose("Writing CREATE AGGREGATE statements to metadata file")
+	gplog.Verbose("Retrieving AGGREGATE information")
 	aggregates := GetAggregates(connectionPool)
 	objectCounts["Aggregates"] = len(aggregates)
 	aggMetadata := GetMetadataForObjectType(connectionPool, TYPE_AGGREGATE)
@@ -276,7 +276,7 @@ func RetrieveAggregates(sortables *[]Sortable, metadataMap MetadataMap) {
 }
 
 func RetrieveCasts(sortables *[]Sortable, metadataMap MetadataMap) {
-	gplog.Verbose("Writing CREATE CAST statements to metadata file")
+	gplog.Verbose("Retrieving CAST information")
 	casts := GetCasts(connectionPool)
 	objectCounts["Casts"] = len(casts)
 	castMetadata := GetCommentsForObjectType(connectionPool, TYPE_CAST)
@@ -470,12 +470,7 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Rela
 	constraints []Constraint, sortables []Sortable, funcInfoMap map[uint32]FunctionInfo,
 	tableOnly bool) {
 
-	gplog.Verbose("Writing CREATE FUNCTION statements to metadata file")
-	gplog.Verbose("Writing CREATE TYPE statements for base, composite, and domain types to metadata file")
-	gplog.Verbose("Writing CREATE TABLE statements to metadata file")
-	gplog.Verbose("Writing CREATE VIEW statements to metadata file")
-	gplog.Verbose("Writing CREATE PROTOCOL statements to metadata file")
-	gplog.Verbose("Writing CREATE TEXT SEARCH PARSER statements to metadata file")
+	gplog.Verbose("Writing CREATE statements for dependent objects to metadata file")
 
 	backupSet := createBackupSet(sortables)
 	relevantDeps := GetDependencies(connectionPool, backupSet)
