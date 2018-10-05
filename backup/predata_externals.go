@@ -8,7 +8,6 @@ package backup
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/greenplum-db/gpbackup/utils"
@@ -117,6 +116,165 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 	return tableType, tableProtocol
 }
 
+func generateExecuteStatement(extTableDef ExternalTableDefinition) string {
+	var executeStatement string
+
+	extTableDef.Command = strings.Replace(extTableDef.Command, `'`, `''`, -1)
+	executeStatement += fmt.Sprintf("EXECUTE '%s'", extTableDef.Command)
+	execType := strings.Split(extTableDef.ExecLocation, ":")
+	switch execType[0] {
+	case "ALL_SEGMENTS": // Default case, don't print anything else
+	case "HOST":
+		executeStatement += fmt.Sprintf(" ON HOST '%s'", execType[1])
+	case "MASTER_ONLY":
+		executeStatement += " ON MASTER"
+	case "PER_HOST":
+		executeStatement += " ON HOST"
+	case "SEGMENT_ID":
+		executeStatement += fmt.Sprintf(" ON SEGMENT %s", execType[1])
+	case "TOTAL_SEGS":
+		executeStatement += fmt.Sprintf(" ON %s", execType[1])
+	}
+
+	return executeStatement
+}
+
+/*
+ * This function is adapted from dumputils.c
+ *
+ * Escape backslashes and apostrophes in EXTERNAL TABLE format strings.
+ * Returns a list of unquoted keyword and escaped quoted string tokens
+ *
+ * The fmtopts field of a pg_exttable tuple has an odd encoding -- it is
+ * partially parsed and contains "string" values that aren't legal SQL.
+ * Each string value is delimited by apostrophes and is usually, but not
+ * always, a single character.	The fmtopts field is typically something
+ * like {delimiter '\x09' null '\N' escape '\'} or
+ * {delimiter ',' null '' escape '\' quote '''}.  Each backslash and
+ * apostrophe in a string must be escaped and each string must be
+ * prepended with an 'E' denoting an "escape syntax" string.
+ *
+ * Usage note: A field value containing an apostrophe followed by a space
+ * will throw this algorithm off -- it presumes no embedded spaces.
+ */
+func tokenizeAndEscapeFormatOpts(formatOpts string) []string {
+	inString := false
+	resultList := []string{}
+	currString := ""
+
+	for i := 0; i < len(formatOpts); i++ {
+		switch formatOpts[i] {
+		case '\'':
+			if inString {
+				/*
+				 * Escape apostrophes *within* the string.	If the
+				 * apostrophe is at the end of the source string or is
+				 * followed by a space, it is presumed to be a closing
+				 * apostrophe and is not escaped.
+				 */
+				if (i+1) == len(formatOpts) || formatOpts[i+1] == ' ' {
+					inString = false
+				} else {
+					currString += "\\"
+				}
+			} else {
+				currString = "E"
+				inString = true
+			}
+		case '\\':
+			currString += "\\"
+		case ' ':
+			if !inString {
+				resultList = append(resultList, currString)
+				currString = ""
+				continue
+			}
+		}
+		currString += string(formatOpts[i])
+	}
+	resultList = append(resultList, currString)
+
+	return resultList
+}
+
+/*
+ * Format options to use `a = b` format because this format is required
+ * when using CUSTOM format.
+ *
+ * We do this for CUSTOM, AVRO and PARQUET, but not CSV or TEXT because
+ * CSV and TEXT have some multi-word options that are difficult
+ * to parse into this format
+ */
+func makeCustomFormatOpts(tokens []string) string {
+	var key string
+	var value string
+	resultOpts := make([]string, 0)
+
+	for i := 0; i < len(tokens)-1; i += 2 {
+		key = tokens[i]
+		value = tokens[i+1]
+		opt := fmt.Sprintf(`%s = %s`, key, value)
+		resultOpts = append(resultOpts, opt)
+	}
+	return strings.Join(resultOpts, ", ")
+}
+
+func GenerateFormatStatement(extTableDef ExternalTableDefinition) string {
+	var formatStatement string
+	formatType := ""
+	switch extTableDef.FormatType {
+	case "t":
+		formatType = "TEXT"
+	case "c":
+		formatType = "CSV"
+	case "b":
+		formatType = "CUSTOM"
+	case "a":
+		formatType = "AVRO"
+	case "p":
+		formatType = "PARQUET"
+	}
+	formatStatement += fmt.Sprintf("FORMAT '%s'", formatType)
+
+	if extTableDef.FormatOpts != "" {
+		formatTokens := tokenizeAndEscapeFormatOpts(strings.TrimSpace(extTableDef.FormatOpts))
+		formatOptsString := ""
+		if formatType == "TEXT" || formatType == "CSV" {
+			formatOptsString = strings.Join(formatTokens, " ")
+		} else {
+			formatOptsString = makeCustomFormatOpts(formatTokens)
+		}
+		formatStatement += fmt.Sprintf(" (%s)", formatOptsString)
+	}
+
+	return formatStatement
+}
+
+/*
+ * If an external table is created using LOG ERRORS instead of LOG ERRORS INTO [tablename],
+ * the value of pg_exttable.fmterrtbl will match the table's own name.
+ */
+func generateLogErrorStatement(extTableDef ExternalTableDefinition, tableFQN string) string {
+	var logErrorStatement string
+	errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
+	if errTableFQN == tableFQN {
+		logErrorStatement += "\nLOG ERRORS"
+	} else if extTableDef.ErrTableName != "" {
+		logErrorStatement += fmt.Sprintf("\nLOG ERRORS INTO %s", errTableFQN)
+	}
+	if extTableDef.RejectLimit != 0 {
+		logErrorStatement += fmt.Sprintf("\nSEGMENT REJECT LIMIT %d ", extTableDef.RejectLimit)
+		switch extTableDef.RejectLimitType {
+		case "r":
+			logErrorStatement += "ROWS"
+		case "p":
+			logErrorStatement += "PERCENT"
+		}
+	}
+
+	return logErrorStatement
+}
+
 func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table Relation, extTableDef ExternalTableDefinition) {
 	if extTableDef.Type != WRITABLE_WEB {
 		if len(extTableDef.URIs) > 0 {
@@ -130,83 +288,18 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table R
 	}
 	if extTableDef.Type == READABLE_WEB || extTableDef.Type == WRITABLE_WEB {
 		if extTableDef.Command != "" {
-			extTableDef.Command = strings.Replace(extTableDef.Command, `'`, `''`, -1)
-			metadataFile.MustPrintf("EXECUTE '%s'", extTableDef.Command)
-			execType := strings.Split(extTableDef.ExecLocation, ":")
-			switch execType[0] {
-			case "ALL_SEGMENTS": // Default case, don't print anything else
-			case "HOST":
-				metadataFile.MustPrintf(" ON HOST '%s'", execType[1])
-			case "MASTER_ONLY":
-				metadataFile.MustPrintf(" ON MASTER")
-			case "PER_HOST":
-				metadataFile.MustPrintf(" ON HOST")
-			case "SEGMENT_ID":
-				metadataFile.MustPrintf(" ON SEGMENT %s", execType[1])
-			case "TOTAL_SEGS":
-				metadataFile.MustPrintf(" ON %s", execType[1])
-			}
+			metadataFile.MustPrintf(generateExecuteStatement(extTableDef))
 		}
 	}
 	metadataFile.MustPrintln()
-	formatType := ""
-	switch extTableDef.FormatType {
-	case "a":
-		formatType = "avro"
-	case "b":
-		formatType = "custom"
-	case "c":
-		formatType = "csv"
-	case "p":
-		formatType = "parquet"
-	case "t":
-		formatType = "text"
-	}
-	metadataFile.MustPrintf("FORMAT '%s'", formatType)
-	if extTableDef.FormatOpts != "" {
-		formatStr := extTableDef.FormatOpts
-		if formatType == "custom" {
-			/*
-			 * The options for the custom format are stored in an invalid format, so we
-			 * need to reformat them before printing.
-			 *
-			 * The below regular expression performs a single-line non-greedy match on tokens
-			 * in the format "key 'value'", so we don't need to manually escape single quotes.
-			 */
-			reformat := regexp.MustCompile(`(\w+) ((?sU:'.*')|(?s:[^ ]+)) ?`)
-			formatStr = reformat.ReplaceAllString(formatStr, `$1 = $2, `)
-			fLen := len(formatStr)
-			if formatStr[fLen-2:fLen] == ", " {
-				formatStr = formatStr[:fLen-2]
-			}
-		}
-		metadataFile.MustPrintf(" (%s)", formatStr)
-	}
+	metadataFile.MustPrintf(GenerateFormatStatement(extTableDef))
 	metadataFile.MustPrintln()
 	if extTableDef.Options != "" {
 		metadataFile.MustPrintf("OPTIONS (\n\t%s\n)\n", extTableDef.Options)
 	}
 	metadataFile.MustPrintf("ENCODING '%s'", extTableDef.Encoding)
 	if extTableDef.Type == READABLE || extTableDef.Type == READABLE_WEB {
-		/*
-		 * If an external table is created using LOG ERRORS instead of LOG ERRORS INTO [tablename],
-		 * the value of pg_exttable.fmterrtbl will match the table's own name.
-		 */
-		errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
-		if errTableFQN == table.FQN() {
-			metadataFile.MustPrintf("\nLOG ERRORS")
-		} else if extTableDef.ErrTableName != "" {
-			metadataFile.MustPrintf("\nLOG ERRORS INTO %s", errTableFQN)
-		}
-		if extTableDef.RejectLimit != 0 {
-			metadataFile.MustPrintf("\nSEGMENT REJECT LIMIT %d ", extTableDef.RejectLimit)
-			switch extTableDef.RejectLimitType {
-			case "r":
-				metadataFile.MustPrintf("ROWS")
-			case "p":
-				metadataFile.MustPrintf("PERCENT")
-			}
-		}
+		metadataFile.MustPrintf(generateLogErrorStatement(extTableDef, table.FQN()))
 	}
 }
 

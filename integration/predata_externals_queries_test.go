@@ -69,6 +69,46 @@ SEGMENT REJECT LIMIT 10 PERCENT
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
+		It("returns a slice for an external table using CSV format", func() {
+			testhelper.AssertQueryRuns(connectionPool, `CREATE READABLE EXTERNAL TABLE public.ext_table(i int)
+LOCATION ('file://tmp/myfile.txt')
+FORMAT 'CSV' (delimiter E'|' null E'' escape E'\'' quote E'\'' force not null i)
+LOG ERRORS
+SEGMENT REJECT LIMIT 10 PERCENT
+`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTERNAL TABLE public.ext_table")
+			oid := testutils.OidFromObjectName(connectionPool, "public", "ext_table", backup.TYPE_RELATION)
+
+			results := backup.GetExternalTableDefinitions(connectionPool)
+			result := results[oid]
+
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
+				ExecLocation: "ALL_SEGMENTS", FormatType: "c", FormatOpts: `delimiter '|' null '' escape ''' quote ''' force not null i`,
+				Options: "", Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTableName: "ext_table", ErrTableSchema: "public", Encoding: "UTF8",
+				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
+
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
+		})
+		It("returns a slice for an external table using CUSTOM format", func() {
+			testhelper.AssertQueryRuns(connectionPool, `CREATE READABLE EXTERNAL TABLE public.ext_table(i int)
+LOCATION ('file://tmp/myfile.txt')
+FORMAT 'CUSTOM' (formatter = E'fixedwidth_out', i = E'20')
+LOG ERRORS
+SEGMENT REJECT LIMIT 10 PERCENT
+`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTERNAL TABLE public.ext_table")
+			oid := testutils.OidFromObjectName(connectionPool, "public", "ext_table", backup.TYPE_RELATION)
+
+			results := backup.GetExternalTableDefinitions(connectionPool)
+			result := results[oid]
+
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
+				ExecLocation: "ALL_SEGMENTS", FormatType: "b", FormatOpts: `formatter 'fixedwidth_out' i '20' `,
+				Options: "", Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTableName: "ext_table", ErrTableSchema: "public", Encoding: "UTF8",
+				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
+
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
+		})
 		It("returns a slice for a complex external table definition with options", func() {
 			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `CREATE READABLE EXTERNAL TABLE public.ext_table(i int)

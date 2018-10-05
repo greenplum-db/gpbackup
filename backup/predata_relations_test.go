@@ -80,7 +80,7 @@ ALTER TABLE public.tablename OWNER TO testrole;`)
 			backup.PrintCreateTableStatement(backupfile, toc, testTable, tableDef, noMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
 ) 
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8';`)
 		})
 	})

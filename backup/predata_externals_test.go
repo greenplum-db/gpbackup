@@ -105,7 +105,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 ) LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8';`)
 		})
 		It("prints a CREATE block for a WRITABLE EXTERNAL table", func() {
@@ -118,7 +118,7 @@ ENCODING 'UTF-8';`)
 ) LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'
 DISTRIBUTED RANDOMLY;`)
 		})
@@ -131,7 +131,7 @@ DISTRIBUTED RANDOMLY;`)
 ) LOCATION (
 	'http://webhost:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8';`)
 		})
 		It("prints a CREATE block for a READABLE EXTERNAL WEB table with an EXECUTE", func() {
@@ -140,7 +140,7 @@ ENCODING 'UTF-8';`)
 			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
 ) EXECUTE 'hostname'
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8';`)
 		})
 		It("prints a CREATE block for a WRITABLE EXTERNAL WEB table", func() {
@@ -150,7 +150,7 @@ ENCODING 'UTF-8';`)
 			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE WRITABLE EXTERNAL WEB TABLE public.tablename (
 ) EXECUTE 'hostname'
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'
 DISTRIBUTED RANDOMLY;`)
 		})
@@ -161,61 +161,6 @@ DISTRIBUTED RANDOMLY;`)
 			extTableDef = extTableEmpty
 			extTableDef.Type = backup.READABLE
 			extTableDef.Protocol = backup.FILE
-		})
-
-		Context("FORMAT options", func() {
-			BeforeEach(func() {
-				extTableDef.Location = "file://host:port/path/file"
-				extTableDef.URIs = []string{"file://host:port/path/file"}
-			})
-			It("prints a CREATE block for a table in Avro format, no options provided", func() {
-				extTableDef.FormatType = "a"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOCATION (
-	'file://host:port/path/file'
-)
-FORMAT 'avro'
-ENCODING 'UTF-8'`)
-			})
-			It("prints a CREATE block for a table in Parquet format, no options provided", func() {
-				extTableDef.FormatType = "p"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOCATION (
-	'file://host:port/path/file'
-)
-FORMAT 'parquet'
-ENCODING 'UTF-8'`)
-			})
-			It("prints a CREATE block for a table in CSV format, some options provided", func() {
-				extTableDef.FormatType = "c"
-				extTableDef.FormatOpts = `delimiter ',' null '' escape '"' quote '"'`
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOCATION (
-	'file://host:port/path/file'
-)
-FORMAT 'csv' (delimiter ',' null '' escape '"' quote '"')
-ENCODING 'UTF-8'`)
-			})
-			It("prints a CREATE block for a table in text format, some options provided", func() {
-				extTableDef.FormatType = "t"
-				extTableDef.FormatOpts = `delimiter '  ' null '\N' escape '\'`
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOCATION (
-	'file://host:port/path/file'
-)
-FORMAT 'text' (delimiter '  ' null '\N' escape '\')
-ENCODING 'UTF-8'`)
-			})
-			It("prints a CREATE block for a table in custom format, formatter provided", func() {
-				extTableDef.FormatType = "b"
-				extTableDef.FormatOpts = `formatter gphdfs_import other_opt 'foo'`
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOCATION (
-	'file://host:port/path/file'
-)
-FORMAT 'custom' (formatter = gphdfs_import, other_opt = 'foo')
-ENCODING 'UTF-8'`)
-			})
 		})
 		Context("EXECUTE options", func() {
 			BeforeEach(func() {
@@ -229,49 +174,49 @@ ENCODING 'UTF-8'`)
 			It("prints a CREATE block for a table with EXECUTE ON ALL", func() {
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname'
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON MASTER", func() {
 				extTableDef.ExecLocation = "MASTER_ONLY"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON MASTER
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON [number]", func() {
 				extTableDef.ExecLocation = "TOTAL_SEGS:3"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON 3
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON HOST", func() {
 				extTableDef.ExecLocation = "PER_HOST"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON HOST
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON HOST [host]", func() {
 				extTableDef.ExecLocation = "HOST:localhost"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON HOST 'localhost'
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON SEGMENT [segid]", func() {
 				extTableDef.ExecLocation = "SEGMENT_ID:0"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON SEGMENT 0
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with single quotes in its EXECUTE clause", func() {
 				extTableDef.Command = "fake'command"
 				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'fake''command'
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 		})
@@ -293,7 +238,7 @@ ENCODING 'UTF-8'`)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	's3://s3_endpoint:port/bucket_name/s3_prefix'
 ) ON MASTER
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table using error logging with an error table", func() {
@@ -303,7 +248,7 @@ ENCODING 'UTF-8'`)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'
 LOG ERRORS INTO error_table_schema.error_table`)
 			})
@@ -314,7 +259,7 @@ LOG ERRORS INTO error_table_schema.error_table`)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'
 LOG ERRORS`)
 			})
@@ -325,7 +270,7 @@ LOG ERRORS`)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'
 SEGMENT REJECT LIMIT 2 ROWS`)
 			})
@@ -336,7 +281,7 @@ SEGMENT REJECT LIMIT 2 ROWS`)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'
 SEGMENT REJECT LIMIT 2 PERCENT`)
 			})
@@ -349,7 +294,7 @@ SEGMENT REJECT LIMIT 2 PERCENT`)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 ENCODING 'UTF-8'
 LOG ERRORS
 SEGMENT REJECT LIMIT 2 ROWS`)
@@ -360,12 +305,132 @@ SEGMENT REJECT LIMIT 2 ROWS`)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
-FORMAT 'text'
+FORMAT 'TEXT'
 OPTIONS (
 	foo 'bar'
 	bar 'baz'
 )
 ENCODING 'UTF-8'`)
+			})
+		})
+	})
+	Describe("GenerateFormatStatement", func() {
+		var extTableDef backup.ExternalTableDefinition
+		BeforeEach(func() {
+			extTableDef = backup.ExternalTableDefinition{}
+		})
+		Context("TEXT format", func() {
+			It("generates a FORMAT statement with no options provided", func() {
+				extTableDef.FormatType = "t"
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'TEXT'`))
+			})
+			It("generates a FORMAT statment with some options provided", func() {
+				extTableDef.FormatType = "t"
+				extTableDef.FormatOpts = `delimiter '\t' null '\N' escape '\'`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'TEXT' (delimiter E'\\t' null E'\\N' escape E'\\')`))
+			})
+			It("generates a FORMAT statement with multi-word option", func() {
+				extTableDef.FormatType = "t"
+				extTableDef.FormatOpts = `delimiter '\t' null '\N' escape '\' fill missing fields`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'TEXT' (delimiter E'\\t' null E'\\N' escape E'\\' fill missing fields)`))
+			})
+			It("generates a FORMAT statement with options containing whitespace", func() {
+				extTableDef.FormatType = "t"
+				extTableDef.FormatOpts = `delimiter ' ' null '
+' escape '	'`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'TEXT' (delimiter E' ' null E'
+' escape E'	')`))
+			})
+		})
+		Context("CSV format", func() {
+			It("generates a FORMAT statement with no options provided", func() {
+				extTableDef.FormatType = "c"
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'CSV'`))
+			})
+			It("generates a FORMAT statement with some options provided", func() {
+				extTableDef.FormatType = "c"
+				extTableDef.FormatOpts = `delimiter ',' null '' escape '"' quote '''`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'CSV' (delimiter E',' null E'' escape E'"' quote E'\'')`))
+			})
+			It("generates a FORMAT statement with multi-word option", func() {
+				extTableDef.FormatType = "c"
+				extTableDef.FormatOpts = `delimiter ',' null '' quote ''' force quote column_name`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'CSV' (delimiter E',' null E'' quote E'\'' force quote column_name)`))
+			})
+		})
+		Context("CUSTOM format", func() {
+			It("generates a FORMAT statement with formatter provided", func() {
+				extTableDef.FormatType = "b"
+				extTableDef.FormatOpts = `formatter 'gphdfs_import' other_opt 'foo'`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'CUSTOM' (formatter = E'gphdfs_import', other_opt = E'foo')`))
+			})
+			It("generates a FORMAT statement with options containing whitespace", func() {
+				extTableDef.FormatType = "b"
+				extTableDef.FormatOpts = `formatter 'gphdfs_import' opt1 '	' opt2 '
+'`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'CUSTOM' (formatter = E'gphdfs_import', opt1 = E'	', opt2 = E'
+')`))
+			})
+		})
+		Context("AVRO format", func() {
+			It("generates a FORMAT statement with no options provided", func() {
+				extTableDef.FormatType = "a"
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal("FORMAT 'AVRO'"))
+			})
+			It("generates a FORMAT statement with some options provided", func() {
+				extTableDef.FormatType = "a"
+				extTableDef.FormatOpts = `option1 'val1' option2 'val2'`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal("FORMAT 'AVRO' (option1 = E'val1', option2 = E'val2')"))
+			})
+		})
+		Context("PARQUET format", func() {
+			It("generates a FORMAT statement with no options provided", func() {
+				extTableDef.FormatType = "p"
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal("FORMAT 'PARQUET'"))
+			})
+			It("generates a FORMAT statement with some options provided", func() {
+				extTableDef.FormatType = "p"
+				extTableDef.FormatOpts = `option1 'val1' option2 'val2'`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal("FORMAT 'PARQUET' (option1 = E'val1', option2 = E'val2')"))
 			})
 		})
 	})

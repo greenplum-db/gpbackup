@@ -56,6 +56,62 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
 		})
+		It("creates a READABLE WEB EXTERNAL table with an EXECUTE statement containing special characters", func() {
+			extTable.Type = backup.READABLE_WEB
+			extTable.Writable = false
+			extTable.Location = ""
+			extTable.Protocol = backup.HTTP
+			extTable.URIs = nil
+			extTable.Command = `bash someone's \.custom_script.sh`
+			tableDef.ExtTableDef = extTable
+
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			oid := testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTableDefs := backup.GetExternalTableDefinitions(connectionPool)
+			resultTableDef := resultTableDefs[oid]
+			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
+
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
+		})
+		It("creates a READABLE EXTERNAL table with CSV FORMAT options", func() {
+			extTable.Type = backup.READABLE
+			extTable.Writable = false
+			extTable.FormatType = "c"
+			extTable.FormatOpts = `delimiter '|' null '' escape ''' quote ''' force not null i`
+			tableDef.ExtTableDef = extTable
+
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			oid := testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTableDefs := backup.GetExternalTableDefinitions(connectionPool)
+			resultTableDef := resultTableDefs[oid]
+			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
+
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
+		})
+		It("creates a READABLE EXTERNAL table with CUSTOM formatter", func() {
+			extTable.Type = backup.READABLE
+			extTable.Writable = false
+			extTable.FormatType = "b"
+			extTable.FormatOpts = "formatter 'fixedwidth_out' i '20' "
+			tableDef.ExtTableDef = extTable
+
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			oid := testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTableDefs := backup.GetExternalTableDefinitions(connectionPool)
+			resultTableDef := resultTableDefs[oid]
+			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
+
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
+		})
 		It("creates a READABLE EXTERNAL table with LOG ERRORS INTO", func() {
 			testutils.SkipIfNot4(connectionPool)
 			extTable.Type = backup.READABLE
