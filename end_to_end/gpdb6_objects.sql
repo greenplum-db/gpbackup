@@ -51,3 +51,11 @@ $$;
 CREATE EVENT TRIGGER nothing_ddl ON ddl_command_start
    WHEN TAG IN ('ALTER SERVER')
    EXECUTE PROCEDURE do_nothing();
+
+CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');
+
+CREATE TYPE public.textrange AS RANGE (
+	SUBTYPE_OPCLASS = public.range_class,
+	SUBTYPE = pg_catalog.text,
+	COLLATION = public.some_coll
+);

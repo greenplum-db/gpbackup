@@ -243,6 +243,55 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchIncluding(&shellTypeOtherSchema, &results[0], "Schema", "Name", "Type")
 		})
 	})
+	Describe("GetRangeTypes", func() {
+		It("returns a slice of a range type with a collation", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TYPE public.textrange AS RANGE (
+	SUBTYPE = pg_catalog.text,
+	COLLATION = public.some_coll
+);`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
+			results := backup.GetRangeTypes(connectionPool)
+
+			Expect(len(results)).To(Equal(1))
+
+			expectedRangeType := backup.Type{
+				Oid:            0,
+				Schema:         "public",
+				Name:           "textrange",
+				Type:           "r",
+				SubType:        "text",
+				Collation:      "public.some_coll",
+				SubTypeOpClass: "pg_catalog.text_ops",
+			}
+			structmatcher.ExpectStructsToMatchExcluding(&expectedRangeType, &results[0], "Oid")
+		})
+		It("returns a slice of a range type in a specific schema with a subtype diff function", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema;")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE;")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION testschema.time_subtype_diff(x time, y time) RETURNS float8 AS 'SELECT EXTRACT(EPOCH FROM (x - y))' LANGUAGE sql STRICT IMMUTABLE;")
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TYPE testschema.timerange AS RANGE (
+	SUBTYPE = pg_catalog.time,
+	SUBTYPE_DIFF = testschema.time_subtype_diff
+);`)
+
+			results := backup.GetRangeTypes(connectionPool)
+
+			Expect(len(results)).To(Equal(1))
+
+			expectedRangeType := backup.Type{
+				Oid:            0,
+				Schema:         "testschema",
+				Name:           "timerange",
+				Type:           "r",
+				SubType:        "time without time zone",
+				SubTypeOpClass: "pg_catalog.time_ops",
+				SubTypeDiff:    "testschema.time_subtype_diff",
+			}
+			structmatcher.ExpectStructsToMatchExcluding(&expectedRangeType, &results[0], "Oid")
+		})
+	})
 	Describe("GetCollations", func() {
 		It("returns a slice of collations", func() {
 			testutils.SkipIfBefore6(connectionPool)

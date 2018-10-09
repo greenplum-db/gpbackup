@@ -24,7 +24,7 @@ func PrintCreateShellTypeStatements(metadataFile *utils.FileWithByteCount, toc *
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\n")
 	for _, typ := range types {
-		if typ.Type == "b" || typ.Type == "p" {
+		if typ.Type == "b" || typ.Type == "p" || typ.Type == "r" {
 			typeFQN := utils.MakeFQN(typ.Schema, typ.Name)
 			metadataFile.MustPrintf("CREATE TYPE %s;\n", typeFQN)
 			toc.AddPredataEntry(typ.Schema, typ.Name, "TYPE", "", start, metadataFile)
@@ -165,6 +165,29 @@ func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, toc *u
 		PrintObjectMetadata(metadataFile, typeMetadata[enum.GetUniqueID()], typeFQN, "TYPE")
 		toc.AddPredataEntry(enum.Schema, enum.Name, "TYPE", "", start, metadataFile)
 	}
+}
+
+func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, rangeType Type, typeMetadata ObjectMetadata) {
+	start := metadataFile.ByteCount
+	typeFQN := utils.MakeFQN(rangeType.Schema, rangeType.Name)
+	metadataFile.MustPrintf("\n\nCREATE TYPE %s AS RANGE (\n\tSUBTYPE = %s", typeFQN, rangeType.SubType)
+
+	if rangeType.SubTypeOpClass != "" {
+		metadataFile.MustPrintf(",\n\tSUBTYPE_OPCLASS = %s", rangeType.SubTypeOpClass)
+	}
+	if rangeType.Collation != "" {
+		metadataFile.MustPrintf(",\n\tCOLLATION = %s", rangeType.Collation)
+	}
+	if rangeType.Canonical != "" {
+		metadataFile.MustPrintf(",\n\tCANONICAL = %s", rangeType.Canonical)
+	}
+	if rangeType.SubTypeDiff != "" {
+		metadataFile.MustPrintf(",\n\tSUBTYPE_DIFF = %s", rangeType.SubTypeDiff)
+	}
+	metadataFile.MustPrintf("\n);\n")
+
+	PrintObjectMetadata(metadataFile, typeMetadata, typeFQN, "TYPE")
+	toc.AddPredataEntry(rangeType.Schema, rangeType.Name, "TYPE", "", start, metadataFile)
 }
 
 func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, collations []Collation, collationMetadata MetadataMap) {

@@ -80,9 +80,16 @@ func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
 }
 
 func GetFunctionsMaster(connectionPool *dbconn.DBConn) []Function {
+	excludeImplicitFunctionsClause := ""
 	masterAtts := ""
 	if connectionPool.Version.AtLeast("6") {
 		masterAtts = "proiswindow,proexeclocation,proleakproof,"
+		// This excludes implicitly created functions. Currently this is only range type functions
+		excludeImplicitFunctionsClause = `
+AND NOT EXISTS (
+	SELECT 1 FROM pg_depend
+	WHERE classid = 'pg_proc'::regclass::oid
+	AND objid = p.oid AND deptype = 'i')`
 	} else {
 		masterAtts = "'a' AS proexeclocation,"
 	}
@@ -114,8 +121,8 @@ LEFT JOIN pg_namespace n
 	ON p.pronamespace = n.oid
 WHERE %s
 AND proisagg = 'f'
-AND %s
-ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"), ExtensionFilterClause("p"))
+AND %s%s
+ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"), ExtensionFilterClause("p"), excludeImplicitFunctionsClause)
 
 	results := make([]Function, 0)
 	err := connectionPool.Select(&results, query)

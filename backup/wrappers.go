@@ -167,6 +167,10 @@ func RetrieveTypes(sortables *[]Sortable, metadataMap MetadataMap) ([]Type, Meta
 	types = append(types, composites...)
 	domains := GetDomainTypes(connectionPool)
 	types = append(types, domains...)
+	if connectionPool.Version.AtLeast("6") {
+		ranges := GetRangeTypes(connectionPool)
+		types = append(types, ranges...)
+	}
 	objectCounts["Types"] = len(types)
 	typeMetadata := GetMetadataForObjectType(connectionPool, TYPE_TYPE)
 

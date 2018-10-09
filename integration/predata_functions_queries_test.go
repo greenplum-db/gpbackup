@@ -124,7 +124,6 @@ EXECUTE ON ALL SEGMENTS;`)
 			structmatcher.ExpectStructsToMatchExcluding(&results[1], &srfOnMasterFunction, "Oid")
 		})
 		It("returns a function with LEAKPROOF", func() {
-			// other tests that are specific to >=6 can be added to this
 			testutils.SkipIfBefore6(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `
 CREATE FUNCTION public.append(integer, integer) RETURNS SETOF record
@@ -151,6 +150,15 @@ MODIFIES SQL DATA
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
+		})
+		It("does not return range type constructor functions", func() {
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.textrange AS RANGE (SUBTYPE = pg_catalog.text)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
+
+			results := backup.GetFunctionsMaster(connectionPool)
+
+			Expect(results).To(HaveLen(0))
 		})
 	})
 	Describe("GetFunctions4", func() {
