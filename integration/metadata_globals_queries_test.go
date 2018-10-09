@@ -37,6 +37,15 @@ var _ = Describe("backup integration tests", func() {
 			Expect(results[1]).To(Equal("SET search_path TO public, pg_catalog"))
 			Expect(results[2]).To(Equal(`SET lc_time TO 'C'`))
 		})
+		It("only gets GUCs that are non role specific", func() {
+			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE testrole IN DATABASE testdb SET default_with_oids TO false")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE testrole IN DATABASE testdb RESET default_with_oids")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb SET default_with_oids TO true")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET default_with_oids")
+			results := backup.GetDatabaseGUCs(connectionPool)
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(`SET default_with_oids TO 'true'`))
+		})
 	})
 	Describe("GetDatabaseInfo", func() {
 		It("returns a database info struct", func() {

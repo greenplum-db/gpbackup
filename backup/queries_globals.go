@@ -77,7 +77,7 @@ FROM pg_options_to_table(
 		subquery := fmt.Sprintf("SELECT datconfig FROM pg_database WHERE datname = '%s'", utils.EscapeSingleQuotes(connectionPool.DBName))
 		query = fmt.Sprintf(query, subquery)
 	} else {
-		subquery := fmt.Sprintf("SELECT setconfig FROM pg_db_role_setting WHERE setdatabase = (SELECT oid FROM pg_database WHERE datname = '%s')", utils.EscapeSingleQuotes(connectionPool.DBName))
+		subquery := fmt.Sprintf("SELECT setconfig FROM pg_db_role_setting WHERE setrole = 0 AND setdatabase = (SELECT oid FROM pg_database WHERE datname = '%s')", utils.EscapeSingleQuotes(connectionPool.DBName))
 		query = fmt.Sprintf(query, subquery)
 	}
 	return dbconn.MustSelectStringSlice(connectionPool, query)
