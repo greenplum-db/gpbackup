@@ -27,6 +27,10 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
+/* The backup directory must be unique per test. There is test flakiness
+ * against Data Domain Boost mounted file systems due to how it handles
+ * directory deletion/creation.
+ */
 var custom_backup_dir string
 
 var useOldBackupVersion bool
@@ -284,7 +288,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		Describe("Restore include filtering", func() {
 			It("runs gpbackup and gprestore with include-schema restore flag", func() {
-				backupdir := filepath.Join(custom_backup_dir, "include_schema")
+				backupdir := filepath.Join(custom_backup_dir, "include_schema") // Must be unique
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
 
@@ -303,7 +307,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			It("runs gpbackup and gprestore with include-table-file restore flag", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 				utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
-				backupdir := filepath.Join(custom_backup_dir, "include_table_file")
+				backupdir := filepath.Join(custom_backup_dir, "include_table_file") // Must be unique
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
 
@@ -373,7 +377,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			It("runs gpbackup and gprestore with exclude-table-file restore flag", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 				utils.MustPrintln(includeFile, "schema2.foo2\nschema2.returns\npublic.myseq2\npublic.myview2")
-				backupdir := filepath.Join(custom_backup_dir, "exclude_table_file")
+				backupdir := filepath.Join(custom_backup_dir, "exclude_table_file") // Must be unique
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--exclude-table-file", "/tmp/exclude-tables.txt")
 
@@ -386,7 +390,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		Describe("Single data file", func() {
 			It("runs gpbackup and gprestore with single-data-file flag", func() {
-				backupdir := filepath.Join(custom_backup_dir, "single_data_file")
+				backupdir := filepath.Join(custom_backup_dir, "single_data_file") // Must be unique
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--backup-dir", backupdir)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 
@@ -398,7 +402,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				os.RemoveAll(backupdir)
 			})
 			It("runs gpbackup and gprestore with single-data-file flag without compression", func() {
-				backupdir := filepath.Join(custom_backup_dir, "single_data_file")
+				backupdir := filepath.Join(custom_backup_dir, "single_data_file_no_compression") // Must be unique
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--single-data-file", "--backup-dir", backupdir, "--no-compression")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 
@@ -435,7 +439,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				It("runs gpbackup and gprestore with include-table-file restore flag with a single data file", func() {
 					includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 					utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
-					backupdir := filepath.Join(custom_backup_dir, "include_table_file")
+					backupdir := filepath.Join(custom_backup_dir, "include_table_file_single_data_file") // Must be unique
 					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-table-file", "/tmp/include-tables.txt")
 					assertRelationsCreated(restoreConn, 16)
@@ -446,7 +450,7 @@ var _ = Describe("backup end to end integration tests", func() {
 					os.Remove("/tmp/include-tables.txt")
 				})
 				It("runs gpbackup and gprestore with include-schema restore flag with a single data file", func() {
-					backupdir := filepath.Join(custom_backup_dir, "include_schema")
+					backupdir := filepath.Join(custom_backup_dir, "include_schema_single_data_file") // Must be unique
 					timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 					gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2")
 
@@ -575,7 +579,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 			Context("Without a timestamp", func() {
 				It("restores from a incremental backup specified with a backup directory", func() {
-					backupdir := filepath.Join(custom_backup_dir, "test_incremental")
+					backupdir := filepath.Join(custom_backup_dir, "test_incremental") // Must be unique
 					_ = gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--backup-dir", backupdir)
 
 					testhelper.AssertQueryRuns(backupConn, "INSERT into schema2.ao1 values(1001)")
@@ -766,7 +770,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertRelationsCreated(restoreConn, 36)
 		})
 		It("runs gpbackup and gprestore with leaf-partition-data and backupdir flags", func() {
-			backupdir := filepath.Join(custom_backup_dir, "leaf_partition_data")
+			backupdir := filepath.Join(custom_backup_dir, "leaf_partition_data") // Must be unique
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--backup-dir", backupdir)
 			output := gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 			Expect(string(output)).To(ContainSubstring("Tables restored:  30 / 30"))
@@ -777,7 +781,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and gprestore with no-compression flag", func() {
-			backupdir := filepath.Join(custom_backup_dir, "no_compression")
+			backupdir := filepath.Join(custom_backup_dir, "no_compression") // Must be unique
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupdir)
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
 			configFile, _ := filepath.Glob(filepath.Join(backupdir, "*-1/backups/*", timestamp, "*config.yaml"))
@@ -791,7 +795,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and gprestore with with-stats flag", func() {
-			backupdir := filepath.Join(custom_backup_dir, "with_stats")
+			backupdir := filepath.Join(custom_backup_dir, "with_stats") // Must be unique
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats", "--backup-dir", backupdir)
 			files, _ := filepath.Glob(filepath.Join(backupdir, "*-1/backups/*", timestamp, "*statistics.sql"))
 
@@ -806,7 +810,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		It("runs gpbackup and gprestore with jobs flag", func() {
 			skipIfOldBackupVersionBefore("1.3.0")
-			backupdir := filepath.Join(custom_backup_dir, "parallel")
+			backupdir := filepath.Join(custom_backup_dir, "parallel") // Must be unique
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--jobs", "4")
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--jobs", "4")
 
@@ -817,7 +821,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {
-			backupdir := filepath.Join(custom_backup_dir, "signals")
+			backupdir := filepath.Join(custom_backup_dir, "signals") // Must be unique
 			args := []string{"--dbname", "testdb", "--backup-dir", backupdir, "--single-data-file", "--verbose"}
 			cmd := exec.Command(gpbackupPath, args...)
 			go func() {
@@ -841,7 +845,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
-			backupdir := filepath.Join(custom_backup_dir, "signals")
+			backupdir := filepath.Join(custom_backup_dir, "signals") // Must be unique
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 			args := []string{"--timestamp", timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2", "--verbose"}
 			cmd := exec.Command(gprestorePath, args...)
