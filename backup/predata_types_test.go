@@ -110,7 +110,6 @@ COMMENT ON COLUMN public.composite_type.foo IS 'attribute comment';`)
 		baseFull := backup.Type{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "receive_fn", Send: "send_fn", ModIn: "modin_fn", ModOut: "modout_fn", InternalLength: 16, IsPassedByValue: true, Alignment: "s", Storage: "e", DefaultVal: "42", Element: "int4", Category: "N", Preferred: true, Delimiter: ",", EnumLabels: "", BaseType: "", NotNull: false, Attributes: nil, StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768", Collatable: true}
 		basePermOne := backup.Type{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "d", Storage: "m", DefaultVal: "", Element: "", Category: "U", Delimiter: "", EnumLabels: "", BaseType: "", NotNull: false, Attributes: nil}
 		basePermTwo := backup.Type{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "i", Storage: "x", DefaultVal: "", Element: "", Category: "U", Delimiter: "", EnumLabels: "", BaseType: "", NotNull: false, Attributes: nil}
-		baseCommentOwner := backup.Type{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "", Element: "", Category: "U", Delimiter: "", EnumLabels: "", BaseType: "", NotNull: false, Attributes: nil}
 
 		It("prints a base type with no optional arguments", func() {
 			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseSimple, typeMetadata)
@@ -177,11 +176,18 @@ ALTER TYPE public.base_type
 );`)
 		})
 		It("prints a base type with comment and owner", func() {
-			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseCommentOwner, typeMetadata)
+			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true)
+			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseSimple, typeMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.base_type (
 	INPUT = input_fn,
 	OUTPUT = output_fn
-);`)
+);
+
+
+COMMENT ON TYPE public.base_type IS 'This is a type comment.';
+
+
+ALTER TYPE public.base_type OWNER TO testrole;`)
 		})
 	})
 	Describe("PrintCreateShellTypeStatements", func() {
@@ -228,6 +234,50 @@ COMMENT ON DOMAIN public.domain2 IS 'This is a domain comment.';
 
 
 ALTER DOMAIN public.domain2 OWNER TO testrole;`)
+		})
+	})
+	Describe("PrintCreateRangeTypeStatement", func() {
+		basicRangeType := backup.Type{Name: "rangetype", Schema: "public", SubType: "test_subtype_schema.test_subtype"}
+		complexRangeType := backup.Type{
+			Name: "rangetype", Schema: "public",
+			SubType:        "test_subtype_schema.test_subtype",
+			SubTypeOpClass: "opclass_schema.test_opclass",
+			Collation:      "collation_schema.test_collation",
+			Canonical:      "canonical_schema.test_canonical",
+			SubTypeDiff:    "diff_schema.test_diff",
+		}
+		emptyMetadata := backup.ObjectMetadata{}
+
+		It("prints a basic range type", func() {
+			backup.PrintCreateRangeTypeStatement(backupfile, toc, basicRangeType, emptyMetadata)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "rangetype", "TYPE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.rangetype AS RANGE (
+	SUBTYPE = test_subtype_schema.test_subtype
+);`)
+		})
+		It("prints a complex range type", func() {
+			backup.PrintCreateRangeTypeStatement(backupfile, toc, complexRangeType, emptyMetadata)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "rangetype", "TYPE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.rangetype AS RANGE (
+	SUBTYPE = test_subtype_schema.test_subtype,
+	SUBTYPE_OPCLASS = opclass_schema.test_opclass,
+	COLLATION = collation_schema.test_collation,
+	CANONICAL = canonical_schema.test_canonical,
+	SUBTYPE_DIFF = diff_schema.test_diff
+);`)
+		})
+		It("prints a range type with an owner and a comment", func() {
+			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true)
+			backup.PrintCreateRangeTypeStatement(backupfile, toc, basicRangeType, typeMetadata)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.rangetype AS RANGE (
+	SUBTYPE = test_subtype_schema.test_subtype
+);
+
+
+COMMENT ON TYPE public.rangetype IS 'This is a type comment.';
+
+
+ALTER TYPE public.rangetype OWNER TO testrole;`)
 		})
 	})
 	Describe("PrintCreateCollationStatement", func() {

@@ -115,6 +115,10 @@ type Type struct {
 	StorageOptions  string
 	Collatable      bool
 	Collation       string
+	SubType         string
+	SubTypeOpClass  string
+	Canonical       string
+	SubTypeDiff     string
 }
 
 func (t Type) GetUniqueID() UniqueID {
@@ -349,6 +353,48 @@ WHERE %s
 AND t.typtype = 'e'
 AND %s
 ORDER BY n.nspname, t.typname;`, enumSortClause, SchemaFilterClause("n"), ExtensionFilterClause("t"))
+
+	results := make([]Type, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}
+
+func GetRangeTypes(connectionPool *dbconn.DBConn) []Type {
+	query := fmt.Sprintf(`
+SELECT
+	t.oid,
+	n.nspname AS schema,
+	t.typname AS name,
+	t.typtype,
+	format_type(st.oid, st.typtypmod) AS subtype,
+	CASE
+		WHEN c.collname IS NULL THEN ''
+		ELSE nc.nspname || '.' || c.collname
+	END AS collation,
+	CASE
+		WHEN opc.opcname IS NULL THEN ''
+		ELSE nopc.nspname || '.' || opc.opcname
+	END AS subtypeopclass,
+	CASE
+		WHEN r.rngcanonical = '-'::regproc THEN ''
+		ELSE r.rngcanonical::regproc::text
+	END AS canonical,
+	CASE
+		WHEN r.rngsubdiff = '-'::regproc THEN ''
+		ELSE r.rngsubdiff::regproc::text
+	END AS subtypediff
+FROM pg_range r
+JOIN pg_type t ON t.oid = r.rngtypid
+JOIN pg_namespace n ON t.typnamespace = n.oid
+JOIN pg_type st ON st.oid = r.rngsubtype
+LEFT JOIN pg_collation c ON c.oid = r.rngcollation
+LEFT JOIN pg_namespace nc ON nc.oid = c.collnamespace
+LEFT JOIN pg_opclass opc ON opc.oid = r.rngsubopc
+LEFT JOIN pg_namespace nopc ON nopc.oid = opc.opcnamespace
+WHERE %s
+AND t.typtype = 'r'
+AND %s;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
 	results := make([]Type, 0)
 	err := connectionPool.Select(&results, query)

@@ -114,6 +114,9 @@ CREATE OPERATOR CLASS testclass
 	FUNCTION 1 abs(integer),
 	FUNCTION 2 int4out(integer);
 
+CREATE OPERATOR CLASS range_class
+	FOR TYPE text USING btree AS
+	STORAGE text;
 
 SET default_tablespace = '';
 
