@@ -123,20 +123,20 @@ resources:
       access_key_id: {{tf-machine-access-key-id}}
       secret_access_key: {{tf-machine-secret-access-key}}
       region_name: {{aws-region}}
-      bucket: gpdb5-pipeline-dynamic-terraform
+      bucket: {{tf-bucket-name}}
       bucket_path: clusters-google/
 
 - name: ddboost_terraform
   type: terraform
   source:
     env:
-      AWS_ACCESS_KEY_ID: {{gpdb4-tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{gpdb4-tf-machine-secret-access-key}}
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
     storage:
-      access_key_id: {{gpdb4-tf-machine-access-key-id}}
-      secret_access_key: {{gpdb4-tf-machine-secret-access-key}}
+      access_key_id: {{tf-machine-access-key-id}}
+      secret_access_key: {{tf-machine-secret-access-key}}
       region_name: {{aws-region}}
-      bucket: pivotal-pa-toolsmiths-pipeline-dynamic-terraform
+      bucket: {{tf-bucket-name}}
       bucket_path: clusters-aws/
 
 - name: scale_schema
@@ -317,7 +317,7 @@ jobs:
     tags: ["ddboost"]
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/aws-pivotal-pa-toolsmiths/
+      terraform_source: ccp_src/aws/
       vars:
         aws_instance-node-instance_type: t2.medium
         PLATFORM: centos6
@@ -972,11 +972,11 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   CLOUD_PROVIDER: google
 
 ddboost_ccp_gen_cluster_default_params_anchor: &ddboost_ccp_gen_cluster_default_params
-  AWS_ACCESS_KEY_ID: {{gpdb4-tf-machine-access-key-id}}
-  AWS_SECRET_ACCESS_KEY: {{gpdb4-tf-machine-secret-access-key}}
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
   AWS_DEFAULT_REGION: {{aws-region}}
   BUCKET_PATH: clusters-aws/
-  BUCKET_NAME: pivotal-pa-toolsmiths-pipeline-dynamic-terraform
+  BUCKET_NAME: {{tf-bucket-name}}
   CLOUD_PROVIDER: aws
 
 ccp_destroy_anchor: &ccp_destroy
@@ -1010,7 +1010,7 @@ ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
   params:
     action: destroy
     env_name_file: ddboost_terraform/name
-    terraform_source: ccp_src/aws-pivotal-pa-toolsmiths/
+    terraform_source: ccp_src/aws/
     vars:
       aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
   get_params:
