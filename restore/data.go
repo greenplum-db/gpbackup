@@ -60,22 +60,17 @@ func restoreSingleTableData(fpInfo *utils.FilePathInfo, entry utils.MasterDataEn
 		return err
 	}
 	numRowsBackedUp := entry.RowsCopied
-	CheckRowsRestored(numRowsRestored, numRowsBackedUp, name)
+	err = CheckRowsRestored(numRowsRestored, numRowsBackedUp, name)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string) {
+func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string) error {
 	if rowsRestored != rowsBackedUp {
 		rowsErrMsg := fmt.Sprintf("Expected to restore %d rows to table %s, but restored %d instead", rowsBackedUp, tableName, rowsRestored)
-		if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
-			gplog.Error(rowsErrMsg)
-		} else {
-			agentErr := CheckAgentErrorsOnSegments()
-			if agentErr != nil {
-				gplog.Error(rowsErrMsg)
-				gplog.Fatal(agentErr, "")
-			}
-			gplog.Fatal(errors.Errorf("%s", rowsErrMsg), "")
-		}
+		return errors.New(rowsErrMsg)
 	}
+	return nil
 }

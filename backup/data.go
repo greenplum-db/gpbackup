@@ -154,14 +154,21 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 	}
 	close(tasks)
 	workerPool.Wait()
-	if copyErr != nil {
-		errStr := ""
-		if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
-			helperLogName := globalFPInfo.GetHelperLogPath()
-			errStr = fmt.Sprintf("Check %s on the affected segment host for more info.", helperLogName)
-		}
-		gplog.Fatal(copyErr, errStr)
+
+	var agentErr error
+	if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
+		agentErr = utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
 	}
+
+	if copyErr != nil && agentErr != nil {
+		gplog.Error(agentErr.Error())
+		gplog.Fatal(copyErr, "")
+	} else if copyErr != nil {
+		gplog.Fatal(copyErr, "")
+	} else if agentErr != nil {
+		gplog.Fatal(agentErr, "")
+	}
+
 	counters.ProgressBar.Finish()
 
 	printDataBackupWarnings(numExtOrForeignTables)

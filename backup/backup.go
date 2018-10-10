@@ -3,6 +3,7 @@ package backup
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -368,7 +369,13 @@ func DoTeardown() {
 
 	errStr := ""
 	if err := recover(); err != nil {
-		errStr = fmt.Sprintf("%v", err)
+		// Check if gplog.Fatal did not cause the panic
+		if gplog.GetErrorCode() != 2 {
+			gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
+			gplog.SetErrorCode(2)
+		} else {
+			errStr = fmt.Sprintf("%v", err)
+		}
 	}
 	if wasTerminated {
 		/*

@@ -1,19 +1,14 @@
 package restore_test
 
 import (
-	"os/user"
 	"regexp"
 
-	"github.com/greenplum-db/gp-common-go-libs/cluster"
-	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
@@ -66,77 +61,17 @@ var _ = Describe("restore/data tests", func() {
 		})
 	})
 	Describe("CheckRowsRestored", func() {
-		masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
-		localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
-		remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
 		var (
-			testCluster  *cluster.Cluster
-			testExecutor *testhelper.TestExecutor
-			testFPInfo   utils.FilePathInfo
-
 			expectedRows int64 = 10
 			name               = "public.foo"
 		)
-		BeforeEach(func() {
-			operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
-			operating.System.Hostname = func() (string, error) { return "testHost", nil }
-			testExecutor = &testhelper.TestExecutor{}
-			testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
-			testCluster.Executor = testExecutor
-			testFPInfo = utils.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
-			backup.SetFPInfo(testFPInfo)
-		})
 		It("does nothing if the number of rows match ", func() {
-			restore.CheckRowsRestored(10, expectedRows, name)
+			err := restore.CheckRowsRestored(10, expectedRows, name)
+			Expect(err).ToNot(HaveOccurred())
 		})
-		It("panics if the numbers of rows do not match and there is an error with a segment agent", func() {
-			cmdFlags.Set(utils.ON_ERROR_CONTINUE, "false")
-			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				Stdouts: map[int]string{
-					1: "error",
-				},
-			}
-			testCluster.Executor = testExecutor
-			restore.SetCluster(testCluster)
-			defer func() {
-				Expect(stderr).To(gbytes.Say("Expected to restore 10 rows to table public.foo, but restored 5 instead"))
-			}()
-			defer testhelper.ShouldPanicWithMessage("Encountered errors with 1 restore agent(s).  See gbytes.Buffer for a complete list of segments with errors, and see testDir/gpAdminLogs/gpbackup_helper_20170101.log on the corresponding hosts for detailed error messages.")
-			restore.CheckRowsRestored(5, expectedRows, name)
-		})
-		It("panics if the numbers of rows do not match and there is no error with a segment agent", func() {
-			cmdFlags.Set(utils.ON_ERROR_CONTINUE, "false")
-			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				Stdouts: map[int]string{
-					1: "",
-				},
-			}
-			testCluster.Executor = testExecutor
-			restore.SetCluster(testCluster)
-			defer testhelper.ShouldPanicWithMessage("Expected to restore 10 rows to table public.foo, but restored 5 instead")
-			restore.CheckRowsRestored(5, expectedRows, name)
-		})
-		It("prints an error if the numbers of rows do not match and onErrorContinue is set", func() {
-			cmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
-			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				Stdouts: map[int]string{
-					1: "",
-				},
-			}
-			testCluster.Executor = testExecutor
-			restore.SetCluster(testCluster)
-			restore.CheckRowsRestored(5, expectedRows, name)
-			Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Expected to restore 10 rows to table public.foo, but restored 5 instead")))
-
-			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				Stdouts: map[int]string{
-					1: "error",
-				},
-			}
-			testCluster.Executor = testExecutor
-			restore.SetCluster(testCluster)
-			restore.CheckRowsRestored(5, expectedRows, name)
-			Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Expected to restore 10 rows to table public.foo, but restored 5 instead")))
+		It("returns an error if the numbers of rows do not match", func() {
+			err := restore.CheckRowsRestored(5, expectedRows, name)
+			Expect(err.Error()).To(Equal("Expected to restore 10 rows to table public.foo, but restored 5 instead"))
 		})
 	})
 })

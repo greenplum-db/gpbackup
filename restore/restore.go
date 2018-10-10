@@ -3,6 +3,7 @@ package restore
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 
@@ -301,7 +302,7 @@ func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, dataEntries []utils.Mas
 	} else if numErrors > 0 {
 		gplog.Error("Encountered %d errors during table data restore; see log file %s for a list of table errors.", numErrors, gplog.GetLogFilePath())
 	}
-	err := CheckAgentErrorsOnSegments()
+	err := utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
 	if err != nil {
 		errMsg := "Error restoring data for one or more tables"
 		if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
@@ -356,7 +357,13 @@ func DoTeardown() {
 
 	errStr := ""
 	if err := recover(); err != nil {
-		errStr = fmt.Sprintf("%v", err)
+		// Check if gplog.Fatal did not cause the panic
+		if gplog.GetErrorCode() != 2 {
+			gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
+			gplog.SetErrorCode(2)
+		} else {
+			errStr = fmt.Sprintf("%v", err)
+		}
 	}
 	if wasTerminated {
 		/*
