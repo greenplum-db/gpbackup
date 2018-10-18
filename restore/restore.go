@@ -123,7 +123,8 @@ func DoSetup() {
 	 * but since they will not stop the restore, it is not necessary to log them twice.
 	 */
 	if !MustGetFlagBool(utils.CREATE_DB) && !MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
-		ValidateRelationsInRestoreDatabase(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_RELATION))
+		relationsToRestore := GenerateRestoreRelationList()
+		ValidateRelationsInRestoreDatabase(connectionPool, relationsToRestore)
 	}
 }
 

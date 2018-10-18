@@ -59,15 +59,34 @@ func ValidateFilterSchemasInBackupSet(schemaList []string) {
 	gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
 }
 
-func ValidateRelationsInRestoreDatabase(connectionPool *dbconn.DBConn, relationList []string) {
-	if len(relationList) == 0 {
-		if len(globalTOC.DataEntries) == 0 {
-			return
-		}
-		for _, entry := range globalTOC.DataEntries {
-			fqn := utils.MakeFQN(entry.Schema, entry.Name)
+func GenerateRestoreRelationList() []string {
+	includeRelations := MustGetFlagStringSlice(utils.INCLUDE_RELATION)
+	if len(includeRelations) > 0 {
+		return includeRelations
+	}
+
+	relationList := make([]string, 0)
+	includedSchemaSet := utils.NewIncludeSet(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA))
+	excludedSchemaSet := utils.NewExcludeSet(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA))
+	excludedRelationsSet := utils.NewExcludeSet(MustGetFlagStringSlice(utils.EXCLUDE_RELATION))
+
+	if len(globalTOC.DataEntries) == 0 {
+		return []string{}
+	}
+	for _, entry := range globalTOC.DataEntries {
+		fqn := utils.MakeFQN(entry.Schema, entry.Name)
+
+		if includedSchemaSet.MatchesFilter(entry.Schema) &&
+			excludedSchemaSet.MatchesFilter(entry.Schema) &&
+			excludedRelationsSet.MatchesFilter(fqn) {
 			relationList = append(relationList, fqn)
 		}
+	}
+	return relationList
+}
+func ValidateRelationsInRestoreDatabase(connectionPool *dbconn.DBConn, relationList []string) {
+	if len(relationList) == 0 {
+		return
 	}
 	utils.ValidateFQNs(relationList)
 	quotedTablesStr := utils.SliceToQuotedString(relationList)
