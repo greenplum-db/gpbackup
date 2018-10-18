@@ -31,7 +31,7 @@ func SetLoggerVerbosity() {
 	}
 }
 
-func InitializeConnection(unquotedDBName string) {
+func InitializeConnectionPool(unquotedDBName string) {
 	connectionPool = dbconn.NewDBConnFromEnvironment(unquotedDBName)
 	connectionPool.MustConnect(MustGetFlagInt(utils.JOBS))
 	utils.ValidateGPDBVersionCompatibility(connectionPool)

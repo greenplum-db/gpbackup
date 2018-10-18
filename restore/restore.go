@@ -81,7 +81,7 @@ func DoSetup() {
 	restoreStartTime = utils.CurrentTimestamp()
 	gplog.Info("Restore Key = %s", MustGetFlagString(utils.TIMESTAMP))
 
-	InitializeConnection("postgres")
+	InitializeConnectionPool("postgres")
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
@@ -107,7 +107,10 @@ func DoSetup() {
 	if MustGetFlagBool(utils.CREATE_DB) {
 		createDatabase(metadataFilename)
 	}
-	InitializeConnection(unquotedRestoreDatabase)
+	if connectionPool != nil {
+		connectionPool.Close()
+	}
+	InitializeConnectionPool(unquotedRestoreDatabase)
 
 	if MustGetFlagBool(utils.WITH_GLOBALS) {
 		restoreGlobal(metadataFilename)
