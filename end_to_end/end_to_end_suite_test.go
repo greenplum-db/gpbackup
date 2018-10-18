@@ -821,6 +821,9 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
 			backupdir := filepath.Join(custom_backup_dir, "backup_signals") // Must be unique
 			args := []string{"--dbname", "testdb", "--backup-dir", backupdir, "--single-data-file", "--verbose"}
 			cmd := exec.Command(gpbackupPath, args...)
@@ -845,6 +848,9 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
 			backupdir := filepath.Join(custom_backup_dir, "restore_signals") // Must be unique
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--single-data-file")
 			args := []string{"--timestamp", timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir, "--include-schema", "schema2", "--verbose"}
