@@ -25,7 +25,7 @@ mkdir -p ${GPPKG_SOURCE_DIR}/deps
 # Interpolate version values to create gppkg yaml file
 rm -f temp.yml
 ( echo "cat <<EOF >${GPPKG_SOURCE_DIR}/gppkg_spec.yml";   cat ${GPBACKUP_DIR}/gppkg/gppkg_spec.yml.in;   echo "EOF"; ) >temp.yml
-. temp.yml
+. ./temp.yml
 rm -f temp.yml
 
 cp ${RPMROOT}/RPMS/x86_64/*.rpm ${GPPKG_SOURCE_DIR}

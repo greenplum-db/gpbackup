@@ -19,7 +19,8 @@ mkdir -p ${RPMROOT}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
 # Move source targz to SOURCES
 cp ${SOURCE_TARGZ} ${RPMROOT}/SOURCES/.
+cp ${GPBACKUP_DIR}/gppkg/gpbackup.spec.in ${RPMROOT}/SPECS/gpbackup.spec
 
-rpmbuild -bb ${RPMROOT}/SPECS/gpbackup.spec.in --define "%_topdir ${RPMROOT}" --define "debug_package %{nil}" --define "gpbackup_version $GPBACKUP_VERSION"
+rpmbuild -bb ${RPMROOT}/SPECS/gpbackup.spec --define "%_topdir ${RPMROOT}" --define "debug_package %{nil}" --define "gpbackup_version $GPBACKUP_VERSION"
 
 echo "Successfully built RPM"
