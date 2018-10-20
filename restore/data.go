@@ -6,11 +6,14 @@ package restore
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
+	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
 var (
@@ -73,4 +76,81 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 		return errors.New(rowsErrMsg)
 	}
 	return nil
+}
+
+func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, dataEntries []utils.MasterDataEntry,
+	gucStatements []utils.StatementWithType, dataProgressBar utils.ProgressBar) {
+	if len(dataEntries) == 0 {
+		gplog.Verbose("No data to restore for timestamp = %s", fpInfo.Timestamp)
+		return
+	}
+
+	if backupConfig.SingleDataFile {
+		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
+		utils.VerifyHelperVersionOnSegments(version, globalCluster)
+		filteredOids := make([]string, len(dataEntries))
+		for i, entry := range dataEntries {
+			filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
+		}
+		utils.WriteOidListToSegments(filteredOids, globalCluster, fpInfo)
+		firstOid := fmt.Sprintf("%d", dataEntries[0].Oid)
+		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, fpInfo)
+		if wasTerminated {
+			return
+		}
+		utils.StartAgent(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(utils.PLUGIN_CONFIG), "")
+	}
+	/*
+	 * We break when an interrupt is received and rely on
+	 * TerminateHangingCopySessions to kill any COPY
+	 * statements in progress if they don't finish on their own.
+	 */
+	var tableNum uint32 = 1
+	tasks := make(chan utils.MasterDataEntry, len(dataEntries))
+	var workerPool sync.WaitGroup
+	var fatalErr error
+	var numErrors int32
+	for i := 0; i < connectionPool.NumConns; i++ {
+		workerPool.Add(1)
+		go func(whichConn int) {
+			defer workerPool.Done()
+			setGUCsForConnection(gucStatements, whichConn)
+			for entry := range tasks {
+				if wasTerminated || fatalErr != nil {
+					dataProgressBar.(*pb.ProgressBar).NotPrint = true
+					return
+				}
+				err := restoreSingleTableData(&fpInfo, entry, tableNum, len(dataEntries), whichConn)
+				if err != nil {
+					if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+						gplog.Verbose(err.Error())
+						atomic.AddInt32(&numErrors, 1)
+					} else {
+						fatalErr = err
+					}
+				}
+				atomic.AddUint32(&tableNum, 1)
+				dataProgressBar.Increment()
+			}
+		}(i)
+	}
+	for _, entry := range dataEntries {
+		tasks <- entry
+	}
+	close(tasks)
+	workerPool.Wait()
+	if fatalErr != nil {
+		gplog.Fatal(fatalErr, "")
+	} else if numErrors > 0 {
+		gplog.Error("Encountered %d errors during table data restore; see log file %s for a list of table errors.", numErrors, gplog.GetLogFilePath())
+	}
+	err := utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
+	if err != nil {
+		errMsg := "Error restoring data for one or more tables"
+		if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+			gplog.Error("%s: %v", errMsg, err)
+		} else {
+			gplog.Fatal(err, errMsg)
+		}
+	}
 }
