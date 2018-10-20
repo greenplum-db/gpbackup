@@ -92,8 +92,10 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 }
 
 func ValidateFlagValues() {
-	utils.ValidateFullPath(MustGetFlagString(utils.BACKUP_DIR))
-	utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
+	err := utils.ValidateFullPath(MustGetFlagString(utils.BACKUP_DIR))
+	gplog.FatalOnError(err)
+	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
+	gplog.FatalOnError(err)
 	ValidateCompressionLevel(MustGetFlagInt(utils.COMPRESSION_LEVEL))
 	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !utils.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.",

@@ -61,10 +61,11 @@ func ValidateFQNs(fqns []string) {
 	}
 }
 
-func ValidateFullPath(path string) {
+func ValidateFullPath(path string) error {
 	if len(path) > 0 && !(strings.HasPrefix(path, "/") || strings.HasPrefix(path, "~")) {
-		gplog.Fatal(errors.Errorf("%s is not an absolute path.", path), "")
+		return errors.Errorf("%s is not an absolute path.", path)
 	}
+	return nil
 }
 
 func InitializeSignalHandler(cleanupFunc func(), procDesc string, termFlag *bool) {

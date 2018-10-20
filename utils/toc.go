@@ -84,13 +84,22 @@ func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
 	gplog.FatalOnError(err)
 }
 
-func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) {
-	tocFile := iohelper.MustOpenFileForWriting(filename)
+//This function return an error rather than Fataling because it is called by the helper
+func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) error {
+	tocFile, err := iohelper.OpenFileForWriting(filename)
+	if err != nil {
+		return err
+	}
 	tocContents, err := yaml.Marshal(toc)
-	gplog.FatalOnError(err)
-	MustPrintBytes(tocFile, tocContents)
+	if err != nil {
+		return err
+	}
+	_, err = tocFile.Write(tocContents)
+	if err != nil {
+		return err
+	}
 	err = operating.System.Chmod(filename, 0444)
-	gplog.FatalOnError(err)
+	return err
 }
 
 type StatementWithType struct {

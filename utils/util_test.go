@@ -85,18 +85,19 @@ var _ = Describe("utils/util tests", func() {
 		})
 	})
 	Context("ValidateFullPath", func() {
-		It("does not panic when the flag is not set", func() {
+		It("does not return error when the flag is not set", func() {
 			path := ""
-			utils.ValidateFullPath(path)
+			Expect(utils.ValidateFullPath(path)).To(Succeed())
 		})
-		It("does not panic when given an absolute path", func() {
+		It("does not return error when given an absolute path", func() {
 			path := "/this/is/an/absolute/path"
-			utils.ValidateFullPath(path)
+			Expect(utils.ValidateFullPath(path)).To(Succeed())
 		})
 		It("panics when given a relative path", func() {
 			path := "this/is/a/relative/path"
-			defer testhelper.ShouldPanicWithMessage("this/is/a/relative/path is not an absolute path.")
-			utils.ValidateFullPath(path)
+			err := utils.ValidateFullPath(path)
+			Expect(err).To(MatchError("this/is/a/relative/path is not an absolute path."))
+
 		})
 	})
 	Describe("ValidateGPDBVersionCompatibility", func() {

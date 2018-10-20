@@ -125,7 +125,9 @@ func BackupConfigurationValidation() {
 }
 
 func RecoverMetadataFilesUsingPlugin() {
-	pluginConfig = utils.ReadPluginConfig(MustGetFlagString(utils.PLUGIN_CONFIG))
+	var err error
+	pluginConfig, err = utils.ReadPluginConfig(MustGetFlagString(utils.PLUGIN_CONFIG))
+	gplog.FatalOnError(err)
 	pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
 
 	pluginConfig.CopyPluginConfigToAllHosts(globalCluster, MustGetFlagString(utils.PLUGIN_CONFIG))

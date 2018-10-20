@@ -9,15 +9,15 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/pkg/errors"
 )
 
 /*
  * Backup specific functions
  */
 
-func doBackupAgent() {
+func doBackupAgent() error {
 	var lastRead uint64
 	var (
 		finalWriter io.Writer
@@ -29,7 +29,10 @@ func doBackupAgent() {
 	toc := &utils.SegmentTOC{}
 	toc.DataEntries = make(map[uint]utils.SegmentDataEntry, 0)
 
-	oidList := getOidListFromFile()
+	oidList, err := getOidListFromFile()
+	if err != nil {
+		return err
+	}
 
 	currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[0])
 	/*
@@ -39,23 +42,34 @@ func doBackupAgent() {
 	 */
 	for i, oid := range oidList {
 		if wasTerminated {
-			return
+			return errors.New("Terminated due to user request")
 		}
 		if i < len(oidList)-1 {
 			log(fmt.Sprintf("Creating pipe for oid %d\n", oidList[i+1]))
 			nextPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i+1])
-			createPipe(nextPipe)
+			err := createPipe(nextPipe)
+			if err != nil {
+				return err
+			}
 		}
 
 		log(fmt.Sprintf("Opening pipe for oid %d\n", oid))
-		reader, readHandle := getBackupPipeReader(currentPipe)
+		reader, readHandle, err := getBackupPipeReader(currentPipe)
+		if err != nil {
+			return err
+		}
 		if i == 0 {
-			finalWriter, gzipWriter, bufIoWriter, writeHandle, writeCmd = getBackupPipeWriter(*compressionLevel)
+			finalWriter, gzipWriter, bufIoWriter, writeHandle, writeCmd, err = getBackupPipeWriter(*compressionLevel)
+			if err != nil {
+				return err
+			}
 		}
 
 		log(fmt.Sprintf("Backing up table with oid %d\n", oid))
 		numBytes, err := io.Copy(finalWriter, reader)
-		gplog.FatalOnError(err, strings.Trim(errBuf.String(), "\x00"))
+		if err != nil {
+			return errors.Wrap(err, strings.Trim(errBuf.String(), "\x00"))
+		}
 		log(fmt.Sprintf("Read %d bytes\n", numBytes))
 
 		lastProcessed := lastRead + uint64(numBytes)
@@ -65,7 +79,10 @@ func doBackupAgent() {
 		lastPipe = currentPipe
 		currentPipe = nextPipe
 		_ = readHandle.Close()
-		removeFileIfExists(lastPipe)
+		err = removeFileIfExists(lastPipe)
+		if err != nil {
+			return err
+		}
 	}
 
 	/*
@@ -87,31 +104,41 @@ func doBackupAgent() {
 		 */
 		log("Uploading remaining data to plugin destination")
 		err := writeCmd.Wait()
-		gplog.FatalOnError(err, strings.Trim(errBuf.String(), "\x00"))
+		if err != nil {
+			return errors.Wrap(err, strings.Trim(errBuf.String(), "\x00"))
+		}
 	}
-	toc.WriteToFileAndMakeReadOnly(*tocFile)
+	err = toc.WriteToFileAndMakeReadOnly(*tocFile)
+	if err != nil {
+		return err
+	}
 	log("Finished writing segment TOC")
+	return nil
 }
 
-func getBackupPipeReader(currentPipe string) (io.Reader, io.ReadCloser) {
+func getBackupPipeReader(currentPipe string) (io.Reader, io.ReadCloser, error) {
 	readHandle, err := os.OpenFile(currentPipe, os.O_RDONLY, os.ModeNamedPipe)
-	gplog.FatalOnError(err)
+	if err != nil {
+		return nil, nil, err
+	}
 	// This is a workaround for https://github.com/golang/go/issues/24164.
 	// Once this bug is fixed, the call to Fd() can be removed
 	readHandle.Fd()
 	reader := bufio.NewReader(readHandle)
-	return reader, readHandle
+	return reader, readHandle, nil
 }
 
-func getBackupPipeWriter(compressLevel int) (io.Writer, *gzip.Writer, *bufio.Writer, io.WriteCloser, *exec.Cmd) {
+func getBackupPipeWriter(compressLevel int) (io.Writer, *gzip.Writer, *bufio.Writer, io.WriteCloser, *exec.Cmd, error) {
 	var writeHandle io.WriteCloser
 	var err error
 	var writeCmd *exec.Cmd
 	if *pluginConfigFile != "" {
-		writeCmd, writeHandle = startBackupPluginCommand()
+		writeCmd, writeHandle, err = startBackupPluginCommand()
 	} else {
 		writeHandle, err = os.Create(*dataFile)
-		gplog.FatalOnError(err)
+	}
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
 	}
 
 	var finalWriter io.Writer
@@ -120,21 +147,30 @@ func getBackupPipeWriter(compressLevel int) (io.Writer, *gzip.Writer, *bufio.Wri
 	finalWriter = bufIoWriter
 	if compressLevel > 0 {
 		gzipWriter, err = gzip.NewWriterLevel(bufIoWriter, compressLevel)
-		gplog.FatalOnError(err)
+		if err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
 		finalWriter = gzipWriter
 	}
-	return finalWriter, gzipWriter, bufIoWriter, writeHandle, writeCmd
+	return finalWriter, gzipWriter, bufIoWriter, writeHandle, writeCmd, nil
 }
 
-func startBackupPluginCommand() (*exec.Cmd, io.WriteCloser) {
-	pluginConfig := utils.ReadPluginConfig(*pluginConfigFile)
+func startBackupPluginCommand() (*exec.Cmd, io.WriteCloser, error) {
+	pluginConfig, err := utils.ReadPluginConfig(*pluginConfigFile)
+	if err != nil {
+		return nil, nil, err
+	}
 	cmdStr := fmt.Sprintf("%s backup_data %s %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath, *dataFile)
 	writeCmd := exec.Command("bash", "-c", cmdStr)
 
 	writeHandle, err := writeCmd.StdinPipe()
-	gplog.FatalOnError(err)
+	if err != nil {
+		return nil, nil, err
+	}
 	writeCmd.Stderr = &errBuf
 	err = writeCmd.Start()
-	gplog.FatalOnError(err)
-	return writeCmd, writeHandle
+	if err != nil {
+		return nil, nil, err
+	}
+	return writeCmd, writeHandle, nil
 }

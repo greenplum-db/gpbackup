@@ -92,7 +92,9 @@ func DoSetup() {
 	pluginConfigFlag := MustGetFlagString(utils.PLUGIN_CONFIG)
 
 	if pluginConfigFlag != "" {
-		pluginConfig = utils.ReadPluginConfig(pluginConfigFlag)
+		var err error
+		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
+		gplog.FatalOnError(err)
 	}
 
 	InitializeBackupReport()

@@ -30,17 +30,24 @@ const (
 	SEGMENT      PluginScope = "segment"
 )
 
-func ReadPluginConfig(configFile string) *PluginConfig {
+func ReadPluginConfig(configFile string) (*PluginConfig, error) {
 	config := &PluginConfig{}
 	contents, err := operating.System.ReadFile(configFile)
-	gplog.FatalOnError(err)
+	if err != nil {
+		return nil, err
+	}
 	err = yaml.Unmarshal(contents, config)
-	gplog.FatalOnError(err)
+	if err != nil {
+		return nil, err
+	}
 	config.ExecutablePath = os.ExpandEnv(config.ExecutablePath)
-	ValidateFullPath(config.ExecutablePath)
+	err = ValidateFullPath(config.ExecutablePath)
+	if err != nil {
+		return nil, err
+	}
 	_, configFilename := filepath.Split(configFile)
 	config.ConfigPath = filepath.Join("/tmp", configFilename)
-	return config
+	return config, nil
 }
 
 func (plugin *PluginConfig) BackupFile(filenamePath string) error {

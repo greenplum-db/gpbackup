@@ -52,13 +52,27 @@ var (
 )
 
 func DoHelper() {
-	defer DoTeardown()
+	var err error
+	defer func() {
+		if wasTerminated {
+			CleanupGroup.Wait()
+			return
+		}
+		DoCleanup()
+		os.Exit(gplog.GetErrorCode())
+	}()
+
 	InitializeGlobals()
 	utils.InitializeSignalHandler(DoCleanup, fmt.Sprintf("helper agent on segment %d", *content), &wasTerminated)
 	if *backupAgent {
-		doBackupAgent()
+		err = doBackupAgent()
 	} else if *restoreAgent {
-		doRestoreAgent()
+		err = doRestoreAgent()
+	}
+	if err != nil {
+		gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
+		handle, _ := iohelper.OpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
+		_ = handle.Close()
 	}
 }
 
@@ -90,14 +104,16 @@ func InitializeGlobals() {
  * Shared functions
  */
 
-func createPipe(pipe string) {
+func createPipe(pipe string) error {
 	err := syscall.Mkfifo(pipe, 0777)
-	gplog.FatalOnError(err)
+	return err
 }
 
-func getOidListFromFile() []int {
+func getOidListFromFile() ([]int, error) {
 	oidStr, err := operating.System.ReadFile(*oidFile)
-	gplog.FatalOnError(err)
+	if err != nil {
+		return nil, err
+	}
 	oidStrList := strings.Split(strings.TrimSpace(fmt.Sprintf("%s", oidStr)), "\n")
 	oidList := make([]int, len(oidStrList))
 	for i, oid := range oidStrList {
@@ -105,20 +121,25 @@ func getOidListFromFile() []int {
 		oidList[i] = num
 	}
 	sort.Ints(oidList)
-	return oidList
+	return oidList, nil
 }
 
-func flushAndCloseRestoreWriter() {
+func flushAndCloseRestoreWriter() error {
 	if writer != nil {
 		err := writer.Flush()
-		gplog.FatalOnError(err)
+		if err != nil {
+			return err
+		}
 		writer = nil
 	}
 	if writeHandle != nil {
 		err := writeHandle.Close()
-		gplog.FatalOnError(err)
+		if err != nil {
+			return err
+		}
 		writeHandle = nil
 	}
+	return nil
 }
 
 func fileExists(filename string) bool {
@@ -126,56 +147,48 @@ func fileExists(filename string) bool {
 	return err == nil
 }
 
-func removeFileIfExists(filename string) {
+func removeFileIfExists(filename string) error {
 	if fileExists(filename) {
 		err := os.Remove(filename)
-		gplog.FatalOnError(err)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 /*
  * Shared helper functions
  */
 
-func DoTeardown() {
-	if err := recover(); err != nil {
-		// Check if gplog.Fatal did not cause the panic
-		if gplog.GetErrorCode() != 2 {
-			gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
-			gplog.SetErrorCode(2)
-		}
-		handle := iohelper.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
-		_ = handle.Close()
-	}
-	if wasTerminated {
-		CleanupGroup.Wait()
-		return
-	}
-	DoCleanup()
-	os.Exit(gplog.GetErrorCode())
-}
-
 func DoCleanup() {
-	defer func() {
-		if err := recover(); err != nil {
-			log("Encountered error during cleanup: %v", err)
-		}
-		log("Cleanup complete")
-		CleanupGroup.Done()
-	}()
+	defer CleanupGroup.Done()
 	if wasTerminated {
 		/*
 		 * If the agent dies during the last table copy, it can still report
 		 * success, so we create an error file and check for its presence in
 		 * gprestore after the COPYs are finished.
 		 */
-		handle := iohelper.MustOpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
+		handle, _ := iohelper.OpenFileForWriting(fmt.Sprintf("%s_error", *pipeFile))
 		_ = handle.Close()
 	}
-	flushAndCloseRestoreWriter()
-	removeFileIfExists(lastPipe)
-	removeFileIfExists(currentPipe)
-	removeFileIfExists(nextPipe)
+	err := flushAndCloseRestoreWriter()
+	if err != nil {
+		log("Encountered error during cleanup: %v", err)
+	}
+	err = removeFileIfExists(lastPipe)
+	if err != nil {
+		log("Encountered error during cleanup: %v", err)
+	}
+	err = removeFileIfExists(currentPipe)
+	if err != nil {
+		log("Encountered error during cleanup: %v", err)
+	}
+	err = removeFileIfExists(nextPipe)
+	if err != nil {
+		log("Encountered error during cleanup: %v", err)
+	}
+	log("Cleanup complete")
 }
 
 func log(s string, v ...interface{}) {
