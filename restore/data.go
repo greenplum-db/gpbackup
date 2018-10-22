@@ -139,18 +139,26 @@ func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, dataEntries []utils.Mas
 	}
 	close(tasks)
 	workerPool.Wait()
+
+	var agentErr error
+	if backupConfig.SingleDataFile {
+		agentErr = utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
+		if agentErr != nil {
+			/*
+			 * if fatalErr is present, we only want to use gplog.Error here
+			 * so we don't exit before we get a chance to log the other error
+			 */
+			if MustGetFlagBool(utils.ON_ERROR_CONTINUE) || fatalErr != nil {
+				gplog.Error(agentErr.Error())
+			} else {
+				gplog.Fatal(agentErr, "")
+			}
+		}
+	}
+
 	if fatalErr != nil {
 		gplog.Fatal(fatalErr, "")
 	} else if numErrors > 0 {
 		gplog.Error("Encountered %d errors during table data restore; see log file %s for a list of table errors.", numErrors, gplog.GetLogFilePath())
-	}
-	err := utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
-	if err != nil {
-		errMsg := "Error restoring data for one or more tables"
-		if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
-			gplog.Error("%s: %v", errMsg, err)
-		} else {
-			gplog.Fatal(err, errMsg)
-		}
 	}
 }
