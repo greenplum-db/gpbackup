@@ -15,9 +15,7 @@ import (
  */
 
 func validateFilterLists() {
-	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA))
 	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_SCHEMA))
-	ValidateFilterTables(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_RELATION))
 	ValidateFilterTables(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_RELATION))
 }
 
@@ -28,6 +26,7 @@ func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string) {
 		resultSchemas := dbconn.MustSelectStringSlice(connectionPool, query)
 		if len(resultSchemas) < len(schemaList) {
 			schemaSet := utils.NewIncludeSet(resultSchemas)
+			schemaSet.AlwaysMatchesFilter = false
 			for _, schema := range schemaList {
 				if !schemaSet.MatchesFilter(schema) {
 					gplog.Fatal(nil, "Schema %s does not exist", schema)
