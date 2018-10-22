@@ -641,8 +641,13 @@ PARTITION BY LIST (gender)
 
 			result := backup.GetPartitionTemplates(connectionPool)[oid]
 
-			// The spacing is very specific here and is output from the postgres function
-			expectedResult := `ALTER TABLE public.part_table 
+			/*
+			 * The spacing is very specific here and is output from the postgres function
+			 * The only difference between the below statements is spacing
+			 */
+			expectedResult := ""
+			if connectionPool.Version.Before("6") {
+				expectedResult = `ALTER TABLE public.part_table 
 SET SUBPARTITION TEMPLATE  
           (
           SUBPARTITION usa VALUES('usa') WITH (tablename='part_table'), 
@@ -651,6 +656,17 @@ SET SUBPARTITION TEMPLATE
           DEFAULT SUBPARTITION other_regions  WITH (tablename='part_table')
           )
 `
+			} else {
+				expectedResult = `ALTER TABLE public.part_table 
+SET SUBPARTITION TEMPLATE 
+          (
+          SUBPARTITION usa VALUES('usa') WITH (tablename='part_table'), 
+          SUBPARTITION asia VALUES('asia') WITH (tablename='part_table'), 
+          SUBPARTITION europe VALUES('europe') WITH (tablename='part_table'), 
+          DEFAULT SUBPARTITION other_regions  WITH (tablename='part_table')
+          )
+`
+			}
 
 			Expect(result).To(Equal(expectedResult))
 		})
@@ -689,8 +705,13 @@ SET SUBPARTITION TEMPLATE
 			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
-			// The spacing is very specific here and is output from the postgres function
-			expectedResult := `ALTER TABLE public.part_table 
+			/*
+			 * The spacing is very specific here and is output from the postgres function
+			 * The only difference between the below statements is spacing
+			 */
+			expectedResult := ""
+			if connectionPool.Version.Before("6") {
+				expectedResult = `ALTER TABLE public.part_table 
 SET SUBPARTITION TEMPLATE  
           (
           SUBPARTITION usa VALUES('usa') WITH (tablename='part_table'), 
@@ -699,8 +720,19 @@ SET SUBPARTITION TEMPLATE
           DEFAULT SUBPARTITION other_regions  WITH (tablename='part_table')
           )
 `
-
+			} else {
+				expectedResult = `ALTER TABLE public.part_table 
+SET SUBPARTITION TEMPLATE 
+          (
+          SUBPARTITION usa VALUES('usa') WITH (tablename='part_table'), 
+          SUBPARTITION asia VALUES('asia') WITH (tablename='part_table'), 
+          SUBPARTITION europe VALUES('europe') WITH (tablename='part_table'), 
+          DEFAULT SUBPARTITION other_regions  WITH (tablename='part_table')
+          )
+`
+			}
 			Expect(result).To(Equal(expectedResult))
+
 		})
 		It("returns a value for a subpartition template in a specific schema", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (trans_id int, date date, amount decimal(9,2), region text)
@@ -738,8 +770,13 @@ SET SUBPARTITION TEMPLATE
 			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
-			// The spacing is very specific here and is output from the postgres function
-			expectedResult := `ALTER TABLE testschema.part_table 
+			/*
+			 * The spacing is very specific here and is output from the postgres function
+			 * The only difference between the below statements is spacing
+			 */
+			expectedResult := ""
+			if connectionPool.Version.Before("6") {
+				expectedResult = `ALTER TABLE testschema.part_table 
 SET SUBPARTITION TEMPLATE  
           (
           SUBPARTITION usa VALUES('usa') WITH (tablename='part_table'), 
@@ -748,6 +785,17 @@ SET SUBPARTITION TEMPLATE
           DEFAULT SUBPARTITION other_regions  WITH (tablename='part_table')
           )
 `
+			} else {
+				expectedResult = `ALTER TABLE testschema.part_table 
+SET SUBPARTITION TEMPLATE 
+          (
+          SUBPARTITION usa VALUES('usa') WITH (tablename='part_table'), 
+          SUBPARTITION asia VALUES('asia') WITH (tablename='part_table'), 
+          SUBPARTITION europe VALUES('europe') WITH (tablename='part_table'), 
+          DEFAULT SUBPARTITION other_regions  WITH (tablename='part_table')
+          )
+`
+			}
 
 			Expect(result).To(Equal(expectedResult))
 		})

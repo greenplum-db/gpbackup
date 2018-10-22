@@ -188,8 +188,8 @@ PARTITION BY RANGE (date)
 				ruleDef1 = "CREATE RULE double_insert AS ON INSERT TO public.rule_table1 DO INSERT INTO public.rule_table1 (i) VALUES (1);"
 				ruleDef2 = "CREATE RULE update_notify AS ON UPDATE TO public.rule_table1 DO NOTIFY rule_table1;"
 			} else {
-				ruleDef1 = "CREATE RULE double_insert AS\n    ON INSERT TO public.rule_table1 DO  INSERT INTO public.rule_table1 (i) \n  VALUES (1);"
-				ruleDef2 = "CREATE RULE update_notify AS\n    ON UPDATE TO public.rule_table1 DO \n NOTIFY rule_table1;"
+				ruleDef1 = "CREATE RULE double_insert AS\n    ON INSERT TO public.rule_table1 DO  INSERT INTO public.rule_table1 (i)\n  VALUES (1);"
+				ruleDef2 = "CREATE RULE update_notify AS\n    ON UPDATE TO public.rule_table1 DO\n NOTIFY rule_table1;"
 			}
 			rule1 = backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
 		})

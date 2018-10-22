@@ -99,7 +99,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			if connectionPool.Version.Before("6") {
 				ruleDef = "CREATE RULE update_notify AS ON UPDATE TO public.testtable DO NOTIFY testtable;"
 			} else {
-				ruleDef = "CREATE RULE update_notify AS\n    ON UPDATE TO public.testtable DO \n NOTIFY testtable;"
+				ruleDef = "CREATE RULE update_notify AS\n    ON UPDATE TO public.testtable DO\n NOTIFY testtable;"
 			}
 		})
 		It("creates a basic rule", func() {
