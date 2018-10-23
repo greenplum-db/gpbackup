@@ -265,148 +265,13 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 			statements = append(statements, fmt.Sprintf("REVOKE ALL %sON %s%s FROM %s;", columnStr, typeStr, objectName, obj.Owner))
 		}
 		for _, acl := range obj.Privileges {
-			/*
-			 * Determine whether to print "GRANT ALL" instead of granting individual
-			 * privileges.  Information on which privileges exist for a given object
-			 * comes from src/include/utils/acl.h in GPDB.
-			 */
-			hasAllPrivileges := false
-			hasAllPrivilegesWithGrant := false
-			privStr := ""
-			privWithGrantStr := ""
 			grantee := ""
 			if acl.Grantee == "" {
 				grantee = "PUBLIC"
 			} else {
 				grantee = acl.Grantee
 			}
-			switch objectType {
-			case "COLUMN":
-				hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.References
-				hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.ReferencesWithGrant
-			case "DATABASE":
-				hasAllPrivileges = acl.Create && acl.Temporary && acl.Connect
-				hasAllPrivilegesWithGrant = acl.CreateWithGrant && acl.TemporaryWithGrant && acl.ConnectWithGrant
-			case "FOREIGN DATA WRAPPER":
-				hasAllPrivileges = acl.Usage
-				hasAllPrivilegesWithGrant = acl.UsageWithGrant
-			case "FOREIGN SERVER":
-				hasAllPrivileges = acl.Usage
-				hasAllPrivilegesWithGrant = acl.UsageWithGrant
-			case "FOREIGN TABLE":
-				hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.References && acl.Trigger
-				hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
-					acl.ReferencesWithGrant && acl.TriggerWithGrant
-			case "FUNCTION":
-				hasAllPrivileges = acl.Execute
-				hasAllPrivilegesWithGrant = acl.ExecuteWithGrant
-			case "LANGUAGE":
-				hasAllPrivileges = acl.Usage
-				hasAllPrivilegesWithGrant = acl.UsageWithGrant
-			case "PROTOCOL":
-				hasAllPrivileges = acl.Select && acl.Insert
-				hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant
-			case "SCHEMA":
-				hasAllPrivileges = acl.Usage && acl.Create
-				hasAllPrivilegesWithGrant = acl.UsageWithGrant && acl.CreateWithGrant
-			case "SEQUENCE":
-				hasAllPrivileges = acl.Select && acl.Update && acl.Usage
-				hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.UpdateWithGrant && acl.UsageWithGrant
-			case "TABLE":
-				hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.Truncate && acl.References && acl.Trigger
-				hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
-					acl.TruncateWithGrant && acl.ReferencesWithGrant && acl.TriggerWithGrant
-			case "TABLESPACE":
-				hasAllPrivileges = acl.Create
-				hasAllPrivilegesWithGrant = acl.CreateWithGrant
-			case "VIEW":
-				hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.Truncate && acl.References && acl.Trigger
-				hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
-					acl.TruncateWithGrant && acl.ReferencesWithGrant && acl.TriggerWithGrant
-			}
-			if hasAllPrivileges {
-				privStr = "ALL"
-			} else {
-				privList := make([]string, 0)
-				if acl.Select {
-					privList = append(privList, "SELECT")
-				}
-				if acl.Insert {
-					privList = append(privList, "INSERT")
-				}
-				if acl.Update {
-					privList = append(privList, "UPDATE")
-				}
-				if acl.Delete {
-					privList = append(privList, "DELETE")
-				}
-				if acl.Truncate {
-					privList = append(privList, "TRUNCATE")
-				}
-				if acl.References {
-					privList = append(privList, "REFERENCES")
-				}
-				if acl.Trigger {
-					privList = append(privList, "TRIGGER")
-				}
-				/*
-				 * We skip checking whether acl.Execute is set here because only Functions have Execute,
-				 * and functions only have Execute, so Execute == hasAllPrivileges for Functions.
-				 */
-				if acl.Usage {
-					privList = append(privList, "USAGE")
-				}
-				if acl.Create {
-					privList = append(privList, "CREATE")
-				}
-				if acl.Temporary {
-					privList = append(privList, "TEMPORARY")
-				}
-				if acl.Connect {
-					privList = append(privList, "CONNECT")
-				}
-				privStr = strings.Join(privList, ",")
-			}
-			if hasAllPrivilegesWithGrant {
-				privWithGrantStr = "ALL"
-			} else {
-				privWithGrantList := make([]string, 0)
-				if acl.SelectWithGrant {
-					privWithGrantList = append(privWithGrantList, "SELECT")
-				}
-				if acl.InsertWithGrant {
-					privWithGrantList = append(privWithGrantList, "INSERT")
-				}
-				if acl.UpdateWithGrant {
-					privWithGrantList = append(privWithGrantList, "UPDATE")
-				}
-				if acl.DeleteWithGrant {
-					privWithGrantList = append(privWithGrantList, "DELETE")
-				}
-				if acl.TruncateWithGrant {
-					privWithGrantList = append(privWithGrantList, "TRUNCATE")
-				}
-				if acl.ReferencesWithGrant {
-					privWithGrantList = append(privWithGrantList, "REFERENCES")
-				}
-				if acl.TriggerWithGrant {
-					privWithGrantList = append(privWithGrantList, "TRIGGER")
-				}
-				// The comment above regarding Execute applies to ExecuteWithGrant as well.
-				if acl.UsageWithGrant {
-					privWithGrantList = append(privWithGrantList, "USAGE")
-				}
-				if acl.CreateWithGrant {
-					privWithGrantList = append(privWithGrantList, "CREATE")
-				}
-				if acl.TemporaryWithGrant {
-					privWithGrantList = append(privWithGrantList, "TEMPORARY")
-				}
-				if acl.ConnectWithGrant {
-					privWithGrantList = append(privWithGrantList, "CONNECT")
-				}
-				privWithGrantStr = strings.Join(privWithGrantList, ",")
-			}
+			privStr, privWithGrantStr := CreatePrivilegeStrings(acl, objectType)
 			if privStr != "" {
 				statements = append(statements, fmt.Sprintf("GRANT %s %sON %s%s TO %s;", privStr, columnStr, typeStr, objectName, grantee))
 			}
@@ -421,6 +286,150 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 	return ""
 }
 
+func CreatePrivilegeStrings(acl ACL, objectType string) (string, string) {
+	/*
+	 * Determine whether to print "GRANT ALL" instead of granting individual
+	 * privileges.  Information on which privileges exist for a given object
+	 * comes from src/include/utils/acl.h in GPDB.
+	 */
+	hasAllPrivileges := false
+	hasAllPrivilegesWithGrant := false
+	privStr := ""
+	privWithGrantStr := ""
+	switch objectType {
+	case "COLUMN":
+		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.References
+		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.ReferencesWithGrant
+	case "DATABASE":
+		hasAllPrivileges = acl.Create && acl.Temporary && acl.Connect
+		hasAllPrivilegesWithGrant = acl.CreateWithGrant && acl.TemporaryWithGrant && acl.ConnectWithGrant
+	case "FOREIGN DATA WRAPPER":
+		hasAllPrivileges = acl.Usage
+		hasAllPrivilegesWithGrant = acl.UsageWithGrant
+	case "FOREIGN SERVER":
+		hasAllPrivileges = acl.Usage
+		hasAllPrivilegesWithGrant = acl.UsageWithGrant
+	case "FOREIGN TABLE":
+		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.References && acl.Trigger
+		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
+			acl.ReferencesWithGrant && acl.TriggerWithGrant
+	case "FUNCTION":
+		hasAllPrivileges = acl.Execute
+		hasAllPrivilegesWithGrant = acl.ExecuteWithGrant
+	case "LANGUAGE":
+		hasAllPrivileges = acl.Usage
+		hasAllPrivilegesWithGrant = acl.UsageWithGrant
+	case "PROTOCOL":
+		hasAllPrivileges = acl.Select && acl.Insert
+		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant
+	case "SCHEMA":
+		hasAllPrivileges = acl.Usage && acl.Create
+		hasAllPrivilegesWithGrant = acl.UsageWithGrant && acl.CreateWithGrant
+	case "SEQUENCE":
+		hasAllPrivileges = acl.Select && acl.Update && acl.Usage
+		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.UpdateWithGrant && acl.UsageWithGrant
+	case "TABLE":
+		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.Truncate && acl.References && acl.Trigger
+		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
+			acl.TruncateWithGrant && acl.ReferencesWithGrant && acl.TriggerWithGrant
+	case "TABLESPACE":
+		hasAllPrivileges = acl.Create
+		hasAllPrivilegesWithGrant = acl.CreateWithGrant
+	case "TYPE":
+		hasAllPrivileges = acl.Usage
+		hasAllPrivilegesWithGrant = acl.UsageWithGrant
+	case "VIEW":
+		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.Truncate && acl.References && acl.Trigger
+		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
+			acl.TruncateWithGrant && acl.ReferencesWithGrant && acl.TriggerWithGrant
+	}
+	if hasAllPrivileges {
+		privStr = "ALL"
+	} else {
+		privList := make([]string, 0)
+		if acl.Select {
+			privList = append(privList, "SELECT")
+		}
+		if acl.Insert {
+			privList = append(privList, "INSERT")
+		}
+		if acl.Update {
+			privList = append(privList, "UPDATE")
+		}
+		if acl.Delete {
+			privList = append(privList, "DELETE")
+		}
+		if acl.Truncate {
+			privList = append(privList, "TRUNCATE")
+		}
+		if acl.References {
+			privList = append(privList, "REFERENCES")
+		}
+		if acl.Trigger {
+			privList = append(privList, "TRIGGER")
+		}
+		/*
+		 * We skip checking whether acl.Execute is set here because only Functions have Execute,
+		 * and functions only have Execute, so Execute == hasAllPrivileges for Functions.
+		 */
+		if acl.Usage {
+			privList = append(privList, "USAGE")
+		}
+		if acl.Create {
+			privList = append(privList, "CREATE")
+		}
+		if acl.Temporary {
+			privList = append(privList, "TEMPORARY")
+		}
+		if acl.Connect {
+			privList = append(privList, "CONNECT")
+		}
+		privStr = strings.Join(privList, ",")
+	}
+	if hasAllPrivilegesWithGrant {
+		privWithGrantStr = "ALL"
+	} else {
+		privWithGrantList := make([]string, 0)
+		if acl.SelectWithGrant {
+			privWithGrantList = append(privWithGrantList, "SELECT")
+		}
+		if acl.InsertWithGrant {
+			privWithGrantList = append(privWithGrantList, "INSERT")
+		}
+		if acl.UpdateWithGrant {
+			privWithGrantList = append(privWithGrantList, "UPDATE")
+		}
+		if acl.DeleteWithGrant {
+			privWithGrantList = append(privWithGrantList, "DELETE")
+		}
+		if acl.TruncateWithGrant {
+			privWithGrantList = append(privWithGrantList, "TRUNCATE")
+		}
+		if acl.ReferencesWithGrant {
+			privWithGrantList = append(privWithGrantList, "REFERENCES")
+		}
+		if acl.TriggerWithGrant {
+			privWithGrantList = append(privWithGrantList, "TRIGGER")
+		}
+		// The comment above regarding Execute applies to ExecuteWithGrant as well.
+		if acl.UsageWithGrant {
+			privWithGrantList = append(privWithGrantList, "USAGE")
+		}
+		if acl.CreateWithGrant {
+			privWithGrantList = append(privWithGrantList, "CREATE")
+		}
+		if acl.TemporaryWithGrant {
+			privWithGrantList = append(privWithGrantList, "TEMPORARY")
+		}
+		if acl.ConnectWithGrant {
+			privWithGrantList = append(privWithGrantList, "CONNECT")
+		}
+		privWithGrantStr = strings.Join(privWithGrantList, ",")
+	}
+
+	return privStr, privWithGrantStr
+
+}
 func (obj ObjectMetadata) GetOwnerStatement(objectName string, objectType string) string {
 	typeStr := objectType
 	if connectionPool.Version.Before("6") && (objectType == "SEQUENCE" || objectType == "VIEW") {
@@ -499,5 +508,54 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 		case UserMapping:
 			PrintCreateUserMappingStatement(metadataFile, toc, obj)
 		}
+	}
+}
+
+func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, privileges []DefaultPrivileges) {
+	for _, priv := range privileges {
+		statements := []string{}
+		roleStr := ""
+		if priv.Owner != "" {
+			roleStr = fmt.Sprintf(" FOR ROLE %s", priv.Owner)
+		}
+		schemaStr := ""
+		if priv.Schema != "" {
+			schemaStr = fmt.Sprintf(" IN SCHEMA %s", priv.Schema)
+		}
+
+		objectType := ""
+		switch priv.ObjectType {
+		case "r":
+			objectType = "TABLE"
+		case "S":
+			objectType = "SEQUENCE"
+		case "f":
+			objectType = "FUNCTION"
+		case "T":
+			objectType = "TYPE"
+		}
+		alterPrefix := fmt.Sprintf("ALTER DEFAULT PRIVILEGES%s%s", roleStr, schemaStr)
+		statements = append(statements, fmt.Sprintf("%s REVOKE ALL ON %sS FROM PUBLIC;", alterPrefix, objectType))
+		if priv.Owner != "" {
+			statements = append(statements, fmt.Sprintf("%s REVOKE ALL ON %sS FROM %s;", alterPrefix, objectType, priv.Owner))
+		}
+		for _, acl := range priv.Privileges {
+			grantee := ""
+			if acl.Grantee == "" {
+				grantee = "PUBLIC"
+			} else {
+				grantee = acl.Grantee
+			}
+			privStr, privWithGrantStr := CreatePrivilegeStrings(acl, objectType)
+			if privStr != "" {
+				statements = append(statements, fmt.Sprintf("%s GRANT %s ON %sS TO %s;", alterPrefix, privStr, objectType, grantee))
+			}
+			if privWithGrantStr != "" {
+				statements = append(statements, fmt.Sprintf("%s GRANT %s ON %sS TO %s WITH GRANT OPTION;", alterPrefix, privWithGrantStr, objectType, grantee))
+			}
+		}
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintln("\n\n" + strings.Join(statements, "\n"))
+		toc.AddPostdataEntry(priv.Schema, "", "DEFAULT PRIVILEGES", "", start, metadataFile)
 	}
 }

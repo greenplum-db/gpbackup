@@ -571,6 +571,13 @@ func BackupEventTriggers(metadataFile *utils.FileWithByteCount) {
 	PrintCreateEventTriggerStatements(metadataFile, globalTOC, eventTriggers, eventTriggerMetadata)
 }
 
+func BackupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing ALTER DEFAULT PRIVILEGES statements to metadata file")
+	defaultPrivileges := GetDefaultPrivileges(connectionPool)
+	objectCounts["DEFAULT PRIVILEGES"] = len(defaultPrivileges)
+	PrintDefaultPrivilegesStatements(metadataFile, globalTOC, defaultPrivileges)
+}
+
 /*
  * Data wrapper functions
  */

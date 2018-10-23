@@ -370,3 +370,82 @@ SELECT
 	}
 	return metadataMap
 }
+
+type DefaultPrivilegesQueryStruct struct {
+	Oid        uint32
+	Owner      string
+	Schema     string
+	Privileges sql.NullString
+	Kind       string
+	ObjectType string
+}
+
+type DefaultPrivileges struct {
+	Owner      string
+	Schema     string
+	Privileges []ACL
+	ObjectType string
+}
+
+func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
+	query := `SELECT
+	a.oid,
+	quote_ident(r.rolname) AS owner,
+	coalesce(quote_ident(n.nspname),'') AS schema,
+	CASE
+		WHEN a.defaclacl IS NULL OR array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
+		ELSE unnest(a.defaclacl)
+	END AS privileges,
+	CASE
+		WHEN a.defaclacl IS NULL THEN 'Default'
+		WHEN array_upper(a.defaclacl, 1) = 0 THEN 'Empty'
+		ELSE ''
+	END AS kind,
+	a.defaclobjtype AS objecttype
+FROM pg_default_acl a
+JOIN pg_roles r ON r.oid = a.defaclrole
+LEFT JOIN pg_namespace n ON n.oid = a.defaclnamespace
+ORDER BY n.nspname, a.defaclobjtype, r.rolname`
+	results := make([]DefaultPrivilegesQueryStruct, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+
+	return ConstructDefaultPrivileges(results)
+}
+
+func ConstructDefaultPrivileges(results []DefaultPrivilegesQueryStruct) []DefaultPrivileges {
+	quotedRoles := GetQuotedRoleNames(connectionPool)
+
+	defaultPrivileges := make([]DefaultPrivileges, 0)
+	var priv DefaultPrivileges
+	var currentOid uint32
+	for _, result := range results {
+		privilegesStr := ""
+		if result.Kind == "Empty" {
+			privilegesStr = "GRANTEE=/GRANTOR"
+		} else if result.Privileges.Valid {
+			privilegesStr = result.Privileges.String
+		}
+		if result.Oid != currentOid {
+			if currentOid != 0 {
+				priv.Privileges = sortACLs(priv.Privileges)
+				defaultPrivileges = append(defaultPrivileges, priv)
+			}
+			currentOid = result.Oid
+			priv = DefaultPrivileges{}
+			priv.Privileges = make([]ACL, 0)
+			priv.Owner = result.Owner
+			priv.Schema = result.Schema
+			priv.ObjectType = result.ObjectType
+		}
+
+		privileges := ParseACL(privilegesStr, quotedRoles)
+		if privileges != nil {
+			priv.Privileges = append(priv.Privileges, *privileges)
+		}
+	}
+	priv.Privileges = sortACLs(priv.Privileges)
+	defaultPrivileges = append(defaultPrivileges, priv)
+
+	return defaultPrivileges
+}
