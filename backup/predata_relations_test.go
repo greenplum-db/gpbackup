@@ -1156,4 +1156,29 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 			Expect(metadataMap[2]["m"]).To(Equal(expectedACLForEmptyKind))
 		})
 	})
+	Describe("GetUniqueSchemas", func() {
+		alphabeticalAFoo := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "foo"}
+		alphabeticalABar := backup.Relation{SchemaOid: 1, Oid: 0, Schema: "otherschema", Name: "bar"}
+		schemaOther := backup.Schema{Oid: 2, Name: "otherschema"}
+		alphabeticalBFoo := backup.Relation{SchemaOid: 2, Oid: 0, Schema: "public", Name: "foo"}
+		alphabeticalBBar := backup.Relation{SchemaOid: 2, Oid: 0, Schema: "public", Name: "bar"}
+		schemaPublic := backup.Schema{Oid: 1, Name: "public"}
+		schemas := []backup.Schema{schemaOther, schemaPublic}
+
+		It("has multiple tables in a single schema", func() {
+			tables := []backup.Relation{alphabeticalAFoo, alphabeticalABar}
+			uniqueSchemas := backup.GetUniqueSchemas(schemas, tables)
+			Expect(uniqueSchemas).To(Equal([]backup.Schema{schemaPublic}))
+		})
+		It("has multiple schemas, each with multiple tables", func() {
+			tables := []backup.Relation{alphabeticalBFoo, alphabeticalBBar, alphabeticalAFoo, alphabeticalABar}
+			uniqueSchemas := backup.GetUniqueSchemas(schemas, tables)
+			Expect(uniqueSchemas).To(Equal([]backup.Schema{schemaOther, schemaPublic}))
+		})
+		It("has no tables", func() {
+			tables := []backup.Relation{}
+			uniqueSchemas := backup.GetUniqueSchemas(schemas, tables)
+			Expect(uniqueSchemas).To(Equal([]backup.Schema{}))
+		})
+	})
 })

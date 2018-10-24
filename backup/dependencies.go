@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
 
@@ -246,6 +247,60 @@ func breakCircularDependencies(depMap DependencyMap) {
 					}
 				}
 			}
+		}
+	}
+}
+
+func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, tableDefsMap map[uint32]TableDefinition, constraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
+	conMap := make(map[string][]Constraint)
+	for _, constraint := range constraints {
+		conMap[constraint.OwningObject] = append(conMap[constraint.OwningObject], constraint)
+	}
+	for _, object := range objects {
+		objMetadata := metadataMap[object.GetUniqueID()]
+		switch obj := object.(type) {
+		case Type:
+			switch obj.Type {
+			case "b":
+				PrintCreateBaseTypeStatement(metadataFile, toc, obj, objMetadata)
+			case "c":
+				PrintCreateCompositeTypeStatement(metadataFile, toc, obj, objMetadata)
+			case "d":
+				domainName := utils.MakeFQN(obj.Schema, obj.Name)
+				PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, conMap[domainName])
+			case "r":
+				PrintCreateRangeTypeStatement(metadataFile, toc, obj, objMetadata)
+			}
+		case Function:
+			PrintCreateFunctionStatement(metadataFile, toc, obj, objMetadata)
+		case Relation:
+			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], objMetadata)
+		case ExternalProtocol:
+			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
+		case View:
+			PrintCreateViewStatement(metadataFile, toc, obj, objMetadata)
+		case TextSearchParser:
+			PrintCreateTextSearchParserStatement(metadataFile, toc, obj, objMetadata)
+		case TextSearchConfiguration:
+			PrintCreateTextSearchConfigurationStatement(metadataFile, toc, obj, objMetadata)
+		case TextSearchTemplate:
+			PrintCreateTextSearchTemplateStatement(metadataFile, toc, obj, objMetadata)
+		case TextSearchDictionary:
+			PrintCreateTextSearchDictionaryStatement(metadataFile, toc, obj, objMetadata)
+		case Operator:
+			PrintCreateOperatorStatement(metadataFile, toc, obj, objMetadata)
+		case OperatorClass:
+			PrintCreateOperatorClassStatement(metadataFile, toc, obj, objMetadata)
+		case Aggregate:
+			PrintCreateAggregateStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
+		case Cast:
+			PrintCreateCastStatement(metadataFile, toc, obj, objMetadata)
+		case ForeignDataWrapper:
+			PrintCreateForeignDataWrapperStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
+		case ForeignServer:
+			PrintCreateServerStatement(metadataFile, toc, obj, objMetadata)
+		case UserMapping:
+			PrintCreateUserMappingStatement(metadataFile, toc, obj)
 		}
 	}
 }

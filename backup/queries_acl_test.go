@@ -12,7 +12,7 @@ import (
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
-var _ = Describe("backup/queries_shared tests", func() {
+var _ = Describe("backup/queries_acl tests", func() {
 	Describe("GetMetadataForObjectType", func() {
 		var params backup.MetadataQueryParams
 		header := []string{"oid", "privileges", "owner", "comment"}
