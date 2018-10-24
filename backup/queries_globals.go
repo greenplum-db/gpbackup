@@ -192,6 +192,7 @@ type Role struct {
 	CreateRole      bool `db:"rolcreaterole"`
 	CreateDB        bool `db:"rolcreatedb"`
 	CanLogin        bool `db:"rolcanlogin"`
+	Replication     bool `db:"rolreplication"`
 	ConnectionLimit int  `db:"rolconnlimit"`
 	Password        string
 	ValidUntil      string
@@ -219,6 +220,10 @@ func GetRoles(connectionPool *dbconn.DBConn) []Role {
 	if connectionPool.Version.AtLeast("5") {
 		resgroupQuery = "(SELECT quote_ident(rsgname) FROM pg_resgroup WHERE pg_resgroup.oid = rolresgroup) AS resgroup,"
 	}
+	replicationQuery := ""
+	if connectionPool.Version.AtLeast("6") {
+		replicationQuery = "rolreplication,"
+	}
 	query := fmt.Sprintf(`
 SELECT
 	oid,
@@ -228,6 +233,7 @@ SELECT
 	rolcreaterole,
 	rolcreatedb,
 	rolcanlogin,
+	%s
 	rolconnlimit,
 	coalesce(rolpassword, '') AS password,
 	coalesce(timezone('UTC', rolvaliduntil) || '-00', '') AS validuntil,
@@ -239,7 +245,7 @@ SELECT
 	rolcreaterexthdfs,
 	rolcreatewexthdfs
 FROM
-	pg_authid`, resgroupQuery)
+	pg_authid`, replicationQuery, resgroupQuery)
 
 	roles := make([]Role, 0)
 	err := connectionPool.Select(&roles, query)

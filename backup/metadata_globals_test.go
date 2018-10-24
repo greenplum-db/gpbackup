@@ -204,6 +204,7 @@ ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`)
 			CreateRole:      false,
 			CreateDB:        false,
 			CanLogin:        false,
+			Replication:     false,
 			ConnectionLimit: -1,
 			Password:        "",
 			ValidUntil:      "",
@@ -225,6 +226,7 @@ ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`)
 			CreateRole:      true,
 			CreateDB:        true,
 			CanLogin:        true,
+			Replication:     true,
 			ConnectionLimit: 4,
 			Password:        "md5a8b2c77dfeba4705f29c094592eb3369",
 			ValidUntil:      "2099-01-01 00:00:00-08",
@@ -287,7 +289,7 @@ COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
 			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole2}, emptyConfigMap, roleMetadataMap)
 
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE "testRole2";
-ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');
+ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');
 ALTER ROLE "testRole2" DENY BETWEEN DAY 0 TIME '13:30:00' AND DAY 3 TIME '14:30:00';
 ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:00';
 
@@ -301,7 +303,7 @@ COMMENT ON ROLE "testRole2" IS 'This is a role comment.';`)
 				`CREATE ROLE testrole1;
 ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default RESOURCE GROUP default_group;`,
 				`CREATE ROLE "testRole2";
-ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');
+ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');
 ALTER ROLE "testRole2" DENY BETWEEN DAY 0 TIME '13:30:00' AND DAY 3 TIME '14:30:00';
 ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:00';`)
 		})

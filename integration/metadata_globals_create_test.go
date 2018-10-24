@@ -126,26 +126,29 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateRoleStatements", func() {
-		role1 := backup.Role{
-			Oid:             1,
-			Name:            "role1",
-			Super:           true,
-			Inherit:         false,
-			CreateRole:      false,
-			CreateDB:        false,
-			CanLogin:        false,
-			ConnectionLimit: -1,
-			Password:        "",
-			ValidUntil:      "",
-			ResQueue:        "pg_default",
-			ResGroup:        "default_group",
-			Createrexthttp:  false,
-			Createrextgpfd:  false,
-			Createwextgpfd:  false,
-			Createrexthdfs:  false,
-			Createwexthdfs:  false,
-			TimeConstraints: nil,
-		}
+		var role1 backup.Role
+		BeforeEach(func() {
+			role1 = backup.Role{
+				Oid:             1,
+				Name:            "role1",
+				Super:           true,
+				Inherit:         false,
+				CreateRole:      false,
+				CreateDB:        false,
+				CanLogin:        false,
+				ConnectionLimit: -1,
+				Password:        "",
+				ValidUntil:      "",
+				ResQueue:        "pg_default",
+				ResGroup:        "default_group",
+				Createrexthttp:  false,
+				Createrextgpfd:  false,
+				Createwextgpfd:  false,
+				Createrexthdfs:  false,
+				Createwexthdfs:  false,
+				TimeConstraints: nil,
+			}
+		})
 		emptyConfigMap := map[string][]backup.RoleGUC{}
 		emptyMetadataMap := backup.MetadataMap{}
 		It("creates a basic role", func() {
@@ -255,6 +258,25 @@ var _ = Describe("backup integration create statement tests", func() {
 			for _, role := range resultRoles {
 				if role.Name == "role1" {
 					structmatcher.ExpectStructsToMatchExcluding(&role1, role, "TimeConstraints.Oid")
+					return
+				}
+			}
+			Fail("Role 'role1' was not found")
+		})
+		It("creates a role with replication", func() {
+			testutils.SkipIfBefore6(connectionPool)
+
+			role1.Replication = true
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyConfigMap, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
+			role1.Oid = testutils.OidFromObjectName(connectionPool, "", "role1", backup.TYPE_ROLE)
+
+			resultRoles := backup.GetRoles(connectionPool)
+			for _, role := range resultRoles {
+				if role.Name == "role1" {
+					structmatcher.ExpectStructsToMatch(&role1, role)
 					return
 				}
 			}

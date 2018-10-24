@@ -213,6 +213,15 @@ func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		} else {
 			attrs = append(attrs, "NOLOGIN")
 		}
+
+		if role.Replication {
+			attrs = append(attrs, "REPLICATION")
+			/*
+			* Not adding NOREPLICATION when this is false because that option
+			* was not supported prior to 6 and NOREPLICATION is the default
+			 */
+		}
+
 		if role.ConnectionLimit != -1 {
 			attrs = append(attrs, fmt.Sprintf("CONNECTION LIMIT %d", role.ConnectionLimit))
 		}

@@ -169,6 +169,7 @@ var _ = Describe("backup integration tests", func() {
 				CreateRole:      false,
 				CreateDB:        false,
 				CanLogin:        false,
+				Replication:     false,
 				ConnectionLimit: -1,
 				Password:        "",
 				ValidUntil:      "",
@@ -252,6 +253,45 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 			for _, role := range results {
 				if role.Name == "role1" {
 					structmatcher.ExpectStructsToMatchExcluding(&expectedRole, role, "TimeConstraints.Oid")
+					return
+				}
+			}
+			Fail("Role 'role1' was not found")
+		})
+		It("returns a role with replication", func() {
+			testutils.SkipIfBefore6(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1 WITH SUPERUSER NOINHERIT REPLICATION")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1")
+
+			results := backup.GetRoles(connectionPool)
+
+			roleOid := testutils.OidFromObjectName(connectionPool, "", "role1", backup.TYPE_ROLE)
+			expectedRole := backup.Role{
+				Oid:             roleOid,
+				Name:            "role1",
+				Super:           true,
+				Inherit:         false,
+				CreateRole:      false,
+				CreateDB:        false,
+				CanLogin:        false,
+				Replication:     true,
+				ConnectionLimit: -1,
+				Password:        "",
+				ValidUntil:      "",
+				ResQueue:        "pg_default",
+				ResGroup:        "admin_group",
+				Createrexthttp:  false,
+				Createrextgpfd:  false,
+				Createwextgpfd:  false,
+				Createrexthdfs:  false,
+				Createwexthdfs:  false,
+				TimeConstraints: nil,
+			}
+
+			for _, role := range results {
+				if role.Name == "role1" {
+					structmatcher.ExpectStructsToMatch(&expectedRole, role)
 					return
 				}
 			}
