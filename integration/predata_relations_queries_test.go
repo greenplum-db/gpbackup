@@ -287,6 +287,18 @@ PARTITION BY LIST (gender)
 			Expect(tables).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
 		})
+		It("returns user table information for tables even with an non existant excludeTable", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foo")
+
+			backupCmdFlags.Set(utils.EXCLUDE_RELATION, "testschema.nonexistant")
+			tables := backup.GetAllUserTables(connectionPool)
+
+			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
+
+			Expect(tables).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+		})
 	})
 	Describe("GetPartitionTableMap", func() {
 		It("correctly maps oids to parent or leaf table types", func() {

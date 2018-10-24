@@ -17,11 +17,17 @@ import (
  */
 
 func validateFilterListsInBackupSet() {
-	ValidateFilterSchemasInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA))
-	ValidateFilterRelationsInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_RELATION))
+	ValidateFilterSchemasInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA), false)
+	ValidateFilterSchemasInBackupSet(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA), true)
+	ValidateFilterRelationsInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_RELATION), false)
+	ValidateFilterRelationsInBackupSet(MustGetFlagStringSlice(utils.EXCLUDE_RELATION), true)
 }
 
-func ValidateFilterSchemasInBackupSet(schemaList []string) {
+/* This only checks the globalTOC, but will still succesfully validate tables
+ * in incremental backups since incremental backups will always take backups of
+ * the metadata (--incremental and --data-only backup flags are not compatible)
+ */
+func ValidateFilterSchemasInBackupSet(schemaList []string, noFatal bool) {
 	schemaMap := make(map[string]bool, len(schemaList))
 	for _, schema := range schemaList {
 		schemaMap[schema] = true
@@ -56,7 +62,11 @@ func ValidateFilterSchemasInBackupSet(schemaList []string) {
 		keys[i] = k
 		i++
 	}
-	gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	if noFatal {
+		gplog.Warn("Could not find the following excluded schema(s) in the backup set: %s", strings.Join(keys, ", "))
+	} else {
+		gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	}
 }
 
 func GenerateRestoreRelationList() []string {
@@ -126,7 +136,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	}
 }
 
-func ValidateFilterRelationsInBackupSet(relationList []string) {
+func ValidateFilterRelationsInBackupSet(relationList []string, noFatal bool) {
 	if len(relationList) == 0 {
 		return
 	}
@@ -166,7 +176,11 @@ func ValidateFilterRelationsInBackupSet(relationList []string) {
 		keys[i] = k
 		i++
 	}
-	gplog.Fatal(errors.Errorf("Could not find the following relation(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	if noFatal {
+		gplog.Warn("Could not find the following excluded relation(s) in the backup set: %s", strings.Join(keys, ", "))
+	} else {
+		gplog.Fatal(errors.Errorf("Could not find the following relation(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	}
 }
 
 func ValidateDatabaseExistence(unquotedDBName string, createDatabase bool, isFiltered bool) {
