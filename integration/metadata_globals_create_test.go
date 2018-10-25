@@ -17,6 +17,55 @@ var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
+	Describe("PrintCreateDatabaseStatement", func() {
+		emptyDB := backup.Database{}
+		emptyMetadataMap := backup.MetadataMap{}
+		BeforeEach(func() {
+			connectionPool.DBName = "create_test_db"
+		})
+		AfterEach(func() {
+			connectionPool.DBName = "testdb"
+		})
+		It("creates a basic database", func() {
+			db := backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8"}
+			backup.PrintCreateDatabaseStatement(backupfile, toc, emptyDB, db, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP DATABASE create_test_db")
+
+			resultDB := backup.GetDatabaseInfo(connectionPool)
+			structmatcher.ExpectStructsToMatchExcluding(&db, &resultDB, "Oid", "Collate", "CType")
+		})
+		It("creates a database with properties the same as defaults", func() {
+			defaultDB := backup.GetDefaultDatabaseEncodingInfo(connectionPool)
+			var db backup.Database
+			db = backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8", Collate: defaultDB.Collate, CType: defaultDB.Collate}
+
+			backup.PrintCreateDatabaseStatement(backupfile, toc, defaultDB, db, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP DATABASE create_test_db")
+
+			resultDB := backup.GetDatabaseInfo(connectionPool)
+			structmatcher.ExpectStructsToMatchExcluding(&db, &resultDB, "Oid")
+		})
+		It("creates a database with all properties", func() {
+			var db backup.Database
+			if connectionPool.Version.Before("6") {
+				db = backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8", Collate: "", CType: ""}
+			} else {
+				db = backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8", Collate: "en_US.utf-8", CType: "en_US.utf-8"}
+			}
+
+			backup.PrintCreateDatabaseStatement(backupfile, toc, emptyDB, db, emptyMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP DATABASE create_test_db")
+
+			resultDB := backup.GetDatabaseInfo(connectionPool)
+			structmatcher.ExpectStructsToMatchExcluding(&db, &resultDB, "Oid")
+		})
+	})
 	Describe("PrintDatabaseGUCs", func() {
 		defaultOidGUC := "SET default_with_oids TO 'true'"
 		searchPathGUC := "SET search_path TO pg_catalog, public"

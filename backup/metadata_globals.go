@@ -23,20 +23,20 @@ SET client_encoding = '%s';
 	toc.AddGlobalEntry("", "", "SESSION GUCS", start, metadataFile)
 }
 
-func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, db Database, dbMetadata MetadataMap) {
+func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, defaultDB Database, db Database, dbMetadata MetadataMap) {
 	dbname := db.Name
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE DATABASE %s TEMPLATE template0", dbname)
 	if db.Tablespace != "pg_default" {
 		metadataFile.MustPrintf(" TABLESPACE %s", db.Tablespace)
 	}
-	if db.Encoding != "" {
+	if db.Encoding != "" && (db.Encoding != defaultDB.Encoding) {
 		metadataFile.MustPrintf(" ENCODING '%s'", db.Encoding)
 	}
-	if db.Collate != "" {
+	if db.Collate != "" && (db.Collate != defaultDB.Collate) {
 		metadataFile.MustPrintf(" LC_COLLATE '%s'", db.Collate)
 	}
-	if db.CType != "" {
+	if db.CType != "" && (db.CType != defaultDB.CType) {
 		metadataFile.MustPrintf(" LC_CTYPE '%s'", db.CType)
 	}
 	metadataFile.MustPrintf(";")

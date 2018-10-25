@@ -350,9 +350,10 @@ func BackupTablespaces(metadataFile *utils.FileWithByteCount) {
 
 func BackupCreateDatabase(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE DATABASE statement to metadata file")
+	defaultDB := GetDefaultDatabaseEncodingInfo(connectionPool)
 	db := GetDatabaseInfo(connectionPool)
 	dbMetadata := GetMetadataForObjectType(connectionPool, TYPE_DATABASE)
-	PrintCreateDatabaseStatement(metadataFile, globalTOC, db, dbMetadata)
+	PrintCreateDatabaseStatement(metadataFile, globalTOC, defaultDB, db, dbMetadata)
 }
 
 func BackupDatabaseGUCs(metadataFile *utils.FileWithByteCount) {

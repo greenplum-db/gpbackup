@@ -46,12 +46,45 @@ var _ = Describe("backup integration tests", func() {
 			Expect(results[0]).To(Equal(`SET default_with_oids TO 'true'`))
 		})
 	})
+	Describe("GetDefaultDatabaseEncodingInfo", func() {
+		It("queries default values from template0", func() {
+			result := backup.GetDefaultDatabaseEncodingInfo(connectionPool)
+
+			Expect(result.Name).To(Equal("template0"))
+			Expect(result.Encoding).To(Equal("UTF8"))
+			if connectionPool.Version.AtLeast("6") {
+				/*
+				 * These values are slightly different between mac and linux
+				 * so we use a regexp to match them
+				 */
+				Expect(result.Collate).To(MatchRegexp("en_US.utf-?8"))
+				Expect(result.CType).To(MatchRegexp("en_US.utf-?8"))
+			}
+		})
+	})
 	Describe("GetDatabaseInfo", func() {
-		It("returns a database info struct", func() {
+		It("returns a database info struct for a basic database", func() {
 			result := backup.GetDatabaseInfo(connectionPool)
 
 			testdbExpected := backup.Database{Oid: 0, Name: "testdb", Tablespace: "pg_default", Encoding: "UTF8"}
 			structmatcher.ExpectStructsToMatchExcluding(&testdbExpected, &result, "Oid", "Collate", "CType")
+		})
+		It("returns a database info struct for a complex database", func() {
+			var expectedDB backup.Database
+			if connectionPool.Version.Before("6") {
+				testhelper.AssertQueryRuns(connectionPool, "CREATE DATABASE create_test_db ENCODING 'UTF8' TEMPLATE template0")
+				expectedDB = backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8", Collate: "", CType: ""}
+			} else {
+				testhelper.AssertQueryRuns(connectionPool, "CREATE DATABASE create_test_db ENCODING 'UTF8' LC_COLLATE 'en_US.utf-8' LC_CTYPE 'en_US.utf-8' TEMPLATE template0")
+				expectedDB = backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8", Collate: "en_US.utf-8", CType: "en_US.utf-8"}
+			}
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP DATABASE create_test_db")
+
+			connectionPool.DBName = `create_test_db`
+			result := backup.GetDatabaseInfo(connectionPool)
+			connectionPool.DBName = `testdb`
+
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDB, &result, "Oid")
 		})
 		It("returns a database info struct if database contains single quote", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE DATABASE "test'db"`)

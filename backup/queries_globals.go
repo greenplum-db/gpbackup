@@ -38,6 +38,25 @@ func (db Database) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_DATABASE_OID, Oid: db.Oid}
 }
 
+func GetDefaultDatabaseEncodingInfo(connectionPool *dbconn.DBConn) Database {
+	lcQuery := ""
+	if connectionPool.Version.AtLeast("6") {
+		lcQuery = "datcollate AS collate, datctype AS ctype,"
+	}
+
+	query := fmt.Sprintf(`SELECT
+	datname AS name,
+	%s
+	pg_encoding_to_char(encoding) AS encoding
+	FROM pg_database
+WHERE datname = 'template0'`, lcQuery)
+
+	result := Database{}
+	err := connectionPool.Get(&result, query)
+	gplog.FatalOnError(err)
+	return result
+}
+
 func GetDatabaseInfo(connectionPool *dbconn.DBConn) Database {
 	lcQuery := ""
 	if connectionPool.Version.AtLeast("6") {
