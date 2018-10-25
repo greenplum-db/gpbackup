@@ -180,6 +180,85 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 			})
 		})
 	})
+	Describe("PrintDefaultPrivilegeStatements", func() {
+		privs := []backup.ACL{backup.ACL{Grantee: "", Usage: true}}
+		It("prints ALTER DEFAULT PRIVILEGES statement for relation", func() {
+			defaultPrivileges := []backup.DefaultPrivileges{{Owner: "testrole", Schema: "", Privileges: privs, ObjectType: "r"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON TABLES FROM testrole;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO PUBLIC;
+`)
+		})
+		It("prints ALTER DEFAULT PRIVILEGES statement for sequence", func() {
+			defaultPrivileges := []backup.DefaultPrivileges{{Owner: "testrole", Schema: "", Privileges: privs, ObjectType: "S"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON SEQUENCES FROM testrole;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON SEQUENCES TO PUBLIC;
+`)
+		})
+		It("prints ALTER DEFAULT PRIVILEGES statement for function", func() {
+			defaultPrivileges := []backup.DefaultPrivileges{{Owner: "testrole", Schema: "", Privileges: privs, ObjectType: "f"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON FUNCTIONS FROM testrole;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON FUNCTIONS TO PUBLIC;
+`)
+		})
+		It("prints ALTER DEFAULT PRIVILEGES statement for type", func() {
+			defaultPrivileges := []backup.DefaultPrivileges{{Owner: "testrole", Schema: "", Privileges: privs, ObjectType: "T"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON TYPES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON TYPES FROM testrole;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT ALL ON TYPES TO PUBLIC;
+`)
+		})
+		It("prints ALTER DEFAULT PRIVILEGES statement for role", func() {
+			localPrivs := []backup.ACL{backup.ACL{Grantee: "somerole", Usage: true}}
+			defaultPrivileges := []backup.DefaultPrivileges{{Schema: "", Owner: "somerole", Privileges: localPrivs, ObjectType: "r"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE somerole REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE somerole REVOKE ALL ON TABLES FROM somerole;
+ALTER DEFAULT PRIVILEGES FOR ROLE somerole GRANT USAGE ON TABLES TO somerole;
+`)
+		})
+		It("prints ALTER DEFAULT PRIVILEGES statement in schema", func() {
+			defaultPrivileges := []backup.DefaultPrivileges{{Owner: "testrole", Schema: "myschema", Privileges: privs, ObjectType: "r"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole IN SCHEMA myschema REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole IN SCHEMA myschema REVOKE ALL ON TABLES FROM testrole;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole IN SCHEMA myschema GRANT USAGE ON TABLES TO PUBLIC;
+`)
+		})
+		It("prints ALTER DEFAULT PRIVILEGES statement for role in schema", func() {
+			localPrivs := []backup.ACL{backup.ACL{Grantee: "somerole", Usage: true}}
+			defaultPrivileges := []backup.DefaultPrivileges{{Schema: "myschema", Owner: "somerole", Privileges: localPrivs, ObjectType: "r"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE somerole IN SCHEMA myschema REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE somerole IN SCHEMA myschema REVOKE ALL ON TABLES FROM somerole;
+ALTER DEFAULT PRIVILEGES FOR ROLE somerole IN SCHEMA myschema GRANT USAGE ON TABLES TO somerole;
+`)
+		})
+		It("prints ALTER DEFAULT PRIVILEGES statement with grant option", func() {
+			localPrivs := []backup.ACL{backup.ACL{Grantee: "somerole", Usage: true, UsageWithGrant: true}}
+			defaultPrivileges := []backup.DefaultPrivileges{{Owner: "testrole", Schema: "", Privileges: localPrivs, ObjectType: "r"}}
+			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			testhelper.ExpectRegexp(buffer, `
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON TABLES FROM testrole;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO somerole;
+ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO somerole WITH GRANT OPTION;
+`)
+		})
+	})
 	Describe("ConstructMetadataMap", func() {
 		object1A := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 1}, Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
 		object1B := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 1}, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
@@ -205,6 +284,7 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment"}
 			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[backup.UniqueID{Oid: 2}]).To(Equal(expectedObjectMetadata))
+
 		})
 		It("One object with two ACL entries", func() {
 			metadataList = []backup.MetadataQueryStruct{object1A, object1B}
@@ -293,6 +373,63 @@ ALTER VIEW public.viewname OWNER TO testrole;`)
 			expected := backup.ACL{Grantee: "", Insert: true}
 			result := backup.ParseACL(aclStr, quotedRoleNames)
 			structmatcher.ExpectStructsToMatch(&expected, result)
+		})
+	})
+	Describe("ConstructDefaultPrivileges", func() {
+		object1A := backup.DefaultPrivilegesQueryStruct{Oid: 1, Owner: "testrole", Schema: "myschema", Kind: "", ObjectType: "r", Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}}
+		object1B := backup.DefaultPrivilegesQueryStruct{Oid: 1, Owner: "testrole", Schema: "myschema", Kind: "", ObjectType: "r", Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}}
+		object2 := backup.DefaultPrivilegesQueryStruct{Oid: 2, Owner: "testrole", Schema: "myschema", Kind: "", ObjectType: "S", Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}}
+		objectDefaultKind := backup.DefaultPrivilegesQueryStruct{Oid: 3, Owner: "testrole", Schema: "", Kind: "Default", ObjectType: "T", Privileges: sql.NullString{String: "", Valid: false}}
+		objectEmptyKind := backup.DefaultPrivilegesQueryStruct{Oid: 4, Owner: "testrole", Schema: "", Kind: "Empty", ObjectType: "f", Privileges: sql.NullString{String: "", Valid: false}}
+		var privilegesQuerylist []backup.DefaultPrivilegesQueryStruct
+		BeforeEach(func() {
+			rolnames := sqlmock.NewRows([]string{"rolename", "quotedrolename"}).
+				AddRow("gpadmin", "gpadmin").
+				AddRow("testrole", "testrole")
+			mock.ExpectQuery("SELECT rolname (.*)").
+				WillReturnRows(rolnames)
+			privilegesQuerylist = []backup.DefaultPrivilegesQueryStruct{}
+		})
+		It("returns no privileges when no default privileges exist", func() {
+			privilegesList := backup.ConstructDefaultPrivileges(privilegesQuerylist)
+			Expect(privilegesList).To(BeEmpty())
+		})
+		It("constructs a single sequence default privilege in a specific schema", func() {
+			privilegesQuerylist = []backup.DefaultPrivilegesQueryStruct{object2}
+			privilegesList := backup.ConstructDefaultPrivileges(privilegesQuerylist)
+			expectedDefaultPrivileges := backup.DefaultPrivileges{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Schema: "myschema", ObjectType: "S"}
+			Expect(privilegesList).To(HaveLen(1))
+			Expect(privilegesList[0]).To(Equal(expectedDefaultPrivileges))
+		})
+		It("constructs multiple default privileges on a single relation in a specific schema", func() {
+			privilegesQuerylist = []backup.DefaultPrivilegesQueryStruct{object1A, object1B}
+			privilegesList := backup.ConstructDefaultPrivileges(privilegesQuerylist)
+			expectedObjectMetadata := backup.DefaultPrivileges{Privileges: []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}, Owner: "testrole", Schema: "myschema", ObjectType: "r"}
+			Expect(privilegesList).To(HaveLen(1))
+			Expect(privilegesList[0]).To(Equal(expectedObjectMetadata))
+		})
+		It("constructs multiple default privileges on multiple objects in a specific schema", func() {
+			privilegesQuerylist = []backup.DefaultPrivilegesQueryStruct{object1A, object1B, object2}
+			privilegesList := backup.ConstructDefaultPrivileges(privilegesQuerylist)
+			expectedObjectMetadataOne := backup.DefaultPrivileges{Privileges: []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}, Owner: "testrole", Schema: "myschema", ObjectType: "r"}
+			expectedObjectMetadataTwo := backup.DefaultPrivileges{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Schema: "myschema", ObjectType: "S"}
+			Expect(privilegesList).To(HaveLen(2))
+			Expect(privilegesList[0]).To(Equal(expectedObjectMetadataOne))
+			Expect(privilegesList[1]).To(Equal(expectedObjectMetadataTwo))
+		})
+		It("constructs a default privilege for a type with a 'Default' kind", func() {
+			privilegesQuerylist = []backup.DefaultPrivilegesQueryStruct{objectDefaultKind}
+			privilegesList := backup.ConstructDefaultPrivileges(privilegesQuerylist)
+			expectedObjectMetadata := backup.DefaultPrivileges{Privileges: []backup.ACL{}, Owner: "testrole", Schema: "", ObjectType: "T"}
+			Expect(privilegesList).To(HaveLen(1))
+			Expect(privilegesList[0]).To(Equal(expectedObjectMetadata))
+		})
+		It("constructs a default privilege for a function with an 'Empty' kind", func() {
+			privilegesQuerylist = []backup.DefaultPrivilegesQueryStruct{objectEmptyKind}
+			privilegesList := backup.ConstructDefaultPrivileges(privilegesQuerylist)
+			expectedObjectMetadata := backup.DefaultPrivileges{Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole", Schema: "", ObjectType: "f"}
+			Expect(privilegesList).To(HaveLen(1))
+			Expect(privilegesList[0]).To(Equal(expectedObjectMetadata))
 		})
 	})
 })

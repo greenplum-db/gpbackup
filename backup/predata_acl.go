@@ -67,38 +67,39 @@ func PrintObjectMetadata(file *utils.FileWithByteCount, obj ObjectMetadata, obje
 
 func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 	metadataMap := make(MetadataMap)
-	var metadata ObjectMetadata
-	if len(results) > 0 {
-		quotedRoleNames := GetQuotedRoleNames(connectionPool)
-		currentUniqueID := UniqueID{}
-		// Collect all entries for the same object into one ObjectMetadata
-		for _, result := range results {
-			privilegesStr := ""
-			if result.Kind == "Empty" {
-				privilegesStr = "GRANTEE=/GRANTOR"
-			} else if result.Privileges.Valid {
-				privilegesStr = result.Privileges.String
-			}
-			if result.UniqueID != currentUniqueID {
-				if (currentUniqueID != UniqueID{}) {
-					metadata.Privileges = sortACLs(metadata.Privileges)
-					metadataMap[currentUniqueID] = metadata
-				}
-				currentUniqueID = result.UniqueID
-				metadata = ObjectMetadata{}
-				metadata.Privileges = make([]ACL, 0)
-				metadata.Owner = result.Owner
-				metadata.Comment = result.Comment
-			}
-
-			privileges := ParseACL(privilegesStr, quotedRoleNames)
-			if privileges != nil {
-				metadata.Privileges = append(metadata.Privileges, *privileges)
-			}
-		}
-		metadata.Privileges = sortACLs(metadata.Privileges)
-		metadataMap[currentUniqueID] = metadata
+	if len(results) == 0 {
+		return MetadataMap{}
 	}
+	var metadata ObjectMetadata
+	quotedRoleNames := GetQuotedRoleNames(connectionPool)
+	currentUniqueID := UniqueID{}
+	// Collect all entries for the same object into one ObjectMetadata
+	for _, result := range results {
+		privilegesStr := ""
+		if result.Kind == "Empty" {
+			privilegesStr = "GRANTEE=/GRANTOR"
+		} else if result.Privileges.Valid {
+			privilegesStr = result.Privileges.String
+		}
+		if result.UniqueID != currentUniqueID {
+			if (currentUniqueID != UniqueID{}) {
+				metadata.Privileges = sortACLs(metadata.Privileges)
+				metadataMap[currentUniqueID] = metadata
+			}
+			currentUniqueID = result.UniqueID
+			metadata = ObjectMetadata{}
+			metadata.Privileges = make([]ACL, 0)
+			metadata.Owner = result.Owner
+			metadata.Comment = result.Comment
+		}
+
+		privileges := ParseACL(privilegesStr, quotedRoleNames)
+		if privileges != nil {
+			metadata.Privileges = append(metadata.Privileges, *privileges)
+		}
+	}
+	metadata.Privileges = sortACLs(metadata.Privileges)
+	metadataMap[currentUniqueID] = metadata
 	return metadataMap
 }
 
@@ -216,7 +217,7 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 			} else {
 				grantee = acl.Grantee
 			}
-			privStr, privWithGrantStr := CreatePrivilegeStrings(acl, objectType)
+			privStr, privWithGrantStr := createPrivilegeStrings(acl, objectType)
 			if privStr != "" {
 				statements = append(statements, fmt.Sprintf("GRANT %s %sON %s%s TO %s;", privStr, columnStr, typeStr, objectName, grantee))
 			}
@@ -231,7 +232,7 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 	return ""
 }
 
-func CreatePrivilegeStrings(acl ACL, objectType string) (string, string) {
+func createPrivilegeStrings(acl ACL, objectType string) (string, string) {
 	/*
 	 * Determine whether to print "GRANT ALL" instead of granting individual
 	 * privileges.  Information on which privileges exist for a given object
@@ -437,7 +438,7 @@ func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc
 			} else {
 				grantee = acl.Grantee
 			}
-			privStr, privWithGrantStr := CreatePrivilegeStrings(acl, objectType)
+			privStr, privWithGrantStr := createPrivilegeStrings(acl, objectType)
 			if privStr != "" {
 				statements = append(statements, fmt.Sprintf("%s GRANT %s ON %sS TO %s;", alterPrefix, privStr, objectType, grantee))
 			}
@@ -452,6 +453,9 @@ func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc
 }
 
 func ConstructDefaultPrivileges(results []DefaultPrivilegesQueryStruct) []DefaultPrivileges {
+	if len(results) == 0 {
+		return []DefaultPrivileges{}
+	}
 	quotedRoles := GetQuotedRoleNames(connectionPool)
 
 	defaultPrivileges := make([]DefaultPrivileges, 0)

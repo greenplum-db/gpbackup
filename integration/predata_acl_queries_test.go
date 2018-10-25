@@ -646,6 +646,56 @@ LANGUAGE SQL`)
 			})
 		})
 	})
+	Describe("GetDefaultPrivileges", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore6(connectionPool)
+		})
+		It("returns default privileges with single privilege", func() {
+			testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES REVOKE USAGE ON SEQUENCES FROM testrole;")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES GRANT USAGE ON SEQUENCES TO testrole;")
+
+			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
+
+			privs := []backup.ACL{backup.ACL{Grantee: "testrole", Update: true, Select: true}}
+			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "", Privileges: privs, ObjectType: "S", Owner: "testrole"}
+			Expect(resultDefaultPrivileges).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")
+		})
+		It("returns default privileges with multiple privileges", func() {
+			testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO PUBLIC;")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES REVOKE SELECT ON TABLES FROM PUBLIC;")
+
+			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
+
+			privs := []backup.ACL{backup.ACL{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", "TABLE")}
+			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "", Privileges: privs, ObjectType: "r", Owner: "testrole"}
+			Expect(resultDefaultPrivileges).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")
+		})
+		It("returns default privileges for role", func() {
+			testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES FOR ROLE anothertestrole GRANT USAGE ON SEQUENCES TO testrole;")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES FOR ROLE anothertestrole REVOKE USAGE ON SEQUENCES FROM testrole;")
+
+			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
+
+			privs := []backup.ACL{backup.ACL{Grantee: "anothertestrole", Select: true, Update: true, Usage: true}, {Grantee: "testrole", Usage: true}}
+			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "", Privileges: privs, ObjectType: "S", Owner: "anothertestrole"}
+			Expect(resultDefaultPrivileges).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")
+		})
+		It("returns default privileges in schema", func() {
+			testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO testrole;")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE USAGE ON SEQUENCES FROM testrole;")
+
+			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
+
+			privs := []backup.ACL{backup.ACL{Grantee: "testrole", Usage: true}}
+			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "public", Privileges: privs, ObjectType: "S", Owner: "testrole"}
+			Expect(resultDefaultPrivileges).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")
+		})
+
+	})
 	Describe("GetCommentsForObjectType", func() {
 		Context("comments for all objects of one type", func() {
 			It("returns a slice of default metadata for an index", func() {
