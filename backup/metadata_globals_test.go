@@ -378,5 +378,19 @@ GRANT ALL ON TABLESPACE test_tablespace TO testrole;`)
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE TABLESPACE test_tablespace LOCATION '/data/dir'
 	WITH (content1='/data/dir1', content2='/data/dir2', content3='/data/dir3');`)
 		})
+		It("prints a tablespace with options", func() {
+			expectedTablespace := backup.Tablespace{
+				Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/data/dir'",
+				SegmentLocations: []string{},
+				Options:          "param1=val1, param2=val2",
+			}
+			emptyMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")
+			testutils.ExpectEntry(toc.GlobalEntries, 1, "", "", "test_tablespace", "TABLESPACE")
+			expectedStatements := []string{`CREATE TABLESPACE test_tablespace LOCATION '/data/dir';`,
+				`ALTER TABLESPACE test_tablespace SET (param1=val1, param2=val2);`}
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, expectedStatements...)
+		})
 	})
 })

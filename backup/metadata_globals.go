@@ -310,6 +310,13 @@ func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc 
 		}
 		metadataFile.MustPrintf("\n\nCREATE TABLESPACE %s %s;", tablespace.Tablespace, locationStr)
 		toc.AddGlobalEntry("", tablespace.Tablespace, "TABLESPACE", start, metadataFile)
+
+		if tablespace.Options != "" {
+			start = metadataFile.ByteCount
+			metadataFile.MustPrintf("\n\nALTER TABLESPACE %s SET (%s);\n", tablespace.Tablespace, tablespace.Options)
+			toc.AddGlobalEntry("", tablespace.Tablespace, "TABLESPACE", start, metadataFile)
+		}
+
 		start = metadataFile.ByteCount
 		PrintObjectMetadata(metadataFile, tablespaceMetadata[tablespace.GetUniqueID()], tablespace.Tablespace, "TABLESPACE")
 		if metadataFile.ByteCount > start {

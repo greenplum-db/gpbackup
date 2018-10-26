@@ -385,6 +385,7 @@ type Tablespace struct {
 	Tablespace       string
 	FileLocation     string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
 	SegmentLocations []string
+	Options          string
 }
 
 func (t Tablespace) GetUniqueID() UniqueID {
@@ -406,7 +407,8 @@ AND spcname != 'pg_global';`
 SELECT
 	oid,
 	quote_ident(spcname) AS tablespace,
-	'''' || pg_catalog.pg_tablespace_location(oid) || '''' AS filelocation
+	'''' || pg_catalog.pg_tablespace_location(oid) || '''' AS filelocation,
+    coalesce(array_to_string(spcoptions, ', '), '') AS options
 FROM pg_tablespace
 WHERE spcname != 'pg_default'
 AND spcname != 'pg_global';`

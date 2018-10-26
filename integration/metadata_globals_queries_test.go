@@ -451,13 +451,14 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 			}
 			Fail("Tablespace 'test_tablespace' was not created")
 		})
-		It("returns a tablespace with segment locations", func() {
+		It("returns a tablespace with segment locations and options", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
-			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir' WITH (content0='/tmp/test_dir1')")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir' WITH (content0='/tmp/test_dir1', seq_page_cost=123)")
 			expectedTablespace := backup.Tablespace{
 				Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'",
 				SegmentLocations: []string{"content0='/tmp/test_dir1'"},
+				Options:          "seq_page_cost=123",
 			}
 
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")

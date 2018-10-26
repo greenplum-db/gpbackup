@@ -403,19 +403,24 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			Fail("Tablespace 'test_tablespace' was not created")
 		})
-		It("creates a basic tablespace with different filespace locations", func() {
+		It("creates a basic tablespace with different segment locations and options", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
 			expectedTablespace = backup.Tablespace{
 				Oid: 1, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'",
 				SegmentLocations: []string{"content0='/tmp/test_dir1'", "content1='/tmp/test_dir2'"},
+				Options:          "seq_page_cost=123",
 			}
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
 
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			gbuffer := gbytes.BufferWithBytes([]byte(buffer.String()))
+			entries, _ := testutils.SliceBufferByEntries(toc.GlobalEntries, gbuffer)
+			create, setOptions := entries[0], entries[1]
+			testhelper.AssertQueryRuns(connectionPool, create)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
+			testhelper.AssertQueryRuns(connectionPool, setOptions)
 
 			resultTablespaces := backup.GetTablespaces(connectionPool)
 			Expect(resultTablespaces).To(HaveLen(numTablespaces + 1))
@@ -451,11 +456,11 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultTablespaces := backup.GetTablespaces(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TABLESPACE)
-			resultMetadata := resultMetadataMap[resultTablespaces[0].GetUniqueID()]
-			structmatcher.ExpectStructsToMatchExcluding(&tablespaceMetadata, &resultMetadata, "Oid")
 			Expect(resultTablespaces).To(HaveLen(numTablespaces + 1))
 			for _, tablespace := range resultTablespaces {
 				if tablespace.Tablespace == "test_tablespace" {
+					resultMetadata := resultMetadataMap[tablespace.GetUniqueID()]
+					structmatcher.ExpectStructsToMatchExcluding(&tablespaceMetadata, &resultMetadata, "Oid")
 					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
 					return
 				}
