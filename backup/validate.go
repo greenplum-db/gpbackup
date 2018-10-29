@@ -21,7 +21,7 @@ func validateFilterLists() {
 	ValidateFilterTables(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_RELATION), true)
 }
 
-func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, noFatal bool) {
+func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, excludeSet bool) {
 	if len(schemaList) == 0 {
 		return
 	}
@@ -33,7 +33,7 @@ func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, n
 		schemaSet.AlwaysMatchesFilter = false
 		for _, schema := range schemaList {
 			if !schemaSet.MatchesFilter(schema) {
-				if noFatal {
+				if excludeSet {
 					gplog.Warn(`Excluded schema %s does not exist`, schema)
 				} else {
 					gplog.Fatal(nil, "Schema %s does not exist", schema)
@@ -43,7 +43,7 @@ func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, n
 	}
 }
 
-func ValidateFilterTables(connectionPool *dbconn.DBConn, tableList []string, noFatal bool) {
+func ValidateFilterTables(connectionPool *dbconn.DBConn, tableList []string, excludeSet bool) {
 	if len(tableList) == 0 {
 		return
 	}
@@ -71,7 +71,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	for _, table := range tableList {
 		tableOid := tableMap[table]
 		if tableOid == 0 {
-			if noFatal {
+			if excludeSet {
 				gplog.Warn("Excluded table %s does not exist", table)
 			} else {
 				gplog.Fatal(nil, "Table %s does not exist", table)
