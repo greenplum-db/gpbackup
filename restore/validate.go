@@ -125,9 +125,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	errMsg := ""
 	if backupConfig.DataOnly || MustGetFlagBool(utils.DATA_ONLY) {
 		if len(relationsInDB) < len(relationList) {
-			dbRelationsSet := utils.NewIncludeSet(relationsInDB)
-			//The default behavior is to match when the set is empty, but we don't want this
-			dbRelationsSet.AlwaysMatchesFilter = false
+			dbRelationsSet := utils.NewSet(relationsInDB)
 			for _, restoreRelation := range relationList {
 				matches := dbRelationsSet.MatchesFilter(restoreRelation)
 				if !matches {

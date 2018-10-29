@@ -180,8 +180,7 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *FilterSet, schemaSet
 }
 
 func getLeafPartitions(tableFQNs []string, tocDataEntries []MasterDataEntry) (leafPartitions []string) {
-	tableSet := NewIncludeSet(tableFQNs)
-	tableSet.AlwaysMatchesFilter = false
+	tableSet := NewSet(tableFQNs)
 
 	for _, entry := range tocDataEntries {
 		if entry.PartitionRoot == "" {
@@ -216,8 +215,7 @@ func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas [
 		tableSet = NewExcludeSet(excludeTableFQNs)
 	}
 
-	restorePlanTableSet := NewIncludeSet(restorePlanTableFQNs)
-	restorePlanTableSet.AlwaysMatchesFilter = false
+	restorePlanTableSet := NewSet(restorePlanTableFQNs)
 
 	matchingEntries := make([]MasterDataEntry, 0)
 	for _, entry := range toc.DataEntries {

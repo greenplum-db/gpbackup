@@ -22,20 +22,24 @@ type FilterSet struct {
 	AlwaysMatchesFilter bool
 }
 
-func NewIncludeSet(list []string) *FilterSet {
+func NewSet(list []string) *FilterSet {
 	newSet := FilterSet{}
-	newSet.AlwaysMatchesFilter = len(list) == 0
 	newSet.Set = make(map[string]bool, len(list))
-	if !newSet.AlwaysMatchesFilter {
-		for _, item := range list {
-			newSet.Set[item] = true
-		}
+	for _, item := range list {
+		newSet.Set[item] = true
 	}
 	return &newSet
 }
 
+func NewIncludeSet(list []string) *FilterSet {
+	newSet := NewSet(list)
+	(*newSet).AlwaysMatchesFilter = len(list) == 0
+	return newSet
+}
+
 func NewExcludeSet(list []string) *FilterSet {
-	newSet := NewIncludeSet(list)
+	newSet := NewSet(list)
+	(*newSet).AlwaysMatchesFilter = len(list) == 0
 	(*newSet).IsExclude = true
 	return newSet
 }
@@ -53,18 +57,6 @@ func (s *FilterSet) MatchesFilter(item string) bool {
 
 func (s *FilterSet) Length() int {
 	return len(s.Set)
-}
-
-func (s *FilterSet) Add(item string) {
-	s.Set[item] = true
-	s.AlwaysMatchesFilter = false
-}
-
-func (s *FilterSet) Delete(item string) {
-	delete(s.Set, item)
-	if s.Length() == 0 {
-		s.AlwaysMatchesFilter = true
-	}
 }
 
 func (s *FilterSet) Equals(s1 *FilterSet) bool {

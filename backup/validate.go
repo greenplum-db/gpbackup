@@ -29,8 +29,7 @@ func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, e
 	query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
 	resultSchemas := dbconn.MustSelectStringSlice(connectionPool, query)
 	if len(resultSchemas) < len(schemaList) {
-		schemaSet := utils.NewIncludeSet(resultSchemas)
-		schemaSet.AlwaysMatchesFilter = false
+		schemaSet := utils.NewSet(resultSchemas)
 		for _, schema := range schemaList {
 			if !schemaSet.MatchesFilter(schema) {
 				if excludeSet {

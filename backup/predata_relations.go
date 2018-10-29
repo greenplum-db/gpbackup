@@ -50,7 +50,7 @@ func SplitTablesByPartitionType(tables []Relation, tableDefs map[uint32]TableDef
 	metadataTables := make([]Relation, 0)
 	dataTables := make([]Relation, 0)
 	if MustGetFlagBool(utils.LEAF_PARTITION_DATA) || len(includeList) > 0 {
-		includeSet := utils.NewIncludeSet(includeList)
+		includeSet := utils.NewSet(includeList)
 		for _, table := range tables {
 			if tableDefs[table.Oid].IsExternal && tableDefs[table.Oid].PartitionLevelInfo.Level == "l" {
 				table.Name = AppendExtPartSuffix(table.Name)
