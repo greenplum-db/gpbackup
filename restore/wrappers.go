@@ -222,7 +222,8 @@ func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int
 	return gucStatements
 }
 
-func restoreSchemas(schemaStatements []utils.StatementWithType, progressBar utils.ProgressBar) {
+func RestoreSchemas(schemaStatements []utils.StatementWithType, progressBar utils.ProgressBar) {
+	numErrors := 0
 	for _, schema := range schemaStatements {
 		_, err := connectionPool.Exec(schema.Statement, 0)
 		if err != nil {
@@ -230,9 +231,18 @@ func restoreSchemas(schemaStatements []utils.StatementWithType, progressBar util
 			if strings.Contains(err.Error(), "already exists") {
 				gplog.Warn("Schema %s already exists", schema.Name)
 			} else {
-				gplog.Fatal(err, "Error encountered while creating schema %s: %s", schema.Name, err.Error())
+				errMsg := fmt.Sprintf("Error encountered while creating schema %s", schema.Name)
+				if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+					gplog.Verbose(fmt.Sprintf("%s: %s", errMsg, err.Error()))
+					numErrors++
+				} else {
+					gplog.Fatal(err, errMsg)
+				}
 			}
 		}
 		progressBar.Increment()
+	}
+	if numErrors > 0 {
+		gplog.Error("Encountered %d errors during schema restore; see log file %s for a list of errors.", numErrors, gplog.GetLogFilePath())
 	}
 }

@@ -194,7 +194,7 @@ func restorePredata(metadataFilename string) {
 	progressBar := utils.NewProgressBar(len(schemaStatements)+len(statements), "Pre-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
 
-	restoreSchemas(schemaStatements, progressBar)
+	RestoreSchemas(schemaStatements, progressBar)
 	ExecuteRestoreMetadataStatements(statements, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
 
 	progressBar.Finish()
