@@ -22,20 +22,21 @@ func validateFilterLists() {
 }
 
 func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, noFatal bool) {
-	if len(schemaList) > 0 {
-		quotedSchemasStr := utils.SliceToQuotedString(schemaList)
-		query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
-		resultSchemas := dbconn.MustSelectStringSlice(connectionPool, query)
-		if len(resultSchemas) < len(schemaList) {
-			schemaSet := utils.NewIncludeSet(resultSchemas)
-			schemaSet.AlwaysMatchesFilter = false
-			for _, schema := range schemaList {
-				if !schemaSet.MatchesFilter(schema) {
-					if noFatal {
-						gplog.Warn(`Excluded schema %s does not exist`, schema)
-					} else {
-						gplog.Fatal(nil, "Schema %s does not exist", schema)
-					}
+	if len(schemaList) == 0 {
+		return
+	}
+	quotedSchemasStr := utils.SliceToQuotedString(schemaList)
+	query := fmt.Sprintf("SELECT nspname AS string FROM pg_namespace WHERE nspname IN (%s)", quotedSchemasStr)
+	resultSchemas := dbconn.MustSelectStringSlice(connectionPool, query)
+	if len(resultSchemas) < len(schemaList) {
+		schemaSet := utils.NewIncludeSet(resultSchemas)
+		schemaSet.AlwaysMatchesFilter = false
+		for _, schema := range schemaList {
+			if !schemaSet.MatchesFilter(schema) {
+				if noFatal {
+					gplog.Warn(`Excluded schema %s does not exist`, schema)
+				} else {
+					gplog.Fatal(nil, "Schema %s does not exist", schema)
 				}
 			}
 		}
@@ -43,40 +44,41 @@ func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, n
 }
 
 func ValidateFilterTables(connectionPool *dbconn.DBConn, tableList []string, noFatal bool) {
-	if len(tableList) > 0 {
-		utils.ValidateFQNs(tableList)
-		quotedTablesStr := utils.SliceToQuotedString(tableList)
-		query := fmt.Sprintf(`
+	if len(tableList) == 0 {
+		return
+	}
+	utils.ValidateFQNs(tableList)
+	quotedTablesStr := utils.SliceToQuotedString(tableList)
+	query := fmt.Sprintf(`
 SELECT
 	c.oid,
 	n.nspname || '.' || c.relname AS name
 FROM pg_namespace n
 JOIN pg_class c ON n.oid = c.relnamespace
 WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTablesStr)
-		resultTables := make([]struct {
-			Oid  uint32
-			Name string
-		}, 0)
-		err := connectionPool.Select(&resultTables, query)
-		gplog.FatalOnError(err)
-		tableMap := make(map[string]uint32)
-		for _, table := range resultTables {
-			tableMap[table.Name] = table.Oid
-		}
+	resultTables := make([]struct {
+		Oid  uint32
+		Name string
+	}, 0)
+	err := connectionPool.Select(&resultTables, query)
+	gplog.FatalOnError(err)
+	tableMap := make(map[string]uint32)
+	for _, table := range resultTables {
+		tableMap[table.Name] = table.Oid
+	}
 
-		partTableMap := GetPartitionTableMap(connectionPool)
-		for _, table := range tableList {
-			tableOid := tableMap[table]
-			if tableOid == 0 {
-				if noFatal {
-					gplog.Warn("Excluded table %s does not exist", table)
-				} else {
-					gplog.Fatal(nil, "Table %s does not exist", table)
-				}
+	partTableMap := GetPartitionTableMap(connectionPool)
+	for _, table := range tableList {
+		tableOid := tableMap[table]
+		if tableOid == 0 {
+			if noFatal {
+				gplog.Warn("Excluded table %s does not exist", table)
+			} else {
+				gplog.Fatal(nil, "Table %s does not exist", table)
 			}
-			if partTableMap[tableOid].Level == "i" {
-				gplog.Fatal(nil, "Cannot filter on %s, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.", table)
-			}
+		}
+		if partTableMap[tableOid].Level == "i" {
+			gplog.Fatal(nil, "Cannot filter on %s, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.", table)
 		}
 	}
 }
