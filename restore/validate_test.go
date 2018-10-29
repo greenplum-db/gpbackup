@@ -18,7 +18,7 @@ var _ = Describe("restore/validate tests", func() {
 	AfterEach(func() {
 		filterList = []string{}
 	})
-	Describe("ValidateFilterSchemasInBackupSet", func() {
+	Describe("ValidateSchemasInBackupSet", func() {
 		sequence := utils.StatementWithType{ObjectType: "SEQUENCE", Statement: "CREATE SEQUENCE schema.somesequence"}
 		sequenceLen := uint64(len(sequence.Statement))
 		table1 := utils.StatementWithType{ObjectType: "TABLE", Statement: "CREATE TABLE schema1.table1"}
@@ -40,30 +40,30 @@ var _ = Describe("restore/validate tests", func() {
 		It("passes when schema exists in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1"}
-			restore.ValidateFilterSchemasInBackupSet(filterList, false)
+			restore.ValidateIncludeSchemasInBackupSet(filterList)
 		})
 		It("panics when schema does not exist in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
-			restore.ValidateFilterSchemasInBackupSet(filterList, false)
+			restore.ValidateIncludeSchemasInBackupSet(filterList)
 		})
 		It("passes when schema exists in data-only backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{DataOnly: true})
 			filterList = []string{"schema1"}
-			restore.ValidateFilterSchemasInBackupSet(filterList, false)
+			restore.ValidateIncludeSchemasInBackupSet(filterList)
 		})
 		It("panics when schema does not exist in data-only backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{DataOnly: true})
 			filterList = []string{"schema3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
-			restore.ValidateFilterSchemasInBackupSet(filterList, false)
+			restore.ValidateIncludeSchemasInBackupSet(filterList)
 		})
 		It("generates warning when exclude-schema does not exist in backup and noFatal is true", func() {
 			_, _, logfile = testhelper.SetupTestLogger()
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema3"}
-			restore.ValidateFilterSchemasInBackupSet(filterList, true)
+			restore.ValidateExcludeSchemasInBackupSet(filterList)
 			testhelper.ExpectRegexp(logfile, "[WARNING]:-Could not find the following excluded schema(s) in the backup set: schema3")
 		})
 	})
@@ -186,7 +186,7 @@ var _ = Describe("restore/validate tests", func() {
 			})
 		})
 	})
-	Describe("ValidateFilterRelationsInBackupSet", func() {
+	Describe("ValidateRelationsInBackupSet", func() {
 		var toc *utils.TOC
 		var backupfile *utils.FileWithByteCount
 		BeforeEach(func() {
@@ -206,57 +206,57 @@ var _ = Describe("restore/validate tests", func() {
 		It("passes when table exists in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.table1"}
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("panics when table does not exist in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.table3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following relation(s) in the backup set: schema1.table3")
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("passes when sequence exists in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.somesequence"}
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("generates a warning if the exclude-schema is not in the backup set and noFatal is true", func() {
 			_, _, logfile = testhelper.SetupTestLogger()
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.table3"}
-			restore.ValidateFilterRelationsInBackupSet(filterList, true)
+			restore.ValidateExcludeRelationsInBackupSet(filterList)
 			testhelper.ExpectRegexp(logfile, "[WARNING]:-Could not find the following excluded relation(s) in the backup set: schema1.table3")
 		})
 		It("passes when view exists in normal backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.someview"}
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("passes when table exists in data-only backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{DataOnly: true})
 			filterList = []string{"schema1.table1"}
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("panics when relation does not exist in backup but function with same name does", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{})
 			filterList = []string{"schema1.somefunction"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following relation(s) in the backup set: schema1.somefunction")
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("table does not exist in data-only backup", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{DataOnly: true})
 			filterList = []string{"schema1.table3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following relation(s) in the backup set: schema1.table3")
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("passes when table exists in most recent restore plan entry", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{RestorePlan: []utils.RestorePlanEntry{{TableFQNs: []string{"schema1.table1_part_1"}}}})
 			filterList = []string{"schema1.table1_part_1"}
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("passes when table exists in previous restore plan entry", func() {
 			restore.SetBackupConfig(&utils.BackupConfig{RestorePlan: []utils.RestorePlanEntry{{TableFQNs: []string{"schema1.random_table"}}, {TableFQNs: []string{"schema1.table1_part_1"}}}})
 			filterList = []string{"schema1.table1_part_1"}
-			restore.ValidateFilterRelationsInBackupSet(filterList, false)
+			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 	})
 	Describe("ValidateDatabaseExistence", func() {

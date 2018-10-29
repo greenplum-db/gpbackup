@@ -17,43 +17,54 @@ import (
  */
 
 func validateFilterListsInBackupSet() {
-	ValidateFilterSchemasInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA), false)
-	ValidateFilterSchemasInBackupSet(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA), true)
-	ValidateFilterRelationsInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_RELATION), false)
-	ValidateFilterRelationsInBackupSet(MustGetFlagStringSlice(utils.EXCLUDE_RELATION), true)
+	ValidateIncludeSchemasInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA))
+	ValidateExcludeSchemasInBackupSet(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA))
+	ValidateIncludeRelationsInBackupSet(MustGetFlagStringSlice(utils.INCLUDE_RELATION))
+	ValidateExcludeRelationsInBackupSet(MustGetFlagStringSlice(utils.EXCLUDE_RELATION))
+}
+
+func ValidateIncludeSchemasInBackupSet(schemaList []string) {
+	if keys := getFilterSchemasInBackupSet(schemaList); len(keys) != 0 {
+		gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	}
+}
+
+func ValidateExcludeSchemasInBackupSet(schemaList []string) {
+	if keys := getFilterSchemasInBackupSet(schemaList); len(keys) != 0 {
+		gplog.Warn("Could not find the following excluded schema(s) in the backup set: %s", strings.Join(keys, ", "))
+	}
 }
 
 /* This only checks the globalTOC, but will still succesfully validate tables
  * in incremental backups since incremental backups will always take backups of
  * the metadata (--incremental and --data-only backup flags are not compatible)
  */
-func ValidateFilterSchemasInBackupSet(schemaList []string, noFatal bool) {
+func getFilterSchemasInBackupSet(schemaList []string) []string {
+	if len(schemaList) == 0 {
+		return []string{}
+	}
 	schemaMap := make(map[string]bool, len(schemaList))
 	for _, schema := range schemaList {
 		schemaMap[schema] = true
 	}
-	if len(schemaList) > 0 {
-		if !backupConfig.DataOnly {
-			for _, entry := range globalTOC.PredataEntries {
-				if _, ok := schemaMap[entry.Schema]; ok {
-					delete(schemaMap, entry.Schema)
-				}
-				if len(schemaMap) == 0 {
-					return
-				}
+	if !backupConfig.DataOnly {
+		for _, entry := range globalTOC.PredataEntries {
+			if _, ok := schemaMap[entry.Schema]; ok {
+				delete(schemaMap, entry.Schema)
 			}
-		} else {
-			for _, entry := range globalTOC.DataEntries {
-				if _, ok := schemaMap[entry.Schema]; ok {
-					delete(schemaMap, entry.Schema)
-				}
-				if len(schemaMap) == 0 {
-					return
-				}
+			if len(schemaMap) == 0 {
+				return []string{}
 			}
 		}
 	} else {
-		return
+		for _, entry := range globalTOC.DataEntries {
+			if _, ok := schemaMap[entry.Schema]; ok {
+				delete(schemaMap, entry.Schema)
+			}
+			if len(schemaMap) == 0 {
+				return []string{}
+			}
+		}
 	}
 
 	keys := make([]string, len(schemaMap))
@@ -62,11 +73,7 @@ func ValidateFilterSchemasInBackupSet(schemaList []string, noFatal bool) {
 		keys[i] = k
 		i++
 	}
-	if noFatal {
-		gplog.Warn("Could not find the following excluded schema(s) in the backup set: %s", strings.Join(keys, ", "))
-	} else {
-		gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
-	}
+	return keys
 }
 
 func GenerateRestoreRelationList() []string {
@@ -136,9 +143,21 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	}
 }
 
-func ValidateFilterRelationsInBackupSet(relationList []string, noFatal bool) {
+func ValidateIncludeRelationsInBackupSet(schemaList []string) {
+	if keys := getFilterRelationsInBackupSet(schemaList); len(keys) != 0 {
+		gplog.Fatal(errors.Errorf("Could not find the following relation(s) in the backup set: %s", strings.Join(keys, ", ")), "")
+	}
+}
+
+func ValidateExcludeRelationsInBackupSet(schemaList []string) {
+	if keys := getFilterRelationsInBackupSet(schemaList); len(keys) != 0 {
+		gplog.Warn("Could not find the following excluded relation(s) in the backup set: %s", strings.Join(keys, ", "))
+	}
+}
+
+func getFilterRelationsInBackupSet(relationList []string) []string {
 	if len(relationList) == 0 {
-		return
+		return []string{}
 	}
 	relationMap := make(map[string]bool, len(relationList))
 	for _, relation := range relationList {
@@ -153,7 +172,7 @@ func ValidateFilterRelationsInBackupSet(relationList []string, noFatal bool) {
 			delete(relationMap, fqn)
 		}
 		if len(relationMap) == 0 {
-			return
+			return []string{}
 		}
 	}
 
@@ -166,7 +185,7 @@ func ValidateFilterRelationsInBackupSet(relationList []string, noFatal bool) {
 			delete(relationMap, fqn)
 		}
 		if len(relationMap) == 0 {
-			return
+			return []string{}
 		}
 	}
 
@@ -176,11 +195,7 @@ func ValidateFilterRelationsInBackupSet(relationList []string, noFatal bool) {
 		keys[i] = k
 		i++
 	}
-	if noFatal {
-		gplog.Warn("Could not find the following excluded relation(s) in the backup set: %s", strings.Join(keys, ", "))
-	} else {
-		gplog.Fatal(errors.Errorf("Could not find the following relation(s) in the backup set: %s", strings.Join(keys, ", ")), "")
-	}
+	return keys
 }
 
 func ValidateDatabaseExistence(unquotedDBName string, createDatabase bool, isFiltered bool) {
