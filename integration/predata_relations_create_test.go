@@ -13,7 +13,11 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
+	var includeSecurityLabels bool
 	BeforeEach(func() {
+		if connectionPool.Version.AtLeast("6") {
+			includeSecurityLabels = true
+		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintRegularTableCreateStatement", func() {
@@ -293,6 +297,9 @@ SET SUBPARTITION TEMPLATE ` + `
 			tableDef.ForeignDef = backup.ForeignTableDefinition{Oid: 0, Options: "", Server: "sc"}
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable, tableDef)
 
+			metadata := testutils.DefaultMetadata("TABLE", true, true, true, true)
+			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, metadata)
+
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FOREIGN TABLE public.testtable")
 
@@ -333,11 +340,10 @@ SET SUBPARTITION TEMPLATE ` + `
 			resultTableDef := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable})[testTable.Oid]
 			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
 		})
-		It("prints table comment, table owner, and column comments for a table with all three", func() {
-			tableMetadata.Owner = "testrole"
-			tableMetadata.Comment = "This is a table comment."
+		It("prints table comment, table privileges, table owner, and column comments for a table", func() {
+			metadata := testutils.DefaultMetadata("TABLE", true, true, true, true)
 			tableDef.ColumnDefs[0].Comment = "This is a column comment."
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, metadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTableUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -346,7 +352,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
 			resultMetadata := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 			resultTableMetadata := resultMetadata[testTableUniqueID]
-			structmatcher.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
+			structmatcher.ExpectStructsToMatch(&metadata, &resultTableMetadata)
 		})
 		It("prints column level privileges", func() {
 			testutils.SkipIfBefore6(connectionPool)
@@ -371,9 +377,9 @@ SET SUBPARTITION TEMPLATE ` + `
 				viewDef = " SELECT 1;"
 			}
 		})
-		It("creates a view with privileges and a comment and owner", func() {
+		It("creates a view with privileges, owner, security label, and comment", func() {
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef}
-			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true)
+			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
 
@@ -459,7 +465,7 @@ SET SUBPARTITION TEMPLATE ` + `
 				startValue = 1
 			}
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence", LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
-			sequenceMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLWithout("testrole", "SEQUENCE", "UPDATE")}, Owner: "testrole", Comment: "This is a sequence comment."}
+			sequenceMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true, includeSecurityLabels)
 			sequenceMetadataMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {

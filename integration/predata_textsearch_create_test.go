@@ -29,7 +29,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&parser, &resultParsers[0], "Oid")
 		})
 		It("creates a basic text search parser with a comment", func() {
-			parserMetadata := testutils.DefaultMetadata("TEXT SEARCH PARSER", false, false, true)
+			parserMetadata := testutils.DefaultMetadata("TEXT SEARCH PARSER", false, false, true, false)
 
 			backup.PrintCreateTextSearchParserStatement(backupfile, toc, parser, parserMetadata)
 
@@ -59,7 +59,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&template, &resultTemplates[0], "Oid")
 		})
 		It("creates a basic text search template with a comment", func() {
-			templateMetadata := testutils.DefaultMetadata("TEXT SEARCH TEMPLATE", false, false, true)
+			templateMetadata := testutils.DefaultMetadata("TEXT SEARCH TEMPLATE", false, false, true, false)
 
 			backup.PrintCreateTextSearchTemplateStatement(backupfile, toc, template, templateMetadata)
 
@@ -91,7 +91,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&dictionary, &resultDictionaries[0], "Oid")
 		})
 		It("creates a basic text search dictionary with a comment and owner", func() {
-			dictionaryMetadata := testutils.DefaultMetadata("TEXT SEARCH DICTIONARY", false, true, true)
+			dictionaryMetadata := testutils.DefaultMetadata("TEXT SEARCH DICTIONARY", false, true, true, false)
 
 			backup.PrintCreateTextSearchDictionaryStatement(backupfile, toc, dictionary, dictionaryMetadata)
 
@@ -122,7 +122,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&configuration, &resultConfigurations[0], "Oid")
 		})
 		It("creates a basic text search configuration with a comment and owner", func() {
-			configurationMetadata := testutils.DefaultMetadata("TEXT SEARCH CONFIGURATION", false, true, true)
+			configurationMetadata := testutils.DefaultMetadata("TEXT SEARCH CONFIGURATION", false, true, true, false)
 
 			backup.PrintCreateTextSearchConfigurationStatement(backupfile, toc, configuration, configurationMetadata)
 

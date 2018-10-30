@@ -11,7 +11,11 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
+	var includeSecurityLabels bool
 	BeforeEach(func() {
+		if connectionPool.Version.AtLeast("6") {
+			includeSecurityLabels = true
+		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateIndexStatements", func() {
@@ -51,7 +55,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates an index with a comment", func() {
 			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
-			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true)
+			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true, false)
 			indexMetadata := indexMetadataMap[indexes[0].GetUniqueID()]
 			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
 
@@ -117,7 +121,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a rule with a comment", func() {
 			rules := []backup.QuerySimpleDefinition{{ClassID: backup.PG_REWRITE_OID, Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
-			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true)
+			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			ruleMetadata := ruleMetadataMap[rules[0].GetUniqueID()]
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 
@@ -157,7 +161,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a trigger with a comment", func() {
 			triggers := []backup.QuerySimpleDefinition{{ClassID: backup.PG_TRIGGER_OID, Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
-			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true)
+			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			triggerMetadata := triggerMetadataMap[triggers[0].GetUniqueID()]
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 
@@ -224,9 +228,9 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&eventTriggers[0], &results[0], "Oid")
 		})
-		It("creates an event trigger with comment and owner", func() {
+		It("creates an event trigger with comment, security label, and owner", func() {
 			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "test_event_trigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}}
-			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, true, true)
+			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, true, true, includeSecurityLabels)
 			eventTriggerMetadata := eventTriggerMetadataMap[eventTriggers[0].GetUniqueID()]
 
 			backup.PrintCreateEventTriggerStatements(backupfile, toc, []backup.EventTrigger{eventTriggers[0]}, eventTriggerMetadataMap)

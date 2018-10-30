@@ -103,10 +103,12 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 
 type MetadataQueryStruct struct {
 	UniqueID
-	Privileges sql.NullString
-	Kind       string
-	Owner      string
-	Comment    string
+	Privileges            sql.NullString
+	Kind                  string
+	Owner                 string
+	Comment               string
+	SecurityLabel         string
+	SecurityLabelProvider string
 }
 
 func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
@@ -141,6 +143,19 @@ WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 		ownerStr = fmt.Sprintf("quote_ident(pg_get_userbyid(%s))", params.OwnerField)
 	}
 
+	secCols := ""
+	secStr := ""
+	if connectionPool.Version.AtLeast("6") {
+		secCols = "coalesce(sec.label,'') AS securitylabel, coalesce(sec.provider, '') AS securitylabelprovider,"
+		secTable := "pg_seclabel"
+		secSubidStr := " AND sec.objsubid = 0"
+		if params.Shared {
+			secTable = "pg_shseclabel"
+			secSubidStr = ""
+		}
+		secStr = fmt.Sprintf("LEFT JOIN %s sec ON (sec.objoid = o.oid AND sec.classoid = '%s'::regclass%s)", secTable, params.CatalogTable, secSubidStr)
+	}
+
 	query := fmt.Sprintf(`
 SELECT
 	'%s'::regclass::oid AS classid,
@@ -148,12 +163,14 @@ SELECT
 	%s AS privileges,
 	%s AS kind,
 	%s AS owner,
+	%s
 	coalesce(description,'') AS comment
 FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
 %s
+%s
 AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 ORDER BY o.oid;
-`, params.CatalogTable, aclStr, kindStr, ownerStr, params.CatalogTable, descFunc, params.CatalogTable, subidStr, schemaStr)
+`, params.CatalogTable, aclStr, kindStr, ownerStr, secCols, params.CatalogTable, descFunc, params.CatalogTable, subidStr, secStr, schemaStr)
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
@@ -202,7 +219,7 @@ SELECT
 	metadataMap := make(MetadataMap)
 	if len(results) > 0 {
 		for _, result := range results {
-			metadataMap[result.UniqueID] = ObjectMetadata{[]ACL{}, "", result.Comment}
+			metadataMap[result.UniqueID] = ObjectMetadata{[]ACL{}, "", result.Comment, "", ""}
 		}
 	}
 	return metadataMap

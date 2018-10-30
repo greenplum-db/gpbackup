@@ -63,7 +63,7 @@ func SetDefaultSegmentConfiguration() *cluster.Cluster {
 	return cluster
 }
 
-func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComment bool) backup.ObjectMetadata {
+func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComment bool, hasSecurityLabel bool) backup.ObjectMetadata {
 	privileges := []backup.ACL{}
 	if hasPrivileges {
 		privileges = []backup.ACL{DefaultACLForType("testrole", objType)}
@@ -81,14 +81,20 @@ func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComme
 		}
 		comment = fmt.Sprintf("This is a%s %s comment.", n, strings.ToLower(objType))
 	}
-	return backup.ObjectMetadata{Privileges: privileges, Owner: owner, Comment: comment}
+	securityLabelProvider := ""
+	securityLabel := ""
+	if hasSecurityLabel {
+		securityLabelProvider = "dummy"
+		securityLabel = "unclassified"
+	}
+	return backup.ObjectMetadata{Privileges: privileges, Owner: owner, Comment: comment, SecurityLabelProvider: securityLabelProvider, SecurityLabel: securityLabel}
 
 }
 
 // objType should be an all-caps string like TABLE, INDEX, etc.
-func DefaultMetadataMap(objType string, hasPrivileges bool, hasOwner bool, hasComment bool) backup.MetadataMap {
+func DefaultMetadataMap(objType string, hasPrivileges bool, hasOwner bool, hasComment bool, hasSecurityLabel bool) backup.MetadataMap {
 	return backup.MetadataMap{
-		backup.UniqueID{ClassID: ClassIDFromObjectName(objType), Oid: 1}: DefaultMetadata(objType, hasPrivileges, hasOwner, hasComment),
+		backup.UniqueID{ClassID: ClassIDFromObjectName(objType), Oid: 1}: DefaultMetadata(objType, hasPrivileges, hasOwner, hasComment, hasSecurityLabel),
 	}
 }
 
@@ -385,6 +391,12 @@ func UniqueIDFromObjectName(connectionPool *dbconn.DBConn, schemaName string, ob
 
 func GetUserByID(connectionPool *dbconn.DBConn, oid uint32) string {
 	return dbconn.MustSelectString(connectionPool, fmt.Sprintf("SELECT rolname AS string FROM pg_roles WHERE oid = %d", oid))
+}
+
+func CreateSecurityLabelIfGPDB6(connectionPool *dbconn.DBConn, objectType string, objectName string) {
+	if connectionPool.Version.AtLeast("6") {
+		testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("SECURITY LABEL FOR dummy ON %s %s IS 'unclassified';", objectType, objectName))
+	}
 }
 
 func SkipIfNot4(connectionPool *dbconn.DBConn) {

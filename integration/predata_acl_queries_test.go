@@ -14,6 +14,12 @@ import (
 var _ = Describe("backup integration tests", func() {
 	Describe("GetMetadataForObjectType", func() {
 		Context("default metadata for all objects of one type", func() {
+			var includeSecurityLabels bool
+			BeforeEach(func() {
+				if connectionPool.Version.AtLeast("6") {
+					includeSecurityLabels = true
+				}
+			})
 			It("returns a slice of metadata with modified privileges", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foo")
@@ -45,14 +51,37 @@ var _ = Describe("backup integration tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON DATABASE testdb TO anothertestrole")
 				defer testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON DATABASE testdb FROM anothertestRole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON DATABASE testdb IS 'This is a database comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "DATABASE", "testdb")
 				expectedMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{
 					{Grantee: "", Temporary: true, Connect: true},
 					{Grantee: "anothertestrole", Create: true, Temporary: true, Connect: true},
 				}, Owner: "anothertestrole", Comment: "This is a database comment."}
+				if includeSecurityLabels {
+					expectedMetadata.SecurityLabelProvider = "dummy"
+					expectedMetadata.SecurityLabel = "unclassified"
+				}
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_DATABASE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testdb", backup.TYPE_DATABASE)
+				resultMetadata := resultMetadataMap[uniqueID]
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+			})
+			It("returns a slice of default metadata for a role", func() {
+				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_ROLE)
+				numRoles := len(resultMetadataMap)
+
+				testhelper.AssertQueryRuns(connectionPool, `CREATE ROLE testuser`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE testuser")
+				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON ROLE testuser IS 'This is a role comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "ROLE", "testuser")
+
+				resultMetadataMap = backup.GetMetadataForObjectType(connectionPool, backup.TYPE_ROLE)
+
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testuser", backup.TYPE_ROLE)
+				expectedMetadata := testutils.DefaultMetadata("ROLE", false, false, true, includeSecurityLabels)
+
+				Expect(resultMetadataMap).To(HaveLen(numRoles + 1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -76,11 +105,12 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON TABLE public.testtable TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TABLE public.testtable IS 'This is a table comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "TABLE", "public.testtable")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
-				expectedMetadata := testutils.DefaultMetadata("TABLE", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("TABLE", true, true, true, includeSecurityLabels)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -90,16 +120,36 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.testsequence")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON SEQUENCE public.testsequence TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON SEQUENCE public.testsequence IS 'This is a sequence comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "SEQUENCE", "public.testsequence")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testsequence", backup.TYPE_RELATION)
-				expectedMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true, includeSecurityLabels)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
-			It("returns a slice of default metadata for a function", func() {
+			It("returns a slice of default metadata for a procedural language", func() {
+				testhelper.AssertQueryRuns(connectionPool, "CREATE LANGUAGE plpythonu")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP LANGUAGE plpythonu")
+				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON LANGUAGE plpythonu IS 'This is a language comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "LANGUAGE", "plpythonu")
+
+				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_PROCLANGUAGE)
+
+				var expectedMetadata backup.ObjectMetadata
+				if connectionPool.Version.Before("5") {
+					langOwner := testutils.GetUserByID(connectionPool, 10)
+					expectedMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment."}
+				} else {
+					expectedMetadata = testutils.DefaultMetadata("LANGUAGE", false, true, true, includeSecurityLabels)
+				}
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "plpythonu", backup.TYPE_PROCLANGUAGE)
+				resultMetadata := resultMetadataMap[uniqueID]
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+			})
+			It("returns a slice of default metadata for a language", func() {
 				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL`)
@@ -107,11 +157,12 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON FUNCTION public.add(integer, integer) TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON FUNCTION public.add(integer, integer) FROM PUBLIC")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON FUNCTION public.add(integer, integer) IS 'This is a function comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "FUNCTION", "public.add(integer, integer)")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_FUNCTION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "add", backup.TYPE_FUNCTION)
-				expectedMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -121,11 +172,12 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.testview")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON public.testview TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON VIEW public.testview IS 'This is a view comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "VIEW", "public.testview")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testview", backup.TYPE_RELATION)
-				expectedMetadata := testutils.DefaultMetadata("VIEW", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("VIEW", true, true, true, includeSecurityLabels)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -135,11 +187,12 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON SCHEMA testschema TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON SCHEMA testschema IS 'This is a schema comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "SCHEMA", "testschema")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_SCHEMA)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testschema", backup.TYPE_SCHEMA)
-				expectedMetadata := testutils.DefaultMetadata("SCHEMA", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("SCHEMA", true, true, true, includeSecurityLabels)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -170,11 +223,12 @@ LANGUAGE SQL`)
 );`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP AGGREGATE public.agg_prefunc(numeric, numeric)")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON AGGREGATE public.agg_prefunc(numeric, numeric) IS 'This is an aggregate comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "AGGREGATE", "public.agg_prefunc(numeric, numeric)")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_AGGREGATE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "agg_prefunc", backup.TYPE_AGGREGATE)
-				expectedMetadata := testutils.DefaultMetadata("AGGREGATE", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("AGGREGATE", false, true, true, includeSecurityLabels)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -182,11 +236,12 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, `CREATE TYPE public.testtype AS (name text, num numeric)`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.testtype")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TYPE public.testtype IS 'This is a type comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "TYPE", "public.testtype")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TYPE)
 
 				typeUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testtype", backup.TYPE_TYPE)
-				expectedMetadata := testutils.DefaultMetadata("TYPE", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
 				resultMetadata := resultMetadataMap[typeUniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -194,11 +249,12 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, `CREATE DOMAIN public.domain_type AS numeric`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.domain_type")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON DOMAIN public.domain_type IS 'This is a domain comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "DOMAIN", "public.domain_type")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TYPE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "domain_type", backup.TYPE_TYPE)
-				expectedMetadata := testutils.DefaultMetadata("DOMAIN", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("DOMAIN", false, true, true, includeSecurityLabels)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -212,7 +268,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_PROTOCOL)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "s3_read", backup.TYPE_PROTOCOL)
-				expectedMetadata := testutils.DefaultMetadata("PROTOCOL", true, true, false)
+				expectedMetadata := testutils.DefaultMetadata("PROTOCOL", true, true, false, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -225,11 +281,12 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TABLESPACE test_tablespace IS 'This is a tablespace comment.'")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON TABLESPACE test_tablespace TO testrole")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "TABLESPACE", "test_tablespace")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TABLESPACE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "test_tablespace", backup.TYPE_TABLESPACE)
-				expectedMetadata := testutils.DefaultMetadata("TABLESPACE", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("TABLESPACE", true, true, true, includeSecurityLabels)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -242,7 +299,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATOR)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "####", backup.TYPE_OPERATOR)
-				expectedMetadata := testutils.DefaultMetadata("OPERATOR", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("OPERATOR", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -256,7 +313,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORFAMILY)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testfam", backup.TYPE_OPERATORFAMILY)
-				expectedMetadata := testutils.DefaultMetadata("OPERATOR FAMILY", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("OPERATOR FAMILY", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -272,7 +329,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORCLASS)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testclass", backup.TYPE_OPERATORCLASS)
-				expectedMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -286,14 +343,14 @@ LANGUAGE SQL`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testdictionary", backup.TYPE_TSDICTIONARY)
-				dictionaryMetadata := testutils.DefaultMetadata("TEXT SEARCH DICTIONARY", false, true, true)
+				dictionaryMetadata := testutils.DefaultMetadata("TEXT SEARCH DICTIONARY", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration", func() {
 				testutils.SkipIfBefore5(connectionPool)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TSCONFIGURATION)
-				configurationMetadata := testutils.DefaultMetadata("TEXT SEARCH CONFIGURATION", false, true, true)
+				configurationMetadata := testutils.DefaultMetadata("TEXT SEARCH CONFIGURATION", false, true, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, `CREATE TEXT SEARCH CONFIGURATION public.testconfiguration (PARSER = pg_catalog."default");`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH CONFIGURATION public.testconfiguration")
@@ -316,7 +373,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_FOREIGNDATAWRAPPER)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "foreignwrapper", backup.TYPE_FOREIGNDATAWRAPPER)
-				expectedMetadata := testutils.DefaultMetadata("FOREIGN DATA WRAPPER", true, true, false)
+				expectedMetadata := testutils.DefaultMetadata("FOREIGN DATA WRAPPER", true, true, false, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -331,7 +388,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_FOREIGNSERVER)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "foreignserver", backup.TYPE_FOREIGNSERVER)
-				expectedMetadata := testutils.DefaultMetadata("FOREIGN SERVER", true, true, false)
+				expectedMetadata := testutils.DefaultMetadata("FOREIGN SERVER", true, true, false, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -345,7 +402,7 @@ LANGUAGE SQL`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "some_coll", backup.TYPE_COLLATION)
-				collationMetadata := testutils.DefaultMetadata("COLLATION", false, true, true)
+				collationMetadata := testutils.DefaultMetadata("COLLATION", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
 			})
@@ -357,6 +414,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 				defer testhelper.AssertQueryRuns(connectionPool, `DROP FUNCTION abort_any_command()`)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE EVENT TRIGGER test_event_trigger ON ddl_command_start EXECUTE PROCEDURE abort_any_command();")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER test_event_trigger")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "EVENT TRIGGER", "test_event_trigger")
 
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON EVENT TRIGGER test_event_trigger IS 'This is an event trigger comment.'")
 
@@ -364,7 +422,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "test_event_trigger", backup.TYPE_EVENTTRIGGER)
-				eventTriggerMetadata := testutils.DefaultMetadata("EVENT TRIGGER", false, true, true)
+				eventTriggerMetadata := testutils.DefaultMetadata("EVENT TRIGGER", false, true, true, true)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatch(&eventTriggerMetadata, &resultMetadata)
 			})
@@ -384,7 +442,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testtable", backup.TYPE_RELATION)
-				expectedMetadata := testutils.DefaultMetadata("TABLE", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("TABLE", true, true, true, false)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -403,7 +461,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testtable", backup.TYPE_RELATION)
-				expectedMetadata := testutils.DefaultMetadata("TABLE", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("TABLE", true, true, true, false)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -427,7 +485,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_FUNCTION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "add", backup.TYPE_FUNCTION)
-				expectedMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true, false)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -446,7 +504,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testview", backup.TYPE_RELATION)
-				expectedMetadata := testutils.DefaultMetadata("VIEW", true, true, true)
+				expectedMetadata := testutils.DefaultMetadata("VIEW", true, true, true, false)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -493,7 +551,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_AGGREGATE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "agg_prefunc", backup.TYPE_AGGREGATE)
-				expectedMetadata := testutils.DefaultMetadata("AGGREGATE", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("AGGREGATE", false, true, true, false)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -511,7 +569,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TYPE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testtype", backup.TYPE_TYPE)
-				expectedMetadata := testutils.DefaultMetadata("TYPE", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("TYPE", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				if connectionPool.Version.Before("5") {
 					// In 4.3, creating testtype does not generate a "_testtype" entry in pg_type
@@ -536,7 +594,7 @@ LANGUAGE SQL`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "####", backup.TYPE_OPERATOR)
-				expectedMetadata := testutils.DefaultMetadata("OPERATOR", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("OPERATOR", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -555,7 +613,7 @@ LANGUAGE SQL`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testfam", backup.TYPE_OPERATORFAMILY)
-				expectedMetadata := testutils.DefaultMetadata("OPERATOR FAMILY", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("OPERATOR FAMILY", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -581,7 +639,7 @@ LANGUAGE SQL`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testclass", backup.TYPE_OPERATORCLASS)
-				expectedMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true)
+				expectedMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -600,14 +658,14 @@ LANGUAGE SQL`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testdictionary", backup.TYPE_TSDICTIONARY)
-				dictionaryMetadata := testutils.DefaultMetadata("TEXT SEARCH DICTIONARY", false, true, true)
+				dictionaryMetadata := testutils.DefaultMetadata("TEXT SEARCH DICTIONARY", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration in a specific schema", func() {
 				testutils.SkipIfBefore5(connectionPool)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TSCONFIGURATION)
-				configurationMetadata := testutils.DefaultMetadata("TEXT SEARCH CONFIGURATION", false, true, true)
+				configurationMetadata := testutils.DefaultMetadata("TEXT SEARCH CONFIGURATION", false, true, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, `CREATE TEXT SEARCH CONFIGURATION public.testconfiguration (PARSER = pg_catalog."default");`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH CONFIGURATION public.testconfiguration")
@@ -640,7 +698,7 @@ LANGUAGE SQL`)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "some_coll", backup.TYPE_COLLATION)
-				collationMetadata := testutils.DefaultMetadata("COLLATION", false, true, true)
+				collationMetadata := testutils.DefaultMetadata("COLLATION", false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
 			})
@@ -710,7 +768,7 @@ LANGUAGE SQL`)
 				resultMetadataMap = backup.GetCommentsForObjectType(connectionPool, backup.TYPE_INDEX)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testindex", backup.TYPE_INDEX)
-				expectedMetadata := testutils.DefaultMetadata("INDEX", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("INDEX", false, false, true, false)
 
 				Expect(resultMetadataMap).To(HaveLen(numIndexes + 1))
 				resultMetadata := resultMetadataMap[uniqueID]
@@ -728,7 +786,7 @@ LANGUAGE SQL`)
 				resultMetadataMap = backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RULE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "update_notify", backup.TYPE_RULE)
-				expectedMetadata := testutils.DefaultMetadata("RULE", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("RULE", false, false, true, false)
 
 				Expect(resultMetadataMap).To(HaveLen(numRules + 1))
 				resultMetadata := resultMetadataMap[uniqueID]
@@ -746,7 +804,7 @@ LANGUAGE SQL`)
 				resultMetadataMap = backup.GetCommentsForObjectType(connectionPool, backup.TYPE_TRIGGER)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "sync_testtable", backup.TYPE_TRIGGER)
-				expectedMetadata := testutils.DefaultMetadata("TRIGGER", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("TRIGGER", false, false, true, false)
 
 				Expect(resultMetadataMap).To(HaveLen(numTriggers + 1))
 				resultMetadata := resultMetadataMap[uniqueID]
@@ -767,7 +825,7 @@ LANGUAGE SQL`)
 				boolOid := testutils.OidFromObjectName(connectionPool, "", "bool", backup.TYPE_TYPE)
 				textOid := testutils.OidFromObjectName(connectionPool, "", "text", backup.TYPE_TYPE)
 				oid := testutils.OidFromCast(connectionPool, boolOid, textOid)
-				expectedMetadata := testutils.DefaultMetadata("CAST", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("CAST", false, false, true, false)
 
 				Expect(resultMetadataMap).To(HaveLen(numCasts + 1))
 				resultMetadata := resultMetadataMap[backup.UniqueID{ClassID: backup.PG_CAST_OID, Oid: oid}]
@@ -788,7 +846,7 @@ LANGUAGE SQL`)
 				textOid := testutils.OidFromObjectName(connectionPool, "", "text", backup.TYPE_TYPE)
 				intOid := testutils.OidFromObjectName(connectionPool, "", "int4", backup.TYPE_TYPE)
 				oid := testutils.OidFromCast(connectionPool, textOid, intOid)
-				expectedMetadata := testutils.DefaultMetadata("CAST", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("CAST", false, false, true, false)
 
 				Expect(resultMetadataMap).To(HaveLen(numCasts + 1))
 				resultMetadata := resultMetadataMap[backup.UniqueID{ClassID: backup.PG_CAST_OID, Oid: oid}]
@@ -805,32 +863,15 @@ LANGUAGE SQL`)
 				resultMetadataMap = backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RESOURCEQUEUE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "res_queue", backup.TYPE_RESOURCEQUEUE)
-				expectedMetadata := testutils.DefaultMetadata("RESOURCE QUEUE", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("RESOURCE QUEUE", false, false, true, false)
 
 				Expect(resultMetadataMap).To(HaveLen(numResQueues + 1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
-			It("returns a slice of default metadata for a role", func() {
-				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_ROLE)
-				numRoles := len(resultMetadataMap)
-
-				testhelper.AssertQueryRuns(connectionPool, `CREATE ROLE testuser`)
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE testuser")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON ROLE testuser IS 'This is a role comment.'")
-
-				resultMetadataMap = backup.GetCommentsForObjectType(connectionPool, backup.TYPE_ROLE)
-
-				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testuser", backup.TYPE_ROLE)
-				expectedMetadata := testutils.DefaultMetadata("ROLE", false, false, true)
-
-				Expect(resultMetadataMap).To(HaveLen(numRoles + 1))
-				resultMetadata := resultMetadataMap[uniqueID]
-				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
-			})
 			It("returns a slice of default metadata for a text search parser", func() {
 				testutils.SkipIfBefore5(connectionPool)
-				parserMetadata := testutils.DefaultMetadata("TEXT SEARCH PARSER", false, false, true)
+				parserMetadata := testutils.DefaultMetadata("TEXT SEARCH PARSER", false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER public.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH PARSER public.testparser")
@@ -845,7 +886,7 @@ LANGUAGE SQL`)
 			})
 			It("returns a slice of default metadata for a text search template", func() {
 				testutils.SkipIfBefore5(connectionPool)
-				templateMetadata := testutils.DefaultMetadata("TEXT SEARCH TEMPLATE", false, false, true)
+				templateMetadata := testutils.DefaultMetadata("TEXT SEARCH TEMPLATE", false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH TEMPLATE public.testtemplate(LEXIZE = dsimple_lexize);")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH TEMPLATE public.testtemplate")
@@ -860,7 +901,7 @@ LANGUAGE SQL`)
 			})
 			It("returns a slice of default metadata for an extension", func() {
 				testutils.SkipIfBefore5(connectionPool)
-				extensionMetadata := testutils.DefaultMetadata("EXTENSION", false, false, true)
+				extensionMetadata := testutils.DefaultMetadata("EXTENSION", false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE EXTENSION plperl;")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION plperl")
@@ -891,7 +932,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_INDEX)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testindex1", backup.TYPE_INDEX)
-				expectedMetadata := testutils.DefaultMetadata("INDEX", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("INDEX", false, false, true, false)
 
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -911,7 +952,7 @@ LANGUAGE SQL`)
 				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_CONSTRAINT)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testtable_i_key", backup.TYPE_CONSTRAINT)
-				expectedMetadata := testutils.DefaultMetadata("CONSTRAINT", false, false, true)
+				expectedMetadata := testutils.DefaultMetadata("CONSTRAINT", false, false, true, false)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
@@ -919,7 +960,7 @@ LANGUAGE SQL`)
 			})
 			It("returns a slice of default metadata for a text search parser in a specific schema", func() {
 				testutils.SkipIfBefore5(connectionPool)
-				parserMetadata := testutils.DefaultMetadata("TEXT SEARCH PARSER", false, false, true)
+				parserMetadata := testutils.DefaultMetadata("TEXT SEARCH PARSER", false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER public.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH PARSER public.testparser")
@@ -939,7 +980,7 @@ LANGUAGE SQL`)
 			})
 			It("returns a slice of default metadata for a text search template in a specific schema", func() {
 				testutils.SkipIfBefore5(connectionPool)
-				templateMetadata := testutils.DefaultMetadata("TEXT SEARCH TEMPLATE", false, false, true)
+				templateMetadata := testutils.DefaultMetadata("TEXT SEARCH TEMPLATE", false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH TEMPLATE public.testtemplate(LEXIZE = dsimple_lexize);")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH TEMPLATE public.testtemplate")

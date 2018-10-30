@@ -38,9 +38,9 @@ var _ = Describe("backup/metadata_globals tests", func() {
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", `"table"`, "DATABASE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE DATABASE "table" TEMPLATE template0;`)
 		})
-		It("prints a CREATE DATABASE statement with privileges, an owner, and a comment", func() {
+		It("prints a CREATE DATABASE statement with privileges, an owner, security label, and a comment", func() {
 			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "pg_default"}
-			dbMetadataMap := testutils.DefaultMetadataMap("DATABASE", true, true, true)
+			dbMetadataMap := testutils.DefaultMetadataMap("DATABASE", true, true, true, true)
 			dbMetadata := dbMetadataMap[db.GetUniqueID()]
 			dbMetadata.Privileges[0].Create = false
 			dbMetadataMap[db.GetUniqueID()] = dbMetadata
@@ -54,7 +54,10 @@ ALTER DATABASE testdb OWNER TO testrole;
 
 REVOKE ALL ON DATABASE testdb FROM PUBLIC;
 REVOKE ALL ON DATABASE testdb FROM testrole;
-GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`)
+GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;
+
+
+SECURITY LABEL FOR dummy ON DATABASE testdb IS 'unclassified';`)
 		})
 		It("prints a CREATE DATABASE statement with all modifiers", func() {
 			db := backup.Database{Oid: 1, Name: "testdb", Tablespace: "test_tablespace", Encoding: "UTF8", Collate: "en_US.utf-8", CType: "en_US.utf-8"}
@@ -123,7 +126,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`)
 		It("prints a resource queue with a comment", func() {
 			commentQueue := backup.ResourceQueue{Oid: 1, Name: `"commentQueue"`, ActiveStatements: 1, MaxCost: "-1.00", CostOvercommit: false, MinCost: "0.00", Priority: "medium", MemoryLimit: "-1"}
 			resQueues := []backup.ResourceQueue{commentQueue}
-			resQueueMetadata := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true)
+			resQueueMetadata := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true, false)
 
 			backup.PrintCreateResourceQueueStatements(backupfile, toc, resQueues, resQueueMetadata)
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE RESOURCE QUEUE "commentQueue" WITH (ACTIVE_STATEMENTS=1);
@@ -261,7 +264,7 @@ ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`)
 		}
 		emptyConfigMap := map[string][]backup.RoleGUC{}
 		It("prints basic role", func() {
-			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
+			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, false)
 			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, emptyConfigMap, roleMetadataMap)
 
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testrole1", "ROLE")
@@ -271,7 +274,7 @@ ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN 
 COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
 		})
 		It("prints basic role with user GUCs set", func() {
-			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
+			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, false)
 			roleConfigMap := map[string][]backup.RoleGUC{
 				"testrole1": {
 					{RoleName: "testrole1", Config: "SET search_path TO public"},
@@ -292,8 +295,8 @@ ALTER ROLE testrole1 SET gp_default_storage_options TO 'appendonly=true, compres
 
 COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
 		})
-		It("prints roles with non-defaults", func() {
-			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
+		It("prints roles with non-defaults and security label", func() {
+			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, true)
 			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole2}, emptyConfigMap, roleMetadataMap)
 
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE "testRole2";
@@ -301,7 +304,10 @@ ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICAT
 ALTER ROLE "testRole2" DENY BETWEEN DAY 0 TIME '13:30:00' AND DAY 3 TIME '14:30:00';
 ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:00';
 
-COMMENT ON ROLE "testRole2" IS 'This is a role comment.';`)
+COMMENT ON ROLE "testRole2" IS 'This is a role comment.';
+
+
+SECURITY LABEL FOR dummy ON ROLE "testRole2" IS 'unclassified';`)
 		})
 		It("prints multiple roles", func() {
 			emptyMetadataMap := backup.MetadataMap{}
@@ -343,8 +349,8 @@ ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "test_tablespace", "TABLESPACE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE TABLESPACE test_tablespace FILESPACE test_filespace;`)
 		})
-		It("prints a tablespace with privileges, an owner, and a comment", func() {
-			tablespaceMetadataMap := testutils.DefaultMetadataMap("TABLESPACE", true, true, true)
+		It("prints a tablespace with privileges, an owner, security label, and a comment", func() {
+			tablespaceMetadataMap := testutils.DefaultMetadataMap("TABLESPACE", true, true, true, true)
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, tablespaceMetadataMap)
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE TABLESPACE test_tablespace FILESPACE test_filespace;`,
 				`COMMENT ON TABLESPACE test_tablespace IS 'This is a tablespace comment.';
@@ -355,7 +361,10 @@ ALTER TABLESPACE test_tablespace OWNER TO testrole;
 
 REVOKE ALL ON TABLESPACE test_tablespace FROM PUBLIC;
 REVOKE ALL ON TABLESPACE test_tablespace FROM testrole;
-GRANT ALL ON TABLESPACE test_tablespace TO testrole;`)
+GRANT ALL ON TABLESPACE test_tablespace TO testrole;
+
+
+SECURITY LABEL FOR dummy ON TABLESPACE test_tablespace IS 'unclassified';`)
 		})
 		It("prints a tablespace with no per-segment tablespaces", func() {
 			expectedTablespace := backup.Tablespace{

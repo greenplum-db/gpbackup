@@ -14,7 +14,11 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
+	var includeSecurityLabels bool
 	BeforeEach(func() {
+		if connectionPool.Version.AtLeast("6") {
+			includeSecurityLabels = true
+		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateDatabaseStatement", func() {
@@ -85,7 +89,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateResourceQueueStatements", func() {
 		It("creates a basic resource queue with a comment", func() {
 			basicQueue := backup.ResourceQueue{Oid: 1, Name: `"basicQueue"`, ActiveStatements: -1, MaxCost: "32.80", CostOvercommit: false, MinCost: "0.00", Priority: "medium", MemoryLimit: "-1"}
-			resQueueMetadataMap := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true)
+			resQueueMetadataMap := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true, false)
 			resQueueMetadata := resQueueMetadataMap[basicQueue.GetUniqueID()]
 
 			backup.PrintCreateResourceQueueStatements(backupfile, toc, []backup.ResourceQueue{basicQueue}, resQueueMetadataMap)
@@ -295,7 +299,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			if connectionPool.Version.Before("5") {
 				role1.ResGroup = ""
 			}
-			metadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true)
+			metadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, includeSecurityLabels)
 
 			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyConfigMap, metadataMap)
 
@@ -427,9 +431,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			Fail("Tablespace 'test_tablespace' was not created")
 		})
-		It("creates a tablespace with permissions, an owner, and a comment", func() {
+		It("creates a tablespace with permissions, an owner, security label, and a comment", func() {
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
-			tablespaceMetadataMap := testutils.DefaultMetadataMap("TABLESPACE", true, true, true)
+			tablespaceMetadataMap := testutils.DefaultMetadataMap("TABLESPACE", true, true, true, includeSecurityLabels)
 			tablespaceMetadata := tablespaceMetadataMap[expectedTablespace.GetUniqueID()]
 			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, tablespaceMetadataMap)
 

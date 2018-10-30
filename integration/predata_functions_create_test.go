@@ -11,7 +11,11 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
+	var includeSecurityLabels bool
 	BeforeEach(func() {
+		if connectionPool.Version.AtLeast("6") {
+			includeSecurityLabels = true
+		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateFunctionStatement", func() {
@@ -27,7 +31,8 @@ var _ = Describe("backup integration create statement tests", func() {
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: 0, Language: "sql", ExecLocation: "a",
 				}
 
-				backup.PrintCreateFunctionStatement(backupfile, toc, addFunction, funcMetadata)
+				metadata := testutils.DefaultMetadata("FUNCTION", true, true, true, false)
+				backup.PrintCreateFunctionStatement(backupfile, toc, addFunction, metadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
@@ -85,7 +90,8 @@ var _ = Describe("backup integration create statement tests", func() {
 					Language: "sql", ExecLocation: "a",
 				}
 
-				backup.PrintCreateFunctionStatement(backupfile, toc, addFunction, funcMetadata)
+				metadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
+				backup.PrintCreateFunctionStatement(backupfile, toc, addFunction, metadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
@@ -246,8 +252,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&basicAggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "PreliminaryFunction", "CombineFunction")
 		})
-		It("creates an aggregate with an owner and a comment", func() {
-			aggMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
+		It("creates an aggregate with an owner, security label, and a comment", func() {
+			aggMetadata := testutils.DefaultMetadata("AGGREGATE", false, true, true, includeSecurityLabels)
 			backup.PrintCreateAggregateStatement(backupfile, toc, basicAggregateDef, funcInfoMap, aggMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -388,7 +394,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("prints a cast with a comment", func() {
 			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "pg_catalog.money", TargetTypeFQN: "pg_catalog.text", FunctionSchema: "public", FunctionName: "money_to_text", FunctionArgs: "money", CastContext: "a", CastMethod: "f"}
-			castMetadata = testutils.DefaultMetadata("CAST", false, false, true)
+			castMetadata = testutils.DefaultMetadata("CAST", false, false, true, false)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.money_to_text(money) RETURNS TEXT AS $$ SELECT textin(cash_out($1)) $$ LANGUAGE SQL;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.money_to_text(money)")
@@ -428,13 +434,16 @@ var _ = Describe("backup integration create statement tests", func() {
 				2: {QualifiedName: "pg_catalog.plpython_inline_handler", Arguments: "internal", IsInternal: true},
 			}
 			langOwner := ""
+			var langMetadata backup.ObjectMetadata
 			if connectionPool.Version.Before("5") {
 				langOwner = testutils.GetUserByID(connectionPool, 10)
+				langMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment"}
 			} else {
 				langOwner = "testrole"
+				langMetadata = testutils.DefaultMetadata("LANGUAGE", false, true, true, includeSecurityLabels)
 			}
 			plpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: langOwner, IsPl: true, PlTrusted: false, Handler: 1, Inline: 2}
-			langMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment"}
+
 			langMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{plpythonInfo.GetUniqueID(): langMetadata}
 			if connectionPool.Version.Before("5") {
 				plpythonInfo.Inline = 0
@@ -461,7 +470,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfBefore5(connectionPool)
 			plperlExtension := backup.Extension{Oid: 1, Name: "plperl", Schema: "pg_catalog"}
 			extensions := []backup.Extension{plperlExtension}
-			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
+			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true, false)
 			extensionMetadata := extensionMetadataMap[plperlExtension.GetUniqueID()]
 			backup.PrintCreateExtensionStatements(backupfile, toc, extensions, extensionMetadataMap)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -480,7 +489,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			convOne := backup.Conversion{Oid: 1, Schema: "public", Name: "conv_one", ForEncoding: "LATIN1", ToEncoding: "MULE_INTERNAL", ConversionFunction: "pg_catalog.latin1_to_mic", IsDefault: false}
 			convTwo := backup.Conversion{Oid: 0, Schema: "public", Name: "conv_two", ForEncoding: "LATIN1", ToEncoding: "MULE_INTERNAL", ConversionFunction: "pg_catalog.latin1_to_mic", IsDefault: true}
 			conversions := []backup.Conversion{convOne, convTwo}
-			convMetadataMap := testutils.DefaultMetadataMap("CONVERSION", false, true, true)
+			convMetadataMap := testutils.DefaultMetadataMap("CONVERSION", false, true, true, false)
 			convMetadata := convMetadataMap[convOne.GetUniqueID()]
 
 			backup.PrintCreateConversionStatements(backupfile, toc, conversions, convMetadataMap)

@@ -11,13 +11,17 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
+	var includeSecurityLabels bool
 	BeforeEach(func() {
+		if connectionPool.Version.AtLeast("6") {
+			includeSecurityLabels = true
+		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateSchemaStatements", func() {
 		It("creates a non public schema", func() {
 			schemas := []backup.Schema{{Oid: 0, Name: "test_schema"}}
-			schemaMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true)
+			schemaMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateSchemaStatements(backupfile, toc, schemas, schemaMetadata)
 
@@ -34,7 +38,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 		It("modifies the public schema", func() {
 			schemas := []backup.Schema{{Oid: 2200, Name: "public"}}
-			schemaMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true)
+			schemaMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateSchemaStatements(backupfile, toc, schemas, schemaMetadata)
 

@@ -15,9 +15,11 @@ var ACLRegex = regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
  */
 
 type ObjectMetadata struct {
-	Privileges []ACL
-	Owner      string
-	Comment    string
+	Privileges            []ACL
+	Owner                 string
+	Comment               string
+	SecurityLabelProvider string
+	SecurityLabel         string
 }
 
 type ACL struct {
@@ -63,6 +65,9 @@ func PrintObjectMetadata(file *utils.FileWithByteCount, obj ObjectMetadata, obje
 	if privileges := obj.GetPrivilegesStatements(objectName, objectType); privileges != "" {
 		file.MustPrintln(privileges)
 	}
+	if securityLabel := obj.GetSecurityLabelStatement(objectName, objectType); securityLabel != "" {
+		file.MustPrintln(securityLabel)
+	}
 }
 
 func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
@@ -91,6 +96,8 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 			metadata.Privileges = make([]ACL, 0)
 			metadata.Owner = result.Owner
 			metadata.Comment = result.Comment
+			metadata.SecurityLabelProvider = result.SecurityLabelProvider
+			metadata.SecurityLabel = result.SecurityLabel
 		}
 
 		privileges := ParseACL(privilegesStr, quotedRoleNames)
@@ -401,6 +408,15 @@ func (obj ObjectMetadata) GetCommentStatement(objectName string, objectType stri
 		commentStr = fmt.Sprintf("\n\nCOMMENT ON %s %s%s IS '%s';", objectType, objectName, tableStr, escapedComment)
 	}
 	return commentStr
+}
+
+func (obj ObjectMetadata) GetSecurityLabelStatement(objectName string, objectType string) string {
+	securityLabelStr := ""
+	if obj.SecurityLabel != "" {
+		escapedLabel := utils.EscapeSingleQuotes(obj.SecurityLabel)
+		securityLabelStr = fmt.Sprintf("\n\nSECURITY LABEL FOR %s ON %s %s IS '%s';", obj.SecurityLabelProvider, objectType, objectName, escapedLabel)
+	}
+	return securityLabelStr
 }
 
 func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, privileges []DefaultPrivileges) {

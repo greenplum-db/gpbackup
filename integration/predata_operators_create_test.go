@@ -40,7 +40,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION testschema.\"testFunc\" (path,path) RETURNS path AS 'SELECT $1' LANGUAGE SQL IMMUTABLE")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION testschema.\"testFunc\" (path,path)")
 
-			operatorMetadata := testutils.DefaultMetadata("OPERATOR", false, false, true)
+			operatorMetadata := testutils.DefaultMetadata("OPERATOR", false, false, true, false)
 			operator := backup.Operator{Oid: 1, Schema: "testschema", Name: "##", Procedure: "testschema.\"testFunc\"", LeftArgType: "path", RightArgType: "path", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 
 			backup.PrintCreateOperatorStatement(backupfile, toc, operator, operatorMetadata)
@@ -75,7 +75,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates operator family with owner and comment", func() {
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 			operatorFamilies := []backup.OperatorFamily{operatorFamily}
-			operatorFamilyMetadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true)
+			operatorFamilyMetadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true, false)
 			operatorFamilyMetadata := operatorFamilyMetadataMap[operatorFamily.GetUniqueID()]
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, toc, operatorFamilies, operatorFamilyMetadataMap)
@@ -159,7 +159,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates basic operator class with a comment and owner", func() {
 			operatorClass := backup.OperatorClass{Oid: 1, Schema: "public", Name: "testclass", FamilySchema: "public", FamilyName: "testclass", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
-			operatorClassMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true)
+			operatorClassMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true, false)
 			if connectionPool.Version.Before("5") { // Operator families do not exist prior to GPDB5
 				operatorClass.FamilySchema = ""
 				operatorClass.FamilyName = ""

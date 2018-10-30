@@ -42,8 +42,8 @@ LANGUAGE internal;`)
 $$add_two_ints$$
 LANGUAGE internal;`)
 			})
-			It("prints a function definition for a function with permissions, an owner, and a comment", func() {
-				funcMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLForType("testrole", "FUNCTION")}, Owner: "testrole", Comment: "This is a function comment."}
+			It("prints a function definition for a function with permissions, an owner, security label, and a comment", func() {
+				funcMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true, true)
 				backup.PrintCreateFunctionStatement(backupfile, toc, funcDef, funcMetadata)
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FUNCTION public.func_name(integer, integer) RETURNS integer AS
 $$add_two_ints$$
@@ -58,7 +58,11 @@ ALTER FUNCTION public.func_name(integer, integer) OWNER TO testrole;
 
 REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM testrole;
-GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`)
+GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;
+
+
+SECURITY LABEL FOR dummy ON FUNCTION public.func_name(integer, integer) IS 'unclassified';`)
+
 			})
 		})
 		Describe("PrintFunctionBodyOrPath", func() {
@@ -277,7 +281,7 @@ $_$`)
 		BeforeEach(func() {
 			aggDefinition = backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
 			emptyMetadata = backup.ObjectMetadata{}
-			aggMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: "testrole", Comment: "This is an aggregate comment."}
+			aggMetadata = testutils.DefaultMetadata("AGGREGATE", false, true, true, true)
 		})
 
 		It("prints an aggregate definition for an unordered aggregate with no optional specifications", func() {
@@ -487,7 +491,7 @@ $_$`)
 	HYPOTHETICAL
 );`)
 		})
-		It("prints an aggregate with owner and comment", func() {
+		It("prints an aggregate with owner, security label and comment", func() {
 			backup.PrintCreateAggregateStatement(backupfile, toc, aggDefinition, funcInfoMap, aggMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
@@ -498,7 +502,11 @@ $_$`)
 COMMENT ON AGGREGATE public.agg_name(integer, integer) IS 'This is an aggregate comment.';
 
 
-ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;`)
+ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;
+
+
+SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(integer, integer) IS 'unclassified';`)
+
 		})
 		It("prints an aggregate with owner, comment, and no arguments", func() {
 			aggDefinition.Arguments = ""
@@ -513,7 +521,10 @@ ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;`)
 COMMENT ON AGGREGATE public.agg_name(*) IS 'This is an aggregate comment.';
 
 
-ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;`)
+ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;
+
+
+SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(*) IS 'unclassified';`)
 		})
 	})
 	Describe("PrintCreateCastStatement", func() {
@@ -567,7 +578,7 @@ AS ASSIGNMENT;`)
 		})
 		It("prints a cast with a comment", func() {
 			castDef := backup.Cast{Oid: 1, SourceTypeFQN: "src", TargetTypeFQN: "dst", FunctionSchema: "", FunctionName: "", FunctionArgs: "", CastContext: "e", CastMethod: "b"}
-			castMetadata := testutils.DefaultMetadata("CAST", false, false, true)
+			castMetadata := testutils.DefaultMetadata("CAST", false, false, true, false)
 			backup.PrintCreateCastStatement(backupfile, toc, castDef, castMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE CAST (src AS dst)
 	WITHOUT FUNCTION;
@@ -586,7 +597,7 @@ SET search_path=pg_catalog;`)
 		})
 		It("prints a create extension statement with a comment", func() {
 			extensionDef := backup.Extension{Oid: 1, Name: "extension1", Schema: "schema1"}
-			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true)
+			extensionMetadataMap := testutils.DefaultMetadataMap("EXTENSION", false, false, true, false)
 			backup.PrintCreateExtensionStatements(backupfile, toc, []backup.Extension{extensionDef}, extensionMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
 CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
@@ -663,9 +674,9 @@ ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`)
 		})
-		It("prints a language with privileges, an owner, and a comment", func() {
+		It("prints a language with privileges, an owner, security label, and a comment", func() {
 			langs := []backup.ProceduralLanguage{plComment}
-			langMetadataMap := testutils.DefaultMetadataMap("LANGUAGE", true, true, true)
+			langMetadataMap := testutils.DefaultMetadataMap("LANGUAGE", true, true, true, true)
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, langMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;
@@ -679,7 +690,10 @@ ALTER LANGUAGE plpythonu OWNER TO testrole;
 
 REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;
 REVOKE ALL ON LANGUAGE plpythonu FROM testrole;
-GRANT ALL ON LANGUAGE plpythonu TO testrole;`)
+GRANT ALL ON LANGUAGE plpythonu TO testrole;
+
+
+SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';`)
 		})
 	})
 	Describe("PrintCreateConversionStatements", func() {
@@ -714,7 +728,7 @@ GRANT ALL ON LANGUAGE plpythonu TO testrole;`)
 		})
 		It("prints a conversion with an owner and a comment", func() {
 			conversions := []backup.Conversion{convOne}
-			metadataMap = testutils.DefaultMetadataMap("CONVERSION", false, true, true)
+			metadataMap = testutils.DefaultMetadataMap("CONVERSION", false, true, true, false)
 			backup.PrintCreateConversionStatements(backupfile, toc, conversions, metadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE CONVERSION public.conv_one FOR 'UTF8' TO 'LATIN1' FROM public.converter;
 

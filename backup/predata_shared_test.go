@@ -42,7 +42,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 		Context("Constraints involving different columns", func() {
 			It("prints an ADD CONSTRAINT statement for one UNIQUE constraint with a comment", func() {
 				constraints := []backup.Constraint{uniqueOne}
-				constraintMetadataMap := testutils.DefaultMetadataMap("CONSTRAINT", false, false, true)
+				constraintMetadataMap := testutils.DefaultMetadataMap("CONSTRAINT", false, false, true, false)
 				backup.PrintConstraintStatements(backupfile, toc, constraints, constraintMetadataMap)
 				testutils.ExpectEntry(toc.PredataEntries, 0, "", "public.tablename", "tablename_i_key", "CONSTRAINT")
 				testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE ONLY public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);
@@ -151,9 +151,9 @@ COMMENT ON CONSTRAINT tablename_i_key ON public.tablename IS 'This is a constrai
 			testutils.ExpectEntry(toc.PredataEntries, 0, "schemaname", "", "schemaname", "SCHEMA")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, "CREATE SCHEMA schemaname;")
 		})
-		It("can print a schema with privileges, an owner, and a comment", func() {
+		It("can print a schema with privileges, an owner, security label, and a comment", func() {
 			schemas := []backup.Schema{{Oid: 1, Name: "schemaname"}}
-			schemaMetadataMap := testutils.DefaultMetadataMap("SCHEMA", true, true, true)
+			schemaMetadataMap := testutils.DefaultMetadataMap("SCHEMA", true, true, true, true)
 
 			backup.PrintCreateSchemaStatements(backupfile, toc, schemas, schemaMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SCHEMA schemaname;
@@ -166,7 +166,10 @@ ALTER SCHEMA schemaname OWNER TO testrole;
 
 REVOKE ALL ON SCHEMA schemaname FROM PUBLIC;
 REVOKE ALL ON SCHEMA schemaname FROM testrole;
-GRANT ALL ON SCHEMA schemaname TO testrole;`)
+GRANT ALL ON SCHEMA schemaname TO testrole;
+
+
+SECURITY LABEL FOR dummy ON SCHEMA schemaname IS 'unclassified';`)
 		})
 	})
 })

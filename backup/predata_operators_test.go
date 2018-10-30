@@ -17,7 +17,7 @@ var _ = Describe("backup/predata_operators tests", func() {
 			operator         backup.Operator
 		)
 		BeforeEach(func() {
-			operatorMetadata = testutils.DefaultMetadata("OPERATOR", false, true, true)
+			operatorMetadata = testutils.DefaultMetadata("OPERATOR", false, true, true, false)
 			operator = backup.Operator{Oid: 0, Schema: "public", Name: "##", Procedure: "public.path_inter", LeftArgType: "public.path", RightArgType: `public."PATH"`, CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 		})
 		It("prints a basic operator", func() {
@@ -95,7 +95,7 @@ ALTER OPERATOR public.## (NONE, public."PATH") OWNER TO testrole;`)
 		It("prints an operator family with an owner and comment", func() {
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 
-			metadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true)
+			metadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true, false)
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, toc, []backup.OperatorFamily{operatorFamily}, metadataMap)
 
@@ -202,7 +202,7 @@ ALTER OPERATOR FAMILY public.testfam USING hash OWNER TO testrole;`)
 		It("prints an operator class with a function and owner and comment", func() {
 			operatorClass.Functions = []backup.OperatorClassFunction{function1}
 
-			objMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true)
+			objMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true, false)
 			backup.PrintCreateOperatorClassStatement(backupfile, toc, operatorClass, objMetadata)
 
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR CLASS public.testclass

@@ -385,7 +385,7 @@ func BackupRoles(metadataFile *utils.FileWithByteCount) {
 	roles := GetRoles(connectionPool)
 	objectCounts["Roles"] = len(roles)
 	roleGUCs := GetRoleGUCs(connectionPool)
-	roleMetadata := GetCommentsForObjectType(connectionPool, TYPE_ROLE)
+	roleMetadata := GetMetadataForObjectType(connectionPool, TYPE_ROLE)
 	PrintCreateRoleStatements(metadataFile, globalTOC, roles, roleGUCs, roleMetadata)
 }
 

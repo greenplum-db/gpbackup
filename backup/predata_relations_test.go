@@ -512,7 +512,7 @@ SET SUBPARTITION TEMPLATE
 		It("prints a block with a table comment", func() {
 			col := []backup.ColumnDefinition{rowOne}
 			tableDef.ColumnDefs = col
-			tableMetadata := backup.ObjectMetadata{Comment: "This is a table comment."}
+			tableMetadata := testutils.DefaultMetadata("TABLE", false, false, true, false)
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
@@ -550,21 +550,30 @@ COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 		It("prints an ALTER TABLE ... OWNER TO statement to set the table owner", func() {
 			col := []backup.ColumnDefinition{rowOne}
 			tableDef.ColumnDefs = col
-			tableMetadata := backup.ObjectMetadata{Owner: "testrole"}
+			tableMetadata := testutils.DefaultMetadata("TABLE", false, true, false, false)
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;`)
 		})
-		It("prints owner, comment, and ACL statements for foreign table", func() {
+		It("prints a SECURITY LABEL statement for the table", func() {
 			col := []backup.ColumnDefinition{rowOne}
 			tableDef.ColumnDefs = col
-			tableDef.ForeignDef = backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
-			tableMetadata := backup.ObjectMetadata{Owner: "testrole", Comment: "This is a table comment.", Privileges: []backup.ACL{testutils.DefaultACLForType("testrole", "FOREIGN TABLE")}}
+			tableMetadata := testutils.DefaultMetadata("TABLE", false, false, false, true)
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
-COMMENT ON FOREIGN TABLE public.tablename IS 'This is a table comment.';
+SECURITY LABEL FOR dummy ON TABLE public.tablename IS 'unclassified';`)
+		})
+		It("prints owner, comment, security label, and ACL statements for foreign table", func() {
+			col := []backup.ColumnDefinition{rowOne}
+			tableDef.ColumnDefs = col
+			tableDef.ForeignDef = backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
+			tableMetadata := testutils.DefaultMetadata("FOREIGN TABLE", true, true, true, true)
+			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
+			testhelper.ExpectRegexp(buffer, `
+
+COMMENT ON FOREIGN TABLE public.tablename IS 'This is a foreign table comment.';
 
 
 ALTER FOREIGN TABLE public.tablename OWNER TO testrole;
@@ -572,7 +581,10 @@ ALTER FOREIGN TABLE public.tablename OWNER TO testrole;
 
 REVOKE ALL ON public.tablename FROM PUBLIC;
 REVOKE ALL ON public.tablename FROM testrole;
-GRANT ALL ON public.tablename TO testrole;`)
+GRANT ALL ON public.tablename TO testrole;
+
+
+SECURITY LABEL FOR dummy ON FOREIGN TABLE public.tablename IS 'unclassified';`)
 		})
 		It("prints both an ALTER TABLE ... OWNER TO statement and comments", func() {
 			col := []backup.ColumnDefinition{rowCommentOne, rowCommentTwo}
@@ -732,7 +744,7 @@ SELECT pg_catalog.setval('public.seq_''name', 7, true);`)
 		})
 		It("can print a sequence with privileges, an owner, and a comment for version < 6", func() {
 			testhelper.SetDBVersion(connectionPool, "5.0.0")
-			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)
+			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true, false)
 			sequenceMetadata := sequenceMetadataMap[seqDefault.GetUniqueID()]
 			sequenceMetadata.Privileges[0].Update = false
 			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
@@ -758,9 +770,9 @@ REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
 			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
-		It("can print a sequence with privileges, an owner, and a comment for version >= 6", func() {
+		It("can print a sequence with privileges, an owner, security label, and a comment for version >= 6", func() {
 			testhelper.SetDBVersion(connectionPool, "6.0.0")
-			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true)
+			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true, true)
 			sequenceMetadata := sequenceMetadataMap[seqDefault.GetUniqueID()]
 			sequenceMetadata.Privileges[0].Update = false
 			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
@@ -784,7 +796,10 @@ ALTER SEQUENCE public.seq_name OWNER TO testrole;
 
 REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
-GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
+GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;
+
+
+SECURITY LABEL FOR dummy ON SEQUENCE public.seq_name IS 'unclassified';`)
 			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
 		It("can print a sequence with privileges WITH GRANT OPTION", func() {
@@ -809,12 +824,10 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 		var (
 			view          backup.View
 			emptyMetadata backup.ObjectMetadata
-			viewMetadata  backup.ObjectMetadata
 		)
 		BeforeEach(func() {
 			view = backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
 			emptyMetadata = backup.ObjectMetadata{}
-			viewMetadata = testutils.DefaultMetadata("VIEW", true, true, true)
 		})
 		It("can print a basic view", func() {
 			backup.PrintCreateViewStatement(backupfile, toc, view, emptyMetadata)
@@ -826,6 +839,7 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 			testhelper.SetDBVersion(connectionPool, "5.0.0")
 			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
+			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, false)
 			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;
@@ -841,10 +855,11 @@ REVOKE ALL ON shamwow.shazam FROM PUBLIC;
 REVOKE ALL ON shamwow.shazam FROM testrole;
 GRANT ALL ON shamwow.shazam TO testrole;`)
 		})
-		It("can print a view with privileges, an owner, and a comment for version >= 6", func() {
+		It("can print a view with privileges, an owner, security label, and a comment for version >= 6", func() {
 			testhelper.SetDBVersion(connectionPool, "6.0.0")
 			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
+			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, true)
 			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer,
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;
@@ -858,7 +873,10 @@ ALTER VIEW shamwow.shazam OWNER TO testrole;
 
 REVOKE ALL ON shamwow.shazam FROM PUBLIC;
 REVOKE ALL ON shamwow.shazam FROM testrole;
-GRANT ALL ON shamwow.shazam TO testrole;`)
+GRANT ALL ON shamwow.shazam TO testrole;
+
+
+SECURITY LABEL FOR dummy ON VIEW shamwow.shazam IS 'unclassified';`)
 		})
 		It("can print a view with options", func() {
 			view.Options = " WITH (security_barrier=true)"

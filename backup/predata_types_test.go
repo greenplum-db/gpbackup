@@ -29,8 +29,8 @@ var _ = Describe("backup/predata_types tests", func() {
 	'foo'
 );`)
 		})
-		It("prints an enum type with comment and owner", func() {
-			typeMetadataMap = testutils.DefaultMetadataMap("TYPE", false, true, true)
+		It("prints an enum type with comment, security label, and owner", func() {
+			typeMetadataMap = testutils.DefaultMetadataMap("TYPE", false, true, true, true)
 			backup.PrintCreateEnumTypeStatements(backupfile, toc, []backup.Type{enumTwo}, typeMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.enum_type AS ENUM (
 	'bar',
@@ -42,7 +42,10 @@ var _ = Describe("backup/predata_types tests", func() {
 COMMENT ON TYPE public.enum_type IS 'This is a type comment.';
 
 
-ALTER TYPE public.enum_type OWNER TO testrole;`)
+ALTER TYPE public.enum_type OWNER TO testrole;
+
+
+SECURITY LABEL FOR dummy ON TYPE public.enum_type IS 'unclassified';`)
 		})
 	})
 	Describe("PrintCreateCompositeTypeStatement", func() {
@@ -79,9 +82,9 @@ ALTER TYPE public.enum_type OWNER TO testrole;`)
 	bar text
 );`)
 		})
-		It("prints a composite type with comment and owner", func() {
+		It("prints a composite type with comment, security label, and owner", func() {
 			compType.Attributes = twoAtts
-			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true)
+			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true, true)
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compType, typeMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
 	foo integer,
@@ -91,7 +94,10 @@ ALTER TYPE public.enum_type OWNER TO testrole;`)
 COMMENT ON TYPE public.composite_type IS 'This is a type comment.';
 
 
-ALTER TYPE public.composite_type OWNER TO testrole;`)
+ALTER TYPE public.composite_type OWNER TO testrole;
+
+
+SECURITY LABEL FOR dummy ON TYPE public.composite_type IS 'unclassified';`)
 		})
 		It("prints a composite type with attribute comment", func() {
 			attWithComment := []backup.Attribute{{Name: "foo", Type: "integer", Comment: "'attribute comment'"}}
@@ -175,8 +181,8 @@ ALTER TYPE public.base_type
 	STORAGE = extended
 );`)
 		})
-		It("prints a base type with comment and owner", func() {
-			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true)
+		It("prints a base type with comment, security label, and owner", func() {
+			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true, true)
 			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseSimple, typeMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.base_type (
 	INPUT = input_fn,
@@ -187,7 +193,10 @@ ALTER TYPE public.base_type
 COMMENT ON TYPE public.base_type IS 'This is a type comment.';
 
 
-ALTER TYPE public.base_type OWNER TO testrole;`)
+ALTER TYPE public.base_type OWNER TO testrole;
+
+
+SECURITY LABEL FOR dummy ON TYPE public.base_type IS 'unclassified';`)
 		})
 	})
 	Describe("PrintCreateShellTypeStatements", func() {
@@ -224,8 +233,8 @@ ALTER TYPE public.base_type OWNER TO testrole;`)
 			backup.PrintCreateDomainStatement(backupfile, toc, domainOne, emptyMetadata, emptyConstraint)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL;`)
 		})
-		It("prints a domain without constraint with comment and owner", func() {
-			typeMetadata = testutils.DefaultMetadata("DOMAIN", false, true, true)
+		It("prints a domain without constraint with comment, security label, and owner", func() {
+			typeMetadata = testutils.DefaultMetadata("DOMAIN", false, true, true, true)
 			backup.PrintCreateDomainStatement(backupfile, toc, domainTwo, typeMetadata, emptyConstraint)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain2 AS varchar;
 
@@ -233,7 +242,10 @@ ALTER TYPE public.base_type OWNER TO testrole;`)
 COMMENT ON DOMAIN public.domain2 IS 'This is a domain comment.';
 
 
-ALTER DOMAIN public.domain2 OWNER TO testrole;`)
+ALTER DOMAIN public.domain2 OWNER TO testrole;
+
+
+SECURITY LABEL FOR dummy ON DOMAIN public.domain2 IS 'unclassified';`)
 		})
 	})
 	Describe("PrintCreateRangeTypeStatement", func() {
@@ -266,8 +278,8 @@ ALTER DOMAIN public.domain2 OWNER TO testrole;`)
 	SUBTYPE_DIFF = diff_schema.test_diff
 );`)
 		})
-		It("prints a range type with an owner and a comment", func() {
-			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true)
+		It("prints a range type with an owner, security label, and a comment", func() {
+			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true, true)
 			backup.PrintCreateRangeTypeStatement(backupfile, toc, basicRangeType, typeMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.rangetype AS RANGE (
 	SUBTYPE = test_subtype_schema.test_subtype
@@ -277,7 +289,10 @@ ALTER DOMAIN public.domain2 OWNER TO testrole;`)
 COMMENT ON TYPE public.rangetype IS 'This is a type comment.';
 
 
-ALTER TYPE public.rangetype OWNER TO testrole;`)
+ALTER TYPE public.rangetype OWNER TO testrole;
+
+
+SECURITY LABEL FOR dummy ON TYPE public.rangetype IS 'unclassified';`)
 		})
 	})
 	Describe("PrintCreateCollationStatement", func() {
@@ -289,7 +304,7 @@ ALTER TYPE public.rangetype OWNER TO testrole;`)
 		})
 		It("prints a create collation statement with owner and comment", func() {
 			collation := backup.Collation{Oid: 1, Name: "collation1", Collate: "collate1", Ctype: "ctype1", Schema: "schema1"}
-			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
+			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true, false)
 			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, collationMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE COLLATION schema1.collation1 (LC_COLLATE = 'collate1', LC_CTYPE = 'ctype1');
 

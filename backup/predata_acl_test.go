@@ -262,7 +262,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO somerole WIT
 	Describe("ConstructMetadataMap", func() {
 		object1A := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 1}, Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
 		object1B := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 1}, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: ""}
-		object2 := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 2}, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: "this is a comment"}
+		object2 := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 2}, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: "", Owner: "testrole", Comment: "this is a comment", SecurityLabelProvider: "some_provider", SecurityLabel: "some_label"}
 		objectDefaultKind := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 3}, Privileges: sql.NullString{String: "", Valid: false}, Kind: "Default", Owner: "testrole", Comment: ""}
 		objectEmptyKind := backup.MetadataQueryStruct{UniqueID: backup.UniqueID{Oid: 4}, Privileges: sql.NullString{String: "", Valid: false}, Kind: "Empty", Owner: "testrole", Comment: ""}
 		var metadataList []backup.MetadataQueryStruct
@@ -281,7 +281,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO somerole WIT
 		It("One object", func() {
 			metadataList = []backup.MetadataQueryStruct{object2}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
-			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment"}
+			expectedObjectMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment", SecurityLabelProvider: "some_provider", SecurityLabel: "some_label"}
 			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[backup.UniqueID{Oid: 2}]).To(Equal(expectedObjectMetadata))
 
@@ -297,7 +297,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO somerole WIT
 			metadataList = []backup.MetadataQueryStruct{object1A, object1B, object2}
 			metadataMap := backup.ConstructMetadataMap(metadataList)
 			expectedObjectMetadataOne := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}, Owner: "testrole"}
-			expectedObjectMetadataTwo := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment"}
+			expectedObjectMetadataTwo := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true}}, Owner: "testrole", Comment: "this is a comment", SecurityLabelProvider: "some_provider", SecurityLabel: "some_label"}
 			Expect(metadataMap).To(HaveLen(2))
 			Expect(metadataMap[backup.UniqueID{Oid: 1}]).To(Equal(expectedObjectMetadataOne))
 			Expect(metadataMap[backup.UniqueID{Oid: 2}]).To(Equal(expectedObjectMetadataTwo))

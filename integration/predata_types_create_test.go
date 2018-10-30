@@ -11,19 +11,22 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
+	var includeSecurityLabels bool
 	BeforeEach(func() {
+		if connectionPool.Version.AtLeast("6") {
+			includeSecurityLabels = true
+		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintTypeStatements", func() {
 		var (
-			shellType       backup.Type
-			baseType        backup.Type
-			compositeType   backup.Type
-			enumType        backup.Type
-			domainType      backup.Type
-			types           []backup.Type
-			typeMetadata    backup.ObjectMetadata
-			typeMetadataMap backup.MetadataMap
+			shellType     backup.Type
+			baseType      backup.Type
+			compositeType backup.Type
+			enumType      backup.Type
+			domainType    backup.Type
+			types         []backup.Type
+			typeMetadata  backup.ObjectMetadata
 		)
 		BeforeEach(func() {
 			shellType = backup.Type{Type: "p", Schema: "public", Name: "shell_type"}
@@ -104,7 +107,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates enum types", func() {
 			testutils.SkipIfBefore5(connectionPool)
 			enums := []backup.Type{enumType}
-			backup.PrintCreateEnumTypeStatements(backupfile, toc, enums, typeMetadataMap)
+			metadataMap := testutils.DefaultMetadataMap("TYPE", false, true, true, includeSecurityLabels)
+			backup.PrintCreateEnumTypeStatements(backupfile, toc, enums, metadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.enum_type")
@@ -121,7 +125,8 @@ var _ = Describe("backup integration create statement tests", func() {
 				baseType.Preferred = true
 				baseType.Collatable = true
 			}
-			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseType, typeMetadata)
+			metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
+			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseType, metadata)
 
 			//Run queries to set up the database state so we can successfully create base types
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_type")
@@ -143,7 +148,8 @@ var _ = Describe("backup integration create statement tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
 				domainType.Collation = "public.some_coll"
 			}
-			backup.PrintCreateDomainStatement(backupfile, toc, domainType, typeMetadata, constraints)
+			metadata := testutils.DefaultMetadata("DOMAIN", false, true, true, includeSecurityLabels)
+			backup.PrintCreateDomainStatement(backupfile, toc, domainType, metadata, constraints)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.domain_type")
@@ -170,7 +176,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
 
-			backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, typeMetadata)
+			metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
+			backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, metadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
@@ -222,7 +229,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic collation with comment and owner", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true)
+			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true, false)
 			collationMetadata := collationMetadataMap[collation.GetUniqueID()]
 
 			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, collationMetadataMap)
