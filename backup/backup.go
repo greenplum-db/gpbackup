@@ -192,18 +192,17 @@ func DoBackup() {
 func backupGlobal(metadataFile *utils.FileWithByteCount) {
 	gplog.Info("Writing global database metadata")
 
+	BackupResourceQueues(metadataFile)
+	if connectionPool.Version.AtLeast("5") {
+		BackupResourceGroups(metadataFile)
+	}
+	BackupRoles(metadataFile)
+	BackupRoleGrants(metadataFile)
 	BackupTablespaces(metadataFile)
 	BackupCreateDatabase(metadataFile)
 	BackupDatabaseGUCs(metadataFile)
+	BackupRoleGUCs(metadataFile)
 
-	if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
-		BackupResourceQueues(metadataFile)
-		if connectionPool.Version.AtLeast("5") {
-			BackupResourceGroups(metadataFile)
-		}
-		BackupRoles(metadataFile)
-		BackupRoleGrants(metadataFile)
-	}
 	if wasTerminated {
 		gplog.Info("Global database metadata backup incomplete")
 	} else {

@@ -193,7 +193,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 	}
 }
 
-func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roles []Role, roleGUCs map[string][]RoleGUC, roleMetadata MetadataMap) {
+func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roles []Role, roleMetadata MetadataMap) {
 	for _, role := range roles {
 		start := metadataFile.ByteCount
 		attrs := []string{}
@@ -279,15 +279,6 @@ func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 CREATE ROLE %s;
 ALTER ROLE %s WITH %s;`, role.Name, role.Name, strings.Join(attrs, " "))
 
-		for _, roleGUC := range roleGUCs[role.Name] {
-			dbString := ""
-			if roleGUC.DbName != "" {
-				dbString = fmt.Sprintf("IN DATABASE %s ", roleGUC.DbName)
-			}
-			metadataFile.MustPrintf("\n\nALTER ROLE %s %s%s;", role.Name, dbString, roleGUC.Config)
-
-		}
-
 		if len(role.TimeConstraints) != 0 {
 			for _, timeConstraint := range role.TimeConstraints {
 				metadataFile.MustPrintf("\nALTER ROLE %s DENY BETWEEN DAY %d TIME '%s' AND DAY %d TIME '%s';", role.Name, timeConstraint.StartDay, timeConstraint.StartTime, timeConstraint.EndDay, timeConstraint.EndTime)
@@ -295,6 +286,20 @@ ALTER ROLE %s WITH %s;`, role.Name, role.Name, strings.Join(attrs, " "))
 		}
 		PrintObjectMetadata(metadataFile, roleMetadata[role.GetUniqueID()], role.Name, "ROLE")
 		toc.AddGlobalEntry("", role.Name, "ROLE", start, metadataFile)
+	}
+}
+
+func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roleGUCs map[string][]RoleGUC) {
+	for roleName := range roleGUCs {
+		start := metadataFile.ByteCount
+		for _, roleGUC := range roleGUCs[roleName] {
+			dbString := ""
+			if roleGUC.DbName != "" {
+				dbString = fmt.Sprintf("IN DATABASE %s ", roleGUC.DbName)
+			}
+			metadataFile.MustPrintf("\n\nALTER ROLE %s %s%s;", roleName, dbString, roleGUC.Config)
+		}
+		toc.AddGlobalEntry("", roleName, "ROLE GUCS", start, metadataFile)
 	}
 }
 

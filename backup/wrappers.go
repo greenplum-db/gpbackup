@@ -384,9 +384,14 @@ func BackupRoles(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE ROLE statements to metadata file")
 	roles := GetRoles(connectionPool)
 	objectCounts["Roles"] = len(roles)
-	roleGUCs := GetRoleGUCs(connectionPool)
 	roleMetadata := GetMetadataForObjectType(connectionPool, TYPE_ROLE)
-	PrintCreateRoleStatements(metadataFile, globalTOC, roles, roleGUCs, roleMetadata)
+	PrintCreateRoleStatements(metadataFile, globalTOC, roles, roleMetadata)
+}
+
+func BackupRoleGUCs(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing ROLE GUC statements to metadata file")
+	roleGUCs := GetRoleGUCs(connectionPool)
+	PrintRoleGUCStatements(metadataFile, globalTOC, roleGUCs)
 }
 
 func BackupRoleGrants(metadataFile *utils.FileWithByteCount) {

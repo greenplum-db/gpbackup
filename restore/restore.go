@@ -104,17 +104,15 @@ func DoSetup() {
 		unquotedRestoreDatabase = MustGetFlagString(utils.REDIRECT_DB)
 	}
 	ValidateDatabaseExistence(unquotedRestoreDatabase, MustGetFlagBool(utils.CREATE_DB), backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
-	if MustGetFlagBool(utils.CREATE_DB) {
+	if MustGetFlagBool(utils.WITH_GLOBALS) {
+		restoreGlobal(metadataFilename)
+	} else if MustGetFlagBool(utils.CREATE_DB) {
 		createDatabase(metadataFilename)
 	}
 	if connectionPool != nil {
 		connectionPool.Close()
 	}
 	InitializeConnectionPool(unquotedRestoreDatabase)
-
-	if MustGetFlagBool(utils.WITH_GLOBALS) {
-		restoreGlobal(metadataFilename)
-	}
 
 	/*
 	 * We don't need to validate anything if we're creating the database; we
@@ -170,7 +168,10 @@ func createDatabase(metadataFilename string) {
 }
 
 func restoreGlobal(metadataFilename string) {
-	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GRANT", "TABLESPACE"}
+	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GUCS", "ROLE GRANT", "TABLESPACE"}
+	if MustGetFlagBool(utils.CREATE_DB) {
+		objectTypes = append(objectTypes, "DATABASE")
+	}
 	gplog.Info("Restoring global metadata")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
