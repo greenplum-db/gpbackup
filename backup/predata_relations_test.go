@@ -625,6 +625,18 @@ REVOKE ALL (j) ON TABLE public.tablename FROM PUBLIC;
 REVOKE ALL (j) ON TABLE public.tablename FROM testrole;
 GRANT ALL (j) ON TABLE public.tablename TO testrole2;`)
 		})
+		It("prints a security group statement on a table column", func() {
+			privilegesColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
+			privilegesColumnTwo := backup.ColumnDefinition{Oid: 1, Num: 2, Name: "j", Type: "character varying(20)", StatTarget: -1, SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
+			col := []backup.ColumnDefinition{privilegesColumnOne, privilegesColumnTwo}
+			tableDef.ColumnDefs = col
+			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, backup.ObjectMetadata{})
+			testhelper.ExpectRegexp(buffer, `
+
+SECURITY LABEL FOR dummy ON COLUMN public.tablename.i IS 'unclassified';
+
+SECURITY LABEL FOR dummy ON COLUMN public.tablename.j IS 'unclassified';`)
+		})
 	})
 	Describe("PrintCreateSequenceStatements", func() {
 		baseSequence := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_name"}

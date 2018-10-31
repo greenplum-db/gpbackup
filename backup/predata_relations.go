@@ -373,6 +373,10 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table
 			columnPrivileges := columnMetadata.GetPrivilegesStatements(table.FQN(), "COLUMN", att.Name)
 			metadataFile.MustPrintln(columnPrivileges)
 		}
+		if att.SecurityLabel != "" {
+			escapedLabel := utils.EscapeSingleQuotes(att.SecurityLabel)
+			metadataFile.MustPrintf("\n\nSECURITY LABEL FOR %s ON COLUMN %s.%s IS '%s';", att.SecurityLabelProvider, table.FQN(), att.Name, escapedLabel)
+		}
 	}
 }
 

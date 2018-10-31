@@ -402,11 +402,12 @@ PARTITION BY RANGE (year)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.atttable(i character(8) COLLATE public.some_coll)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.atttable")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.atttable ALTER COLUMN i SET (n_distinct=1);")
+			testhelper.AssertQueryRuns(connectionPool, "SECURITY LABEL FOR dummy ON COLUMN public.atttable.i IS 'unclassified';")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "atttable", backup.TYPE_RELATION)
 			privileges := backup.GetPrivilegesForColumns(connectionPool)
 			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
 
-			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "character(8)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL, Options: "n_distinct=1", Collation: "public.some_coll"}
+			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "character(8)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL, Options: "n_distinct=1", Collation: "public.some_coll", SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
 
 			Expect(tableAtts).To(HaveLen(1))
 

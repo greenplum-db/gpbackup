@@ -340,8 +340,8 @@ SET SUBPARTITION TEMPLATE ` + `
 			resultTableDef := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable})[testTable.Oid]
 			structmatcher.ExpectStructsToMatchExcluding(&tableDef, &resultTableDef, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
 		})
-		It("prints table comment, table privileges, table owner, and column comments for a table", func() {
-			metadata := testutils.DefaultMetadata("TABLE", true, true, true, true)
+		It("prints table comment, table privileges, table owner, table security label, and column comments for a table", func() {
+			metadata := testutils.DefaultMetadata("TABLE", true, true, true, includeSecurityLabels)
 			tableDef.ColumnDefs[0].Comment = "This is a column comment."
 			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, metadata)
 
@@ -366,6 +366,18 @@ SET SUBPARTITION TEMPLATE ` + `
 			resultTableDef := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable})[testTable.Oid]
 			resultColumnOne := resultTableDef.ColumnDefs[0]
 			structmatcher.ExpectStructsToMatchExcluding(privilegesColumnOne, resultColumnOne, "Oid")
+		})
+		It("prints column level security label", func() {
+			testutils.SkipIfBefore6(connectionPool)
+			securityLabelColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, ACL: []backup.ACL{}, SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
+			tableDef.ColumnDefs = []backup.ColumnDefinition{securityLabelColumnOne}
+			backup.PrintPostCreateTableStatements(backupfile, testTable, tableDef, tableMetadata)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTableDef := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable})[testTable.Oid]
+			resultColumnOne := resultTableDef.ColumnDefs[0]
+			structmatcher.ExpectStructsToMatchExcluding(securityLabelColumnOne, resultColumnOne, "Oid")
 		})
 	})
 	Describe("PrintCreateViewStatements", func() {

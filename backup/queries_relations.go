@@ -253,21 +253,23 @@ WHERE r.parchildrelid != 0;
 }
 
 type ColumnDefinition struct {
-	Oid         uint32 `db:"attrelid"`
-	Num         int    `db:"attnum"`
-	Name        string
-	NotNull     bool `db:"attnotnull"`
-	HasDefault  bool `db:"atthasdef"`
-	Type        string
-	Encoding    string
-	StatTarget  int `db:"attstattarget"`
-	StorageType string
-	DefaultVal  string
-	Comment     string
-	ACL         []ACL
-	Options     string
-	FdwOptions  string
-	Collation   string
+	Oid                   uint32 `db:"attrelid"`
+	Num                   int    `db:"attnum"`
+	Name                  string
+	NotNull               bool `db:"attnotnull"`
+	HasDefault            bool `db:"atthasdef"`
+	Type                  string
+	Encoding              string
+	StatTarget            int `db:"attstattarget"`
+	StorageType           string
+	DefaultVal            string
+	Comment               string
+	ACL                   []ACL
+	Options               string
+	FdwOptions            string
+	Collation             string
+	SecurityLabelProvider string
+	SecurityLabel         string
 }
 
 var storageTypeCodes = map[string]string{
@@ -320,6 +322,8 @@ SELECT
 	coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
 	coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
 	CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
+	coalesce(sec.provider,'') AS securitylabelprovider,
+	coalesce(sec.label,'') AS securitylabel,
 	coalesce(d.description,'') AS comment
 FROM pg_catalog.pg_attribute a
 JOIN pg_class c ON a.attrelid = c.oid
@@ -330,6 +334,7 @@ LEFT JOIN pg_collation coll on (a.attcollation = coll.oid)
 LEFT JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
 LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
 LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
+LEFT JOIN pg_seclabel sec ON (sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum)
 WHERE %s
 AND a.attnum > 0::pg_catalog.int2
 AND a.attisdropped = 'f'
