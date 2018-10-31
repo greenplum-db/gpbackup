@@ -116,8 +116,8 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 
 func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resGroups []ResourceGroup, resGroupMetadata MetadataMap) {
 	for _, resGroup := range resGroups {
-		start := metadataFile.ByteCount
 
+		var start uint64
 		if resGroup.Name == "default_group" || resGroup.Name == "admin_group" {
 			resGroupList := []struct {
 				setting string
@@ -129,19 +129,28 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 				{"CONCURRENCY", resGroup.Concurrency},
 			}
 			for _, property := range resGroupList {
+				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET %s %d;", resGroup.Name, property.setting, property.value)
+				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 			}
 
 			/* special handling for cpu properties */
 			if resGroup.CPURateLimit >= 0 {
 				/* cpu rate mode */
+				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_RATE_LIMIT %d;", resGroup.Name, resGroup.CPURateLimit)
+				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 			} else {
 				/* cpuset mode */
+				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
+				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 			}
+			start = metadataFile.ByteCount
 			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
-			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
+			if metadataFile.ByteCount > start {
+				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
+			}
 		} else {
 			start = metadataFile.ByteCount
 			attributes := []string{}
@@ -173,8 +182,13 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			attributes = append(attributes, fmt.Sprintf("MEMORY_SPILL_RATIO=%d", resGroup.MemorySpillRatio))
 			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%d", resGroup.Concurrency))
 			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
-			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
 			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
+
+			start = metadataFile.ByteCount
+			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
+			if metadataFile.ByteCount > start {
+				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
+			}
 		}
 	}
 }
