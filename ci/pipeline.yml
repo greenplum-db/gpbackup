@@ -157,6 +157,16 @@ resources:
     secret_access_key: {{gpdb4-bucket-secret-access-key}}
     versioned_file: DDBoostFS-1.1.0.1-565598.rhel.x86_64.rpm
 
+- name: dummy_seclabel
+  type: s3
+  source:
+    access_key_id: {{gpdb4-bucket-access-key-id}}
+    bucket: {{dpm_bucket}}
+    region_name: {{aws-region}}
+    secret_access_key: {{gpdb4-bucket-secret-access-key}}
+    versioned_file: dummy_seclabel.so
+
+
 - name: slack-alert
   type: slack-notification
   source:
@@ -570,6 +580,7 @@ jobs:
     - get: bin_gpdb_master
     - get: ccp_src
     - get: gpdb_src
+    - get: dummy_seclabel
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -585,7 +596,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+    file: gpbackup/ci/tasks/setup-centos-env-gpdb6.yml
   - task: integration-tests
     file: gpbackup/ci/tasks/integration-tests.yml
     on_success:
