@@ -39,10 +39,6 @@ func TestBackup(t *testing.T) {
 
 var cmdFlags *pflag.FlagSet
 
-var _ = BeforeSuite(func() {
-	connectionPool, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
-})
-
 var _ = BeforeEach(func() {
 	cmdFlags = pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
 
@@ -52,6 +48,8 @@ var _ = BeforeEach(func() {
 
 	utils.SetPipeThroughProgram(utils.PipeThroughProgram{})
 
+	connectionPool, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
+	backup.SetConnection(connectionPool)
+	backup.InitializeMetadataParams(connectionPool)
 	buffer = gbytes.NewBuffer()
-	connectionPool, mock = testutils.CreateAndConnectMockDB(1)
 })

@@ -50,13 +50,10 @@ func TestRestore(t *testing.T) {
 
 var cmdFlags *pflag.FlagSet
 
-var _ = BeforeSuite(func() {
-	connectionPool, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
-	buffer = gbytes.NewBuffer()
-})
-
 var _ = BeforeEach(func() {
-	connectionPool, mock = testutils.CreateAndConnectMockDB(1)
+	connectionPool, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
+	restore.SetConnection(connectionPool)
+	buffer = gbytes.NewBuffer()
 
 	cmdFlags = pflag.NewFlagSet("gprestore", pflag.ExitOnError)
 	restore.SetCmdFlags(cmdFlags)

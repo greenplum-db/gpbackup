@@ -32,14 +32,6 @@ func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *gbytes.Buffer, *g
 	return connectionPool, mock, testStdout, testStderr, testLogfile
 }
 
-func CreateAndConnectMockDB(numConns int) (*dbconn.DBConn, sqlmock.Sqlmock) {
-	connectionPool, mock := testhelper.CreateAndConnectMockDB(numConns)
-	backup.SetConnection(connectionPool)
-	restore.SetConnection(connectionPool)
-	backup.InitializeMetadataParams(connectionPool)
-	return connectionPool, mock
-}
-
 func SetupTestCluster() {
 	testCluster := SetDefaultSegmentConfiguration()
 	backup.SetCluster(testCluster)
