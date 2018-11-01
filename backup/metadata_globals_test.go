@@ -160,15 +160,12 @@ COMMENT ON RESOURCE QUEUE "commentQueue" IS 'This is a resource queue comment.';
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, resGroups, emptyResGroupMetadata)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "default_group", "RESOURCE GROUP")
-			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `ALTER RESOURCE GROUP default_group SET MEMORY_LIMIT 20;
-
-ALTER RESOURCE GROUP default_group SET MEMORY_SHARED_QUOTA 25;
-
-ALTER RESOURCE GROUP default_group SET MEMORY_SPILL_RATIO 30;
-
-ALTER RESOURCE GROUP default_group SET CONCURRENCY 15;
-
-ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`)
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
+				`ALTER RESOURCE GROUP default_group SET MEMORY_LIMIT 20;`,
+				`ALTER RESOURCE GROUP default_group SET MEMORY_SHARED_QUOTA 25;`,
+				`ALTER RESOURCE GROUP default_group SET MEMORY_SPILL_RATIO 30;`,
+				`ALTER RESOURCE GROUP default_group SET CONCURRENCY 15;`,
+				`ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`)
 		})
 		It("prints memory_auditor resource groups", func() {
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30}
@@ -262,42 +259,19 @@ ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`)
 				},
 			},
 		}
-		emptyConfigMap := map[string][]backup.RoleGUC{}
 		It("prints basic role", func() {
 			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, false)
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, emptyConfigMap, roleMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, roleMetadataMap)
 
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testrole1", "ROLE")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE testrole1;
 ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default RESOURCE GROUP default_group;
-
-COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
-		})
-		It("prints basic role with user GUCs set", func() {
-			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, false)
-			roleConfigMap := map[string][]backup.RoleGUC{
-				"testrole1": {
-					{RoleName: "testrole1", Config: "SET search_path TO public"},
-					{RoleName: "testrole1", DbName: "testdb", Config: "SET client_min_messages TO 'error'"},
-					{RoleName: "testrole1", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"}},
-			}
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1}, roleConfigMap, roleMetadataMap)
-
-			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testrole1", "ROLE")
-			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE testrole1;
-ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default RESOURCE GROUP default_group;
-
-ALTER ROLE testrole1 SET search_path TO public;
-
-ALTER ROLE testrole1 IN DATABASE testdb SET client_min_messages TO 'error';
-
-ALTER ROLE testrole1 SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none';
 
 COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
 		})
 		It("prints roles with non-defaults and security label", func() {
 			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, true)
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole2}, emptyConfigMap, roleMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole2}, roleMetadataMap)
 
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `CREATE ROLE "testRole2";
 ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');
@@ -311,7 +285,7 @@ SECURITY LABEL FOR dummy ON ROLE "testRole2" IS 'unclassified';`)
 		})
 		It("prints multiple roles", func() {
 			emptyMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1, testrole2}, emptyConfigMap, emptyMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{testrole1, testrole2}, emptyMetadataMap)
 
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`CREATE ROLE testrole1;
@@ -339,6 +313,24 @@ ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`GRANT group TO rolewith WITH ADMIN OPTION GRANTED BY grantor;`,
 				`GRANT group TO rolewithout GRANTED BY grantor;`)
+		})
+	})
+	Describe("PrintRoleGUCStatements", func() {
+		It("Prints guc statements for a role", func() {
+			roleConfigMap := map[string][]backup.RoleGUC{
+				"testrole1": {
+					{RoleName: "testrole1", Config: "SET search_path TO public"},
+					{RoleName: "testrole1", DbName: "testdb", Config: "SET client_min_messages TO 'error'"},
+					{RoleName: "testrole1", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"}},
+			}
+			backup.PrintRoleGUCStatements(backupfile, toc, roleConfigMap)
+
+			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "testrole1", "ROLE GUCS")
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `ALTER ROLE testrole1 SET search_path TO public;
+
+ALTER ROLE testrole1 IN DATABASE testdb SET client_min_messages TO 'error';
+
+ALTER ROLE testrole1 SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none';`)
 		})
 	})
 	Describe("PrintCreateTablespaceStatements", func() {

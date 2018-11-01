@@ -202,14 +202,13 @@ var _ = Describe("backup integration create statement tests", func() {
 				TimeConstraints: nil,
 			}
 		})
-		emptyConfigMap := map[string][]backup.RoleGUC{}
 		emptyMetadataMap := backup.MetadataMap{}
 		It("creates a basic role", func() {
 			if connectionPool.Version.Before("5") {
 				role1.ResGroup = ""
 			}
 
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyConfigMap, emptyMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
@@ -223,43 +222,6 @@ var _ = Describe("backup integration create statement tests", func() {
 				}
 			}
 			Fail("Role 'role1' was not found")
-		})
-		It("creates a basic role with user GUCs set", func() {
-			if connectionPool.Version.Before("5") {
-				role1.ResGroup = ""
-			}
-			roleConfigMap := map[string][]backup.RoleGUC{
-				"role1": {
-					{RoleName: "role1", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"},
-					{RoleName: "role1", Config: "SET search_path TO public"}},
-			}
-
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, roleConfigMap, emptyMetadataMap)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
-
-			resultGUCs := backup.GetRoleGUCs(connectionPool)
-
-			Expect(resultGUCs["role1"]).To(ConsistOf(roleConfigMap["role1"]))
-		})
-		It("creates a basic role with db specific user GUCs set", func() {
-			testutils.SkipIfBefore6(connectionPool)
-
-			roleConfigMap := map[string][]backup.RoleGUC{
-				"role1": {
-					{RoleName: "role1", DbName: "testdb", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"},
-					{RoleName: "role1", DbName: "testdb", Config: "SET search_path TO public"}},
-			}
-
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, roleConfigMap, emptyMetadataMap)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
-
-			resultGUCs := backup.GetRoleGUCs(connectionPool)
-
-			Expect(resultGUCs["role1"]).To(ConsistOf(roleConfigMap["role1"]))
 		})
 		It("creates a role with all attributes", func() {
 			role1 := backup.Role{
@@ -301,7 +263,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			metadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, includeSecurityLabels)
 
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyConfigMap, metadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, metadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
@@ -320,7 +282,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
 			role1.Replication = true
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyConfigMap, emptyMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
@@ -378,6 +340,44 @@ var _ = Describe("backup integration create statement tests", func() {
 				}
 			}
 			Fail("Role 'testuser' is not a member of role 'usergroup'")
+		})
+	})
+	Describe("PrintRoleGUCStatements", func() {
+		BeforeEach(func() {
+			testhelper.AssertQueryRuns(connectionPool, `CREATE ROLE testuser`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connectionPool, `DROP ROLE testuser`)
+		})
+		It("Sets GUCs for a particular role", func() {
+			roleConfigMap := map[string][]backup.RoleGUC{
+				"testuser": {
+					{RoleName: "testuser", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"},
+					{RoleName: "testuser", Config: "SET search_path TO public"}},
+			}
+
+			backup.PrintRoleGUCStatements(backupfile, toc, roleConfigMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			resultGUCs := backup.GetRoleGUCs(connectionPool)
+			Expect(resultGUCs["testuser"]).To(ConsistOf(roleConfigMap["testuser"]))
+		})
+		It("Sets GUCs for a role in a particular database", func() {
+			testutils.SkipIfBefore6(connectionPool)
+
+			roleConfigMap := map[string][]backup.RoleGUC{
+				"testuser": {
+					{RoleName: "testuser", DbName: "testdb", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"},
+					{RoleName: "testuser", DbName: "testdb", Config: "SET search_path TO public"}},
+			}
+
+			backup.PrintRoleGUCStatements(backupfile, toc, roleConfigMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			resultGUCs := backup.GetRoleGUCs(connectionPool)
+			Expect(resultGUCs["testuser"]).To(ConsistOf(roleConfigMap["testuser"]))
 		})
 	})
 	Describe("PrintCreateTablespaceStatements", func() {

@@ -135,17 +135,15 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			}
 
 			/* special handling for cpu properties */
+			start = metadataFile.ByteCount
 			if resGroup.CPURateLimit >= 0 {
 				/* cpu rate mode */
-				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_RATE_LIMIT %d;", resGroup.Name, resGroup.CPURateLimit)
-				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 			} else {
 				/* cpuset mode */
-				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
-				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 			}
+			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
 			start = metadataFile.ByteCount
 			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
 			if metadataFile.ByteCount > start {
