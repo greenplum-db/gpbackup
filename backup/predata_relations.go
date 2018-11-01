@@ -64,10 +64,8 @@ func SplitTablesByPartitionType(tables []Relation, tableDefs map[uint32]TableDef
 				if partType != "p" && partType != "i" {
 					dataTables = append(dataTables, table)
 				}
-			} else if len(includeList) > 0 {
-				if includeSet.MatchesFilter(table.FQN()) {
-					dataTables = append(dataTables, table)
-				}
+			} else if includeSet.MatchesFilter(table.FQN()) {
+				dataTables = append(dataTables, table)
 			}
 		}
 	} else {
