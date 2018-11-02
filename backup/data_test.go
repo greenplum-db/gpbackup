@@ -72,7 +72,9 @@ var _ bool = Describe("backup/data tests", func() {
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz"
 
-			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+			_, err := backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("will back up a table to its own file with compression using a plugin", func() {
 			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
@@ -84,7 +86,9 @@ var _ bool = Describe("backup/data tests", func() {
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
-			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+			_, err := backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("will back up a table to its own file without compression", func() {
 			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "cat", OutputCommand: "cat -", InputCommand: "cat -", Extension: ""})
@@ -93,7 +97,9 @@ var _ bool = Describe("backup/data tests", func() {
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
 
-			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+			_, err := backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("will back up a table to its own file without compression using a plugin", func() {
 			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
@@ -105,16 +111,20 @@ var _ bool = Describe("backup/data tests", func() {
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
-			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+			_, err := backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("will back up a table to a single file", func() {
 			cmdFlags.Set(utils.SINGLE_DATA_FILE, "true")
 			testTable := backup.Relation{SchemaOid: 2345, Oid: 3456, Schema: "public", Name: "foo"}
-			execStr := regexp.QuoteMeta(`COPY public.foo TO PROGRAM '(test -p "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456" || (echo "Pipe not found">&2; exit 1)) && cat - > <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;`)
+			execStr := regexp.QuoteMeta(`COPY public.foo TO PROGRAM '(test -p "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456" || (echo "Pipe not found <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456">&2; exit 1)) && cat - > <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456' WITH CSV DELIMITER ',' ON SEGMENT IGNORE EXTERNAL PARTITIONS;`)
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
 
-			backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+			_, err := backup.CopyTableOut(connectionPool, testTable, filename, defaultConnNum)
+
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
 	Describe("BackupSingleTableData", func() {
@@ -141,8 +151,9 @@ var _ bool = Describe("backup/data tests", func() {
 			backupFile := fmt.Sprintf("<SEG_DATA_DIR>/gpbackup_<SEGID>_20170101010101_pipe_(.*)_%d", testTable.Oid)
 			copyCmd := fmt.Sprintf(copyFmtStr, backupFile)
 			mock.ExpectExec(copyCmd).WillReturnResult(sqlmock.NewResult(0, 10))
-			backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
+			err := backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
 
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rowsCopiedMap[0]).To(Equal(int64(10)))
 			Expect(counters.NumRegTables).To(Equal(int64(1)))
 		})
@@ -152,24 +163,27 @@ var _ bool = Describe("backup/data tests", func() {
 			backupFile := fmt.Sprintf("<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_%d", testTable.Oid)
 			copyCmd := fmt.Sprintf(copyFmtStr, backupFile)
 			mock.ExpectExec(copyCmd).WillReturnResult(sqlmock.NewResult(0, 10))
-			backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
+			err := backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
 
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rowsCopiedMap[0]).To(Equal(int64(10)))
 			Expect(counters.NumRegTables).To(Equal(int64(1)))
 		})
 		It("backs up a single external table", func() {
 			cmdFlags.Set(utils.LEAF_PARTITION_DATA, "false")
 			tableDef.IsExternal = true
-			backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
+			err := backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
 
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rowsCopiedMap).To(BeEmpty())
 			Expect(counters.NumRegTables).To(Equal(int64(0)))
 		})
 		It("backs up a single foreign table", func() {
 			cmdFlags.Set(utils.LEAF_PARTITION_DATA, "false")
 			tableDef.ForeignDef = backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
-			backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
+			err := backup.BackupSingleTableData(tableDef, testTable, rowsCopiedMap, &counters, 0)
 
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rowsCopiedMap).To(BeEmpty())
 			Expect(counters.NumRegTables).To(Equal(int64(0)))
 		})

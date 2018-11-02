@@ -44,19 +44,19 @@ var _ = Describe("utils/flag tests", func() {
 		})
 		Context("CheckExclusiveFlags", func() {
 			It("does not panic if no flags in the argument list are set", func() {
-				flag.CommandLine.Parse([]string{})
+				Expect(flag.CommandLine.Parse([]string{})).To(Succeed())
 				utils.CheckExclusiveFlags(flagSet, "boolFlag")
 			})
 			It("does not panic if one flags in the argument list is set", func() {
-				flagSet.Parse([]string{"--stringFlag", "foo"})
+				Expect(flagSet.Parse([]string{"--stringFlag", "foo"})).To(Succeed())
 				utils.CheckExclusiveFlags(flagSet, "boolFlag")
 			})
 			It("does not panic if one flags in the argument list is set with flags not in the set", func() {
-				flagSet.Parse([]string{"--stringFlag", "foo", "--intFlag", "42"})
+				Expect(flagSet.Parse([]string{"--stringFlag", "foo", "--intFlag", "42"})).To(Succeed())
 				utils.CheckExclusiveFlags(flagSet, "boolFlag")
 			})
 			It("panics if two or more flags in the argument list are set", func() {
-				flagSet.Parse([]string{"--stringFlag", "foo", "--boolFlag"})
+				Expect(flagSet.Parse([]string{"--stringFlag", "foo", "--boolFlag"})).To(Succeed())
 				defer testhelper.ShouldPanicWithMessage("The following flags may not be specified together: stringFlag, boolFlag")
 				utils.CheckExclusiveFlags(flagSet, "stringFlag", "boolFlag")
 			})
