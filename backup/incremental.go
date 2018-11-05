@@ -2,6 +2,7 @@ package backup
 
 import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -36,7 +37,7 @@ func GetTargetBackupTimestamp() string {
 }
 
 func GetLatestMatchingBackupTimestamp() string {
-	history := utils.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+	history := backup_history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
 	latestMatchingBackupHistoryEntry := GetLatestMatchingBackupConfig(history, &backupReport.BackupConfig)
 	if latestMatchingBackupHistoryEntry == nil {
 		gplog.FatalOnError(errors.Errorf("There was no matching previous backup found with the flags provided. " +
@@ -46,7 +47,7 @@ func GetLatestMatchingBackupTimestamp() string {
 	return latestMatchingBackupHistoryEntry.Timestamp
 }
 
-func GetLatestMatchingBackupConfig(history *utils.History, currentBackupConfig *utils.BackupConfig) *utils.BackupConfig {
+func GetLatestMatchingBackupConfig(history *backup_history.History, currentBackupConfig *utils.BackupConfig) *utils.BackupConfig {
 	for _, backupConfig := range history.BackupConfigs {
 		if MatchesIncrementalFlags(&backupConfig, currentBackupConfig) {
 			return &backupConfig

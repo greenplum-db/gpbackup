@@ -1,4 +1,4 @@
-package utils_test
+package backup_history_test
 
 import (
 	"os"
@@ -6,6 +6,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
 	"github.com/pkg/errors"
@@ -50,16 +51,16 @@ var _ bool = Describe("backup/history tests", func() {
 			It("creates an empty history object", func() {
 				operating.System.Stat = func(name string) (os.FileInfo, error) { return nil, errors.New("file does not exist") }
 
-				resultHistory := utils.NewHistory(historyFilePath)
+				resultHistory := backup_history.NewHistory(historyFilePath)
 
-				structmatcher.ExpectStructsToMatch(&utils.History{BackupConfigs: []utils.BackupConfig{}}, resultHistory)
+				structmatcher.ExpectStructsToMatch(&backup_history.History{BackupConfigs: []utils.BackupConfig{}}, resultHistory)
 
 				operating.System.Stat = os.Stat
 			})
 		})
 		Context("history file exists", func() {
 			It("creates a history object with entries from the file", func() {
-				historyWithEntries := utils.History{
+				historyWithEntries := backup_history.History{
 					BackupConfigs: []utils.BackupConfig{testConfig1, testConfig2}}
 				historyFileContents, _ := yaml.Marshal(historyWithEntries)
 				fileHandle := iohelper.MustOpenFileForWriting(historyFilePath)
@@ -67,7 +68,7 @@ var _ bool = Describe("backup/history tests", func() {
 				fileHandle.Close()
 				defer os.Remove(historyFilePath)
 
-				resultHistory := utils.NewHistory(historyFilePath)
+				resultHistory := backup_history.NewHistory(historyFilePath)
 
 				structmatcher.ExpectStructsToMatch(&historyWithEntries, resultHistory)
 			})
@@ -75,11 +76,11 @@ var _ bool = Describe("backup/history tests", func() {
 	})
 	Describe("AddBackupConfig", func() {
 		It("adds the most recent history entry and keeps the list sorted", func() {
-			testHistory := utils.History{BackupConfigs: []utils.BackupConfig{testConfig3, testConfig1}}
+			testHistory := backup_history.History{BackupConfigs: []utils.BackupConfig{testConfig3, testConfig1}}
 
 			testHistory.AddBackupConfig(&testConfig2)
 
-			expectedHistory := utils.History{BackupConfigs: []utils.BackupConfig{testConfig3, testConfig2, testConfig1}}
+			expectedHistory := backup_history.History{BackupConfigs: []utils.BackupConfig{testConfig3, testConfig2, testConfig1}}
 			structmatcher.ExpectStructsToMatch(&expectedHistory, &testHistory)
 		})
 	})

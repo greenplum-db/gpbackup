@@ -3,6 +3,7 @@ package backup_test
 import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -72,7 +73,7 @@ var _ = Describe("backup/incremental tests", func() {
 	})
 
 	Describe("GetLatestMatchingBackupConfig", func() {
-		history := utils.History{BackupConfigs: []utils.BackupConfig{
+		history := backup_history.History{BackupConfigs: []utils.BackupConfig{
 			{DatabaseName: "test2", Timestamp: "timestamp4"},
 			{DatabaseName: "test1", Timestamp: "timestamp3"},
 			{DatabaseName: "test2", Timestamp: "timestamp2"},
@@ -96,7 +97,7 @@ var _ = Describe("backup/incremental tests", func() {
 			currentBackupConfig := utils.BackupConfig{}
 
 			latestBackupHistoryEntry := backup.
-				GetLatestMatchingBackupConfig(&utils.History{BackupConfigs: []utils.BackupConfig{}}, &currentBackupConfig)
+				GetLatestMatchingBackupConfig(&backup_history.History{BackupConfigs: []utils.BackupConfig{}}, &currentBackupConfig)
 
 			Expect(latestBackupHistoryEntry).To(BeNil())
 		})
