@@ -16,6 +16,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/pkg/errors"
 )
 
@@ -83,7 +84,7 @@ func InitializeSignalHandler(cleanupFunc func(), procDesc string, termFlag *bool
 }
 
 // TODO: Uniquely identify COPY commands in the multiple data file case to allow terminating sessions
-func TerminateHangingCopySessions(connectionPool *dbconn.DBConn, fpInfo FilePathInfo, appName string) {
+func TerminateHangingCopySessions(connectionPool *dbconn.DBConn, fpInfo backup_filepath.FilePathInfo, appName string) {
 	copyFileName := fpInfo.GetSegmentPipePathForCopyCommand()
 	query := fmt.Sprintf(`SELECT
 	pg_terminate_backend(procpid)

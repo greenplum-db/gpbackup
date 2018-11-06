@@ -1,4 +1,4 @@
-package utils
+package backup_filepath
 
 /*
  * This file contains structs and functions used in both backup and restore
@@ -66,18 +66,18 @@ func (backupFPInfo *FilePathInfo) GetSegmentPipePathForCopyCommand() string {
 	return fmt.Sprintf("<SEG_DATA_DIR>/gpbackup_<SEGID>_%s_pipe_%d", backupFPInfo.Timestamp, backupFPInfo.PID)
 }
 
-func (backupFPInfo *FilePathInfo) GetTableBackupFilePath(contentID int, tableOid uint32, singleDataFile bool) string {
-	templateFilePath := backupFPInfo.GetTableBackupFilePathForCopyCommand(tableOid, singleDataFile)
+func (backupFPInfo *FilePathInfo) GetTableBackupFilePath(contentID int, tableOid uint32, extension string, singleDataFile bool) string {
+	templateFilePath := backupFPInfo.GetTableBackupFilePathForCopyCommand(tableOid, extension, singleDataFile)
 	return backupFPInfo.replaceCopyFormatStringsInPath(templateFilePath, contentID)
 }
 
-func (backupFPInfo *FilePathInfo) GetTableBackupFilePathForCopyCommand(tableOid uint32, singleDataFile bool) string {
+func (backupFPInfo *FilePathInfo) GetTableBackupFilePathForCopyCommand(tableOid uint32, extension string, singleDataFile bool) string {
 	backupFilePath := fmt.Sprintf("gpbackup_<SEGID>_%s", backupFPInfo.Timestamp)
 	if !singleDataFile {
 		backupFilePath += fmt.Sprintf("_%d", tableOid)
 	}
 
-	backupFilePath += GetPipeThroughProgram().Extension
+	backupFilePath += extension
 	baseDir := "<SEG_DATA_DIR>"
 	if backupFPInfo.IsUserSpecifiedBackupDir() {
 		baseDir = path.Join(backupFPInfo.UserSpecifiedBackupDir, fmt.Sprintf("%s<SEGID>", backupFPInfo.UserSpecifiedSegPrefix))
@@ -135,7 +135,8 @@ func (backupFPInfo *FilePathInfo) GetSegmentHelperFilePath(contentID int, suffix
 }
 
 func (backupFPInfo *FilePathInfo) GetHelperLogPath() string {
-	_, homeDir, _ := GetUserAndHostInfo()
+	currentUser, _ := operating.System.CurrentUser()
+	homeDir := currentUser.HomeDir
 	return fmt.Sprintf("%s/gpAdminLogs/gpbackup_helper_%s.log", homeDir, backupFPInfo.Timestamp[0:8])
 }
 

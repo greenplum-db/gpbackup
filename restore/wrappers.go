@@ -7,6 +7,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -145,9 +146,9 @@ func RecoverMetadataFilesUsingPlugin() {
 
 	InitializeBackupConfig()
 
-	var fpInfoList []utils.FilePathInfo
+	var fpInfoList []backup_filepath.FilePathInfo
 	if backupConfig.MetadataOnly {
-		fpInfoList = []utils.FilePathInfo{globalFPInfo}
+		fpInfoList = []backup_filepath.FilePathInfo{globalFPInfo}
 	} else {
 		fpInfoList = GetBackupFPInfoListFromRestorePlan()
 	}
@@ -196,12 +197,12 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 	}
 }
 
-func GetBackupFPInfoListFromRestorePlan() []utils.FilePathInfo {
-	fpInfoList := make([]utils.FilePathInfo, 0)
+func GetBackupFPInfoListFromRestorePlan() []backup_filepath.FilePathInfo {
+	fpInfoList := make([]backup_filepath.FilePathInfo, 0)
 	for _, entry := range backupConfig.RestorePlan {
-		segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp)
+		segPrefix := backup_filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp)
 
-		fpInfo := utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp, segPrefix)
+		fpInfo := backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp, segPrefix)
 		fpInfoList = append(fpInfoList, fpInfo)
 	}
 

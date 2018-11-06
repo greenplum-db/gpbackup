@@ -11,6 +11,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	pb "gopkg.in/cheggaaa/pb.v1"
@@ -44,7 +45,7 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	return numRows, err
 }
 
-func restoreSingleTableData(fpInfo *utils.FilePathInfo, entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) error {
+func restoreSingleTableData(fpInfo *backup_filepath.FilePathInfo, entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) error {
 	name := utils.MakeFQN(entry.Schema, entry.Name)
 	if gplog.GetVerbosity() > gplog.LOGINFO {
 		// No progress bar at this log level, so we note table count here
@@ -56,7 +57,7 @@ func restoreSingleTableData(fpInfo *utils.FilePathInfo, entry utils.MasterDataEn
 	if backupConfig.SingleDataFile {
 		destinationToRead = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
 	} else {
-		destinationToRead = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, backupConfig.SingleDataFile)
+		destinationToRead = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, utils.GetPipeThroughProgram().Extension, backupConfig.SingleDataFile)
 	}
 	numRowsRestored, err := CopyTableIn(connectionPool, name, entry.AttributeString, destinationToRead, backupConfig.SingleDataFile, whichConn)
 	if err != nil {
@@ -78,7 +79,7 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 	return nil
 }
 
-func restoreDataFromTimestamp(fpInfo utils.FilePathInfo, dataEntries []utils.MasterDataEntry,
+func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries []utils.MasterDataEntry,
 	gucStatements []utils.StatementWithType, dataProgressBar utils.ProgressBar) {
 	if len(dataEntries) == 0 {
 		gplog.Verbose("No data to restore for timestamp = %s", fpInfo.Timestamp)

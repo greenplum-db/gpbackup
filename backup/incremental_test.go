@@ -3,6 +3,7 @@ package backup_test
 import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -105,7 +106,7 @@ var _ = Describe("backup/incremental tests", func() {
 
 	Describe("PopulateRestorePlan", func() {
 		testCluster := testutils.SetDefaultSegmentConfiguration()
-		testFPInfo := utils.NewFilePathInfo(testCluster, "", "ts0",
+		testFPInfo := backup_filepath.NewFilePathInfo(testCluster, "", "ts0",
 			"gpseg")
 		backup.SetFPInfo(testFPInfo)
 

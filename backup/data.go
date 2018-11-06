@@ -101,7 +101,7 @@ func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedM
 		if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
 			destinationToWrite = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), table.Oid)
 		} else {
-			destinationToWrite = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, false)
+			destinationToWrite = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, utils.GetPipeThroughProgram().Extension, false)
 		}
 		rowsCopied, err := CopyTableOut(connectionPool, table, destinationToWrite, whichConn)
 		if err != nil {

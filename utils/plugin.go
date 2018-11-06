@@ -11,6 +11,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"gopkg.in/yaml.v2"
 )
 
@@ -101,32 +102,32 @@ func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) {
 
 /*-----------------------------Hooks------------------------------------------*/
 
-func (plugin *PluginConfig) SetupPluginForBackup(c *cluster.Cluster, fpInfo FilePathInfo) {
+func (plugin *PluginConfig) SetupPluginForBackup(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
 	const command = "setup_plugin_for_backup"
 	const verboseCommandMsg = "Running plugin setup for backup on %s"
 	plugin.executeHook(c, verboseCommandMsg, command, fpInfo, false)
 }
 
-func (plugin *PluginConfig) SetupPluginForRestore(c *cluster.Cluster, fpInfo FilePathInfo) {
+func (plugin *PluginConfig) SetupPluginForRestore(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
 	const command = "setup_plugin_for_restore"
 	const verboseCommandMsg = "Running plugin setup for restore on %s"
 	plugin.executeHook(c, verboseCommandMsg, command, fpInfo, false)
 }
 
-func (plugin *PluginConfig) CleanupPluginForBackup(c *cluster.Cluster, fpInfo FilePathInfo) {
+func (plugin *PluginConfig) CleanupPluginForBackup(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
 	const command = "cleanup_plugin_for_backup"
 	const verboseCommandMsg = "Running plugin cleanup for backup on %s"
 	plugin.executeHook(c, verboseCommandMsg, command, fpInfo, true)
 }
 
-func (plugin *PluginConfig) CleanupPluginForRestore(c *cluster.Cluster, fpInfo FilePathInfo) {
+func (plugin *PluginConfig) CleanupPluginForRestore(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
 	const command = "cleanup_plugin_for_restore"
 	const verboseCommandMsg = "Running plugin cleanup for restore on %s"
 	plugin.executeHook(c, verboseCommandMsg, command, fpInfo, true)
 }
 
 func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg string,
-	command string, fpInfo FilePathInfo, noFatal bool) {
+	command string, fpInfo backup_filepath.FilePathInfo, noFatal bool) {
 	// Execute command once on master
 	scope := MASTER
 	hookFunc := plugin.buildHookFunc(command, fpInfo, scope)
@@ -160,14 +161,14 @@ func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg st
 }
 
 func (plugin *PluginConfig) buildHookFunc(command string,
-	fpInfo FilePathInfo, scope PluginScope) func(int) string {
+	fpInfo backup_filepath.FilePathInfo, scope PluginScope) func(int) string {
 	return func(contentID int) string {
 		return plugin.buildHookString(command, fpInfo, scope, contentID)
 	}
 }
 
 func (plugin *PluginConfig) buildHookString(command string,
-	fpInfo FilePathInfo, scope PluginScope, contentID int) string {
+	fpInfo backup_filepath.FilePathInfo, scope PluginScope, contentID int) string {
 	contentIDStr := ""
 	if scope == MASTER || scope == SEGMENT {
 		contentIDStr = fmt.Sprintf(`\"%d\"`, contentID)
@@ -199,7 +200,7 @@ func (plugin *PluginConfig) CopyPluginConfigToAllHosts(c *cluster.Cluster, confi
 	})
 }
 
-func (plugin *PluginConfig) BackupSegmentTOCs(c *cluster.Cluster, fpInfo FilePathInfo) {
+func (plugin *PluginConfig) BackupSegmentTOCs(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Waiting for remaining data to be uploaded to plugin destination", func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
@@ -218,7 +219,7 @@ func (plugin *PluginConfig) BackupSegmentTOCs(c *cluster.Cluster, fpInfo FilePat
 	})
 }
 
-func (plugin *PluginConfig) RestoreSegmentTOCs(c *cluster.Cluster, fpInfo FilePathInfo) {
+func (plugin *PluginConfig) RestoreSegmentTOCs(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Processing segment TOC files with plugin", func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
 		return fmt.Sprintf("mkdir -p %s && source %s/greenplum_path.sh && %s restore_file %s %s", fpInfo.GetDirForContent(contentID), operating.System.Getenv("GPHOME"), plugin.ExecutablePath, plugin.ConfigPath, tocFile)

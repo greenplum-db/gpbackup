@@ -8,6 +8,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
 
@@ -84,8 +85,8 @@ func DoSetup() {
 	InitializeConnectionPool("postgres")
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
-	globalFPInfo = utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP), segPrefix)
+	segPrefix := backup_filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
+	globalFPInfo = backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP), segPrefix)
 
 	// Get restore metadata from plugin
 	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
@@ -206,7 +207,7 @@ func restorePredata(metadataFilename string) {
 	}
 }
 
-func restoreData(fpInfoList []utils.FilePathInfo, gucStatements []utils.StatementWithType) {
+func restoreData(fpInfoList []backup_filepath.FilePathInfo, gucStatements []utils.StatementWithType) {
 	if wasTerminated {
 		return
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -118,7 +119,7 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 	output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
 	Eventually(func() string { return strings.TrimSpace(string(output)) }, 5*time.Second, 100*time.Millisecond).Should(Equal(""))
 
-	fpInfo := utils.NewFilePathInfo(backupCluster, "", timestamp, utils.GetSegPrefix(conn))
+	fpInfo := backup_filepath.NewFilePathInfo(backupCluster, "", timestamp, backup_filepath.GetSegPrefix(conn))
 	description := "Checking if helper files are cleaned up properly"
 	cleanupFunc := func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
@@ -156,7 +157,7 @@ func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {
 }
 
 func forceMetadataFileDownloadFromPlugin(conn *dbconn.DBConn, timestamp string) {
-	fpInfo := utils.NewFilePathInfo(backupCluster, "", timestamp, utils.GetSegPrefix(conn))
+	fpInfo := backup_filepath.NewFilePathInfo(backupCluster, "", timestamp, backup_filepath.GetSegPrefix(conn))
 	remoteOutput := backupCluster.GenerateAndExecuteCommand(fmt.Sprintf("Removing backups on all segments for "+
 		"timestamp %s", timestamp), func(contentID int) string {
 		return fmt.Sprintf("rm -rf %s", fpInfo.GetDirForContent(contentID))

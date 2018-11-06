@@ -9,6 +9,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
@@ -83,8 +84,8 @@ func DoSetup() {
 
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := utils.GetSegPrefix(connectionPool)
-	globalFPInfo = utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
+	segPrefix := backup_filepath.GetSegPrefix(connectionPool)
+	globalFPInfo = backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
 	CreateBackupDirectoriesOnAllHosts()
 	globalTOC = &utils.TOC{}
 	globalTOC.InitializeMetadataEntryMap()
@@ -112,10 +113,10 @@ func DoBackup() {
 	LogBackupInfo()
 
 	targetBackupTimestamp := ""
-	var targetBackupFPInfo utils.FilePathInfo
+	var targetBackupFPInfo backup_filepath.FilePathInfo
 	if MustGetFlagBool(utils.INCREMENTAL) {
 		targetBackupTimestamp = GetTargetBackupTimestamp()
-		targetBackupFPInfo = utils.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
+		targetBackupFPInfo = backup_filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 			targetBackupTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
 
 		if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {

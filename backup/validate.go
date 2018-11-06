@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
@@ -120,7 +121,7 @@ func ValidateCompressionLevel(compressionLevel int) {
 }
 
 func ValidateFromTimestamp(fromTimestamp string) {
-	fromTimestampFPInfo := utils.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
+	fromTimestampFPInfo := backup_filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
 	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
 		// The config file needs to be downloaded from the remote system into the local filesystem

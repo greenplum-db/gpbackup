@@ -14,12 +14,15 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
 )
 
@@ -267,6 +270,8 @@ Restore Status: Success but non-fatal errors occurred. See log file .+ for detai
 		})
 		It("configures the Report struct correctly", func() {
 			utils.InitializePipeThroughParameters(true, 0)
+			backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
+			backup.SetFlagDefaults(backupCmdFlags)
 			backupConfig := utils.NewBackupConfig("testdb",
 				"5.0.0 build test", "0.1.0",
 				"/tmp/plugin.sh", "timestamp1", backupCmdFlags)
@@ -404,14 +409,14 @@ Timestamp Key: 20170101010101`)
 		var (
 			testExecutor *testhelper.TestExecutor
 			testCluster  *cluster.Cluster
-			testFPInfo   utils.FilePathInfo
+			testFPInfo   backup_filepath.FilePathInfo
 			w            *os.File
 			r            *os.File
 		)
 		BeforeEach(func() {
 			r, w, _ = os.Pipe()
 			testCluster = testutils.SetDefaultSegmentConfiguration()
-			testFPInfo = utils.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
+			testFPInfo = backup_filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 			operating.System.OpenFileRead = func(name string, flag int, perm os.FileMode) (operating.ReadCloserAt, error) { return r, nil }
 			operating.System.ReadFile = func(filename string) ([]byte, error) { return ioutil.ReadAll(r) }
 			operating.System.Hostname = func() (string, error) { return "localhost", nil }

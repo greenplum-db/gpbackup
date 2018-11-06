@@ -1,18 +1,16 @@
-package utils_test
+package backup_filepath_test
 
 import (
 	"testing"
-
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
 var (
@@ -22,13 +20,11 @@ var (
 	stderr         *gbytes.Buffer
 	logfile        *gbytes.Buffer
 	buffer         *gbytes.Buffer
-	toc            *utils.TOC
-	backupfile     *utils.FileWithByteCount
 )
 
-func TestUtils(t *testing.T) {
+func TestBackupFilepath(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "utils tests")
+	RunSpecs(t, "BackupFilepath Suite")
 }
 
 var _ = BeforeSuite(func() {

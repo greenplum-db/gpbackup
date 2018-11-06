@@ -28,6 +28,7 @@ type BackupConfig struct {
 	DatabaseName          string
 	DatabaseVersion       string
 	DataOnly              bool
+	Deleted               bool
 	ExcludeRelations      []string
 	ExcludeSchemaFiltered bool
 	ExcludeSchemas        []string
