@@ -6,6 +6,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/pflag"
 )
@@ -20,7 +21,7 @@ import (
  */
 
 var (
-	backupConfig     *utils.BackupConfig
+	backupConfig     *backup_history.BackupConfig
 	connectionPool   *dbconn.DBConn
 	globalCluster    *cluster.Cluster
 	globalFPInfo     backup_filepath.FilePathInfo
@@ -51,7 +52,7 @@ func SetCmdFlags(flagSet *pflag.FlagSet) {
 	cmdFlags = flagSet
 }
 
-func SetBackupConfig(config *utils.BackupConfig) {
+func SetBackupConfig(config *backup_history.BackupConfig) {
 	backupConfig = config
 }
 

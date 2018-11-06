@@ -6,6 +6,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
@@ -127,7 +128,7 @@ func ValidateFromTimestamp(fromTimestamp string) {
 		// The config file needs to be downloaded from the remote system into the local filesystem
 		pluginConfig.MustRestoreFile(fromTimestampFPInfo.GetConfigFilePath())
 	}
-	fromBackupConfig := utils.ReadConfigFile(fromTimestampFPInfo.GetConfigFilePath())
+	fromBackupConfig := backup_history.ReadConfigFile(fromTimestampFPInfo.GetConfigFilePath())
 
 	if !MatchesIncrementalFlags(fromBackupConfig, &backupReport.BackupConfig) {
 		gplog.Fatal(errors.Errorf("The flags of the backup with timestamp = %s does not match "+

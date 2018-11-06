@@ -74,31 +74,31 @@ var _ = Describe("backup/incremental tests", func() {
 	})
 
 	Describe("GetLatestMatchingBackupConfig", func() {
-		history := backup_history.History{BackupConfigs: []utils.BackupConfig{
+		history := backup_history.History{BackupConfigs: []backup_history.BackupConfig{
 			{DatabaseName: "test2", Timestamp: "timestamp4"},
 			{DatabaseName: "test1", Timestamp: "timestamp3"},
 			{DatabaseName: "test2", Timestamp: "timestamp2"},
 			{DatabaseName: "test1", Timestamp: "timestamp1"},
 		}}
 		It("Should return the latest backup's timestamp with matching Dbname", func() {
-			currentBackupConfig := utils.BackupConfig{DatabaseName: "test1"}
+			currentBackupConfig := backup_history.BackupConfig{DatabaseName: "test1"}
 
 			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&history, &currentBackupConfig)
 
 			structmatcher.ExpectStructsToMatch(history.BackupConfigs[1], latestBackupHistoryEntry)
 		})
 		It("should return nil with no matching Dbname", func() {
-			currentBackupConfig := utils.BackupConfig{DatabaseName: "test3"}
+			currentBackupConfig := backup_history.BackupConfig{DatabaseName: "test3"}
 
 			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&history, &currentBackupConfig)
 
 			Expect(latestBackupHistoryEntry).To(BeNil())
 		})
 		It("should return nil with an empty history", func() {
-			currentBackupConfig := utils.BackupConfig{}
+			currentBackupConfig := backup_history.BackupConfig{}
 
 			latestBackupHistoryEntry := backup.
-				GetLatestMatchingBackupConfig(&backup_history.History{BackupConfigs: []utils.BackupConfig{}}, &currentBackupConfig)
+				GetLatestMatchingBackupConfig(&backup_history.History{BackupConfigs: []backup_history.BackupConfig{}}, &currentBackupConfig)
 
 			Expect(latestBackupHistoryEntry).To(BeNil())
 		})
@@ -111,7 +111,7 @@ var _ = Describe("backup/incremental tests", func() {
 		backup.SetFPInfo(testFPInfo)
 
 		Context("Full backup", func() {
-			restorePlan := make([]utils.RestorePlanEntry, 0)
+			restorePlan := make([]backup_history.RestorePlanEntry, 0)
 			backupSetTables := []backup.Relation{
 				{Schema: "public", Name: "ao1"},
 				{Schema: "public", Name: "heap1"},
@@ -136,7 +136,7 @@ var _ = Describe("backup/incremental tests", func() {
 		})
 
 		Context("Incremental backup", func() {
-			previousRestorePlan := []utils.RestorePlanEntry{
+			previousRestorePlan := []backup_history.RestorePlanEntry{
 				{Timestamp: "ts0", TableFQNs: []string{"public.ao1", "public.ao2"}},
 				{Timestamp: "ts1", TableFQNs: []string{"public.heap1"}},
 			}

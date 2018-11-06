@@ -157,12 +157,12 @@ func DoBackup() {
 	if !backupReport.MetadataOnly {
 		backupSetTables := dataTables
 
-		targetBackupRestorePlan := make([]utils.RestorePlanEntry, 0)
+		targetBackupRestorePlan := make([]backup_history.RestorePlanEntry, 0)
 		if targetBackupTimestamp != "" {
 			gplog.Info("Basing incremental backup off of backup with timestamp = %s", targetBackupTimestamp)
 
 			targetBackupTOC := utils.NewTOC(targetBackupFPInfo.GetTOCFilePath())
-			targetBackupRestorePlan = utils.ReadConfigFile(targetBackupFPInfo.GetConfigFilePath()).RestorePlan
+			targetBackupRestorePlan = backup_history.ReadConfigFile(targetBackupFPInfo.GetConfigFilePath()).RestorePlan
 			backupSetTables = FilterTablesForIncremental(targetBackupTOC, globalTOC, dataTables)
 		}
 
@@ -414,7 +414,7 @@ func DoTeardown() {
 
 		if backupReport != nil {
 			backupReport.ConstructBackupParamsString()
-			backupReport.WriteConfigFile(configFilename)
+			backup_history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
 			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, objectCounts, errMsg)
 			utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup")
 			if pluginConfig != nil {

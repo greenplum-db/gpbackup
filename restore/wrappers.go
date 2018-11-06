@@ -8,6 +8,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -85,7 +86,7 @@ func SetMaxCsvLineLengthQuery(connectionPool *dbconn.DBConn) string {
 }
 
 func InitializeBackupConfig() {
-	backupConfig = utils.ReadConfigFile(globalFPInfo.GetConfigFilePath())
+	backupConfig = backup_history.ReadConfigFile(globalFPInfo.GetConfigFilePath())
 	utils.InitializePipeThroughParameters(backupConfig.Compressed, 0)
 	utils.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
 	utils.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
@@ -118,12 +119,23 @@ func BackupConfigurationValidation() {
 
 	// Legacy backups prior to the incremental feature would have no restoreplan yaml element
 	if isLegacyBackup := backupConfig.RestorePlan == nil; isLegacyBackup {
-		utils.SetRestorePlanForLegacyBackup(globalTOC, globalFPInfo.Timestamp, backupConfig)
+		SetRestorePlanForLegacyBackup(globalTOC, globalFPInfo.Timestamp, backupConfig)
 	}
 
 	ValidateBackupFlagCombinations()
 
 	validateFilterListsInBackupSet()
+}
+
+func SetRestorePlanForLegacyBackup(toc *utils.TOC, backupTimestamp string, backupConfig *backup_history.BackupConfig) {
+	tableFQNs := make([]string, 0, len(toc.DataEntries))
+	for _, entry := range toc.DataEntries {
+		entryFQN := utils.MakeFQN(entry.Schema, entry.Name)
+		tableFQNs = append(tableFQNs, entryFQN)
+	}
+	backupConfig.RestorePlan = []backup_history.RestorePlanEntry{
+		{Timestamp: backupTimestamp, TableFQNs: tableFQNs},
+	}
 }
 
 func RecoverMetadataFilesUsingPlugin() {

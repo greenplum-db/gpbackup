@@ -17,52 +17,9 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/pkg/errors"
-	"github.com/spf13/pflag"
 )
-
-type BackupConfig struct {
-	BackupDir             string
-	BackupVersion         string
-	Compressed            bool
-	DatabaseName          string
-	DatabaseVersion       string
-	DataOnly              bool
-	Deleted               bool
-	ExcludeRelations      []string
-	ExcludeSchemaFiltered bool
-	ExcludeSchemas        []string
-	ExcludeTableFiltered  bool
-	IncludeRelations      []string
-	IncludeSchemaFiltered bool
-	IncludeSchemas        []string
-	IncludeTableFiltered  bool
-	Incremental           bool
-	LeafPartitionData     bool
-	MetadataOnly          bool
-	Plugin                string
-	RestorePlan           []RestorePlanEntry
-	SingleDataFile        bool
-	Timestamp             string
-	WithStatistics        bool
-}
-
-type RestorePlanEntry struct {
-	Timestamp string
-	TableFQNs []string
-}
-
-func SetRestorePlanForLegacyBackup(toc *TOC, backupTimestamp string, backupConfig *BackupConfig) {
-	tableFQNs := make([]string, 0, len(toc.DataEntries))
-	for _, entry := range toc.DataEntries {
-		entryFQN := MakeFQN(entry.Schema, entry.Name)
-		tableFQNs = append(tableFQNs, entryFQN)
-	}
-	backupConfig.RestorePlan = []RestorePlanEntry{
-		{Timestamp: backupTimestamp, TableFQNs: tableFQNs},
-	}
-
-}
 
 /*
  * This struct holds information that will be printed to the report file
@@ -72,7 +29,7 @@ func SetRestorePlanForLegacyBackup(toc *TOC, backupTimestamp string, backupConfi
 type Report struct {
 	BackupParamsString string
 	DatabaseSize       string
-	BackupConfig
+	backup_history.BackupConfig
 }
 
 func ParseErrorMessage(errStr string) string {
@@ -83,35 +40,6 @@ func ParseErrorMessage(errStr string) string {
 	headerIndex := strings.Index(errStr, errLevelStr)
 	errMsg := errStr[headerIndex+len(errLevelStr):]
 	return errMsg
-}
-
-func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string,
-	cmdFlags *pflag.FlagSet) *BackupConfig {
-	backupConfig := BackupConfig{
-		BackupDir:             MustGetFlagString(cmdFlags, BACKUP_DIR),
-		BackupVersion:         backupVersion,
-		Compressed:            !MustGetFlagBool(cmdFlags, NO_COMPRESSION),
-		DatabaseName:          dbName,
-		DatabaseVersion:       dbVersion,
-		DataOnly:              MustGetFlagBool(cmdFlags, DATA_ONLY),
-		ExcludeRelations:      MustGetFlagStringSlice(cmdFlags, EXCLUDE_RELATION),
-		ExcludeSchemaFiltered: len(MustGetFlagStringSlice(cmdFlags, EXCLUDE_SCHEMA)) > 0,
-		ExcludeSchemas:        MustGetFlagStringSlice(cmdFlags, EXCLUDE_SCHEMA),
-		ExcludeTableFiltered:  len(MustGetFlagStringSlice(cmdFlags, EXCLUDE_RELATION)) > 0,
-		IncludeRelations:      MustGetFlagStringSlice(cmdFlags, INCLUDE_RELATION),
-		IncludeSchemaFiltered: len(MustGetFlagStringSlice(cmdFlags, INCLUDE_SCHEMA)) > 0,
-		IncludeSchemas:        MustGetFlagStringSlice(cmdFlags, INCLUDE_SCHEMA),
-		IncludeTableFiltered:  len(MustGetFlagStringSlice(cmdFlags, INCLUDE_RELATION)) > 0,
-		Incremental:           MustGetFlagBool(cmdFlags, INCREMENTAL),
-		LeafPartitionData:     MustGetFlagBool(cmdFlags, LEAF_PARTITION_DATA),
-		MetadataOnly:          MustGetFlagBool(cmdFlags, METADATA_ONLY),
-		Plugin:                plugin,
-		SingleDataFile:        MustGetFlagBool(cmdFlags, SINGLE_DATA_FILE),
-		Timestamp:             timestamp,
-		WithStatistics:        MustGetFlagBool(cmdFlags, WITH_STATS),
-	}
-
-	return &backupConfig
 }
 
 func (report *Report) ConstructBackupParamsString() {
@@ -179,24 +107,6 @@ func (report *Report) constructIncrementalSection() string {
 	return fmt.Sprintf(`Incremental: True
 Incremental Backup Set:
 %s`, strings.Join(backupTimestamps, "\n"))
-}
-
-func ReadConfigFile(filename string) *BackupConfig {
-	config := &BackupConfig{}
-	contents, err := operating.System.ReadFile(filename)
-	gplog.FatalOnError(err)
-	err = yaml.Unmarshal(contents, config)
-	gplog.FatalOnError(err)
-	return config
-}
-
-func (report *Report) WriteConfigFile(configFilename string) {
-	configFile := iohelper.MustOpenFileForWriting(configFilename)
-	config := report.BackupConfig
-	configContents, _ := yaml.Marshal(config)
-	MustPrintBytes(configFile, configContents)
-	err := operating.System.Chmod(configFilename, 0444)
-	gplog.FatalOnError(err)
 }
 
 func (report *Report) WriteBackupReportFile(reportFilename string, timestamp string, objectCounts map[string]int, errMsg string) {

@@ -4,6 +4,7 @@ import (
 	"regexp"
 
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	"fmt"
@@ -189,7 +190,7 @@ var _ bool = Describe("backup/data tests", func() {
 		})
 	})
 	Describe("CheckDBContainsData", func() {
-		config := utils.BackupConfig{}
+		config := backup_history.BackupConfig{}
 		testTable := []backup.Relation{{Schema: "public", Name: "testtable"}}
 
 		BeforeEach(func() {

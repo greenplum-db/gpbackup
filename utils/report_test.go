@@ -16,6 +16,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -27,33 +28,6 @@ import (
 )
 
 var _ = Describe("utils/report tests", func() {
-	Describe("SetRestorePlanForLegacyBackup", func() {
-		legacyBackupConfig := utils.BackupConfig{}
-		legacyBackupConfig.RestorePlan = nil
-		legacyBackupTOC := utils.TOC{
-			DataEntries: []utils.MasterDataEntry{
-				{Schema: "schema1", Name: "table1"},
-				{Schema: "schema2", Name: "table2"},
-			},
-		}
-		legacyBackupTimestamp := "ts0"
-
-		utils.SetRestorePlanForLegacyBackup(&legacyBackupTOC, legacyBackupTimestamp, &legacyBackupConfig)
-
-		Specify("That there should be only one resultant restore plan entry", func() {
-			Expect(legacyBackupConfig.RestorePlan).To(HaveLen(1))
-		})
-
-		Specify("That the restore plan entry should have the legacy backup's timestamp", func() {
-			Expect(legacyBackupConfig.RestorePlan[0].Timestamp).To(Equal(legacyBackupTimestamp))
-		})
-
-		Specify("That the restore plan entry should have all table FQNs as in the TOC's DataEntries", func() {
-			Expect(legacyBackupConfig.RestorePlan[0].TableFQNs).
-				To(Equal([]string{"schema1.table1", "schema2.table2"}))
-		})
-
-	})
 	Describe("ParseErrorMessage", func() {
 		It("Parses a CRITICAL error message and returns error code 1", func() {
 			errStr := "testProgram:testUser:testHost:000000-[CRITICAL]:-Error Message"
@@ -67,7 +41,7 @@ var _ = Describe("utils/report tests", func() {
 	})
 	Describe("WriteBackupReportFile", func() {
 		timestamp := "20170101010101"
-		config := utils.BackupConfig{
+		config := backup_history.BackupConfig{
 			BackupVersion:   "0.1.0",
 			DatabaseName:    "testdb",
 			DatabaseVersion: "5.0.0 build test",
@@ -272,10 +246,11 @@ Restore Status: Success but non-fatal errors occurred. See log file .+ for detai
 			utils.InitializePipeThroughParameters(true, 0)
 			backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
 			backup.SetFlagDefaults(backupCmdFlags)
-			backupConfig := utils.NewBackupConfig("testdb",
+			backup.SetCmdFlags(backupCmdFlags)
+			backupConfig := backup.NewBackupConfig("testdb",
 				"5.0.0 build test", "0.1.0",
-				"/tmp/plugin.sh", "timestamp1", backupCmdFlags)
-			structmatcher.ExpectStructsToMatch(utils.BackupConfig{
+				"/tmp/plugin.sh", "timestamp1")
+			structmatcher.ExpectStructsToMatch(backup_history.BackupConfig{
 				BackupVersion:    "0.1.0",
 				Compressed:       true,
 				DatabaseName:     "testdb",

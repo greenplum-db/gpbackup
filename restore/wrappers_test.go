@@ -2,6 +2,7 @@ package restore_test
 
 import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
@@ -88,5 +89,32 @@ var _ = Describe("wrapper tests", func() {
 
 			restore.RestoreSchemas(schemaArray, ignoredProgressBar)
 		})
+	})
+	Describe("SetRestorePlanForLegacyBackup", func() {
+		legacyBackupConfig := backup_history.BackupConfig{}
+		legacyBackupConfig.RestorePlan = nil
+		legacyBackupTOC := utils.TOC{
+			DataEntries: []utils.MasterDataEntry{
+				{Schema: "schema1", Name: "table1"},
+				{Schema: "schema2", Name: "table2"},
+			},
+		}
+		legacyBackupTimestamp := "ts0"
+
+		restore.SetRestorePlanForLegacyBackup(&legacyBackupTOC, legacyBackupTimestamp, &legacyBackupConfig)
+
+		Specify("That there should be only one resultant restore plan entry", func() {
+			Expect(legacyBackupConfig.RestorePlan).To(HaveLen(1))
+		})
+
+		Specify("That the restore plan entry should have the legacy backup's timestamp", func() {
+			Expect(legacyBackupConfig.RestorePlan[0].Timestamp).To(Equal(legacyBackupTimestamp))
+		})
+
+		Specify("That the restore plan entry should have all table FQNs as in the TOC's DataEntries", func() {
+			Expect(legacyBackupConfig.RestorePlan[0].TableFQNs).
+				To(Equal([]string{"schema1.table1", "schema2.table2"}))
+		})
+
 	})
 })

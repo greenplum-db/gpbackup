@@ -9,6 +9,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
+	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/nightlyone/lockfile"
 	"github.com/pkg/errors"
@@ -61,14 +62,42 @@ func SetSessionGUCs(connNum int) {
 	}
 }
 
+func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string) *backup_history.BackupConfig {
+	backupConfig := backup_history.BackupConfig{
+		BackupDir:             MustGetFlagString(utils.BACKUP_DIR),
+		BackupVersion:         backupVersion,
+		Compressed:            !MustGetFlagBool(utils.NO_COMPRESSION),
+		DatabaseName:          dbName,
+		DatabaseVersion:       dbVersion,
+		DataOnly:              MustGetFlagBool(utils.DATA_ONLY),
+		ExcludeRelations:      MustGetFlagStringSlice(utils.EXCLUDE_RELATION),
+		ExcludeSchemaFiltered: len(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)) > 0,
+		ExcludeSchemas:        MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA),
+		ExcludeTableFiltered:  len(MustGetFlagStringSlice(utils.EXCLUDE_RELATION)) > 0,
+		IncludeRelations:      MustGetFlagStringSlice(utils.INCLUDE_RELATION),
+		IncludeSchemaFiltered: len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) > 0,
+		IncludeSchemas:        MustGetFlagStringSlice(utils.INCLUDE_SCHEMA),
+		IncludeTableFiltered:  len(MustGetFlagStringSlice(utils.INCLUDE_RELATION)) > 0,
+		Incremental:           MustGetFlagBool(utils.INCREMENTAL),
+		LeafPartitionData:     MustGetFlagBool(utils.LEAF_PARTITION_DATA),
+		MetadataOnly:          MustGetFlagBool(utils.METADATA_ONLY),
+		Plugin:                plugin,
+		SingleDataFile:        MustGetFlagBool(utils.SINGLE_DATA_FILE),
+		Timestamp:             timestamp,
+		WithStatistics:        MustGetFlagBool(utils.WITH_STATS),
+	}
+
+	return &backupConfig
+}
+
 func InitializeBackupReport() {
 	escapedDBName := dbconn.MustSelectString(connectionPool, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", utils.EscapeSingleQuotes(connectionPool.DBName)))
 	plugin := ""
 	if pluginConfig != nil {
 		plugin = pluginConfig.ExecutablePath
 	}
-	config := utils.NewBackupConfig(escapedDBName, connectionPool.Version.VersionString, version,
-		plugin, globalFPInfo.Timestamp, cmdFlags)
+	config := NewBackupConfig(escapedDBName, connectionPool.Version.VersionString, version,
+		plugin, globalFPInfo.Timestamp)
 
 	isFilteredBackup := config.IncludeTableFiltered || config.IncludeSchemaFiltered ||
 		config.ExcludeTableFiltered || config.ExcludeSchemaFiltered

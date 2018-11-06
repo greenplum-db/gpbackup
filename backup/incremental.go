@@ -47,7 +47,7 @@ func GetLatestMatchingBackupTimestamp() string {
 	return latestMatchingBackupHistoryEntry.Timestamp
 }
 
-func GetLatestMatchingBackupConfig(history *backup_history.History, currentBackupConfig *utils.BackupConfig) *utils.BackupConfig {
+func GetLatestMatchingBackupConfig(history *backup_history.History, currentBackupConfig *backup_history.BackupConfig) *backup_history.BackupConfig {
 	for _, backupConfig := range history.BackupConfigs {
 		if MatchesIncrementalFlags(&backupConfig, currentBackupConfig) {
 			return &backupConfig
@@ -57,7 +57,7 @@ func GetLatestMatchingBackupConfig(history *backup_history.History, currentBacku
 	return nil
 }
 
-func MatchesIncrementalFlags(backupConfig *utils.BackupConfig, currentBackupConfig *utils.BackupConfig) bool {
+func MatchesIncrementalFlags(backupConfig *backup_history.BackupConfig, currentBackupConfig *backup_history.BackupConfig) bool {
 	return backupConfig.BackupDir == MustGetFlagString(utils.BACKUP_DIR) &&
 		backupConfig.DatabaseName == currentBackupConfig.DatabaseName &&
 		backupConfig.LeafPartitionData == MustGetFlagBool(utils.LEAF_PARTITION_DATA) &&
@@ -71,8 +71,8 @@ func MatchesIncrementalFlags(backupConfig *utils.BackupConfig, currentBackupConf
 }
 
 func PopulateRestorePlan(changedTables []Relation,
-	restorePlan []utils.RestorePlanEntry, allTables []Relation) []utils.RestorePlanEntry {
-	currBackupRestorePlanEntry := utils.RestorePlanEntry{
+	restorePlan []backup_history.RestorePlanEntry, allTables []Relation) []backup_history.RestorePlanEntry {
+	currBackupRestorePlanEntry := backup_history.RestorePlanEntry{
 		Timestamp: globalFPInfo.Timestamp,
 		TableFQNs: make([]string, 0, len(changedTables)),
 	}
