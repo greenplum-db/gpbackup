@@ -172,6 +172,38 @@ func skipIfOldBackupVersionBefore(version string) {
 	}
 }
 
+func createGlobalObjects(conn *dbconn.DBConn) {
+	if conn.Version.Before("6") {
+		testhelper.AssertQueryRuns(conn, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
+	} else {
+		testhelper.AssertQueryRuns(conn, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir';")
+	}
+	testhelper.AssertQueryRuns(conn, "CREATE RESOURCE QUEUE test_queue WITH (ACTIVE_STATEMENTS=5);")
+	testhelper.AssertQueryRuns(conn, "CREATE ROLE global_role RESOURCE QUEUE test_queue;")
+	testhelper.AssertQueryRuns(conn, "CREATE ROLE testrole;")
+	testhelper.AssertQueryRuns(conn, "GRANT testrole TO global_role;")
+	testhelper.AssertQueryRuns(conn, "CREATE DATABASE global_db TABLESPACE test_tablespace;")
+	testhelper.AssertQueryRuns(conn, "ALTER DATABASE global_db OWNER TO global_role;")
+	testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role SET search_path TO public,pg_catalog;")
+	if conn.Version.AtLeast("5") {
+		testhelper.AssertQueryRuns(conn, "CREATE RESOURCE GROUP test_group WITH (CPU_RATE_LIMIT=1, MEMORY_LIMIT=1);")
+		testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role RESOURCE GROUP test_group;")
+	}
+}
+
+func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
+	if dbExists {
+		testhelper.AssertQueryRuns(conn, "DROP DATABASE global_db;")
+	}
+	testhelper.AssertQueryRuns(conn, "DROP TABLESPACE test_tablespace;")
+	testhelper.AssertQueryRuns(conn, "DROP ROLE global_role;")
+	testhelper.AssertQueryRuns(conn, "DROP ROLE testrole;")
+	testhelper.AssertQueryRuns(conn, "DROP RESOURCE QUEUE test_queue;")
+	if conn.Version.AtLeast("5") {
+		testhelper.AssertQueryRuns(conn, "DROP RESOURCE GROUP test_group;")
+	}
+}
+
 func TestEndToEnd(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "EndToEnd Suite")
@@ -216,8 +248,29 @@ var _ = Describe("backup end to end integration tests", func() {
 		}
 		segConfig := cluster.MustGetSegmentConfiguration(backupConn)
 		backupCluster = cluster.NewCluster(segConfig)
+
+		if backupConn.Version.Before("6") {
+			testutils.SetupTestFilespace(backupConn, backupCluster)
+		} else {
+			remoteOutput := backupCluster.GenerateAndExecuteCommand("Creating filespace test directories on all hosts", func(contentID int) string {
+				return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
+			}, cluster.ON_HOSTS_AND_MASTER)
+			if remoteOutput.NumErrors != 0 {
+				Fail("Could not create filespace test directory on 1 or more hosts")
+			}
+		}
 	})
 	AfterSuite(func() {
+		if backupConn.Version.Before("6") {
+			testutils.DestroyTestFilespace(backupConn)
+		} else {
+			remoteOutput := backupCluster.GenerateAndExecuteCommand("Removing /tmp/test_dir* directories on all hosts", func(contentID int) string {
+				return fmt.Sprintf("rm -rf /tmp/test_dir*")
+			}, cluster.ON_HOSTS_AND_MASTER)
+			if remoteOutput.NumErrors != 0 {
+				Fail("Could not remove /tmp/testdir* directories on 1 or more hosts")
+			}
+		}
 		if backupConn != nil {
 			backupConn.Close()
 		}
@@ -706,6 +759,33 @@ var _ = Describe("backup end to end integration tests", func() {
 					assertArtifactsCleaned(restoreConn, incremental1Timestamp)
 					assertArtifactsCleaned(restoreConn, incremental2Timestamp)
 				})
+			})
+		})
+		Describe("globals tests", func() {
+			It("runs gpbackup and gprestore with --with-globals", func() {
+				skipIfOldBackupVersionBefore("1.8.2")
+				createGlobalObjects(backupConn)
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+
+				dropGlobalObjects(backupConn, true)
+				defer dropGlobalObjects(backupConn, false)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--with-globals")
+			})
+			It("runs gpbackup and gprestore with --with-globals and --create-db", func() {
+				skipIfOldBackupVersionBefore("1.8.2")
+				createGlobalObjects(backupConn)
+				if backupConn.Version.AtLeast("6") {
+					testhelper.AssertQueryRuns(backupConn, "ALTER ROLE global_role IN DATABASE global_db SET search_path TO public,pg_catalog;")
+				}
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+
+				dropGlobalObjects(backupConn, true)
+				defer dropGlobalObjects(backupConn, true)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "global_db", "--with-globals", "--create-db")
 			})
 		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {

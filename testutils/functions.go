@@ -55,6 +55,47 @@ func SetDefaultSegmentConfiguration() *cluster.Cluster {
 	return cluster
 }
 
+func SetupTestFilespace(connectionPool *dbconn.DBConn, testCluster *cluster.Cluster) {
+	remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directory", func(contentID int) string {
+		return fmt.Sprintf("mkdir -p /tmp/test_dir")
+	}, cluster.ON_HOSTS_AND_MASTER)
+	if remoteOutput.NumErrors != 0 {
+		Fail("Could not create filespace test directory on 1 or more hosts")
+	}
+	// Construct a filespace config like the one that gpfilespace generates
+	filespaceConfigQuery := `COPY (SELECT hostname || ':' || dbid || ':/tmp/test_dir/' || preferred_role || content FROM gp_segment_configuration AS subselect) TO '/tmp/temp_filespace_config';`
+	testhelper.AssertQueryRuns(connectionPool, filespaceConfigQuery)
+	out, err := exec.Command("bash", "-c", "echo \"filespace:test_dir\" > /tmp/filespace_config").CombinedOutput()
+	if err != nil {
+		Fail(fmt.Sprintf("Cannot create test filespace configuration: %s: %s", out, err.Error()))
+	}
+	out, err = exec.Command("bash", "-c", "cat /tmp/temp_filespace_config >> /tmp/filespace_config").CombinedOutput()
+	if err != nil {
+		Fail(fmt.Sprintf("Cannot finalize test filespace configuration: %s: %s", out, err.Error()))
+	}
+	// Create the filespace and verify it was created successfully
+	out, err = exec.Command("bash", "-c", "gpfilespace --config /tmp/filespace_config").CombinedOutput()
+	if err != nil {
+		Fail(fmt.Sprintf("Cannot create test filespace: %s: %s", out, err.Error()))
+	}
+	filespaceName := dbconn.MustSelectString(connectionPool, "SELECT fsname AS string FROM pg_filespace WHERE fsname = 'test_dir';")
+	if filespaceName != "test_dir" {
+		Fail("Filespace test_dir was not successfully created")
+	}
+}
+
+func DestroyTestFilespace(connectionPool *dbconn.DBConn) {
+	filespaceName := dbconn.MustSelectString(connectionPool, "SELECT fsname AS string FROM pg_filespace WHERE fsname = 'test_dir';")
+	if filespaceName != "test_dir" {
+		return
+	}
+	testhelper.AssertQueryRuns(connectionPool, "DROP FILESPACE test_dir")
+	out, err := exec.Command("bash", "-c", "rm -rf /tmp/test_dir /tmp/filespace_config /tmp/temp_filespace_config").CombinedOutput()
+	if err != nil {
+		Fail(fmt.Sprintf("Could not remove test filespace directory and configuration files: %s: %s", out, err.Error()))
+	}
+}
+
 func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComment bool, hasSecurityLabel bool) backup.ObjectMetadata {
 	privileges := []backup.ACL{}
 	if hasPrivileges {
