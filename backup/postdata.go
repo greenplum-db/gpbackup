@@ -7,54 +7,64 @@ package backup
  */
 
 import (
+	"fmt"
+
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
+func PrintStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, obj utils.TOCObject, statements []string) {
+	for _, statement := range statements {
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintf("\n\n%s", statement)
+		toc.NewAddMetadataEntry(obj, start, metadataFile.ByteCount)
+	}
+}
+
 func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
 	for _, index := range indexes {
-		start := metadataFile.ByteCount
-		metadataFile.MustPrintf("\n\n%s;", index.Def)
+		statements := []string{}
+		statements = append(statements, fmt.Sprintf("%s;", index.Def))
 		indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
 		if index.Tablespace != "" {
-			metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace)
+			statements = append(statements, fmt.Sprintf("ALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace))
 		}
 		tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
 		if index.IsClustered {
-			metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
+			statements = append(statements, fmt.Sprintf("ALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name))
 		}
-		PrintObjectMetadata(metadataFile, indexMetadata[index.GetUniqueID()], indexFQN, "INDEX")
-		toc.AddPostdataEntry(index.OwningSchema, index.Name, "INDEX", tableFQN, start, metadataFile)
+
+		PrintStatements(metadataFile, toc, index, statements)
+		NewPrintObjectMetadata(metadataFile, toc, indexMetadata[index.GetUniqueID()], index, indexFQN)
 	}
 }
 
 func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, rules []RuleDefinition, ruleMetadata MetadataMap) {
 	for _, rule := range rules {
-		start := metadataFile.ByteCount
-		metadataFile.MustPrintf("\n\n%s", rule.Def)
+		statements := []string{fmt.Sprintf("%s", rule.Def)}
+		PrintStatements(metadataFile, toc, rule, statements)
 		tableFQN := utils.MakeFQN(rule.OwningSchema, rule.OwningTable)
-		PrintObjectMetadata(metadataFile, ruleMetadata[rule.GetUniqueID()], rule.Name, "RULE", tableFQN)
-		toc.AddPostdataEntry(rule.OwningSchema, rule.Name, "RULE", tableFQN, start, metadataFile)
+		NewPrintObjectMetadata(metadataFile, toc, ruleMetadata[rule.GetUniqueID()], rule, rule.Name, tableFQN)
 	}
 }
 
 func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, triggers []TriggerDefinition, triggerMetadata MetadataMap) {
 	for _, trigger := range triggers {
-		start := metadataFile.ByteCount
-		metadataFile.MustPrintf("\n\n%s;", trigger.Def)
+		statements := []string{fmt.Sprintf("%s;", trigger.Def)}
+		PrintStatements(metadataFile, toc, trigger, statements)
 		tableFQN := utils.MakeFQN(trigger.OwningSchema, trigger.OwningTable)
-		PrintObjectMetadata(metadataFile, triggerMetadata[trigger.GetUniqueID()], trigger.Name, "TRIGGER", tableFQN)
-		toc.AddPostdataEntry(trigger.OwningSchema, trigger.Name, "TRIGGER", tableFQN, start, metadataFile)
+		NewPrintObjectMetadata(metadataFile, toc, triggerMetadata[trigger.GetUniqueID()], trigger, trigger.Name, tableFQN)
 	}
 }
 
 func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, eventTriggers []EventTrigger, eventTriggerMetadata MetadataMap) {
 	for _, eventTrigger := range eventTriggers {
-		start := metadataFile.ByteCount
-		metadataFile.MustPrintf("\n\nCREATE EVENT TRIGGER %s\nON %s", eventTrigger.Name, eventTrigger.Event)
+		statements := []string{}
+		currStatement := fmt.Sprintf("CREATE EVENT TRIGGER %s\nON %s", eventTrigger.Name, eventTrigger.Event)
 		if eventTrigger.EventTags != "" {
-			metadataFile.MustPrintf("\nWHEN TAG IN (%s)", eventTrigger.EventTags)
+			currStatement += fmt.Sprintf("\nWHEN TAG IN (%s)", eventTrigger.EventTags)
 		}
-		metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
+		currStatement += fmt.Sprintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
+		statements = append(statements, currStatement)
 		if eventTrigger.Enabled != "O" {
 			var enableOption string
 			switch eventTrigger.Enabled {
@@ -67,9 +77,9 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 			default:
 				enableOption = "ENABLE"
 			}
-			metadataFile.MustPrintf("\nALTER EVENT TRIGGER %s %s;", eventTrigger.Name, enableOption)
+			statements = append(statements, fmt.Sprintf("ALTER EVENT TRIGGER %s %s;", eventTrigger.Name, enableOption))
 		}
-		PrintObjectMetadata(metadataFile, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger.Name, "EVENT TRIGGER")
-		toc.AddPostdataEntry("", eventTrigger.Name, "EVENT TRIGGER", "", start, metadataFile)
+		PrintStatements(metadataFile, toc, eventTrigger, statements)
+		NewPrintObjectMetadata(metadataFile, toc, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger, eventTrigger.Name)
 	}
 }

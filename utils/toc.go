@@ -261,6 +261,15 @@ func (toc *TOC) InitializeMetadataEntryMap() {
 	toc.metadataEntryMap["statistics"] = &toc.StatisticsEntries
 }
 
+type TOCObject interface {
+	GetMetadataEntry(uint64, uint64) (string, MetadataEntry)
+}
+
+func (toc *TOC) NewAddMetadataEntry(obj TOCObject, start, end uint64) {
+	section, entry := obj.GetMetadataEntry(start, end)
+	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
+}
+
 func (toc *TOC) AddMetadataEntry(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount, section string) {
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], MetadataEntry{schema, name, objectType, referenceObject, start, file.ByteCount})
 }

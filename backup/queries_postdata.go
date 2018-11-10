@@ -55,6 +55,19 @@ type IndexDefinition struct {
 	IsClustered  bool
 }
 
+func (i IndexDefinition) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	tableFQN := utils.MakeFQN(i.OwningSchema, i.OwningTable)
+	return "postdata",
+		utils.MetadataEntry{
+			Schema:          i.OwningSchema,
+			Name:            i.Name,
+			ObjectType:      "INDEX",
+			ReferenceObject: tableFQN,
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (i IndexDefinition) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_INDEX_OID, Oid: i.Oid}
 }
@@ -253,6 +266,18 @@ type EventTrigger struct {
 	FunctionName string
 	Enabled      string
 	EventTags    string
+}
+
+func (et EventTrigger) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "postdata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            et.Name,
+			ObjectType:      "EVENT TRIGGER",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func (et EventTrigger) GetUniqueID() UniqueID {

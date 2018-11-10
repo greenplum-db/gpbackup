@@ -52,6 +52,27 @@ type ACL struct {
 
 type MetadataMap map[UniqueID]ObjectMetadata
 
+func NewPrintObjectMetadata(file *utils.FileWithByteCount, toc *utils.TOC, metadata ObjectMetadata, obj utils.TOCObject, objectName string, owningTable ...string) {
+	_, entry := obj.GetMetadataEntry(0, 0)
+	statements := []string{}
+	if comment := metadata.GetCommentStatement(objectName, entry.ObjectType, owningTable...); comment != "" {
+		statements = append(statements, comment)
+	}
+	if owner := metadata.GetOwnerStatement(objectName, entry.ObjectType); owner != "" {
+		if !(connectionPool.Version.Before("5") && entry.ObjectType == "LANGUAGE") {
+			// Languages have implicit owners in 4.3, but do not support ALTER OWNER
+			statements = append(statements, owner)
+		}
+	}
+	if privileges := metadata.GetPrivilegesStatements(objectName, entry.ObjectType); privileges != "" {
+		statements = append(statements, privileges)
+	}
+	if securityLabel := metadata.GetSecurityLabelStatement(objectName, entry.ObjectType); securityLabel != "" {
+		statements = append(statements, securityLabel)
+	}
+	PrintStatements(file, toc, obj, statements)
+}
+
 func PrintObjectMetadata(file *utils.FileWithByteCount, obj ObjectMetadata, objectName string, objectType string, owningTable ...string) {
 	if comment := obj.GetCommentStatement(objectName, objectType, owningTable...); comment != "" {
 		file.MustPrintln(comment)
