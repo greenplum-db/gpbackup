@@ -48,16 +48,16 @@ COMMENT ON INDEX public.testindex IS 'This is an index comment.';`)
 		})
 	})
 	Context("PrintCreateRuleStatements", func() {
-		rule := backup.QuerySimpleDefinition{ClassID: backup.PG_REWRITE_OID, Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}
+		rule := backup.RuleDefinition{Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}
 		It("can print a basic rule", func() {
-			rules := []backup.QuerySimpleDefinition{rule}
+			rules := []backup.RuleDefinition{rule}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, emptyMetadataMap)
 			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testrule", "RULE")
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;`)
 		})
 		It("can print a rule with a comment", func() {
-			rules := []backup.QuerySimpleDefinition{rule}
+			rules := []backup.RuleDefinition{rule}
 			ruleMetadataMap := testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;
@@ -66,16 +66,16 @@ COMMENT ON RULE testrule ON public.testtable IS 'This is a rule comment.';`)
 		})
 	})
 	Context("PrintCreateTriggerStatements", func() {
-		trigger := backup.QuerySimpleDefinition{ClassID: backup.PG_TRIGGER_OID, Oid: 1, Name: "testtrigger", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}
+		trigger := backup.TriggerDefinition{Oid: 1, Name: "testtrigger", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}
 		It("can print a basic trigger", func() {
-			triggers := []backup.QuerySimpleDefinition{trigger}
+			triggers := []backup.TriggerDefinition{trigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, emptyMetadataMap)
 			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testtrigger", "TRIGGER")
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger();`)
 		})
 		It("can print a trigger with a comment", func() {
-			triggers := []backup.QuerySimpleDefinition{trigger}
+			triggers := []backup.TriggerDefinition{trigger}
 			triggerMetadataMap := testutils.DefaultMetadataMap("TRIGGER", false, false, true, false)
 			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger();

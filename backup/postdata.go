@@ -27,7 +27,7 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *util
 	}
 }
 
-func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, rules []QuerySimpleDefinition, ruleMetadata MetadataMap) {
+func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, rules []RuleDefinition, ruleMetadata MetadataMap) {
 	for _, rule := range rules {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s", rule.Def)
@@ -37,7 +37,7 @@ func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 	}
 }
 
-func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, triggers []QuerySimpleDefinition, triggerMetadata MetadataMap) {
+func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, triggers []TriggerDefinition, triggerMetadata MetadataMap) {
 	for _, trigger := range triggers {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s;", trigger.Def)

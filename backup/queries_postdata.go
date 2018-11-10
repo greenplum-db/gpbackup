@@ -137,14 +137,7 @@ ORDER BY name;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c")) //
 	return resultIndexes
 }
 
-/*
- * This struct is for objects that only have a definition, like rules
- * (pg_get_ruledef) and triggers (pg_get_triggerdef), and no owners or the like.
- * We get the owning table for the object because COMMENT ON [object type]
- * statements can require it.
- */
-type QuerySimpleDefinition struct {
-	ClassID      uint32
+type RuleDefinition struct {
 	Oid          uint32
 	Name         string
 	OwningSchema string
@@ -152,8 +145,21 @@ type QuerySimpleDefinition struct {
 	Def          string
 }
 
-func (sd QuerySimpleDefinition) GetUniqueID() UniqueID {
-	return UniqueID{ClassID: sd.ClassID, Oid: sd.Oid}
+func (r RuleDefinition) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	tableFQN := utils.MakeFQN(r.OwningSchema, r.OwningTable)
+	return "postdata",
+		utils.MetadataEntry{
+			Schema:          r.OwningSchema,
+			Name:            r.Name,
+			ObjectType:      "RULE",
+			ReferenceObject: tableFQN,
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
+func (r RuleDefinition) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_REWRITE_OID, Oid: r.Oid}
 }
 
 /*
@@ -161,10 +167,9 @@ func (sd QuerySimpleDefinition) GetUniqueID() UniqueID {
  * built-in rules and we don't want to back them up. We use two `%` to
  * prevent Go from interpolating the % symbol.
  */
-func GetRules(connectionPool *dbconn.DBConn) []QuerySimpleDefinition {
+func GetRules(connectionPool *dbconn.DBConn) []RuleDefinition {
 	query := fmt.Sprintf(`
 SELECT
-	'pg_rewrite'::regclass::oid AS classid,
 	r.oid AS oid,
 	quote_ident(r.rulename) AS name,
 	quote_ident(n.nspname) AS owningschema,
@@ -181,20 +186,38 @@ AND rulename NOT LIKE 'pg_%%'
 AND %s
 ORDER BY rulename;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
-	results := make([]QuerySimpleDefinition, 0)
+	results := make([]RuleDefinition, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }
 
-func GetTriggers(connectionPool *dbconn.DBConn) []QuerySimpleDefinition {
+type TriggerDefinition RuleDefinition
+
+func (t TriggerDefinition) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	tableFQN := utils.MakeFQN(t.OwningSchema, t.OwningTable)
+	return "postdata",
+		utils.MetadataEntry{
+			Schema:          t.OwningSchema,
+			Name:            t.Name,
+			ObjectType:      "TRIGGER",
+			ReferenceObject: tableFQN,
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
+func (t TriggerDefinition) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TRIGGER_OID, Oid: t.Oid}
+}
+
+func GetTriggers(connectionPool *dbconn.DBConn) []TriggerDefinition {
 	constraintClause := "NOT tgisinternal"
 	if connectionPool.Version.Before("6") {
 		constraintClause = "tgisconstraint = 'f'"
 	}
 	query := fmt.Sprintf(`
 SELECT
-	'pg_trigger'::regclass::oid AS classid,
 	t.oid AS oid,
 	quote_ident(t.tgname) AS name,
 	quote_ident(n.nspname) AS owningschema,
@@ -211,7 +234,7 @@ AND %s
 AND %s
 ORDER BY tgname;`, relationAndSchemaFilterClause(), constraintClause, ExtensionFilterClause("c"))
 
-	results := make([]QuerySimpleDefinition, 0)
+	results := make([]TriggerDefinition, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
