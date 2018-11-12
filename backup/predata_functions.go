@@ -13,86 +13,87 @@ import (
 )
 
 func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, funcDef Function, funcMetadata ObjectMetadata) {
-	start := metadataFile.ByteCount
 	funcFQN := utils.MakeFQN(funcDef.Schema, funcDef.Name)
-	metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS ", funcFQN, funcDef.Arguments)
-	metadataFile.MustPrintf("%s AS", funcDef.ResultType)
-	PrintFunctionBodyOrPath(metadataFile, funcDef)
-	metadataFile.MustPrintf("LANGUAGE %s", funcDef.Language)
-	PrintFunctionModifiers(metadataFile, funcDef)
-	metadataFile.MustPrintln(";")
+	currStatement := fmt.Sprintf("CREATE FUNCTION %s(%s) RETURNS ", funcFQN, funcDef.Arguments)
+	currStatement += fmt.Sprintf("%s AS", funcDef.ResultType)
+	currStatement += PrintFunctionBodyOrPath(funcDef)
+	currStatement += fmt.Sprintf("LANGUAGE %s", funcDef.Language)
+	currStatement += PrintFunctionModifiers(funcDef)
+	currStatement += ";"
 
+	PrintStatements(metadataFile, toc, funcDef, []string{currStatement})
 	nameStr := fmt.Sprintf("%s(%s)", funcFQN, funcDef.IdentArgs)
-	nameWithArgs := fmt.Sprintf("%s(%s)", funcDef.Name, funcDef.IdentArgs)
-	PrintObjectMetadata(metadataFile, funcMetadata, nameStr, "FUNCTION")
-	toc.AddPredataEntry(funcDef.Schema, nameWithArgs, "FUNCTION", "", start, metadataFile)
+	NewPrintObjectMetadata(metadataFile, toc, funcMetadata, funcDef, nameStr)
 }
 
 /*
  * This function either prints a path to an executable function (for C and
  * internal functions) or a function definition (for functions in other languages).
  */
-func PrintFunctionBodyOrPath(metadataFile *utils.FileWithByteCount, funcDef Function) {
+func PrintFunctionBodyOrPath(funcDef Function) string {
 	/*
 	 * pg_proc.probin uses either NULL (in this case an empty string) or "-"
 	 * to signify an unused path, for historical reasons.  See dumpFunc in
 	 * pg_dump.c for details.
 	 */
+
 	if funcDef.BinaryPath != "" && funcDef.BinaryPath != "-" {
-		metadataFile.MustPrintf("\n'%s', '%s'\n", funcDef.BinaryPath, funcDef.FunctionBody)
+		return fmt.Sprintf("\n'%s', '%s'\n", funcDef.BinaryPath, funcDef.FunctionBody)
 	} else {
-		metadataFile.MustPrintf("\n%s\n", utils.DollarQuoteString(funcDef.FunctionBody))
+		return fmt.Sprintf("\n%s\n", utils.DollarQuoteString(funcDef.FunctionBody))
 	}
 }
 
-func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Function) {
+func PrintFunctionModifiers(funcDef Function) string {
+	funcMods := ""
 	switch funcDef.DataAccess {
 	case "c":
-		metadataFile.MustPrintf(" CONTAINS SQL")
+		funcMods += fmt.Sprintf(" CONTAINS SQL")
 	case "m":
-		metadataFile.MustPrintf(" MODIFIES SQL DATA")
+		funcMods += fmt.Sprintf(" MODIFIES SQL DATA")
 	case "n":
-		metadataFile.MustPrintf(" NO SQL")
+		funcMods += fmt.Sprintf(" NO SQL")
 	case "r":
-		metadataFile.MustPrintf(" READS SQL DATA")
+		funcMods += fmt.Sprintf(" READS SQL DATA")
 	}
 	switch funcDef.Volatility {
 	case "i":
-		metadataFile.MustPrintf(" IMMUTABLE")
+		funcMods += fmt.Sprintf(" IMMUTABLE")
 	case "s":
-		metadataFile.MustPrintf(" STABLE")
+		funcMods += fmt.Sprintf(" STABLE")
 	case "v": // Default case, don't print anything else
 	}
 	switch funcDef.ExecLocation {
 	case "m":
-		metadataFile.MustPrintf(" EXECUTE ON MASTER")
+		funcMods += fmt.Sprintf(" EXECUTE ON MASTER")
 	case "s":
-		metadataFile.MustPrintf(" EXECUTE ON ALL SEGMENTS")
+		funcMods += fmt.Sprintf(" EXECUTE ON ALL SEGMENTS")
 	case "a": // Default case, don't print anything else
 	}
 	if funcDef.IsWindow {
-		metadataFile.MustPrintf(" WINDOW")
+		funcMods += fmt.Sprintf(" WINDOW")
 	}
 	if funcDef.IsStrict {
-		metadataFile.MustPrintf(" STRICT")
+		funcMods += fmt.Sprintf(" STRICT")
 	}
 	if funcDef.IsLeakProof {
-		metadataFile.MustPrintf(" LEAKPROOF")
+		funcMods += fmt.Sprintf(" LEAKPROOF")
 	}
 	if funcDef.IsSecurityDefiner {
-		metadataFile.MustPrintf(" SECURITY DEFINER")
+		funcMods += fmt.Sprintf(" SECURITY DEFINER")
 	}
 	// Default cost is 1 for C and internal functions or 100 for functions in other languages
 	isInternalOrC := funcDef.Language == "c" || funcDef.Language == "internal"
 	if !((!isInternalOrC && funcDef.Cost == 100) || (isInternalOrC && funcDef.Cost == 1) || funcDef.Cost == 0) {
-		metadataFile.MustPrintf("\nCOST %v", funcDef.Cost)
+		funcMods += fmt.Sprintf("\nCOST %v", funcDef.Cost)
 	}
 	if funcDef.ReturnsSet && funcDef.NumRows != 0 && funcDef.NumRows != 1000 {
-		metadataFile.MustPrintf("\nROWS %v", funcDef.NumRows)
+		funcMods += fmt.Sprintf("\nROWS %v", funcDef.NumRows)
 	}
 	if funcDef.Config != "" {
-		metadataFile.MustPrintf("\n%s", funcDef.Config)
+		funcMods += fmt.Sprintf("\n%s", funcDef.Config)
 	}
+	return funcMods
 }
 
 func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, aggDef Aggregate, funcInfoMap map[uint32]FunctionInfo, aggMetadata ObjectMetadata) {

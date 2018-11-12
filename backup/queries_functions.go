@@ -37,6 +37,19 @@ type Function struct {
 	ExecLocation      string `db:"proexeclocation"`
 }
 
+func (f Function) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	nameWithArgs := fmt.Sprintf("%s(%s)", f.Name, f.IdentArgs)
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          f.Schema,
+			Name:            nameWithArgs,
+			ObjectType:      "FUNCTION",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (f Function) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_PROC_OID, Oid: f.Oid}
 }

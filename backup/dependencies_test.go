@@ -162,8 +162,8 @@ $_$SELECT $1 + $2$_$
 LANGUAGE sql;
 
 
-COMMENT ON FUNCTION public.function(integer, integer) IS 'function';
 
+COMMENT ON FUNCTION public.function(integer, integer) IS 'function';
 
 CREATE TYPE public.base (
 	INPUT = typin,
@@ -209,8 +209,8 @@ $_$SELECT $1 + $2$_$
 LANGUAGE sql;
 
 
-COMMENT ON FUNCTION public.function(integer, integer) IS 'function';
 
+COMMENT ON FUNCTION public.function(integer, integer) IS 'function';
 
 CREATE TYPE public.base (
 	INPUT = typin,

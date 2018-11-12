@@ -1,7 +1,6 @@
 package backup_test
 
 import (
-	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -45,46 +44,43 @@ LANGUAGE internal;`)
 			It("prints a function definition for a function with permissions, an owner, security label, and a comment", func() {
 				funcMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true, true)
 				backup.PrintCreateFunctionStatement(backupfile, toc, funcDef, funcMetadata)
-				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FUNCTION public.func_name(integer, integer) RETURNS integer AS
+				expectedStatements := []string{
+					`CREATE FUNCTION public.func_name(integer, integer) RETURNS integer AS
 $$add_two_ints$$
-LANGUAGE internal;
-
-
-COMMENT ON FUNCTION public.func_name(integer, integer) IS 'This is a function comment.';
-
-
-ALTER FUNCTION public.func_name(integer, integer) OWNER TO testrole;
-
-
-REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM PUBLIC;
+LANGUAGE internal;`,
+					"COMMENT ON FUNCTION public.func_name(integer, integer) IS 'This is a function comment.';",
+					"ALTER FUNCTION public.func_name(integer, integer) OWNER TO testrole;",
+					`REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM testrole;
-GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;
-
-
-SECURITY LABEL FOR dummy ON FUNCTION public.func_name(integer, integer) IS 'unclassified';`)
+GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`,
+					"SECURITY LABEL FOR dummy ON FUNCTION public.func_name(integer, integer) IS 'unclassified';",
+				}
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 
 			})
 		})
 		Describe("PrintFunctionBodyOrPath", func() {
 			It("prints a function definition for an internal function with 'NULL' binary path using '-'", func() {
 				funcDef.BinaryPath = "-"
-				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, `
+				resultStr := backup.PrintFunctionBodyOrPath(funcDef)
+				Expect(resultStr).To(Equal(`
 $$add_two_ints$$
-`)
+`))
 			})
 			It("prints a function definition for an internal function with a binary path", func() {
 				funcDef.BinaryPath = "$libdir/binary"
-				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, `
+				resultStr := backup.PrintFunctionBodyOrPath(funcDef)
+				Expect(resultStr).To(Equal(`
 '$libdir/binary', 'add_two_ints'
-`)
+`))
 			})
 			It("prints a function definition for a function with a one-line function definition", func() {
 				funcDef.FunctionBody = "SELECT $1+$2"
 				funcDef.Language = "sql"
-				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, `$_$SELECT $1+$2$_$`)
+				resultStr := backup.PrintFunctionBodyOrPath(funcDef)
+				Expect(resultStr).To(Equal(`
+$_$SELECT $1+$2$_$
+`))
 			})
 			It("prints a function definition for a function with a multi-line function definition", func() {
 				funcDef.FunctionBody = `
@@ -93,89 +89,91 @@ BEGIN
 END
 `
 				funcDef.Language = "sql"
-				backup.PrintFunctionBodyOrPath(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, `$_$
+				resultStr := backup.PrintFunctionBodyOrPath(funcDef)
+				Expect(resultStr).To(Equal(`
+$_$
 BEGIN
 	SELECT $1 + $2
 END
-$_$`)
+$_$
+`))
 			})
 		})
 		Describe("PrintFunctionModifiers", func() {
 			Context("SqlUsage cases", func() {
 				It("prints 'c' as CONTAINS SQL", func() {
 					funcDef.DataAccess = "c"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "CONTAINS SQL")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" CONTAINS SQL"))
 				})
 				It("prints 'm' as MODIFIES SQL DATA", func() {
 					funcDef.DataAccess = "m"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "MODIFIES SQL DATA")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" MODIFIES SQL DATA"))
 				})
 				It("prints 'n' as NO SQL", func() {
 					funcDef.DataAccess = "n"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "NO SQL")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" NO SQL"))
 				})
 				It("prints 'r' as READS SQL DATA", func() {
 					funcDef.DataAccess = "r"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "READS SQL DATA")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" READS SQL DATA"))
 				})
 			})
 			Context("Volatility cases", func() {
 				It("does not print anything for 'v'", func() {
 					funcDef.Volatility = "v"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 				It("prints 's' as STABLE", func() {
 					funcDef.Volatility = "s"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "STABLE")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" STABLE"))
 				})
 				It("prints 'i' as IMMUTABLE", func() {
 					funcDef.Volatility = "i"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "IMMUTABLE")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" IMMUTABLE"))
 				})
 			})
 			It("prints 'LEAKPROOF' if IsLeakProof is set", func() {
 				funcDef.IsLeakProof = true
-				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, "LEAKPROOF")
+				resultStr := backup.PrintFunctionModifiers(funcDef)
+				Expect(resultStr).To(Equal(" LEAKPROOF"))
 			})
 			It("prints 'STRICT' if IsStrict is set", func() {
 				funcDef.IsStrict = true
-				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, "STRICT")
+				resultStr := backup.PrintFunctionModifiers(funcDef)
+				Expect(resultStr).To(Equal(" STRICT"))
 			})
 			It("prints 'SECURITY DEFINER' if IsSecurityDefiner is set", func() {
 				funcDef.IsSecurityDefiner = true
-				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, "SECURITY DEFINER")
+				resultStr := backup.PrintFunctionModifiers(funcDef)
+				Expect(resultStr).To(Equal(" SECURITY DEFINER"))
 			})
 			It("print 'WINDOW' if IsWindow is set", func() {
 				funcDef.IsWindow = true
-				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, "WINDOW")
+				resultStr := backup.PrintFunctionModifiers(funcDef)
+				Expect(resultStr).To(Equal(" WINDOW"))
 			})
 			Context("Execlocation cases", func() {
 				It("Default", func() {
 					funcDef.ExecLocation = "a"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 				It("print 'm' as EXECUTE ON MASTER", func() {
 					funcDef.ExecLocation = "m"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "EXECUTE ON MASTER")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" EXECUTE ON MASTER"))
 				})
 				It("print 's' as EXECUTE ON ALL SEGMENTS", func() {
 					funcDef.ExecLocation = "s"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "EXECUTE ON ALL SEGMENTS")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(" EXECUTE ON ALL SEGMENTS"))
 				})
 			})
 			Context("Cost cases", func() {
@@ -186,44 +184,48 @@ $_$`)
 				 */
 				It("prints 'COST 5' if Cost is set to 5", func() {
 					funcDef.Cost = 5
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "COST 5")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(`
+COST 5`))
 				})
 				It("prints 'COST 1' if Cost is set to 1 and language is not c or internal", func() {
 					funcDef.Cost = 1
 					funcDef.Language = "sql"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "COST 1")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(`
+COST 1`))
 				})
 				It("does not print 'COST 1' if Cost is set to 1 and language is c", func() {
 					funcDef.Cost = 1
 					funcDef.Language = "c"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 				It("does not print 'COST 1' if Cost is set to 1 and language is internal", func() {
 					funcDef.Cost = 1
 					funcDef.Language = "internal"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 				It("prints 'COST 100' if Cost is set to 100 and language is c", func() {
 					funcDef.Cost = 100
 					funcDef.Language = "c"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "COST 100")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(`
+COST 100`))
 				})
 				It("prints 'COST 100' if Cost is set to 100 and language is internal", func() {
 					funcDef.Cost = 100
 					funcDef.Language = "internal"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "COST 100")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(`
+COST 100`))
 				})
 				It("does not print 'COST 100' if Cost is set to 100 and language is not c or internal", func() {
 					funcDef.Cost = 100
 					funcDef.Language = "sql"
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 			})
 			Context("NumRows cases", func() {
@@ -235,32 +237,34 @@ $_$`)
 				It("prints 'ROWS 5' if Rows is set to 5", func() {
 					funcDef.NumRows = 5
 					funcDef.ReturnsSet = true
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					testhelper.ExpectRegexp(buffer, "ROWS 5")
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(`
+ROWS 5`))
 				})
 				It("does not print 'ROWS' if Rows is set but ReturnsSet is false", func() {
 					funcDef.NumRows = 100
 					funcDef.ReturnsSet = false
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 				It("does not print 'ROWS' if Rows is set to 0", func() {
 					funcDef.NumRows = 0
 					funcDef.ReturnsSet = true
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 				It("does not print 'ROWS' if Rows is set to 1000", func() {
 					funcDef.NumRows = 1000
 					funcDef.ReturnsSet = true
-					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					resultStr := backup.PrintFunctionModifiers(funcDef)
+					Expect(resultStr).To(Equal(""))
 				})
 			})
 			It("prints config statements if any are set", func() {
 				funcDef.Config = "SET client_min_messages TO error"
-				backup.PrintFunctionModifiers(backupfile, funcDef)
-				testhelper.ExpectRegexp(buffer, "SET client_min_messages TO error")
+				resultStr := backup.PrintFunctionModifiers(funcDef)
+				Expect(resultStr).To(Equal(`
+SET client_min_messages TO error`))
 			})
 		})
 
