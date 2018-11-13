@@ -451,7 +451,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence", LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {
 				sequenceDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
@@ -471,7 +471,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 105
 			}
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence", LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, LogCnt: 0, IsCycled: false, IsCalled: true, StartVal: startValue}
+			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, LogCnt: 0, IsCycled: false, IsCalled: true, StartVal: startValue}
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -488,7 +488,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence", LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			sequenceMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true, includeSecurityLabels)
 			sequenceMetadataMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
@@ -519,8 +519,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			sequenceDef := backup.Sequence{Relation: backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}}
 			columnOwnerMap := map[string]string{"public.my_sequence": "public.sequence_table.a"}
 
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{Name: "my_sequence",
-				LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, backup.MetadataMap{})
 			backup.PrintAlterSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, columnOwnerMap)
 

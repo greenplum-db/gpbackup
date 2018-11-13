@@ -1025,7 +1025,7 @@ SET SUBPARTITION TEMPLATE
 
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
-			expectedSequence := backup.SequenceDefinition{Name: "my_sequence", LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1}
+			expectedSequence := backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1}
 			if connectionPool.Version.Before("5") {
 				expectedSequence.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
 			}
@@ -1046,7 +1046,7 @@ SET SUBPARTITION TEMPLATE
 
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
-			expectedSequence := backup.SequenceDefinition{Name: "my_sequence", LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
+			expectedSequence := backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
 			if connectionPool.Version.Before("5") {
 				expectedSequence.LogCnt = 32 // In GPDB 4.3, sequence log count is one-indexed
 			} else {
@@ -1128,9 +1128,9 @@ SET SUBPARTITION TEMPLATE
 
 			seqOneRelation := backup.Relation{Schema: "public", Name: "seq_one"}
 
-			seqOneDef := backup.SequenceDefinition{Name: "seq_one", LastVal: 3, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValOne}
+			seqOneDef := backup.SequenceDefinition{LastVal: 3, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValOne}
 			seqTwoRelation := backup.Relation{Schema: "public", Name: "seq_two"}
-			seqTwoDef := backup.SequenceDefinition{Name: "seq_two", LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValTwo}
+			seqTwoDef := backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValTwo}
 			if connectionPool.Version.Before("5") {
 				seqOneDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
 				seqTwoDef.LogCnt = 1

@@ -679,6 +679,36 @@ ORDER BY i.inhrelid, i.inhseqno`, ExtensionFilterClause("p"), tableFilterStr)
 	return inheritanceMap
 }
 
+type Sequence struct {
+	Relation
+	SequenceDefinition
+}
+
+type SequenceDefinition struct {
+	LastVal     int64
+	StartVal    int64
+	Increment   int64
+	MaxVal      int64
+	MinVal      int64
+	CacheVal    int64
+	LogCnt      int64
+	IsCycled    bool
+	IsCalled    bool
+	OwningTable string
+}
+
+func GetAllSequences(connectionPool *dbconn.DBConn, sequenceOwnerTables map[string]string) []Sequence {
+	sequenceRelations := GetAllSequenceRelations(connectionPool)
+	sequences := make([]Sequence, 0)
+	for _, seqRelation := range sequenceRelations {
+		seqDef := GetSequenceDefinition(connectionPool, seqRelation.FQN())
+		seqDef.OwningTable = sequenceOwnerTables[seqRelation.FQN()]
+		sequence := Sequence{seqRelation, seqDef}
+		sequences = append(sequences, sequence)
+	}
+	return sequences
+}
+
 func GetAllSequenceRelations(connectionPool *dbconn.DBConn) []Relation {
 	query := fmt.Sprintf(`SELECT
 	n.oid AS schemaoid,
@@ -700,22 +730,18 @@ ORDER BY n.nspname, c.relname;`, relationAndSchemaFilterClause(), ExtensionFilte
 	return results
 }
 
-type SequenceDefinition struct {
-	Name        string `db:"sequence_name"`
-	LastVal     int64  `db:"last_value"`
-	StartVal    int64  `db:"start_value"`
-	Increment   int64  `db:"increment_by"`
-	MaxVal      int64  `db:"max_value"`
-	MinVal      int64  `db:"min_value"`
-	CacheVal    int64  `db:"cache_value"`
-	LogCnt      int64  `db:"log_cnt"`
-	IsCycled    bool   `db:"is_cycled"`
-	IsCalled    bool   `db:"is_called"`
-	OwningTable string
-}
-
 func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) SequenceDefinition {
-	query := fmt.Sprintf("SELECT * FROM %s", seqName)
+	query := fmt.Sprintf(`SELECT
+	last_value AS lastval,
+	start_value AS startval,
+	increment_by AS increment,
+	max_value AS maxval,
+	min_value AS minval,
+	cache_value AS cacheval,
+	log_cnt AS logcnt,
+	is_cycled AS iscycled,
+	is_called AS iscalled
+	FROM %s`, seqName)
 	result := SequenceDefinition{}
 	err := connectionPool.Get(&result, query)
 	gplog.FatalOnError(err)

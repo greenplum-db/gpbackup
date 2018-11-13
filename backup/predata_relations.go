@@ -277,23 +277,6 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table
 	}
 }
 
-type Sequence struct {
-	Relation
-	SequenceDefinition
-}
-
-func GetAllSequences(connectionPool *dbconn.DBConn, sequenceOwnerTables map[string]string) []Sequence {
-	sequenceRelations := GetAllSequenceRelations(connectionPool)
-	sequences := make([]Sequence, 0)
-	for _, seqRelation := range sequenceRelations {
-		seqDef := GetSequenceDefinition(connectionPool, seqRelation.FQN())
-		seqDef.OwningTable = sequenceOwnerTables[seqRelation.FQN()]
-		sequence := Sequence{seqRelation, seqDef}
-		sequences = append(sequences, sequence)
-	}
-	return sequences
-}
-
 /*
  * This function is largely derived from the dumpSequence() function in pg_dump.c.  The values of
  * minVal and maxVal come from SEQ_MINVALUE and SEQ_MAXVALUE, defined in include/commands/sequence.h.
