@@ -11,7 +11,6 @@ import (
 
 	"math"
 
-	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -94,99 +93,6 @@ func ExpandIncludeRelations(tables []Relation) {
 			gplog.FatalOnError(err)
 		}
 	}
-}
-
-type Table struct {
-	Relation
-	TableDefinition
-}
-
-func (t Table) SkipDataBackup() bool {
-	def := t.TableDefinition
-	return def.IsExternal || (def.ForeignDef != ForeignTableDefinition{})
-}
-
-func (t Table) FQN() string {
-	return t.Relation.FQN()
-}
-
-func (t Table) GetUniqueID() UniqueID {
-	return t.Relation.GetUniqueID()
-}
-
-type ForeignTableDefinition struct {
-	Oid     uint32 `db:"ftrelid"`
-	Options string `db:"ftoptions"`
-	Server  string `db:"ftserver"`
-}
-
-type TableDefinition struct {
-	DistPolicy         string
-	PartDef            string
-	PartTemplateDef    string
-	StorageOpts        string
-	TablespaceName     string
-	ColumnDefs         []ColumnDefinition
-	IsExternal         bool
-	ExtTableDef        ExternalTableDefinition
-	PartitionLevelInfo PartitionLevelInfo
-	TableType          string
-	IsUnlogged         bool
-	ForeignDef         ForeignTableDefinition
-	Inherits           []string
-}
-
-/*
- * This function calls all the functions needed to gather the metadata for a
- * single table and assembles the metadata into ColumnDef and TableDef structs
- * for more convenient handling in the PrintCreateTableStatement() function.
- */
-func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations []Relation) []Table {
-	tables := make([]Table, 0)
-
-	gplog.Info("Gathering additional table metadata")
-	gplog.Verbose("Retrieving column information")
-	columnMetadata := GetPrivilegesForColumns(connectionPool)
-	columnDefs := GetColumnDefinitions(connectionPool, columnMetadata)
-	distributionPolicies := GetDistributionPolicies(connectionPool)
-	gplog.Verbose("Retrieving partition information")
-	partitionDefs := GetPartitionDefinitions(connectionPool)
-	partTemplateDefs := GetPartitionTemplates(connectionPool)
-	gplog.Verbose("Retrieving storage information")
-	tableStorageOptions := GetTableStorageOptions(connectionPool)
-	tablespaceNames := GetTablespaceNames(connectionPool)
-	gplog.Verbose("Retrieving external table information")
-	extTableDefs := GetExternalTableDefinitions(connectionPool)
-	partTableMap := GetPartitionTableMap(connectionPool)
-	tableTypeMap := GetTableType(connectionPool)
-	unloggedTableMap := GetUnloggedTables(connectionPool)
-	foreignTableDefs := GetForeignTableDefinitions(connectionPool)
-	inheritanceMap := GetTableInheritance(connectionPool, tableRelations)
-
-	gplog.Verbose("Constructing table definition map")
-	for _, tableRel := range tableRelations {
-		oid := tableRel.Oid
-		tableDef := TableDefinition{
-			DistPolicy:         distributionPolicies[oid],
-			PartDef:            partitionDefs[oid],
-			PartTemplateDef:    partTemplateDefs[oid],
-			StorageOpts:        tableStorageOptions[oid],
-			TablespaceName:     tablespaceNames[oid],
-			ColumnDefs:         columnDefs[oid],
-			IsExternal:         (extTableDefs[oid].Oid != 0),
-			ExtTableDef:        extTableDefs[oid],
-			PartitionLevelInfo: partTableMap[oid],
-			TableType:          tableTypeMap[oid],
-			IsUnlogged:         unloggedTableMap[oid],
-			ForeignDef:         foreignTableDefs[oid],
-			Inherits:           inheritanceMap[oid],
-		}
-		if tableDef.Inherits == nil {
-			tableDef.Inherits = []string{}
-		}
-		tables = append(tables, Table{tableRel, tableDef})
-	}
-	return tables
 }
 
 func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uint32]map[string][]ACL {

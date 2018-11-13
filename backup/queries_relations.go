@@ -41,11 +41,11 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, relList)
 	return dbconn.MustSelectStringSlice(connectionPool, query)
 }
 
-func GetAllUserTables(connectionPool *dbconn.DBConn) []Relation {
+func GetAllUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 	if len(MustGetFlagStringSlice(utils.INCLUDE_RELATION)) > 0 {
-		return GetUserTablesWithIncludeFiltering(connectionPool)
+		return GetUserTableRelationsWithIncludeFiltering(connectionPool)
 	}
-	return GetUserTables(connectionPool)
+	return GetUserTableRelations(connectionPool)
 }
 
 type Relation struct {
@@ -67,7 +67,7 @@ func (r Relation) GetUniqueID() UniqueID {
  * This function also handles exclude table filtering since the way we do
  * it is currently much simpler than the include case.
  */
-func GetUserTables(connectionPool *dbconn.DBConn) []Relation {
+func GetUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 	childPartitionFilter := ""
 	if !MustGetFlagBool(utils.LEAF_PARTITION_DATA) {
 		//Filter out non-external child partitions
@@ -103,7 +103,7 @@ ORDER BY c.oid;`, relationAndSchemaFilterClause(), childPartitionFilter, Extensi
 	return results
 }
 
-func GetUserTablesWithIncludeFiltering(connectionPool *dbconn.DBConn) []Relation {
+func GetUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn) []Relation {
 	includeOids := GetOidsFromRelationList(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_RELATION))
 	oidStr := strings.Join(includeOids, ", ")
 	childPartitionFilter := ""
@@ -197,6 +197,91 @@ ORDER BY c.oid;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
+}
+
+type Table struct {
+	Relation
+	TableDefinition
+}
+
+func (t Table) SkipDataBackup() bool {
+	def := t.TableDefinition
+	return def.IsExternal || (def.ForeignDef != ForeignTableDefinition{})
+}
+
+type ForeignTableDefinition struct {
+	Oid     uint32 `db:"ftrelid"`
+	Options string `db:"ftoptions"`
+	Server  string `db:"ftserver"`
+}
+
+type TableDefinition struct {
+	DistPolicy         string
+	PartDef            string
+	PartTemplateDef    string
+	StorageOpts        string
+	TablespaceName     string
+	ColumnDefs         []ColumnDefinition
+	IsExternal         bool
+	ExtTableDef        ExternalTableDefinition
+	PartitionLevelInfo PartitionLevelInfo
+	TableType          string
+	IsUnlogged         bool
+	ForeignDef         ForeignTableDefinition
+	Inherits           []string
+}
+
+/*
+ * This function calls all the functions needed to gather the metadata for a
+ * single table and assembles the metadata into ColumnDef and TableDef structs
+ * for more convenient handling in the PrintCreateTableStatement() function.
+ */
+func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations []Relation) []Table {
+	tables := make([]Table, 0)
+
+	gplog.Info("Gathering additional table metadata")
+	gplog.Verbose("Retrieving column information")
+	columnMetadata := GetPrivilegesForColumns(connectionPool)
+	columnDefs := GetColumnDefinitions(connectionPool, columnMetadata)
+	distributionPolicies := GetDistributionPolicies(connectionPool)
+	gplog.Verbose("Retrieving partition information")
+	partitionDefs := GetPartitionDefinitions(connectionPool)
+	partTemplateDefs := GetPartitionTemplates(connectionPool)
+	gplog.Verbose("Retrieving storage information")
+	tableStorageOptions := GetTableStorageOptions(connectionPool)
+	tablespaceNames := GetTablespaceNames(connectionPool)
+	gplog.Verbose("Retrieving external table information")
+	extTableDefs := GetExternalTableDefinitions(connectionPool)
+	partTableMap := GetPartitionTableMap(connectionPool)
+	tableTypeMap := GetTableType(connectionPool)
+	unloggedTableMap := GetUnloggedTables(connectionPool)
+	foreignTableDefs := GetForeignTableDefinitions(connectionPool)
+	inheritanceMap := GetTableInheritance(connectionPool, tableRelations)
+
+	gplog.Verbose("Constructing table definition map")
+	for _, tableRel := range tableRelations {
+		oid := tableRel.Oid
+		tableDef := TableDefinition{
+			DistPolicy:         distributionPolicies[oid],
+			PartDef:            partitionDefs[oid],
+			PartTemplateDef:    partTemplateDefs[oid],
+			StorageOpts:        tableStorageOptions[oid],
+			TablespaceName:     tablespaceNames[oid],
+			ColumnDefs:         columnDefs[oid],
+			IsExternal:         (extTableDefs[oid].Oid != 0),
+			ExtTableDef:        extTableDefs[oid],
+			PartitionLevelInfo: partTableMap[oid],
+			TableType:          tableTypeMap[oid],
+			IsUnlogged:         unloggedTableMap[oid],
+			ForeignDef:         foreignTableDefs[oid],
+			Inherits:           inheritanceMap[oid],
+		}
+		if tableDef.Inherits == nil {
+			tableDef.Inherits = []string{}
+		}
+		tables = append(tables, Table{tableRel, tableDef})
+	}
+	return tables
 }
 
 /*
