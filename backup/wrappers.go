@@ -152,26 +152,26 @@ func CreateBackupDirectoriesOnAllHosts() {
  * Metadata retrieval wrapper functions
  */
 
-func RetrieveAndProcessTables() ([]Relation, []Relation, map[uint32]TableDefinition) {
-	tables := GetAllUserTables(connectionPool)
-	LockTables(connectionPool, tables)
+func RetrieveAndProcessTables() ([]Table, []Table) {
+	tableRelations := GetAllUserTables(connectionPool)
+	LockTables(connectionPool, tableRelations)
 
 	/*
 	 * We expand the includeRelations list to include parent and leaf partitions that may not have been
 	 * specified by the user but are used in the backup for metadata or data.
 	 */
 	userPassedIncludeRelations := MustGetFlagStringSlice(utils.INCLUDE_RELATION)
-	ExpandIncludeRelations(tables)
+	ExpandIncludeRelations(tableRelations)
 
 	if connectionPool.Version.AtLeast("6") {
-		tables = append(tables, GetForeignTableRelations(connectionPool)...)
+		tableRelations = append(tableRelations, GetForeignTableRelations(connectionPool)...)
 	}
 
-	tableDefs := ConstructDefinitionsForTables(connectionPool, tables)
-	metadataTables, dataTables := SplitTablesByPartitionType(tables, tableDefs, userPassedIncludeRelations)
+	tables := ConstructDefinitionsForTables(connectionPool, tableRelations)
+	metadataTables, dataTables := SplitTablesByPartitionType(tables, userPassedIncludeRelations)
 	objectCounts["Tables"] = len(metadataTables)
 
-	return metadataTables, dataTables, tableDefs
+	return metadataTables, dataTables
 }
 
 func RetrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap, procLangs []ProceduralLanguage) ([]Function, MetadataMap) {
@@ -510,8 +510,8 @@ func addToMetadataMap(newMetadata MetadataMap, metadataMap MetadataMap) {
 }
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
-func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Relation,
-	protocols []ExternalProtocol, filteredMetadata MetadataMap, tableDefs map[uint32]TableDefinition,
+func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Table,
+	protocols []ExternalProtocol, filteredMetadata MetadataMap,
 	constraints []Constraint, sortables []Sortable, funcInfoMap map[uint32]FunctionInfo,
 	tableOnly bool) {
 
@@ -520,11 +520,11 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Rela
 	backupSet := createBackupSet(sortables)
 	relevantDeps := GetDependencies(connectionPool, backupSet)
 	if connectionPool.Version.Is("4") && !tableOnly {
-		AddProtocolDependenciesForGPDB4(relevantDeps, tables, tableDefs, protocols)
+		AddProtocolDependenciesForGPDB4(relevantDeps, tables, protocols)
 	}
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
-	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, tableDefs, constraints, funcInfoMap)
+	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, constraints, funcInfoMap)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
@@ -617,7 +617,7 @@ func BackupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
  * Data wrapper functions
  */
 
-func BackupStatistics(statisticsFile *utils.FileWithByteCount, tables []Relation) {
+func BackupStatistics(statisticsFile *utils.FileWithByteCount, tables []Table) {
 	attStats := GetAttributeStatistics(connectionPool, tables)
 	tupleStats := GetTupleStatistics(connectionPool, tables)
 

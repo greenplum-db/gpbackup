@@ -16,7 +16,9 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("PrintStatisticsStatementsForTable", func() {
 		It("prints attribute and tuple statistics for a table", func() {
-			tables := []backup.Relation{{SchemaOid: 2200, Schema: "public", Name: "foo"}}
+			tables := []backup.Table{
+				{Relation: backup.Relation{SchemaOid: 2200, Schema: "public", Name: "foo"}},
+			}
 
 			// Create and ANALYZE a table to generate statistics
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int, j text, k bool)")

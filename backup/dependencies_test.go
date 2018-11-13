@@ -120,10 +120,9 @@ var _ = Describe("backup/dependencies tests", func() {
 	})
 	Describe("PrintDependentObjectStatements", func() {
 		var (
-			objects      []backup.Sortable
-			metadataMap  backup.MetadataMap
-			tableDefsMap map[uint32]backup.TableDefinition
-			funcInfoMap  map[uint32]backup.FunctionInfo
+			objects     []backup.Sortable
+			metadataMap backup.MetadataMap
+			funcInfoMap map[uint32]backup.FunctionInfo
 		)
 		BeforeEach(func() {
 			funcInfoMap = map[uint32]backup.FunctionInfo{
@@ -136,7 +135,10 @@ var _ = Describe("backup/dependencies tests", func() {
 				backup.Type{Oid: 2, Schema: "public", Name: "base", Type: "b", Input: "typin", Output: "typout", Category: "U"},
 				backup.Type{Oid: 3, Schema: "public", Name: "composite", Type: "c", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}, Category: "U"},
 				backup.Type{Oid: 4, Schema: "public", Name: "domain", Type: "d", BaseType: "numeric", Category: "U"},
-				backup.Relation{Oid: 5, Schema: "public", Name: "relation"},
+				backup.Table{
+					Relation:        backup.Relation{Oid: 5, Schema: "public", Name: "relation"},
+					TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ColumnDefs: []backup.ColumnDefinition{}},
+				},
 				backup.ExternalProtocol{Oid: 6, Name: "ext_protocol", Trusted: true, ReadFunction: 2, WriteFunction: 1, Validator: 0},
 			}
 			metadataMap = backup.MetadataMap{
@@ -147,15 +149,12 @@ var _ = Describe("backup/dependencies tests", func() {
 				backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 5}:       backup.ObjectMetadata{Comment: "relation"},
 				backup.UniqueID{ClassID: backup.PG_EXTPROTOCOL_OID, Oid: 6}: backup.ObjectMetadata{Comment: "protocol"},
 			}
-			tableDefsMap = map[uint32]backup.TableDefinition{
-				5: {DistPolicy: "DISTRIBUTED RANDOMLY", ColumnDefs: []backup.ColumnDefinition{}},
-			}
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (domain has a constraint)", func() {
 			constraints := []backup.Constraint{
 				{Name: "check_constraint", ConDef: "CHECK (VALUE > 2)", OwningObject: "public.domain"},
 			}
-			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints, funcInfoMap)
+			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, constraints, funcInfoMap)
 			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
@@ -202,7 +201,7 @@ COMMENT ON PROTOCOL ext_protocol IS 'protocol';
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (no domain constraint)", func() {
 			constraints := []backup.Constraint{}
-			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, tableDefsMap, constraints, funcInfoMap)
+			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, constraints, funcInfoMap)
 			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$

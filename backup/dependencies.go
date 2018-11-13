@@ -19,13 +19,13 @@ import (
  *   - Tables
  *   - Protocols
  */
-func AddProtocolDependenciesForGPDB4(depMap DependencyMap, tables []Relation, tableDefs map[uint32]TableDefinition, protocols []ExternalProtocol) {
+func AddProtocolDependenciesForGPDB4(depMap DependencyMap, tables []Table, protocols []ExternalProtocol) {
 	protocolMap := make(map[string]UniqueID, len(protocols))
 	for _, p := range protocols {
 		protocolMap[p.Name] = p.GetUniqueID()
 	}
 	for _, table := range tables {
-		extTableDef := tableDefs[table.Oid].ExtTableDef
+		extTableDef := table.ExtTableDef
 		if extTableDef.Location != "" {
 			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
 			if protocolEntry, ok := protocolMap[protocolName]; ok {
@@ -251,7 +251,7 @@ func breakCircularDependencies(depMap DependencyMap) {
 	}
 }
 
-func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, tableDefsMap map[uint32]TableDefinition, constraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
+func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, constraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
 	conMap := make(map[string][]Constraint)
 	for _, constraint := range constraints {
 		conMap[constraint.OwningObject] = append(conMap[constraint.OwningObject], constraint)
@@ -273,8 +273,8 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 			}
 		case Function:
 			PrintCreateFunctionStatement(metadataFile, toc, obj, objMetadata)
-		case Relation:
-			PrintCreateTableStatement(metadataFile, toc, obj, tableDefsMap[obj.Oid], objMetadata)
+		case Table:
+			PrintCreateTableStatement(metadataFile, toc, obj, objMetadata)
 		case ExternalProtocol:
 			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
 		case View:

@@ -19,16 +19,17 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintExternalTableCreateStatement", func() {
 		var (
 			extTable  backup.ExternalTableDefinition
-			testTable backup.Relation
-			tableDef  backup.TableDefinition
+			testTable backup.Table
 		)
 		BeforeEach(func() {
 			extTable = backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: backup.FILE, Location: "file://tmp/ext_table_file",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
 				Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/ext_table_file"}}
-			testTable = backup.Relation{Schema: "public", Name: "testtable"}
-			tableDef = backup.TableDefinition{IsExternal: true}
+			testTable = backup.Table{
+				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
+				TableDefinition: backup.TableDefinition{IsExternal: true},
+			}
 			os.Create("/tmp/ext_table_file")
 		})
 		AfterEach(func() {
@@ -43,9 +44,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.ErrTableSchema = "public"
 			extTable.RejectLimit = 2
 			extTable.RejectLimitType = "r"
-			tableDef.ExtTableDef = extTable
+			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -63,9 +64,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Protocol = backup.HTTP
 			extTable.URIs = nil
 			extTable.Command = `bash someone's \.custom_script.sh`
-			tableDef.ExtTableDef = extTable
+			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -81,9 +82,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Writable = false
 			extTable.FormatType = "c"
 			extTable.FormatOpts = `delimiter '|' null '' escape ''' quote ''' force not null i`
-			tableDef.ExtTableDef = extTable
+			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -99,9 +100,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Writable = false
 			extTable.FormatType = "b"
 			extTable.FormatOpts = "formatter 'fixedwidth_out' i '20' "
-			tableDef.ExtTableDef = extTable
+			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -120,9 +121,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.ErrTableSchema = "public"
 			extTable.RejectLimit = 2
 			extTable.RejectLimitType = "r"
-			tableDef.ExtTableDef = extTable
+			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -139,9 +140,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Location = "gpfdist://outputhost:8081/data1.out"
 			extTable.URIs = []string{"gpfdist://outputhost:8081/data1.out"}
 			extTable.Protocol = backup.GPFDIST
-			tableDef.ExtTableDef = extTable
+			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -212,9 +213,9 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {
-		tables := []backup.Relation{
-			{Oid: 1, Schema: "public", Name: "part_tbl_ext_part_"},
-			{Oid: 2, Schema: "public", Name: "part_tbl"},
+		tables := []backup.Table{
+			{Relation: backup.Relation{Oid: 1, Schema: "public", Name: "part_tbl_ext_part_"}},
+			{Relation: backup.Relation{Oid: 2, Schema: "public", Name: "part_tbl"}},
 		}
 		emptyPartInfoMap := make(map[uint32]backup.PartitionInfo, 0)
 		AfterEach(func() {

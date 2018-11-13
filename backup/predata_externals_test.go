@@ -11,15 +11,6 @@ import (
 )
 
 var _ = Describe("backup/predata_externals tests", func() {
-	testTable := backup.Relation{Schema: "public", Name: "tablename"}
-
-	distRandom := "DISTRIBUTED RANDOMLY"
-
-	heapOpts := ""
-
-	partDefEmpty := ""
-	partTemplateDefEmpty := ""
-	colDefsEmpty := []backup.ColumnDefinition{}
 	extTableEmpty := backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, ExecLocation: "ALL_SEGMENTS", FormatType: "t", RejectLimit: 0, Encoding: "UTF-8", Writable: false, URIs: nil}
 
 	BeforeEach(func() {
@@ -88,18 +79,20 @@ var _ = Describe("backup/predata_externals tests", func() {
 		)
 	})
 	Describe("PrintExternalTableCreateStatement", func() {
-		var tableDef backup.TableDefinition
+		var testTable backup.Table
 		var extTableDef backup.ExternalTableDefinition
 		BeforeEach(func() {
-			tableDef = backup.TableDefinition{DistPolicy: distRandom, PartDef: partDefEmpty, PartTemplateDef: partTemplateDefEmpty, StorageOpts: heapOpts, TablespaceName: "", ColumnDefs: colDefsEmpty, IsExternal: true, ExtTableDef: extTableEmpty}
+			testTable = backup.Table{
+				Relation:        backup.Relation{Schema: "public", Name: "tablename"},
+				TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", PartDef: "", PartTemplateDef: "", StorageOpts: "", TablespaceName: "", ColumnDefs: []backup.ColumnDefinition{}, IsExternal: true, ExtTableDef: extTableEmpty}}
 			extTableDef = extTableEmpty
 		})
 
 		It("prints a CREATE block for a READABLE EXTERNAL table", func() {
 			extTableDef.Location = "file://host:port/path/file"
 			extTableDef.URIs = []string{"file://host:port/path/file"}
-			tableDef.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			testTable.ExtTableDef = extTableDef
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "tablename", "TABLE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL TABLE public.tablename (
 ) LOCATION (
@@ -112,8 +105,8 @@ ENCODING 'UTF-8';`)
 			extTableDef.Location = "file://host:port/path/file"
 			extTableDef.URIs = []string{"file://host:port/path/file"}
 			extTableDef.Writable = true
-			tableDef.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			testTable.ExtTableDef = extTableDef
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE WRITABLE EXTERNAL TABLE public.tablename (
 ) LOCATION (
 	'file://host:port/path/file'
@@ -125,8 +118,8 @@ DISTRIBUTED RANDOMLY;`)
 		It("prints a CREATE block for a READABLE EXTERNAL WEB table with a LOCATION", func() {
 			extTableDef.Location = "http://webhost:port/path/file"
 			extTableDef.URIs = []string{"http://webhost:port/path/file"}
-			tableDef.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			testTable.ExtTableDef = extTableDef
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
 ) LOCATION (
 	'http://webhost:port/path/file'
@@ -136,8 +129,8 @@ ENCODING 'UTF-8';`)
 		})
 		It("prints a CREATE block for a READABLE EXTERNAL WEB table with an EXECUTE", func() {
 			extTableDef.Command = "hostname"
-			tableDef.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			testTable.ExtTableDef = extTableDef
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
 ) EXECUTE 'hostname'
 FORMAT 'TEXT'
@@ -146,8 +139,8 @@ ENCODING 'UTF-8';`)
 		It("prints a CREATE block for a WRITABLE EXTERNAL WEB table", func() {
 			extTableDef.Command = "hostname"
 			extTableDef.Writable = true
-			tableDef.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable, tableDef)
+			testTable.ExtTableDef = extTableDef
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE WRITABLE EXTERNAL WEB TABLE public.tablename (
 ) EXECUTE 'hostname'
 FORMAT 'TEXT'
@@ -156,6 +149,7 @@ DISTRIBUTED RANDOMLY;`)
 		})
 	})
 	Describe("PrintExternalTableStatements", func() {
+		var tableName = "public.tablename"
 		var extTableDef backup.ExternalTableDefinition
 		BeforeEach(func() {
 			extTableDef = extTableEmpty
@@ -172,49 +166,49 @@ DISTRIBUTED RANDOMLY;`)
 			})
 
 			It("prints a CREATE block for a table with EXECUTE ON ALL", func() {
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname'
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON MASTER", func() {
 				extTableDef.ExecLocation = "MASTER_ONLY"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON MASTER
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON [number]", func() {
 				extTableDef.ExecLocation = "TOTAL_SEGS:3"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON 3
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON HOST", func() {
 				extTableDef.ExecLocation = "PER_HOST"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON HOST
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON HOST [host]", func() {
 				extTableDef.ExecLocation = "HOST:localhost"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON HOST 'localhost'
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with EXECUTE ON SEGMENT [segid]", func() {
 				extTableDef.ExecLocation = "SEGMENT_ID:0"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON SEGMENT 0
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table with single quotes in its EXECUTE clause", func() {
 				extTableDef.Command = "fake'command"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `EXECUTE 'fake''command'
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
@@ -234,7 +228,7 @@ ENCODING 'UTF-8'`)
 				extTableDef.Location = "s3://s3_endpoint:port/bucket_name/s3_prefix"
 				extTableDef.URIs = []string{"s3://s3_endpoint:port/bucket_name/s3_prefix"}
 				extTableDef.ExecLocation = "MASTER_ONLY"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	's3://s3_endpoint:port/bucket_name/s3_prefix'
 ) ON MASTER
@@ -244,7 +238,7 @@ ENCODING 'UTF-8'`)
 			It("prints a CREATE block for a table using error logging with an error table", func() {
 				extTableDef.ErrTableName = "error_table"
 				extTableDef.ErrTableSchema = "error_table_schema"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
@@ -255,7 +249,7 @@ LOG ERRORS INTO error_table_schema.error_table`)
 			It("prints a CREATE block for a table using error logging without an error table", func() {
 				extTableDef.ErrTableName = "tablename"
 				extTableDef.ErrTableSchema = "public"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
@@ -266,7 +260,7 @@ LOG ERRORS`)
 			It("prints a CREATE block for a table with a row-based reject limit", func() {
 				extTableDef.RejectLimit = 2
 				extTableDef.RejectLimitType = "r"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
@@ -277,7 +271,7 @@ SEGMENT REJECT LIMIT 2 ROWS`)
 			It("prints a CREATE block for a table with a percent-based reject limit", func() {
 				extTableDef.RejectLimit = 2
 				extTableDef.RejectLimitType = "p"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
@@ -290,7 +284,7 @@ SEGMENT REJECT LIMIT 2 PERCENT`)
 				extTableDef.ErrTableSchema = "public"
 				extTableDef.RejectLimit = 2
 				extTableDef.RejectLimitType = "r"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
@@ -301,7 +295,7 @@ SEGMENT REJECT LIMIT 2 ROWS`)
 			})
 			It("prints a CREATE block for a table with custom options", func() {
 				extTableDef.Options = "foo 'bar'\n\tbar 'baz'"
-				backup.PrintExternalTableStatements(backupfile, testTable, extTableDef)
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
 )
@@ -479,9 +473,9 @@ GRANT ALL ON PROTOCOL s3 TO testrole;`)
 		})
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {
-		tables := []backup.Relation{
-			{Oid: 1, Schema: "public", Name: "partition_table_ext_part_"},
-			{Oid: 2, Schema: "public", Name: "partition_table"},
+		tables := []backup.Table{
+			{Relation: backup.Relation{Oid: 1, Schema: "public", Name: "partition_table_ext_part_"}},
+			{Relation: backup.Relation{Oid: 2, Schema: "public", Name: "partition_table"}},
 		}
 		emptyPartInfoMap := make(map[uint32]backup.PartitionInfo, 0)
 		It("writes an alter statement for a named partition", func() {

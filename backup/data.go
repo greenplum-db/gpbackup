@@ -31,9 +31,9 @@ func ConstructTableAttributesList(columnDefs []ColumnDefinition) string {
 	return ""
 }
 
-func AddTableDataEntriesToTOC(tables []Relation, tableDefs map[uint32]TableDefinition, rowsCopiedMaps []map[uint32]int64) {
+func AddTableDataEntriesToTOC(tables []Table, rowsCopiedMaps []map[uint32]int64) {
 	for _, table := range tables {
-		if !tableDefs[table.Oid].SkipDataBackup() {
+		if !table.SkipDataBackup() {
 			var rowsCopied int64
 			for _, rowsCopiedMap := range rowsCopiedMaps {
 				if val, ok := rowsCopiedMap[table.Oid]; ok {
@@ -41,8 +41,8 @@ func AddTableDataEntriesToTOC(tables []Relation, tableDefs map[uint32]TableDefin
 					break
 				}
 			}
-			attributes := ConstructTableAttributesList(tableDefs[table.Oid].ColumnDefs)
-			globalTOC.AddMasterDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, tableDefs[table.Oid].PartitionLevelInfo.RootName)
+			attributes := ConstructTableAttributesList(table.ColumnDefs)
+			globalTOC.AddMasterDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, table.PartitionLevelInfo.RootName)
 		}
 	}
 }
@@ -54,7 +54,7 @@ type BackupProgressCounters struct {
 	ProgressBar    utils.ProgressBar
 }
 
-func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, destinationToWrite string, connNum int) (int64, error) {
+func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite string, connNum int) (int64, error) {
 	checkPipeExistsCommand := ""
 	customPipeThroughCommand := utils.GetPipeThroughProgram().OutputCommand
 	sendToDestinationCommand := ">"
@@ -82,8 +82,8 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Relation, destinationToWr
 	return numRows, nil
 }
 
-func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedMap map[uint32]int64, counters *BackupProgressCounters, whichConn int) error {
-	if tableDef.SkipDataBackup() {
+func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters *BackupProgressCounters, whichConn int) error {
+	if table.SkipDataBackup() {
 		gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
 	} else {
 		counters.mutex.Lock()
@@ -113,10 +113,10 @@ func BackupSingleTableData(tableDef TableDefinition, table Relation, rowsCopiedM
 	return nil
 }
 
-func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinition) []map[uint32]int64 {
+func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 	var numExtOrForeignTables int64
 	for _, table := range tables {
-		if tableDefs[table.Oid].SkipDataBackup() {
+		if table.SkipDataBackup() {
 			numExtOrForeignTables++
 		}
 	}
@@ -129,7 +129,7 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 	 * TerminateHangingCopySessions to kill any COPY statements
 	 * in progress if they don't finish on their own.
 	 */
-	tasks := make(chan Relation, len(tables))
+	tasks := make(chan Table, len(tables))
 	var workerPool sync.WaitGroup
 	var copyErr error
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
@@ -142,7 +142,7 @@ func BackupDataForAllTables(tables []Relation, tableDefs map[uint32]TableDefinit
 					counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
 					return
 				}
-				err := BackupSingleTableData(tableDefs[table.Oid], table, rowsCopiedMaps[whichConn], &counters, whichConn)
+				err := BackupSingleTableData(table, rowsCopiedMaps[whichConn], &counters, whichConn)
 				if err != nil {
 					copyErr = err
 				}
@@ -184,10 +184,10 @@ func printDataBackupWarnings(numExtTables int64) {
 	}
 }
 
-func CheckTablesContainData(tables []Relation, tableDefs map[uint32]TableDefinition) {
+func CheckTablesContainData(tables []Table) {
 	if !backupReport.MetadataOnly {
 		for _, table := range tables {
-			if !tableDefs[table.Oid].SkipDataBackup() {
+			if !table.SkipDataBackup() {
 				return
 			}
 		}

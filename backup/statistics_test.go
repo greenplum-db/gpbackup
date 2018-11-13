@@ -11,15 +11,19 @@ import (
 
 var _ = Describe("backup/statistics tests", func() {
 	Describe("PrintStatisticsStatementsForTable", func() {
-		var attStats []backup.AttributeStatistic
-		var tupleStats backup.TupleStatistic
+		var (
+			attStats       []backup.AttributeStatistic
+			tupleStats     backup.TupleStatistic
+			tableTestTable backup.Table
+		)
+
 		BeforeEach(func() {
 			attStats = []backup.AttributeStatistic{}
 			tupleStats = backup.TupleStatistic{}
 			toc, backupfile = testutils.InitializeTestTOC(buffer, "statistics")
+			tableTestTable = backup.Table{Relation: backup.Relation{Schema: "testschema", Name: "testtable"}}
 		})
 		It("prints tuple and attribute stats for single table with no stats", func() {
-			tableTestTable := backup.Relation{Schema: "testschema", Name: "testtable"}
 			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
 			attStats = []backup.AttributeStatistic{}
 			backup.PrintStatisticsStatementsForTable(backupfile, toc, tableTestTable, attStats, tupleStats)
@@ -32,7 +36,6 @@ WHERE relname = 'testtable'
 AND relnamespace = 0;`)
 		})
 		It("prints tuple and attribute stats for single table with stats", func() {
-			tableTestTable := backup.Relation{Schema: "testschema", Name: "testtable"}
 			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
 			attStats = []backup.AttributeStatistic{
 				{Schema: "testschema", Table: "testtable", AttName: "testattWithArray", Type: "_array"},
@@ -105,7 +108,7 @@ INSERT INTO pg_statistic VALUES (
 	})
 	Describe("GenerateTupleStatisticsQuery", func() {
 		It("generates tuple statistics query with a single quote in the table name", func() {
-			tableTestTable := backup.Relation{Schema: "testschema", Name: `"test'table"`}
+			tableTestTable := backup.Table{Relation: backup.Relation{Schema: "testschema", Name: `"test'table"`}}
 			tupleStats := backup.TupleStatistic{Schema: "testschema", Table: `"test'table"`}
 			tupleQuery := backup.GenerateTupleStatisticsQuery(tableTestTable, tupleStats)
 			Expect(tupleQuery).To(Equal(`UPDATE pg_class
@@ -118,7 +121,7 @@ AND relnamespace = 0;`))
 
 	})
 	Describe("GenerateAttributeStatisticsQuery", func() {
-		tableTestTable := backup.Relation{Schema: "testschema", Name: `"test'table"`}
+		tableTestTable := backup.Table{Relation: backup.Relation{Schema: "testschema", Name: `"test'table"`}}
 		Describe("GPDB version master", func() {
 			attStats := backup.AttributeStatistic{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "", Relid: 2,
 				AttNumber: 3, NullFraction: .4, Width: 10, Distinct: .5, Kind1: 20, Kind5: 10, Operator1: 10, Operator5: 12,

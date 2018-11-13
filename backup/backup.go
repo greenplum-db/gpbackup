@@ -129,11 +129,11 @@ func DoBackup() {
 	objectCounts = make(map[string]int, 0)
 
 	gplog.Info("Gathering table state information")
-	metadataTables, dataTables, tableDefs := RetrieveAndProcessTables()
+	metadataTables, dataTables := RetrieveAndProcessTables()
 	if !(MustGetFlagBool(utils.METADATA_ONLY) || MustGetFlagBool(utils.DATA_ONLY)) {
 		BackupIncrementalMetadata()
 	}
-	CheckTablesContainData(dataTables, tableDefs)
+	CheckTablesContainData(dataTables)
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	gplog.Info("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
@@ -145,7 +145,7 @@ func DoBackup() {
 			tableOnlyBackup = false
 			backupGlobal(metadataFile)
 		}
-		backupPredata(metadataFile, metadataTables, tableDefs, tableOnlyBackup)
+		backupPredata(metadataFile, metadataTables, tableOnlyBackup)
 		backupPostdata(metadataFile)
 	}
 
@@ -168,7 +168,7 @@ func DoBackup() {
 
 		backupReport.RestorePlan = PopulateRestorePlan(backupSetTables, targetBackupRestorePlan, dataTables)
 
-		backupData(backupSetTables, tableDefs)
+		backupData(backupSetTables)
 	}
 
 	if MustGetFlagBool(utils.WITH_STATS) {
@@ -212,7 +212,7 @@ func backupGlobal(metadataFile *utils.FileWithByteCount) {
 	}
 }
 
-func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tableDefs map[uint32]TableDefinition, tableOnly bool) {
+func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableOnly bool) {
 	if wasTerminated {
 		return
 	}
@@ -279,7 +279,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	BackupCreateSequences(metadataFile, sequences, relationMetadata)
 	constraints, conMetadata := RetrieveConstraints()
 
-	BackupDependentObjects(metadataFile, tables, protocols, metadataMap, tableDefs, constraints, sortables, funcInfoMap, tableOnly)
+	BackupDependentObjects(metadataFile, tables, protocols, metadataMap, constraints, sortables, funcInfoMap, tableOnly)
 
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
@@ -292,13 +292,13 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Relation, tab
 	}
 }
 
-func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
+func backupData(tables []Table) {
 	if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file backup")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		oidList := make([]string, 0, len(tables))
 		for _, table := range tables {
-			if !tableDefs[table.Oid].SkipDataBackup() {
+			if !table.SkipDataBackup() {
 				oidList = append(oidList, fmt.Sprintf("%d", table.Oid))
 			}
 		}
@@ -312,8 +312,8 @@ func backupData(tables []Relation, tableDefs map[uint32]TableDefinition) {
 			MustGetFlagString(utils.PLUGIN_CONFIG), compressStr)
 	}
 	gplog.Info("Writing data to file")
-	rowsCopiedMaps := BackupDataForAllTables(tables, tableDefs)
-	AddTableDataEntriesToTOC(tables, tableDefs, rowsCopiedMaps)
+	rowsCopiedMaps := BackupDataForAllTables(tables)
+	AddTableDataEntriesToTOC(tables, rowsCopiedMaps)
 	if MustGetFlagBool(utils.SINGLE_DATA_FILE) && MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
 		pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
 	}
@@ -346,7 +346,7 @@ func backupPostdata(metadataFile *utils.FileWithByteCount) {
 	}
 }
 
-func backupStatistics(tables []Relation) {
+func backupStatistics(tables []Table) {
 	if wasTerminated {
 		return
 	}

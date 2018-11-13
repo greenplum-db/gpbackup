@@ -43,11 +43,11 @@ var _ = Describe("backup/incremental tests", func() {
 			},
 		}
 
-		tblHeap := backup.Relation{Schema: "public", Name: "heap"}
-		tblAOChangedModcount := backup.Relation{Schema: "public", Name: "ao_changed_modcount"}
-		tblAOChangedTS := backup.Relation{Schema: "public", Name: "ao_changed_timestamp"}
-		tblAOUnchanged := backup.Relation{Schema: "public", Name: "ao_unchanged"}
-		tables := []backup.Relation{
+		tblHeap := backup.Table{Relation: backup.Relation{Schema: "public", Name: "heap"}}
+		tblAOChangedModcount := backup.Table{Relation: backup.Relation{Schema: "public", Name: "ao_changed_modcount"}}
+		tblAOChangedTS := backup.Table{Relation: backup.Relation{Schema: "public", Name: "ao_changed_timestamp"}}
+		tblAOUnchanged := backup.Table{Relation: backup.Relation{Schema: "public", Name: "ao_unchanged"}}
+		tables := []backup.Table{
 			tblHeap,
 			tblAOChangedModcount,
 			tblAOChangedTS,
@@ -112,9 +112,9 @@ var _ = Describe("backup/incremental tests", func() {
 
 		Context("Full backup", func() {
 			restorePlan := make([]backup_history.RestorePlanEntry, 0)
-			backupSetTables := []backup.Relation{
-				{Schema: "public", Name: "ao1"},
-				{Schema: "public", Name: "heap1"},
+			backupSetTables := []backup.Table{
+				{Relation: backup.Relation{Schema: "public", Name: "ao1"}},
+				{Relation: backup.Relation{Schema: "public", Name: "heap1"}},
 			}
 			allTables := backupSetTables
 
@@ -140,9 +140,9 @@ var _ = Describe("backup/incremental tests", func() {
 				{Timestamp: "ts0", TableFQNs: []string{"public.ao1", "public.ao2"}},
 				{Timestamp: "ts1", TableFQNs: []string{"public.heap1"}},
 			}
-			changedTables := []backup.Relation{
-				{Schema: "public", Name: "ao1"},
-				{Schema: "public", Name: "heap1"},
+			changedTables := []backup.Table{
+				{Relation: backup.Relation{Schema: "public", Name: "ao1"}},
+				{Relation: backup.Relation{Schema: "public", Name: "heap1"}},
 			}
 
 			Context("Incremental backup with no table drops in between", func() {

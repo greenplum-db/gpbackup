@@ -13,13 +13,13 @@ import (
 	"github.com/lib/pq"
 )
 
-func PrintStatisticsStatements(statisticsFile *utils.FileWithByteCount, toc *utils.TOC, tables []Relation, attStats map[uint32][]AttributeStatistic, tupleStats map[uint32]TupleStatistic) {
+func PrintStatisticsStatements(statisticsFile *utils.FileWithByteCount, toc *utils.TOC, tables []Table, attStats map[uint32][]AttributeStatistic, tupleStats map[uint32]TupleStatistic) {
 	for _, table := range tables {
 		PrintStatisticsStatementsForTable(statisticsFile, toc, table, attStats[table.Oid], tupleStats[table.Oid])
 	}
 }
 
-func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, attStats []AttributeStatistic, tupleStat TupleStatistic) {
+func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, toc *utils.TOC, table Table, attStats []AttributeStatistic, tupleStat TupleStatistic) {
 	start := statisticsFile.ByteCount
 	tupleQuery := GenerateTupleStatisticsQuery(table, tupleStat)
 	statisticsFile.MustPrintf("\n\n%s\n", tupleQuery)
@@ -30,7 +30,7 @@ func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, 
 	toc.AddStatisticsEntry(table.Schema, table.Name, "STATISTICS", start, statisticsFile)
 }
 
-func GenerateTupleStatisticsQuery(table Relation, tupleStat TupleStatistic) string {
+func GenerateTupleStatisticsQuery(table Table, tupleStat TupleStatistic) string {
 	tupleQuery := `UPDATE pg_class
 SET
 	relpages = %d::int,
@@ -45,7 +45,7 @@ AND relnamespace = %d;`
 		table.SchemaOid)
 }
 
-func GenerateAttributeStatisticsQuery(table Relation, attStat AttributeStatistic) string {
+func GenerateAttributeStatisticsQuery(table Table, attStat AttributeStatistic) string {
 	/*
 	 * When restoring statistics to a new database, we cannot determine what the
 	 * new OID for a given object will be, so we need to perform an explicit cast

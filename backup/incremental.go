@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func FilterTablesForIncremental(lastBackupTOC, currentTOC *utils.TOC, tables []Relation) []Relation {
-	var filteredTables []Relation
+func FilterTablesForIncremental(lastBackupTOC, currentTOC *utils.TOC, tables []Table) []Table {
+	var filteredTables []Table
 	for _, table := range tables {
 		currentAOEntry, isAOTable := currentTOC.IncrementalMetadata.AO[table.FQN()]
 		if !isAOTable {
@@ -70,8 +70,8 @@ func MatchesIncrementalFlags(backupConfig *backup_history.BackupConfig, currentB
 		utils.NewIncludeSet(backupConfig.ExcludeSchemas).Equals(utils.NewIncludeSet(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)))
 }
 
-func PopulateRestorePlan(changedTables []Relation,
-	restorePlan []backup_history.RestorePlanEntry, allTables []Relation) []backup_history.RestorePlanEntry {
+func PopulateRestorePlan(changedTables []Table,
+	restorePlan []backup_history.RestorePlanEntry, allTables []Table) []backup_history.RestorePlanEntry {
 	currBackupRestorePlanEntry := backup_history.RestorePlanEntry{
 		Timestamp: globalFPInfo.Timestamp,
 		TableFQNs: make([]string, 0, len(changedTables)),

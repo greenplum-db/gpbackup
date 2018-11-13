@@ -17,27 +17,6 @@ import (
 )
 
 /*
- * Given a list of Relations, this function returns a sorted list of their Schemas.
- * It assumes that the Relation list is sorted by schema and then by table, so it
- * doesn't need to do any sorting itself.
- */
-func GetUniqueSchemas(schemas []Schema, tables []Relation) []Schema {
-	currentSchemaOid := uint32(0)
-	uniqueSchemas := make([]Schema, 0)
-	schemaMap := make(map[uint32]Schema, 0)
-	for _, schema := range schemas {
-		schemaMap[schema.Oid] = schema
-	}
-	for _, table := range tables {
-		if table.SchemaOid != currentSchemaOid {
-			currentSchemaOid = table.SchemaOid
-			uniqueSchemas = append(uniqueSchemas, schemaMap[currentSchemaOid])
-		}
-	}
-	return uniqueSchemas
-}
-
-/*
  * When leafPartitionData is set, for partition tables we want to print metadata
  * for the parent tables and data for the leaf tables, so we split them into
  * separate lists.  Intermediate tables are skipped, and non-partition tables are
@@ -46,17 +25,17 @@ func GetUniqueSchemas(schemas []Schema, tables []Relation) []Schema {
  * When the flag is not set, we want to back up both metadata and data for all
  * tables, so both returned arrays contain all tables.
  */
-func SplitTablesByPartitionType(tables []Relation, tableDefs map[uint32]TableDefinition, includeList []string) ([]Relation, []Relation) {
-	metadataTables := make([]Relation, 0)
-	dataTables := make([]Relation, 0)
+func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, []Table) {
+	metadataTables := make([]Table, 0)
+	dataTables := make([]Table, 0)
 	if MustGetFlagBool(utils.LEAF_PARTITION_DATA) || len(includeList) > 0 {
 		includeSet := utils.NewSet(includeList)
 		for _, table := range tables {
-			if tableDefs[table.Oid].IsExternal && tableDefs[table.Oid].PartitionLevelInfo.Level == "l" {
+			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
 				table.Name = AppendExtPartSuffix(table.Name)
 				metadataTables = append(metadataTables, table)
 			}
-			partType := tableDefs[table.Oid].PartitionLevelInfo.Level
+			partType := table.PartitionLevelInfo.Level
 			if partType != "l" && partType != "i" {
 				metadataTables = append(metadataTables, table)
 			}
@@ -70,7 +49,7 @@ func SplitTablesByPartitionType(tables []Relation, tableDefs map[uint32]TableDef
 		}
 	} else {
 		for _, table := range tables {
-			if tableDefs[table.Oid].IsExternal && tableDefs[table.Oid].PartitionLevelInfo.Level == "l" {
+			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
 				table.Name = AppendExtPartSuffix(table.Name)
 			}
 			metadataTables = append(metadataTables, table)
@@ -117,6 +96,24 @@ func ExpandIncludeRelations(tables []Relation) {
 	}
 }
 
+type Table struct {
+	Relation
+	TableDefinition
+}
+
+func (t Table) SkipDataBackup() bool {
+	def := t.TableDefinition
+	return def.IsExternal || (def.ForeignDef != ForeignTableDefinition{})
+}
+
+func (t Table) FQN() string {
+	return t.Relation.FQN()
+}
+
+func (t Table) GetUniqueID() UniqueID {
+	return t.Relation.GetUniqueID()
+}
+
 type ForeignTableDefinition struct {
 	Oid     uint32 `db:"ftrelid"`
 	Options string `db:"ftoptions"`
@@ -139,17 +136,13 @@ type TableDefinition struct {
 	Inherits           []string
 }
 
-func (td TableDefinition) SkipDataBackup() bool {
-	return td.IsExternal || (td.ForeignDef != ForeignTableDefinition{})
-}
-
 /*
  * This function calls all the functions needed to gather the metadata for a
  * single table and assembles the metadata into ColumnDef and TableDef structs
  * for more convenient handling in the PrintCreateTableStatement() function.
  */
-func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tables []Relation) map[uint32]TableDefinition {
-	tableDefinitionMap := make(map[uint32]TableDefinition, 0)
+func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations []Relation) []Table {
+	tables := make([]Table, 0)
 
 	gplog.Info("Gathering additional table metadata")
 	gplog.Verbose("Retrieving column information")
@@ -168,11 +161,11 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tables []Relat
 	tableTypeMap := GetTableType(connectionPool)
 	unloggedTableMap := GetUnloggedTables(connectionPool)
 	foreignTableDefs := GetForeignTableDefinitions(connectionPool)
-	inheritanceMap := GetTableInheritance(connectionPool, tables)
+	inheritanceMap := GetTableInheritance(connectionPool, tableRelations)
 
 	gplog.Verbose("Constructing table definition map")
-	for _, table := range tables {
-		oid := table.Oid
+	for _, tableRel := range tableRelations {
+		oid := tableRel.Oid
 		tableDef := TableDefinition{
 			DistPolicy:         distributionPolicies[oid],
 			PartDef:            partitionDefs[oid],
@@ -191,9 +184,9 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tables []Relat
 		if tableDef.Inherits == nil {
 			tableDef.Inherits = []string{}
 		}
-		tableDefinitionMap[oid] = tableDef
+		tables = append(tables, Table{tableRel, tableDef})
 	}
-	return tableDefinitionMap
+	return tables
 }
 
 func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uint32]map[string][]ACL {
@@ -246,62 +239,62 @@ func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uin
  * the search_path; this will aid in later filtering to include or exclude certain tables during the
  * backup process, and allows customers to copy just the CREATE TABLE block in order to use it directly.
  */
-func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
+func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table, tableMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	// We use an empty TOC below to keep count of the bytes for testing purposes.
-	if tableDef.IsExternal && tableDef.PartitionLevelInfo.Level != "p" {
-		PrintExternalTableCreateStatement(metadataFile, nil, table, tableDef)
+	if table.IsExternal && table.PartitionLevelInfo.Level != "p" {
+		PrintExternalTableCreateStatement(metadataFile, nil, table)
 	} else {
-		PrintRegularTableCreateStatement(metadataFile, nil, table, tableDef)
+		PrintRegularTableCreateStatement(metadataFile, nil, table)
 	}
-	PrintPostCreateTableStatements(metadataFile, table, tableDef, tableMetadata)
+	PrintPostCreateTableStatements(metadataFile, table, tableMetadata)
 	toc.AddPredataEntry(table.Schema, table.Name, "TABLE", "", start, metadataFile)
 }
 
-func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
+func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table) {
 	start := metadataFile.ByteCount
 
 	typeStr := ""
-	if tableDef.TableType != "" {
-		typeStr = fmt.Sprintf("OF %s ", tableDef.TableType)
+	if table.TableType != "" {
+		typeStr = fmt.Sprintf("OF %s ", table.TableType)
 	}
 
 	tableModifier := ""
-	if tableDef.IsUnlogged {
+	if table.IsUnlogged {
 		tableModifier = "UNLOGGED "
-	} else if tableDef.ForeignDef != (ForeignTableDefinition{}) {
+	} else if table.ForeignDef != (ForeignTableDefinition{}) {
 		tableModifier = "FOREIGN "
 	}
 
 	metadataFile.MustPrintf("\n\nCREATE %sTABLE %s %s(\n", tableModifier, table.FQN(), typeStr)
 
-	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, tableDef.TableType)
+	printColumnDefinitions(metadataFile, table.ColumnDefs, table.TableType)
 	metadataFile.MustPrintf(") ")
-	if len(tableDef.Inherits) != 0 {
-		dependencyList := strings.Join(tableDef.Inherits, ", ")
+	if len(table.Inherits) != 0 {
+		dependencyList := strings.Join(table.Inherits, ", ")
 		metadataFile.MustPrintf("INHERITS (%s) ", dependencyList)
 	}
-	if tableDef.ForeignDef != (ForeignTableDefinition{}) {
-		metadataFile.MustPrintf("SERVER %s ", tableDef.ForeignDef.Server)
-		if tableDef.ForeignDef.Options != "" {
-			metadataFile.MustPrintf("OPTIONS (%s) ", tableDef.ForeignDef.Options)
+	if table.ForeignDef != (ForeignTableDefinition{}) {
+		metadataFile.MustPrintf("SERVER %s ", table.ForeignDef.Server)
+		if table.ForeignDef.Options != "" {
+			metadataFile.MustPrintf("OPTIONS (%s) ", table.ForeignDef.Options)
 		}
 	}
-	if tableDef.StorageOpts != "" {
-		metadataFile.MustPrintf("WITH (%s) ", tableDef.StorageOpts)
+	if table.StorageOpts != "" {
+		metadataFile.MustPrintf("WITH (%s) ", table.StorageOpts)
 	}
-	if tableDef.TablespaceName != "" {
-		metadataFile.MustPrintf("TABLESPACE %s ", tableDef.TablespaceName)
+	if table.TablespaceName != "" {
+		metadataFile.MustPrintf("TABLESPACE %s ", table.TablespaceName)
 	}
-	metadataFile.MustPrintf("%s", tableDef.DistPolicy)
-	if tableDef.PartDef != "" {
-		metadataFile.MustPrintf(" %s", strings.TrimSpace(tableDef.PartDef))
+	metadataFile.MustPrintf("%s", table.DistPolicy)
+	if table.PartDef != "" {
+		metadataFile.MustPrintf(" %s", strings.TrimSpace(table.PartDef))
 	}
 	metadataFile.MustPrintln(";")
-	if tableDef.PartTemplateDef != "" {
-		metadataFile.MustPrintf("%s;\n", strings.TrimSpace(tableDef.PartTemplateDef))
+	if table.PartTemplateDef != "" {
+		metadataFile.MustPrintf("%s;\n", strings.TrimSpace(table.PartTemplateDef))
 	}
-	printAlterColumnStatements(metadataFile, table, tableDef.ColumnDefs)
+	printAlterColumnStatements(metadataFile, table, table.ColumnDefs)
 	if toc != nil {
 		toc.AddPredataEntry(table.Schema, table.Name, "TABLE", "", start, metadataFile)
 	}
@@ -336,7 +329,7 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 	}
 }
 
-func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Relation, columnDefs []ColumnDefinition) {
+func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Table, columnDefs []ColumnDefinition) {
 	for _, column := range columnDefs {
 		if column.StatTarget > -1 {
 			metadataFile.MustPrintf("\nALTER TABLE ONLY %s ALTER COLUMN %s SET STATISTICS %d;", table.FQN(), column.Name, column.StatTarget)
@@ -354,14 +347,14 @@ func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Rel
  * This function prints additional statements that come after the CREATE TABLE
  * statement for both regular and external tables.
  */
-func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table Relation, tableDef TableDefinition, tableMetadata ObjectMetadata) {
-	if (tableDef.ForeignDef != ForeignTableDefinition{}) {
+func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table Table, tableMetadata ObjectMetadata) {
+	if (table.ForeignDef != ForeignTableDefinition{}) {
 		PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "FOREIGN TABLE")
 	} else {
 		PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "TABLE")
 	}
 
-	for _, att := range tableDef.ColumnDefs {
+	for _, att := range table.ColumnDefs {
 		if att.Comment != "" {
 			escapedComment := utils.EscapeSingleQuotes(att.Comment)
 			metadataFile.MustPrintf("\n\nCOMMENT ON COLUMN %s.%s IS '%s';\n", table.FQN(), att.Name, escapedComment)

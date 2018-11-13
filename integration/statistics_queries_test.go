@@ -12,7 +12,9 @@ import (
 )
 
 var _ = Describe("backup integration tests", func() {
-	tables := []backup.Relation{{Schema: "public", Name: "foo"}}
+	tables := []backup.Table{
+		{Relation: backup.Relation{Schema: "public", Name: "foo"}},
+	}
 	var tableOid uint32
 	BeforeEach(func() {
 		testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int, j text, k bool)")

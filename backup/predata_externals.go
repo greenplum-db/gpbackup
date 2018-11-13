@@ -46,7 +46,7 @@ type ExternalTableDefinition struct {
 	URIs            []string
 }
 
-func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Relation, tableDef TableDefinition) {
+func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table) {
 	start := metadataFile.ByteCount
 	tableTypeStrMap := map[int]string{
 		READABLE:     "READABLE EXTERNAL",
@@ -54,14 +54,14 @@ func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, to
 		WRITABLE:     "WRITABLE EXTERNAL",
 		WRITABLE_WEB: "WRITABLE EXTERNAL WEB",
 	}
-	extTableDef := tableDef.ExtTableDef
+	extTableDef := table.ExtTableDef
 	extTableDef.Type, extTableDef.Protocol = DetermineExternalTableCharacteristics(extTableDef)
 	metadataFile.MustPrintf("\n\nCREATE %s TABLE %s (\n", tableTypeStrMap[extTableDef.Type], table.FQN())
-	printColumnDefinitions(metadataFile, tableDef.ColumnDefs, "")
+	printColumnDefinitions(metadataFile, table.ColumnDefs, "")
 	metadataFile.MustPrintf(") ")
-	PrintExternalTableStatements(metadataFile, table, extTableDef)
+	PrintExternalTableStatements(metadataFile, table.FQN(), extTableDef)
 	if extTableDef.Writable {
-		metadataFile.MustPrintf("\n%s", tableDef.DistPolicy)
+		metadataFile.MustPrintf("\n%s", table.DistPolicy)
 	}
 	metadataFile.MustPrintf(";")
 	if toc != nil {
@@ -275,7 +275,7 @@ func generateLogErrorStatement(extTableDef ExternalTableDefinition, tableFQN str
 	return logErrorStatement
 }
 
-func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table Relation, extTableDef ExternalTableDefinition) {
+func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableName string, extTableDef ExternalTableDefinition) {
 	if extTableDef.Type != WRITABLE_WEB {
 		if len(extTableDef.URIs) > 0 {
 			metadataFile.MustPrintf("LOCATION (\n\t'%s'\n)", strings.Join(extTableDef.URIs, "',\n\t'"))
@@ -299,7 +299,7 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, table R
 	}
 	metadataFile.MustPrintf("ENCODING '%s'", extTableDef.Encoding)
 	if extTableDef.Type == READABLE || extTableDef.Type == READABLE_WEB {
-		metadataFile.MustPrintf(generateLogErrorStatement(extTableDef, table.FQN()))
+		metadataFile.MustPrintf(generateLogErrorStatement(extTableDef, tableName))
 	}
 }
 
@@ -337,7 +337,7 @@ func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount,
 	toc.AddPredataEntry("", protocol.Name, "PROTOCOL", "", start, metadataFile)
 }
 
-func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Relation) {
+func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Table) {
 	tableNameMap := make(map[uint32]string, len(tables))
 	for _, table := range tables {
 		tableNameMap[table.Oid] = table.FQN()
