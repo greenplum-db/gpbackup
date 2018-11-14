@@ -12,6 +12,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/utils"
 )
 
 /*
@@ -239,6 +240,18 @@ type DefaultPrivileges struct {
 	Schema     string
 	Privileges []ACL
 	ObjectType string
+}
+
+func (dp DefaultPrivileges) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "postdata",
+		utils.MetadataEntry{
+			Schema:          dp.Schema,
+			Name:            "",
+			ObjectType:      "DEFAULT PRIVILEGES",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {

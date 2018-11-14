@@ -65,7 +65,7 @@ func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, to
 	}
 	metadataFile.MustPrintf(";")
 	if toc != nil {
-		toc.AddPredataEntry(table.Schema, table.Name, "TABLE", "", start, metadataFile)
+		toc.AddMetadataEntry(table, start, metadataFile.ByteCount)
 	}
 }
 
@@ -333,8 +333,8 @@ func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount,
 		metadataFile.MustPrintf("TRUSTED ")
 	}
 	metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
-	PrintObjectMetadata(metadataFile, protoMetadata, protocol.Name, "PROTOCOL")
-	toc.AddPredataEntry("", protocol.Name, "PROTOCOL", "", start, metadataFile)
+	toc.AddMetadataEntry(protocol, start, metadataFile.ByteCount)
+	PrintObjectMetadata(metadataFile, toc, protoMetadata, protocol, "")
 }
 
 func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Table) {
@@ -368,6 +368,6 @@ func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCo
 		}
 		metadataFile.MustPrintf("WITH TABLE %s WITHOUT VALIDATION;", extPartRelationName)
 		metadataFile.MustPrintf("\n\nDROP TABLE %s;", extPartRelationName)
-		toc.AddPredataEntry(externalPartition.ParentSchema, externalPartition.ParentRelationName, "EXCHANGE PARTITION", "", start, metadataFile)
+		toc.AddMetadataEntry(externalPartition, start, metadataFile.ByteCount)
 	}
 }

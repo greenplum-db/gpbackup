@@ -45,23 +45,16 @@ LANGUAGE internal;`)
 			It("prints a function definition for a function with permissions, an owner, security label, and a comment", func() {
 				funcMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true, true)
 				backup.PrintCreateFunctionStatement(backupfile, toc, funcDef, funcMetadata)
-				testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE FUNCTION public.func_name(integer, integer) RETURNS integer AS
+				expectedStatements := []string{`CREATE FUNCTION public.func_name(integer, integer) RETURNS integer AS
 $$add_two_ints$$
-LANGUAGE internal;
-
-
-COMMENT ON FUNCTION public.func_name(integer, integer) IS 'This is a function comment.';
-
-
-ALTER FUNCTION public.func_name(integer, integer) OWNER TO testrole;
-
-
-REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM PUBLIC;
+LANGUAGE internal;`,
+					"COMMENT ON FUNCTION public.func_name(integer, integer) IS 'This is a function comment.';",
+					"ALTER FUNCTION public.func_name(integer, integer) OWNER TO testrole;",
+					`REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM testrole;
-GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;
-
-
-SECURITY LABEL FOR dummy ON FUNCTION public.func_name(integer, integer) IS 'unclassified';`)
+GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`,
+					"SECURITY LABEL FOR dummy ON FUNCTION public.func_name(integer, integer) IS 'unclassified';"}
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 
 			})
 		})
@@ -493,38 +486,28 @@ $_$`)
 		})
 		It("prints an aggregate with owner, security label and comment", func() {
 			backup.PrintCreateAggregateStatement(backupfile, toc, aggDefinition, funcInfoMap, aggMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+			expectedStatements := []string{
+				`CREATE AGGREGATE public.agg_name(integer, integer) (
 	SFUNC = public.mysfunc,
 	STYPE = integer
-);
-
-
-COMMENT ON AGGREGATE public.agg_name(integer, integer) IS 'This is an aggregate comment.';
-
-
-ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;
-
-
-SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(integer, integer) IS 'unclassified';`)
-
+);`, "COMMENT ON AGGREGATE public.agg_name(integer, integer) IS 'This is an aggregate comment.';",
+				"ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;",
+				"SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(integer, integer) IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 		It("prints an aggregate with owner, comment, and no arguments", func() {
 			aggDefinition.Arguments = ""
 			aggDefinition.IdentArgs = ""
 			backup.PrintCreateAggregateStatement(backupfile, toc, aggDefinition, funcInfoMap, aggMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(*) (
+			expectedStatements := []string{
+				`CREATE AGGREGATE public.agg_name(*) (
 	SFUNC = public.mysfunc,
 	STYPE = integer
-);
-
-
-COMMENT ON AGGREGATE public.agg_name(*) IS 'This is an aggregate comment.';
-
-
-ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;
-
-
-SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(*) IS 'unclassified';`)
+);`,
+				"COMMENT ON AGGREGATE public.agg_name(*) IS 'This is an aggregate comment.';",
+				"ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;",
+				"SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(*) IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 	Describe("PrintCreateCastStatement", func() {
@@ -581,9 +564,7 @@ AS ASSIGNMENT;`)
 			castMetadata := testutils.DefaultMetadata("CAST", false, false, true, false)
 			backup.PrintCreateCastStatement(backupfile, toc, castDef, castMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE CAST (src AS dst)
-	WITHOUT FUNCTION;
-
-COMMENT ON CAST (src AS dst) IS 'This is a cast comment.';`)
+	WITHOUT FUNCTION;`, "COMMENT ON CAST (src AS dst) IS 'This is a cast comment.';")
 		})
 	})
 	Describe("PrintCreateExtensionStatement", func() {
@@ -601,9 +582,7 @@ SET search_path=pg_catalog;`)
 			backup.PrintCreateExtensionStatements(backupfile, toc, []backup.Extension{extensionDef}, extensionMetadataMap)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
 CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
-SET search_path=pg_catalog;
-
-COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';`)
+SET search_path=pg_catalog;`, "COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';")
 		})
 	})
 	Describe("ExtractLanguageFunctions", func() {
@@ -651,49 +630,51 @@ COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';`)
 			langs := []backup.ProceduralLanguage{plUntrustedHandlerOnly}
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, emptyMetadataMap)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "plpythonu", "PROCEDURAL LANGUAGE")
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;
-ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;`)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "plpythonu", "LANGUAGE")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, "CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;", "ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;")
 		})
 		It("prints trusted language with handler, inline, and validator", func() {
 			langs := []backup.ProceduralLanguage{plAllFields}
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, emptyMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;
-ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
+			expectedStatements := []string{
+				"CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;",
+				`ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO testrole;
-ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`)
+ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
+			}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 		It("prints multiple create language statements", func() {
 			langs := []backup.ProceduralLanguage{plUntrustedHandlerOnly, plAllFields}
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, emptyMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;
-ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;`, `CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;
-ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
+			expectedStatements := []string{
+				"CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;",
+				"ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;",
+				"CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;",
+				`ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO testrole;
-ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`)
+ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
+			}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 		It("prints a language with privileges, an owner, security label, and a comment", func() {
 			langs := []backup.ProceduralLanguage{plComment}
 			langMetadataMap := testutils.DefaultMetadataMap("LANGUAGE", true, true, true, true)
 
 			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, langMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;
-ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;
-
-COMMENT ON LANGUAGE plpythonu IS 'This is a language comment.';
-
-
-ALTER LANGUAGE plpythonu OWNER TO testrole;
-
-
-REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;
+			expectedStatements := []string{
+				"CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;",
+				"ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;",
+				"COMMENT ON LANGUAGE plpythonu IS 'This is a language comment.';",
+				"ALTER LANGUAGE plpythonu OWNER TO testrole;",
+				`REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;
 REVOKE ALL ON LANGUAGE plpythonu FROM testrole;
-GRANT ALL ON LANGUAGE plpythonu TO testrole;
-
-
-SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';`)
+GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
+				"SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';",
+			}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 	Describe("PrintCreateConversionStatements", func() {
@@ -730,12 +711,9 @@ SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';`)
 			conversions := []backup.Conversion{convOne}
 			metadataMap = testutils.DefaultMetadataMap("CONVERSION", false, true, true, false)
 			backup.PrintCreateConversionStatements(backupfile, toc, conversions, metadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE CONVERSION public.conv_one FOR 'UTF8' TO 'LATIN1' FROM public.converter;
-
-COMMENT ON CONVERSION public.conv_one IS 'This is a conversion comment.';
-
-
-ALTER CONVERSION public.conv_one OWNER TO testrole;`)
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, "CREATE CONVERSION public.conv_one FOR 'UTF8' TO 'LATIN1' FROM public.converter;",
+				"COMMENT ON CONVERSION public.conv_one IS 'This is a conversion comment.';",
+				"ALTER CONVERSION public.conv_one OWNER TO testrole;")
 		})
 	})
 	Describe("PrintCreateForeignDataWrapperStatement", func() {

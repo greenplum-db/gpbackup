@@ -55,8 +55,25 @@ type IndexDefinition struct {
 	IsClustered  bool
 }
 
+func (i IndexDefinition) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	tableFQN := utils.MakeFQN(i.OwningSchema, i.OwningTable)
+	return "postdata",
+		utils.MetadataEntry{
+			Schema:          i.OwningSchema,
+			Name:            i.Name,
+			ObjectType:      "INDEX",
+			ReferenceObject: tableFQN,
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (i IndexDefinition) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_INDEX_OID, Oid: i.Oid}
+}
+
+func (i IndexDefinition) FQN() string {
+	return utils.MakeFQN(i.OwningSchema, i.Name)
 }
 
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
@@ -162,6 +179,10 @@ func (r RuleDefinition) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_REWRITE_OID, Oid: r.Oid}
 }
 
+func (r RuleDefinition) FQN() string {
+	return r.Name
+}
+
 /*
  * Rules named "_RETURN", "pg_settings_n", and "pg_settings_u" are
  * built-in rules and we don't want to back them up. We use two `%` to
@@ -211,6 +232,10 @@ func (t TriggerDefinition) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_TRIGGER_OID, Oid: t.Oid}
 }
 
+func (t TriggerDefinition) FQN() string {
+	return t.Name
+}
+
 func GetTriggers(connectionPool *dbconn.DBConn) []TriggerDefinition {
 	constraintClause := "NOT tgisinternal"
 	if connectionPool.Version.Before("6") {
@@ -249,8 +274,24 @@ type EventTrigger struct {
 	EventTags    string
 }
 
+func (et EventTrigger) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "postdata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            et.Name,
+			ObjectType:      "EVENT TRIGGER",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (et EventTrigger) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_EVENT_TRIGGER, Oid: et.Oid}
+}
+
+func (et EventTrigger) FQN() string {
+	return et.Name
 }
 
 func GetEventTriggers(connectionPool *dbconn.DBConn) []EventTrigger {

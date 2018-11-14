@@ -303,7 +303,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
 
 			metadata := testutils.DefaultMetadata("TABLE", true, true, true, true)
-			backup.PrintPostCreateTableStatements(backupfile, testTable, metadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, metadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FOREIGN TABLE public.testtable")
@@ -335,7 +335,7 @@ SET SUBPARTITION TEMPLATE ` + `
 		})
 		It("prints only owner for a table with no comment or column comments", func() {
 			tableMetadata.Owner = "testrole"
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTableUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -349,9 +349,9 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatchExcluding(&testTable.TableDefinition, &resultTable.TableDefinition, "ColumnDefs.Oid", "ColumnDefs.ACL", "ExtTableDef")
 		})
 		It("prints table comment, table privileges, table owner, table security label, and column comments for a table", func() {
-			metadata := testutils.DefaultMetadata("TABLE", true, true, true, includeSecurityLabels)
+			tableMetadata = testutils.DefaultMetadata("TABLE", true, true, true, includeSecurityLabels)
 			testTable.ColumnDefs[0].Comment = "This is a column comment."
-			backup.PrintPostCreateTableStatements(backupfile, testTable, metadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -362,14 +362,14 @@ SET SUBPARTITION TEMPLATE ` + `
 
 			resultMetadata := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 			resultTableMetadata := resultMetadata[testTableUniqueID]
-			structmatcher.ExpectStructsToMatch(&metadata, &resultTableMetadata)
+			structmatcher.ExpectStructsToMatch(&tableMetadata, &resultTableMetadata)
 		})
 		It("prints column level privileges", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			privilegesColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, ACL: []backup.ACL{{Grantee: "testrole", Select: true}}}
 			tableMetadata.Owner = "testrole"
 			testTable.ColumnDefs = []backup.ColumnDefinition{privilegesColumnOne}
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -382,7 +382,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testutils.SkipIfBefore6(connectionPool)
 			securityLabelColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, ACL: []backup.ACL{}, SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
 			testTable.ColumnDefs = []backup.ColumnDefinition{securityLabelColumnOne}
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 

@@ -28,12 +28,32 @@ type Operator struct {
 	CanMerge         bool
 }
 
+func (o Operator) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          o.Schema,
+			Name:            o.Name,
+			ObjectType:      "OPERATOR",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (o Operator) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_OPERATOR_OID, Oid: o.Oid}
 }
 
 func (o Operator) FQN() string {
-	return utils.MakeFQN(o.Schema, o.Name)
+	leftArg := "NONE"
+	rightArg := "NONE"
+	if o.LeftArgType != "-" {
+		leftArg = o.LeftArgType
+	}
+	if o.RightArgType != "-" {
+		rightArg = o.RightArgType
+	}
+	return fmt.Sprintf("%s.%s (%s, %s)", o.Schema, o.Name, leftArg, rightArg)
 }
 
 func GetOperators(connectionPool *dbconn.DBConn) []Operator {
@@ -96,8 +116,24 @@ type OperatorFamily struct {
 	IndexMethod string
 }
 
+func (opf OperatorFamily) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          opf.Schema,
+			Name:            opf.Name,
+			ObjectType:      "OPERATOR FAMILY",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (opf OperatorFamily) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_OPFAMILY_OID, Oid: opf.Oid}
+}
+
+func (opf OperatorFamily) FQN() string {
+	return fmt.Sprintf("%s USING %s", utils.MakeFQN(opf.Schema, opf.Name), opf.IndexMethod)
 }
 
 func GetOperatorFamilies(connectionPool *dbconn.DBConn) []OperatorFamily {
@@ -129,6 +165,18 @@ type OperatorClass struct {
 	StorageType  string
 	Operators    []OperatorClassOperator
 	Functions    []OperatorClassFunction
+}
+
+func (opc OperatorClass) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          opc.Schema,
+			Name:            opc.Name,
+			ObjectType:      "OPERATOR CLASS",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func (opc OperatorClass) GetUniqueID() UniqueID {

@@ -25,6 +25,22 @@ func (t Table) SkipDataBackup() bool {
 	return def.IsExternal || (def.ForeignDef != ForeignTableDefinition{})
 }
 
+func (t Table) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	objectType := "TABLE"
+	if (t.ForeignDef != ForeignTableDefinition{}) {
+		objectType = "FOREIGN TABLE"
+	}
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          t.Schema,
+			Name:            t.Name,
+			ObjectType:      objectType,
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 type TableDefinition struct {
 	DistPolicy         string
 	PartDef            string

@@ -144,24 +144,19 @@ SELECT pg_catalog.setval('public.seq_''name', 7, true);`)
 			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, sequenceMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			expectedEntries := []string{`CREATE SEQUENCE public.seq_name
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);
-
-
-COMMENT ON SEQUENCE public.seq_name IS 'This is a sequence comment.';
-
-
-ALTER TABLE public.seq_name OWNER TO testrole;
-
-
-REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
+SELECT pg_catalog.setval('public.seq_name', 7, true);`,
+				"COMMENT ON SEQUENCE public.seq_name IS 'This is a sequence comment.';",
+				"ALTER TABLE public.seq_name OWNER TO testrole;",
+				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
-GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
+GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
 			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
 		It("can print a sequence with privileges, an owner, security label, and a comment for version >= 6", func() {
@@ -172,28 +167,21 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`)
 			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, toc, sequences, sequenceMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			expectedEntries := []string{`CREATE SEQUENCE public.seq_name
 	START WITH 0
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);
-
-
-COMMENT ON SEQUENCE public.seq_name IS 'This is a sequence comment.';
-
-
-ALTER SEQUENCE public.seq_name OWNER TO testrole;
-
-
-REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
+SELECT pg_catalog.setval('public.seq_name', 7, true);`,
+				"COMMENT ON SEQUENCE public.seq_name IS 'This is a sequence comment.';",
+				"ALTER SEQUENCE public.seq_name OWNER TO testrole;",
+				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
-GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;
-
-
-SECURITY LABEL FOR dummy ON SEQUENCE public.seq_name IS 'unclassified';`)
+GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`,
+				"SECURITY LABEL FOR dummy ON SEQUENCE public.seq_name IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
 			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
 		It("can print a sequence with privileges WITH GRANT OPTION", func() {
@@ -207,10 +195,8 @@ SECURITY LABEL FOR dummy ON SEQUENCE public.seq_name IS 'unclassified';`)
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);
-
-
-REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
+SELECT pg_catalog.setval('public.seq_name', 7, true);`,
+				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 		})
 	})
@@ -235,19 +221,13 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 
 			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, false)
 			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer,
-				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;
-
-
-COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';
-
-
-ALTER TABLE shamwow.shazam OWNER TO testrole;
-
-
-REVOKE ALL ON shamwow.shazam FROM PUBLIC;
+			expectedEntries := []string{"CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;",
+				"COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';",
+				"ALTER TABLE shamwow.shazam OWNER TO testrole;",
+				`REVOKE ALL ON shamwow.shazam FROM PUBLIC;
 REVOKE ALL ON shamwow.shazam FROM testrole;
-GRANT ALL ON shamwow.shazam TO testrole;`)
+GRANT ALL ON shamwow.shazam TO testrole;`}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
 		})
 		It("can print a view with privileges, an owner, security label, and a comment for version >= 6", func() {
 			testhelper.SetDBVersion(connectionPool, "6.0.0")
@@ -255,22 +235,14 @@ GRANT ALL ON shamwow.shazam TO testrole;`)
 
 			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, true)
 			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer,
-				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;
-
-
-COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';
-
-
-ALTER VIEW shamwow.shazam OWNER TO testrole;
-
-
-REVOKE ALL ON shamwow.shazam FROM PUBLIC;
+			expectedEntries := []string{"CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;",
+				"COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';",
+				"ALTER VIEW shamwow.shazam OWNER TO testrole;",
+				`REVOKE ALL ON shamwow.shazam FROM PUBLIC;
 REVOKE ALL ON shamwow.shazam FROM testrole;
-GRANT ALL ON shamwow.shazam TO testrole;
-
-
-SECURITY LABEL FOR dummy ON VIEW shamwow.shazam IS 'unclassified';`)
+GRANT ALL ON shamwow.shazam TO testrole;`,
+				"SECURITY LABEL FOR dummy ON VIEW shamwow.shazam IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
 		})
 		It("can print a view with options", func() {
 			view.Options = " WITH (security_barrier=true)"

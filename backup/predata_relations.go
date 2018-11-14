@@ -153,8 +153,8 @@ func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils
 	} else {
 		PrintRegularTableCreateStatement(metadataFile, nil, table)
 	}
-	PrintPostCreateTableStatements(metadataFile, table, tableMetadata)
-	toc.AddPredataEntry(table.Schema, table.Name, "TABLE", "", start, metadataFile)
+	toc.AddMetadataEntry(table, start, metadataFile.ByteCount)
+	PrintPostCreateTableStatements(metadataFile, toc, table, tableMetadata)
 }
 
 func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table) {
@@ -202,7 +202,7 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 	}
 	printAlterColumnStatements(metadataFile, table, table.ColumnDefs)
 	if toc != nil {
-		toc.AddPredataEntry(table.Schema, table.Name, "TABLE", "", start, metadataFile)
+		toc.AddMetadataEntry(table, start, metadataFile.ByteCount)
 	}
 }
 
@@ -253,28 +253,25 @@ func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Tab
  * This function prints additional statements that come after the CREATE TABLE
  * statement for both regular and external tables.
  */
-func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, table Table, tableMetadata ObjectMetadata) {
-	if (table.ForeignDef != ForeignTableDefinition{}) {
-		PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "FOREIGN TABLE")
-	} else {
-		PrintObjectMetadata(metadataFile, tableMetadata, table.FQN(), "TABLE")
-	}
-
+func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table, tableMetadata ObjectMetadata) {
+	PrintObjectMetadata(metadataFile, toc, tableMetadata, table, "")
+	statements := []string{}
 	for _, att := range table.ColumnDefs {
 		if att.Comment != "" {
 			escapedComment := utils.EscapeSingleQuotes(att.Comment)
-			metadataFile.MustPrintf("\n\nCOMMENT ON COLUMN %s.%s IS '%s';\n", table.FQN(), att.Name, escapedComment)
+			statements = append(statements, fmt.Sprintf("COMMENT ON COLUMN %s.%s IS '%s';", table.FQN(), att.Name, escapedComment))
 		}
 		if len(att.ACL) > 0 {
 			columnMetadata := ObjectMetadata{Privileges: att.ACL, Owner: tableMetadata.Owner}
 			columnPrivileges := columnMetadata.GetPrivilegesStatements(table.FQN(), "COLUMN", att.Name)
-			metadataFile.MustPrintln(columnPrivileges)
+			statements = append(statements, strings.TrimSpace(columnPrivileges))
 		}
 		if att.SecurityLabel != "" {
 			escapedLabel := utils.EscapeSingleQuotes(att.SecurityLabel)
-			metadataFile.MustPrintf("\n\nSECURITY LABEL FOR %s ON COLUMN %s.%s IS '%s';", att.SecurityLabelProvider, table.FQN(), att.Name, escapedLabel)
+			statements = append(statements, fmt.Sprintf("SECURITY LABEL FOR %s ON COLUMN %s.%s IS '%s';", att.SecurityLabelProvider, table.FQN(), att.Name, escapedLabel))
 		}
 	}
+	PrintStatements(metadataFile, toc, table, statements)
 }
 
 /*
@@ -286,8 +283,7 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 	minVal := int64(math.MinInt64)
 	for _, sequence := range sequences {
 		start := metadataFile.ByteCount
-		seqFQN := sequence.FQN()
-		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", seqFQN)
+		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", sequence.FQN())
 		if connectionPool.Version.AtLeast("6") {
 			metadataFile.MustPrintln("\tSTART WITH", sequence.StartVal)
 		} else if !sequence.IsCalled {
@@ -311,10 +307,10 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 		}
 		metadataFile.MustPrintf("\tCACHE %d%s;", sequence.CacheVal, cycleStr)
 
-		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", utils.EscapeSingleQuotes(seqFQN), sequence.LastVal, sequence.IsCalled)
+		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", utils.EscapeSingleQuotes(sequence.FQN()), sequence.LastVal, sequence.IsCalled)
 
-		PrintObjectMetadata(metadataFile, sequenceMetadata[sequence.Relation.GetUniqueID()], seqFQN, "SEQUENCE")
-		toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE", sequence.OwningTable, start, metadataFile)
+		toc.AddMetadataEntry(sequence, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, sequenceMetadata[sequence.Relation.GetUniqueID()], sequence, "")
 	}
 }
 
@@ -326,15 +322,15 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 		if owningColumn, hasColumnOwner := sequenceColumnOwners[seqFQN]; hasColumnOwner {
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
-			toc.AddPredataEntry(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", sequence.OwningTable, start, metadataFile)
+			//TODO: see if the SEQUENCE OWNER type is being utilized in restore or if it could be SEQUENCE. I think we should be using it for filtering, but aren't
+			toc.AddMetadataEntryLongArgs(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", sequence.OwningTable, start, metadataFile, "predata")
 		}
 	}
 }
 
 func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, view View, viewMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
-	viewFQN := utils.MakeFQN(view.Schema, view.Name)
-	metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", viewFQN, view.Options, view.Definition)
-	PrintObjectMetadata(metadataFile, viewMetadata, viewFQN, "VIEW")
-	toc.AddPredataEntry(view.Schema, view.Name, "VIEW", "", start, metadataFile)
+	metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition)
+	toc.AddMetadataEntry(view, start, metadataFile.ByteCount)
+	PrintObjectMetadata(metadataFile, toc, viewMetadata, view, "")
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/utils"
 )
 
 func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]ExternalTableDefinition {
@@ -109,6 +110,18 @@ type ExternalProtocol struct {
 	Validator     uint32 `db:"ptcvalidatorfn"`
 }
 
+func (p ExternalProtocol) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            p.Name,
+			ObjectType:      "PROTOCOL",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (p ExternalProtocol) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_EXTPROTOCOL_OID, Oid: p.Oid}
 }
@@ -145,6 +158,18 @@ type PartitionInfo struct {
 	PartitionName          string
 	PartitionRank          int
 	IsExternal             bool
+}
+
+func (pi PartitionInfo) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          pi.ParentSchema,
+			Name:            pi.ParentRelationName,
+			ObjectType:      "EXCHANGE PARTITION",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func GetExternalPartitionInfo(connectionPool *dbconn.DBConn) ([]PartitionInfo, map[uint32]PartitionInfo) {

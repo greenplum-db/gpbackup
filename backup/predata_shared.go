@@ -42,19 +42,20 @@ func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *utils
 			objStr = "TABLE"
 		}
 		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef)
-		PrintObjectMetadata(metadataFile, conMetadata[constraint.GetUniqueID()], constraint.Name, "CONSTRAINT", constraint.OwningObject)
-		toc.AddPredataEntry(constraint.Schema, constraint.Name, "CONSTRAINT", constraint.OwningObject, start, metadataFile)
+
+		toc.AddMetadataEntry(constraint, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, conMetadata[constraint.GetUniqueID()], constraint, constraint.OwningObject)
 	}
 }
 
-func PrintCreateSchemaStatements(backupfile *utils.FileWithByteCount, toc *utils.TOC, schemas []Schema, schemaMetadata MetadataMap) {
+func PrintCreateSchemaStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, schemas []Schema, schemaMetadata MetadataMap) {
 	for _, schema := range schemas {
-		start := backupfile.ByteCount
-		backupfile.MustPrintln()
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintln()
 		if schema.Name != "public" {
-			backupfile.MustPrintf("\nCREATE SCHEMA %s;", schema.Name)
+			metadataFile.MustPrintf("\nCREATE SCHEMA %s;", schema.Name)
 		}
-		PrintObjectMetadata(backupfile, schemaMetadata[schema.GetUniqueID()], schema.Name, "SCHEMA")
-		toc.AddPredataEntry(schema.Name, schema.Name, "SCHEMA", "", start, backupfile)
+		toc.AddMetadataEntry(schema, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, schemaMetadata[schema.GetUniqueID()], schema, "")
 	}
 }

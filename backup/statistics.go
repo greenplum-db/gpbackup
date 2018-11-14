@@ -27,7 +27,7 @@ func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, 
 		attributeQuery := GenerateAttributeStatisticsQuery(table, attStat)
 		statisticsFile.MustPrintf("\n\n%s\n", attributeQuery)
 	}
-	toc.AddStatisticsEntry(table.Schema, table.Name, "STATISTICS", start, statisticsFile)
+	toc.AddMetadataEntryLongArgs(table.Schema, table.Name, "STATISTICS", "", start, statisticsFile, "statistics")
 }
 
 func GenerateTupleStatisticsQuery(table Table, tupleStat TupleStatistic) string {

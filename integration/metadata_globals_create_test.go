@@ -449,10 +449,10 @@ var _ = Describe("backup integration create statement tests", func() {
 				 */
 				gbuffer := gbytes.BufferWithBytes([]byte(buffer.String()))
 				entries, _ := testutils.SliceBufferByEntries(toc.GlobalEntries, gbuffer)
-				create, metadata := entries[0], entries[1]
-				testhelper.AssertQueryRuns(connectionPool, create)
+				for _, entry := range entries {
+					testhelper.AssertQueryRuns(connectionPool, entry)
+				}
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
-				testhelper.AssertQueryRuns(connectionPool, metadata)
 			} else {
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")

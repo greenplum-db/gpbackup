@@ -121,6 +121,22 @@ type Type struct {
 	SubTypeDiff     string
 }
 
+func (t Type) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	objectType := "TYPE"
+	if t.Type == "d" {
+		objectType = "DOMAIN"
+	}
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          t.Schema,
+			Name:            t.Name,
+			ObjectType:      objectType,
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (t Type) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
 }
@@ -430,8 +446,24 @@ type Collation struct {
 	Ctype   string
 }
 
+func (c Collation) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          c.Schema,
+			Name:            c.Name,
+			ObjectType:      "COLLATION",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (c Collation) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_COLLATION_OID, Oid: c.Oid}
+}
+
+func (c Collation) FQN() string {
+	return utils.MakeFQN(c.Schema, c.Name)
 }
 
 func GetCollations(connectionPool *dbconn.DBConn) []Collation {

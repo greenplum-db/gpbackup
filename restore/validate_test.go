@@ -29,13 +29,13 @@ var _ = Describe("restore/validate tests", func() {
 		BeforeEach(func() {
 			toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			backupfile.ByteCount = table1Len
-			toc.AddPredataEntry("schema1", "table1", "", "TABLE", 0, backupfile)
+			toc.AddMetadataEntryLongArgs("schema1", "table1", "", "TABLE", 0, backupfile, "predata")
 			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0, "")
 			backupfile.ByteCount += table2Len
-			toc.AddPredataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile)
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "predata")
 			toc.AddMasterDataEntry("schema2", "table2", 2, "(j)", 0, "")
 			backupfile.ByteCount += sequenceLen
-			toc.AddPredataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile)
+			toc.AddMetadataEntryLongArgs("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "predata")
 			restore.SetTOC(toc)
 		})
 		It("passes when schema exists in normal backup", func() {
@@ -192,15 +192,15 @@ var _ = Describe("restore/validate tests", func() {
 		var backupfile *utils.FileWithByteCount
 		BeforeEach(func() {
 			toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
-			toc.AddPredataEntry("schema1", "table1", "TABLE", "", 0, backupfile)
+			toc.AddMetadataEntryLongArgs("schema1", "table1", "TABLE", "", 0, backupfile, "predata")
 			toc.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0, "")
 
-			toc.AddPredataEntry("schema2", "table2", "TABLE", "", 0, backupfile)
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", 0, backupfile, "predata")
 			toc.AddMasterDataEntry("schema2", "table2", 2, "(j)", 0, "")
 
-			toc.AddPredataEntry("schema1", "somesequence", "SEQUENCE", "", 0, backupfile)
-			toc.AddPredataEntry("schema1", "someview", "VIEW", "", 0, backupfile)
-			toc.AddPredataEntry("schema1", "somefunction", "FUNCTION", "", 0, backupfile)
+			toc.AddMetadataEntryLongArgs("schema1", "somesequence", "SEQUENCE", "", 0, backupfile, "predata")
+			toc.AddMetadataEntryLongArgs("schema1", "someview", "VIEW", "", 0, backupfile, "predata")
+			toc.AddMetadataEntryLongArgs("schema1", "somefunction", "FUNCTION", "", 0, backupfile, "predata")
 
 			restore.SetTOC(toc)
 		})

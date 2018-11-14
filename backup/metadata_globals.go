@@ -20,13 +20,12 @@ func PrintSessionGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, guc
 	metadataFile.MustPrintf(`
 SET client_encoding = '%s';
 `, gucs.ClientEncoding)
-	toc.AddGlobalEntry("", "", "SESSION GUCS", start, metadataFile)
+	toc.AddMetadataEntry(gucs, start, metadataFile.ByteCount)
 }
 
 func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, defaultDB Database, db Database, dbMetadata MetadataMap) {
-	dbname := db.Name
 	start := metadataFile.ByteCount
-	metadataFile.MustPrintf("\n\nCREATE DATABASE %s TEMPLATE template0", dbname)
+	metadataFile.MustPrintf("\n\nCREATE DATABASE %s TEMPLATE template0", db.Name)
 	if db.Tablespace != "pg_default" {
 		metadataFile.MustPrintf(" TABLESPACE %s", db.Tablespace)
 	}
@@ -40,19 +39,15 @@ func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *ut
 		metadataFile.MustPrintf(" LC_CTYPE '%s'", db.CType)
 	}
 	metadataFile.MustPrintf(";")
-	toc.AddGlobalEntry("", dbname, "DATABASE", start, metadataFile)
-	start = metadataFile.ByteCount
-	PrintObjectMetadata(metadataFile, dbMetadata[db.GetUniqueID()], dbname, "DATABASE")
-	if metadataFile.ByteCount > start {
-		toc.AddGlobalEntry("", dbname, "DATABASE METADATA", start, metadataFile)
-	}
+	toc.AddMetadataEntryLongArgs("", db.Name, "DATABASE", "", start, metadataFile, "global")
+	PrintObjectMetadata(metadataFile, toc, dbMetadata[db.GetUniqueID()], db, "")
 }
 
 func PrintDatabaseGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gucs []string, dbname string) {
 	for _, guc := range gucs {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nALTER DATABASE %s %s;", dbname, guc)
-		toc.AddGlobalEntry("", dbname, "DATABASE GUC", start, metadataFile)
+		toc.AddMetadataEntryLongArgs("", dbname, "DATABASE GUC", "", start, metadataFile, "global")
 	}
 }
 
@@ -87,8 +82,8 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 			action = "ALTER"
 		}
 		metadataFile.MustPrintf("\n\n%s RESOURCE QUEUE %s WITH (%s);", action, resQueue.Name, strings.Join(attributes, ", "))
-		PrintObjectMetadata(metadataFile, resQueueMetadata[resQueue.GetUniqueID()], resQueue.Name, "RESOURCE QUEUE")
-		toc.AddGlobalEntry("", resQueue.Name, "RESOURCE QUEUE", start, metadataFile)
+		toc.AddMetadataEntry(resQueue, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, resQueueMetadata[resQueue.GetUniqueID()], resQueue, "")
 	}
 }
 
@@ -110,7 +105,7 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	for _, prepare := range defSettings {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s %s;", prepare.name, prepare.setting)
-		toc.AddGlobalEntry("", prepare.name, "RESOURCE GROUP", start, metadataFile)
+		toc.AddMetadataEntryLongArgs("", prepare.name, "RESOURCE GROUP", "", start, metadataFile, "global")
 	}
 }
 
@@ -131,7 +126,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			for _, property := range resGroupList {
 				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET %s %d;", resGroup.Name, property.setting, property.value)
-				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
+				toc.AddMetadataEntry(resGroup, start, metadataFile.ByteCount)
 			}
 
 			/* special handling for cpu properties */
@@ -143,12 +138,8 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 				/* cpuset mode */
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
 			}
-			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
-			start = metadataFile.ByteCount
-			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
-			if metadataFile.ByteCount > start {
-				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
-			}
+			toc.AddMetadataEntry(resGroup, start, metadataFile.ByteCount)
+			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
 		} else {
 			start = metadataFile.ByteCount
 			attributes := []string{}
@@ -180,13 +171,9 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			attributes = append(attributes, fmt.Sprintf("MEMORY_SPILL_RATIO=%d", resGroup.MemorySpillRatio))
 			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%d", resGroup.Concurrency))
 			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
-			toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
+			toc.AddMetadataEntry(resGroup, start, metadataFile.ByteCount)
 
-			start = metadataFile.ByteCount
-			PrintObjectMetadata(metadataFile, resGroupMetadata[resGroup.GetUniqueID()], resGroup.Name, "RESOURCE GROUP")
-			if metadataFile.ByteCount > start {
-				toc.AddGlobalEntry("", resGroup.Name, "RESOURCE GROUP", start, metadataFile)
-			}
+			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
 		}
 	}
 }
@@ -276,28 +263,30 @@ func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 
 CREATE ROLE %s;
 ALTER ROLE %s WITH %s;`, role.Name, role.Name, strings.Join(attrs, " "))
+		toc.AddMetadataEntry(role, start, metadataFile.ByteCount)
 
 		if len(role.TimeConstraints) != 0 {
 			for _, timeConstraint := range role.TimeConstraints {
+				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER ROLE %s DENY BETWEEN DAY %d TIME '%s' AND DAY %d TIME '%s';", role.Name, timeConstraint.StartDay, timeConstraint.StartTime, timeConstraint.EndDay, timeConstraint.EndTime)
+				toc.AddMetadataEntry(role, start, metadataFile.ByteCount)
 			}
 		}
-		PrintObjectMetadata(metadataFile, roleMetadata[role.GetUniqueID()], role.Name, "ROLE")
-		toc.AddGlobalEntry("", role.Name, "ROLE", start, metadataFile)
+		PrintObjectMetadata(metadataFile, toc, roleMetadata[role.GetUniqueID()], role, "")
 	}
 }
 
 func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roleGUCs map[string][]RoleGUC) {
 	for roleName := range roleGUCs {
-		start := metadataFile.ByteCount
 		for _, roleGUC := range roleGUCs[roleName] {
+			start := metadataFile.ByteCount
 			dbString := ""
 			if roleGUC.DbName != "" {
 				dbString = fmt.Sprintf("IN DATABASE %s ", roleGUC.DbName)
 			}
 			metadataFile.MustPrintf("\n\nALTER ROLE %s %s%s;", roleName, dbString, roleGUC.Config)
+			toc.AddMetadataEntry(roleGUC, start, metadataFile.ByteCount)
 		}
-		toc.AddGlobalEntry("", roleName, "ROLE GUCS", start, metadataFile)
 	}
 }
 
@@ -310,7 +299,7 @@ func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *u
 			metadataFile.MustPrintf(" WITH ADMIN OPTION")
 		}
 		metadataFile.MustPrintf(" GRANTED BY %s;", roleMember.Grantor)
-		toc.AddGlobalEntry("", roleMember.Member, "ROLE GRANT", start, metadataFile)
+		toc.AddMetadataEntry(roleMember, start, metadataFile.ByteCount)
 	}
 }
 
@@ -326,18 +315,13 @@ func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc 
 			locationStr = fmt.Sprintf("LOCATION %s\n\tWITH (%s)", tablespace.FileLocation, strings.Join(tablespace.SegmentLocations, ", "))
 		}
 		metadataFile.MustPrintf("\n\nCREATE TABLESPACE %s %s;", tablespace.Tablespace, locationStr)
-		toc.AddGlobalEntry("", tablespace.Tablespace, "TABLESPACE", start, metadataFile)
+		toc.AddMetadataEntry(tablespace, start, metadataFile.ByteCount)
 
 		if tablespace.Options != "" {
 			start = metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER TABLESPACE %s SET (%s);\n", tablespace.Tablespace, tablespace.Options)
-			toc.AddGlobalEntry("", tablespace.Tablespace, "TABLESPACE", start, metadataFile)
+			toc.AddMetadataEntry(tablespace, start, metadataFile.ByteCount)
 		}
-
-		start = metadataFile.ByteCount
-		PrintObjectMetadata(metadataFile, tablespaceMetadata[tablespace.GetUniqueID()], tablespace.Tablespace, "TABLESPACE")
-		if metadataFile.ByteCount > start {
-			toc.AddGlobalEntry("", tablespace.Tablespace, "TABLESPACE METADATA", start, metadataFile)
-		}
+		PrintObjectMetadata(metadataFile, toc, tablespaceMetadata[tablespace.GetUniqueID()], tablespace, "")
 	}
 }

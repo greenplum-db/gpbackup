@@ -52,22 +52,36 @@ type ACL struct {
 
 type MetadataMap map[UniqueID]ObjectMetadata
 
-func PrintObjectMetadata(file *utils.FileWithByteCount, obj ObjectMetadata, objectName string, objectType string, owningTable ...string) {
-	if comment := obj.GetCommentStatement(objectName, objectType, owningTable...); comment != "" {
-		file.MustPrintln(comment)
+func PrintStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, obj utils.TOCObject, statements []string) {
+	for _, statement := range statements {
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintf("\n\n%s\n", statement)
+		toc.AddMetadataEntry(obj, start, metadataFile.ByteCount)
 	}
-	if owner := obj.GetOwnerStatement(objectName, objectType); owner != "" {
-		if !(connectionPool.Version.Before("5") && objectType == "LANGUAGE") {
+}
+
+func PrintObjectMetadata(file *utils.FileWithByteCount, toc *utils.TOC, metadata ObjectMetadata, obj utils.TOCObjectWithMetadata, owningTable string) {
+	_, entry := obj.GetMetadataEntry(0, 0)
+	if entry.ObjectType == "DATABASE METADATA" {
+		entry.ObjectType = "DATABASE"
+	}
+	statements := []string{}
+	if comment := metadata.GetCommentStatement(obj.FQN(), entry.ObjectType, owningTable); comment != "" {
+		statements = append(statements, strings.TrimSpace(comment))
+	}
+	if owner := metadata.GetOwnerStatement(obj.FQN(), entry.ObjectType); owner != "" {
+		if !(connectionPool.Version.Before("5") && entry.ObjectType == "LANGUAGE") {
 			// Languages have implicit owners in 4.3, but do not support ALTER OWNER
-			file.MustPrintln(owner)
+			statements = append(statements, strings.TrimSpace(owner))
 		}
 	}
-	if privileges := obj.GetPrivilegesStatements(objectName, objectType); privileges != "" {
-		file.MustPrintln(privileges)
+	if privileges := metadata.GetPrivilegesStatements(obj.FQN(), entry.ObjectType); privileges != "" {
+		statements = append(statements, strings.TrimSpace(privileges))
 	}
-	if securityLabel := obj.GetSecurityLabelStatement(objectName, objectType); securityLabel != "" {
-		file.MustPrintln(securityLabel)
+	if securityLabel := metadata.GetSecurityLabelStatement(obj.FQN(), entry.ObjectType); securityLabel != "" {
+		statements = append(statements, strings.TrimSpace(securityLabel))
 	}
+	PrintStatements(file, toc, obj, statements)
 }
 
 func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
@@ -392,20 +406,20 @@ func (obj ObjectMetadata) GetOwnerStatement(objectName string, objectType string
 	}
 	ownerStr := ""
 	if obj.Owner != "" {
-		ownerStr = fmt.Sprintf("\n\nALTER %s %s OWNER TO %s;", typeStr, objectName, obj.Owner)
+		ownerStr = fmt.Sprintf("ALTER %s %s OWNER TO %s;", typeStr, objectName, obj.Owner)
 	}
 	return ownerStr
 }
 
-func (obj ObjectMetadata) GetCommentStatement(objectName string, objectType string, owningTable ...string) string {
+func (obj ObjectMetadata) GetCommentStatement(objectName string, objectType string, owningTable string) string {
 	commentStr := ""
 	tableStr := ""
-	if len(owningTable) == 1 {
-		tableStr = fmt.Sprintf(" ON %s", owningTable[0])
+	if owningTable != "" {
+		tableStr = fmt.Sprintf(" ON %s", owningTable)
 	}
 	if obj.Comment != "" {
 		escapedComment := utils.EscapeSingleQuotes(obj.Comment)
-		commentStr = fmt.Sprintf("\n\nCOMMENT ON %s %s%s IS '%s';", objectType, objectName, tableStr, escapedComment)
+		commentStr = fmt.Sprintf("COMMENT ON %s %s%s IS '%s';", objectType, objectName, tableStr, escapedComment)
 	}
 	return commentStr
 }
@@ -414,7 +428,7 @@ func (obj ObjectMetadata) GetSecurityLabelStatement(objectName string, objectTyp
 	securityLabelStr := ""
 	if obj.SecurityLabel != "" {
 		escapedLabel := utils.EscapeSingleQuotes(obj.SecurityLabel)
-		securityLabelStr = fmt.Sprintf("\n\nSECURITY LABEL FOR %s ON %s %s IS '%s';", obj.SecurityLabelProvider, objectType, objectName, escapedLabel)
+		securityLabelStr = fmt.Sprintf("SECURITY LABEL FOR %s ON %s %s IS '%s';", obj.SecurityLabelProvider, objectType, objectName, escapedLabel)
 	}
 	return securityLabelStr
 }
@@ -464,7 +478,7 @@ func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc
 		}
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintln("\n\n" + strings.Join(statements, "\n"))
-		toc.AddPostdataEntry(priv.Schema, "", "DEFAULT PRIVILEGES", "", start, metadataFile)
+		toc.AddMetadataEntry(priv, start, metadataFile.ByteCount)
 	}
 }
 

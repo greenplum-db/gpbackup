@@ -17,6 +17,18 @@ type SessionGUCs struct {
 	ClientEncoding string `db:"client_encoding"`
 }
 
+func (sg SessionGUCs) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            "",
+			ObjectType:      "SESSION GUCS",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func GetSessionGUCs(connectionPool *dbconn.DBConn) SessionGUCs {
 	result := SessionGUCs{}
 	query := "SHOW client_encoding;"
@@ -34,8 +46,24 @@ type Database struct {
 	Encoding   string
 }
 
+func (db Database) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            db.Name,
+			ObjectType:      "DATABASE METADATA",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (db Database) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_DATABASE_OID, Oid: db.Oid}
+}
+
+func (db Database) FQN() string {
+	return db.Name
 }
 
 func GetDefaultDatabaseEncodingInfo(connectionPool *dbconn.DBConn) Database {
@@ -112,8 +140,24 @@ type ResourceQueue struct {
 	MemoryLimit      string
 }
 
+func (rq ResourceQueue) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            rq.Name,
+			ObjectType:      "RESOURCE QUEUE",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (rq ResourceQueue) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_RESQUEUE_OID, Oid: rq.Oid}
+}
+
+func (rq ResourceQueue) FQN() string {
+	return rq.Name
 }
 
 func GetResourceQueues(connectionPool *dbconn.DBConn) []ResourceQueue {
@@ -158,8 +202,24 @@ type ResourceGroup struct {
 	Cpuset            string
 }
 
+func (rg ResourceGroup) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            rg.Name,
+			ObjectType:      "RESOURCE GROUP",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (rg ResourceGroup) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_RESGROUP_OID, Oid: rg.Oid}
+}
+
+func (rg ResourceGroup) FQN() string {
+	return rg.Name
 }
 
 func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
@@ -225,8 +285,24 @@ type Role struct {
 	TimeConstraints []TimeConstraint
 }
 
+func (r Role) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            r.Name,
+			ObjectType:      "ROLE",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (r Role) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_AUTHID_OID, Oid: r.Oid}
+}
+
+func (r Role) FQN() string {
+	return r.Name
 }
 
 /*
@@ -283,6 +359,18 @@ type RoleGUC struct {
 	RoleName string
 	DbName   string
 	Config   string
+}
+
+func (rg RoleGUC) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            rg.RoleName,
+			ObjectType:      "ROLE GUCS",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func GetRoleGUCs(connectionPool *dbconn.DBConn) map[string][]RoleGUC {
@@ -364,6 +452,18 @@ type RoleMember struct {
 	IsAdmin bool
 }
 
+func (rm RoleMember) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            rm.Member,
+			ObjectType:      "ROLE GRANT",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 	query := `
 SELECT
@@ -388,8 +488,24 @@ type Tablespace struct {
 	Options          string
 }
 
+func (t Tablespace) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "global",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            t.Tablespace,
+			ObjectType:      "TABLESPACE",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (t Tablespace) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_TABLESPACE_OID, Oid: t.Oid}
+}
+
+func (t Tablespace) FQN() string {
+	return t.Tablespace
 }
 
 func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {

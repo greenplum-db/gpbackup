@@ -45,10 +45,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 				constraintMetadataMap := testutils.DefaultMetadataMap("CONSTRAINT", false, false, true, false)
 				backup.PrintConstraintStatements(backupfile, toc, constraints, constraintMetadataMap)
 				testutils.ExpectEntry(toc.PredataEntries, 0, "", "public.tablename", "tablename_i_key", "CONSTRAINT")
-				testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE ONLY public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);
-
-
-COMMENT ON CONSTRAINT tablename_i_key ON public.tablename IS 'This is a constraint comment.';`)
+				testutils.AssertBufferContents(toc.PredataEntries, buffer, "ALTER TABLE ONLY public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);", "COMMENT ON CONSTRAINT tablename_i_key ON public.tablename IS 'This is a constraint comment.';")
 			})
 			It("prints an ADD CONSTRAINT statement for one UNIQUE constraint", func() {
 				constraints := []backup.Constraint{uniqueOne}
@@ -156,20 +153,14 @@ COMMENT ON CONSTRAINT tablename_i_key ON public.tablename IS 'This is a constrai
 			schemaMetadataMap := testutils.DefaultMetadataMap("SCHEMA", true, true, true, true)
 
 			backup.PrintCreateSchemaStatements(backupfile, toc, schemas, schemaMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE SCHEMA schemaname;
-
-COMMENT ON SCHEMA schemaname IS 'This is a schema comment.';
-
-
-ALTER SCHEMA schemaname OWNER TO testrole;
-
-
-REVOKE ALL ON SCHEMA schemaname FROM PUBLIC;
+			expectedStatements := []string{"CREATE SCHEMA schemaname;",
+				"COMMENT ON SCHEMA schemaname IS 'This is a schema comment.';",
+				"ALTER SCHEMA schemaname OWNER TO testrole;",
+				`REVOKE ALL ON SCHEMA schemaname FROM PUBLIC;
 REVOKE ALL ON SCHEMA schemaname FROM testrole;
-GRANT ALL ON SCHEMA schemaname TO testrole;
-
-
-SECURITY LABEL FOR dummy ON SCHEMA schemaname IS 'unclassified';`)
+GRANT ALL ON SCHEMA schemaname TO testrole;`,
+				"SECURITY LABEL FOR dummy ON SCHEMA schemaname IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 })

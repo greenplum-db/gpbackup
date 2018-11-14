@@ -31,10 +31,7 @@ var _ = Describe("backup/predata_relations tests", func() {
 			backup.PrintCreateTableStatement(backupfile, toc, testTable, tableMetadata)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "tablename", "TABLE")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TABLE public.tablename (
-) DISTRIBUTED RANDOMLY;
-
-
-ALTER TABLE public.tablename OWNER TO testrole;`)
+) DISTRIBUTED RANDOMLY;`, "ALTER TABLE public.tablename OWNER TO testrole;")
 		})
 		It("calls PrintExternalTableCreateStatement for an external table", func() {
 			testTable.IsExternal = true
@@ -500,7 +497,7 @@ SET SUBPARTITION TEMPLATE
 			col := []backup.ColumnDefinition{rowOne}
 			testTable.ColumnDefs = col
 			tableMetadata := testutils.DefaultMetadata("TABLE", false, false, true, false)
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';`)
@@ -508,7 +505,7 @@ COMMENT ON TABLE public.tablename IS 'This is a table comment.';`)
 		It("prints a block with a single column comment", func() {
 			col := []backup.ColumnDefinition{rowCommentOne}
 			testTable.ColumnDefs = col
-			backup.PrintPostCreateTableStatements(backupfile, testTable, noMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';`)
@@ -518,7 +515,7 @@ COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';`)
 
 			col := []backup.ColumnDefinition{rowCommentSpecialCharacters}
 			testTable.ColumnDefs = col
-			backup.PrintPostCreateTableStatements(backupfile, testTable, noMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON COLUMN public.tablename.i IS 'This is a ta''ble 1+=;,./\>,<@\\n^comment.';`)
@@ -526,7 +523,7 @@ COMMENT ON COLUMN public.tablename.i IS 'This is a ta''ble 1+=;,./\>,<@\\n^comme
 		It("prints a block with multiple column comments", func() {
 			col := []backup.ColumnDefinition{rowCommentOne, rowCommentTwo}
 			testTable.ColumnDefs = col
-			backup.PrintPostCreateTableStatements(backupfile, testTable, noMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';
@@ -538,7 +535,7 @@ COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 			col := []backup.ColumnDefinition{rowOne}
 			testTable.ColumnDefs = col
 			tableMetadata := testutils.DefaultMetadata("TABLE", false, true, false, false)
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;`)
@@ -547,7 +544,7 @@ ALTER TABLE public.tablename OWNER TO testrole;`)
 			col := []backup.ColumnDefinition{rowOne}
 			testTable.ColumnDefs = col
 			tableMetadata := testutils.DefaultMetadata("TABLE", false, false, false, true)
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 SECURITY LABEL FOR dummy ON TABLE public.tablename IS 'unclassified';`)
@@ -557,7 +554,7 @@ SECURITY LABEL FOR dummy ON TABLE public.tablename IS 'unclassified';`)
 			testTable.ColumnDefs = col
 			testTable.ForeignDef = backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
 			tableMetadata := testutils.DefaultMetadata("FOREIGN TABLE", true, true, true, true)
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON FOREIGN TABLE public.tablename IS 'This is a foreign table comment.';
@@ -577,7 +574,7 @@ SECURITY LABEL FOR dummy ON FOREIGN TABLE public.tablename IS 'unclassified';`)
 			col := []backup.ColumnDefinition{rowCommentOne, rowCommentTwo}
 			testTable.ColumnDefs = col
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole", Comment: "This is a table comment."}
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
@@ -597,7 +594,7 @@ COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 			col := []backup.ColumnDefinition{privilegesColumnOne, privilegesColumnTwo}
 			testTable.ColumnDefs = col
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole"}
-			backup.PrintPostCreateTableStatements(backupfile, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;
@@ -617,10 +614,11 @@ GRANT ALL (j) ON TABLE public.tablename TO testrole2;`)
 			privilegesColumnTwo := backup.ColumnDefinition{Oid: 1, Num: 2, Name: "j", Type: "character varying(20)", StatTarget: -1, SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
 			col := []backup.ColumnDefinition{privilegesColumnOne, privilegesColumnTwo}
 			testTable.ColumnDefs = col
-			backup.PrintPostCreateTableStatements(backupfile, testTable, backup.ObjectMetadata{})
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, backup.ObjectMetadata{})
 			testhelper.ExpectRegexp(buffer, `
 
 SECURITY LABEL FOR dummy ON COLUMN public.tablename.i IS 'unclassified';
+
 
 SECURITY LABEL FOR dummy ON COLUMN public.tablename.j IS 'unclassified';`)
 		})

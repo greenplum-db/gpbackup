@@ -32,20 +32,15 @@ var _ = Describe("backup/predata_types tests", func() {
 		It("prints an enum type with comment, security label, and owner", func() {
 			typeMetadataMap = testutils.DefaultMetadataMap("TYPE", false, true, true, true)
 			backup.PrintCreateEnumTypeStatements(backupfile, toc, []backup.Type{enumTwo}, typeMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.enum_type AS ENUM (
+			expectedStatements := []string{`CREATE TYPE public.enum_type AS ENUM (
 	'bar',
 	'baz',
 	'foo'
-);
-
-
-COMMENT ON TYPE public.enum_type IS 'This is a type comment.';
-
-
-ALTER TYPE public.enum_type OWNER TO testrole;
-
-
-SECURITY LABEL FOR dummy ON TYPE public.enum_type IS 'unclassified';`)
+);`,
+				"COMMENT ON TYPE public.enum_type IS 'This is a type comment.';",
+				"ALTER TYPE public.enum_type OWNER TO testrole;",
+				"SECURITY LABEL FOR dummy ON TYPE public.enum_type IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 	Describe("PrintCreateCompositeTypeStatement", func() {
@@ -86,18 +81,14 @@ SECURITY LABEL FOR dummy ON TYPE public.enum_type IS 'unclassified';`)
 			compType.Attributes = twoAtts
 			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true, true)
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compType, typeMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
+			expectedEntries := []string{`CREATE TYPE public.composite_type AS (
 	foo integer,
 	bar text
-);
-
-COMMENT ON TYPE public.composite_type IS 'This is a type comment.';
-
-
-ALTER TYPE public.composite_type OWNER TO testrole;
-
-
-SECURITY LABEL FOR dummy ON TYPE public.composite_type IS 'unclassified';`)
+);`,
+				"COMMENT ON TYPE public.composite_type IS 'This is a type comment.';",
+				"ALTER TYPE public.composite_type OWNER TO testrole;",
+				"SECURITY LABEL FOR dummy ON TYPE public.composite_type IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
 		})
 		It("prints a composite type with attribute comment", func() {
 			attWithComment := []backup.Attribute{{Name: "foo", Type: "integer", Comment: "'attribute comment'"}}
@@ -105,9 +96,7 @@ SECURITY LABEL FOR dummy ON TYPE public.composite_type IS 'unclassified';`)
 			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compType, typeMetadata)
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
 	foo integer
-);
-
-COMMENT ON COLUMN public.composite_type.foo IS 'attribute comment';`)
+);`, "COMMENT ON COLUMN public.composite_type.foo IS 'attribute comment';")
 		})
 	})
 	Describe("PrintCreateBaseTypeStatement", func() {
@@ -184,19 +173,14 @@ ALTER TYPE public.base_type
 		It("prints a base type with comment, security label, and owner", func() {
 			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true, true)
 			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseSimple, typeMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.base_type (
+			expectedEntries := []string{`CREATE TYPE public.base_type (
 	INPUT = input_fn,
 	OUTPUT = output_fn
-);
-
-
-COMMENT ON TYPE public.base_type IS 'This is a type comment.';
-
-
-ALTER TYPE public.base_type OWNER TO testrole;
-
-
-SECURITY LABEL FOR dummy ON TYPE public.base_type IS 'unclassified';`)
+);`,
+				"COMMENT ON TYPE public.base_type IS 'This is a type comment.';",
+				"ALTER TYPE public.base_type OWNER TO testrole;",
+				"SECURITY LABEL FOR dummy ON TYPE public.base_type IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
 		})
 	})
 	Describe("PrintCreateShellTypeStatements", func() {
@@ -236,16 +220,11 @@ SECURITY LABEL FOR dummy ON TYPE public.base_type IS 'unclassified';`)
 		It("prints a domain without constraint with comment, security label, and owner", func() {
 			typeMetadata = testutils.DefaultMetadata("DOMAIN", false, true, true, true)
 			backup.PrintCreateDomainStatement(backupfile, toc, domainTwo, typeMetadata, emptyConstraint)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE DOMAIN public.domain2 AS varchar;
-
-
-COMMENT ON DOMAIN public.domain2 IS 'This is a domain comment.';
-
-
-ALTER DOMAIN public.domain2 OWNER TO testrole;
-
-
-SECURITY LABEL FOR dummy ON DOMAIN public.domain2 IS 'unclassified';`)
+			expectedEntries := []string{"CREATE DOMAIN public.domain2 AS varchar;",
+				"COMMENT ON DOMAIN public.domain2 IS 'This is a domain comment.';",
+				"ALTER DOMAIN public.domain2 OWNER TO testrole;",
+				"SECURITY LABEL FOR dummy ON DOMAIN public.domain2 IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
 		})
 	})
 	Describe("PrintCreateRangeTypeStatement", func() {
@@ -281,18 +260,13 @@ SECURITY LABEL FOR dummy ON DOMAIN public.domain2 IS 'unclassified';`)
 		It("prints a range type with an owner, security label, and a comment", func() {
 			typeMetadata = testutils.DefaultMetadata("TYPE", false, true, true, true)
 			backup.PrintCreateRangeTypeStatement(backupfile, toc, basicRangeType, typeMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TYPE public.rangetype AS RANGE (
+			expectedStatements := []string{`CREATE TYPE public.rangetype AS RANGE (
 	SUBTYPE = test_subtype_schema.test_subtype
-);
-
-
-COMMENT ON TYPE public.rangetype IS 'This is a type comment.';
-
-
-ALTER TYPE public.rangetype OWNER TO testrole;
-
-
-SECURITY LABEL FOR dummy ON TYPE public.rangetype IS 'unclassified';`)
+);`,
+				"COMMENT ON TYPE public.rangetype IS 'This is a type comment.';",
+				"ALTER TYPE public.rangetype OWNER TO testrole;",
+				"SECURITY LABEL FOR dummy ON TYPE public.rangetype IS 'unclassified';"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 	Describe("PrintCreateCollationStatement", func() {
@@ -306,12 +280,11 @@ SECURITY LABEL FOR dummy ON TYPE public.rangetype IS 'unclassified';`)
 			collation := backup.Collation{Oid: 1, Name: "collation1", Collate: "collate1", Ctype: "ctype1", Schema: "schema1"}
 			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true, false)
 			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, collationMetadataMap)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE COLLATION schema1.collation1 (LC_COLLATE = 'collate1', LC_CTYPE = 'ctype1');
-
-COMMENT ON COLLATION schema1.collation1 IS 'This is a collation comment.';
-
-
-ALTER COLLATION schema1.collation1 OWNER TO testrole;`)
+			expectedStatements := []string{
+				"CREATE COLLATION schema1.collation1 (LC_COLLATE = 'collate1', LC_CTYPE = 'ctype1');",
+				"COMMENT ON COLLATION schema1.collation1 IS 'This is a collation comment.';",
+				"ALTER COLLATION schema1.collation1 OWNER TO testrole;"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 })

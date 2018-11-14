@@ -261,24 +261,22 @@ func (toc *TOC) InitializeMetadataEntryMap() {
 	toc.metadataEntryMap["statistics"] = &toc.StatisticsEntries
 }
 
-func (toc *TOC) AddMetadataEntry(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount, section string) {
+type TOCObject interface {
+	GetMetadataEntry(uint64, uint64) (string, MetadataEntry)
+}
+
+type TOCObjectWithMetadata interface {
+	GetMetadataEntry(uint64, uint64) (string, MetadataEntry)
+	FQN() string
+}
+
+func (toc *TOC) AddMetadataEntry(obj TOCObject, start, end uint64) {
+	section, entry := obj.GetMetadataEntry(start, end)
+	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
+}
+
+func (toc *TOC) AddMetadataEntryLongArgs(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount, section string) {
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], MetadataEntry{schema, name, objectType, referenceObject, start, file.ByteCount})
-}
-
-func (toc *TOC) AddGlobalEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, "", start, file, "global")
-}
-
-func (toc *TOC) AddPredataEntry(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, referenceObject, start, file, "predata")
-}
-
-func (toc *TOC) AddPostdataEntry(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, referenceObject, start, file, "postdata")
-}
-
-func (toc *TOC) AddStatisticsEntry(schema string, name string, objectType string, start uint64, file *FileWithByteCount) {
-	toc.AddMetadataEntry(schema, name, objectType, "", start, file, "statistics")
 }
 
 func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string) {

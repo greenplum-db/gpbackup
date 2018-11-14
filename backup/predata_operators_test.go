@@ -8,6 +8,7 @@ import (
 )
 
 var _ = Describe("backup/predata_operators tests", func() {
+	emptyMetadata := backup.ObjectMetadata{}
 	BeforeEach(func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
@@ -21,7 +22,7 @@ var _ = Describe("backup/predata_operators tests", func() {
 			operator = backup.Operator{Oid: 0, Schema: "public", Name: "##", Procedure: "public.path_inter", LeftArgType: "public.path", RightArgType: `public."PATH"`, CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 		})
 		It("prints a basic operator", func() {
-			backup.PrintCreateOperatorStatement(backupfile, toc, operator, backup.ObjectMetadata{})
+			backup.PrintCreateOperatorStatement(backupfile, toc, operator, emptyMetadata)
 
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "##", "OPERATOR")
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR public.## (
@@ -30,12 +31,13 @@ var _ = Describe("backup/predata_operators tests", func() {
 	RIGHTARG = public."PATH"
 );`)
 		})
-		It("prints a full-featured operator", func() {
+		It("prints a full-featured operator with a comment and owner", func() {
 			complexOperator := backup.Operator{Oid: 1, Schema: "testschema", Name: "##", Procedure: "public.path_inter", LeftArgType: "public.path", RightArgType: "public.path", CommutatorOp: "testschema.##", NegatorOp: "testschema.###", RestrictFunction: "eqsel(internal,oid,internal,integer)", JoinFunction: "eqjoinsel(internal,oid,internal,smallint)", CanHash: true, CanMerge: true}
 
 			backup.PrintCreateOperatorStatement(backupfile, toc, complexOperator, operatorMetadata)
 
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR testschema.## (
+			expectedStatements := []string{
+				`CREATE OPERATOR testschema.## (
 	PROCEDURE = public.path_inter,
 	LEFTARG = public.path,
 	RIGHTARG = public.path,
@@ -45,42 +47,30 @@ var _ = Describe("backup/predata_operators tests", func() {
 	JOIN = eqjoinsel(internal,oid,internal,smallint),
 	HASHES,
 	MERGES
-);
-
-COMMENT ON OPERATOR testschema.## (public.path, public.path) IS 'This is an operator comment.';
-
-
-ALTER OPERATOR testschema.## (public.path, public.path) OWNER TO testrole;`)
+);`,
+				"COMMENT ON OPERATOR testschema.## (public.path, public.path) IS 'This is an operator comment.';",
+				"ALTER OPERATOR testschema.## (public.path, public.path) OWNER TO testrole;"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 		It("prints an operator with only a left argument", func() {
 			operator.RightArgType = "-"
 
-			backup.PrintCreateOperatorStatement(backupfile, toc, operator, operatorMetadata)
+			backup.PrintCreateOperatorStatement(backupfile, toc, operator, emptyMetadata)
 
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR public.## (
 	PROCEDURE = public.path_inter,
 	LEFTARG = public.path
-);
-
-COMMENT ON OPERATOR public.## (public.path, NONE) IS 'This is an operator comment.';
-
-
-ALTER OPERATOR public.## (public.path, NONE) OWNER TO testrole;`)
+);`)
 		})
 		It("prints an operator with only a right argument", func() {
 			operator.LeftArgType = "-"
 
-			backup.PrintCreateOperatorStatement(backupfile, toc, operator, operatorMetadata)
+			backup.PrintCreateOperatorStatement(backupfile, toc, operator, emptyMetadata)
 
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR public.## (
 	PROCEDURE = public.path_inter,
 	RIGHTARG = public."PATH"
-);
-
-COMMENT ON OPERATOR public.## (NONE, public."PATH") IS 'This is an operator comment.';
-
-
-ALTER OPERATOR public.## (NONE, public."PATH") OWNER TO testrole;`)
+);`)
 		})
 	})
 	Describe("PrintCreateOperatorFamilyStatements", func() {
@@ -99,17 +89,14 @@ ALTER OPERATOR public.## (NONE, public."PATH") OWNER TO testrole;`)
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, toc, []backup.OperatorFamily{operatorFamily}, metadataMap)
 
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR FAMILY public.testfam USING hash;
-
-COMMENT ON OPERATOR FAMILY public.testfam USING hash IS 'This is an operator family comment.';
-
-
-ALTER OPERATOR FAMILY public.testfam USING hash OWNER TO testrole;`)
+			expectedStatements := []string{"CREATE OPERATOR FAMILY public.testfam USING hash;",
+				"COMMENT ON OPERATOR FAMILY public.testfam USING hash IS 'This is an operator family comment.';",
+				"ALTER OPERATOR FAMILY public.testfam USING hash OWNER TO testrole;"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 	Describe("PrintCreateOperatorClassStatement", func() {
 		var (
-			emptyMetadata backup.ObjectMetadata
 			operatorClass backup.OperatorClass
 			operator1     backup.OperatorClassOperator
 			function1     backup.OperatorClassFunction
@@ -205,14 +192,13 @@ ALTER OPERATOR FAMILY public.testfam USING hash OWNER TO testrole;`)
 			objMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true, false)
 			backup.PrintCreateOperatorClassStatement(backupfile, toc, operatorClass, objMetadata)
 
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE OPERATOR CLASS public.testclass
+			expectedStatements := []string{
+				`CREATE OPERATOR CLASS public.testclass
 	FOR TYPE uuid USING hash AS
-	FUNCTION 1 abs(integer);
-
-COMMENT ON OPERATOR CLASS public.testclass USING hash IS 'This is an operator class comment.';
-
-
-ALTER OPERATOR CLASS public.testclass USING hash OWNER TO testrole;`)
+	FUNCTION 1 abs(integer);`,
+				"COMMENT ON OPERATOR CLASS public.testclass USING hash IS 'This is an operator class comment.';",
+				"ALTER OPERATOR CLASS public.testclass USING hash OWNER TO testrole;"}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 })

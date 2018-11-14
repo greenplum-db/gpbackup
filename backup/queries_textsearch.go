@@ -27,6 +27,18 @@ type TextSearchParser struct {
 	HeadlineFunc string
 }
 
+func (tsp TextSearchParser) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          tsp.Schema,
+			Name:            tsp.Name,
+			ObjectType:      "TEXT SEARCH PARSER",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (tsp TextSearchParser) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_TS_PARSER_OID, Oid: tsp.Oid}
 }
@@ -66,6 +78,18 @@ type TextSearchTemplate struct {
 	LexizeFunc string
 }
 
+func (tst TextSearchTemplate) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          tst.Schema,
+			Name:            tst.Name,
+			ObjectType:      "TEXT SEARCH TEMPLATE",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (tst TextSearchTemplate) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_TS_TEMPLATE_OID, Oid: tst.Oid}
 }
@@ -100,6 +124,18 @@ type TextSearchDictionary struct {
 	Name       string
 	Template   string
 	InitOption string
+}
+
+func (tsd TextSearchDictionary) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          tsd.Schema,
+			Name:            tsd.Name,
+			ObjectType:      "TEXT SEARCH DICTIONARY",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func (tsd TextSearchDictionary) GetUniqueID() UniqueID {
@@ -138,6 +174,18 @@ type TextSearchConfiguration struct {
 	Name         string
 	Parser       string
 	TokenToDicts map[string][]string
+}
+
+func (tsc TextSearchConfiguration) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          tsc.Schema,
+			Name:            tsc.Name,
+			ObjectType:      "TEXT SEARCH CONFIGURATION",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func (tsc TextSearchConfiguration) GetUniqueID() UniqueID {

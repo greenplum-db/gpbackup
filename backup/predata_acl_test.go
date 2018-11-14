@@ -18,6 +18,7 @@ var _ = Describe("backup/predata_acl tests", func() {
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintObjectMetadata", func() {
+		table := backup.Table{Relation: backup.Relation{Schema: "public", Name: "tablename"}}
 		hasAllPrivileges := testutils.DefaultACLForType("anothertestrole", "TABLE")
 		hasMostPrivileges := testutils.DefaultACLForType("testrole", "TABLE")
 		hasMostPrivileges.Trigger = false
@@ -30,28 +31,28 @@ var _ = Describe("backup/predata_acl tests", func() {
 		privilegesWithGrant := []backup.ACL{hasAllPrivilegesWithGrant, hasMostPrivilegesWithGrant, hasSinglePrivilegeWithGrant}
 		It("prints a block with a table comment", func() {
 			tableMetadata := backup.ObjectMetadata{Comment: "This is a table comment."}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';`)
 		})
 		It("prints a block with a table comment with special characters", func() {
 			tableMetadata := backup.ObjectMetadata{Comment: `This is a ta'ble 1+=;,./\>,<@\\n^comment.`}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a ta''ble 1+=;,./\>,<@\\n^comment.';`)
 		})
 		It("prints an ALTER TABLE ... OWNER TO statement to set the table owner", func() {
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole"}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;`)
 		})
 		It("prints a block of REVOKE and GRANT statements", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 REVOKE ALL ON TABLE public.tablename FROM PUBLIC;
@@ -61,7 +62,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 		})
 		It("prints a block of REVOKE and GRANT statements WITH GRANT OPTION", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privilegesWithGrant}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 REVOKE ALL ON TABLE public.tablename FROM PUBLIC;
@@ -71,7 +72,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC WITH GRANT OPTION;`)
 		})
 		It("prints a block of REVOKE and GRANT statements, some with WITH GRANT OPTION, some without", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{hasAllPrivileges, hasMostPrivilegesWithGrant}}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 REVOKE ALL ON TABLE public.tablename FROM PUBLIC;
@@ -80,7 +81,7 @@ GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES ON TABLE public.tablename 
 		})
 		It("prints both an ALTER TABLE ... OWNER TO statement and a table comment", func() {
 			tableMetadata := backup.ObjectMetadata{Comment: "This is a table comment.", Owner: "testrole"}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
@@ -90,7 +91,7 @@ ALTER TABLE public.tablename OWNER TO testrole;`)
 		})
 		It("prints both a block of REVOKE and GRANT statements and an ALTER TABLE ... OWNER TO statement", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges, Owner: "testrole"}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.tablename OWNER TO testrole;
@@ -104,7 +105,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 		})
 		It("prints both a block of REVOKE and GRANT statements and a table comment", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges, Comment: "This is a table comment."}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
@@ -117,7 +118,7 @@ GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 		})
 		It("prints REVOKE and GRANT statements, an ALTER TABLE ... OWNER TO statement, and comments", func() {
 			tableMetadata := backup.ObjectMetadata{Privileges: privileges, Owner: "testrole", Comment: "This is a table comment."}
-			backup.PrintObjectMetadata(backupfile, tableMetadata, "public.tablename", "TABLE")
+			backup.PrintObjectMetadata(backupfile, toc, tableMetadata, table, "")
 			testhelper.ExpectRegexp(buffer, `
 
 COMMENT ON TABLE public.tablename IS 'This is a table comment.';
@@ -133,9 +134,10 @@ GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES ON TABLE public.tablename 
 GRANT TRIGGER ON TABLE public.tablename TO PUBLIC;`)
 		})
 		It("prints SERVER for ALTER and FOREIGN SERVER for GRANT/REVOKE for a foreign server", func() {
+			server := backup.ForeignServer{Name: "foreignserver"}
 			serverPrivileges := testutils.DefaultACLForType("testrole", "FOREIGN SERVER")
 			serverMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{serverPrivileges}, Owner: "testrole"}
-			backup.PrintObjectMetadata(backupfile, serverMetadata, "foreignserver", "FOREIGN SERVER")
+			backup.PrintObjectMetadata(backupfile, toc, serverMetadata, server, "")
 			testhelper.ExpectRegexp(buffer, `
 
 ALTER SERVER foreignserver OWNER TO testrole;
@@ -146,34 +148,36 @@ REVOKE ALL ON FOREIGN SERVER foreignserver FROM testrole;
 GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 		})
 		Context("Views and sequences have owners", func() {
+			view := backup.View{Schema: "public", Name: "viewname"}
+			sequence := backup.Sequence{Relation: backup.Relation{Schema: "public", Name: "sequencename"}}
 			objectMetadata := backup.ObjectMetadata{Owner: "testrole"}
 			AfterEach(func() {
 				testhelper.SetDBVersion(connectionPool, "5.1.0")
 			})
 			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a sequence if version < 6", func() {
 				testhelper.SetDBVersion(connectionPool, "5.0.0")
-				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.sequencename", "SEQUENCE")
+				backup.PrintObjectMetadata(backupfile, toc, objectMetadata, sequence, "public.sequencename")
 				testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.sequencename OWNER TO testrole;`)
 			})
 			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a view if version < 6", func() {
 				testhelper.SetDBVersion(connectionPool, "5.0.0")
-				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.viewname", "VIEW")
+				backup.PrintObjectMetadata(backupfile, toc, objectMetadata, view, "public.viewname")
 				testhelper.ExpectRegexp(buffer, `
 
 ALTER TABLE public.viewname OWNER TO testrole;`)
 			})
 			It("prints an ALTER SEQUENCE ... OWNER TO statement to set the owner for a sequence if version >= 6", func() {
 				testhelper.SetDBVersion(connectionPool, "6.0.0")
-				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.sequencename", "SEQUENCE")
+				backup.PrintObjectMetadata(backupfile, toc, objectMetadata, sequence, "public.sequencename")
 				testhelper.ExpectRegexp(buffer, `
 
 ALTER SEQUENCE public.sequencename OWNER TO testrole;`)
 			})
 			It("prints an ALTER VIEW ... OWNER TO statement to set the owner for a view if version >= 6", func() {
 				testhelper.SetDBVersion(connectionPool, "6.0.0")
-				backup.PrintObjectMetadata(backupfile, objectMetadata, "public.viewname", "VIEW")
+				backup.PrintObjectMetadata(backupfile, toc, objectMetadata, view, "public.viewname")
 				testhelper.ExpectRegexp(buffer, `
 
 ALTER VIEW public.viewname OWNER TO testrole;`)

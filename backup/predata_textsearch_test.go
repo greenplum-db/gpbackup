@@ -33,9 +33,7 @@ var _ = Describe("backup/predata_textsearch tests", func() {
 	END = end_func,
 	LEXTYPES = lextypes_func,
 	HEADLINE = headline_func
-);
-
-COMMENT ON TEXT SEARCH PARSER public.testparser IS 'This is a text search parser comment.';`)
+);`, `COMMENT ON TEXT SEARCH PARSER public.testparser IS 'This is a text search parser comment.';`)
 		})
 	})
 	Describe("PrintCreateTextSearchTemplateStatement", func() {
@@ -47,9 +45,7 @@ COMMENT ON TEXT SEARCH PARSER public.testparser IS 'This is a text search parser
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TEXT SEARCH TEMPLATE public.testtemplate (
 	INIT = dsimple_init,
 	LEXIZE = dsimple_lexize
-);
-
-COMMENT ON TEXT SEARCH TEMPLATE public.testtemplate IS 'This is a text search template comment.';`)
+);`, `COMMENT ON TEXT SEARCH TEMPLATE public.testtemplate IS 'This is a text search template comment.';`)
 		})
 	})
 	Describe("PrintCreateTextSearchDictionaryStatement", func() {
@@ -61,12 +57,7 @@ COMMENT ON TEXT SEARCH TEMPLATE public.testtemplate IS 'This is a text search te
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TEXT SEARCH DICTIONARY public.testdictionary (
 	TEMPLATE = testschema.snowball,
 	language = 'russian', stopwords = 'russian'
-);
-
-COMMENT ON TEXT SEARCH DICTIONARY public.testdictionary IS 'This is a text search dictionary comment.';
-
-
-ALTER TEXT SEARCH DICTIONARY public.testdictionary OWNER TO testrole;`)
+);`, `COMMENT ON TEXT SEARCH DICTIONARY public.testdictionary IS 'This is a text search dictionary comment.';`, `ALTER TEXT SEARCH DICTIONARY public.testdictionary OWNER TO testrole;`)
 		})
 	})
 	Describe("PrintCreateTextSearchConfigurationStatement", func() {
@@ -83,20 +74,15 @@ ALTER TEXT SEARCH DICTIONARY public.testdictionary OWNER TO testrole;`)
 			metadata := testutils.DefaultMetadata("TEXT SEARCH CONFIGURATION", false, true, true, false)
 			backup.PrintCreateTextSearchConfigurationStatement(backupfile, toc, configurations, metadata)
 			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "testconfiguration", "TEXT SEARCH CONFIGURATION")
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TEXT SEARCH CONFIGURATION public.testconfiguration (
+			expectedStatements := []string{`CREATE TEXT SEARCH CONFIGURATION public.testconfiguration (
 	PARSER = pg_catalog."default"
-);
-
-ALTER TEXT SEARCH CONFIGURATION public.testconfiguration
-	ADD MAPPING FOR "asciiword" WITH english_stem;
-
-ALTER TEXT SEARCH CONFIGURATION public.testconfiguration
-	ADD MAPPING FOR "int" WITH simple, english_stem;
-
-COMMENT ON TEXT SEARCH CONFIGURATION public.testconfiguration IS 'This is a text search configuration comment.';
-
-
-ALTER TEXT SEARCH CONFIGURATION public.testconfiguration OWNER TO testrole;`)
+);`, `ALTER TEXT SEARCH CONFIGURATION public.testconfiguration
+	ADD MAPPING FOR "asciiword" WITH english_stem;`,
+				`ALTER TEXT SEARCH CONFIGURATION public.testconfiguration
+	ADD MAPPING FOR "int" WITH simple, english_stem;`,
+				`COMMENT ON TEXT SEARCH CONFIGURATION public.testconfiguration IS 'This is a text search configuration comment.';`,
+				`ALTER TEXT SEARCH CONFIGURATION public.testconfiguration OWNER TO testrole;`}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 })

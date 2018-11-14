@@ -461,15 +461,13 @@ ENCODING 'UTF-8'`)
 			protoMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true, Insert: true}}, Owner: "testrole"}
 
 			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolUntrustedReadWrite, funcInfoMap, protoMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);
-
-
-ALTER PROTOCOL s3 OWNER TO testrole;
-
-
-REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;
+			expectedStatements := []string{
+				"CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);",
+				"ALTER PROTOCOL s3 OWNER TO testrole;",
+				`REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;
 REVOKE ALL ON PROTOCOL s3 FROM testrole;
-GRANT ALL ON PROTOCOL s3 TO testrole;`)
+GRANT ALL ON PROTOCOL s3 TO testrole;`}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {

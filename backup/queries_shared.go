@@ -31,8 +31,24 @@ type Schema struct {
 	Name string
 }
 
+func (s Schema) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          s.Name,
+			Name:            s.Name,
+			ObjectType:      "SCHEMA",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (s Schema) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_NAMESPACE_OID, Oid: s.Oid}
+}
+
+func (s Schema) FQN() string {
+	return s.Name
 }
 
 func GetAllUserSchemas(connectionPool *dbconn.DBConn) []Schema {
@@ -68,8 +84,28 @@ type Constraint struct {
 	IsPartitionParent  bool
 }
 
+func (c Constraint) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          c.Schema,
+			Name:            c.Name,
+			ObjectType:      "CONSTRAINT",
+			ReferenceObject: c.OwningObject,
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (c Constraint) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_CONSTRAINT_OID, Oid: c.Oid}
+}
+
+func (c Constraint) FQN() string {
+	/*
+	 * It is invalid to specify the schema name with the constraint
+	 * even though they are technically part of the parent table's schema
+	 */
+	return c.Name
 }
 
 func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []Constraint {

@@ -39,7 +39,7 @@ var _ = Describe("utils/toc tests", func() {
 		var noInObj, noExObj, noInSchema, noExSchema, noInRelation, noExRelation []string
 		It("returns statement for a single object type", func() {
 			backupfile.ByteCount = commentLen + createLen
-			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"DATABASE"}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
@@ -48,11 +48,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for multiple object types", func() {
 			backupfile.ByteCount = commentLen + createLen
-			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
 			backupfile.ByteCount += role1Len
-			toc.AddMetadataEntry("", "somerole1", "ROLE", "", commentLen+createLen, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somerole1", "ROLE", "", commentLen+createLen, backupfile, "global")
 			backupfile.ByteCount += role2Len
-			toc.AddMetadataEntry("", "somerole2", "ROLE", "", commentLen+createLen+role1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somerole2", "ROLE", "", commentLen+createLen+role1Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement + role1.Statement + role2.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"DATABASE", "ROLE"}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
@@ -61,11 +61,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("does not return a statement type listed in the exclude list", func() {
 			backupfile.ByteCount = commentLen + createLen
-			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
 			backupfile.ByteCount += role1Len
-			toc.AddMetadataEntry("", "somerole1", "ROLE", "", commentLen+createLen, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somerole1", "ROLE", "", commentLen+createLen, backupfile, "global")
 			backupfile.ByteCount += role2Len
-			toc.AddMetadataEntry("", "somerole2", "ROLE", "", commentLen+createLen+role1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somerole2", "ROLE", "", commentLen+createLen+role1Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement + role1.Statement + role2.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, []string{"DATABASE"}, noInSchema, noExSchema, noInRelation, noExRelation)
@@ -74,7 +74,7 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns empty statement when no object types are found", func() {
 			backupfile.ByteCount = commentLen + createLen
-			toc.AddMetadataEntry("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("", "somedatabase", "DATABASE", "", commentLen, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(comment.Statement + create.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"TABLE"}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
@@ -83,11 +83,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for a single object type with matching schema", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "TABLE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "TABLE", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += sequenceLen
-			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, []string{"TABLE"}, noExObj, []string{"schema"}, noExSchema, noInRelation, noExRelation)
@@ -96,11 +96,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for any object type in the include schema", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "TABLE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "TABLE", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += sequenceLen
-			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, []string{"schema"}, noExSchema, noInRelation, noExRelation)
@@ -109,11 +109,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for any object type not in the exclude schema", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "TABLE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "TABLE", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += sequenceLen
-			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, []string{"schema2"}, noInRelation, noExRelation)
@@ -122,11 +122,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for a table matching an included table", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "TABLE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "TABLE", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += sequenceLen
-			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "somesequence", "SEQUENCE", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.table1"}, noExRelation)
@@ -135,7 +135,7 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for a view matching an included view", func() {
 			backupfile.ByteCount = view1Len
-			toc.AddMetadataEntry("schema", "view1", "VIEW", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "view1", "VIEW", "", 0, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(view1.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.view1"}, noExRelation)
@@ -144,7 +144,7 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for a sequence matching an included sequence", func() {
 			backupfile.ByteCount = sequence1Len
-			toc.AddMetadataEntry("schema", "sequence1", "SEQUENCE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "sequence1", "SEQUENCE", "", 0, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(sequence1.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.sequence1"}, noExRelation)
@@ -153,11 +153,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for any object type or reference object not matching an excluded table", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "TABLE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "TABLE", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += sequenceLen
-			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "schema.table2", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "somesequence", "SEQUENCE", "schema.table2", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema.table1"})
@@ -166,13 +166,13 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns no statements for any object type with reference object matching an excluded table", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "TABLE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "TABLE", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += sequenceLen
-			toc.AddMetadataEntry("schema", "somesequence", "SEQUENCE", "schema.table1", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "somesequence", "SEQUENCE", "schema.table1", table1Len+table2Len, backupfile, "global")
 			backupfile.ByteCount += indexLen
-			toc.AddMetadataEntry("schema", "someindex", "INDEX", "schema.table1", table1Len+table2Len+sequenceLen, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "someindex", "INDEX", "schema.table1", table1Len+table2Len+sequenceLen, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + sequence.Statement + index.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema.table1"})
@@ -181,9 +181,9 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns no statements for an excluded view or sequence", func() {
 			backupfile.ByteCount = view1Len
-			toc.AddMetadataEntry("schema", "view1", "VIEW", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "view1", "VIEW", "", 0, backupfile, "global")
 			backupfile.ByteCount += sequence1Len
-			toc.AddMetadataEntry("schema", "sequence1", "SEQUENCE", "", view1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "sequence1", "SEQUENCE", "", view1Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(view1.Statement + sequence1.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema.view1", "schema.sequence1"})
@@ -192,11 +192,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns statement for any object type with matching reference object", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "INDEX", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "INDEX", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += indexLen
-			toc.AddMetadataEntry("schema", "someindex", "INDEX", "schema.table", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "someindex", "INDEX", "schema.table", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + index.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.table"}, noExRelation)
@@ -206,11 +206,11 @@ var _ = Describe("utils/toc tests", func() {
 		})
 		It("returns no statements for a non-relation object with matching name from relation list", func() {
 			backupfile.ByteCount = table1Len
-			toc.AddMetadataEntry("schema", "table1", "TABLE", "", 0, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "table1", "TABLE", "", 0, backupfile, "global")
 			backupfile.ByteCount += table2Len
-			toc.AddMetadataEntry("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema2", "table2", "TABLE", "", table1Len, backupfile, "global")
 			backupfile.ByteCount += sequenceLen
-			toc.AddMetadataEntry("schema", "someindex", "INDEX", "", table1Len+table2Len, backupfile, "global")
+			toc.AddMetadataEntryLongArgs("schema", "someindex", "INDEX", "", table1Len+table2Len, backupfile, "global")
 
 			metadataFile := bytes.NewReader([]byte(table1.Statement + table2.Statement + index.Statement))
 			statements := toc.GetSQLStatementForObjectTypes("global", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.someindex"}, noExRelation)

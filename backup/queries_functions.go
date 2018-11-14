@@ -37,16 +37,28 @@ type Function struct {
 	ExecLocation      string `db:"proexeclocation"`
 }
 
+func (f Function) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	nameWithArgs := fmt.Sprintf("%s(%s)", f.Name, f.IdentArgs)
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          f.Schema,
+			Name:            nameWithArgs,
+			ObjectType:      "FUNCTION",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (f Function) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_PROC_OID, Oid: f.Oid}
 }
 
 func (f Function) FQN() string {
 	/*
-	 * We need to include arguments to differentiate functions with the same name;
-	 * we don't use IdentArgs because we already have Arguments in the funcInfoMap.
+	 * We need to include arguments to differentiate functions with the same name
 	 */
-	return fmt.Sprintf("%s(%s)", utils.MakeFQN(f.Schema, f.Name), f.Arguments)
+	return fmt.Sprintf("%s.%s(%s)", f.Schema, f.Name, f.IdentArgs)
 }
 
 /*
@@ -294,12 +306,33 @@ type Aggregate struct {
 	MInitValIsNull             bool
 }
 
+func (a Aggregate) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	identArgumentsStr := "*"
+	if a.IdentArgs != "" {
+		identArgumentsStr = a.IdentArgs
+	}
+	aggWithArgs := fmt.Sprintf("%s(%s)", a.Name, identArgumentsStr)
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          a.Schema,
+			Name:            aggWithArgs,
+			ObjectType:      "AGGREGATE",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (a Aggregate) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_AGGREGATE_OID, Oid: a.Oid}
 }
 
 func (a Aggregate) FQN() string {
-	return utils.MakeFQN(a.Schema, a.Name)
+	identArgumentsStr := "*"
+	if a.IdentArgs != "" {
+		identArgumentsStr = a.IdentArgs
+	}
+	return fmt.Sprintf("%s.%s(%s)", a.Schema, a.Name, identArgumentsStr)
 }
 
 func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
@@ -483,6 +516,23 @@ type Cast struct {
 	CastMethod     string
 }
 
+func (c Cast) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	castStr := fmt.Sprintf("(%s AS %s)", c.SourceTypeFQN, c.TargetTypeFQN)
+	filterSchema := "pg_catalog"
+	if c.CastMethod == "f" {
+		filterSchema = c.FunctionSchema // Use the function's schema to allow restore filtering
+	}
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          filterSchema,
+			Name:            castStr,
+			ObjectType:      "CAST",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (c Cast) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_CAST_OID, Oid: c.Oid}
 }
@@ -550,8 +600,24 @@ type Extension struct {
 	Schema string
 }
 
+func (e Extension) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            e.Name,
+			ObjectType:      "EXTENSION",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (e Extension) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_EXTENSION_OID, Oid: e.Oid}
+}
+
+func (e Extension) FQN() string {
+	return e.Name
 }
 
 func GetExtensions(connectionPool *dbconn.DBConn) []Extension {
@@ -581,8 +647,24 @@ type ProceduralLanguage struct {
 	Validator uint32 `db:"lanvalidator"`
 }
 
+func (pl ProceduralLanguage) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            pl.Name,
+			ObjectType:      "LANGUAGE",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (pl ProceduralLanguage) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_LANGUAGE_OID, Oid: pl.Oid}
+}
+
+func (pl ProceduralLanguage) FQN() string {
+	return pl.Name
 }
 
 func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage {
@@ -636,8 +718,24 @@ type Conversion struct {
 	IsDefault          bool `db:"condefault"`
 }
 
+func (c Conversion) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          c.Schema,
+			Name:            c.Name,
+			ObjectType:      "CONVERSION",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (c Conversion) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_CONVERSION_OID, Oid: c.Oid}
+}
+
+func (c Conversion) FQN() string {
+	return utils.MakeFQN(c.Schema, c.Name)
 }
 
 func GetConversions(connectionPool *dbconn.DBConn) []Conversion {
@@ -670,6 +768,18 @@ type ForeignDataWrapper struct {
 	Handler   uint32
 	Validator uint32
 	Options   string
+}
+
+func (fdw ForeignDataWrapper) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            fdw.Name,
+			ObjectType:      "FOREIGN DATA WRAPPER",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
 }
 
 func (fdw ForeignDataWrapper) GetUniqueID() UniqueID {
@@ -710,6 +820,18 @@ type ForeignServer struct {
 	Options            string
 }
 
+func (fs ForeignServer) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            fs.Name,
+			ObjectType:      "FOREIGN SERVER",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (fs ForeignServer) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_FOREIGN_SERVER_OID, Oid: fs.Oid}
 }
@@ -748,12 +870,25 @@ type UserMapping struct {
 	Options string
 }
 
+func (um UserMapping) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          "",
+			Name:            um.FQN(),
+			ObjectType:      "USER MAPPING",
+			ReferenceObject: "",
+			StartByte:       start,
+			EndByte:         end,
+		}
+}
+
 func (um UserMapping) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_USER_MAPPING_OID, Oid: um.Oid}
 }
 
 func (um UserMapping) FQN() string {
-	return um.User
+	// User mappings don't have a unique name, so we construct an arbitrary identifier
+	return fmt.Sprintf("%s ON %s", um.User, um.Server)
 }
 
 func GetUserMappings(connectionPool *dbconn.DBConn) []UserMapping {
