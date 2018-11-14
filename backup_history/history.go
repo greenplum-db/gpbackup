@@ -87,7 +87,7 @@ func (history *History) AddBackupConfig(backupConfig *BackupConfig) {
 	})
 }
 
-func WriteBackupHistory(historyFilePath string, currentBackupConfig *BackupConfig) {
+func WriteBackupHistory(historyFilePath string, currentBackupConfig *BackupConfig) error {
 	lock := lockHistoryFile()
 	defer func() {
 		_ = lock.Unlock()
@@ -98,7 +98,9 @@ func WriteBackupHistory(historyFilePath string, currentBackupConfig *BackupConfi
 	if iohelper.FileExistsAndIsReadable(historyFilePath) {
 		var err error
 		history, err = NewHistory(historyFilePath)
-		gplog.FatalOnError(err)
+		if err != nil {
+			return err
+		}
 	} else {
 		history = &History{BackupConfigs: make([]BackupConfig, 0)}
 	}
@@ -106,7 +108,17 @@ func WriteBackupHistory(historyFilePath string, currentBackupConfig *BackupConfi
 		gplog.Verbose("No existing backups found. Creating new backup history file.")
 	}
 	history.AddBackupConfig(currentBackupConfig)
-	history.writeToFileAndMakeReadOnly(historyFilePath)
+	return history.WriteToFileAndMakeReadOnly(historyFilePath)
+}
+
+func (history *History) RewriteHistoryFile(historyFilePath string) error {
+	lock := lockHistoryFile()
+	defer func() {
+		_ = lock.Unlock()
+	}()
+
+	err := history.WriteToFileAndMakeReadOnly(historyFilePath)
+	return err
 }
 
 func lockHistoryFile() lockfile.Lockfile {
@@ -120,18 +132,29 @@ func lockHistoryFile() lockfile.Lockfile {
 	return lock
 }
 
-func (history *History) writeToFileAndMakeReadOnly(filename string) {
+func (history *History) WriteToFileAndMakeReadOnly(filename string) error {
 	_, err := operating.System.Stat(filename)
-	fileExists := err == nil
+	fileExists := (err == nil)
 	if fileExists {
 		err = operating.System.Chmod(filename, 0644)
-		gplog.FatalOnError(err)
+		if err != nil {
+			return err
+		}
+	}
+	var historyFileContents []byte
+	historyFileContents, err = yaml.Marshal(history)
+	if err != nil {
+		return err
 	}
 	historyFile := iohelper.MustOpenFileForWriting(filename)
-	historyFileContents, err := yaml.Marshal(history)
-	gplog.FatalOnError(err)
 	_, err = historyFile.Write(historyFileContents)
-	gplog.FatalOnError(err)
+	if err != nil {
+		return err
+	}
 	err = operating.System.Chmod(filename, 0444)
-	gplog.FatalOnError(err)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

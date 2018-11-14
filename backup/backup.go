@@ -188,7 +188,8 @@ func DoBackup() {
 		}
 	}
 
-	backup_history.WriteBackupHistory(globalFPInfo.GetBackupHistoryFilePath(), &backupReport.BackupConfig)
+	err := backup_history.WriteBackupHistory(globalFPInfo.GetBackupHistoryFilePath(), &backupReport.BackupConfig)
+	gplog.FatalOnError(err)
 }
 
 func backupGlobal(metadataFile *utils.FileWithByteCount) {

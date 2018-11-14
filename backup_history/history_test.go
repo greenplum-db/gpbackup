@@ -2,6 +2,7 @@ package backup_history_test
 
 import (
 	"errors"
+	"io/ioutil"
 	"os"
 
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
@@ -13,6 +14,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"gopkg.in/yaml.v2"
 )
 
@@ -20,39 +22,88 @@ var _ bool = Describe("backup/history tests", func() {
 	var testConfig1, testConfig2, testConfig3 backup_history.BackupConfig
 	var historyFilePath = "/tmp/history_file.yaml"
 
-	BeforeEach(func() {
-		testConfig1 = backup_history.BackupConfig{
-			DatabaseName:     "testdb1",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{},
-			IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []backup_history.RestorePlanEntry{},
-			Timestamp:        "timestamp1",
+	testConfig1 = backup_history.BackupConfig{
+		DatabaseName:     "testdb1",
+		ExcludeRelations: []string{},
+		ExcludeSchemas:   []string{},
+		IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
+		IncludeSchemas:   []string{},
+		RestorePlan:      []backup_history.RestorePlanEntry{},
+		Timestamp:        "timestamp1",
+	}
+	testConfig2 = backup_history.BackupConfig{
+		DatabaseName:     "testdb2",
+		ExcludeRelations: []string{},
+		ExcludeSchemas:   []string{"public"},
+		IncludeRelations: []string{},
+		IncludeSchemas:   []string{},
+		RestorePlan:      []backup_history.RestorePlanEntry{},
+		Timestamp:        "timestamp2",
+	}
+	testConfig3 = backup_history.BackupConfig{
+		DatabaseName:     "testdb3",
+		ExcludeRelations: []string{},
+		ExcludeSchemas:   []string{"public"},
+		IncludeRelations: []string{},
+		IncludeSchemas:   []string{},
+		RestorePlan:      []backup_history.RestorePlanEntry{},
+		Timestamp:        "timestamp3",
+	}
+
+	Describe("WriteToFileAndMakeReadOnly", func() {
+		var fileInfo os.FileInfo
+
+		historyWithEntries := backup_history.History{
+			BackupConfigs: []backup_history.BackupConfig{testConfig1, testConfig2},
 		}
-		testConfig2 = backup_history.BackupConfig{
-			DatabaseName:     "testdb2",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{"public"},
-			IncludeRelations: []string{},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []backup_history.RestorePlanEntry{},
-			Timestamp:        "timestamp2",
-		}
-		testConfig3 = backup_history.BackupConfig{
-			DatabaseName:     "testdb3",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{"public"},
-			IncludeRelations: []string{},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []backup_history.RestorePlanEntry{},
-			Timestamp:        "timestamp3",
-		}
+		AfterEach(func() {
+			os.Remove(historyFilePath)
+		})
+		It("makes the file readonly after it is written", func() {
+			err := historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			fileInfo, err = os.Stat(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fileInfo.Mode().Perm()).To(Equal(os.FileMode(0444)))
+		})
+		It("writes file when file does not exist", func() {
+			os.Remove(historyFilePath)
+
+			err := historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = os.Stat(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("writes file when file exists and is writeable", func() {
+			err := ioutil.WriteFile(historyFilePath, []byte{}, 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			resultHistory, err := backup_history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			structmatcher.ExpectStructsToMatch(&historyWithEntries, resultHistory)
+		})
+		It("writes file when file exists and is readonly ", func() {
+			err := ioutil.WriteFile(historyFilePath, []byte{}, 0444)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			resultHistory, err := backup_history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			structmatcher.ExpectStructsToMatch(&historyWithEntries, resultHistory)
+		})
 	})
 	Describe("NewHistory", func() {
 		It("creates a history object with entries from the file when history file exists", func() {
 			historyWithEntries := backup_history.History{
-				BackupConfigs: []backup_history.BackupConfig{testConfig1, testConfig2}}
+				BackupConfigs: []backup_history.BackupConfig{testConfig1, testConfig2},
+			}
 			historyFileContents, _ := yaml.Marshal(historyWithEntries)
 			fileHandle := iohelper.MustOpenFileForWriting(historyFilePath)
 			fileHandle.Write(historyFileContents)
@@ -94,19 +145,56 @@ var _ bool = Describe("backup/history tests", func() {
 				history, err := backup_history.NewHistory("/tempfile")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(history).To(Equal(&backup_history.History{BackupConfigs: make([]backup_history.BackupConfig, 0)}))
-
 			})
 		})
-
 	})
 	Describe("AddBackupConfig", func() {
 		It("adds the most recent history entry and keeps the list sorted", func() {
-			testHistory := backup_history.History{BackupConfigs: []backup_history.BackupConfig{testConfig3, testConfig1}}
+			testHistory := backup_history.History{
+				BackupConfigs: []backup_history.BackupConfig{testConfig3, testConfig1},
+			}
 
 			testHistory.AddBackupConfig(&testConfig2)
 
-			expectedHistory := backup_history.History{BackupConfigs: []backup_history.BackupConfig{testConfig3, testConfig2, testConfig1}}
+			expectedHistory := backup_history.History{
+				BackupConfigs: []backup_history.BackupConfig{testConfig3, testConfig2, testConfig1},
+			}
 			structmatcher.ExpectStructsToMatch(&expectedHistory, &testHistory)
+		})
+	})
+	Describe("WriteBackupHistory", func() {
+		AfterEach(func() {
+			os.Remove(historyFilePath)
+		})
+		It("appends new config when file exists", func() {
+			historyWithEntries := backup_history.History{
+				BackupConfigs: []backup_history.BackupConfig{testConfig2, testConfig1},
+			}
+			historyFileContents, _ := yaml.Marshal(historyWithEntries)
+			fileHandle := iohelper.MustOpenFileForWriting(historyFilePath)
+			fileHandle.Write(historyFileContents)
+			fileHandle.Close()
+
+			err := backup_history.WriteBackupHistory(historyFilePath, &testConfig3)
+			Expect(err).ToNot(HaveOccurred())
+
+			resultHistory, err := backup_history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			expectedHistory := backup_history.History{
+				BackupConfigs: []backup_history.BackupConfig{testConfig3, testConfig2, testConfig1},
+			}
+			structmatcher.ExpectStructsToMatch(&expectedHistory, resultHistory)
+		})
+		It("writes file with new config when file does not exist", func() {
+			os.Remove(historyFilePath)
+			err := backup_history.WriteBackupHistory(historyFilePath, &testConfig3)
+			Expect(err).ToNot(HaveOccurred())
+
+			resultHistory, err := backup_history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			expectedHistory := backup_history.History{BackupConfigs: []backup_history.BackupConfig{testConfig3}}
+			structmatcher.ExpectStructsToMatch(&expectedHistory, resultHistory)
+			Expect(testLogfile).To(gbytes.Say("No existing backups found. Creating new backup history file."))
 		})
 	})
 })
