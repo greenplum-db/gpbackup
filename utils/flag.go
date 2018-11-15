@@ -65,16 +65,6 @@ func CheckExclusiveFlags(flags *pflag.FlagSet, flagNames ...string) {
  */
 
 /*
- * Restoring a future-dated backup is allowed (e.g. the backup was taken in a
- * different time zone that is ahead of the restore time zone), so only check
- * format, not whether the timestamp is earlier than the current time.
- */
-func IsValidTimestamp(timestamp string) bool {
-	timestampFormat := regexp.MustCompile(`^([0-9]{14})$`)
-	return timestampFormat.MatchString(timestamp)
-}
-
-/*
  * Convert arguments that contain a single dash to double dashes for backward
  * compatibility.
  */

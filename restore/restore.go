@@ -71,7 +71,7 @@ func DoValidation(cmd *cobra.Command) {
 	gplog.FatalOnError(err)
 	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
-	if !utils.IsValidTimestamp(MustGetFlagString(utils.TIMESTAMP)) {
+	if !backup_filepath.IsValidTimestamp(MustGetFlagString(utils.TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", MustGetFlagString(utils.TIMESTAMP)), "")
 	}
 }

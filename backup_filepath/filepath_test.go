@@ -136,5 +136,27 @@ var _ = Describe("filepath tests", func() {
 			defer testhelper.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
 			Expect(backup_filepath.ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
 		})
+		Describe("IsValidTimestamp", func() {
+			It("allows a valid timestamp", func() {
+				timestamp := "20170101010101"
+				isValid := backup_filepath.IsValidTimestamp(timestamp)
+				Expect(isValid).To(BeTrue())
+			})
+			It("invalidates a non-numeric timestamp", func() {
+				timestamp := "2017ababababab"
+				isValid := backup_filepath.IsValidTimestamp(timestamp)
+				Expect(isValid).To(BeFalse())
+			})
+			It("invalidates a timestamp that is too short", func() {
+				timestamp := "201701010101"
+				isValid := backup_filepath.IsValidTimestamp(timestamp)
+				Expect(isValid).To(BeFalse())
+			})
+			It("invalidates a timestamp that is too long", func() {
+				timestamp := "2017010101010101"
+				isValid := backup_filepath.IsValidTimestamp(timestamp)
+				Expect(isValid).To(BeFalse())
+			})
+		})
 	})
 })

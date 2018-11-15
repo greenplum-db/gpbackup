@@ -109,7 +109,7 @@ func ValidateFlagValues() {
 	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
 	ValidateCompressionLevel(MustGetFlagInt(utils.COMPRESSION_LEVEL))
-	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !utils.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
+	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !backup_filepath.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.",
 			MustGetFlagString(utils.FROM_TIMESTAMP)), "")
 	}

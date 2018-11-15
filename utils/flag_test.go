@@ -12,28 +12,6 @@ import (
 )
 
 var _ = Describe("utils/flag tests", func() {
-	Context("IsValidTimestamp", func() {
-		It("allows a valid timestamp", func() {
-			timestamp := "20170101010101"
-			isValid := utils.IsValidTimestamp(timestamp)
-			Expect(isValid).To(BeTrue())
-		})
-		It("invalidates a non-numeric timestamp", func() {
-			timestamp := "2017ababababab"
-			isValid := utils.IsValidTimestamp(timestamp)
-			Expect(isValid).To(BeFalse())
-		})
-		It("invalidates a timestamp that is too short", func() {
-			timestamp := "201701010101"
-			isValid := utils.IsValidTimestamp(timestamp)
-			Expect(isValid).To(BeFalse())
-		})
-		It("invalidates a timestamp that is too long", func() {
-			timestamp := "2017010101010101"
-			isValid := utils.IsValidTimestamp(timestamp)
-			Expect(isValid).To(BeFalse())
-		})
-	})
 	Context("Flag parsing functions ", func() {
 		var flagSet *pflag.FlagSet
 		BeforeEach(func() {

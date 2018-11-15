@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -38,6 +39,16 @@ func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestam
 		backupFPInfo.SegDirMap[content] = segment.DataDir
 	}
 	return backupFPInfo
+}
+
+/*
+ * Restoring a future-dated backup is allowed (e.g. the backup was taken in a
+ * different time zone that is ahead of the restore time zone), so only check
+ * format, not whether the timestamp is earlier than the current time.
+ */
+func IsValidTimestamp(timestamp string) bool {
+	timestampFormat := regexp.MustCompile(`^([0-9]{14})$`)
+	return timestampFormat.MatchString(timestamp)
 }
 
 func (backupFPInfo *FilePathInfo) IsUserSpecifiedBackupDir() bool {
