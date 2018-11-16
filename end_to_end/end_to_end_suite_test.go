@@ -54,7 +54,7 @@ func gpbackup(gpbackupPath string, backupHelperPath string, args ...string) stri
 		mustRunCommand(command)
 		os.Chdir("end_to_end")
 	}
-	args = append([]string{"--dbname", "testdb"}, args...)
+	args = append([]string{"--verbose", "--dbname", "testdb"}, args...)
 	command := exec.Command(gpbackupPath, args...)
 	output := mustRunCommand(command)
 	r := regexp.MustCompile(`Backup Timestamp = (\d{14})`)
@@ -68,7 +68,7 @@ func gprestore(gprestorePath string, restoreHelperPath string, timestamp string,
 		mustRunCommand(command)
 		os.Chdir("end_to_end")
 	}
-	args = append([]string{"--timestamp", timestamp}, args...)
+	args = append([]string{"--verbose", "--timestamp", timestamp}, args...)
 	command := exec.Command(gprestorePath, args...)
 	output := mustRunCommand(command)
 	return output
@@ -854,7 +854,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			backupdir := filepath.Join(custom_backup_dir, "leaf_partition_data") // Must be unique
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--backup-dir", backupdir)
 			output := gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
-			Expect(string(output)).To(ContainSubstring("Tables restored:  30 / 30"))
+			Expect(string(output)).To(ContainSubstring("table 30 of 30"))
 
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)

@@ -13,22 +13,21 @@ import (
 
 var _ = Describe("backup integration tests", func() {
 	Describe("ConstructImplicitIndexNames", func() {
-		It("returns an empty map if there are no implicit indexes", func() {
+		It("returns an empty string if there are no implicit indexes", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
 
 			indexNameSet := backup.ConstructImplicitIndexNames(connectionPool)
 
-			Expect(indexNameSet.Length()).To(Equal(0))
+			Expect(indexNameSet).To(Equal(""))
 		})
-		It("returns a map of all implicit indexes", func() {
+		It("returns a string of all implicit indexes", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int UNIQUE)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
 
 			indexNameSet := backup.ConstructImplicitIndexNames(connectionPool)
 
-			Expect(indexNameSet.Length()).To(Equal(1))
-			Expect(indexNameSet.MatchesFilter("public.simple_table_i_key")).To(BeFalse()) // False because it is an exclude set
+			Expect(indexNameSet).To(Equal("'public.simple_table_i_key'"))
 		})
 	})
 	Describe("GetIndex", func() {
@@ -60,21 +59,31 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&index2, &results[1], "Oid")
 		})
-		It("returns a slice of multiple indexes, excluding implicit indexes", func() {
+		It("returns a slice of multiple indexes, including implicit indexes created by constraints", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int, j int, k int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table CASCADE")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.simple_table ADD CONSTRAINT test_constraint UNIQUE (i, k)")
-			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx1 ON public.simple_table(i)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE UNIQUE INDEX simple_table_idx1 ON public.simple_table(i)")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx2 ON public.simple_table(j)")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx1 ON public.simple_table USING btree (i)"}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE UNIQUE INDEX simple_table_idx1 ON public.simple_table USING btree (i)"}
 			index2 := backup.IndexDefinition{Oid: 1, Name: "simple_table_idx2", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx2 ON public.simple_table USING btree (j)"}
 
 			results := backup.GetIndexes(connectionPool)
+			supportsConstraint := make([]backup.IndexDefinition, 0)
+			userIndex := make([]backup.IndexDefinition, 0)
+			for _, indexDef := range results {
+				if indexDef.SupportsConstraint {
+					supportsConstraint = append(supportsConstraint, indexDef)
+				} else {
+					userIndex = append(userIndex, indexDef)
+				}
+			}
 
-			Expect(results).To(HaveLen(2))
-			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
-			structmatcher.ExpectStructsToMatchExcluding(&index2, &results[1], "Oid")
+			Expect(userIndex).To(HaveLen(2))
+			Expect(supportsConstraint).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &userIndex[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&index2, &userIndex[1], "Oid")
 		})
 		It("returns a slice of indexes for only partition parent tables", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part (id int, date date, amt decimal(10,2)) DISTRIBUTED BY (id)

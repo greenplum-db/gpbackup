@@ -13,22 +13,24 @@ import (
 func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
 	for _, index := range indexes {
 		start := metadataFile.ByteCount
-		section, entry := index.GetMetadataEntry()
+		if !index.SupportsConstraint {
+			section, entry := index.GetMetadataEntry()
 
-		metadataFile.MustPrintf("\n\n%s;", index.Def)
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			metadataFile.MustPrintf("\n\n%s;", index.Def)
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
-		indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
-		if index.Tablespace != "" {
-			start := metadataFile.ByteCount
-			metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace)
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		}
-		tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
-		if index.IsClustered {
-			start := metadataFile.ByteCount
-			metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
+			if index.Tablespace != "" {
+				start := metadataFile.ByteCount
+				metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace)
+				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			}
+			tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
+			if index.IsClustered {
+				start := metadataFile.ByteCount
+				metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
+				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			}
 		}
 		PrintObjectMetadata(metadataFile, toc, indexMetadata[index.GetUniqueID()], index, "")
 	}
