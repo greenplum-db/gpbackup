@@ -56,12 +56,13 @@ func PrintStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, obj 
 	for _, statement := range statements {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s\n", statement)
-		toc.AddMetadataEntry(obj, start, metadataFile.ByteCount)
+		section, entry := obj.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 }
 
 func PrintObjectMetadata(file *utils.FileWithByteCount, toc *utils.TOC, metadata ObjectMetadata, obj utils.TOCObjectWithMetadata, owningTable string) {
-	_, entry := obj.GetMetadataEntry(0, 0)
+	_, entry := obj.GetMetadataEntry()
 	if entry.ObjectType == "DATABASE METADATA" {
 		entry.ObjectType = "DATABASE"
 	}
@@ -478,7 +479,8 @@ func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc
 		}
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintln("\n\n" + strings.Join(statements, "\n"))
-		toc.AddMetadataEntry(priv, start, metadataFile.ByteCount)
+		section, entry := priv.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 }
 

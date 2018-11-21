@@ -27,15 +27,15 @@ type TextSearchParser struct {
 	HeadlineFunc string
 }
 
-func (tsp TextSearchParser) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (tsp TextSearchParser) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          tsp.Schema,
 			Name:            tsp.Name,
 			ObjectType:      "TEXT SEARCH PARSER",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -78,15 +78,15 @@ type TextSearchTemplate struct {
 	LexizeFunc string
 }
 
-func (tst TextSearchTemplate) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (tst TextSearchTemplate) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          tst.Schema,
 			Name:            tst.Name,
 			ObjectType:      "TEXT SEARCH TEMPLATE",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -126,15 +126,15 @@ type TextSearchDictionary struct {
 	InitOption string
 }
 
-func (tsd TextSearchDictionary) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (tsd TextSearchDictionary) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          tsd.Schema,
 			Name:            tsd.Name,
 			ObjectType:      "TEXT SEARCH DICTIONARY",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -176,15 +176,15 @@ type TextSearchConfiguration struct {
 	TokenToDicts map[string][]string
 }
 
-func (tsc TextSearchConfiguration) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (tsc TextSearchConfiguration) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          tsc.Schema,
 			Name:            tsc.Name,
 			ObjectType:      "TEXT SEARCH CONFIGURATION",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

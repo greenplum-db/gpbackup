@@ -110,15 +110,15 @@ type ExternalProtocol struct {
 	Validator     uint32 `db:"ptcvalidatorfn"`
 }
 
-func (p ExternalProtocol) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (p ExternalProtocol) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            p.Name,
 			ObjectType:      "PROTOCOL",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -160,15 +160,15 @@ type PartitionInfo struct {
 	IsExternal             bool
 }
 
-func (pi PartitionInfo) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (pi PartitionInfo) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          pi.ParentSchema,
 			Name:            pi.ParentRelationName,
 			ObjectType:      "EXCHANGE PARTITION",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

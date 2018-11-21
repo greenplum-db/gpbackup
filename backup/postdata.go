@@ -13,19 +13,22 @@ import (
 func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
 	for _, index := range indexes {
 		start := metadataFile.ByteCount
+		section, entry := index.GetMetadataEntry()
+
 		metadataFile.MustPrintf("\n\n%s;", index.Def)
-		toc.AddMetadataEntry(index, start, metadataFile.ByteCount)
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+
 		indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
 		if index.Tablespace != "" {
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace)
-			toc.AddMetadataEntry(index, start, metadataFile.ByteCount)
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		}
 		tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
 		if index.IsClustered {
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
-			toc.AddMetadataEntry(index, start, metadataFile.ByteCount)
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		}
 		PrintObjectMetadata(metadataFile, toc, indexMetadata[index.GetUniqueID()], index, "")
 	}
@@ -35,8 +38,9 @@ func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 	for _, rule := range rules {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s", rule.Def)
-		toc.AddMetadataEntry(rule, start, metadataFile.ByteCount)
 
+		section, entry := rule.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		tableFQN := utils.MakeFQN(rule.OwningSchema, rule.OwningTable)
 		PrintObjectMetadata(metadataFile, toc, ruleMetadata[rule.GetUniqueID()], rule, tableFQN)
 	}
@@ -46,8 +50,9 @@ func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *ut
 	for _, trigger := range triggers {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s;", trigger.Def)
-		toc.AddMetadataEntry(trigger, start, metadataFile.ByteCount)
 
+		section, entry := trigger.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		tableFQN := utils.MakeFQN(trigger.OwningSchema, trigger.OwningTable)
 		PrintObjectMetadata(metadataFile, toc, triggerMetadata[trigger.GetUniqueID()], trigger, tableFQN)
 	}
@@ -56,12 +61,15 @@ func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *ut
 func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, eventTriggers []EventTrigger, eventTriggerMetadata MetadataMap) {
 	for _, eventTrigger := range eventTriggers {
 		start := metadataFile.ByteCount
+		section, entry := eventTrigger.GetMetadataEntry()
+
 		metadataFile.MustPrintf("\n\nCREATE EVENT TRIGGER %s\nON %s", eventTrigger.Name, eventTrigger.Event)
 		if eventTrigger.EventTags != "" {
 			metadataFile.MustPrintf("\nWHEN TAG IN (%s)", eventTrigger.EventTags)
 		}
 		metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
-		toc.AddMetadataEntry(eventTrigger, start, metadataFile.ByteCount)
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+
 		if eventTrigger.Enabled != "O" {
 			var enableOption string
 			switch eventTrigger.Enabled {
@@ -76,7 +84,7 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 			}
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\nALTER EVENT TRIGGER %s %s;", eventTrigger.Name, enableOption)
-			toc.AddMetadataEntry(eventTrigger, start, metadataFile.ByteCount)
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		}
 		PrintObjectMetadata(metadataFile, toc, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger, "")
 	}

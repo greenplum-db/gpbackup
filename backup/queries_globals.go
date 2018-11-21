@@ -17,15 +17,15 @@ type SessionGUCs struct {
 	ClientEncoding string `db:"client_encoding"`
 }
 
-func (sg SessionGUCs) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (sg SessionGUCs) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            "",
 			ObjectType:      "SESSION GUCS",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -46,15 +46,15 @@ type Database struct {
 	Encoding   string
 }
 
-func (db Database) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (db Database) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            db.Name,
 			ObjectType:      "DATABASE METADATA",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -140,15 +140,15 @@ type ResourceQueue struct {
 	MemoryLimit      string
 }
 
-func (rq ResourceQueue) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (rq ResourceQueue) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            rq.Name,
 			ObjectType:      "RESOURCE QUEUE",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -202,15 +202,15 @@ type ResourceGroup struct {
 	Cpuset            string
 }
 
-func (rg ResourceGroup) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (rg ResourceGroup) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            rg.Name,
 			ObjectType:      "RESOURCE GROUP",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -285,15 +285,15 @@ type Role struct {
 	TimeConstraints []TimeConstraint
 }
 
-func (r Role) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (r Role) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            r.Name,
 			ObjectType:      "ROLE",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -361,15 +361,15 @@ type RoleGUC struct {
 	Config   string
 }
 
-func (rg RoleGUC) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (rg RoleGUC) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            rg.RoleName,
 			ObjectType:      "ROLE GUCS",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -452,15 +452,15 @@ type RoleMember struct {
 	IsAdmin bool
 }
 
-func (rm RoleMember) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (rm RoleMember) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            rm.Member,
 			ObjectType:      "ROLE GRANT",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -488,15 +488,15 @@ type Tablespace struct {
 	Options          string
 }
 
-func (t Tablespace) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (t Tablespace) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "global",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            t.Tablespace,
 			ObjectType:      "TABLESPACE",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

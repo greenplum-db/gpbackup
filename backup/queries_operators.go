@@ -28,15 +28,15 @@ type Operator struct {
 	CanMerge         bool
 }
 
-func (o Operator) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (o Operator) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          o.Schema,
 			Name:            o.Name,
 			ObjectType:      "OPERATOR",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -116,15 +116,15 @@ type OperatorFamily struct {
 	IndexMethod string
 }
 
-func (opf OperatorFamily) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (opf OperatorFamily) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          opf.Schema,
 			Name:            opf.Name,
 			ObjectType:      "OPERATOR FAMILY",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -167,15 +167,15 @@ type OperatorClass struct {
 	Functions    []OperatorClassFunction
 }
 
-func (opc OperatorClass) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (opc OperatorClass) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          opc.Schema,
 			Name:            opc.Name,
 			ObjectType:      "OPERATOR CLASS",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

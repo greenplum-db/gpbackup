@@ -43,7 +43,8 @@ func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		}
 		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef)
 
-		toc.AddMetadataEntry(constraint, start, metadataFile.ByteCount)
+		section, entry := constraint.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, conMetadata[constraint.GetUniqueID()], constraint, constraint.OwningObject)
 	}
 }
@@ -55,7 +56,8 @@ func PrintCreateSchemaStatements(metadataFile *utils.FileWithByteCount, toc *uti
 		if schema.Name != "public" {
 			metadataFile.MustPrintf("\nCREATE SCHEMA %s;", schema.Name)
 		}
-		toc.AddMetadataEntry(schema, start, metadataFile.ByteCount)
+		section, entry := schema.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, schemaMetadata[schema.GetUniqueID()], schema, "")
 	}
 }

@@ -51,7 +51,9 @@ CREATE OPERATOR %s.%s (
 	PROCEDURE = %s,
 	%s
 );`, operator.Schema, operator.Name, operator.Procedure, strings.Join(optionalFields, ",\n\t"))
-	toc.AddMetadataEntry(operator, start, metadataFile.ByteCount)
+
+	section, entry := operator.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, operatorMetadata, operator, "")
 }
 
@@ -63,7 +65,9 @@ func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, 
 	for _, operatorFamily := range operatorFamilies {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nCREATE OPERATOR FAMILY %s;", operatorFamily.FQN())
-		toc.AddMetadataEntry(operatorFamily, start, metadataFile.ByteCount)
+
+		section, entry := operatorFamily.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, operatorFamilyMetadata[operatorFamily.GetUniqueID()], operatorFamily, "")
 	}
 }
@@ -111,6 +115,8 @@ func PrintCreateOperatorClassStatement(metadataFile *utils.FileWithByteCount, to
 		opClassClauses = append(opClassClauses, fmt.Sprintf("STORAGE %s", storageType))
 	}
 	metadataFile.MustPrintf(" AS\n\t%s;", strings.Join(opClassClauses, ",\n\t"))
-	toc.AddMetadataEntry(operatorClass, start, metadataFile.ByteCount)
+
+	section, entry := operatorClass.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, operatorClassMetadata, operatorClass, "")
 }

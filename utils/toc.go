@@ -262,21 +262,18 @@ func (toc *TOC) InitializeMetadataEntryMap() {
 }
 
 type TOCObject interface {
-	GetMetadataEntry(uint64, uint64) (string, MetadataEntry)
+	GetMetadataEntry() (string, MetadataEntry)
 }
 
 type TOCObjectWithMetadata interface {
-	GetMetadataEntry(uint64, uint64) (string, MetadataEntry)
+	GetMetadataEntry() (string, MetadataEntry)
 	FQN() string
 }
 
-func (toc *TOC) AddMetadataEntry(obj TOCObject, start, end uint64) {
-	section, entry := obj.GetMetadataEntry(start, end)
+func (toc *TOC) AddMetadataEntry(section string, entry MetadataEntry, start, end uint64) {
+	entry.StartByte = start
+	entry.EndByte = end
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
-}
-
-func (toc *TOC) AddMetadataEntryLongArgs(schema string, name string, objectType string, referenceObject string, start uint64, file *FileWithByteCount, section string) {
-	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], MetadataEntry{schema, name, objectType, referenceObject, start, file.ByteCount})
 }
 
 func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string) {

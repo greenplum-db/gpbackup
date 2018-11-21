@@ -21,8 +21,9 @@ func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	metadataFile.MustPrintf("LANGUAGE %s", funcDef.Language)
 	PrintFunctionModifiers(metadataFile, funcDef)
 	metadataFile.MustPrintln(";")
-	toc.AddMetadataEntry(funcDef, start, metadataFile.ByteCount)
 
+	section, entry := funcDef.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, funcMetadata, funcDef, "")
 }
 
@@ -161,7 +162,8 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *u
 	}
 	metadataFile.MustPrintln("\n);")
 
-	toc.AddMetadataEntry(aggDef, start, metadataFile.ByteCount)
+	section, entry := aggDef.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, aggMetadata, aggDef, "")
 }
 
@@ -186,7 +188,8 @@ func PrintCreateCastStatement(metadataFile *utils.FileWithByteCount, toc *utils.
 	}
 	metadataFile.MustPrintf(";")
 
-	toc.AddMetadataEntry(castDef, start, metadataFile.ByteCount)
+	section, entry := castDef.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, castMetadata, castDef, "")
 }
 
@@ -194,7 +197,9 @@ func PrintCreateExtensionStatements(metadataFile *utils.FileWithByteCount, toc *
 	for _, extensionDef := range extensionDefs {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nSET search_path=%s,pg_catalog;\nCREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;\nSET search_path=pg_catalog;", extensionDef.Schema, extensionDef.Name, extensionDef.Schema)
-		toc.AddMetadataEntry(extensionDef, start, metadataFile.ByteCount)
+
+		section, entry := extensionDef.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, extensionMetadata[extensionDef.GetUniqueID()], extensionDef, "")
 	}
 }
@@ -261,11 +266,13 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *u
 			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", validatorInfo.QualifiedName, validatorInfo.Arguments, procLang.Owner)
 		}
 		metadataFile.MustPrintf("%s;", paramsStr)
-		toc.AddMetadataEntry(procLang, start, metadataFile.ByteCount)
+
+		section, entry := procLang.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 		start = metadataFile.ByteCount
 		metadataFile.MustPrintf(alterStr)
-		toc.AddMetadataEntry(procLang, start, metadataFile.ByteCount)
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 		PrintObjectMetadata(metadataFile, toc, procLangMetadata[procLang.GetUniqueID()], procLang, "")
 	}
@@ -282,7 +289,8 @@ func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc 
 		metadataFile.MustPrintf("\n\nCREATE%s CONVERSION %s FOR '%s' TO '%s' FROM %s;",
 			defaultStr, convFQN, conversion.ForEncoding, conversion.ToEncoding, conversion.ConversionFunction)
 
-		toc.AddMetadataEntry(conversion, start, metadataFile.ByteCount)
+		section, entry := conversion.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, conversionMetadata[conversion.GetUniqueID()], conversion, "")
 	}
 }
@@ -302,7 +310,9 @@ func PrintCreateForeignDataWrapperStatement(metadataFile *utils.FileWithByteCoun
 		metadataFile.MustPrintf("\n\tOPTIONS (%s)", fdw.Options)
 	}
 	metadataFile.MustPrintf(";")
-	toc.AddMetadataEntry(fdw, start, metadataFile.ByteCount)
+
+	section, entry := fdw.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, fdwMetadata, fdw, "")
 }
 
@@ -322,7 +332,8 @@ func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, toc *util
 	metadataFile.MustPrintf(";")
 
 	//NOTE: We must specify SERVER when creating and dropping, but FOREIGN SERVER when granting and revoking
-	toc.AddMetadataEntry(server, start, metadataFile.ByteCount)
+	section, entry := server.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, serverMetadata, server, "")
 }
 
@@ -333,5 +344,7 @@ func PrintCreateUserMappingStatement(metadataFile *utils.FileWithByteCount, toc 
 		metadataFile.MustPrintf("\n\tOPTIONS (%s)", mapping.Options)
 	}
 	metadataFile.MustPrintf(";")
-	toc.AddMetadataEntry(mapping, start, metadataFile.ByteCount)
+
+	section, entry := mapping.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 }

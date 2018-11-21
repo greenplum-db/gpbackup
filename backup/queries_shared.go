@@ -31,15 +31,15 @@ type Schema struct {
 	Name string
 }
 
-func (s Schema) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (s Schema) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          s.Name,
 			Name:            s.Name,
 			ObjectType:      "SCHEMA",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -84,15 +84,15 @@ type Constraint struct {
 	IsPartitionParent  bool
 }
 
-func (c Constraint) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (c Constraint) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
 			ObjectType:      "CONSTRAINT",
 			ReferenceObject: c.OwningObject,
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

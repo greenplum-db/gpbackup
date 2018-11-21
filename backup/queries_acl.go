@@ -242,15 +242,15 @@ type DefaultPrivileges struct {
 	ObjectType string
 }
 
-func (dp DefaultPrivileges) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (dp DefaultPrivileges) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "postdata",
 		utils.MetadataEntry{
 			Schema:          dp.Schema,
 			Name:            "",
 			ObjectType:      "DEFAULT PRIVILEGES",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

@@ -27,7 +27,9 @@ func PrintCreateTextSearchParserStatement(metadataFile *utils.FileWithByteCount,
 		metadataFile.MustPrintf(",\n\tHEADLINE = %s", parser.HeadlineFunc)
 	}
 	metadataFile.MustPrintf("\n);")
-	toc.AddMetadataEntry(parser, start, metadataFile.ByteCount)
+
+	section, entry := parser.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, parserMetadata, parser, "")
 }
 
@@ -39,7 +41,9 @@ func PrintCreateTextSearchTemplateStatement(metadataFile *utils.FileWithByteCoun
 	}
 	metadataFile.MustPrintf("\n\tLEXIZE = %s", template.LexizeFunc)
 	metadataFile.MustPrintf("\n);")
-	toc.AddMetadataEntry(template, start, metadataFile.ByteCount)
+
+	section, entry := template.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, templateMetadata, template, "")
 }
 
@@ -51,7 +55,9 @@ func PrintCreateTextSearchDictionaryStatement(metadataFile *utils.FileWithByteCo
 		metadataFile.MustPrintf(",\n\t%s", dictionary.InitOption)
 	}
 	metadataFile.MustPrintf("\n);")
-	toc.AddMetadataEntry(dictionary, start, metadataFile.ByteCount)
+
+	section, entry := dictionary.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, dictionaryMetadata, dictionary, "")
 }
 
@@ -60,7 +66,10 @@ func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByt
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH CONFIGURATION %s (", configuration.FQN())
 	metadataFile.MustPrintf("\n\tPARSER = %s", configuration.Parser)
 	metadataFile.MustPrintf("\n);")
-	toc.AddMetadataEntry(configuration, start, metadataFile.ByteCount)
+
+	section, entry := configuration.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+
 	tokens := []string{}
 	for token := range configuration.TokenToDicts {
 		tokens = append(tokens, token)
@@ -71,7 +80,7 @@ func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByt
 		dicts := configuration.TokenToDicts[token]
 		metadataFile.MustPrintf("\n\nALTER TEXT SEARCH CONFIGURATION %s", configuration.FQN())
 		metadataFile.MustPrintf("\n\tADD MAPPING FOR \"%s\" WITH %s;", token, strings.Join(dicts, ", "))
-		toc.AddMetadataEntry(configuration, start, metadataFile.ByteCount)
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 	PrintObjectMetadata(metadataFile, toc, configurationMetadata, configuration, "")
 }

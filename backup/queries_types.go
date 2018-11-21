@@ -121,7 +121,7 @@ type Type struct {
 	SubTypeDiff     string
 }
 
-func (t Type) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (t Type) GetMetadataEntry() (string, utils.MetadataEntry) {
 	objectType := "TYPE"
 	if t.Type == "d" {
 		objectType = "DOMAIN"
@@ -132,8 +132,8 @@ func (t Type) GetMetadataEntry(start uint64, end uint64) (string, utils.Metadata
 			Name:            t.Name,
 			ObjectType:      objectType,
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -446,15 +446,15 @@ type Collation struct {
 	Ctype   string
 }
 
-func (c Collation) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (c Collation) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
 			ObjectType:      "COLLATION",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

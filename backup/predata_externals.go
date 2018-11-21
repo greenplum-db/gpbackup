@@ -65,7 +65,8 @@ func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, to
 	}
 	metadataFile.MustPrintf(";")
 	if toc != nil {
-		toc.AddMetadataEntry(table, start, metadataFile.ByteCount)
+		section, entry := table.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 }
 
@@ -305,7 +306,6 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 
 func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, protocol ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
-
 	funcOidList := []uint32{protocol.ReadFunction, protocol.WriteFunction, protocol.Validator}
 	hasUserDefinedFunc := false
 	for _, funcOid := range funcOidList {
@@ -333,7 +333,9 @@ func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount,
 		metadataFile.MustPrintf("TRUSTED ")
 	}
 	metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
-	toc.AddMetadataEntry(protocol, start, metadataFile.ByteCount)
+
+	section, entry := protocol.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, protoMetadata, protocol, "")
 }
 
@@ -368,6 +370,8 @@ func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCo
 		}
 		metadataFile.MustPrintf("WITH TABLE %s WITHOUT VALIDATION;", extPartRelationName)
 		metadataFile.MustPrintf("\n\nDROP TABLE %s;", extPartRelationName)
-		toc.AddMetadataEntry(externalPartition, start, metadataFile.ByteCount)
+
+		section, entry := externalPartition.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 }

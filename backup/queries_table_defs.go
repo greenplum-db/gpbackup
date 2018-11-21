@@ -25,7 +25,7 @@ func (t Table) SkipDataBackup() bool {
 	return def.IsExternal || (def.ForeignDef != ForeignTableDefinition{})
 }
 
-func (t Table) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (t Table) GetMetadataEntry() (string, utils.MetadataEntry) {
 	objectType := "TABLE"
 	if (t.ForeignDef != ForeignTableDefinition{}) {
 		objectType = "FOREIGN TABLE"
@@ -36,8 +36,8 @@ func (t Table) GetMetadataEntry(start uint64, end uint64) (string, utils.Metadat
 			Name:            t.Name,
 			ObjectType:      objectType,
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

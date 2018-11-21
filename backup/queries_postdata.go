@@ -55,7 +55,7 @@ type IndexDefinition struct {
 	IsClustered  bool
 }
 
-func (i IndexDefinition) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (i IndexDefinition) GetMetadataEntry() (string, utils.MetadataEntry) {
 	tableFQN := utils.MakeFQN(i.OwningSchema, i.OwningTable)
 	return "postdata",
 		utils.MetadataEntry{
@@ -63,8 +63,8 @@ func (i IndexDefinition) GetMetadataEntry(start uint64, end uint64) (string, uti
 			Name:            i.Name,
 			ObjectType:      "INDEX",
 			ReferenceObject: tableFQN,
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -162,7 +162,7 @@ type RuleDefinition struct {
 	Def          string
 }
 
-func (r RuleDefinition) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (r RuleDefinition) GetMetadataEntry() (string, utils.MetadataEntry) {
 	tableFQN := utils.MakeFQN(r.OwningSchema, r.OwningTable)
 	return "postdata",
 		utils.MetadataEntry{
@@ -170,8 +170,8 @@ func (r RuleDefinition) GetMetadataEntry(start uint64, end uint64) (string, util
 			Name:            r.Name,
 			ObjectType:      "RULE",
 			ReferenceObject: tableFQN,
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -215,7 +215,7 @@ ORDER BY rulename;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c")
 
 type TriggerDefinition RuleDefinition
 
-func (t TriggerDefinition) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (t TriggerDefinition) GetMetadataEntry() (string, utils.MetadataEntry) {
 	tableFQN := utils.MakeFQN(t.OwningSchema, t.OwningTable)
 	return "postdata",
 		utils.MetadataEntry{
@@ -223,8 +223,8 @@ func (t TriggerDefinition) GetMetadataEntry(start uint64, end uint64) (string, u
 			Name:            t.Name,
 			ObjectType:      "TRIGGER",
 			ReferenceObject: tableFQN,
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -274,15 +274,15 @@ type EventTrigger struct {
 	EventTags    string
 }
 
-func (et EventTrigger) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (et EventTrigger) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "postdata",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            et.Name,
 			ObjectType:      "EVENT TRIGGER",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

@@ -21,14 +21,15 @@ import (
  * shell type statements for base types.
  */
 func PrintCreateShellTypeStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, types []Type) {
-	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\n")
 	for _, typ := range types {
 		if typ.Type == "b" || typ.Type == "p" || typ.Type == "r" {
+			start := metadataFile.ByteCount
 			typeFQN := utils.MakeFQN(typ.Schema, typ.Name)
 			metadataFile.MustPrintf("CREATE TYPE %s;\n", typeFQN)
-			toc.AddMetadataEntry(typ, start, metadataFile.ByteCount)
-			start = metadataFile.ByteCount
+
+			section, entry := typ.GetMetadataEntry()
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		}
 	}
 }
@@ -49,7 +50,9 @@ func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *util
 		metadataFile.MustPrintf("\n\tCONSTRAINT %s %s", constraint.Name, constraint.ConDef)
 	}
 	metadataFile.MustPrintln(";")
-	toc.AddMetadataEntry(domain, start, metadataFile.ByteCount)
+
+	section, entry := domain.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, domain, "")
 }
 
@@ -123,7 +126,8 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	if base.StorageOptions != "" {
 		metadataFile.MustPrintf("\nALTER TYPE %s\n\tSET DEFAULT ENCODING (%s);", base.FQN(), base.StorageOptions)
 	}
-	toc.AddMetadataEntry(base, start, metadataFile.ByteCount)
+	section, entry := base.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, base, "")
 }
 
@@ -141,7 +145,9 @@ func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, to
 	metadataFile.MustPrintf("\n\nCREATE TYPE %s AS (\n", composite.FQN())
 	metadataFile.MustPrintln(strings.Join(attributeList, ",\n"))
 	metadataFile.MustPrintf(");")
-	toc.AddMetadataEntry(composite, start, metadataFile.ByteCount)
+
+	section, entry := composite.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintPostCreateCompositeTypeStatement(metadataFile, toc, composite, typeMetadata)
 }
 
@@ -157,10 +163,12 @@ func PrintPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount
 }
 
 func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, enums []Type, typeMetadata MetadataMap) {
-	start := metadataFile.ByteCount
 	for _, enum := range enums {
+		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nCREATE TYPE %s AS ENUM (\n\t%s\n);\n", enum.FQN(), enum.EnumLabels)
-		toc.AddMetadataEntry(enum, start, metadataFile.ByteCount)
+
+		section, entry := enum.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, typeMetadata[enum.GetUniqueID()], enum, "")
 	}
 }
@@ -183,7 +191,8 @@ func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, toc *u
 	}
 	metadataFile.MustPrintf("\n);\n")
 
-	toc.AddMetadataEntry(rangeType, start, metadataFile.ByteCount)
+	section, entry := rangeType.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, rangeType, "")
 }
 
@@ -191,7 +200,9 @@ func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, toc *
 	for _, collation := range collations {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nCREATE COLLATION %s (LC_COLLATE = '%s', LC_CTYPE = '%s');", collation.FQN(), collation.Collate, collation.Ctype)
-		toc.AddMetadataEntry(collation, start, metadataFile.ByteCount)
+
+		section, entry := collation.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, collationMetadata[collation.GetUniqueID()], collation, "")
 	}
 }

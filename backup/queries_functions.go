@@ -37,7 +37,7 @@ type Function struct {
 	ExecLocation      string `db:"proexeclocation"`
 }
 
-func (f Function) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (f Function) GetMetadataEntry() (string, utils.MetadataEntry) {
 	nameWithArgs := fmt.Sprintf("%s(%s)", f.Name, f.IdentArgs)
 	return "predata",
 		utils.MetadataEntry{
@@ -45,8 +45,8 @@ func (f Function) GetMetadataEntry(start uint64, end uint64) (string, utils.Meta
 			Name:            nameWithArgs,
 			ObjectType:      "FUNCTION",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -306,7 +306,7 @@ type Aggregate struct {
 	MInitValIsNull             bool
 }
 
-func (a Aggregate) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (a Aggregate) GetMetadataEntry() (string, utils.MetadataEntry) {
 	identArgumentsStr := "*"
 	if a.IdentArgs != "" {
 		identArgumentsStr = a.IdentArgs
@@ -318,8 +318,8 @@ func (a Aggregate) GetMetadataEntry(start uint64, end uint64) (string, utils.Met
 			Name:            aggWithArgs,
 			ObjectType:      "AGGREGATE",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -516,7 +516,7 @@ type Cast struct {
 	CastMethod     string
 }
 
-func (c Cast) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (c Cast) GetMetadataEntry() (string, utils.MetadataEntry) {
 	castStr := fmt.Sprintf("(%s AS %s)", c.SourceTypeFQN, c.TargetTypeFQN)
 	filterSchema := "pg_catalog"
 	if c.CastMethod == "f" {
@@ -528,8 +528,8 @@ func (c Cast) GetMetadataEntry(start uint64, end uint64) (string, utils.Metadata
 			Name:            castStr,
 			ObjectType:      "CAST",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -600,15 +600,15 @@ type Extension struct {
 	Schema string
 }
 
-func (e Extension) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (e Extension) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            e.Name,
 			ObjectType:      "EXTENSION",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -647,15 +647,15 @@ type ProceduralLanguage struct {
 	Validator uint32 `db:"lanvalidator"`
 }
 
-func (pl ProceduralLanguage) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (pl ProceduralLanguage) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            pl.Name,
 			ObjectType:      "LANGUAGE",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -718,15 +718,15 @@ type Conversion struct {
 	IsDefault          bool `db:"condefault"`
 }
 
-func (c Conversion) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (c Conversion) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
 			ObjectType:      "CONVERSION",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -770,15 +770,15 @@ type ForeignDataWrapper struct {
 	Options   string
 }
 
-func (fdw ForeignDataWrapper) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (fdw ForeignDataWrapper) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            fdw.Name,
 			ObjectType:      "FOREIGN DATA WRAPPER",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -820,15 +820,15 @@ type ForeignServer struct {
 	Options            string
 }
 
-func (fs ForeignServer) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (fs ForeignServer) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            fs.Name,
 			ObjectType:      "FOREIGN SERVER",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -870,15 +870,15 @@ type UserMapping struct {
 	Options string
 }
 
-func (um UserMapping) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (um UserMapping) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          "",
 			Name:            um.FQN(),
 			ObjectType:      "USER MAPPING",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 

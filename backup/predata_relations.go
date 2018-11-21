@@ -153,7 +153,8 @@ func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils
 	} else {
 		PrintRegularTableCreateStatement(metadataFile, nil, table)
 	}
-	toc.AddMetadataEntry(table, start, metadataFile.ByteCount)
+	section, entry := table.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintPostCreateTableStatements(metadataFile, toc, table, tableMetadata)
 }
 
@@ -202,7 +203,8 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 	}
 	printAlterColumnStatements(metadataFile, table, table.ColumnDefs)
 	if toc != nil {
-		toc.AddMetadataEntry(table, start, metadataFile.ByteCount)
+		section, entry := table.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 }
 
@@ -309,7 +311,8 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 
 		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", utils.EscapeSingleQuotes(sequence.FQN()), sequence.LastVal, sequence.IsCalled)
 
-		toc.AddMetadataEntry(sequence, start, metadataFile.ByteCount)
+		section, entry := sequence.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, sequenceMetadata[sequence.Relation.GetUniqueID()], sequence, "")
 	}
 }
@@ -323,7 +326,8 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
 			//TODO: see if the SEQUENCE OWNER type is being utilized in restore or if it could be SEQUENCE. I think we should be using it for filtering, but aren't
-			toc.AddMetadataEntryLongArgs(sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", sequence.OwningTable, start, metadataFile, "predata")
+			entry := utils.MetadataEntry{sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", sequence.OwningTable, 0, 0}
+			toc.AddMetadataEntry("predata", entry, start, metadataFile.ByteCount)
 		}
 	}
 }
@@ -331,6 +335,8 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, view View, viewMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition)
-	toc.AddMetadataEntry(view, start, metadataFile.ByteCount)
+
+	section, entry := view.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, viewMetadata, view, "")
 }

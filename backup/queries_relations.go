@@ -203,15 +203,15 @@ type Sequence struct {
 	SequenceDefinition
 }
 
-func (s Sequence) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (s Sequence) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          s.Schema,
 			Name:            s.Name,
 			ObjectType:      "SEQUENCE",
 			ReferenceObject: s.OwningTable,
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
@@ -329,15 +329,15 @@ type View struct {
 	Definition string
 }
 
-func (v View) GetMetadataEntry(start uint64, end uint64) (string, utils.MetadataEntry) {
+func (v View) GetMetadataEntry() (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
 			Schema:          v.Schema,
 			Name:            v.Name,
 			ObjectType:      "VIEW",
 			ReferenceObject: "",
-			StartByte:       start,
-			EndByte:         end,
+			StartByte:       0,
+			EndByte:         0,
 		}
 }
 
