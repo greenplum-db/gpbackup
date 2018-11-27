@@ -11,205 +11,207 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
-	var includeSecurityLabels bool
+	var (
+		includeSecurityLabels bool
+		emptyMetadata         backup.ObjectMetadata
+		emptyMetadataMap      backup.MetadataMap
+	)
 	BeforeEach(func() {
 		if connectionPool.Version.AtLeast("6") {
 			includeSecurityLabels = true
 		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		emptyMetadata = backup.ObjectMetadata{}
+		emptyMetadataMap = backup.MetadataMap{}
 	})
 	Describe("PrintTypeStatements", func() {
 		var (
-			shellType     backup.Type
-			baseType      backup.Type
-			compositeType backup.Type
-			enumType      backup.Type
-			domainType    backup.Type
-			types         []backup.Type
-			typeMetadata  backup.ObjectMetadata
+			shellType backup.ShellType
+			baseType  backup.BaseType
+			rangeType backup.RangeType
 		)
 		BeforeEach(func() {
-			shellType = backup.Type{Type: "p", Schema: "public", Name: "shell_type"}
-			baseType = backup.Type{
+			shellType = backup.ShellType{Schema: "public", Name: "shell_type"}
+			baseType = backup.BaseType{
 				Type: "b", Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 4, IsPassedByValue: true, Alignment: "i", Storage: "p",
 				DefaultVal: "default", Element: "text", Category: "U", Preferred: false, Delimiter: ";", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768",
 			}
-			atts := []backup.Attribute{{Name: "att1", Type: "text"}, {Name: "att2", Type: "integer"}}
-			compositeType = backup.Type{
-				Type: "c", Schema: "public", Name: "composite_type",
-				Attributes: atts, Category: "U",
-			}
-			enumType = backup.Type{Type: "e", Schema: "public", Name: "enum_type", EnumLabels: "'enum_labels'", Category: "U"}
-			domainType = testutils.DefaultTypeDefinition("d", "domain_type")
-			domainType.BaseType = "character(8)"
-			domainType.DefaultVal = "'abc'::bpchar"
-			domainType.NotNull = true
-			types = []backup.Type{shellType, baseType, compositeType, domainType}
-			if connectionPool.Version.AtLeast("5") {
-				types = append(types, enumType)
-			}
-			typeMetadata = backup.ObjectMetadata{}
-		})
-
-		It("creates shell types for base and shell types only", func() {
-			backup.PrintCreateShellTypeStatements(backupfile, toc, types)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.shell_type")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.base_type")
-
-			shells := backup.GetShellTypes(connectionPool)
-			Expect(shells).To(HaveLen(2))
-			Expect(shells[0].Name).To(Equal("base_type"))
-			Expect(shells[1].Name).To(Equal("shell_type"))
-		})
-
-		It("creates composite types", func() {
-			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, typeMetadata)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
-
-			resultTypes := backup.GetCompositeTypes(connectionPool)
-
-			Expect(resultTypes).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&compositeType, &resultTypes[0], "Oid", "Attributes.CompositeTypeOid", "Category")
-		})
-		It("creates composite types with a collation", func() {
-			testutils.SkipIfBefore6(connectionPool)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
-			compositeType.Attributes[0].Collation = "public.some_coll"
-			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, typeMetadata)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
-
-			resultTypes := backup.GetCompositeTypes(connectionPool)
-
-			Expect(resultTypes).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&compositeType, &resultTypes[0], "Oid", "Attributes.CompositeTypeOid", "Category")
-		})
-		It("creates composite types with attribute comments", func() {
-			compositeType.Attributes[0].Comment = "'comment for att1'"
-			backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, typeMetadata)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
-
-			resultTypes := backup.GetCompositeTypes(connectionPool)
-
-			Expect(resultTypes).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&compositeType, &resultTypes[0], "Oid", "Attributes.CompositeTypeOid", "Category")
-		})
-
-		It("creates enum types", func() {
-			testutils.SkipIfBefore5(connectionPool)
-			enums := []backup.Type{enumType}
-			metadataMap := testutils.DefaultMetadataMap("TYPE", false, true, true, includeSecurityLabels)
-			backup.PrintCreateEnumTypeStatements(backupfile, toc, enums, metadataMap)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.enum_type")
-
-			resultTypes := backup.GetEnumTypes(connectionPool)
-
-			Expect(resultTypes).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchIncluding(&resultTypes[0], &enumType, "Type", "Schema", "Name", "Comment", "Owner", "EnumLabels")
-		})
-
-		It("creates base types", func() {
-			if connectionPool.Version.AtLeast("6") {
-				baseType.Category = "N"
-				baseType.Preferred = true
-				baseType.Collatable = true
-			}
-			metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
-			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseType, metadata)
-
-			//Run queries to set up the database state so we can successfully create base types
-			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_type")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.base_type CASCADE")
-			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.base_fn_in(cstring) RETURNS public.base_type AS 'boolin' LANGUAGE internal")
-			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.base_fn_out(public.base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-
-			resultTypes := backup.GetBaseTypes(connectionPool)
-
-			Expect(resultTypes).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&baseType, &resultTypes[0], "Oid")
-		})
-		It("creates domain types", func() {
-			constraints := []backup.Constraint{}
-			if connectionPool.Version.AtLeast("6") {
-				testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
-				domainType.Collation = "public.some_coll"
-			}
-			metadata := testutils.DefaultMetadata("DOMAIN", false, true, true, includeSecurityLabels)
-			backup.PrintCreateDomainStatement(backupfile, toc, domainType, metadata, constraints)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.domain_type")
-
-			resultTypes := backup.GetDomainTypes(connectionPool)
-
-			Expect(resultTypes).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchIncluding(&domainType, &resultTypes[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull", "Collation")
-		})
-	})
-	Describe("PrintCreateRangeTypeStatement", func() {
-		typeMetadata := backup.ObjectMetadata{}
-		It("creates a range type with a collation and opclass", func() {
-			testutils.SkipIfBefore6(connectionPool)
-			rangeType := backup.Type{
+			rangeType = backup.RangeType{
 				Oid:            0,
 				Schema:         "public",
 				Name:           "textrange",
-				Type:           "r",
 				SubType:        "text",
 				Collation:      "public.some_coll",
 				SubTypeOpClass: "pg_catalog.text_ops",
 			}
-			testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
-
-			metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
-			backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, metadata)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
-
-			resultTypes := backup.GetRangeTypes(connectionPool)
-
-			Expect(len(resultTypes)).To(Equal(1))
-			structmatcher.ExpectStructsToMatchExcluding(&rangeType, &resultTypes[0], "Oid")
 		})
-		It("creates a range type in a specific schema with a subtype diff function", func() {
-			testutils.SkipIfBefore6(connectionPool)
-			rangeType := backup.Type{
-				Oid:            0,
-				Schema:         "testschema",
-				Name:           "timerange",
-				Type:           "r",
-				SubType:        "time without time zone",
-				SubTypeOpClass: "pg_catalog.time_ops",
-				SubTypeDiff:    "testschema.time_subtype_diff",
-			}
-			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema;")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE;")
-			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION testschema.time_subtype_diff(x time, y time) RETURNS float8 AS 'SELECT EXTRACT(EPOCH FROM (x - y))' LANGUAGE sql STRICT IMMUTABLE;")
+		Describe("PrintCreateShellTypeStatements", func() {
+			It("creates shell types for base, shell and range types", func() {
+				backup.PrintCreateShellTypeStatements(backupfile, toc, []backup.ShellType{shellType}, []backup.BaseType{baseType}, []backup.RangeType{rangeType})
 
-			backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, typeMetadata)
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.shell_type")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.base_type")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
 
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				shells := backup.GetShellTypes(connectionPool)
+				Expect(shells).To(HaveLen(3))
+				Expect(shells[0].Name).To(Equal("base_type"))
+				Expect(shells[1].Name).To(Equal("shell_type"))
+				Expect(shells[2].Name).To(Equal("textrange"))
+			})
+		})
 
-			resultTypes := backup.GetRangeTypes(connectionPool)
+		Describe("PrintCreateCompositeTypeStatement", func() {
+			var compositeType backup.CompositeType
+			BeforeEach(func() {
+				atts := []backup.Attribute{{Name: "att1", Type: "text"}, {Name: "att2", Type: "integer"}}
+				compositeType = backup.CompositeType{
+					Schema: "public", Name: "composite_type", Attributes: atts,
+				}
+			})
+			It("creates composite types", func() {
+				backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, emptyMetadata)
 
-			Expect(len(resultTypes)).To(Equal(1))
-			structmatcher.ExpectStructsToMatchExcluding(&rangeType, &resultTypes[0], "Oid")
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
+
+				resultTypes := backup.GetCompositeTypes(connectionPool)
+
+				Expect(resultTypes).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&compositeType, &resultTypes[0], "Oid", "Attributes.CompositeTypeOid")
+			})
+			It("creates composite types with a collation", func() {
+				testutils.SkipIfBefore6(connectionPool)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
+				compositeType.Attributes[0].Collation = "public.some_coll"
+				backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, emptyMetadata)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
+
+				resultTypes := backup.GetCompositeTypes(connectionPool)
+
+				Expect(resultTypes).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&compositeType, &resultTypes[0], "Oid", "Attributes.CompositeTypeOid")
+			})
+			It("creates composite types with attribute comments", func() {
+				compositeType.Attributes[0].Comment = "'comment for att1'"
+				backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, emptyMetadata)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
+
+				resultTypes := backup.GetCompositeTypes(connectionPool)
+
+				Expect(resultTypes).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&compositeType, &resultTypes[0], "Oid", "Attributes.CompositeTypeOid")
+			})
+		})
+		Describe("PrintCreateBaseTypeStatement", func() {
+			It("creates base types", func() {
+				if connectionPool.Version.AtLeast("6") {
+					baseType.Category = "N"
+					baseType.Preferred = true
+					baseType.Collatable = true
+				}
+				metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
+				backup.PrintCreateBaseTypeStatement(backupfile, toc, baseType, metadata)
+
+				//Run queries to set up the database state so we can successfully create base types
+				testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_type")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.base_type CASCADE")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.base_fn_in(cstring) RETURNS public.base_type AS 'boolin' LANGUAGE internal")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.base_fn_out(public.base_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+				resultTypes := backup.GetBaseTypes(connectionPool)
+
+				Expect(resultTypes).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&baseType, &resultTypes[0], "Oid")
+			})
+		})
+		Describe("PrintCreateEnumTypeStatements", func() {
+			It("creates enum types", func() {
+				testutils.SkipIfBefore5(connectionPool)
+				enumType := backup.EnumType{Schema: "public", Name: "enum_type", EnumLabels: "'enum_labels'"}
+				enums := []backup.EnumType{enumType}
+				backup.PrintCreateEnumTypeStatements(backupfile, toc, enums, emptyMetadataMap)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.enum_type")
+
+				resultTypes := backup.GetEnumTypes(connectionPool)
+
+				Expect(resultTypes).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&resultTypes[0], &enumType, "Oid")
+			})
+		})
+		Describe("PrintCreateDomainStatement", func() {
+			domainType := backup.Domain{
+				Oid: 1, Schema: "public", Name: "domain_type", BaseType: "character(8)", DefaultVal: "'abc'::bpchar", NotNull: true, Collation: ""}
+			It("creates domain types", func() {
+				constraints := []backup.Constraint{}
+				if connectionPool.Version.AtLeast("6") {
+					testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
+					defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
+					domainType.Collation = "public.some_coll"
+				}
+				metadata := testutils.DefaultMetadata("DOMAIN", false, true, true, includeSecurityLabels)
+				backup.PrintCreateDomainStatement(backupfile, toc, domainType, metadata, constraints)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.domain_type")
+
+				resultTypes := backup.GetDomainTypes(connectionPool)
+
+				Expect(resultTypes).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchIncluding(&domainType, &resultTypes[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull", "Collation")
+			})
+		})
+		Describe("PrintCreateRangeTypeStatement", func() {
+			It("creates a range type with a collation and opclass", func() {
+				testutils.SkipIfBefore6(connectionPool)
+				testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
+
+				metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
+				backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, metadata)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
+
+				resultTypes := backup.GetRangeTypes(connectionPool)
+
+				Expect(len(resultTypes)).To(Equal(1))
+				structmatcher.ExpectStructsToMatchExcluding(&rangeType, &resultTypes[0], "Oid")
+			})
+			It("creates a range type in a specific schema with a subtype diff function", func() {
+				testutils.SkipIfBefore6(connectionPool)
+				rangeType := backup.RangeType{
+					Oid:            0,
+					Schema:         "testschema",
+					Name:           "timerange",
+					SubType:        "time without time zone",
+					SubTypeOpClass: "pg_catalog.time_ops",
+					SubTypeDiff:    "testschema.time_subtype_diff",
+				}
+				testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema;")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE;")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION testschema.time_subtype_diff(x time, y time) RETURNS float8 AS 'SELECT EXTRACT(EPOCH FROM (x - y))' LANGUAGE sql STRICT IMMUTABLE;")
+
+				backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, emptyMetadata)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+				resultTypes := backup.GetRangeTypes(connectionPool)
+
+				Expect(len(resultTypes)).To(Equal(1))
+				structmatcher.ExpectStructsToMatchExcluding(&rangeType, &resultTypes[0], "Oid")
+			})
 		})
 	})
 	Describe("PrintCreateCollationStatement", func() {

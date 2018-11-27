@@ -259,18 +259,14 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 	for _, object := range objects {
 		objMetadata := metadataMap[object.GetUniqueID()]
 		switch obj := object.(type) {
-		case Type:
-			switch obj.Type {
-			case "b":
-				PrintCreateBaseTypeStatement(metadataFile, toc, obj, objMetadata)
-			case "c":
-				PrintCreateCompositeTypeStatement(metadataFile, toc, obj, objMetadata)
-			case "d":
-				domainName := utils.MakeFQN(obj.Schema, obj.Name)
-				PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, conMap[domainName])
-			case "r":
-				PrintCreateRangeTypeStatement(metadataFile, toc, obj, objMetadata)
-			}
+		case BaseType:
+			PrintCreateBaseTypeStatement(metadataFile, toc, obj, objMetadata)
+		case CompositeType:
+			PrintCreateCompositeTypeStatement(metadataFile, toc, obj, objMetadata)
+		case Domain:
+			PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, conMap[obj.FQN()])
+		case RangeType:
+			PrintCreateRangeTypeStatement(metadataFile, toc, obj, objMetadata)
 		case Function:
 			PrintCreateFunctionStatement(metadataFile, toc, obj, objMetadata)
 		case Table:

@@ -14,38 +14,38 @@ import (
 var _ = Describe("backup integration tests", func() {
 	Describe("Get[type]Types functions", func() {
 		var (
-			shellType       backup.Type
-			baseTypeDefault backup.Type
-			baseTypeCustom  backup.Type
-			compositeType   backup.Type
-			enumType        backup.Type
-			enumType2       backup.Type
+			shellType       backup.ShellType
+			baseTypeDefault backup.BaseType
+			baseTypeCustom  backup.BaseType
+			compositeType   backup.CompositeType
+			enumType        backup.EnumType
+			enumType2       backup.EnumType
 		)
 		BeforeEach(func() {
-			shellType = backup.Type{Type: "p", Schema: "public", Name: "shell_type"}
-			baseTypeDefault = backup.Type{
+			shellType = backup.ShellType{Schema: "public", Name: "shell_type"}
+			baseTypeDefault = backup.BaseType{
 				Oid: 1, Type: "b", Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "i", Storage: "p",
 				DefaultVal: "", Element: "", Delimiter: ",", Category: "U",
 			}
-			baseTypeCustom = backup.Type{
+			baseTypeCustom = backup.BaseType{
 				Oid: 1, Type: "b", Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 8, IsPassedByValue: true, Alignment: "d", Storage: "p",
 				DefaultVal: "0", Element: "integer", Delimiter: ";", Category: "U", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768",
 			}
-			compositeType = backup.Type{
-				Oid: 1, Type: "c", Schema: "public", Name: "composite_type",
+			compositeType = backup.CompositeType{
+				Oid: 1, Schema: "public", Name: "composite_type",
 				Attributes: []backup.Attribute{
 					{Name: "name", Type: "integer"},
 					{Name: "name2", Type: "numeric(8,2)"},
 					{Name: "name1", Type: "character(8)"},
 				},
 			}
-			enumType = backup.Type{
-				Oid: 1, Type: "e", Schema: "public", Name: "enum_type", EnumLabels: "'label1',\n\t'label2',\n\t'label3'",
+			enumType = backup.EnumType{
+				Oid: 1, Schema: "public", Name: "enum_type", EnumLabels: "'label1',\n\t'label2',\n\t'label3'",
 			}
-			enumType2 = backup.Type{
-				Oid: 1, Type: "e", Schema: "public", Name: "enum_type2", EnumLabels: "'label3',\n\t'label2',\n\t'label1'",
+			enumType2 = backup.EnumType{
+				Oid: 1, Schema: "public", Name: "enum_type2", EnumLabels: "'label3',\n\t'label2',\n\t'label1'",
 			}
 		})
 		It("returns a slice for a shell type", func() {
@@ -64,7 +64,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetCompositeTypes(connectionPool)
 
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name", "Attributes")
+			structmatcher.ExpectStructsToMatchExcluding(&compositeType, &results[0], "Oid", "Attributes.CompositeTypeOid")
 		})
 		It("returns a slice of composite types with attribute comments", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.composite_type AS (name int4, name2 numeric(8,2), name1 character(8));")
@@ -75,7 +75,7 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(results).To(HaveLen(1))
 			compositeType.Attributes[0].Comment = "'name comment'"
-			structmatcher.ExpectStructsToMatchExcluding(&compositeType, &results[0], "Oid", "Attributes.CompositeTypeOid", "Category")
+			structmatcher.ExpectStructsToMatchExcluding(&compositeType, &results[0], "Oid", "Attributes.CompositeTypeOid")
 		})
 		It("returns a slice of composite types with collations", func() {
 			testutils.SkipIfBefore6(connectionPool)
@@ -92,7 +92,7 @@ var _ = Describe("backup integration tests", func() {
 				{Name: "name2", Type: "numeric(8,2)"},
 				{Name: "name1", Type: "character(8)", Collation: "public.some_coll"},
 			}
-			structmatcher.ExpectStructsToMatchIncluding(&compositeType, &results[0], "Type", "Schema", "Name", "Attributes")
+			structmatcher.ExpectStructsToMatchExcluding(&compositeType, &results[0], "Oid", "Attributes.CompositeTypeOid")
 		})
 		It("returns a slice for a base type with default values", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_type")
@@ -200,8 +200,8 @@ var _ = Describe("backup integration tests", func() {
 			Expect(composites).To(BeEmpty())
 		})
 		It("returns a slice for a domain type", func() {
-			domainType := backup.Type{
-				Oid: 1, Type: "d", Schema: "public", Name: "domain1", DefaultVal: "'abc'::bpchar", BaseType: "character(8)", NotNull: false,
+			domainType := backup.Domain{
+				Oid: 1, Schema: "public", Name: "domain1", DefaultVal: "'abc'::bpchar", BaseType: "character(8)", NotNull: false, Collation: "",
 			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc'")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP DOMAIN public.domain1")
@@ -209,14 +209,13 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetDomainTypes(connectionPool)
 
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchIncluding(&domainType, &results[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
+			structmatcher.ExpectStructsToMatchExcluding(&domainType, &results[0], "Oid")
 		})
 		It("returns a slice for a domain type with a collation", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			domainType := backup.Type{
-				Oid: 1, Type: "d", Schema: "public", Name: "domain1", DefaultVal: "'abc'::bpchar", BaseType: "character(8)", NotNull: false,
+			domainType := backup.Domain{
+				Oid: 1, Schema: "public", Name: "domain1", DefaultVal: "'abc'::bpchar", BaseType: "character(8)", NotNull: false, Collation: "public.some_coll",
 			}
-			domainType.Collation = "public.some_coll"
 			testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE DOMAIN public.domain1 AS character(8) DEFAULT 'abc' COLLATE public.some_coll")
@@ -225,7 +224,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetDomainTypes(connectionPool)
 
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchIncluding(&domainType, &results[0], "Schema", "Name", "Type", "DefaultVal", "BaseType", "NotNull")
+			structmatcher.ExpectStructsToMatchExcluding(&domainType, &results[0], "Oid")
 		})
 		It("returns a slice for a type in a specific schema", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.shell_type")
@@ -237,10 +236,10 @@ var _ = Describe("backup integration tests", func() {
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 			results := backup.GetShellTypes(connectionPool)
-			shellTypeOtherSchema := backup.Type{Type: "p", Schema: "testschema", Name: "shell_type"}
+			shellTypeOtherSchema := backup.ShellType{Schema: "testschema", Name: "shell_type"}
 
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchIncluding(&shellTypeOtherSchema, &results[0], "Schema", "Name", "Type")
+			structmatcher.ExpectStructsToMatchExcluding(&shellTypeOtherSchema, &results[0], "Oid")
 		})
 	})
 	Describe("GetRangeTypes", func() {
@@ -257,11 +256,10 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 
-			expectedRangeType := backup.Type{
+			expectedRangeType := backup.RangeType{
 				Oid:            0,
 				Schema:         "public",
 				Name:           "textrange",
-				Type:           "r",
 				SubType:        "text",
 				Collation:      "public.some_coll",
 				SubTypeOpClass: "pg_catalog.text_ops",
@@ -282,11 +280,10 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(len(results)).To(Equal(1))
 
-			expectedRangeType := backup.Type{
+			expectedRangeType := backup.RangeType{
 				Oid:            0,
 				Schema:         "testschema",
 				Name:           "timerange",
-				Type:           "r",
 				SubType:        "time without time zone",
 				SubTypeOpClass: "pg_catalog.time_ops",
 				SubTypeDiff:    "testschema.time_subtype_diff",

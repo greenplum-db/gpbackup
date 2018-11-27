@@ -88,7 +88,19 @@ UNION ALL
 ORDER BY schema, name;`, selectClause, SchemaFilterClause("n"), typeType, ExtensionFilterClause("t"), groupBy, arrayTypesClause, tableTypesClause)
 }
 
-type Type struct {
+func GetTypeMetadataEntry(schema string, name string) (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          schema,
+			Name:            name,
+			ObjectType:      "TYPE",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+type BaseType struct {
 	Oid             uint32
 	Schema          string
 	Name            string
@@ -108,44 +120,24 @@ type Type struct {
 	Category        string `db:"typcategory"`
 	Preferred       bool   `db:"typispreferred"`
 	Delimiter       string `db:"typdelim"`
-	EnumLabels      string
-	BaseType        string
-	NotNull         bool `db:"typnotnull"`
-	Attributes      []Attribute
 	StorageOptions  string
 	Collatable      bool
 	Collation       string
-	SubType         string
-	SubTypeOpClass  string
-	Canonical       string
-	SubTypeDiff     string
 }
 
-func (t Type) GetMetadataEntry() (string, utils.MetadataEntry) {
-	objectType := "TYPE"
-	if t.Type == "d" {
-		objectType = "DOMAIN"
-	}
-	return "predata",
-		utils.MetadataEntry{
-			Schema:          t.Schema,
-			Name:            t.Name,
-			ObjectType:      objectType,
-			ReferenceObject: "",
-			StartByte:       0,
-			EndByte:         0,
-		}
+func (t BaseType) GetMetadataEntry() (string, utils.MetadataEntry) {
+	return GetTypeMetadataEntry(t.Schema, t.Name)
 }
 
-func (t Type) GetUniqueID() UniqueID {
+func (t BaseType) GetUniqueID() UniqueID {
 	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
 }
 
-func (t Type) FQN() string {
+func (t BaseType) FQN() string {
 	return utils.MakeFQN(t.Schema, t.Name)
 }
 
-func GetBaseTypes(connectionPool *dbconn.DBConn) []Type {
+func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
 	typeModClause := ""
 	if connectionPool.Version.Before("5") {
 		typeModClause = `t.typreceive AS receive,
@@ -198,7 +190,7 @@ LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typeModClause, typeCategoryCla
 	}
 	query := getTypeQuery(connectionPool, selectClause, groupBy, "b")
 
-	results := make([]Type, 0)
+	results := make([]BaseType, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	/*
@@ -219,19 +211,37 @@ LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typeModClause, typeCategoryCla
 	return results
 }
 
-func GetCompositeTypes(connectionPool *dbconn.DBConn) []Type {
+type CompositeType struct {
+	Oid        uint32
+	Schema     string
+	Name       string
+	Attributes []Attribute
+}
+
+func (t CompositeType) GetMetadataEntry() (string, utils.MetadataEntry) {
+	return GetTypeMetadataEntry(t.Schema, t.Name)
+}
+
+func (t CompositeType) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
+}
+
+func (t CompositeType) FQN() string {
+	return utils.MakeFQN(t.Schema, t.Name)
+}
+
+func GetCompositeTypes(connectionPool *dbconn.DBConn) []CompositeType {
 	selectClause := `
 SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
-	quote_ident(t.typname) AS name,
-	t.typtype
+	quote_ident(t.typname) AS name
 FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid`
 	groupBy := "t.oid, schema, name, t.typtype"
 	query := getTypeQuery(connectionPool, selectClause, groupBy, "c")
 
-	compTypes := make([]Type, 0)
+	compTypes := make([]CompositeType, 0)
 	err := connectionPool.Select(&compTypes, query)
 	gplog.FatalOnError(err)
 
@@ -252,7 +262,7 @@ type Attribute struct {
 }
 
 func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attribute {
-	version4query := `SELECT
+	before6query := `SELECT
 	t.oid AS compositetypeoid,
 	quote_ident(a.attname) AS name,
 	pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
@@ -285,7 +295,7 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 	results := make([]Attribute, 0)
 	var err error
 	if connectionPool.Version.Before("6") {
-		err = connectionPool.Select(&results, version4query)
+		err = connectionPool.Select(&results, before6query)
 	} else {
 		err = connectionPool.Select(&results, masterQuery)
 	}
@@ -299,17 +309,46 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 	return attributeMap
 }
 
-func GetDomainTypes(connectionPool *dbconn.DBConn) []Type {
-	results := make([]Type, 0)
-	version4query := fmt.Sprintf(`
+type Domain struct {
+	Oid        uint32
+	Schema     string
+	Name       string
+	DefaultVal string
+	Collation  string
+	BaseType   string
+	NotNull    bool
+}
+
+func (t Domain) GetMetadataEntry() (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          t.Schema,
+			Name:            t.Name,
+			ObjectType:      "DOMAIN",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (t Domain) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
+}
+
+func (t Domain) FQN() string {
+	return utils.MakeFQN(t.Schema, t.Name)
+}
+
+func GetDomainTypes(connectionPool *dbconn.DBConn) []Domain {
+	results := make([]Domain, 0)
+	before6query := fmt.Sprintf(`
 SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(t.typname) AS name,
-	t.typtype,
 	coalesce(t.typdefault, '') AS defaultval,
 	format_type(t.typbasetype, t.typtypmod) AS basetype,
-	t.typnotnull
+	t.typnotnull AS notnull
 FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
 WHERE %s
@@ -322,11 +361,10 @@ SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(t.typname) AS name,
-	t.typtype,
 	coalesce(t.typdefault, '') AS defaultval,
 	CASE WHEN t.typcollation <> u.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(c.collname) ELSE '' END AS collation,
 	format_type(t.typbasetype, t.typtypmod) AS basetype,
-	t.typnotnull
+	t.typnotnull AS notnull
 FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
 LEFT JOIN pg_type u ON (t.typbasetype = u.oid)
@@ -339,7 +377,7 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause(
 	var err error
 
 	if connectionPool.Version.Before("6") {
-		err = connectionPool.Select(&results, version4query)
+		err = connectionPool.Select(&results, before6query)
 	} else {
 		err = connectionPool.Select(&results, masterQuery)
 	}
@@ -348,7 +386,26 @@ ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause(
 	return results
 }
 
-func GetEnumTypes(connectionPool *dbconn.DBConn) []Type {
+type EnumType struct {
+	Oid        uint32
+	Schema     string
+	Name       string
+	EnumLabels string
+}
+
+func (t EnumType) GetMetadataEntry() (string, utils.MetadataEntry) {
+	return GetTypeMetadataEntry(t.Schema, t.Name)
+}
+
+func (t EnumType) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
+}
+
+func (t EnumType) FQN() string {
+	return utils.MakeFQN(t.Schema, t.Name)
+}
+
+func GetEnumTypes(connectionPool *dbconn.DBConn) []EnumType {
 	enumSortClause := "ORDER BY e.enumsortorder"
 	if connectionPool.Version.Is("5") {
 		enumSortClause = "ORDER BY e.oid"
@@ -358,7 +415,6 @@ SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(t.typname) AS name,
-	t.typtype,
 	enumlabels
 FROM pg_type t
 LEFT JOIN pg_namespace n ON t.typnamespace = n.oid
@@ -370,19 +426,41 @@ AND t.typtype = 'e'
 AND %s
 ORDER BY n.nspname, t.typname;`, enumSortClause, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	results := make([]Type, 0)
+	results := make([]EnumType, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }
 
-func GetRangeTypes(connectionPool *dbconn.DBConn) []Type {
+type RangeType struct {
+	Oid            uint32
+	Schema         string
+	Name           string
+	SubType        string
+	Collation      string
+	SubTypeOpClass string
+	Canonical      string
+	SubTypeDiff    string
+}
+
+func (t RangeType) GetMetadataEntry() (string, utils.MetadataEntry) {
+	return GetTypeMetadataEntry(t.Schema, t.Name)
+}
+
+func (t RangeType) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
+}
+
+func (t RangeType) FQN() string {
+	return utils.MakeFQN(t.Schema, t.Name)
+}
+
+func GetRangeTypes(connectionPool *dbconn.DBConn) []RangeType {
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(t.typname) AS name,
-	t.typtype,
 	format_type(st.oid, st.typtypmod) AS subtype,
 	CASE
 		WHEN c.collname IS NULL THEN ''
@@ -412,19 +490,36 @@ WHERE %s
 AND t.typtype = 'r'
 AND %s;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	results := make([]Type, 0)
+	results := make([]RangeType, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }
 
-func GetShellTypes(connectionPool *dbconn.DBConn) []Type {
+type ShellType struct {
+	Oid    uint32
+	Schema string
+	Name   string
+}
+
+func (t ShellType) GetMetadataEntry() (string, utils.MetadataEntry) {
+	return GetTypeMetadataEntry(t.Schema, t.Name)
+}
+
+func (t ShellType) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: t.Oid}
+}
+
+func (t ShellType) FQN() string {
+	return utils.MakeFQN(t.Schema, t.Name)
+}
+
+func GetShellTypes(connectionPool *dbconn.DBConn) []ShellType {
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
-	quote_ident(t.typname) AS name,
-	t.typtype
+	quote_ident(t.typname) AS name
 FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
 WHERE %s
@@ -432,7 +527,7 @@ AND t.typtype = 'p'
 AND %s
 ORDER BY n.nspname, t.typname;`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	results := make([]Type, 0)
+	results := make([]ShellType, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results

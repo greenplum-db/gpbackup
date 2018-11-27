@@ -132,14 +132,15 @@ var _ = Describe("backup/dependencies tests", func() {
 			objects = []backup.Sortable{
 				backup.Function{Oid: 1, Schema: "public", Name: "function", FunctionBody: "SELECT $1 + $2",
 					Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Language: "sql"},
-				backup.Type{Oid: 2, Schema: "public", Name: "base", Type: "b", Input: "typin", Output: "typout", Category: "U"},
-				backup.Type{Oid: 3, Schema: "public", Name: "composite", Type: "c", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}, Category: "U"},
-				backup.Type{Oid: 4, Schema: "public", Name: "domain", Type: "d", BaseType: "numeric", Category: "U"},
+				backup.BaseType{Oid: 2, Schema: "public", Name: "base", Type: "b", Input: "typin", Output: "typout", Category: "U"},
+				backup.CompositeType{Oid: 3, Schema: "public", Name: "composite", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}},
+				backup.Domain{Oid: 4, Schema: "public", Name: "domain", BaseType: "numeric"},
 				backup.Table{
 					Relation:        backup.Relation{Oid: 5, Schema: "public", Name: "relation"},
 					TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ColumnDefs: []backup.ColumnDefinition{}},
 				},
 				backup.ExternalProtocol{Oid: 6, Name: "ext_protocol", Trusted: true, ReadFunction: 2, WriteFunction: 1, Validator: 0},
+				backup.RangeType{Oid: 7, Schema: "public", Name: "rangetype1"},
 			}
 			metadataMap = backup.MetadataMap{
 				backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: 1}:        backup.ObjectMetadata{Comment: "function"},
@@ -148,6 +149,7 @@ var _ = Describe("backup/dependencies tests", func() {
 				backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: 4}:        backup.ObjectMetadata{Comment: "domain"},
 				backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 5}:       backup.ObjectMetadata{Comment: "relation"},
 				backup.UniqueID{ClassID: backup.PG_EXTPROTOCOL_OID, Oid: 6}: backup.ObjectMetadata{Comment: "protocol"},
+				backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: 7}:        backup.ObjectMetadata{Comment: "range type"},
 			}
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (domain has a constraint)", func() {

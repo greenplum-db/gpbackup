@@ -187,26 +187,33 @@ func RetrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap, procLangs
 	return langFuncs, functionMetadata
 }
 
-func RetrieveTypes(sortables *[]Sortable, metadataMap MetadataMap) ([]Type, MetadataMap) {
+func RetrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving type information")
 	shells := GetShellTypes(connectionPool)
 	bases := GetBaseTypes(connectionPool)
-	types := append(shells, bases...)
 	composites := GetCompositeTypes(connectionPool)
-	types = append(types, composites...)
 	domains := GetDomainTypes(connectionPool)
-	types = append(types, domains...)
+	rangeTypes := make([]RangeType, 0)
 	if connectionPool.Version.AtLeast("6") {
-		ranges := GetRangeTypes(connectionPool)
-		types = append(types, ranges...)
+		rangeTypes = GetRangeTypes(connectionPool)
 	}
-	objectCounts["Types"] = len(types)
 	typeMetadata := GetMetadataForObjectType(connectionPool, TYPE_TYPE)
 
-	*sortables = append(*sortables, convertToSortableSlice(types)...)
-	addToMetadataMap(typeMetadata, metadataMap)
+	BackupShellTypes(metadataFile, shells, bases, rangeTypes)
+	if connectionPool.Version.AtLeast("5") {
+		BackupEnumTypes(metadataFile, typeMetadata)
+	}
 
-	return types, typeMetadata
+	objectCounts["Types"] += len(shells)
+	objectCounts["Types"] += len(bases)
+	objectCounts["Types"] += len(composites)
+	objectCounts["Types"] += len(domains)
+	objectCounts["Types"] += len(rangeTypes)
+	*sortables = append(*sortables, convertToSortableSlice(bases)...)
+	*sortables = append(*sortables, convertToSortableSlice(composites)...)
+	*sortables = append(*sortables, convertToSortableSlice(domains)...)
+	*sortables = append(*sortables, convertToSortableSlice(rangeTypes)...)
+	addToMetadataMap(typeMetadata, metadataMap)
 }
 
 func RetrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
@@ -451,9 +458,9 @@ func BackupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs 
 	PrintCreateLanguageStatements(metadataFile, globalTOC, procLangs, funcInfoMap, procLangMetadata)
 }
 
-func BackupShellTypes(metadataFile *utils.FileWithByteCount, types []Type) {
+func BackupShellTypes(metadataFile *utils.FileWithByteCount, shellTypes []ShellType, baseTypes []BaseType, rangeTypes []RangeType) {
 	gplog.Verbose("Writing CREATE TYPE statements for shell types to metadata file")
-	PrintCreateShellTypeStatements(metadataFile, globalTOC, types)
+	PrintCreateShellTypeStatements(metadataFile, globalTOC, shellTypes, baseTypes, rangeTypes)
 }
 
 func BackupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata MetadataMap) {
@@ -490,13 +497,6 @@ func convertToSortableSlice(objSlice interface{}) []Sortable {
 
 	for _, obj := range ret {
 		newObj := obj.(Sortable)
-
-		// TODO: when types are broken out into separate structs don't pass enums and pseuo types in here.
-		typeObj, ok := obj.(Type)
-		if ok && (typeObj.Type == "e" || typeObj.Type == "p") {
-			continue
-		}
-
 		sortableSlice = append(sortableSlice, newObj)
 	}
 

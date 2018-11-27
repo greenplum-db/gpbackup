@@ -16,25 +16,30 @@ import (
  * Functions to print to the predata file
  */
 
-/*
- * Because only base types are dependent on functions, we only need to print
- * shell type statements for base types.
- */
-func PrintCreateShellTypeStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, types []Type) {
+func PrintCreateShellTypeStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, shellTypes []ShellType, baseTypes []BaseType, rangeTypes []RangeType) {
 	metadataFile.MustPrintf("\n\n")
-	for _, typ := range types {
-		if typ.Type == "b" || typ.Type == "p" || typ.Type == "r" {
-			start := metadataFile.ByteCount
-			typeFQN := utils.MakeFQN(typ.Schema, typ.Name)
-			metadataFile.MustPrintf("CREATE TYPE %s;\n", typeFQN)
 
-			section, entry := typ.GetMetadataEntry()
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		}
+	types := make([]utils.TOCObjectWithMetadata, 0)
+	for _, shellType := range shellTypes {
+		types = append(types, utils.TOCObjectWithMetadata(shellType))
+	}
+	for _, baseType := range baseTypes {
+		types = append(types, utils.TOCObjectWithMetadata(baseType))
+	}
+	for _, rangeType := range rangeTypes {
+		types = append(types, utils.TOCObjectWithMetadata(rangeType))
+	}
+
+	for _, typ := range types {
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintf("CREATE TYPE %s;\n", typ.FQN())
+
+		section, entry := typ.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 }
 
-func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, domain Type, typeMetadata ObjectMetadata, constraints []Constraint) {
+func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, domain Domain, typeMetadata ObjectMetadata, constraints []Constraint) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\nCREATE DOMAIN %s AS %s", domain.FQN(), domain.BaseType)
 	if domain.DefaultVal != "" {
@@ -56,7 +61,7 @@ func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *util
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, domain, "")
 }
 
-func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, base Type, typeMetadata ObjectMetadata) {
+func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, base BaseType, typeMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TYPE %s (\n", base.FQN())
 
@@ -131,7 +136,7 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, base, "")
 }
 
-func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, composite Type, typeMetadata ObjectMetadata) {
+func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
 	var attributeList []string
 	for _, att := range composite.Attributes {
 		collationStr := ""
@@ -151,7 +156,7 @@ func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, to
 	PrintPostCreateCompositeTypeStatement(metadataFile, toc, composite, typeMetadata)
 }
 
-func PrintPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, composite Type, typeMetadata ObjectMetadata) {
+func PrintPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, composite, "")
 	statements := []string{}
 	for _, att := range composite.Attributes {
@@ -162,7 +167,7 @@ func PrintPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount
 	PrintStatements(metadataFile, toc, composite, statements)
 }
 
-func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, enums []Type, typeMetadata MetadataMap) {
+func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, enums []EnumType, typeMetadata MetadataMap) {
 	for _, enum := range enums {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nCREATE TYPE %s AS ENUM (\n\t%s\n);\n", enum.FQN(), enum.EnumLabels)
@@ -173,7 +178,7 @@ func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, toc *u
 	}
 }
 
-func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, rangeType Type, typeMetadata ObjectMetadata) {
+func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, rangeType RangeType, typeMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TYPE %s AS RANGE (\n\tSUBTYPE = %s", rangeType.FQN(), rangeType.SubType)
 
