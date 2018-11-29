@@ -10,7 +10,8 @@ setup_plugin_for_backup(){
   elif [ "$3" = "segment" ]
     then echo "setup_plugin_for_backup was called for scope = segment" >> /tmp/plugin_out.txt
   fi
-  mkdir -p /tmp/plugin_dest
+  timestamp_dir=`basename "$2"`
+  mkdir -p /tmp/plugin_dest/$timestamp_dir
 }
 
 setup_plugin_for_restore(){
@@ -49,25 +50,35 @@ cleanup_plugin_for_restore(){
 restore_file() {
   echo "restore_file $1 $2" >> /tmp/plugin_out.txt
   filename=`basename "$2"`
-	cat /tmp/plugin_dest/$filename > $2
+  timestamp_dir=`basename $(dirname "$2")`
+	cat /tmp/plugin_dest/$timestamp_dir/$filename > $2
 }
 
 backup_file() {
   echo "backup_file $1 $2" >> /tmp/plugin_out.txt
   filename=`basename "$2"`
-	cat $2 > /tmp/plugin_dest/$filename
+  timestamp_dir=`basename $(dirname "$2")`
+	cat $2 > /tmp/plugin_dest/$timestamp_dir/$filename
 }
 
 backup_data() {
   echo "backup_data $1 $2" >> /tmp/plugin_out.txt
   filename=`basename "$2"`
-	cat - > /tmp/plugin_dest/$filename
+  timestamp_dir=`basename $(dirname "$2")`
+	cat - > /tmp/plugin_dest/$timestamp_dir/$filename
 }
 
 restore_data() {
   echo "restore_data $1 $2" >> /tmp/plugin_out.txt
   filename=`basename "$2"`
-	cat /tmp/plugin_dest/$filename
+  timestamp_dir=`basename $(dirname "$2")`
+	cat /tmp/plugin_dest/$timestamp_dir/$filename
+}
+
+delete_dir() {
+  echo "delete_dir $1 $2" >> /tmp/plugin_out.txt
+  rm -rf /tmp/plugin_dest/$2
+
 }
 
 plugin_api_version(){
