@@ -13,81 +13,6 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-/*
- * We don't want to back up the array types that are automatically generated when
- * creating a base type or the base and composite types that are generated when
- * creating a table, so we construct queries to retrieve those types and use them
- * in an EXCEPT clause to exclude them in larger base and composite type retrieval
- * queries that are constructed in their respective functions.
- */
-func getTypeQuery(connectionPool *dbconn.DBConn, selectClause string, groupBy string, typeType string) string {
-	arrayTypesClause := ""
-	if connectionPool.Version.Before("5") {
-		/*
-		 * In GPDB 4, all automatically-generated array types are guaranteed to be
-		 * the name of the corresponding base type prepended with an underscore.
-		 */
-		arrayTypesClause = fmt.Sprintf(`
-%s
-WHERE t.typelem != 0
-AND length(t.typname) > 1
-AND t.typname[0] = '_'
-AND substring(t.typname FROM 2) = (
-	SELECT
-		it.typname
-	FROM pg_type it
-	WHERE it.oid = t.typelem
-)
-GROUP BY %s`, selectClause, groupBy)
-		/*
-		 * In GPDB 5, automatically-generated array types are NOT guaranteed to be
-		 * the name of the corresponding base type prepended with an underscore, as
-		 * the array name may differ due to length issues, collisions, or the like.
-		 * However, pg_type now has a typarray field giving the OID of the array
-		 * type corresponding to a given base type, so that can be used instead.
-		 */
-	} else {
-		arrayTypesClause = fmt.Sprintf(`
-%s
-WHERE t.typelem != 0
-AND t.oid = (
-	SELECT
-		it.typarray
-	FROM pg_type it
-	WHERE it.oid = t.typelem
-)
-GROUP BY %s`, selectClause, groupBy)
-	}
-	/*
-	 * In both GPDB 4 and GPDB 5, we can get the list of base and composite types
-	 * created along with a table by joining typrelid in pg_type with pg_class
-	 * and checking whether it refers to an actual relation or just a dummy entry
-	 * for use with pg_attribute.
-	 */
-	tableTypesClause := fmt.Sprintf(`
-%s
-AND %s
-JOIN pg_class c ON t.typrelid = c.oid AND c.relkind IN ('f', 'r', 'S', 'v')
-GROUP BY %s
-UNION ALL
-%s
-JOIN pg_type it ON t.typelem = it.oid
-JOIN pg_class c ON it.typrelid = c.oid AND c.relkind IN ('f', 'r', 'S', 'v')
-GROUP BY %s`, selectClause, ExtensionFilterClause("t"), groupBy, selectClause, groupBy)
-	return fmt.Sprintf(`
-%s
-WHERE %s
-AND t.typtype = '%s'
-AND %s
-GROUP BY %s
-EXCEPT (
-%s
-UNION ALL
-%s
-)
-ORDER BY schema, name;`, selectClause, SchemaFilterClause("n"), typeType, ExtensionFilterClause("t"), groupBy, arrayTypesClause, tableTypesClause)
-}
-
 func GetTypeMetadataEntry(schema string, name string) (string, utils.MetadataEntry) {
 	return "predata",
 		utils.MetadataEntry{
@@ -104,22 +29,21 @@ type BaseType struct {
 	Oid             uint32
 	Schema          string
 	Name            string
-	Type            string `db:"typtype"`
-	Input           string `db:"typinput"`
-	Output          string `db:"typoutput"`
+	Input           string
+	Output          string
 	Receive         string
 	Send            string
 	ModIn           string
 	ModOut          string
-	InternalLength  int  `db:"typlen"`
-	IsPassedByValue bool `db:"typbyval"`
+	InternalLength  int
+	IsPassedByValue bool
 	Alignment       string
-	Storage         string `db:"typstorage"`
+	Storage         string
 	DefaultVal      string
 	Element         string
-	Category        string `db:"typcategory"`
-	Preferred       bool   `db:"typispreferred"`
-	Delimiter       string `db:"typdelim"`
+	Category        string
+	Preferred       bool
+	Delimiter       string
 	StorageOptions  string
 	Collatable      bool
 	Collation       string
@@ -138,60 +62,123 @@ func (t BaseType) FQN() string {
 }
 
 func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
-	typeModClause := ""
-	if connectionPool.Version.Before("5") {
-		typeModClause = `t.typreceive AS receive,
-	t.typsend AS send,`
-	} else {
-		typeModClause = `CASE WHEN t.typreceive = '-'::regproc THEN '' ELSE t.typreceive::regproc::text END AS receive,
-	CASE WHEN t.typsend = '-'::regproc THEN '' ELSE t.typsend::regproc::text END AS send,
-	CASE WHEN t.typmodin = '-'::regproc THEN '' ELSE t.typmodin::regproc::text END AS modin,
-	CASE WHEN t.typmodout = '-'::regproc THEN '' ELSE t.typmodout::regproc::text END AS modout,`
-	}
-
-	typeCategoryClause := ""
-	typeCollatableClause := ""
-	if connectionPool.Version.Before("6") {
-		typeCategoryClause = "'U' AS typcategory,"
-	} else {
-		typeCategoryClause = "t.typcategory, t.typispreferred,"
-		typeCollatableClause = "(t.typcollation <> 0) AS collatable,"
-	}
-	selectClause := fmt.Sprintf(`
+	version4query := fmt.Sprintf(`
 SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(t.typname) AS name,
-	t.typtype,
-	t.typinput,
-	t.typoutput,
-	%s
-	t.typlen,
-	t.typbyval,
+	t.typinput AS input,
+	t.typoutput AS output,
+	t.typreceive AS receive,
+	t.typsend AS send,
+	t.typlen AS internallength,
+	t.typbyval AS ispassedbyvalue,
 	CASE WHEN t.typalign = '-' THEN '' ELSE t.typalign END AS alignment,
-	t.typstorage,
+	t.typstorage AS storage,
 	coalesce(t.typdefault, '') AS defaultval,
 	CASE WHEN t.typelem != 0::regproc THEN pg_catalog.format_type(t.typelem, NULL) ELSE '' END AS element,
-	%s
-	t.typdelim,
-	%s
+	'U' AS category,
+	t.typdelim AS delimiter,
+	coalesce(array_to_string(e.typoptions, ', '), '') AS storageoptions
+FROM pg_type t
+JOIN pg_namespace n ON t.typnamespace = n.oid
+LEFT JOIN pg_type_encoding e ON t.oid = e.typid
+/*
+ * Identify if this is an automatically generated array type and exclude it if so.
+ * In GPDB 4, all automatically-generated array types are guaranteed to be
+ * the name of the corresponding base type prepended with an underscore.
+ */
+LEFT JOIN pg_type ut ON ( --ut for underlying type
+	t.typelem = ut.oid
+	AND length(t.typname) > 1
+	AND t.typname[0] = '_'
+	AND substring(t.typname FROM 2) = ut.typname
+)
+WHERE %s
+AND t.typtype = 'b'
+AND ut.oid IS NULL
+AND %s
+`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
+
+	version5query := fmt.Sprintf(`
+SELECT
+	t.oid,
+	quote_ident(n.nspname) AS schema,
+	quote_ident(t.typname) AS name,
+	t.typinput AS input,
+	t.typoutput AS output,
+	CASE WHEN t.typreceive = '-'::regproc THEN '' ELSE t.typreceive::regproc::text END AS receive,
+	CASE WHEN t.typsend = '-'::regproc THEN '' ELSE t.typsend::regproc::text END AS send,
+	CASE WHEN t.typmodin = '-'::regproc THEN '' ELSE t.typmodin::regproc::text END AS modin,
+	CASE WHEN t.typmodout = '-'::regproc THEN '' ELSE t.typmodout::regproc::text END AS modout,
+	t.typlen AS internallength,
+	t.typbyval AS ispassedbyvalue,
+	CASE WHEN t.typalign = '-' THEN '' ELSE t.typalign END AS alignment,
+	t.typstorage AS storage,
+	coalesce(t.typdefault, '') AS defaultval,
+	CASE WHEN t.typelem != 0::regproc THEN pg_catalog.format_type(t.typelem, NULL) ELSE '' END AS element,
+	'U' AS category,
+	t.typdelim AS delimiter,
+	coalesce(array_to_string(e.typoptions, ', '), '') AS storageoptions
+FROM pg_type t
+JOIN pg_namespace n ON t.typnamespace = n.oid
+LEFT JOIN pg_type_encoding e ON t.oid = e.typid
+/*
+ * Identify if this is an automatically generated array type and exclude it if so.
+ * In GPDB 5 and 6 we use the typearray field to identify these array types.
+ */
+LEFT JOIN pg_type ut ON t.oid = ut.typarray
+WHERE %s
+AND t.typtype = 'b'
+AND ut.oid IS NULL
+AND %s
+`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
+
+	masterQuery := fmt.Sprintf(`
+SELECT
+	t.oid,
+	quote_ident(n.nspname) AS schema,
+	quote_ident(t.typname) AS name,
+	t.typinput AS input,
+	t.typoutput AS output,
+	CASE WHEN t.typreceive = '-'::regproc THEN '' ELSE t.typreceive::regproc::text END AS receive,
+	CASE WHEN t.typsend = '-'::regproc THEN '' ELSE t.typsend::regproc::text END AS send,
+	CASE WHEN t.typmodin = '-'::regproc THEN '' ELSE t.typmodin::regproc::text END AS modin,
+	CASE WHEN t.typmodout = '-'::regproc THEN '' ELSE t.typmodout::regproc::text END AS modout,
+	t.typlen AS internallength,
+	t.typbyval AS ispassedbyvalue,
+	CASE WHEN t.typalign = '-' THEN '' ELSE t.typalign END AS alignment,
+	t.typstorage AS storage,
+	coalesce(t.typdefault, '') AS defaultval,
+	CASE WHEN t.typelem != 0::regproc THEN pg_catalog.format_type(t.typelem, NULL) ELSE '' END AS element,
+	t.typcategory AS category,
+	t.typispreferred AS preferred,
+	t.typdelim AS delimiter,
+	(t.typcollation <> 0) AS collatable,
 	coalesce(array_to_string(typoptions, ', '), '') AS storageoptions
 FROM pg_type t
 JOIN pg_namespace n ON t.typnamespace = n.oid
-LEFT JOIN pg_type_encoding e ON t.oid = e.typid`, typeModClause, typeCategoryClause, typeCollatableClause)
-	groupBy := "t.oid, schema, name, t.typtype, t.typinput, t.typoutput, receive, send,%st.typlen, t.typbyval, alignment, t.typstorage, defaultval, element, t.typdelim, storageoptions"
-	if connectionPool.Version.Is("4") {
-		groupBy = fmt.Sprintf(groupBy, " ")
-	} else if connectionPool.Version.Is("5") {
-		groupBy = fmt.Sprintf(groupBy, " modin, modout, ")
-	} else {
-		groupBy = fmt.Sprintf(groupBy, " modin, modout, t.typcategory, t.typispreferred, t.typcollation, ")
-
-	}
-	query := getTypeQuery(connectionPool, selectClause, groupBy, "b")
+LEFT JOIN pg_type_encoding e ON t.oid = e.typid
+/*
+ * Identify if this is an automatically generated array type and exclude it if so.
+ * In GPDB 5 and 6 we use the typearray field to identify these array types.
+ */
+LEFT JOIN pg_type ut ON t.oid = ut.typarray
+WHERE %s
+AND t.typtype = 'b'
+AND ut.oid IS NULL
+AND %s
+`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
 	results := make([]BaseType, 0)
-	err := connectionPool.Select(&results, query)
+	var err error
+	if connectionPool.Version.Is("4") {
+		err = connectionPool.Select(&results, version4query)
+	} else if connectionPool.Version.Is("5") {
+		err = connectionPool.Select(&results, version5query)
+	} else {
+		err = connectionPool.Select(&results, masterQuery)
+	}
 	gplog.FatalOnError(err)
 	/*
 	 * GPDB 4.3 has no built-in regproc-to-text cast and uses "-" in place of
@@ -231,15 +218,22 @@ func (t CompositeType) FQN() string {
 }
 
 func GetCompositeTypes(connectionPool *dbconn.DBConn) []CompositeType {
-	selectClause := `
+	query := fmt.Sprintf(`
 SELECT
 	t.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(t.typname) AS name
 FROM pg_type t
-JOIN pg_namespace n ON t.typnamespace = n.oid`
-	groupBy := "t.oid, schema, name, t.typtype"
-	query := getTypeQuery(connectionPool, selectClause, groupBy, "c")
+JOIN pg_namespace n ON t.typnamespace = n.oid
+/*
+ * We join with pg_class to check if a type is truly a composite type
+ * (relkind='c') or implicitly generated from a relation
+ */
+JOIN pg_class c ON t.typrelid = c.oid
+WHERE %s
+AND t.typtype = 'c'
+AND c.relkind = 'c'
+AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
 	compTypes := make([]CompositeType, 0)
 	err := connectionPool.Select(&compTypes, query)

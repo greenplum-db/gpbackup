@@ -24,12 +24,12 @@ var _ = Describe("backup integration tests", func() {
 		BeforeEach(func() {
 			shellType = backup.ShellType{Schema: "public", Name: "shell_type"}
 			baseTypeDefault = backup.BaseType{
-				Oid: 1, Type: "b", Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
+				Oid: 1, Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "i", Storage: "p",
 				DefaultVal: "", Element: "", Delimiter: ",", Category: "U",
 			}
 			baseTypeCustom = backup.BaseType{
-				Oid: 1, Type: "b", Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
+				Oid: 1, Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 8, IsPassedByValue: true, Alignment: "d", Storage: "p",
 				DefaultVal: "0", Element: "integer", Delimiter: ";", Category: "U", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768",
 			}
@@ -136,6 +136,28 @@ var _ = Describe("backup integration tests", func() {
 				structmatcher.ExpectStructsToMatchExcluding(&baseTypeCustom, &results[0], "Oid")
 			}
 		})
+		It("returns a slice for a user-created array type", func() {
+			arrayType := backup.BaseType{
+				Oid: 1, Schema: "public", Name: "base_array_type", Input: "public.base_array_fn_in", Output: "public.base_array_fn_out", Receive: "",
+				Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "i", Storage: "p",
+				DefaultVal: "", Element: "text", Delimiter: ",", Category: "U",
+			}
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_array_type")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.base_array_type CASCADE")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.base_array_fn_in(cstring) RETURNS public.base_array_type AS 'boolin' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.base_array_fn_out(public.base_array_type) RETURNS cstring AS 'boolout' LANGUAGE internal")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_array_type(INPUT=public.base_array_fn_in, OUTPUT=public.base_array_fn_out, ELEMENT=text)")
+
+			results := backup.GetBaseTypes(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			if connectionPool.Version.Before("5") {
+				structmatcher.ExpectStructsToMatchExcluding(&arrayType, &results[0], "Oid", "ModIn", "ModOut")
+			} else {
+				structmatcher.ExpectStructsToMatchExcluding(&arrayType, &results[0], "Oid")
+			}
+		})
 		It("returns a slice for an enum type", func() {
 			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.enum_type AS ENUM ('label1','label2','label3')")
@@ -171,9 +193,11 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.simpleview AS SELECT rolname FROM pg_roles")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			results := backup.GetCompositeTypes(connectionPool)
+			bases := backup.GetBaseTypes(connectionPool)
+			composites := backup.GetCompositeTypes(connectionPool)
 
-			Expect(results).To(BeEmpty())
+			Expect(bases).To(BeEmpty())
+			Expect(composites).To(BeEmpty())
 		})
 		It("does not return types for foreign tables", func() {
 			testutils.SkipIfBefore6(connectionPool)

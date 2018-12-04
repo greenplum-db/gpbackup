@@ -98,11 +98,11 @@ var _ = Describe("backup/predata_types tests", func() {
 		})
 	})
 	Describe("PrintCreateBaseTypeStatement", func() {
-		baseSimple := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "", Element: "", Category: "U", Preferred: false, Delimiter: ""}
-		basePartial := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "receive_fn", Send: "send_fn", ModIn: "modin_fn", ModOut: "modout_fn", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "42", Element: "int4", Category: "U", Delimiter: ","}
-		baseFull := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "receive_fn", Send: "send_fn", ModIn: "modin_fn", ModOut: "modout_fn", InternalLength: 16, IsPassedByValue: true, Alignment: "s", Storage: "e", DefaultVal: "42", Element: "int4", Category: "N", Preferred: true, Delimiter: ",", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768", Collatable: true}
-		basePermOne := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "d", Storage: "m", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
-		basePermTwo := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "i", Storage: "x", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
+		baseSimple := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "", Element: "", Category: "U", Preferred: false, Delimiter: ""}
+		basePartial := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Input: "input_fn", Output: "output_fn", Receive: "receive_fn", Send: "send_fn", ModIn: "modin_fn", ModOut: "modout_fn", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "42", Element: "int4", Category: "U", Delimiter: ","}
+		baseFull := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Input: "input_fn", Output: "output_fn", Receive: "receive_fn", Send: "send_fn", ModIn: "modin_fn", ModOut: "modout_fn", InternalLength: 16, IsPassedByValue: true, Alignment: "s", Storage: "e", DefaultVal: "42", Element: "int4", Category: "N", Preferred: true, Delimiter: ",", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768", Collatable: true}
+		basePermOne := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "d", Storage: "m", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
+		basePermTwo := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "i", Storage: "x", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
 
 		It("prints a base type with no optional arguments", func() {
 			backup.PrintCreateBaseTypeStatement(backupfile, toc, baseSimple, emptyMetadata)
@@ -182,8 +182,8 @@ ALTER TYPE public.base_type
 	})
 	Describe("PrintCreateShellTypeStatements", func() {
 		shellOne := backup.ShellType{Oid: 1, Schema: "public", Name: "shell_type1"}
-		baseOne := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type1", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
-		baseTwo := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type2", Type: "b", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
+		baseOne := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type1", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
+		baseTwo := backup.BaseType{Oid: 1, Schema: "public", Name: "base_type2", Input: "input_fn", Output: "output_fn", Receive: "", Send: "", ModIn: "", ModOut: "", InternalLength: -1, IsPassedByValue: false, Alignment: "c", Storage: "p", DefaultVal: "", Element: "", Category: "U", Delimiter: ""}
 		rangeOne := backup.RangeType{Oid: 1, Schema: "public", Name: "range_type1"}
 		It("prints shell type for a shell type", func() {
 			backup.PrintCreateShellTypeStatements(backupfile, toc, []backup.ShellType{shellOne}, []backup.BaseType{}, []backup.RangeType{})

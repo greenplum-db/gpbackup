@@ -33,7 +33,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		BeforeEach(func() {
 			shellType = backup.ShellType{Schema: "public", Name: "shell_type"}
 			baseType = backup.BaseType{
-				Type: "b", Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
+				Schema: "public", Name: "base_type", Input: "public.base_fn_in", Output: "public.base_fn_out", Receive: "",
 				Send: "", ModIn: "", ModOut: "", InternalLength: 4, IsPassedByValue: true, Alignment: "i", Storage: "p",
 				DefaultVal: "default", Element: "text", Category: "U", Preferred: false, Delimiter: ";", StorageOptions: "compresstype=zlib, compresslevel=1, blocksize=32768",
 			}
