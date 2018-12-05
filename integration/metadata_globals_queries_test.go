@@ -330,6 +330,71 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 			}
 			Fail("Role 'role1' was not found")
 		})
+		It("returns a role with inf/-inf ValidUntil field", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1inf WITH VALID UNTIL 'infinity' SUPERUSER NOINHERIT")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1neginf WITH VALID UNTIL '-infinity' SUPERUSER NOINHERIT")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1inf")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1neginf")
+
+			results := backup.GetRoles(connectionPool)
+
+			expectedRoleInf := backup.Role{
+				Oid:             0,
+				Name:            "role1inf",
+				Super:           true,
+				Inherit:         false,
+				CreateRole:      false,
+				CreateDB:        false,
+				CanLogin:        false,
+				Replication:     false,
+				ConnectionLimit: -1,
+				Password:        "",
+				ValidUntil:      "infinity",
+				ResQueue:        "pg_default",
+				ResGroup:        "",
+				Createrexthttp:  false,
+				Createrextgpfd:  false,
+				Createwextgpfd:  false,
+				Createrexthdfs:  false,
+				Createwexthdfs:  false,
+				TimeConstraints: nil,
+			}
+
+			expectedRoleNegInf := backup.Role{
+				Oid:             0,
+				Name:            "role1neginf",
+				Super:           true,
+				Inherit:         false,
+				CreateRole:      false,
+				CreateDB:        false,
+				CanLogin:        false,
+				Replication:     false,
+				ConnectionLimit: -1,
+				Password:        "",
+				ValidUntil:      "-infinity",
+				ResQueue:        "pg_default",
+				ResGroup:        "",
+				Createrexthttp:  false,
+				Createrextgpfd:  false,
+				Createwextgpfd:  false,
+				Createrexthdfs:  false,
+				Createwexthdfs:  false,
+				TimeConstraints: nil,
+			}
+			var foundRoles int
+			for _, role := range results {
+				if role.Name == "role1inf" {
+					structmatcher.ExpectStructsToMatchExcluding(&expectedRoleInf, role, "Oid", "ResGroup")
+					foundRoles++
+				} else if role.Name == "role1neginf" {
+					structmatcher.ExpectStructsToMatchExcluding(&expectedRoleNegInf, role, "Oid", "ResGroup")
+					foundRoles++
+				}
+			}
+			if foundRoles != 2 {
+				Fail("Role 'role1inf' or 'role1neginf' was not found")
+			}
+		})
 	})
 	Describe("GetRoleMembers", func() {
 		BeforeEach(func() {

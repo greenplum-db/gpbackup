@@ -331,7 +331,11 @@ SELECT
 	%s
 	rolconnlimit,
 	coalesce(rolpassword, '') AS password,
-	coalesce(timezone('UTC', rolvaliduntil) || '-00', '') AS validuntil,
+	CASE
+		WHEN (rolvaliduntil = 'infinity'::timestamp OR rolvaliduntil = '-infinity'::timestamp)
+		THEN timezone('UTC', rolvaliduntil)::text
+		ELSE coalesce(timezone('UTC', rolvaliduntil) || '-00', '')
+	END AS validuntil,
 	(SELECT quote_ident(rsqname) FROM pg_resqueue WHERE pg_resqueue.oid = rolresqueue) AS resqueue,
 	%s
 	rolcreaterexthttp,
