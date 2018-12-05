@@ -80,7 +80,7 @@ To automatically format your code and add/remove imports, use
 make format
 ```
 This target runs [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports) and [gofmt](https://golang.org/cmd/gofmt/).
-We will only accept code that has been formatted using this target or an equaivalent `gofmt` call.
+We will only accept code that has been formatted using this target or an equivalent `gofmt` call.
 
 ## Cleaning up
 
