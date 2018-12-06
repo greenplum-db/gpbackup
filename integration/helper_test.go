@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	testDir          = "/tmp/helper_test"
-	pluginDir        = "/tmp/plugin_dest"
+	testDir          = "/tmp/helper_test/20180101010101"
+	pluginDir        = "/tmp/plugin_dest/20180101010101"
 	tocFile          = fmt.Sprintf("%s/test_toc.yaml", testDir)
 	oidFile          = fmt.Sprintf("%s/test_oids", testDir)
 	pipeFile         = fmt.Sprintf("%s/test_pipe", testDir)
