@@ -174,7 +174,8 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *FilterSet, schemaSet
 	relationFQN := MakeFQN(entry.Schema, entry.Name)
 	shouldIncludeRelation := (relationSet.IsExclude && entry.ObjectType != "TABLE" && entry.ObjectType != "VIEW" && entry.ObjectType != "SEQUENCE" && entry.ReferenceObject == "") ||
 		((entry.ObjectType == "TABLE" || entry.ObjectType == "VIEW" || entry.ObjectType == "SEQUENCE") && relationSet.MatchesFilter(relationFQN) && entry.ReferenceObject == "") || // Relations should match the filter
-		(entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) // Include relations that filtered tables depend on
+		(entry.ObjectType != "SEQUENCE OWNER" && entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) || // Include relations that filtered tables depend on
+		(entry.ObjectType == "SEQUENCE OWNER" && relationSet.MatchesFilter(relationFQN) && relationSet.MatchesFilter(entry.ReferenceObject)) //Include sequence owners if both table and sequence are being restored
 
 	return shouldIncludeObject && shouldIncludeSchema && shouldIncludeRelation
 }

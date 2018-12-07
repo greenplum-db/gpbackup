@@ -209,7 +209,7 @@ func (s Sequence) GetMetadataEntry() (string, utils.MetadataEntry) {
 			Schema:          s.Schema,
 			Name:            s.Name,
 			ObjectType:      "SEQUENCE",
-			ReferenceObject: s.OwningTable,
+			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
 		}

@@ -96,35 +96,63 @@ var _ = Describe("utils/toc tests", func() {
 
 			Expect(statements).To(Equal([]utils.StatementWithType{view}))
 		})
-		It("returns statement for a sequence matching an included sequence", func() {
-			statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.sequence"}, noExRelation)
-
-			Expect(statements).To(Equal([]utils.StatementWithType{sequence}))
-		})
-		It("returns statement for any object type or reference object not matching an excluded table", func() {
-			statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema.table1"})
-
-			Expect(statements).To(Equal([]utils.StatementWithType{table2, view, sequence, index}))
-		})
-		It("returns no statements for any object type with reference object matching an excluded table", func() {
-			statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema2.table2"})
-
-			Expect(statements).To(Equal([]utils.StatementWithType{table1, view, sequence}))
-		})
 		It("returns no statements for an excluded view or sequence", func() {
 			statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema.view", "schema.sequence"})
 
 			Expect(statements).To(Equal([]utils.StatementWithType{table1, table2, index}))
 		})
-		It("returns statement for any object type with matching reference object", func() {
-			statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema2.table2"}, noExRelation)
-
-			Expect(statements).To(Equal([]utils.StatementWithType{table2, index}))
-		})
 		It("returns no statements for a non-relation object with matching name from relation list", func() {
 			statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.someindex"}, noExRelation)
 
 			Expect(statements).To(Equal([]utils.StatementWithType{}))
+		})
+		Context("With reference object", func() {
+			sequenceTable := utils.StatementWithType{Schema: "schema", Name: "sequence_table", ObjectType: "TABLE", Statement: "CREATE TABLE schema.sequence_table"}
+			sequenceTableLen := uint64(len(sequenceTable.Statement))
+
+			sequenceOwner := utils.StatementWithType{Schema: "schema", Name: "sequence", ObjectType: "SEQUENCE OWNER", Statement: "ALTER SEQUENCE schema.sequence OWNED BY schema.sequence_table", ReferenceObject: "schema.sequence_table"}
+			sequenceOwnerLen := uint64(len(sequenceOwner.Statement))
+
+			BeforeEach(func() {
+				startCount := table1Len + table2Len + viewLen + sequenceLen + indexLen
+				endCount := startCount + sequenceTableLen
+				toc.AddMetadataEntry("predata", utils.MetadataEntry{Schema: "schema", Name: "sequence_table", ObjectType: "TABLE"}, startCount, endCount)
+				startCount = endCount
+				endCount += sequenceOwnerLen
+				toc.AddMetadataEntry("predata", utils.MetadataEntry{Schema: "schema", Name: "sequence", ObjectType: "SEQUENCE OWNER", ReferenceObject: "schema.sequence_table"}, startCount, endCount)
+
+				metadataFile = bytes.NewReader([]byte(table1.Statement + table2.Statement + view.Statement + sequence.Statement + index.Statement + sequenceTable.Statement + sequenceOwner.Statement))
+			})
+			It("does not return sequence owner statement when owning table is not included", func() {
+				statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.sequence"}, noExRelation)
+
+				Expect(statements).To(Equal([]utils.StatementWithType{sequence}))
+			})
+			It("does not return sequence owner statement when sequence is not included", func() {
+				statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.sequence_table"}, noExRelation)
+
+				Expect(statements).To(Equal([]utils.StatementWithType{sequenceTable}))
+			})
+			It("returns sequence owner statement when owning table and sequence are both included", func() {
+				statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.sequence_table", "schema.sequence"}, noExRelation)
+
+				Expect(statements).To(Equal([]utils.StatementWithType{sequence, sequenceTable, sequenceOwner}))
+			})
+			It("returns statement for non sequence-owners with matching reference object", func() {
+				statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema2.table2"}, noExRelation)
+
+				Expect(statements).To(Equal([]utils.StatementWithType{table2, index}))
+			})
+			It("returns statement for any object type or reference object not matching an excluded table", func() {
+				statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema.table1"})
+
+				Expect(statements).To(Equal([]utils.StatementWithType{table2, view, sequence, index, sequenceTable, sequenceOwner}))
+			})
+			It("returns no statements for any object type with reference object matching an excluded table", func() {
+				statements := toc.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, noInRelation, []string{"schema2.table2"})
+
+				Expect(statements).To(Equal([]utils.StatementWithType{table1, view, sequence, sequenceTable, sequenceOwner}))
+			})
 		})
 	})
 	Describe("GetDataEntriesMatching", func() {
