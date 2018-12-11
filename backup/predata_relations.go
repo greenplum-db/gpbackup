@@ -326,7 +326,7 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
 			//TODO: see if the SEQUENCE OWNER type is being utilized in restore or if it could be SEQUENCE. I think we should be using it for filtering, but aren't
-			entry := utils.MetadataEntry{sequence.Relation.Schema, sequence.Relation.Name, "SEQUENCE OWNER", sequence.OwningTable, 0, 0}
+			entry := utils.MetadataEntry{Schema: sequence.Relation.Schema, Name: sequence.Relation.Name, ObjectType: "SEQUENCE OWNER", ReferenceObject: sequence.OwningTable}
 			toc.AddMetadataEntry("predata", entry, start, metadataFile.ByteCount)
 		}
 	}

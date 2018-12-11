@@ -42,7 +42,7 @@ func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	}
 	metadataFile.MustPrintf(";")
 
-	entry := utils.MetadataEntry{"", db.Name, "DATABASE", "", 0, 0}
+	entry := utils.MetadataEntry{Name: db.Name, ObjectType: "DATABASE"}
 	toc.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, dbMetadata[db.GetUniqueID()], db, "")
 }
@@ -52,7 +52,7 @@ func PrintDatabaseGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gu
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nALTER DATABASE %s %s;", dbname, guc)
 
-		entry := utils.MetadataEntry{"", dbname, "DATABASE GUC", "", 0, 0}
+		entry := utils.MetadataEntry{Name: dbname, ObjectType: "DATABASE GUC"}
 		toc.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
 	}
 }
@@ -114,7 +114,7 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s %s;", prepare.name, prepare.setting)
 
-		entry := utils.MetadataEntry{"", prepare.name, "RESOURCE GROUP", "", 0, 0}
+		entry := utils.MetadataEntry{Name: prepare.name, ObjectType: "RESOURCE GROUP"}
 		toc.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
 	}
 }

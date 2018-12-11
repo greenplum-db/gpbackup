@@ -27,7 +27,7 @@ func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, 
 		attributeQuery := GenerateAttributeStatisticsQuery(table, attStat)
 		statisticsFile.MustPrintf("\n\n%s\n", attributeQuery)
 	}
-	entry := utils.MetadataEntry{table.Schema, table.Name, "STATISTICS", "", 0, 0}
+	entry := utils.MetadataEntry{Schema: table.Schema, Name: table.Name, ObjectType: "STATISTICS"}
 	toc.AddMetadataEntry("statistics", entry, start, statisticsFile.ByteCount)
 }
 
