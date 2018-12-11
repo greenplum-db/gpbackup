@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const SUPPORTED_PLUGIN_VERSION = "0.3.0"
+const SUPPORTED_PLUGIN_VERSION = "0.4.0"
 
 type PluginConfig struct {
 	ExecutablePath string
