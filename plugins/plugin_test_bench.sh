@@ -141,28 +141,6 @@ echo "[PASSED] backup_data with no data"
 echo "[PASSED] restore_data with no data"
 
 # ----------------------------------------------
-# Delete backup directory function
-# ----------------------------------------------
-
-echo "[RUNNING] delete_dir"
-echo $data | $plugin backup_data $plugin_config $testdata
-
-# ensures the dir exists prior to deletion
-$plugin restore_data $plugin_config $testdata > /dev/null
-
-$plugin delete_dir $plugin_config 20180101010101
-
-set +e
-output=$($plugin restore_data $plugin_config $testdata 2>/dev/null)
-retval=$(echo $?)
-if [ "${output}" = "${data}"  ] || [ "$retval" = "0" ] ; then
-  echo "Failed to delete backup using plugin"
-  exit 1
-fi
-set -e
-echo "[PASSED] delete_dir"
-
-# ----------------------------------------------
 # Cleanup functions
 # ----------------------------------------------
 
