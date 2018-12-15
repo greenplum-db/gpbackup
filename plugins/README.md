@@ -47,9 +47,7 @@ If an error occurs during plugin execution, plugins should write an error messag
 
 ## Commands
 
-The current version of our utility calls all commands listed below. Errors will occur if any of them are not defined. If your plugin does not require the functionality of one of these commands, leave the implementation empty.
-
-See [Release Notes](#Release_Notes) for command modification history.
+Our utility calls all commands listed below. Errors will occur if any of them are not defined. If your plugin does not require the functionality of one of these commands, leave the implementation empty.
 
 [setup_plugin_for_backup](#setup_plugin_for_backup)
 
@@ -87,8 +85,6 @@ Note: "segment_host" and "segment" are both provided as a single physical segmen
 [filepath](#filepath): The local path to a file written by gpbackup and/or read by gprestore.
 
 [data_filekey](#data_filekey): The path where a data file would be written on local disk if not using a plugin. The plugin should use the filename specified in this argument when storing the streamed data on the remote system because the same path will be used as a key to the restore_data command to retrieve the data.
-
-[timestamp](#timestamp): The timestamp key for a particular backup.
 
 ## Command API
 
@@ -289,7 +285,7 @@ test_plugin restore_data /home/test_plugin_config.yaml /data_dir/backups/2018010
 ```
 ### [plugin_api_version](#plugin_api_version)
 
-This command should echo the gpbackup plugin api version to stdout.
+This command should echo the gpbackup plugin api version to stdout. The version for this gpbackup plugin api is 0.1.0.
 
 **Usage within gpbackup and gprestore:**
 
@@ -299,28 +295,11 @@ Called to verify the plugin is using a version of the gpbackup plugin API that i
 
 None
 
-**Return Value:** X.Y.Z
+**Return Value:** 0.1.0
 
 **Example:**
 ```
 test_plugin plugin_api_version
-```
-
-### [delete_dir](#delete_dir)
-
-This command should delete the directory specified by the given backup timestamp on the remote system.
-
-**Arguments:**
-
-[config_path](#config_path)
-
-[timestamp](#timestamp)
-
-**Return Value:** None
-
-**Example:**
-```
-test_plugin delete_dir /home/test_plugin_config.yaml 20180101010101
 ```
 
 ## Plugin flow within gpbackup and gprestore
@@ -357,15 +336,3 @@ plugin_test_bench.sh [path_to_executable] [plugin_config] [optional_config_for_s
 This will individually test each command and run a backup and restore using your plugin. This suite will upload small amounts of data to your destination system (<1MB total)
 
 If the `[optional_config_for_secondary_destination]` is provided, the test bench will also restore from this secondary destination.
-
-
-## [Release Notes](#Release_Notes)
-
-### Version 0.4.0
- - [delete_dir](#delete_dir) command added
-
-### Version 0.2.0 - 0.3.0
- - Added [scope](#scope) and [contentID](#contentID) arguments to setup and cleanup functions for more control over execution location.
-
-### Version 0.1.0
- - Initial commands added.

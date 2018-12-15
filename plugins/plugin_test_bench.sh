@@ -5,7 +5,7 @@ set -o pipefail
 plugin=$1
 plugin_config=$2
 secondary_plugin_config=$3
-SUPPORTED_API_VERSION="0.4.0"
+SUPPORTED_API_VERSION="0.3.0"
 
 # ----------------------------------------------
 # Test suite setup
