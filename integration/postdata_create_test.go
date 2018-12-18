@@ -21,9 +21,17 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateIndexStatements", func() {
 		var (
 			indexMetadataMap backup.MetadataMap
+			index            backup.IndexDefinition
 		)
 		BeforeEach(func() {
 			indexMetadataMap = backup.MetadataMap{}
+			index = backup.IndexDefinition{
+				Oid:          0,
+				Name:         "index1",
+				OwningSchema: "public",
+				OwningTable:  "testtable",
+				Def:          "CREATE INDEX index1 ON public.testtable USING btree (i)",
+			}
 		})
 		It("creates a basic index", func() {
 			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
@@ -91,6 +99,23 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultIndexes := backup.GetIndexes(connectionPool)
 			Expect(resultIndexes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
+		})
+		It("creates a unique index used as replica identity", func() {
+			testutils.SkipIfBefore6(connectionPool)
+			index.Def = "CREATE UNIQUE INDEX index1 ON public.testtable USING btree (i)"
+			index.IsReplicaIdentity = true
+			indexes := []backup.IndexDefinition{index}
+			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int NOT NULL)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			resultIndexes := backup.GetIndexes(connectionPool)
+			Expect(resultIndexes).To(HaveLen(1))
+			resultIndex := resultIndexes[0]
+			structmatcher.ExpectStructsToMatchExcluding(&resultIndex, &index, "Oid")
 		})
 	})
 	Describe("PrintCreateRuleStatements", func() {

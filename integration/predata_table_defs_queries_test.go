@@ -765,4 +765,35 @@ SET SUBPARTITION TEMPLATE
 			Expect(inheritanceMap).To(Not(HaveKey(partition.Oid)))
 		})
 	})
+	Describe("GetTableReplicaIdentity", func() {
+		It("Returns a map of oid to replica identity with default", func() {
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.test_table()`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.test_table")
+
+			oid := testutils.OidFromObjectName(connectionPool, "public", "test_table", backup.TYPE_RELATION)
+			result := backup.GetTableReplicaIdentity(connectionPool)
+			Expect(result[oid]).To(Equal("d"))
+		})
+		It("Returns a map of oid to replica identity with full", func() {
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.test_table()`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.test_table")
+
+			testhelper.AssertQueryRuns(connectionPool, `ALTER TABLE public.test_table REPLICA IDENTITY FULL;`)
+			oid := testutils.OidFromObjectName(connectionPool, "public", "test_table", backup.TYPE_RELATION)
+			result := backup.GetTableReplicaIdentity(connectionPool)
+			Expect(result[oid]).To(Equal("f"))
+		})
+		It("Returns a map of oid to replica identity with nothing", func() {
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.test_table()`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.test_table")
+
+			testhelper.AssertQueryRuns(connectionPool, `ALTER TABLE public.test_table REPLICA IDENTITY NOTHING;`)
+			oid := testutils.OidFromObjectName(connectionPool, "public", "test_table", backup.TYPE_RELATION)
+			result := backup.GetTableReplicaIdentity(connectionPool)
+			Expect(result[oid]).To(Equal("n"))
+		})
+	})
 })

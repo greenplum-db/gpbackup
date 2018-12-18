@@ -53,6 +53,7 @@ type IndexDefinition struct {
 	Def                string
 	IsClustered        bool
 	SupportsConstraint bool
+	IsReplicaIdentity  bool
 }
 
 func (i IndexDefinition) GetMetadataEntry() (string, utils.MetadataEntry) {
@@ -131,6 +132,7 @@ SELECT DISTINCT
 	coalesce(quote_ident(s.spcname), '') AS tablespace,
 	pg_get_indexdef(i.indexrelid) AS def,
 	i.indisclustered AS isclustered,
+	i.indisreplident AS isreplicaidentity,
 	CASE
 		WHEN conindid > 0 THEN 't'
 		ELSE 'f'

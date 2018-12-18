@@ -45,6 +45,16 @@ var _ = Describe("backup/postdata tests", func() {
 			testutils.AssertBufferContents(toc.PostdataEntries, buffer, "CREATE INDEX testindex ON public.testtable USING btree(i);",
 				"COMMENT ON INDEX public.testindex IS 'This is an index comment.';")
 		})
+		It("can print an index that is a replica identity", func() {
+			index.IsReplicaIdentity = true
+			indexes := []backup.IndexDefinition{index}
+			backup.PrintCreateIndexStatements(backupfile, toc, indexes, emptyMetadataMap)
+			testutils.ExpectEntry(toc.PostdataEntries, 0, "public", "public.testtable", "testindex", "INDEX")
+			testutils.AssertBufferContents(toc.PostdataEntries, buffer,
+				"CREATE INDEX testindex ON public.testtable USING btree(i);",
+				"ALTER TABLE public.testtable REPLICA IDENTITY USING INDEX testindex;",
+			)
+		})
 	})
 	Context("PrintCreateRuleStatements", func() {
 		rule := backup.RuleDefinition{Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}

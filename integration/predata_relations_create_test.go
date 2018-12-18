@@ -37,6 +37,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			if connectionPool.Version.AtLeast("6") {
 				partitionPartFalseExpectation = "'false'"
+				testTable.ReplicaIdentity = "d"
 			}
 		})
 		AfterEach(func() {
@@ -306,6 +307,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyACL, FdwOptions: "option1 'value1', option2 'value2'"}
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne}
 			testTable.ForeignDef = backup.ForeignTableDefinition{Oid: 0, Options: "", Server: "sc"}
+			testTable.ReplicaIdentity = "n"
 			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
 
 			metadata := testutils.DefaultMetadata("TABLE", true, true, true, true)
@@ -318,7 +320,6 @@ SET SUBPARTITION TEMPLATE ` + `
 			testTable.ForeignDef.Oid = testTable.Oid
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
 			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
-
 		})
 	})
 	Describe("PrintPostCreateTableStatements", func() {
@@ -334,6 +335,9 @@ SET SUBPARTITION TEMPLATE ` + `
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
 				TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED BY (i)", ColumnDefs: []backup.ColumnDefinition{tableRow}, ExtTableDef: extTableEmpty, Inherits: []string{}},
+			}
+			if connectionPool.Version.AtLeast("6") {
+				testTable.ReplicaIdentity = "d"
 			}
 		})
 		AfterEach(func() {
@@ -396,6 +400,16 @@ SET SUBPARTITION TEMPLATE ` + `
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
 			resultColumnOne := resultTable.ColumnDefs[0]
 			structmatcher.ExpectStructsToMatchExcluding(securityLabelColumnOne, resultColumnOne, "Oid")
+		})
+		It("prints table replica identity value", func() {
+			testutils.SkipIfBefore6(connectionPool)
+
+			testTable.ReplicaIdentity = "f"
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+			Expect(resultTable.ReplicaIdentity).To(Equal("f"))
 		})
 	})
 	Describe("PrintCreateViewStatements", func() {

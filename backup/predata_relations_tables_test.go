@@ -493,6 +493,31 @@ SET SUBPARTITION TEMPLATE
 		rowCommentOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Comment: "This is a column comment.", ACL: []backup.ACL{}}
 		rowCommentTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", Type: "integer", StatTarget: -1, Comment: "This is another column comment.", ACL: []backup.ACL{}}
 
+		It("does not print default replica identity statement", func() {
+			testTable.ReplicaIdentity = "d"
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
+			testhelper.NotExpectRegexp(buffer, `REPLICA IDENTITY`)
+		})
+		It("does not print index replica identity statement", func() {
+			testTable.ReplicaIdentity = "i"
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
+			testhelper.NotExpectRegexp(buffer, `REPLICA IDENTITY`)
+		})
+		It("does not print null replica identity statement", func() {
+			testTable.ReplicaIdentity = ""
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
+			testhelper.NotExpectRegexp(buffer, `REPLICA IDENTITY`)
+		})
+		It("prints replica indentity full", func() {
+			testTable.ReplicaIdentity = "f"
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
+			testhelper.ExpectRegexp(buffer, `ALTER TABLE public.tablename REPLICA IDENTITY FULL;`)
+		})
+		It("prints replica indentity nothing", func() {
+			testTable.ReplicaIdentity = "n"
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
+			testhelper.ExpectRegexp(buffer, `ALTER TABLE public.tablename REPLICA IDENTITY NOTHING;`)
+		})
 		It("prints a block with a table comment", func() {
 			col := []backup.ColumnDefinition{rowOne}
 			testTable.ColumnDefs = col
@@ -549,10 +574,17 @@ ALTER TABLE public.tablename OWNER TO testrole;`)
 
 SECURITY LABEL FOR dummy ON TABLE public.tablename IS 'unclassified';`)
 		})
+		It("does not print an ALTER TABLE... REPLICA IDENTITY for foreign tables", func() {
+			testTable.ForeignDef = backup.ForeignTableDefinition{Options: "", Server: "fs"}
+			testTable.ReplicaIdentity = "n"
+			tableMetadata := testutils.DefaultMetadata("FOREIGN TABLE", true, true, true, true)
+			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
+			testhelper.NotExpectRegexp(buffer, `REPLICA IDENTITY`)
+		})
 		It("prints owner, comment, security label, and ACL statements for foreign table", func() {
 			col := []backup.ColumnDefinition{rowOne}
 			testTable.ColumnDefs = col
-			testTable.ForeignDef = backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
+			testTable.ForeignDef = backup.ForeignTableDefinition{Options: "", Server: "fs"}
 			tableMetadata := testutils.DefaultMetadata("FOREIGN TABLE", true, true, true, true)
 			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
 			testhelper.ExpectRegexp(buffer, `

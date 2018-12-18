@@ -55,6 +55,7 @@ type TableDefinition struct {
 	IsUnlogged         bool
 	ForeignDef         ForeignTableDefinition
 	Inherits           []string
+	ReplicaIdentity    string
 }
 
 /*
@@ -83,6 +84,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	unloggedTableMap := GetUnloggedTables(connectionPool)
 	foreignTableDefs := GetForeignTableDefinitions(connectionPool)
 	inheritanceMap := GetTableInheritance(connectionPool, tableRelations)
+	replicaIdentityMap := GetTableReplicaIdentity(connectionPool)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, tableRel := range tableRelations {
@@ -101,6 +103,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			IsUnlogged:         unloggedTableMap[oid],
 			ForeignDef:         foreignTableDefs[oid],
 			Inherits:           inheritanceMap[oid],
+			ReplicaIdentity:    replicaIdentityMap[oid],
 		}
 		if tableDef.Inherits == nil {
 			tableDef.Inherits = []string{}
@@ -372,6 +375,14 @@ func GetTableType(connectionPool *dbconn.DBConn) map[uint32]string {
 		return map[uint32]string{}
 	}
 	query := `select oid, reloftype::pg_catalog.regtype AS value from pg_class WHERE reloftype != 0`
+	return selectAsOidToStringMap(connectionPool, query)
+}
+
+func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
+	if connectionPool.Version.Before("6") {
+		return map[uint32]string{}
+	}
+	query := `select oid, relreplident AS value from pg_class`
 	return selectAsOidToStringMap(connectionPool, query)
 }
 

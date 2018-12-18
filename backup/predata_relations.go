@@ -273,6 +273,22 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 			statements = append(statements, fmt.Sprintf("SECURITY LABEL FOR %s ON COLUMN %s.%s IS '%s';", att.SecurityLabelProvider, table.FQN(), att.Name, escapedLabel))
 		}
 	}
+
+	// It seems that replica identity on foreign tables default to "n" and cannot be altered in postgres 9.4
+	if (table.ReplicaIdentity != "") && (table.ForeignDef == ForeignTableDefinition{}) {
+		switch table.ReplicaIdentity {
+		case "d", "i":
+			// default values do not need to be written ; index values are handled when the index is created
+			break
+		case "n":
+			statements = append(statements, fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY NOTHING;", table.FQN()))
+			break
+		case "f":
+			statements = append(statements, fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL;", table.FQN()))
+			break
+		}
+	}
+
 	PrintStatements(metadataFile, toc, table, statements)
 }
 

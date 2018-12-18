@@ -31,6 +31,11 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *util
 				metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
 				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 			}
+			if index.IsReplicaIdentity {
+				start := metadataFile.ByteCount
+				metadataFile.MustPrintf("\nALTER TABLE %s REPLICA IDENTITY USING INDEX %s;", tableFQN, index.Name)
+				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			}
 		}
 		PrintObjectMetadata(metadataFile, toc, indexMetadata[index.GetUniqueID()], index, "")
 	}
