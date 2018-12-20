@@ -84,9 +84,9 @@ func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) {
 		},
 		cluster.ON_HOSTS_AND_MASTER)
 
-	c.CheckClusterError(remoteOutput, fmt.Sprintf(
-		"Unable to execute plugin %s",
-		plugin.ExecutablePath),
+	c.CheckClusterError(
+		remoteOutput,
+		fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath),
 		func(contentID int) string {
 			return fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath)
 		})
@@ -96,6 +96,7 @@ func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) {
 		gplog.Fatal(fmt.Errorf("cannot parse hardcoded internal string of required version: %s",
 			err.Error()), RequiredPluginVersion)
 	}
+
 	numIncorrect := 0
 	for contentID := range remoteOutput.Stdouts {
 		version, err := semver.Make(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
