@@ -29,6 +29,21 @@ data=`LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 1000 ; echo`
 mkdir -p $testdir
 echo $text > $testfile
 
+# ----------------------------------------------
+# Cleanup functions
+# ----------------------------------------------
+cleanup_test_dir() {
+    $plugin cleanup_plugin_for_backup $plugin_config $testdir master \"-1\"
+    $plugin cleanup_plugin_for_backup $plugin_config $testdir segment_host
+    $plugin cleanup_plugin_for_backup $plugin_config $testdir segment \"0\"
+    echo "[PASSED - CLEANUP] cleanup_plugin_for_backup"
+
+    $plugin cleanup_plugin_for_restore $plugin_config $testdir master \"-1\"
+    $plugin cleanup_plugin_for_restore $plugin_config $testdir segment_host
+    $plugin cleanup_plugin_for_restore $plugin_config $testdir segment \"0\"
+    echo "[PASSED - CLEANUP] cleanup_plugin_for_restore"
+}
+
 echo "# ----------------------------------------------"
 echo "# Starting gpbackup plugin tests"
 echo "# ----------------------------------------------"
@@ -90,6 +105,7 @@ echo "[PASSED] setup_plugin_for_backup"
 echo "[PASSED] backup_file"
 echo "[PASSED] setup_plugin_for_restore"
 echo "[PASSED] restore_file"
+cleanup_test_dir
 
 # ----------------------------------------------
 # Backup/Restore data functions
@@ -116,7 +132,7 @@ if [ -n "$secondary_plugin_config" ]; then
 fi
 echo "[PASSED] backup_data"
 echo "[PASSED] restore_data"
-
+cleanup_test_dir
 
 echo "[RUNNING] backup_data with no data"
 echo -n "" | $plugin backup_data $plugin_config $test_no_data
@@ -139,27 +155,63 @@ if [ -n "$secondary_plugin_config" ]; then
 fi
 echo "[PASSED] backup_data with no data"
 echo "[PASSED] restore_data with no data"
+cleanup_test_dir
 
 # ----------------------------------------------
-# Cleanup functions
+# Delete backup directory function
 # ----------------------------------------------
+time_second_for_del=$(date +"%s")
+testdata_for_del="/tmp/testseg/backups/20180101/20180101010101/testdata_$time_second_for_del.txt"
+testfile_for_del="/tmp/testseg/backups/20180101/20180101010101/testfile_$time_second_for_del.txt"
+echo $text > $testfile_for_del
 
-echo "[RUNNING] cleanup_plugin_for_backup on master"
-$plugin cleanup_plugin_for_backup $plugin_config $testdir master \"-1\"
-echo "[RUNNING] cleanup_plugin_for_backup on segment_host"
-$plugin cleanup_plugin_for_backup $plugin_config $testdir segment_host
-echo "[RUNNING] cleanup_plugin_for_backup on segment 0"
-$plugin cleanup_plugin_for_backup $plugin_config $testdir segment \"0\"
-echo "[PASSED] cleanup_plugin_for_backup"
+echo "[RUNNING] delete_dir"
+echo $data | $plugin backup_data $plugin_config $testdata_for_del
+$plugin backup_file $plugin_config $testfile_for_del
 
-echo "[RUNNING] cleanup_plugin_for_restore on master"
-$plugin cleanup_plugin_for_restore $plugin_config $testdir master \"-1\"
-echo "[RUNNING] cleanup_plugin_for_restore on segment_host"
-$plugin cleanup_plugin_for_restore $plugin_config $testdir segment_host
-echo "[RUNNING] cleanup_plugin_for_restore on segment 0"
-$plugin cleanup_plugin_for_restore $plugin_config $testdir segment \"0\"
-echo "[PASSED] cleanup_plugin_for_restore"
+# ensures the dir exists prior to deletion
+$plugin restore_data $plugin_config $testdata_for_del > /dev/null
+$plugin restore_file $plugin_config $testfile_for_del > /dev/null
+if [ -n "$secondary_plugin_config" ]; then
+  $plugin restore_data $secondary_plugin_config $testdata_for_del > /dev/null
+  $plugin restore_file $secondary_plugin_config $testfile_for_del > /dev/null
+fi
 
+$plugin delete_dir $plugin_config 20180101010101
+
+set +e
+# test deletion from local server
+output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del 2>/dev/null)
+retval_data_restore=$(echo $?)
+if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
+  echo "Failed to delete backup from local server using plugin"
+  exit 1
+fi
+output_file_restore=$($plugin restore_file $plugin_config $testfile_for_del 2>/dev/null)
+retval_file_restore=$(echo $?)
+if [ "${output_file_restore}" = "${data}"  ] || [ "$retval_file_restore" = "0" ] ; then
+  echo "Failed to delete backup from local server using plugin"
+  exit 1
+fi
+
+# test deletion from remote server
+if [ -n "$secondary_plugin_config" ]; then
+  output_data_restore=$($plugin restore_data $secondary_plugin_config $testdata_for_del 2>/dev/null)
+  retval_data_restore=$(echo $?)
+  if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
+    echo "Failed to delete backup from remote server using plugin"
+    exit 1
+  fi
+  output_file_restore=$($plugin restore_file $secondary_plugin_config $testfile_for_del 2>/dev/null)
+  retval_file_restore=$(echo $?)
+  if [ "${output_file_restore}" = "${data}"  ] || [ "$retval_file_restore" = "0" ] ; then
+    echo "Failed to delete backup from remote server using plugin"
+    exit 1
+  fi
+fi
+set -e
+echo "[PASSED] delete_dir"
+cleanup_test_dir
 
 # ----------------------------------------------
 # Run test gpbackup and gprestore with plugin
