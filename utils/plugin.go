@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const SUPPORTED_PLUGIN_VERSION = "0.4.0"
+const RequiredPluginVersion = "0.3.0"
 
 type PluginConfig struct {
 	ExecutablePath string
@@ -76,27 +76,41 @@ func (plugin *PluginConfig) MustRestoreFile(filenamePath string) {
 }
 
 func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) {
-	remoteOutput := c.GenerateAndExecuteCommand("Checking that plugin exists on all hosts", func(contentID int) string {
-		return fmt.Sprintf("source %s/greenplum_path.sh && %s plugin_api_version", operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
-	}, cluster.ON_HOSTS_AND_MASTER)
-	c.CheckClusterError(remoteOutput, fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath), func(contentID int) string {
-		return fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath)
-	})
+	remoteOutput := c.GenerateAndExecuteCommand(
+		"Checking that plugin exists on all hosts",
+		func(contentID int) string {
+			return fmt.Sprintf("source %s/greenplum_path.sh && %s plugin_api_version",
+				operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
+		},
+		cluster.ON_HOSTS_AND_MASTER)
 
+	c.CheckClusterError(remoteOutput, fmt.Sprintf(
+		"Unable to execute plugin %s",
+		plugin.ExecutablePath),
+		func(contentID int) string {
+			return fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath)
+		})
+
+	requiredVersion, err := semver.Make(RequiredPluginVersion)
+	if err != nil {
+		gplog.Fatal(fmt.Errorf("cannot parse hardcoded internal string of required version: %s",
+			err.Error()), RequiredPluginVersion)
+	}
 	numIncorrect := 0
 	for contentID := range remoteOutput.Stdouts {
-		supportedVersion, _ := semver.Make(SUPPORTED_PLUGIN_VERSION)
 		version, err := semver.Make(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
 		if err != nil {
 			gplog.Fatal(fmt.Errorf("Unable to parse plugin API version: %s", err.Error()), "")
 		}
-		if !version.Equals(supportedVersion) {
-			gplog.Verbose("Plugin %s API version %s is not compatible with supported API version %s", plugin.ExecutablePath, version, supportedVersion)
+		if !version.GE(requiredVersion) {
+			gplog.Verbose("Plugin %s API version %s is not compatible with supported API version %s",
+				plugin.ExecutablePath, version, requiredVersion)
 			numIncorrect++
 		}
 	}
 	if numIncorrect > 0 {
-		cluster.LogFatalClusterError("Plugin API version incorrect", cluster.ON_HOSTS_AND_MASTER, numIncorrect)
+		cluster.LogFatalClusterError("Plugin API version incorrect",
+			cluster.ON_HOSTS_AND_MASTER, numIncorrect)
 	}
 }
 
