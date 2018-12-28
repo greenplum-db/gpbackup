@@ -5,7 +5,7 @@ set -o pipefail
 plugin=$1
 plugin_config=$2
 secondary_plugin_config=$3
-SUPPORTED_API_VERSION="0.4.0"
+MINIMUM_API_VERSION="0.3.0"
 
 # ----------------------------------------------
 # Test suite setup
@@ -53,9 +53,10 @@ echo "# ----------------------------------------------"
 # ----------------------------------------------
 
 echo "[RUNNING] plugin_api_version"
-output=`$plugin plugin_api_version`
-if [ "$output" != "$SUPPORTED_API_VERSION" ]; then
-  echo "Plugin API version does not match supported version $SUPPORTED_API_VERSION"
+api_version=`$plugin plugin_api_version`
+# `awk` call returns 1 for true, 0 for false (contrary to bash logic)
+if (( 0 == $(echo "$MINIMUM_API_VERSION $api_version" | awk '{print ($1 <= $2)}') )) ; then
+  echo "Plugin API version is less than the minimum supported version $MINIMUM_API_VERSION"
   exit 1
 fi
 echo "[PASSED] plugin_api_version"
@@ -160,58 +161,64 @@ cleanup_test_dir
 # ----------------------------------------------
 # Delete backup directory function
 # ----------------------------------------------
-time_second_for_del=$(date +"%s")
-testdata_for_del="/tmp/testseg/backups/20180101/20180101010101/testdata_$time_second_for_del.txt"
-testfile_for_del="/tmp/testseg/backups/20180101/20180101010101/testfile_$time_second_for_del.txt"
-echo $text > $testfile_for_del
 
-echo "[RUNNING] delete_dir"
-echo $data | $plugin backup_data $plugin_config $testdata_for_del
-$plugin backup_file $plugin_config $testfile_for_del
-
-# ensures the dir exists prior to deletion
-$plugin restore_data $plugin_config $testdata_for_del > /dev/null
-$plugin restore_file $plugin_config $testfile_for_del > /dev/null
-if [ -n "$secondary_plugin_config" ]; then
-  $plugin restore_data $secondary_plugin_config $testdata_for_del > /dev/null
-  $plugin restore_file $secondary_plugin_config $testfile_for_del > /dev/null
-fi
-
-$plugin delete_dir $plugin_config 20180101010101
-
-set +e
-# test deletion from local server
-output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del 2>/dev/null)
-retval_data_restore=$(echo $?)
-if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
-  echo "Failed to delete backup from local server using plugin"
-  exit 1
-fi
-output_file_restore=$($plugin restore_file $plugin_config $testfile_for_del 2>/dev/null)
-retval_file_restore=$(echo $?)
-if [ "${output_file_restore}" = "${data}"  ] || [ "$retval_file_restore" = "0" ] ; then
-  echo "Failed to delete backup from local server using plugin"
-  exit 1
-fi
-
-# test deletion from remote server
-if [ -n "$secondary_plugin_config" ]; then
-  output_data_restore=$($plugin restore_data $secondary_plugin_config $testdata_for_del 2>/dev/null)
+# `awk` call returns 1 for true, 0 for false (contrary to bash logic)
+if (( 1 == $(echo "0.4.0 $api_version" | awk '{print ($1 > $2)}') )) ; then
+  echo "[SKIPPING] delete_dir (only compatible with version >= 0.4.0)"
+else 
+  time_second_for_del=$(date +"%s")
+  testdata_for_del="/tmp/testseg/backups/20180101/20180101010101/testdata_$time_second_for_del.txt"
+  testfile_for_del="/tmp/testseg/backups/20180101/20180101010101/testfile_$time_second_for_del.txt"
+  echo $text > $testfile_for_del
+  
+  echo "[RUNNING] delete_dir"
+  echo $data | $plugin backup_data $plugin_config $testdata_for_del
+  $plugin backup_file $plugin_config $testfile_for_del
+  
+  # ensures the dir exists prior to deletion
+  $plugin restore_data $plugin_config $testdata_for_del > /dev/null
+  $plugin restore_file $plugin_config $testfile_for_del > /dev/null
+  if [ -n "$secondary_plugin_config" ]; then
+    $plugin restore_data $secondary_plugin_config $testdata_for_del > /dev/null
+    $plugin restore_file $secondary_plugin_config $testfile_for_del > /dev/null
+  fi
+  
+  $plugin delete_dir $plugin_config 20180101010101
+  
+  set +e
+  # test deletion from local server
+  output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del 2>/dev/null)
   retval_data_restore=$(echo $?)
   if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
-    echo "Failed to delete backup from remote server using plugin"
+    echo "Failed to delete backup from local server using plugin"
     exit 1
   fi
-  output_file_restore=$($plugin restore_file $secondary_plugin_config $testfile_for_del 2>/dev/null)
+  output_file_restore=$($plugin restore_file $plugin_config $testfile_for_del 2>/dev/null)
   retval_file_restore=$(echo $?)
   if [ "${output_file_restore}" = "${data}"  ] || [ "$retval_file_restore" = "0" ] ; then
-    echo "Failed to delete backup from remote server using plugin"
+    echo "Failed to delete backup from local server using plugin"
     exit 1
   fi
+  
+  # test deletion from remote server
+  if [ -n "$secondary_plugin_config" ]; then
+    output_data_restore=$($plugin restore_data $secondary_plugin_config $testdata_for_del 2>/dev/null)
+    retval_data_restore=$(echo $?)
+    if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
+      echo "Failed to delete backup from remote server using plugin"
+      exit 1
+    fi
+    output_file_restore=$($plugin restore_file $secondary_plugin_config $testfile_for_del 2>/dev/null)
+    retval_file_restore=$(echo $?)
+    if [ "${output_file_restore}" = "${data}"  ] || [ "$retval_file_restore" = "0" ] ; then
+      echo "Failed to delete backup from remote server using plugin"
+      exit 1
+    fi
+  fi
+  set -e
+  echo "[PASSED] delete_dir"
+  cleanup_test_dir
 fi
-set -e
-echo "[PASSED] delete_dir"
-cleanup_test_dir
 
 # ----------------------------------------------
 # Run test gpbackup and gprestore with plugin
