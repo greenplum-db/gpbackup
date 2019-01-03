@@ -691,33 +691,33 @@ var _ = Describe("backup end to end integration tests", func() {
 						"public.sales_1_prt_feb17": 2,
 					})
 				})
-				It("restores from a new incremental backup", func() {
-					if !useOldBackupVersion {
-						Skip("This test is only needed for old backup versions")
-					}
-					_ = gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data")
+				Context("old binaries", func() {
+					It("can restore from a backup that has new incremental information", func() {
+						if !useOldBackupVersion {
+							Skip("This test is only needed for old backup versions")
+						}
+						_ = gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data")
 
-					testhelper.AssertQueryRuns(backupConn, "INSERT into schema2.ao1 values(1001)")
-					defer testhelper.AssertQueryRuns(backupConn, "DELETE from schema2.ao1 where i=1001")
-					_ = gpbackup(gpbackupPath, backupHelperPath,
-						"--incremental", "--leaf-partition-data")
+						testhelper.AssertQueryRuns(backupConn, "INSERT into schema2.ao1 values(1001)")
+						defer testhelper.AssertQueryRuns(backupConn, "DELETE from schema2.ao1 where i=1001")
+						_ = gpbackup(gpbackupPath, backupHelperPath,
+							"--incremental", "--leaf-partition-data")
 
-					gpbackupPath, backupHelperPath, _ = buildAndInstallBinaries()
+						gpbackupPath, backupHelperPath, _ = buildAndInstallBinaries()
 
-					testhelper.AssertQueryRuns(backupConn, "INSERT into schema2.ao1 values(1002)")
-					defer testhelper.AssertQueryRuns(backupConn, "DELETE from schema2.ao1 where i=1002")
-					incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
-						"--incremental", "--leaf-partition-data")
+						testhelper.AssertQueryRuns(backupConn, "INSERT into schema2.ao1 values(1002)")
+						defer testhelper.AssertQueryRuns(backupConn, "DELETE from schema2.ao1 where i=1002")
+						incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
+							"--incremental", "--leaf-partition-data")
+						gpbackupPath, backupHelperPath = buildOldBinaries(os.Getenv("OLD_BACKUP_VERSION"))
 
-					gpbackupPath, backupHelperPath = buildOldBinaries(os.Getenv("OLD_BACKUP_VERSION"))
+						gprestore(gprestorePath, restoreHelperPath, incremental2Timestamp, "--redirect-db", "restoredb")
 
-					gprestore(gprestorePath, restoreHelperPath, incremental2Timestamp, "--redirect-db", "restoredb")
-
-					assertRelationsCreated(restoreConn, 36)
-					assertDataRestored(restoreConn, publicSchemaTupleCounts)
-					schema2TupleCounts["schema2.ao1"] = 1002
-					assertDataRestored(restoreConn, schema2TupleCounts)
-
+						assertRelationsCreated(restoreConn, 36)
+						assertDataRestored(restoreConn, publicSchemaTupleCounts)
+						schema2TupleCounts["schema2.ao1"] = 1002
+						assertDataRestored(restoreConn, schema2TupleCounts)
+					})
 				})
 			})
 			Context("With a plugin", func() {
@@ -958,7 +958,9 @@ var _ = Describe("backup end to end integration tests", func() {
 			os.RemoveAll(backupdir)
 		})
 		It("runs example_plugin.sh with plugin_test_bench", func() {
-			skipIfOldBackupVersionBefore("1.7.0")
+			if useOldBackupVersion {
+				Skip("This test is only needed for the latest backup version")
+			}
 			pluginsDir := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("HOME"))
 			copyPluginToAllHosts(backupConn, fmt.Sprintf("%s/example_plugin.sh", pluginsDir))
 			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test_bench.sh %s/example_plugin.sh %s/example_plugin_config.yaml", pluginsDir, pluginsDir, pluginsDir))
