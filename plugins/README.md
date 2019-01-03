@@ -306,7 +306,7 @@ None
 test_plugin plugin_api_version
 ```
 
-### [delete_dir](#delete_dir)
+### [delete_backup](#delete_backup)
 
 This command should delete the directory specified by the given backup timestamp on the remote system.
 
@@ -320,7 +320,7 @@ This command should delete the directory specified by the given backup timestamp
 
 **Example:**
 ```
-test_plugin delete_dir /home/test_plugin_config.yaml 20180101010101
+test_plugin delete_backup /home/test_plugin_config.yaml 20180108130802
 ```
 
 ## Plugin flow within gpbackup and gprestore
@@ -362,7 +362,7 @@ If the `[optional_config_for_secondary_destination]` is provided, the test bench
 ## [Release Notes](#Release_Notes)
 
 ### Version 0.4.0
- - [delete_dir](#delete_dir) command added
+ - [delete_backup](#delete_backup) command added
 
 ### Version 0.2.0 - 0.3.0
  - Added [scope](#scope) and [contentID](#contentID) arguments to setup and cleanup functions for more control over execution location.

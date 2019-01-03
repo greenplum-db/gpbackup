@@ -75,8 +75,8 @@ restore_data() {
 	cat /tmp/plugin_dest/$timestamp_dir/$filename
 }
 
-delete_dir() {
-  echo "delete_dir $1 $2" >> /tmp/plugin_out.txt
+delete_backup() {
+  echo "delete_backup $1 $2" >> /tmp/plugin_out.txt
   rm -rf /tmp/plugin_dest/$2
 
 }

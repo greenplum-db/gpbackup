@@ -164,14 +164,14 @@ cleanup_test_dir
 
 # `awk` call returns 1 for true, 0 for false (contrary to bash logic)
 if (( 1 == $(echo "0.4.0 $api_version" | awk '{print ($1 > $2)}') )) ; then
-  echo "[SKIPPING] delete_dir (only compatible with version >= 0.4.0)"
+  echo "[SKIPPING] delete_backup (only compatible with version >= 0.4.0)"
 else 
   time_second_for_del=$(date +"%s")
   testdata_for_del="/tmp/testseg/backups/20180101/20180101010101/testdata_$time_second_for_del.txt"
   testfile_for_del="/tmp/testseg/backups/20180101/20180101010101/testfile_$time_second_for_del.txt"
   echo $text > $testfile_for_del
   
-  echo "[RUNNING] delete_dir"
+  echo "[RUNNING] delete_backup"
   echo $data | $plugin backup_data $plugin_config $testdata_for_del
   $plugin backup_file $plugin_config $testfile_for_del
   
@@ -183,7 +183,7 @@ else
     $plugin restore_file $secondary_plugin_config $testfile_for_del > /dev/null
   fi
   
-  $plugin delete_dir $plugin_config 20180101010101
+  $plugin delete_backup $plugin_config 20180101010101
   
   set +e
   # test deletion from local server
@@ -216,7 +216,7 @@ else
     fi
   fi
   set -e
-  echo "[PASSED] delete_dir"
+  echo "[PASSED] delete_backup"
   cleanup_test_dir
 fi
 
