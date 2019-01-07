@@ -519,6 +519,11 @@ var _ = Describe("backup end to end integration tests", func() {
 			Context("with plugin", func() {
 				BeforeEach(func() {
 					skipIfOldBackupVersionBefore("1.7.0")
+					// FIXME: we are temporarily disabling these tests because we will be altering our backwards compatibility logic.
+					if useOldBackupVersion {
+						Skip("This test is only needed for the most recent backup versions")
+					}
+
 				})
 				It("runs gpbackup and gprestore with plugin, single-data-file, and no-compression", func() {
 					pluginDir := "/tmp/plugin_dest"
@@ -574,6 +579,10 @@ var _ = Describe("backup end to end integration tests", func() {
 		Describe("Multi-file Plugin", func() {
 			It("runs gpbackup and gprestore with plugin and no-compression", func() {
 				skipIfOldBackupVersionBefore("1.7.0")
+				// FIXME: we are temporarily disabling these tests because we will be altering our backwards compatibility logic.
+				if useOldBackupVersion {
+					Skip("This test is only needed for the most recent backup versions")
+				}
 				pluginDir := "/tmp/plugin_dest"
 				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
@@ -591,6 +600,10 @@ var _ = Describe("backup end to end integration tests", func() {
 			})
 			It("runs gpbackup and gprestore with plugin and compression", func() {
 				skipIfOldBackupVersionBefore("1.7.0")
+				// FIXME: we are temporarily disabling these tests because we will be altering our backwards compatibility logic.
+				if useOldBackupVersion {
+					Skip("This test is only needed for the most recent backup versions")
+				}
 				pluginDir := "/tmp/plugin_dest"
 				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
@@ -723,6 +736,10 @@ var _ = Describe("backup end to end integration tests", func() {
 			Context("With a plugin", func() {
 				var pluginDir string
 				BeforeEach(func() {
+					// FIXME: we are temporarily disabling these tests because we will be altering our backwards compatibility logic.
+					if useOldBackupVersion {
+						Skip("This test is only needed for the most recent backup versions")
+					}
 					pluginDir = "/tmp/plugin_dest"
 					pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.sh", os.Getenv("HOME"))
 					copyPluginToAllHosts(backupConn, pluginExecutablePath)
