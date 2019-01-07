@@ -40,7 +40,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, relList)
 	return dbconn.MustSelectStringSlice(connectionPool, query)
 }
 
-func GetAllUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
+func GetIncludedUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 	if len(MustGetFlagStringSlice(utils.INCLUDE_RELATION)) > 0 {
 		return GetUserTableRelationsWithIncludeFiltering(connectionPool)
 	}

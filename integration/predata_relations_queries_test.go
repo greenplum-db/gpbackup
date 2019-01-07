@@ -24,7 +24,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.testtable(t text)")
 
-			tables := backup.GetAllUserTableRelations(connectionPool)
+			tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
 
@@ -51,7 +51,7 @@ FORMAT 'csv';`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table_ext_part_")
 
-				tables := backup.GetAllUserTableRelations(connectionPool)
+				tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 				expectedTableNames := []string{"public.partition_table", "public.partition_table_1_prt_boys", "public.partition_table_1_prt_girls"}
 				tableNames := make([]string, 0)
@@ -102,7 +102,7 @@ FORMAT 'csv';`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table3")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table3_ext_part_")
 
-				tables := backup.GetAllUserTableRelations(connectionPool)
+				tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 				expectedTableNames := []string{"public.partition_table1", "public.partition_table1_1_prt_boys", "public.partition_table2", "public.partition_table2_1_prt_girls", "public.partition_table2_1_prt_other"}
 				tableNames := make([]string, 0)
@@ -127,7 +127,7 @@ PARTITION BY LIST (gender)
 				testhelper.AssertQueryRuns(connectionPool, createStmt)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.rank")
 
-				tables := backup.GetAllUserTableRelations(connectionPool)
+				tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 				tableRank := backup.Relation{Schema: "public", Name: "rank"}
 
@@ -146,7 +146,7 @@ PARTITION BY LIST (gender)
 				testhelper.AssertQueryRuns(connectionPool, createStmt)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.rank")
 
-				tables := backup.GetAllUserTableRelations(connectionPool)
+				tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 				expectedTableNames := []string{"public.rank", "public.rank_1_prt_boys", "public.rank_1_prt_girls", "public.rank_1_prt_other"}
 				tableNames := make([]string, 0)
@@ -172,7 +172,7 @@ PARTITION BY LIST (gender)
 
 				expectedTableNames := []string{"public.rank", "public.rank_1_prt_girls"}
 
-				tables := backup.GetAllUserTableRelations(connectionPool)
+				tables := backup.GetIncludedUserTableRelations(connectionPool)
 				tableNames := make([]string, 0)
 				for _, table := range tables {
 					tableNames = append(tableNames, table.FQN())
@@ -183,7 +183,7 @@ PARTITION BY LIST (gender)
 				Expect(tableNames).To(Equal(expectedTableNames))
 
 				backupCmdFlags.Set(utils.LEAF_PARTITION_DATA, "true")
-				tables = backup.GetAllUserTableRelations(connectionPool)
+				tables = backup.GetIncludedUserTableRelations(connectionPool)
 				tableNames = make([]string, 0)
 				for _, table := range tables {
 					tableNames = append(tableNames, table.FQN())
@@ -208,7 +208,7 @@ PARTITION BY LIST (gender)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.test_table(i int)")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.test_table")
 
-				tables := backup.GetAllUserTableRelations(connectionPool)
+				tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 				expectedTableNames := []string{"public.rank", "public.rank_1_prt_boys", "public.rank_1_prt_girls", "public.rank_1_prt_other"}
 				tableNames := make([]string, 0)
@@ -230,7 +230,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
-			tables := backup.GetAllUserTableRelations(connectionPool)
+			tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "foo"}
 
@@ -246,7 +246,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 
 			backupCmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo")
-			tables := backup.GetAllUserTableRelations(connectionPool)
+			tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "foo"}
 
@@ -262,7 +262,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 
 			backupCmdFlags.Set(utils.EXCLUDE_RELATION, "testschema.foo")
-			tables := backup.GetAllUserTableRelations(connectionPool)
+			tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
 
@@ -281,7 +281,7 @@ PARTITION BY LIST (gender)
 
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 			backupCmdFlags.Set(utils.EXCLUDE_RELATION, "testschema.foo")
-			tables := backup.GetAllUserTableRelations(connectionPool)
+			tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "bar"}
 			Expect(tables).To(HaveLen(1))
@@ -292,7 +292,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foo")
 
 			backupCmdFlags.Set(utils.EXCLUDE_RELATION, "testschema.nonexistant")
-			tables := backup.GetAllUserTableRelations(connectionPool)
+			tables := backup.GetIncludedUserTableRelations(connectionPool)
 
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
 

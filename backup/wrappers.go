@@ -153,7 +153,7 @@ func CreateBackupDirectoriesOnAllHosts() {
  */
 
 func RetrieveAndProcessTables() ([]Table, []Table) {
-	tableRelations := GetAllUserTableRelations(connectionPool)
+	tableRelations := GetIncludedUserTableRelations(connectionPool)
 	LockTables(connectionPool, tableRelations)
 
 	/*

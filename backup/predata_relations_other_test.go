@@ -482,21 +482,21 @@ GRANT ALL ON shamwow.shazam TO testrole;`,
 	Describe("ExpandIncludeRelations", func() {
 		testTables := []backup.Relation{{Schema: "testschema", Name: "foo1"}, {Schema: "testschema", Name: "foo2"}}
 		It("returns an empty slice if no includeRelations were specified", func() {
-			cmdFlags.Set(utils.INCLUDE_RELATION, "")
+			_ = cmdFlags.Set(utils.INCLUDE_RELATION, "")
 			backup.ExpandIncludeRelations(testTables)
 
 			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).To(BeEmpty())
 		})
-		It("returns original include list if the new tables list is a subset of existing list", func() {
-			cmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo1,testschema.foo2,testschema.foo3")
+		It("returns original include list if the new tables list is equivalent to existing list", func() {
+			_ = cmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo1,testschema.foo2")
 			backup.ExpandIncludeRelations(testTables)
 
-			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).To(HaveLen(3))
+			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).To(HaveLen(2))
 			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).
-				To(ConsistOf([]string{"testschema.foo1", "testschema.foo2", "testschema.foo3"}))
+				To(ConsistOf([]string{"testschema.foo1", "testschema.foo2"}))
 		})
 		It("returns expanded include list if there are new tables to add", func() {
-			cmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo2,testschema.foo3")
+			_ = cmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo2,testschema.foo3")
 			backup.ExpandIncludeRelations(testTables)
 
 			Expect(backup.MustGetFlagStringSlice(utils.INCLUDE_RELATION)).To(HaveLen(3))
