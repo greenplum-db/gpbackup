@@ -50,10 +50,21 @@ func MakeFQN(schema string, object string) string {
 	return fmt.Sprintf("%s.%s", schema, object)
 }
 
+// ValidateFQNs
+/*
+
+postgres prefers lowercase, and will convert uppercase to lowercase when possible.
+Quotes are required around schema and/or table names in order to retain capital letters.
+In other words, unquoted references like mySchema.MyNameWithCaps
+becomes in pg: myschema.mynamewithcaps unless
+the identifiers a quoted, like "mySchema"."MyNameWithCaps".
+Quotes on the command line must be escaped in order to avoid being parsed and removed by the command line parser (e.g. bash)
+*/
 func ValidateFQNs(fqns []string) {
 	unquotedIdentString := "[a-z_][a-z0-9_]*"
-	validIdentString := fmt.Sprintf("(?:\"(.*)\"|(%s))", unquotedIdentString)
-	validFormat := regexp.MustCompile(fmt.Sprintf(`^%s\.%s$`, validIdentString, validIdentString))
+	quotedCapturedIdentString := "\"(.*)\"" // allow any character within quotes
+	validIdentString := fmt.Sprintf("(?:%s|(%s))", quotedCapturedIdentString, unquotedIdentString)
+	validFormat := regexp.MustCompile(fmt.Sprintf(`^%[1]s\.%[1]s$`, validIdentString))
 	var matches []string
 	for _, fqn := range fqns {
 		if matches = validFormat.FindStringSubmatch(fqn); len(matches) == 0 {

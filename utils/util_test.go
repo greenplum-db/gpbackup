@@ -52,15 +52,15 @@ var _ = Describe("utils/util tests", func() {
 			utils.ValidateFQNs(testStrings)
 		})
 		It("validates a string with a quoted schema", func() {
-			testStrings := []string{`"schema,name".tablename`}
+			testStrings := []string{`"does NOT matter +_)+_)~!@# inside quotes".tablename`}
 			utils.ValidateFQNs(testStrings)
 		})
 		It("validates a string with a quoted table", func() {
-			testStrings := []string{`schemaname."table,name"`}
+			testStrings := []string{`schemaname."ANY weird &*%^!@# name"`}
 			utils.ValidateFQNs(testStrings)
 		})
 		It("validates a string with both schema and table quoted", func() {
-			testStrings := []string{`"schema,name"."table,name"`}
+			testStrings := []string{`"ANYTHING 2345 $%#@"."does NOT )(*)( matter what"`}
 			utils.ValidateFQNs(testStrings)
 		})
 		It("panics if given a string without a schema", func() {
