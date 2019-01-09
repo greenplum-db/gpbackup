@@ -18,11 +18,13 @@ if [ $# -lt 2 ] || [ $# -gt 3 ]
     exit 1
 fi
 
-time_second=$(date +"%s")
-testfile="/tmp/testseg/backups/20180101/20180101010101/testfile_$time_second.txt"
-testdata="/tmp/testseg/backups/20180101/20180101010101/testdata_$time_second.txt"
-test_no_data="/tmp/testseg/backups/20180101/20180101010101/test_no_data_$time_second.txt"
-testdir=`dirname $testfile`
+time_second=$(date +"%Y%m%d%H%M%S")
+current_date=$(echo $time_second | cut -c 1-8)
+testdir="/tmp/testseg/backups/$current_date/$time_second"
+
+testfile="$testdir/testfile_$time_second.txt"
+testdata="$testdir/testdata_$time_second.txt"
+test_no_data="$testdir/test_no_data_$time_second.txt"
 
 text="this is some text"
 data=`LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 1000 ; echo`
@@ -33,15 +35,23 @@ echo $text > $testfile
 # Cleanup functions
 # ----------------------------------------------
 cleanup_test_dir() {
-    $plugin cleanup_plugin_for_backup $plugin_config $testdir master \"-1\"
-    $plugin cleanup_plugin_for_backup $plugin_config $testdir segment_host
-    $plugin cleanup_plugin_for_backup $plugin_config $testdir segment \"0\"
-    echo "[PASSED - CLEANUP] cleanup_plugin_for_backup"
+  if [ $# -ne 1 ]
+  then
+    echo "Must call cleanup_test_dir with only 1 argument"
+    exit 1
+  fi
 
-    $plugin cleanup_plugin_for_restore $plugin_config $testdir master \"-1\"
-    $plugin cleanup_plugin_for_restore $plugin_config $testdir segment_host
-    $plugin cleanup_plugin_for_restore $plugin_config $testdir segment \"0\"
-    echo "[PASSED - CLEANUP] cleanup_plugin_for_restore"
+  testdir_to_clean=$1
+
+  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean master \"-1\"
+  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment_host
+  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment \"0\"
+  echo "[PASSED - CLEANUP] cleanup_plugin_for_backup"
+
+  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean master \"-1\"
+  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment_host
+  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment \"0\"
+  echo "[PASSED - CLEANUP] cleanup_plugin_for_restore"
 }
 
 echo "# ----------------------------------------------"
@@ -106,7 +116,7 @@ echo "[PASSED] setup_plugin_for_backup"
 echo "[PASSED] backup_file"
 echo "[PASSED] setup_plugin_for_restore"
 echo "[PASSED] restore_file"
-cleanup_test_dir
+cleanup_test_dir $testdir
 
 # ----------------------------------------------
 # Backup/Restore data functions
@@ -133,7 +143,7 @@ if [ -n "$secondary_plugin_config" ]; then
 fi
 echo "[PASSED] backup_data"
 echo "[PASSED] restore_data"
-cleanup_test_dir
+cleanup_test_dir $testdir
 
 echo "[RUNNING] backup_data with no data"
 echo -n "" | $plugin backup_data $plugin_config $test_no_data
@@ -156,7 +166,7 @@ if [ -n "$secondary_plugin_config" ]; then
 fi
 echo "[PASSED] backup_data with no data"
 echo "[PASSED] restore_data with no data"
-cleanup_test_dir
+cleanup_test_dir $testdir
 
 # ----------------------------------------------
 # Delete backup directory function
@@ -166,37 +176,36 @@ cleanup_test_dir
 if (( 1 == $(echo "0.4.0 $api_version" | awk '{print ($1 > $2)}') )) ; then
   echo "[SKIPPING] delete_backup (only compatible with version >= 0.4.0)"
 else 
-  time_second_for_del=$(date +"%s")
-  testdata_for_del="/tmp/testseg/backups/20180101/20180101010101/testdata_$time_second_for_del.txt"
-  testfile_for_del="/tmp/testseg/backups/20180101/20180101010101/testfile_$time_second_for_del.txt"
+  time_second_for_del=$(date +"%Y%m%d%H%M%S")
+  curent_date_for_del=$(echo $time_second_for_del | cut -c 1-8)
+  testdir_for_del="/tmp/testseg/backups/$curent_date_for_del/$time_second_for_del"
+  testdata_for_del="$testdir_for_del/testdata_$time_second_for_del.txt"
+  testfile_for_del="$testdir_for_del/testfile_$time_second_for_del.txt"
+  mkdir -p $testdir_for_del
   echo $text > $testfile_for_del
-  
+
   echo "[RUNNING] delete_backup"
+  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del master \"-1\"
+  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment_host
+  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment \"0\"
+
   echo $data | $plugin backup_data $plugin_config $testdata_for_del
   $plugin backup_file $plugin_config $testfile_for_del
   
-  # ensures the dir exists prior to deletion
-  $plugin restore_data $plugin_config $testdata_for_del > /dev/null
-  $plugin restore_file $plugin_config $testfile_for_del > /dev/null
-  if [ -n "$secondary_plugin_config" ]; then
-    $plugin restore_data $secondary_plugin_config $testdata_for_del > /dev/null
-    $plugin restore_file $secondary_plugin_config $testfile_for_del > /dev/null
-  fi
-  
-  $plugin delete_backup $plugin_config 20180101010101
+  $plugin delete_backup $plugin_config $time_second_for_del
   
   set +e
   # test deletion from local server
   output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del 2>/dev/null)
   retval_data_restore=$(echo $?)
   if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
-    echo "Failed to delete backup from local server using plugin"
+    echo "Failed to delete backup data from local server using plugin"
     exit 1
   fi
   output_file_restore=$($plugin restore_file $plugin_config $testfile_for_del 2>/dev/null)
   retval_file_restore=$(echo $?)
   if [ "${output_file_restore}" = "${data}"  ] || [ "$retval_file_restore" = "0" ] ; then
-    echo "Failed to delete backup from local server using plugin"
+    echo "Failed to delete backup file from local server using plugin"
     exit 1
   fi
   
@@ -205,19 +214,19 @@ else
     output_data_restore=$($plugin restore_data $secondary_plugin_config $testdata_for_del 2>/dev/null)
     retval_data_restore=$(echo $?)
     if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
-      echo "Failed to delete backup from remote server using plugin"
+      echo "Failed to delete backup data from remote server using plugin"
       exit 1
     fi
     output_file_restore=$($plugin restore_file $secondary_plugin_config $testfile_for_del 2>/dev/null)
     retval_file_restore=$(echo $?)
     if [ "${output_file_restore}" = "${data}"  ] || [ "$retval_file_restore" = "0" ] ; then
-      echo "Failed to delete backup from remote server using plugin"
+      echo "Failed to delete backup file from remote server using plugin"
       exit 1
     fi
   fi
   set -e
   echo "[PASSED] delete_backup"
-  cleanup_test_dir
+  cleanup_test_dir $testdir_for_del
 fi
 
 # ----------------------------------------------
@@ -280,10 +289,17 @@ test_backup_and_restore_with_plugin "--no-compression"
 # ----------------------------------------------
 # Cleanup test artifacts
 # ----------------------------------------------
+echo "Cleaning up leftover test artifacts"
+
 dropdb $test_db
 rm $log_file
 rm -r /tmp/testseg
-rm -f $testfile
+
+if (( 1 == $(echo "0.4.0 $api_version" | awk '{print ($1 > $2)}') )) ; then
+  echo "[SKIPPING] cleanup of uploaded test artifacts using plugins (only compatible with version >= 0.4.0)"
+else
+  $plugin delete_backup $plugin_config $time_second
+fi
 
 echo "# ----------------------------------------------"
 echo "# Finished gpbackup plugin tests"
