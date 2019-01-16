@@ -71,7 +71,7 @@ func DBValidate(tableList []string, pool *dbconn.DBConn, excludeSet bool) {
 		tableMap[table.Name] = table.Oid
 	}
 
-	partTableMap := GetPartitionTableMap(connectionPool)
+	partTableMap := GetPartitionTableMap(pool)
 	for _, table := range tableList {
 		tableOid := tableMap[table]
 		if tableOid == 0 {
