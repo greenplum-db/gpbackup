@@ -12,6 +12,9 @@ GIT_VERSION := $(shell git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f
 BACKUP_VERSION_STR="-X github.com/greenplum-db/gpbackup/backup.version=$(GIT_VERSION)"
 RESTORE_VERSION_STR="-X github.com/greenplum-db/gpbackup/restore.version=$(GIT_VERSION)"
 HELPER_VERSION_STR="-X github.com/greenplum-db/gpbackup/helper.version=$(GIT_VERSION)"
+# note that /testutils is not a production directory, but has unit tests to validate testing tools
+SUBDIRS_HAS_UNIT=backup/ backup_filepath/ backup_history/ helper/ options/ restore/ utils/ testutils/
+SUBDIRS_ALL=$(SUBDIRS_HAS_UNIT) integration/ end_to_end/
 
 DEST = .
 
@@ -33,11 +36,11 @@ format :
 		goimports -w .
 
 lint :
-		! goimports -l backup/ restore/ utils/ helper/ testutils/ integration/ end_to_end/ | read
-		gometalinter --config=gometalinter.config -s vendor ./... --deadline=120s
+		! goimports -l $(SUBDIRS_ALL) | read
+		gometalinter --config=gometalinter.config -s vendor ./...  --deadline=120s
 
 unit :
-		ginkgo -r -keepGoing -randomizeSuites -noisySkippings=false -randomizeAllSpecs backup restore utils backup_history backup_filepath testutils options 2>&1
+		ginkgo -r -keepGoing -randomizeSuites -noisySkippings=false -randomizeAllSpecs $(SUBDIRS_HAS_UNIT) 2>&1
 
 integration :
 		ginkgo -r -randomizeSuites -noisySkippings=false -randomizeAllSpecs integration 2>&1
