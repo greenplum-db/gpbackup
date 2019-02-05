@@ -229,14 +229,18 @@ var _ = Describe("backup integration tests", func() {
 		It("returns a role with all properties specified", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1")
-			testhelper.AssertQueryRuns(connectionPool, `
+			setupQuery := `
 ALTER ROLE role1 WITH NOSUPERUSER INHERIT CREATEROLE CREATEDB LOGIN
 CONNECTION LIMIT 4 PASSWORD 'swordfish' VALID UNTIL '2099-01-01 00:00:00-08'
 CREATEEXTTABLE (protocol='http')
 CREATEEXTTABLE (protocol='gpfdist', type='readable')
-CREATEEXTTABLE (protocol='gpfdist', type='writable')
+CREATEEXTTABLE (protocol='gpfdist', type='writable')`
+			if connectionPool.Version.Before("6") {
+				setupQuery += `
 CREATEEXTTABLE (protocol='gphdfs', type='readable')
-CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
+CREATEEXTTABLE (protocol='gphdfs', type='writable')`
+			}
+			testhelper.AssertQueryRuns(connectionPool, setupQuery)
 			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE role1 DENY BETWEEN DAY 'Sunday' TIME '1:30 PM' AND DAY 'Wednesday' TIME '14:30:00'")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE role1 DENY DAY 'Friday'")
 			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON ROLE role1 IS 'this is a role comment'")
@@ -256,7 +260,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 				Password:        "md5a8b2c77dfeba4705f29c094592eb3369",
 				ValidUntil:      "2099-01-01 08:00:00-00",
 				ResQueue:        "pg_default",
-				ResGroup:        "default_group",
+				ResGroup:        "",
 				Createrexthttp:  true,
 				Createrextgpfd:  true,
 				Createwextgpfd:  true,
@@ -279,8 +283,12 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`)
 				},
 			}
 
-			if connectionPool.Version.Before("5") {
-				expectedRole.ResGroup = ""
+			if connectionPool.Version.AtLeast("5") {
+				expectedRole.ResGroup = "default_group"
+			}
+			if connectionPool.Version.AtLeast("6") {
+				expectedRole.Createrexthdfs = false
+				expectedRole.Createwexthdfs = false
 			}
 
 			for _, role := range results {

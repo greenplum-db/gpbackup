@@ -236,7 +236,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				Password:        "md5a8b2c77dfeba4705f29c094592eb3369",
 				ValidUntil:      "2099-01-01 08:00:00-00",
 				ResQueue:        "pg_default",
-				ResGroup:        "default_group",
+				ResGroup:        "",
 				Createrexthttp:  true,
 				Createrextgpfd:  true,
 				Createwextgpfd:  true,
@@ -258,8 +258,12 @@ var _ = Describe("backup integration create statement tests", func() {
 					},
 				},
 			}
-			if connectionPool.Version.Before("5") {
-				role1.ResGroup = ""
+			if connectionPool.Version.AtLeast("5") {
+				role1.ResGroup = "default_group"
+			}
+			if connectionPool.Version.AtLeast("6") {
+				role1.Createrexthdfs = false
+				role1.Createwexthdfs = false
 			}
 			metadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, includeSecurityLabels)
 

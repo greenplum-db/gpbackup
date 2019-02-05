@@ -316,9 +316,14 @@ func GetRoles(connectionPool *dbconn.DBConn) []Role {
 		resgroupQuery = "(SELECT quote_ident(rsgname) FROM pg_resgroup WHERE pg_resgroup.oid = rolresgroup) AS resgroup,"
 	}
 	replicationQuery := ""
+	readExtHdfs := "rolcreaterexthdfs,"
+	writeExtHdfs := "rolcreatewexthdfs,"
 	if connectionPool.Version.AtLeast("6") {
 		replicationQuery = "rolreplication,"
+		readExtHdfs = ""
+		writeExtHdfs = ""
 	}
+
 	query := fmt.Sprintf(`
 SELECT
 	oid,
@@ -339,12 +344,12 @@ SELECT
 	(SELECT quote_ident(rsqname) FROM pg_resqueue WHERE pg_resqueue.oid = rolresqueue) AS resqueue,
 	%s
 	rolcreaterexthttp,
+	%s
+	%s
 	rolcreaterextgpfd,
-	rolcreatewextgpfd,
-	rolcreaterexthdfs,
-	rolcreatewexthdfs
+	rolcreatewextgpfd
 FROM
-	pg_authid`, replicationQuery, resgroupQuery)
+	pg_authid`, replicationQuery, resgroupQuery, readExtHdfs, writeExtHdfs)
 
 	roles := make([]Role, 0)
 	err := connectionPool.Select(&roles, query)
