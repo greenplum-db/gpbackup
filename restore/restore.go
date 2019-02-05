@@ -158,14 +158,16 @@ func DoRestore() {
 
 func createDatabase(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE", "DATABASE METADATA"}
+	dbName := backupConfig.DatabaseName
 	gplog.Info("Creating database")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{}, false, false)
 	if MustGetFlagString(utils.REDIRECT_DB) != "" {
 		quotedDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
+		dbName = quotedDBName
 		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
 	ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
-	gplog.Info("Database creation complete")
+	gplog.Info("Database creation complete for: %s", dbName)
 }
 
 func restoreGlobal(metadataFilename string) {
