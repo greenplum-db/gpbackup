@@ -1,0 +1,79 @@
+PLATFORM: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: pivotaldata/centos-gpdb-dev
+    tag: '6-gcc6.2-llvm3.7'
+
+inputs:
+- name: gpbackup
+  path: go/src/github.com/greenplum-db/gpbackup
+- name: ccp_src
+- name: cluster_env_files
+- name: gpdb_src
+- name: backup_artifact_resource
+- name: regression_dump
+
+run:
+  path: bash
+  args:
+  - -c
+  - |
+    set -ex
+
+    ccp_src/scripts/setup_ssh_to_cluster.sh
+    cp -r backup_artifact_resource/* /tmp
+    cp -r regression_dump/* /tmp
+
+    pushd /tmp
+      tar -zxf gpbackup_all.tar.gz
+      scp gpbackup_allsegments/gpbackup_mdw.tar.gz mdw:/tmp
+      scp gpbackup_allsegments/gpbackup_sdw1.tar.gz sdw1:/tmp
+    popd
+    ssh -t sdw1 'pushd /tmp ; tar -xzf gpbackup_sdw1.tar.gz ; popd'
+    ssh -t mdw 'pushd /tmp ; tar -xzf gpbackup_mdw.tar.gz ; popd'
+
+    # restore the backedup data to a new cluster and generate a pg_dump.
+    # do not fail here because might be possible for gpbackup to fail but still produce the same dump diff
+    scp go/src/github.com/greenplum-db/gpbackup/ci/scripts/gprestore_and_dump.bash mdw:/home/gpadmin/gprestore_and_dump.bash
+    set +e
+      ssh -t mdw "bash /home/gpadmin/gprestore_and_dump.bash"
+    set -e
+
+    scp mdw:/tmp/post_regression_dump.sql.xz /tmp/
+
+    # Compare sqldump resource and the pg_dump that was newly generated
+
+    xz -d /tmp/regression_dump.sql.xz
+    xz -d /tmp/post_regression_dump.sql.xz
+    set +e
+      diff -u /tmp/regression_dump.sql /tmp/post_regression_dump.sql > /tmp/diff.txt
+    set -e
+
+    # Because there are known, trivial differences between pg_dump and
+    # gpbackup, this diff will be non-zero, as described in
+    # README_regression.md.
+    # Therefore, we compare this diff with a frozen version,
+    # expecting no significant changes. First, however, we need to cut off
+    # headers/footers which may contain timestamps
+    FROZEN_DIFF=go/src/github.com/greenplum-db/gpbackup/ci/regression/diff.txt
+    tail -n+4 /tmp/diff.txt | grep -v "@@ .* @@" > /tmp/diff_no_header.txt
+    tail -n+4 $FROZEN_DIFF  | grep -v "@@ .* @@" > /tmp/existing_diff_no_header.txt
+
+    # here is any real difference:
+    set +e
+      diff /tmp/diff_no_header.txt /tmp/existing_diff_no_header.txt
+      result=$?
+    set -e
+
+    if [ ${result} -ne 0 ] ; then
+      echo "#####################################"
+      echo "beginning of differences:"
+      cat /tmp/diff.txt | head -200
+      echo "\n...\n"
+      echo "#####################################"
+      exit 1
+    fi
+
+
