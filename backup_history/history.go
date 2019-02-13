@@ -147,6 +147,12 @@ func (history *History) WriteToFileAndMakeReadOnly(filename string) error {
 		return err
 	}
 	historyFile := iohelper.MustOpenFileForWriting(filename)
+	defer func() {
+		err = historyFile.Close()
+		if err != nil {
+			gplog.Warn("cannot close history file: %v", err)
+		}
+	}()
 	_, err = historyFile.Write(historyFileContents)
 	if err != nil {
 		return err
