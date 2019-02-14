@@ -79,6 +79,7 @@ type Constraint struct {
 	Name               string
 	ConType            string
 	ConDef             string
+	ConIsLocal         bool
 	OwningObject       string
 	IsDomainConstraint bool
 	IsPartitionParent  bool
@@ -109,13 +110,20 @@ func (c Constraint) FQN() string {
 }
 
 func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []Constraint {
+	// ConIsLocal should always return true from GetConstraints because we filter out constraints that are inherited using the INHERITS clause, or inherited from a parent partition table. This field only accurately reflects constraints in GPDB6+ because check constraints on parent tables must propogate to children. For GPDB versions 5 or lower, this field will default to false.
+	var selectConIsLocal string
+	var groupByConIsLocal string
+	if connectionPool.Version.AtLeast("6") {
+		selectConIsLocal = `conislocal,`
+		groupByConIsLocal = `con.conislocal,`
+	}
 	// This query is adapted from the queries underlying \d in psql.
-	tableQuery := fmt.Sprintf(`
-SELECT
+	tableQuery := fmt.Sprintf(`SELECT
 	con.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(conname) AS name,
 	contype,
+	%s
 	pg_get_constraintdef(con.oid, TRUE) AS condef,
 	quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
 	'f' AS isdomainconstraint,
@@ -132,13 +140,14 @@ AND %s
 AND c.relname IS NOT NULL
 AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
 AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
-GROUP BY con.oid, conname, contype, c.relname, n.nspname, pt.parrelid`, "%s", ExtensionFilterClause("c"))
+GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)
 
 	nonTableQuery := fmt.Sprintf(`SELECT
 	con.oid,
 	quote_ident(n.nspname) AS schema,
 	quote_ident(conname) AS name,
 	contype,
+	%s
 	pg_get_constraintdef(con.oid, TRUE) AS condef,
 	quote_ident(n.nspname) || '.' || quote_ident(t.typname) AS owningobject,
 	't' AS isdomainconstraint,
@@ -149,10 +158,10 @@ JOIN pg_namespace n ON n.oid = con.connamespace
 WHERE %s
 AND %s
 AND t.typname IS NOT NULL
-GROUP BY con.oid, conname, contype, n.nspname, t.typname
+GROUP BY con.oid, conname, contype, n.nspname, %s t.typname
 ORDER BY name;
 
-`, SchemaFilterClause("n"), ExtensionFilterClause("con"))
+`, selectConIsLocal, SchemaFilterClause("n"), ExtensionFilterClause("con"), groupByConIsLocal)
 
 	query := ""
 	if len(includeTables) > 0 {

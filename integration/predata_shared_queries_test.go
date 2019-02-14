@@ -57,13 +57,34 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetConstraints", func() {
 		var (
-			uniqueConstraint         = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: "UNIQUE (a, b)", OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
-			fkConstraint             = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: "FOREIGN KEY (b) REFERENCES public.constraints_table(b)", OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
-			pkConstraint             = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", ConDef: "PRIMARY KEY (b)", OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
-			checkConstraint          = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (a <> 42)", OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
-			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (id <> 0)", OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
-			domainConstraint         = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42)", OwningObject: "public.constraint_domain", IsDomainConstraint: true, IsPartitionParent: false}
+			uniqueConstraint         backup.Constraint
+			fkConstraint             backup.Constraint
+			pkConstraint             backup.Constraint
+			checkConstraint          backup.Constraint
+			partitionCheckConstraint backup.Constraint
+			domainConstraint         backup.Constraint
+			constraintInSchema       backup.Constraint
 		)
+
+		BeforeEach(func() {
+			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: "UNIQUE (a, b)", OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: "FOREIGN KEY (b) REFERENCES public.constraints_table(b)", OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
+			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", ConDef: "PRIMARY KEY (b)", OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (a <> 42)", OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (id <> 0)", OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
+			domainConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42)", OwningObject: "public.constraint_domain", IsDomainConstraint: true, IsPartitionParent: false}
+			constraintInSchema = backup.Constraint{Oid: 0, Schema: "testschema", Name: "uniq2", ConType: "u", ConDef: "UNIQUE (a, b)", OwningObject: "testschema.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+
+			if connectionPool.Version.AtLeast("6") {
+				uniqueConstraint.ConIsLocal = true
+				fkConstraint.ConIsLocal = true
+				pkConstraint.ConIsLocal = true
+				checkConstraint.ConIsLocal = true
+				partitionCheckConstraint.ConIsLocal = true
+				domainConstraint.ConIsLocal = true
+				constraintInSchema.ConIsLocal = true
+			}
+		})
 		Context("No constraints", func() {
 			It("returns an empty constraint array for a table with no constraints", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.no_constraints_table(a int, b text)")
@@ -183,7 +204,6 @@ PARTITION BY RANGE (date)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.constraints_table")
 				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY testschema.constraints_table ADD CONSTRAINT uniq2 UNIQUE (a, b)")
 				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
-				constraintInSchema := backup.Constraint{Oid: 0, Schema: "testschema", Name: "uniq2", ConType: "u", ConDef: "UNIQUE (a, b)", OwningObject: "testschema.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
 
 				constraints := backup.GetConstraints(connectionPool)
 

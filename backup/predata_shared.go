@@ -37,8 +37,9 @@ func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *utils
 		if constraint.IsDomainConstraint {
 			continue
 		}
+		// ConIsLocal should always return true from GetConstraints because we filter out constraints that are inherited using the INHERITS clause, or inherited from a parent partition table. This field only accurately reflects constraints in GPDB6+ because check constraints on parent tables must propogate to children. For GPDB versions 5 or lower, this field will default to false.
 		objStr := "TABLE ONLY"
-		if constraint.IsPartitionParent {
+		if constraint.IsPartitionParent || (constraint.ConType == "c" && constraint.ConIsLocal) {
 			objStr = "TABLE"
 		}
 		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef)

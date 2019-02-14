@@ -137,6 +137,12 @@ var _ = Describe("backup/predata_shared tests", func() {
 				backup.PrintConstraintStatements(backupfile, toc, constraints, emptyMetadataMap)
 				testutils.AssertBufferContents(toc.PostdataEntries, buffer, `ALTER TABLE public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);`)
 			})
+			It("prints an ADD CONSTRAINT [name] CHECK statement without keyword ONLY for a table with descendants (another table inherits it)", func() {
+				checkConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42::numeric)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false, ConIsLocal: true}
+				constraints := []backup.Constraint{checkConstraint}
+				backup.PrintConstraintStatements(backupfile, toc, constraints, emptyMetadataMap)
+				testutils.AssertBufferContents(toc.PostdataEntries, buffer, `ALTER TABLE public.tablename ADD CONSTRAINT check1 CHECK (VALUE <> 42::numeric);`)
+			})
 		})
 	})
 	Describe("PrintCreateSchemaStatements", func() {

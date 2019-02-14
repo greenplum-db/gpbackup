@@ -69,6 +69,14 @@ var _ = Describe("backup integration create statement tests", func() {
 			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (id <> 0)", OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(a int, b text) DISTRIBUTED BY (b)")
 			conMetadataMap = backup.MetadataMap{}
+
+			if connectionPool.Version.AtLeast("6") {
+				uniqueConstraint.ConIsLocal = true
+				pkConstraint.ConIsLocal = true
+				fkConstraint.ConIsLocal = true
+				checkConstraint.ConIsLocal = true
+				partitionCheckConstraint.ConIsLocal = true
+			}
 		})
 		AfterEach(func() {
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable CASCADE")
