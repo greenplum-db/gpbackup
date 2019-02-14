@@ -11,7 +11,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f5a81bcc228a3345fe9e01a63b19335e768efccf39366a6665b0cff22c5f20a3"
+  digest = "1:1ad04ae56ea7834dde93c04ef840866d4a93756bb5cc946931eff919bf94dd8b"
   name = "github.com/greenplum-db/gp-common-go-libs"
   packages = [
     "cluster",
@@ -23,7 +23,7 @@
     "testhelper",
   ]
   pruneopts = "NUT"
-  revision = "e3e578d3260ecfcf64773bf793d6a04cf127776f"
+  revision = "dc5314443bdb1cf8187e69bec712349a69d6918e"
 
 [[projects]]
   digest = "1:41933d387bfa3eaa6a82647914ed7044f7b8355764c24fb920892bc8c03ef0c3"
@@ -48,7 +48,7 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:ce17cd0dfdfd41e293adbbb248d05d44cda81c392b14f76fad020828b2e63278"
+  digest = "1:1cbbe90c54d3308204c955163a6dce9a328839a166aadd2d13dd26ab290162f8"
   name = "github.com/jackc/pgx"
   packages = [
     ".",
@@ -60,19 +60,19 @@
     "stdlib",
   ]
   pruneopts = "NUT"
-  revision = "89f1e6ac7276b61d885db5e5aed6fcbedd1c7e31"
-  version = "v3.2.0"
+  revision = "c59c9cac59ab95eceb0c12ff338923c62f411ea2"
+  version = "v3.3.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:f8670bc82b370c3dd4a64699bc7157cb66bb7c4f43be06edd5e7e4cc134bfa57"
+  digest = "1:0c11e987235e8f37af4e9f24cca02754827d009e8b66cf24483b0006504f6045"
   name = "github.com/jmoiron/sqlx"
   packages = [
     ".",
     "reflectx",
   ]
   pruneopts = "NUT"
-  revision = "0dae4fefe7c0e190f7b5a78dac28a1c82cc8d849"
+  revision = "d161d7a76b5661016ad0b085869f77fd410f3e6a"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -86,12 +86,12 @@
   revision = "9eb73efc1fcc404148b56765b0d3f61d9a5ef8ee"
 
 [[projects]]
-  digest = "1:bff482b22ebed387378546ba6a7850fdef87fd47f8ee58a7c62124a8e889a56b"
+  digest = "1:70ef8268170621826f8c111ac1674afe75136f526f449453b4a6631c6dba1946"
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb"
-  version = "v0.0.3"
+  revision = "3ee7d812e62a0804a7d0a324e0249ca2db3476d3"
+  version = "v0.0.4"
 
 [[projects]]
   branch = "master"
@@ -102,7 +102,7 @@
   revision = "0ad87eef1443f64d3d8c50da647e2b1552851124"
 
 [[projects]]
-  digest = "1:b1c5734a16beb6480afb34f7e6cfd1caeac40f8fdb4f7ca7c3a9b5449c4cae03"
+  digest = "1:6a1d3cc0142cdd2dde5080e8c25a89aeebac3a15424012bb610441d1959fda1b"
   name = "github.com/onsi/ginkgo"
   packages = [
     ".",
@@ -133,11 +133,11 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "3774a09d95489ccaa16032e0770d08ea77ba6184"
-  version = "v1.6.0"
+  revision = "2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f"
+  version = "v1.7.0"
 
 [[projects]]
-  digest = "1:6e41fb0c0e596001995888b8d0411eb3d592e578080eb2cd3b48633a69b9418b"
+  digest = "1:c9385d498108298283c3f3685667d8c87bf86a94d129fd49f8fd4485f1903e14"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
@@ -156,16 +156,16 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "7615b9433f86a8bdf29709bf288bc4fd0636a369"
-  version = "v1.4.2"
+  revision = "65fb64232476ad9046e57c26cd0bff3d3a8dc6cd"
+  version = "v1.4.3"
 
 [[projects]]
-  digest = "1:5cf3f025cbee5951a4ee961de067c8a89fc95a5adabead774f82822efabab121"
+  digest = "1:14715f705ff5dfe0ffd6571d7d201dd8e921030f8070321a79380d8ca4ec1a24"
   name = "github.com/pkg/errors"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
-  version = "v0.8.0"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
 
 [[projects]]
   digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
@@ -193,7 +193,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5193d913046443e59093d66a97a40c51f4a5ea4ceba60f3b3ecf89694de5d16f"
+  digest = "1:03a8ff54c1a62710fe21a08ad9ccd554ac90232c4fd34c2731f65dd47e1f2077"
   name = "golang.org/x/net"
   packages = [
     "html",
@@ -201,15 +201,15 @@
     "html/charset",
   ]
   pruneopts = "NUT"
-  revision = "f5e5bdd778241bfefa8627f7124c39cd6ad8d74f"
+  revision = "3a22650c66bd7f4fb6d1e8072ffd7b75c8a27898"
 
 [[projects]]
   branch = "master"
-  digest = "1:a27f25d1859506b171eaf503bcefcb7dac67aad6fdd21204f31932339440fcca"
+  digest = "1:b1085269f659d40b582e254edea4b3ab5948e2e9b85669f0da05ef3469aac2ca"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "NUT"
-  revision = "8469e314837c2e2471561de5c47bbf8bfd0d9099"
+  revision = "e77772198cdc3dbfcf7f2de96630204df9fd3a0b"
 
 [[projects]]
   digest = "1:7c61a813b250ba8bb02bebb0382e6c3d00e04da2b577dc58985b86312fb89ffd"
@@ -239,32 +239,41 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:64cfa4231737fcd720337a0a119f63313677c883d36c3cc9fdba754ff2f29b44"
+  digest = "1:849e1ab274cc58121de7558d8cad12bf9dfe65d8315f3a081126c8442c66455e"
   name = "golang.org/x/tools"
   packages = [
     "cmd/goimports",
     "go/ast/astutil",
+    "go/gcexportdata",
+    "go/internal/cgo",
+    "go/internal/gcimporter",
+    "go/internal/packagesdriver",
+    "go/packages",
+    "go/types/typeutil",
     "imports",
     "internal/fastwalk",
+    "internal/gopathwalk",
+    "internal/module",
+    "internal/semver",
   ]
   pruneopts = "NUT"
-  revision = "59602fdee893255faef9b2cd3aa8f880ea85265c"
+  revision = "8dcb7bc8c7fe0a895995c76c721cef79419ac98a"
 
 [[projects]]
-  digest = "1:4fe5671ee9615984167403a07ea67e0cbb7396f3ab335294ef767ac79b972ffc"
+  digest = "1:df28176ae6eed6b64b667963455f4b60c17ecb2594e6ffa72f149b911ea15fa4"
   name = "gopkg.in/DATA-DOG/go-sqlmock.v1"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "d76b18b42f285b792bf985118980ce9eacea9d10"
-  version = "v1.3.0"
+  revision = "472e287dbafe67e526a3797165b64cb14f34705a"
+  version = "v1.3.2"
 
 [[projects]]
-  digest = "1:40a1cbb226e60770882b41e5b8e7f5c38426399c602fe75618de717e70dcb871"
+  digest = "1:30f55ee34f367e29620faaae69dcdf6b78a86348f3a1472cf63f2dbba0f9d4f7"
   name = "gopkg.in/cheggaaa/pb.v1"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "2af8bbdea9e99e83b3ac400d8f6b6d1b8cbbf338"
-  version = "v1.0.25"
+  revision = "1cc5bbe20449079337944d56292c7383510c534c"
+  version = "v1.0.27"
 
 [[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
