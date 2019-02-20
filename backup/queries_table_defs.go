@@ -242,14 +242,15 @@ SELECT
 FROM pg_catalog.pg_attribute a
 JOIN pg_class c ON a.attrelid = c.oid
 JOIN pg_namespace n ON c.relnamespace = n.oid
-LEFT JOIN pg_catalog.pg_attrdef ad ON (a.attrelid = ad.adrelid AND a.attnum = ad.adnum)
-LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
-LEFT JOIN pg_collation coll on (a.attcollation = coll.oid)
-LEFT JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
-LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
-LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
-LEFT JOIN pg_seclabel sec ON (sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum)
+LEFT OUTER JOIN pg_catalog.pg_attrdef ad ON (a.attrelid = ad.adrelid AND a.attnum = ad.adnum)
+LEFT OUTER JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
+LEFT OUTER JOIN pg_collation coll on (a.attcollation = coll.oid)
+LEFT OUTER JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
+LEFT OUTER JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
+LEFT OUTER JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
+LEFT OUTER JOIN pg_seclabel sec ON (sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum)
 WHERE %s
+AND c.reltype <> 0
 AND a.attnum > 0::pg_catalog.int2
 AND a.attisdropped = 'f'
 ORDER BY a.attrelid, a.attnum;`, relationAndSchemaFilterClause())

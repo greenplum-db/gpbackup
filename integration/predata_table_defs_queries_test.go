@@ -126,7 +126,7 @@ PARTITION BY RANGE (year)
 
 			structmatcher.ExpectStructsToMatchExcluding(&columnA, &tableAtts[0], "Oid")
 		})
-		It("returns table attributes with foriegn data options", func() {
+		It("returns table attributes with foreign data options", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE FOREIGN DATA WRAPPER dummy;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FOREIGN DATA WRAPPER dummy")
@@ -144,6 +144,42 @@ PARTITION BY RANGE (year)
 			Expect(tableAtts).To(HaveLen(1))
 			column1 := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "c1", NotNull: true, HasDefault: false, Type: "integer", StatTarget: -1, ACL: emptyColumnACL, FdwOptions: "param1 'val1', param2 'val2'"}
 			structmatcher.ExpectStructsToMatchExcluding(column1, &tableAtts[0], "Oid")
+		})
+		It("handles table with gin index, when index's attribute's collname and namespace are null", func() {
+			testutils.SkipIfBefore6(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, `
+CREATE TABLE public.test_tsvector (
+    t text,
+    a tsvector,
+    distkey integer
+) DISTRIBUTED BY (distkey)
+`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE INDEX wowidx ON public.test_tsvector USING gin (a)`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP table public.test_tsvector cascade")
+
+			privileges := backup.GetPrivilegesForColumns(connectionPool)
+			oid := testutils.OidFromObjectName(connectionPool, "public", "test_tsvector", backup.TYPE_RELATION)
+			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+
+			Expect(tableAtts).To(HaveLen(3))
+		})
+		It("gets the correct collation schema", func() {
+			testutils.SkipIfBefore6(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, `CREATE SCHEMA myschema;`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP SCHEMA myschema`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE COLLATION myschema.mycoll (lc_collate = 'C', lc_ctype = 'C')`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP COLLATION myschema.mycoll`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.foo(i text COLLATE myschema.mycoll)`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public.foo`)
+
+			privileges := backup.GetPrivilegesForColumns(connectionPool)
+			oid := testutils.OidFromObjectName(connectionPool, "public", "foo", backup.TYPE_RELATION)
+			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+
+			Expect(tableAtts).To(HaveLen(1))
+			Expect(tableAtts[0].Collation).To(Equal("myschema.mycoll"))
 		})
 	})
 	Describe("GetPrivilegesForColumns", func() {
