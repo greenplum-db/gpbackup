@@ -149,22 +149,49 @@ var _ = Describe("backup integration tests", func() {
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
-			It("returns a slice of default metadata for a language", func() {
+			It("returns metadata for an empty {} ACL (not NULL)", func() {
 				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
+				testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON FUNCTION public.add(integer, integer) FROM public")
+				testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON FUNCTION public.add(integer, integer) FROM testrole")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "FUNCTION", "public.add(integer, integer)")
+
+				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_FUNCTION)
+				Expect(resultMetadataMap).To(HaveLen(1))
+
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "add", backup.TYPE_FUNCTION)
+				resultMetadata := resultMetadataMap[uniqueID]
+
+				// important: in the case where SQL reports ACL list = {}, and not null,
+				// we expect there to be a default ACL with ALL BOOLEANS FALSE, which prints as
+				// just the 2 default "REVOKE" and no additional grant because all booleans false.
+				Expect(resultMetadata.Privileges).To(HaveLen(1))
+
+				expectedMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole", SecurityLabel: "unclassified", SecurityLabelProvider: "dummy"}
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+			})
+			It("returns metadata for a function with a grant and revoke", func() {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
+				// for Function objects:
+				// `public` and the user that created the function (`testrole`) exist in the ACL by default. However, the ACL is not explicitly represented unless these defaults are modified.
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON FUNCTION public.add(integer, integer) TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON FUNCTION public.add(integer, integer) FROM PUBLIC")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON FUNCTION public.add(integer, integer) IS 'This is a function comment.'")
 				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "FUNCTION", "public.add(integer, integer)")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_FUNCTION)
+				Expect(resultMetadataMap).To(HaveLen(1))
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "add", backup.TYPE_FUNCTION)
-				expectedMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
-				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
+				Expect(resultMetadata.Privileges).To(HaveLen(1))
+
+				expectedMetadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a view", func() {
