@@ -252,10 +252,16 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON AGGREGATE public.agg_prefunc(numeric, numeric) IS 'This is an aggregate comment.'")
 				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "AGGREGATE", "public.agg_prefunc(numeric, numeric)")
 
+				testhelper.AssertQueryRuns(connectionPool, `
+				GRANT ALL ON FUNCTION public.agg_prefunc(numeric, numeric)
+				  to testrole`)
+				testhelper.AssertQueryRuns(connectionPool, `
+				REVOKE ALL ON FUNCTION public.agg_prefunc(numeric, numeric) FROM public`)
+
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_AGGREGATE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "agg_prefunc", backup.TYPE_AGGREGATE)
-				expectedMetadata := testutils.DefaultMetadata("AGGREGATE", false, true, true, includeSecurityLabels)
+				expectedMetadata := testutils.DefaultMetadata("AGGREGATE", true, true, true, includeSecurityLabels)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})

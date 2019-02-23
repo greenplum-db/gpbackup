@@ -184,7 +184,7 @@ func DefaultACLForType(grantee string, objType string) backup.ACL {
 		References: objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
 		Trigger:    objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
 		Usage:      objType == "LANGUAGE" || objType == "SCHEMA" || objType == "SEQUENCE" || objType == "FOREIGN DATA WRAPPER" || objType == "FOREIGN SERVER",
-		Execute:    objType == "FUNCTION",
+		Execute:    objType == "FUNCTION" || objType == "AGGREGATE",
 		Create:     objType == "DATABASE" || objType == "SCHEMA" || objType == "TABLESPACE",
 		Temporary:  objType == "DATABASE",
 		Connect:    objType == "DATABASE",

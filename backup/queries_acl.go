@@ -65,7 +65,7 @@ var (
 )
 
 func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
-	TYPE_AGGREGATE = MetadataQueryParams{NameField: "proname", SchemaField: "pronamespace", OwnerField: "proowner", CatalogTable: "pg_proc"}
+	TYPE_AGGREGATE = MetadataQueryParams{NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
 	TYPE_CAST = MetadataQueryParams{NameField: "typname", OidField: "oid", OidTable: "pg_type", CatalogTable: "pg_cast"}
 	TYPE_COLLATION = MetadataQueryParams{NameField: "collname", OidField: "oid", SchemaField: "collnamespace", OwnerField: "collowner", CatalogTable: "pg_collation"}
 	TYPE_CONSTRAINT = MetadataQueryParams{NameField: "conname", SchemaField: "connamespace", OidField: "oid", CatalogTable: "pg_constraint"}
@@ -75,7 +75,7 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	TYPE_EXTENSION = MetadataQueryParams{NameField: "extname", OidField: "oid", CatalogTable: "pg_extension"}
 	TYPE_FOREIGNDATAWRAPPER = MetadataQueryParams{NameField: "fdwname", ACLField: "fdwacl", OwnerField: "fdwowner", CatalogTable: "pg_foreign_data_wrapper"}
 	TYPE_FOREIGNSERVER = MetadataQueryParams{NameField: "srvname", ACLField: "srvacl", OwnerField: "srvowner", CatalogTable: "pg_foreign_server"}
-	TYPE_FUNCTION = MetadataQueryParams{NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
+	TYPE_FUNCTION = TYPE_AGGREGATE // Aggregates are functions. So the metadata call to get them are the same.
 	TYPE_INDEX = MetadataQueryParams{NameField: "relname", OidField: "indexrelid", OidTable: "pg_class", CommentTable: "pg_class", CatalogTable: "pg_index"}
 	TYPE_PROCLANGUAGE = MetadataQueryParams{NameField: "lanname", ACLField: "lanacl", CatalogTable: "pg_language"}
 	if connectionPool.Version.Before("5") {
