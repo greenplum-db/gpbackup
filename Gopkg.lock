@@ -11,7 +11,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:1ad04ae56ea7834dde93c04ef840866d4a93756bb5cc946931eff919bf94dd8b"
+  digest = "1:d9509205ededc8c81a68c1332f97a7009ed45d7649b6a0d838628ea91ba3e9e8"
   name = "github.com/greenplum-db/gp-common-go-libs"
   packages = [
     "cluster",
@@ -23,7 +23,7 @@
     "testhelper",
   ]
   pruneopts = "NUT"
-  revision = "dc5314443bdb1cf8187e69bec712349a69d6918e"
+  revision = "4580a3f68ffe89bcd3ed5ff87ba27d3df6d47bd3"
 
 [[projects]]
   digest = "1:41933d387bfa3eaa6a82647914ed7044f7b8355764c24fb920892bc8c03ef0c3"
@@ -201,15 +201,15 @@
     "html/charset",
   ]
   pruneopts = "NUT"
-  revision = "3a22650c66bd7f4fb6d1e8072ffd7b75c8a27898"
+  revision = "92fc7df08ae7536330f5a21328292abfa70520a8"
 
 [[projects]]
   branch = "master"
-  digest = "1:b1085269f659d40b582e254edea4b3ab5948e2e9b85669f0da05ef3469aac2ca"
+  digest = "1:0fe83e0566880bb72802c5cb87f5b5049d495f3f34132cae075d6b98a040a6fe"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "NUT"
-  revision = "e77772198cdc3dbfcf7f2de96630204df9fd3a0b"
+  revision = "a34e9553db1e492c9a76e60db2296ae7e5fbb772"
 
 [[projects]]
   digest = "1:7c61a813b250ba8bb02bebb0382e6c3d00e04da2b577dc58985b86312fb89ffd"
@@ -239,7 +239,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:849e1ab274cc58121de7558d8cad12bf9dfe65d8315f3a081126c8442c66455e"
+  digest = "1:7ddcb389cead44e26b0a4570d464cddd3c463c787725e1b781f4fe6d4fbea0dd"
   name = "golang.org/x/tools"
   packages = [
     "cmd/goimports",
@@ -257,7 +257,7 @@
     "internal/semver",
   ]
   pruneopts = "NUT"
-  revision = "8dcb7bc8c7fe0a895995c76c721cef79419ac98a"
+  revision = "589c23e65e65055d47b9ad4a99723bc389136265"
 
 [[projects]]
   digest = "1:df28176ae6eed6b64b667963455f4b60c17ecb2594e6ffa72f149b911ea15fa4"
@@ -268,12 +268,12 @@
   version = "v1.3.2"
 
 [[projects]]
-  digest = "1:30f55ee34f367e29620faaae69dcdf6b78a86348f3a1472cf63f2dbba0f9d4f7"
+  digest = "1:21562b59c496f4cbd7a40beaa257ac6761002dd3e36259f532216082abace8b1"
   name = "gopkg.in/cheggaaa/pb.v1"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "1cc5bbe20449079337944d56292c7383510c534c"
-  version = "v1.0.27"
+  revision = "f907f6f5dd81f77c2bbc1cde92e4c5a04720cb11"
+  version = "v1.0.28"
 
 [[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"

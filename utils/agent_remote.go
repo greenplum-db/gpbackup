@@ -2,8 +2,12 @@ package utils
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
+
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -27,15 +31,55 @@ func CreateFirstSegmentPipeOnAllHosts(oid string, c *cluster.Cluster, fpInfo bac
 	})
 }
 
-func WriteOidListToSegments(oidList []string, c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
-	oidStr := strings.Join(oidList, "\n")
-	remoteOutput := c.GenerateAndExecuteCommand("Writing filtered oid list to segments", func(contentID int) string {
-		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
-		return fmt.Sprintf(`echo "%s" > %s`, oidStr, oidFile)
-	}, cluster.ON_SEGMENTS)
-	c.CheckClusterError(remoteOutput, "Unable to write oid list to segments", func(contentID int) string {
-		return fmt.Sprintf("Unable to write oid list for segment %d on host %s", contentID, c.GetHostForContent(contentID))
-	})
+func WriteOidListToSegments(oidList []string, c *cluster.Cluster, dest backup_filepath.FilePathInfo) {
+	localOidFile, err := ioutil.TempFile("", "gpbackup-oids")
+	gplog.FatalOnError(err, "Cannot open temporary file to write oids")
+	defer func() {
+		err = operating.System.Remove(localOidFile.Name())
+		if err != nil {
+			gplog.Warn("Cannot remove temporary oid file: %s, Err: %s", localOidFile.Name(), err.Error())
+		}
+	}()
+
+	WriteOidsToFile(localOidFile.Name(), oidList)
+
+	ScpFileToSegments(localOidFile.Name(), c, dest)
+}
+
+func ScpFileToSegments(filename string, c *cluster.Cluster, fpi backup_filepath.FilePathInfo) {
+	for _, contentID := range c.ContentIDs {
+		if contentID == -1 {
+			continue // skip writing from master to master
+		}
+		remoteOidFile := fpi.GetSegmentHelperFilePath(contentID, "oid")
+		cmd := fmt.Sprintf(`scp %s %s:%s`, filename, c.GetHostForContent(contentID), remoteOidFile)
+		_, err := c.ExecuteLocalCommand(cmd)
+		gplog.FatalOnError(err, fmt.Sprintf("Unable to write oid list to segments via command: %s", cmd))
+	}
+}
+
+func WriteOidsToFile(filename string, oidList []string) {
+	oidFp, err := iohelper.OpenFileForWriting(filename)
+	gplog.FatalOnError(err, filename)
+	defer func() {
+		err = oidFp.Close()
+		gplog.FatalOnError(err, filename)
+	}()
+
+	err = WriteOids(oidFp, oidList)
+	gplog.FatalOnError(err, filename)
+}
+
+func WriteOids(writer io.Writer, oidList []string) error {
+	var err error
+	for _, oid := range oidList {
+		_, err = writer.Write([]byte(oid + "\n"))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func VerifyHelperVersionOnSegments(version string, c *cluster.Cluster) {
