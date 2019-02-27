@@ -68,13 +68,6 @@ resources:
     branch: 5X_STABLE
     tag_filter: 5.*
 
-- name: gpdb_release
-  type: git
-  source:
-    branch: {{gpdb-release-branch}}
-    private_key: {{gpdb-release-remote-deploy-key}}
-    uri: {{gpdb-release-git-remote}}
-
 - name: bin_gpdb_master
   type: s3
   source:
@@ -865,7 +858,6 @@ jobs:
     - get: gpdb_src
     - get: ccp_src
     - get: bin_gpdb_5x_stable
-    - get: gpdb_release
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -970,45 +962,10 @@ jobs:
       <<: *ccp_destroy_nvme
     on_failure:
       *slack_alert
-  - task: update-manifest
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '7-gcc6.2-llvm3.7'
-      inputs:
-      - name: gpdb_release
-      - name: gpbackup_version
-      outputs:
-      - name: gpdb_release_output
-      run:
-        path: "sh"
-        args:
-        - -exc
-        - |
-          set -x
-          yum -y install jq
-          GPBACKUP_VERSION=$(cat gpbackup_version/version)
-          git clone gpdb_release gpdb_release_output
-          cd gpdb_release_output
-          cat components/component_manifest.json | jq "(.platforms[].components[] | select(.name==\"gpbackup\").version) = \"${GPBACKUP_VERSION}\"" > /tmp/component_manifest.json
-          mv /tmp/component_manifest.json components/component_manifest.json
-          git add components/component_manifest.json
-          git config user.email "gpbackup_bot@example.com"
-          git config user.name "GPBACKUP_BOT"
-          git commit -m "Updating manifest for gpbackup version ${GPBACKUP_VERSION}"
-    on_failure:
-      *slack_alert
   - aggregate:
     - put: component_gpbackup
       params:
         file: component_gpbackup/gpbackup-*.tar.gz
-    - put: gpdb_release
-      params:
-        repository: gpdb_release_output
-        rebase: true
     - put: gpbackup_github_release
       params:
         name: component_gpbackup/version
