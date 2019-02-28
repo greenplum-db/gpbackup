@@ -36,6 +36,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			os.Remove("/tmp/ext_table_file")
 			testhelper.AssertQueryRuns(connectionPool, "DROP EXTERNAL TABLE public.testtable")
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE IF EXISTS public.err_table")
+			testhelper.AssertQueryRuns(connectionPool, `DROP TABLE IF EXISTS public."err_table%percent"`)
 		})
 		It("creates a READABLE EXTERNAL table", func() {
 			extTable.Type = backup.READABLE
@@ -63,7 +64,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Location = ""
 			extTable.Protocol = backup.HTTP
 			extTable.URIs = nil
-			extTable.Command = `bash someone's \.custom_script.sh`
+			extTable.Command = `bash % someone's \.custom_script.sh`
 			testTable.ExtTableDef = extTable
 
 			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
@@ -117,10 +118,28 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfNot4(connectionPool)
 			extTable.Type = backup.READABLE
 			extTable.Writable = false
-			extTable.ErrTableName = "err_table"
+			extTable.ErrTableName = `"err_table%percent"`
 			extTable.ErrTableSchema = "public"
 			extTable.RejectLimit = 2
 			extTable.RejectLimitType = "r"
+			testTable.ExtTableDef = extTable
+
+			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			oid := testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTableDefs := backup.GetExternalTableDefinitions(connectionPool)
+			resultTableDef := resultTableDefs[oid]
+			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
+
+			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
+		})
+		It("creates a READABLE EXTERNAL table with FORMAT delimiter", func() {
+			extTable.Type = backup.READABLE
+			extTable.Writable = false
+			extTable.FormatOpts = "delimiter '%' null '' escape 'OFF'"
+			extTable.FormatType = "t"
 			testTable.ExtTableDef = extTable
 
 			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)

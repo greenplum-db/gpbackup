@@ -127,3 +127,11 @@ func (file *FileWithByteCount) MustPrintf(s string, v ...interface{}) {
 	}
 	file.ByteCount += uint64(bytesWritten)
 }
+
+func (file *FileWithByteCount) MustPrint(s string) {
+	bytesWritten, err := fmt.Fprint(file.writer, s)
+	if err != nil {
+		gplog.Fatal(err, "Unable to write to file")
+	}
+	file.ByteCount += uint64(bytesWritten)
+}

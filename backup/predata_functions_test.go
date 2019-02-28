@@ -4,7 +4,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -673,6 +672,25 @@ ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
 REVOKE ALL ON LANGUAGE plpythonu FROM testrole;
 GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
 				"SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';",
+			}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
+		})
+		It("prints a language using a role with % in its name", func() {
+			langWithValidatorAndPercentOwner := backup.ProceduralLanguage{Oid: 1, Name: "plperl", Owner: "owner%percentage", IsPl: true, PlTrusted: true, Handler: 1, Inline: 2, Validator: 3}
+			langs := []backup.ProceduralLanguage{langWithValidatorAndPercentOwner}
+
+			langMetadataMap := testutils.DefaultMetadataMap("LANGUAGE", true, true, true, true)
+
+			backup.PrintCreateLanguageStatements(backupfile, toc, langs, funcInfoMap, langMetadataMap)
+			expectedStatements := []string{
+				"CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;",
+				"ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO owner%percentage;",
+				`COMMENT ON LANGUAGE plperl IS 'This is a language comment.';`,
+				`ALTER LANGUAGE plperl OWNER TO testrole;`,
+				`REVOKE ALL ON LANGUAGE plperl FROM PUBLIC;
+REVOKE ALL ON LANGUAGE plperl FROM testrole;
+GRANT ALL ON LANGUAGE plperl TO testrole;`,
+				"SECURITY LABEL FOR dummy ON LANGUAGE plperl IS 'unclassified';",
 			}
 			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
 		})

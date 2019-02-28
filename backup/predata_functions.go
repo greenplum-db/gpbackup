@@ -271,7 +271,7 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *u
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 		start = metadataFile.ByteCount
-		metadataFile.MustPrintf(alterStr)
+		metadataFile.MustPrint(alterStr)
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 		PrintObjectMetadata(metadataFile, toc, procLangMetadata[procLang.GetUniqueID()], procLang, "")

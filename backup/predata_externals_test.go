@@ -347,6 +347,14 @@ ENCODING 'UTF-8'`)
 				Expect(resultStatement).To(Equal(`FORMAT 'TEXT' (delimiter E' ' null E'
 ' escape E'	')`))
 			})
+			It("generates a FORMAT statement delimiter of special char", func() {
+				extTableDef.FormatType = "t"
+				extTableDef.FormatOpts = `delimiter '%' null '' escape 'OFF'`
+
+				resultStatement := backup.GenerateFormatStatement(extTableDef)
+
+				Expect(resultStatement).To(Equal(`FORMAT 'TEXT' (delimiter E'%' null E'' escape E'OFF')`))
+			})
 		})
 		Context("CSV format", func() {
 			It("generates a FORMAT statement with no options provided", func() {

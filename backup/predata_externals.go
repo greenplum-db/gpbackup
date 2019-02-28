@@ -289,18 +289,18 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 	}
 	if extTableDef.Type == READABLE_WEB || extTableDef.Type == WRITABLE_WEB {
 		if extTableDef.Command != "" {
-			metadataFile.MustPrintf(generateExecuteStatement(extTableDef))
+			metadataFile.MustPrint(generateExecuteStatement(extTableDef))
 		}
 	}
 	metadataFile.MustPrintln()
-	metadataFile.MustPrintf(GenerateFormatStatement(extTableDef))
+	metadataFile.MustPrint(GenerateFormatStatement(extTableDef))
 	metadataFile.MustPrintln()
 	if extTableDef.Options != "" {
 		metadataFile.MustPrintf("OPTIONS (\n\t%s\n)\n", extTableDef.Options)
 	}
 	metadataFile.MustPrintf("ENCODING '%s'", extTableDef.Encoding)
 	if extTableDef.Type == READABLE || extTableDef.Type == READABLE_WEB {
-		metadataFile.MustPrintf(generateLogErrorStatement(extTableDef, tableName))
+		metadataFile.MustPrint(generateLogErrorStatement(extTableDef, tableName))
 	}
 }
 
