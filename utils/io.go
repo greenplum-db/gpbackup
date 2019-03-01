@@ -114,24 +114,18 @@ func (file *FileWithByteCount) Close() {
 
 func (file *FileWithByteCount) MustPrintln(v ...interface{}) {
 	bytesWritten, err := fmt.Fprintln(file.writer, v...)
-	if err != nil {
-		gplog.Fatal(err, "Unable to write to file")
-	}
+	gplog.FatalOnError(err, "Unable to write to file")
 	file.ByteCount += uint64(bytesWritten)
 }
 
 func (file *FileWithByteCount) MustPrintf(s string, v ...interface{}) {
 	bytesWritten, err := fmt.Fprintf(file.writer, s, v...)
-	if err != nil {
-		gplog.Fatal(err, "Unable to write to file")
-	}
+	gplog.FatalOnError(err, "Unable to write to file")
 	file.ByteCount += uint64(bytesWritten)
 }
 
 func (file *FileWithByteCount) MustPrint(s string) {
 	bytesWritten, err := fmt.Fprint(file.writer, s)
-	if err != nil {
-		gplog.Fatal(err, "Unable to write to file")
-	}
+	gplog.FatalOnError(err, "Unable to write to file")
 	file.ByteCount += uint64(bytesWritten)
 }
