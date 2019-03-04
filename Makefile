@@ -83,7 +83,7 @@ install_helper :
 		else \
 			echo 'Database is not running, please start the database and run this make target again'; \
 		fi; \
-		rm /tmp/seg_hosts
+		rm -rf /tmp/seg_hosts
 
 clean :
 		# Build artifacts
