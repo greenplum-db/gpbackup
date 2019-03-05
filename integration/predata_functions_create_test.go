@@ -106,7 +106,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				appendFunction := backup.Function{
 					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
-					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO pg_temp", Cost: 200,
+					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO 'pg_temp'", Cost: 200,
 					NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
 				}
 

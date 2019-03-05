@@ -45,7 +45,7 @@ MODIFIES SQL DATA
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
-				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO pg_temp", Cost: 200,
+				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
 
 			Expect(results).To(HaveLen(2))
@@ -145,7 +145,7 @@ MODIFIES SQL DATA
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
-				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true, Config: "SET search_path TO pg_temp", Cost: 200,
+				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
 
 			Expect(results).To(HaveLen(1))
@@ -159,6 +159,69 @@ MODIFIES SQL DATA
 			results := backup.GetFunctionsMaster(connectionPool)
 
 			Expect(results).To(HaveLen(0))
+		})
+		It("returns a function that has quotes in Config", func() {
+			testhelper.AssertQueryRuns(connectionPool, `
+	CREATE FUNCTION public.myfunc(integer) RETURNS text
+	LANGUAGE plpgsql NO SQL
+		SET work_mem TO '1MB'
+	AS $_$
+	begin
+		set work_mem = '2MB';
+		perform 1/$1;
+		return current_setting('work_mem');
+	end $_$;
+`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.myfunc(integer)")
+
+			results := backup.GetFunctionsMaster(connectionPool)
+
+			appendFunction := backup.Function{
+				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `
+	begin
+		set work_mem = '2MB';
+		perform 1/$1;
+		return current_setting('work_mem');
+	end `,
+				BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "text",
+				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "SET work_mem TO '1MB'", Cost: 100,
+				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
+		})
+		It("returns a function that sets a GUC with a string array value with quoted items", func() {
+			testhelper.AssertQueryRuns(connectionPool, `CREATE SCHEMA "abc""def"`)
+
+			testhelper.AssertQueryRuns(connectionPool, `
+	CREATE FUNCTION public.myfunc(integer) RETURNS text
+    LANGUAGE plpgsql NO SQL
+    SET search_path TO "$user", public, "abc""def"
+    AS $_$
+    begin
+        set work_mem = '2MB';
+        perform 1/$1;
+        return current_setting('work_mem');
+    end $_$;
+`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.myfunc(integer)")
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP SCHEMA "abc""def"`)
+
+			results := backup.GetFunctionsMaster(connectionPool)
+
+			appendFunction := backup.Function{
+				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `
+    begin
+        set work_mem = '2MB';
+        perform 1/$1;
+        return current_setting('work_mem');
+    end `,
+				BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "text",
+				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: `SET search_path TO '$user', 'public', 'abc"def'`, Cost: 100,
+				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
 		})
 	})
 	Describe("GetFunctions4", func() {

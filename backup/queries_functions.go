@@ -7,6 +7,7 @@ package backup
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -93,7 +94,7 @@ func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
 
 func GetFunctionsMaster(connectionPool *dbconn.DBConn) []Function {
 	excludeImplicitFunctionsClause := ""
-	masterAtts := ""
+	masterAtts := "'a' AS proexeclocation,"
 	if connectionPool.Version.AtLeast("6") {
 		masterAtts = "proiswindow,proexeclocation,proleakproof,"
 		// This excludes implicitly created functions. Currently this is only range type functions
@@ -102,8 +103,6 @@ AND NOT EXISTS (
 	SELECT 1 FROM pg_depend
 	WHERE classid = 'pg_proc'::regclass::oid
 	AND objid = p.oid AND deptype = 'i')`
-	} else {
-		masterAtts = "'a' AS proexeclocation,"
 	}
 	query := fmt.Sprintf(`
 SELECT
@@ -139,7 +138,70 @@ ORDER BY nspname, proname, identargs;`, masterAtts, SchemaFilterClause("n"), Ext
 	results := make([]Function, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
+
+	err = PostProcessFunctionConfigs(results)
+	gplog.FatalOnError(err)
+
 	return results
+}
+
+func PostProcessFunctionConfigs(allFunctions []Function) error {
+	setToNameValuePattern := regexp.MustCompile(`^SET (.*) TO (.*)$`)
+
+	for i, function := range allFunctions {
+		if function.Config == "" {
+			continue
+		}
+
+		captures := setToNameValuePattern.FindStringSubmatch(function.Config)
+		if len(captures) != 3 {
+			return fmt.Errorf("Function config does not match syntax expectations. Function was: %v", function)
+		}
+		gucName := strings.ToLower(captures[1])
+		gucValue := captures[2]
+		quotedValue := QuoteGUCValue(gucName, gucValue)
+
+		// write to struct by referencing the slice rather than the readonly 'function' copy
+		allFunctions[i].Config = fmt.Sprintf(`SET %s TO %s`, gucName, quotedValue)
+	}
+	return nil
+}
+
+func QuoteGUCValue(name, value string) string {
+	/*
+	 * GUC tools have one way to stuff many strings into a single string, with it own
+	 * system of quotation. SQL quotation is different, so we have to unwind the
+	 * GUC quoting system and use the SQL system.
+	 * We are modeling this function after SplitGUCList in psql/dumputils.c
+	 */
+	var result string
+	if name == "temp_tablespaces" ||
+		name == "session_preload_libraries" ||
+		name == "shared_preload_libraries" ||
+		name == "local_preload_libraries" ||
+		name == "search_path" {
+		strSplit := strings.Split(value, ",")
+		for i, item := range strSplit {
+			item = strings.Trim(item, " ")
+			item = UnescapeDoubleQuote(item)
+			item = `'` + item + `'`
+			strSplit[i] = item
+		}
+		result = strings.Join(strSplit, ", ")
+	} else {
+		result = `'` + value + `'`
+	}
+
+	return result
+}
+
+func UnescapeDoubleQuote(value string) string {
+	result := value
+	if len(value) > 1 && value[0] == '"' && value[len(value)-1] == '"' {
+		result = value[1 : len(value)-1]
+		result = strings.Replace(result, `""`, `"`, -1)
+	}
+	return result
 }
 
 /*
