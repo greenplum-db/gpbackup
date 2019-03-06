@@ -341,29 +341,10 @@ func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 	} else {
 		query = `
 		SELECT
-			p.localoid as oid,
-			CASE WHEN p.policytype = 'r' THEN 'DISTRIBUTED REPLICATED'
-				 WHEN count(p.attnum) = 0 THEN 'DISTRIBUTED RANDOMLY'
-				 ELSE pg_catalog.pg_get_table_distributedby(p.localoid)
-			END AS value	
+			localoid as oid,
+			pg_catalog.pg_get_table_distributedby(localoid) as value
 		FROM
-			(
-			 SELECT
-			 	localoid,
-			 	policytype,
-				attnum,
-				row_number() over () as index
-			 FROM
-			 (select localoid, policytype,
-				CASE WHEN distkey = '' THEN NULL
-				ELSE unnest(distkey)
-				END AS attnum
-			  FROM gp_distribution_policy) x
-			 ) as p
-			LEFT JOIN
-			pg_attribute a
-			ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
-			GROUP BY localoid, policytype;`
+			gp_distribution_policy;`
 	}
 
 	resultMap := selectAsOidToStringMap(connectionPool, query)
