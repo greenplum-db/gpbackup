@@ -77,6 +77,15 @@ resources:
       access_key_id: {{bucket-access-key-id}}
       secret_access_key: {{bucket-secret-access-key}}
 
+- name: gpbackup-dependencies
+  type: s3
+  source:
+      bucket: gpbackup-dependencies
+      versioned_file: gpbackup-dependencies/dependencies.tar.gz
+      region_name: us-west-2
+      access_key_id: {{bucket-access-key-id}}
+      secret_access_key: {{bucket-secret-access-key}}
+
 - name: bin_gpdb_5x_stable
   type: s3
   source:
@@ -210,6 +219,21 @@ resources:
       bucket_path: clusters-aws/
 
 jobs:
+- name: build_dependencies
+  plan:
+  - aggregate:
+    - get: gpbackup
+      trigger: true
+    - get: gpbackup-dependencies
+    - get: nightly-trigger
+      trigger: true
+  - task: build-dependencies
+    file: gpbackup/ci/tasks/build-dependencies.yml
+    attempts: 5
+  - put: gpbackup-dependencies
+    params:
+        file: output_deps/dependencies.tar.gz
+
 - name: units
   plan:
   - aggregate:
@@ -217,6 +241,9 @@ jobs:
       trigger: true
     - get: nightly-trigger
       trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - task: unit-tests
     file: gpbackup/ci/tasks/unit-tests.yml
     on_failure:
@@ -229,11 +256,14 @@ jobs:
       trigger: true
     - get: gpbackup
       trigger: true
-    - get: nightly-trigger
-      trigger: true
     - get: ccp_src
     - get: gpdb_src
     - get: bin_gpdb_5x_stable
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -280,6 +310,7 @@ jobs:
           set -ex
           source env.sh
 
+
           cd \$GOPATH/src/github.com/greenplum-db
           pushd gpbackup-s3-plugin
           make depend
@@ -320,9 +351,6 @@ jobs:
     - get: gpbackup
       tags: ["ddboost"]
       trigger: true
-    - get: nightly-trigger
-      tags: ["ddboost"]
-      trigger: true
     - get: ccp_src
       tags: ["ddboost"]
     - get: gpdb_src
@@ -331,6 +359,12 @@ jobs:
       tags: ["ddboost"]
     - get: boostfs_installer
       tags: ["ddboost"]
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      tags: ["ddboost"]
+      passed:
+       - build_dependencies
   - put: ddboost_terraform
     tags: ["ddboost"]
     params:
@@ -511,11 +545,14 @@ jobs:
   - aggregate:
     - get: gpbackup
       trigger: true
-    - get: nightly-trigger
-      trigger: true
     - get: bin_gpdb_5x_stable
     - get: ccp_src
     - get: gpdb_src
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -547,11 +584,14 @@ jobs:
   - aggregate:
     - get: gpbackup
       trigger: true
-    - get: nightly-trigger
-      trigger: true
     - get: bin_gpdb_5x_stable_centos7
     - get: ccp_src
     - get: gpdb_src
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform_aws
     params:
       <<: *ccp_default_params_aws
@@ -591,12 +631,15 @@ jobs:
   - aggregate:
     - get: gpbackup
       trigger: true
-    - get: nightly-trigger
-      trigger: true
     - get: bin_gpdb_master
     - get: ccp_src
     - get: gpdb_src
     - get: dummy_seclabel
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -627,11 +670,14 @@ jobs:
   - aggregate:
     - get: gpbackup
       trigger: true
-    - get: nightly-trigger
-      trigger: true
     - get: bin_gpdb_5x_stable
     - get: ccp_src
     - get: gpdb_src
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -662,11 +708,14 @@ jobs:
   - aggregate:
     - get: gpbackup
       trigger: true
-    - get: nightly-trigger
-      trigger: true
     - get: bin_gpdb_43_stable
     - get: ccp_src
     - get: gpdb_src
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -697,11 +746,14 @@ jobs:
   - aggregate:
     - get: gpbackup
       trigger: true
-    - get: nightly-trigger
-      trigger: true
     - get: bin_gpdb_5x_stable
     - get: ccp_src
     - get: gpdb_src
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -737,10 +789,16 @@ jobs:
   plan:
   - aggregate:
     - get: gpbackup
+      trigger: true
     - get: bin_gpdb_master
     - get: ccp_src
     - get: gpdb_src
     - get: scale_schema
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -772,10 +830,16 @@ jobs:
   plan:
   - aggregate:
     - get: gpbackup
+      trigger: true
     - get: bin_gpdb_5x_stable
     - get: ccp_src
     - get: gpdb_src
     - get: scale_schema
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -806,10 +870,16 @@ jobs:
   plan:
   - aggregate:
     - get: gpbackup
+      trigger: true
     - get: bin_gpdb_43_stable
     - get: ccp_src
     - get: gpdb_src
     - get: scale_schema
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -858,6 +928,7 @@ jobs:
     - get: gpdb_src
     - get: ccp_src
     - get: bin_gpdb_5x_stable
+    - get: gpbackup-dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -974,7 +1045,6 @@ jobs:
         - component_gpbackup/bin/gpbackup
         - component_gpbackup/bin/gprestore
         - component_gpbackup/bin/gpbackup_helper
-
 
 ccp_default_params_anchor: &ccp_default_params
   action: create

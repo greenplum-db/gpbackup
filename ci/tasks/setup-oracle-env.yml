@@ -12,6 +12,7 @@ inputs:
   path: go/src/github.com/greenplum-db/gpbackup
 - name: ccp_src
 - name: cluster_env_files
+- name: gpbackup-dependencies
 
 run:
   path: bash
@@ -38,6 +39,8 @@ run:
     source env.sh
     gpconfig --skipvalidation -c fsync -v off
     gpstop -u
+          
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com/greenplum-db/gpbackup/
 
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
         make depend
@@ -47,6 +50,7 @@ run:
 
     ssh -t clckwrk@mdw "sudo yum -y install wget git && wget https://storage.googleapis.com/golang/go1.10.3.linux-amd64.tar.gz && tar -xzf go1.10.3.linux-amd64.tar.gz && sudo mv go /usr/local"
     chmod +x /tmp/setup_oracle_env.bash
+    rsync -a gpbackup-dependencies mdw:/home/gpadmin
     scp /tmp/setup_oracle_env.bash mdw:/home/gpadmin/setup_oracle_env.bash
     ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"
     scp -r go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup

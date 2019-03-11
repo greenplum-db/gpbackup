@@ -8,9 +8,12 @@ image_resource:
     tag: '1.10.3'
 
 inputs:
-- name: gpbackup
-  path: go/src/github.com/greenplum-db/gpbackup
-- name: gpbackup-dependencies
+ - name: gpbackup
+   path: go/src/github.com/greenplum-db/gpbackup
+ - name: gpbackup-dependencies
+
+outputs:
+- name: output_deps
 
 run:
   path: bash
@@ -24,6 +27,8 @@ run:
 
     tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com/greenplum-db/gpbackup/
 
-    cd $GOPATH/src/github.com/greenplum-db/gpbackup
-    make depend
-    make unit
+    pushd $GOPATH/src/github.com/greenplum-db/gpbackup
+      make depend
+      tar cfz dependencies.tar.gz vendor
+    popd
+    cp $GOPATH/src/github.com/greenplum-db/gpbackup/dependencies.tar.gz output_deps/

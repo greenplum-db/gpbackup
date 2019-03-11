@@ -13,6 +13,7 @@ inputs:
 - name: ccp_src
 - name: cluster_env_files
 - name: dummy_seclabel
+- name: gpbackup-dependencies
 
 run:
   path: bash
@@ -41,6 +42,8 @@ run:
     gpconfig -c shared_preload_libraries -v dummy_seclabel
     gpstop -ar
 
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com/greenplum-db/gpbackup/
+
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
         make depend
         make build
@@ -52,6 +55,7 @@ run:
 
     ssh -t centos@mdw "sudo yum -y install wget git && wget https://storage.googleapis.com/golang/go1.10.3.linux-amd64.tar.gz && tar -xzf go1.10.3.linux-amd64.tar.gz && sudo mv go /usr/local"
     chmod +x /tmp/setup_centos_env.bash
+    rsync -a gpbackup-dependencies mdw:/home/gpadmin
     scp /tmp/setup_centos_env.bash mdw:/home/gpadmin/setup_centos_env.bash
     ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"
     scp -r go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
