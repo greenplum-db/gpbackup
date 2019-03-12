@@ -11,7 +11,7 @@ import (
 )
 
 var _ = Describe("backup integration tests", func() {
-	Describe("GetFunctionsMaster", func() {
+	Describe("GetFunctions", func() {
 		BeforeEach(func() {
 			testutils.SkipIfBefore5(connectionPool)
 		})
@@ -35,7 +35,7 @@ MODIFIES SQL DATA
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.append(integer, integer)")
 			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON FUNCTION public.append(integer, integer) IS 'this is a function comment'")
 
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			addFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -70,7 +70,7 @@ LANGUAGE SQL`)
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
 			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
@@ -82,7 +82,7 @@ AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			windowFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -106,7 +106,7 @@ LANGUAGE SQL WINDOW
 EXECUTE ON ALL SEGMENTS;`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_all_segments(integer, integer)")
 
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			srfOnMasterFunction := backup.Function{
 				Schema: "public", Name: "srf_on_master", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -140,7 +140,7 @@ MODIFIES SQL DATA
 `)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.append(integer, integer)")
 
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
@@ -156,7 +156,7 @@ MODIFIES SQL DATA
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.textrange AS RANGE (SUBTYPE = pg_catalog.text)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
 
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			Expect(results).To(HaveLen(0))
 		})
@@ -174,7 +174,7 @@ MODIFIES SQL DATA
 `)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.myfunc(integer)")
 
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			appendFunction := backup.Function{
 				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `
@@ -207,7 +207,7 @@ MODIFIES SQL DATA
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.myfunc(integer)")
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP SCHEMA "abc""def"`)
 
-			results := backup.GetFunctionsMaster(connectionPool)
+			results := backup.GetFunctions(connectionPool)
 
 			appendFunction := backup.Function{
 				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `

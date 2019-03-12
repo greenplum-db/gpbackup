@@ -87,12 +87,12 @@ func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
 			}
 		}
 	} else {
-		functions = GetFunctionsMaster(connectionPool)
+		functions = GetFunctions(connectionPool)
 	}
 	return functions
 }
 
-func GetFunctionsMaster(connectionPool *dbconn.DBConn) []Function {
+func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	excludeImplicitFunctionsClause := ""
 	masterAtts := "'a' AS proexeclocation,"
 	if connectionPool.Version.AtLeast("6") {
