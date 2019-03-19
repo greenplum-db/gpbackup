@@ -210,6 +210,7 @@ func TestEndToEnd(t *testing.T) {
 	RunSpecs(t, "EndToEnd Suite")
 }
 
+var backupConn, restoreConn *dbconn.DBConn
 var _ = Describe("backup end to end integration tests", func() {
 
 	const (
@@ -217,7 +218,6 @@ var _ = Describe("backup end to end integration tests", func() {
 		TOTAL_RELATIONS_AFTER_EXCLUDE = 21
 	)
 
-	var backupConn, restoreConn *dbconn.DBConn
 	var gpbackupPath, backupHelperPath, restoreHelperPath, gprestorePath, pluginConfigPath string
 
 	BeforeSuite(func() {

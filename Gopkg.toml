@@ -70,3 +70,8 @@ required = ["golang.org/x/tools/cmd/goimports", "github.com/onsi/ginkgo/ginkgo"]
 [[constraint]]
   name = "github.com/sergi/go-diff"
   version = "1.0.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/blang/vfs"
+  source = "https://github.com/dsharp-pivotal/vfs.git"

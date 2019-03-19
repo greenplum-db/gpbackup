@@ -11,6 +11,18 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:0015d36520ed5d32558da4d9f6bd9a9acc644bd43cac9d4291bbb566161effa8"
+  name = "github.com/blang/vfs"
+  packages = [
+    ".",
+    "memfs",
+  ]
+  pruneopts = "NUT"
+  revision = "4c8d59de28bed5c7e8125947460120b9d069dd44"
+  source = "https://github.com/dsharp-pivotal/vfs.git"
+
+[[projects]]
+  branch = "master"
   digest = "1:5bc0be0a9cf52810182b54d745db9d91a5027ac81a1e33ba93d35b434e5fe152"
   name = "github.com/greenplum-db/gp-common-go-libs"
   packages = [
@@ -305,6 +317,8 @@
   analyzer-version = 1
   input-imports = [
     "github.com/blang/semver",
+    "github.com/blang/vfs",
+    "github.com/blang/vfs/memfs",
     "github.com/greenplum-db/gp-common-go-libs/cluster",
     "github.com/greenplum-db/gp-common-go-libs/dbconn",
     "github.com/greenplum-db/gp-common-go-libs/gplog",

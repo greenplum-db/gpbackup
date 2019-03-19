@@ -7,6 +7,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+
+	"github.com/pkg/errors"
+
+	"github.com/blang/vfs"
+
 	"github.com/greenplum-db/gpbackup/options"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -79,9 +85,21 @@ func DoSetup() {
 	timestamp := utils.CurrentTimestamp()
 	CreateBackupLockFile(timestamp)
 
-	gplog.Info("Starting backup of database %s", MustGetFlagString(utils.DBNAME))
 	InitializeConnectionPool()
 
+	if connectionPool.Version.AtLeast("6") {
+		postgresConn := dbconn.NewDBConnFromEnvironment("postgres")
+		postgresConn.MustConnect(1)
+		defer postgresConn.Close()
+		gpexpandSensor := NewGpexpandSensor(vfs.OS(), postgresConn)
+		isGpexpandRunning, err := gpexpandSensor.IsGpexpandRunning()
+		gplog.FatalOnError(err)
+		if isGpexpandRunning {
+			gplog.Fatal(errors.New("Greenplum expansion currently in process, please re-run gpbackup when the expansion has completed"), "")
+		}
+	}
+
+	gplog.Info("Starting backup of database %s", MustGetFlagString(utils.DBNAME))
 	opts, err := options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
