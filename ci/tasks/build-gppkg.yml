@@ -7,11 +7,10 @@ image_resource:
     tag: '6-gcc6.2-llvm3.7'
 
 inputs:
-- name: component_gpbackup
-- name: gpbackup_tagged_src
-  path: gpbackup
-- name: ccp_src
-- name: cluster_env_files
+- name: github_release_components
+- name: gpbackup
+- name: gpdb_src
+- name: bin_gpdb
 
 run:
   path: bash
@@ -20,27 +19,54 @@ run:
   - |
     set -ex
 
-    ccp_src/scripts/setup_ssh_to_cluster.sh
-    ssh -t centos@mdw "sudo yum -y install rpm-build"
-    GPBACKUP_VERSION=$(cat component_gpbackup/version)
+    mv bin_gpdb/{*.tar.gz,bin_gpdb.tar.gz}
+    sudo yum -y install rpm-build
 
-    cat <<SCRIPT > /tmp/build_gppkg.bash
-    set -ex
-    source env.sh
+    source gpdb_src/concourse/scripts/common.bash
 
-    ./gpbackup/ci/scripts/gpbackup_rpm.sh $GPBACKUP_VERSION component_gpbackup/bin_gpbackup.tar.gz
-    ./gpbackup/ci/scripts/gpbackup_gppkg.sh $GPBACKUP_VERSION 4 rhel5
-    ./gpbackup/ci/scripts/gpbackup_gppkg.sh $GPBACKUP_VERSION 4 sles11
-    ./gpbackup/ci/scripts/gpbackup_gppkg.sh $GPBACKUP_VERSION 5 rhel6
-    ./gpbackup/ci/scripts/gpbackup_gppkg.sh $GPBACKUP_VERSION 5 rhel7
-    ./gpbackup/ci/scripts/gpbackup_gppkg.sh $GPBACKUP_VERSION 5 sles11
-    ./gpbackup/ci/scripts/gpbackup_gppkg.sh $GPBACKUP_VERSION 5 sles12
+    ### Setup local cluster
+    # replaced `install_and_configure_gpdb` call to modify the `configure` method
+    time install_gpdb
+    time setup_configure_vars
+    # NOTE: we had to remove the `--enable-tap-tests` because of a configure error. 
+    # configure: error: Perl modules IPC::Run and Test::More 0.82 are required to run TAP tests
+    source /opt/gcc_env.sh
+    pushd gpdb_src
+      ./configure --prefix=/usr/local/greenplum-db-devel --with-perl --with-python --with-libxml --enable-mapreduce --enable-orafce --disable-orca ${CONFIGURE_FLAGS}
+    popd
+    gpdb_src/concourse/scripts/setup_gpadmin_user.bash centos
+    time make_cluster
 
-    SCRIPT
+    ### Create gppkgs
+    cat <<EOF > gpadmin_cmds.sh
+      set -ex
 
-    scp -r component_gpbackup mdw:/home/gpadmin/.
-    scp -r gpbackup mdw:/home/gpadmin/.
-    chmod +x /tmp/build_gppkg.bash
-    scp /tmp/build_gppkg.bash mdw:/home/gpadmin/build_gppkg.bash
-    ssh -t mdw "bash /home/gpadmin/build_gppkg.bash"
-    scp -r mdw:/home/gpadmin/gpbackup_gppkg .
+      source gpdb_src/gpAux/gpdemo/gpdemo-env.sh
+      source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+      GPBACKUP_VERSION=\$(cat github_release_components/version)
+
+      export GOPATH=/home/gpadmin/go
+      # source /usr/local/greenplum-db-devel/greenplum_path.sh
+      # cat /usr/local/greenplum-db-devel/greenplum_path.sh
+
+      ./gpbackup/ci/scripts/gpbackup_rpm.sh \$GPBACKUP_VERSION github_release_components/bin_gpbackup.tar.gz
+      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 4 rhel5
+      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 4 sles11
+      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 rhel6
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 rhel7
+      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 sles11
+      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 sles12
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 6 rhel6
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 6 rhel7
+    EOF
+    chown gpadmin:gpadmin .
+    chmod +x gpadmin_cmds.sh
+    su gpadmin -c ./gpadmin_cmds.sh
+
+    mv gpbackup_gppkg/* gppkgs/
+
+    cp github_release_components/version gppkgs/
+    pushd gppkgs
+      tar cvfz gpbackup-gppkgs.tar.gz *.gppkg version
+    popd

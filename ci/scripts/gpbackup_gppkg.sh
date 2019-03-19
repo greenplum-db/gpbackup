@@ -32,7 +32,7 @@ cp ${RPMROOT}/RPMS/x86_64/*.rpm ${GPPKG_SOURCE_DIR}
 gppkg --build ${GPPKG_SOURCE_DIR}
 echo "Successfully built gppkg"
 
-if [ ${GPDB_MAJOR_VERSION} == '5' ] && [ ${OS} == "rhel6" ]; then
+if [ ${GPDB_MAJOR_VERSION} == '6' ] && [ ${OS} == "rhel6" ]; then
     echo "Testing installation of gpbackup using gppkg"
     GPBIN=${GPHOME}/bin
     rm -f ${GPBIN}/gpbackup

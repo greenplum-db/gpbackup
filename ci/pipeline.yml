@@ -66,14 +66,21 @@ resources:
     uri: {{gpbackup-ddboost-plugin-git-remote}}
     tag_filter: 1.*
 
-- name: gpdb_src
+- name: gpdb5_src
   type: git
   source:
     uri: https://github.com/greenplum-db/gpdb
     branch: 5X_STABLE
     tag_filter: 5.*
 
-- name: bin_gpdb6
+- name: gpdb6_src
+  type: git
+  source:
+    uri: https://github.com/greenplum-db/gpdb
+    branch: 6X_STABLE
+    tag_filter: 6.*
+
+- name: bin_gpdb6 # centos 7
   type: gcs
   source:
       bucket: ((gcs-bucket))
@@ -260,7 +267,7 @@ jobs:
     - get: gpbackup
       trigger: true
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: bin_gpdb_5x_stable
     - get: nightly-trigger
       trigger: true
@@ -278,7 +285,7 @@ jobs:
       <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb_5x_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -355,7 +362,7 @@ jobs:
       trigger: true
     - get: ccp_src
       tags: ["ddboost"]
-    - get: gpdb_src
+    - get: gpdb5_src
       tags: ["ddboost"]
     - get: bin_gpdb_5x_stable
       tags: ["ddboost"]
@@ -383,7 +390,7 @@ jobs:
     input_mapping:
       terraform: ddboost_terraform
       gpdb_binary: bin_gpdb_5x_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gpinitsystem.yml
@@ -549,7 +556,7 @@ jobs:
       trigger: true
     - get: bin_gpdb_5x_stable
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: nightly-trigger
       trigger: true
     - get: gpbackup-dependencies
@@ -569,7 +576,7 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb_5x_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: integration-tests
@@ -588,7 +595,7 @@ jobs:
       trigger: true
     - get: bin_gpdb_5x_stable_centos7
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: nightly-trigger
       trigger: true
     - get: gpbackup-dependencies
@@ -608,7 +615,7 @@ jobs:
     input_mapping:
       terraform: terraform_aws
       gpdb_binary: bin_gpdb_5x_stable_centos7
-      gpdb_src: gpdb_src
+      gpdb5_src: gpdb5_src
     params:
       <<: *ccp_gen_cluster_default_params_aws
       PLATFORM: oracle7
@@ -635,7 +642,7 @@ jobs:
       trigger: true
     - get: bin_gpdb6
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: dummy_seclabel
     - get: nightly-trigger
       trigger: true
@@ -653,7 +660,7 @@ jobs:
       <<: *ccp_gen_cluster_default_params
     input_mapping:
       gpdb_binary: bin_gpdb6
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -674,7 +681,7 @@ jobs:
       trigger: true
     - get: bin_gpdb_5x_stable
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: nightly-trigger
       trigger: true
     - get: gpbackup-dependencies
@@ -691,7 +698,7 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb_5x_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -712,7 +719,7 @@ jobs:
       trigger: true
     - get: bin_gpdb_43_stable
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: nightly-trigger
       trigger: true
     - get: gpbackup-dependencies
@@ -729,7 +736,7 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb_43_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -750,7 +757,7 @@ jobs:
       trigger: true
     - get: bin_gpdb_5x_stable
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: nightly-trigger
       trigger: true
     - get: gpbackup-dependencies
@@ -767,7 +774,7 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb_5x_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -793,7 +800,7 @@ jobs:
     - get: gpbackup
     - get: bin_gpdb6
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: scale_schema
     - get: nightly-trigger
       trigger: true
@@ -813,7 +820,7 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb6
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -833,7 +840,7 @@ jobs:
     - get: gpbackup
     - get: bin_gpdb_5x_stable
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: scale_schema
     - get: nightly-trigger
       trigger: true
@@ -852,7 +859,7 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb_5x_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -872,7 +879,7 @@ jobs:
     - get: gpbackup
     - get: bin_gpdb_43_stable
     - get: ccp_src
-    - get: gpdb_src
+    - get: gpdb5_src
     - get: scale_schema
     - get: nightly-trigger
       trigger: true
@@ -891,7 +898,7 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb_43_stable
-      gpdb_src: gpdb_src
+      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -925,27 +932,9 @@ jobs:
        - integrations-backward-compatibility
        - s3_plugin_tests
        - ddboost_plugin_and_boostfs_tests
-    - get: gpdb_src
-    - get: ccp_src
-    - get: bin_gpdb_5x_stable
+    - get: gpdb6_src
+    - get: bin_gpdb6
     - get: gpbackup-dependencies
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      terraform_source: ccp_src/google-nvme-block-device/
-      vars:
-        instance_type: n1-standard-8
-  - task: gen_cluster
-    params:
-      <<: *ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_5x_stable
-      gpdb_src: gpdb_src
-  - task: gpinitsystem
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: compile_package_gpbackup
     config:
       platform: linux
@@ -1029,8 +1018,9 @@ jobs:
       *slack_alert
   - task: build_gppkg
     file: gpbackup/ci/tasks/build-gppkg.yml
-    on_success:
-      <<: *ccp_destroy_nvme
+    input_mapping:
+      gpdb_src: gpdb6_src
+      bin_gpdb: bin_gpdb6
     on_failure:
       *slack_alert
   - aggregate:
