@@ -1,0 +1,8 @@
+Pkgname: ddboost
+Architecture: x86_64
+OS: ${OS}
+Version: ${DDBOOST_PLUGIN_VERSION}-gp${GPDB_MAJOR_VERSION}
+GPDBVersion: ${GPDB_MAJOR_VERSION}
+Description: ddboost plugin package
+PostInstall:
+- Master:  "echo 'ddboost plugin version ${DDBOOST_PLUGIN_VERSION} successfully installed';"

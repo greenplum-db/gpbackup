@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-package_version=`cat version`
+package_version=`cat gpbackup_version`
 if [[ `gpbackup --version` != "gpbackup version $package_version" ]]
 then
   exit 1

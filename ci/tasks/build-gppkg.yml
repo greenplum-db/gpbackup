@@ -12,6 +12,9 @@ inputs:
 - name: gpdb_src
 - name: bin_gpdb
 
+outputs:
+- name: gppkgs
+
 run:
   path: bash
   args:
@@ -43,13 +46,9 @@ run:
 
       source gpdb_src/gpAux/gpdemo/gpdemo-env.sh
       source /usr/local/greenplum-db-devel/greenplum_path.sh
-
-      GPBACKUP_VERSION=\$(cat github_release_components/version)
-
       export GOPATH=/home/gpadmin/go
-      # source /usr/local/greenplum-db-devel/greenplum_path.sh
-      # cat /usr/local/greenplum-db-devel/greenplum_path.sh
 
+      GPBACKUP_VERSION=\$(cat github_release_components/gpbackup_version)
       ./gpbackup/ci/scripts/gpbackup_rpm.sh \$GPBACKUP_VERSION github_release_components/bin_gpbackup.tar.gz
       # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 4 rhel5
       # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 4 sles11
@@ -59,14 +58,22 @@ run:
       # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 sles12
       ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 6 rhel6
       ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 6 rhel7
+
+      DDBOOST_PLUGIN_VERSION=\$(cat github_release_components/ddboost_plugin_version)
+      ./gpbackup/ci/scripts/ddboost_rpm.sh \$DDBOOST_PLUGIN_VERSION github_release_components/bin_gpbackup.tar.gz
+      ./gpbackup/ci/scripts/ddboost_gppkg.sh \$DDBOOST_PLUGIN_VERSION 6 rhel6
+      ./gpbackup/ci/scripts/ddboost_gppkg.sh \$DDBOOST_PLUGIN_VERSION 6 rhel7
+
     EOF
     chown gpadmin:gpadmin .
     chmod +x gpadmin_cmds.sh
     su gpadmin -c ./gpadmin_cmds.sh
 
     mv gpbackup_gppkg/* gppkgs/
+    mv ddboost_gppkg/* gppkgs/
 
-    cp github_release_components/version gppkgs/
+    cp github_release_components/gpbackup_version gppkgs/
+    cp github_release_components/ddboost_plugin_version gppkgs/
     pushd gppkgs
-      tar cvfz gpbackup-gppkgs.tar.gz *.gppkg version
+      tar cvfz gpbackup-gppkgs.tar.gz *.gppkg *version*
     popd

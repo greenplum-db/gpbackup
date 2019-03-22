@@ -16,6 +16,12 @@ resource_types:
   source:
     repository: frodenas/gcs-resource
 
+- name: pivnet
+  type: docker-image
+  source:
+    repository: pivotalcf/pivnet-resource
+    tag: latest-final
+
 resources:
 - name: nightly-trigger
   type: time
@@ -193,7 +199,7 @@ resources:
     url: {{dpm_webhook_url}}
     disable: ((dpm_disable_slack_alert))
 
-- name: component_gpbackup
+- name: github_release_components
   type: s3
   source:
     access_key_id: {{bucket-access-key-id}}
@@ -201,6 +207,15 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     regexp: components/gpbackup/gpbackup-(.*).tar.gz
+
+- name: gppkgs
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{gpdb-stable-bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: gppkgs/gpbackup-gppkgs.tar.gz
 
 - name: gpbackup_github_release
   type: github-release
@@ -227,6 +242,25 @@ resources:
       # and different teams will place there clusters' tfstate files under different paths
       bucket: gpdb5-pipeline-dynamic-terraform
       bucket_path: clusters-aws/
+
+- name: pivnet-gpbackup
+  type: pivnet
+  source:
+    api_token: ((pivnet_api_token))
+    product_slug: ((pivnet_product_slug))
+    endpoint: ((pivnet_endpoint))
+    bucket: ((pivnet_bucket_name))
+    access_key_id: ((pivnet_bucket_access_key_id))
+    secret_access_key: ((pivnet_bucket_secret_access_key))
+    region: ((pivnet_aws_region))
+    sort_by: semver
+
+- name: gpbackup-release-license
+  type: gcs
+  source:
+    bucket: gpbackup-release-licenses
+    json_key: ((gcp_svc_acct_key))
+    regexp: gpbackup-osl-v(.*).txt
 
 jobs:
 - name: build_dependencies
@@ -923,15 +957,15 @@ jobs:
     # tests are passing
     - get: gpbackup
       passed:
-       - units
-       - integrations-GPDB5
-       - integrations-GPDB4.3
-       - integrations-GPDB5-sles
-       - integrations-GPDB5-oracle7
-       - integrations-master
-       - integrations-backward-compatibility
-       - s3_plugin_tests
-       - ddboost_plugin_and_boostfs_tests
+        - units
+        - integrations-GPDB5
+        - integrations-GPDB4.3
+        - integrations-GPDB5-sles
+        - integrations-GPDB5-oracle7
+        - integrations-master
+        - integrations-backward-compatibility
+        - s3_plugin_tests
+        - ddboost_plugin_and_boostfs_tests
     - get: gpdb6_src
     - get: bin_gpdb6
     - get: gpbackup-dependencies
@@ -949,9 +983,10 @@ jobs:
       - name: gpbackup_s3_plugin_tagged_src
         path: go/src/github.com/greenplum-db/gpbackup-s3-plugin
       - name: gpbackup_ddboost_plugin_tagged_src
+      - name: gpbackup-dependencies
       outputs:
-      - name: component_gpbackup
-      - name: gpbackup_version
+      - name: gppkgs
+      - name: github_release_components
       run:
         path: "sh"
         args:
@@ -961,6 +996,8 @@ jobs:
           export GOPATH=$(pwd)/go
           export PATH=$PATH:$GOPATH/bin
 
+          tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com/greenplum-db/gpbackup/
+
           # Build gpbackup
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup
             make depend
@@ -968,7 +1005,7 @@ jobs:
             make build
             version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
           popd
-          echo ${version} > gpbackup_version/version
+          echo ${version} > gpbackup_version
 
           # Build s3 plugin
           pushd $GOPATH/src/github.com/greenplum-db/gpbackup-s3-plugin
@@ -988,15 +1025,20 @@ jobs:
             sudo cp rhel5_x86_64/lib/libDDBoost.so /usr/lib64/.
 
             make build
+            ddboost_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
           popd
+          echo ${ddboost_plugin_version} > ddboost_plugin_version
 
-          pushd component_gpbackup
+          # prepare github release; also, the bin_gpbackup.tar.gz file is used in the next build_gppkg task
+          pushd github_release_components
             # Create install script
             printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
             chmod +x install_gpdb_component
 
             # Create test script
-            cp ../gpbackup_version/version .
+            cp ../gpbackup_version .
+            cp ../gpbackup_version version
+            cp ../ddboost_plugin_version .
             cp $GOPATH/src/github.com/greenplum-db/gpbackup/ci/scripts/smoke_test_component_gpbackup.sh smoke_test_gpdb_component
             # Assemble binaries
             mkdir -p bin
@@ -1012,7 +1054,7 @@ jobs:
 
             tar -czvf bin_gpbackup.tar.gz bin/
 
-            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component smoke_test_gpdb_component version
+            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component smoke_test_gpdb_component gpbackup_version ddboost_plugin_version version
           popd
     on_failure:
       *slack_alert
@@ -1024,17 +1066,105 @@ jobs:
     on_failure:
       *slack_alert
   - aggregate:
-    - put: component_gpbackup
+    - put: gppkgs
       params:
-        file: component_gpbackup/gpbackup-*.tar.gz
-    - put: gpbackup_github_release
+        file: gppkgs/gpbackup-gppkgs.tar.gz
+    - put: github_release_components
       params:
-        name: component_gpbackup/version
-        tag: component_gpbackup/version
-        globs:
-        - component_gpbackup/bin/gpbackup
-        - component_gpbackup/bin/gprestore
-        - component_gpbackup/bin/gpbackup_helper
+        file: github_release_components/gpbackup-*.tar.gz
+
+- name: push-to-github
+  plan:
+  - get: github_release_components
+    passed: [package_gpbackup_for_release]
+
+  - task: prepare-for-release
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '6-gcc6.2-llvm3.7'
+      inputs:
+        - name: github_release_components
+      outputs:
+        - name: github_release_components_untarred
+      run:
+        path: "sh"
+        args:
+          - -exc
+          - |
+            set -x
+            tar xvzf github_release_components/*.gz -C github_release_components_untarred
+            tar xvzf github_release_components_untarred/bin_gpbackup.tar.gz -C github_release_components_untarred
+  - put: gpbackup_github_release
+    params:
+      name: github_release_components_untarred/gpbackup_version
+      tag: github_release_components_untarred/gpbackup_version
+      globs:
+      - github_release_components_untarred/bin/gpbackup
+      - github_release_components_untarred/bin/gprestore
+      - github_release_components_untarred/bin/gpbackup_helper
+
+- name: push-to-pivnet-gpbackup
+  plan:
+    - aggregate:
+      - get: gppkgs
+        passed: [package_gpbackup_for_release]
+      - get: gpbackup
+        passed: [package_gpbackup_for_release]
+      - get: gpbackup-release-license
+    - task: update metadata.yml
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: bash
+        inputs:
+          - name: gppkgs
+          - name: gpbackup
+          - name: gpbackup-release-license
+        outputs:
+          - name: workspace
+        run:
+          path: bash
+          args:
+            - -exc
+            - |
+              mkdir workspace/files-to-upload
+
+              cp gpbackup/ci/pivnet_release/metadata.yml workspace/
+
+              tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
+
+              RELEASE_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
+
+              if [ ! -f gpbackup-release-license/gpbackup-osl-v${RELEASE_VERSION}.txt ] ; then
+                echo "License file gpbackup-osl-v${RELEASE_VERSION}.txt does not exist in resource.\n Ensure the OSL is properly uploaded to the GCS bucket prior to pushing to pivnet." 1>&2
+                exit 1
+              fi
+              cp gpbackup-release-license/gpbackup-osl-v${RELEASE_VERSION}.txt workspace/files-to-upload/
+
+              # TODO: currently, <VERSION> corresponds only with the tile release version. This poses an issue when we have a unique version upgrade for a plugin (which is included in this tile), but gpbackup remains the same. The division of releases and versioning is a product decision.
+              sed -i "s/<VERSION>/${RELEASE_VERSION}/g" workspace/metadata.yml
+
+              GPBAR_VERSION=$(echo workspace/files-to-upload/gpbackup-osl-v*.txt | sed -n 's#workspace/files-to-upload/gpbackup-osl-v\(.*\)\.txt#\1#p')
+              sed -i "s/<GPBAR_VERSION>/${GPBAR_VERSION}/g" workspace/metadata.yml
+
+              DDBOOST_PLUGIN_VERSION=$(cat workspace/files-to-upload/ddboost_plugin_version)
+              sed -i "s/<DDBOOST_PLUGIN_VERSION>/${DDBOOST_PLUGIN_VERSION}/g" workspace/metadata.yml
+
+              cat workspace/metadata.yml
+
+              ls -l workspace/files-to-upload
+
+    - put: pivnet-gpbackup
+      params:
+        metadata_file: workspace/metadata.yml
+        file_glob: workspace/files-to-upload/*
+        s3_filepath_prefix: ((pivnet_s3_filepath_prefix))
 
 ccp_default_params_anchor: &ccp_default_params
   action: create
