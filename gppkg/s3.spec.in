@@ -1,0 +1,24 @@
+Name:       s3
+Version:    %{s3_plugin_version}
+Release:    1
+Summary:    Backup and restore s3 plugin for Greenplum
+License:    Pivotal Software EULA
+Source0:    bin_gpbackup.tar.gz
+BuildArch:  x86_64
+Prefix:     /usr/local
+
+# Disable automatic dependency processing both for requirements and provides
+AutoReqProv: no
+
+%description
+Backup and restore s3 plugin for Greenplum
+
+%prep
+%setup -c -q -T -D -a 0
+
+%install
+mkdir -p $RPM_BUILD_ROOT%{prefix}/bin
+cp bin/gpbackup_s3_plugin $RPM_BUILD_ROOT%{prefix}/bin
+
+%files
+%{prefix}/bin/gpbackup_s3_plugin

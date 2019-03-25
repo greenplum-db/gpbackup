@@ -64,6 +64,10 @@ run:
       ./gpbackup/ci/scripts/ddboost_gppkg.sh \$DDBOOST_PLUGIN_VERSION 6 rhel6
       ./gpbackup/ci/scripts/ddboost_gppkg.sh \$DDBOOST_PLUGIN_VERSION 6 rhel7
 
+      S3_PLUGIN_VERSION=\$(cat github_release_components/s3_plugin_version)
+      ./gpbackup/ci/scripts/s3_rpm.sh \$S3_PLUGIN_VERSION github_release_components/bin_gpbackup.tar.gz
+      ./gpbackup/ci/scripts/s3_gppkg.sh \$S3_PLUGIN_VERSION 6 rhel6
+      ./gpbackup/ci/scripts/s3_gppkg.sh \$S3_PLUGIN_VERSION 6 rhel7
     EOF
     chown gpadmin:gpadmin .
     chmod +x gpadmin_cmds.sh
@@ -71,9 +75,11 @@ run:
 
     mv gpbackup_gppkg/* gppkgs/
     mv ddboost_gppkg/* gppkgs/
+    mv s3_gppkg/* gppkgs/
 
     cp github_release_components/gpbackup_version gppkgs/
     cp github_release_components/ddboost_plugin_version gppkgs/
+    cp github_release_components/s3_plugin_version gppkgs/
     pushd gppkgs
       tar cvfz gpbackup-gppkgs.tar.gz *.gppkg *version*
     popd

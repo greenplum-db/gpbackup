@@ -1075,6 +1075,9 @@ jobs:
               DDBOOST_PLUGIN_VERSION=$(cat workspace/files-to-upload/ddboost_plugin_version)
               sed -i "s/<DDBOOST_PLUGIN_VERSION>/${DDBOOST_PLUGIN_VERSION}/g" workspace/metadata.yml
 
+              S3_PLUGIN_VERSION=$(cat workspace/files-to-upload/s3_plugin_version)
+              sed -i "s/<S3_PLUGIN_VERSION>/${S3_PLUGIN_VERSION}/g" workspace/metadata.yml
+
               cat workspace/metadata.yml
 
               ls -l workspace/files-to-upload
