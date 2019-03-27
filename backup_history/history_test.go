@@ -51,6 +51,11 @@ var _ = Describe("backup/history tests", func() {
 			RestorePlan:      []backup_history.RestorePlanEntry{},
 			Timestamp:        "timestamp3",
 		}
+		_ = os.Remove(historyFilePath)
+	})
+
+	AfterEach(func() {
+		_ = os.Remove(historyFilePath)
 	})
 	Describe("CurrentTimestamp", func() {
 		It("returns the current timestamp", func() {
@@ -80,8 +85,6 @@ var _ = Describe("backup/history tests", func() {
 			Expect(fileInfo.Mode().Perm()).To(Equal(os.FileMode(0444)))
 		})
 		It("writes file when file does not exist", func() {
-			_ = os.Remove(historyFilePath)
-
 			err := historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -120,7 +123,6 @@ var _ = Describe("backup/history tests", func() {
 			fileHandle := iohelper.MustOpenFileForWriting(historyFilePath)
 			_, _ = fileHandle.Write(historyFileContents)
 			_ = fileHandle.Close()
-			defer os.Remove(historyFilePath)
 
 			resultHistory, err := backup_history.NewHistory(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
@@ -175,14 +177,6 @@ var _ = Describe("backup/history tests", func() {
 		})
 	})
 	Describe("WriteBackupHistory", func() {
-		BeforeEach(func() {
-			_ = os.Remove(historyFilePath)
-			operating.System = operating.InitializeSystemFunctions()
-		})
-		AfterEach(func() {
-			_ = os.Remove(historyFilePath)
-			operating.System = operating.InitializeSystemFunctions()
-		})
 		It("appends new config when file exists", func() {
 			Expect(testConfig3.EndTime).To(BeEmpty())
 			simulatedEndTime := time.Now()
@@ -223,6 +217,29 @@ var _ = Describe("backup/history tests", func() {
 			structmatcher.ExpectStructsToMatch(&expectedHistory, resultHistory)
 			Expect(testLogfile).To(gbytes.Say("No existing backups found. Creating new backup history file."))
 			Expect(testConfig3.EndTime).To(Equal(simulatedEndTime.Format("20060102150405")))
+		})
+	})
+	Describe("FindBackupConfig", func() {
+		var resultHistory *backup_history.History
+		BeforeEach(func() {
+			err := backup_history.WriteBackupHistory(historyFilePath, &testConfig1)
+			Expect(err).ToNot(HaveOccurred())
+			resultHistory, err = backup_history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			err = backup_history.WriteBackupHistory(historyFilePath, &testConfig2)
+			Expect(err).ToNot(HaveOccurred())
+			resultHistory, err = backup_history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			err = backup_history.WriteBackupHistory(historyFilePath, &testConfig3)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("finds a backup config for the given timestamp", func() {
+			foundConfig := resultHistory.FindBackupConfig("timestamp2")
+			Expect(foundConfig).To(Equal(&testConfig2))
+		})
+		It("returns nil when timestamp not found", func() {
+			foundConfig := resultHistory.FindBackupConfig("foo")
+			Expect(foundConfig).To(BeNil())
 		})
 	})
 })

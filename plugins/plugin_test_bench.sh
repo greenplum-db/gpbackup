@@ -76,6 +76,15 @@ if (( 0 == $(echo "$MINIMUM_API_VERSION $api_version" | awk '{print ($1 <= $2)}'
 fi
 echo "[PASSED] plugin_api_version"
 
+echo "[RUNNING] --version"
+native_version=`$plugin --version`
+echo "$native_version" | grep --regexp '.* version .*' 2>&1 > /dev/null
+if [[ ! $? -eq 0 ]]; then
+  echo "Plugin --version is not in expected format of <plugin name> version <version>"
+  exit 1
+fi
+echo "[PASSED] --version"
+
 # ----------------------------------------------
 # Setup and Backup/Restore file functions
 # ----------------------------------------------

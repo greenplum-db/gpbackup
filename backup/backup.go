@@ -106,7 +106,6 @@ func DoSetup() {
 	pluginConfigFlag := MustGetFlagString(utils.PLUGIN_CONFIG)
 
 	if pluginConfigFlag != "" {
-		var err error
 		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
 		gplog.FatalOnError(err)
 	}
@@ -114,8 +113,7 @@ func DoSetup() {
 	InitializeBackupReport(*opts)
 
 	if pluginConfigFlag != "" {
-		pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
-
+		backupReport.PluginVersion = pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
 		pluginConfig.CopyPluginConfigToAllHosts(globalCluster)
 		pluginConfig.SetupPluginForBackup(globalCluster, globalFPInfo)
 	}

@@ -17,15 +17,17 @@ gprestore ... --plugin-config <Absolute path to config file>
 The backup you are restoring must have been taken with the same plugin.
 
 ## Plugin configuration file format
-The plugin configuration must be specified in a yaml file. This yaml file is only required to exist on the master host.
+The plugin configuration must be specified in a yaml file. This yaml file is only required to exist on the master host, and is automatically copied to segment hosts.
 
-The _executablepath_ is a required parameter and must point to the absolute path of the executable on each host. Additional parameters may be specified under the _options_ key as required by the specific plugin. Refer to the documentation for the plugin you are using for additional required paramters.
+The _executablepath_ is a required parameter and must point to the absolute path of the executable on each host. Additional parameters may be specified under the _options_ key as required by the specific plugin. Refer to the documentation for the plugin you are using for additional required paramters. The _options_ section will include "pgport" for one of the segments on a given host, in case the plugin requires usage of a postgres function. Upon a restore, the _options_ section may also contain "backup_plugin_version" if the information is available from historical records.  With this historical version, a newer plugin could possibly support backwards compatibility toward backups created with older versions of plugins.
 
 ```
 executablepath: <Absolute path to plugin executable>
 options:
-  option1: <value1>
-  option2: <value2>
+  my_first_option: <value1>
+  my_second_option: <value2>
+  pgport: 5432
+  backup_plugin_version: 1.3
   <Additional options for the specific plugin>
 ```
 

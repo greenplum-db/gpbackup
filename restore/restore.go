@@ -354,7 +354,3 @@ func DoCleanup() {
 		connectionPool.Close()
 	}
 }
-
-func GetVersion() string {
-	return version
-}

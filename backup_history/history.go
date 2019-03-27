@@ -38,6 +38,7 @@ type BackupConfig struct {
 	LeafPartitionData     bool
 	MetadataOnly          bool
 	Plugin                string
+	PluginVersion         string
 	RestorePlan           []RestorePlanEntry
 	SingleDataFile        bool
 	Timestamp             string
@@ -170,5 +171,14 @@ func (history *History) WriteToFileAndMakeReadOnly(filename string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (history *History) FindBackupConfig(timestamp string) *BackupConfig {
+	for _, backupConfig := range history.BackupConfigs {
+		if backupConfig.Timestamp == timestamp {
+			return &backupConfig
+		}
+	}
 	return nil
 }

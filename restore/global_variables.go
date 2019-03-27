@@ -93,3 +93,11 @@ func MustGetFlagBool(flagName string) bool {
 func MustGetFlagStringSlice(flagName string) []string {
 	return utils.MustGetFlagStringSlice(cmdFlags, flagName)
 }
+
+func GetVersion() string {
+	return version
+}
+
+func SetVersion(v string) {
+	version = v
+}

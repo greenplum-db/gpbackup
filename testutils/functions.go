@@ -33,13 +33,14 @@ func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *gbytes.Buffer, *g
 	return connectionPool, mock, testStdout, testStderr, testLogfile
 }
 
-func SetupTestCluster() {
+func SetupTestCluster() *cluster.Cluster {
 	testCluster := SetDefaultSegmentConfiguration()
 	backup.SetCluster(testCluster)
 	restore.SetCluster(testCluster)
 	testFPInfo := backup_filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 	backup.SetFPInfo(testFPInfo)
 	restore.SetFPInfo(testFPInfo)
+	return testCluster
 }
 
 func SetupTestDbConn(dbname string) *dbconn.DBConn {
@@ -453,4 +454,39 @@ func InitializeTestTOC(buffer io.Writer, which string) (*utils.TOC, *utils.FileW
 	backupfile := utils.NewFileWithByteCount(buffer)
 	backupfile.Filename = which
 	return toc, backupfile
+}
+
+type TestExecutorMultiple struct {
+	ClusterOutputs      []*cluster.RemoteOutput
+	ClusterCommands     []map[int][]string
+	ErrorOnExecNum      int // Throw the specified error after this many executions of Execute[...]Command(); 0 means always return error
+	NumLocalExecutions  int
+	NumRemoteExecutions int
+	LocalOutput         string
+	LocalError          error
+	LocalCommands       []string
+}
+
+func (executor *TestExecutorMultiple) ExecuteLocalCommand(commandStr string) (string, error) {
+	executor.NumLocalExecutions++
+	executor.LocalCommands = append(executor.LocalCommands, commandStr)
+	if executor.ErrorOnExecNum == 0 || executor.NumLocalExecutions == executor.ErrorOnExecNum {
+		return executor.LocalOutput, executor.LocalError
+	}
+	return executor.LocalOutput, nil
+}
+
+func (executor *TestExecutorMultiple) ExecuteClusterCommand(scope int, commandMap map[int][]string) (result *cluster.RemoteOutput) {
+	originalExecutions := executor.NumRemoteExecutions
+	executor.NumRemoteExecutions++
+	executor.ClusterCommands = append(executor.ClusterCommands, commandMap)
+	if executor.ErrorOnExecNum == 0 || executor.NumRemoteExecutions == executor.ErrorOnExecNum {
+		// return the indexed item if exists, otherwise the last item
+		numOutputs := len(executor.ClusterOutputs)
+		result = executor.ClusterOutputs[numOutputs-1]
+		if originalExecutions < numOutputs {
+			result = executor.ClusterOutputs[originalExecutions]
+		}
+	}
+	return result
 }

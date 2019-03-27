@@ -10,11 +10,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"gopkg.in/yaml.v2"
@@ -24,9 +23,10 @@ const RequiredPluginVersion = "0.3.0"
 const SecretKeyFile = ".encrypt"
 
 type PluginConfig struct {
-	ExecutablePath string            `yaml:"executablepath"`
-	ConfigPath     string            `yaml:"-"`
-	Options        map[string]string `yaml:"options"`
+	ExecutablePath      string            `yaml:"executablepath"`
+	ConfigPath          string            `yaml:"-"`
+	Options             map[string]string `yaml:"options"`
+	backupPluginVersion string            `yaml:"-"`
 }
 
 type PluginScope string
@@ -81,7 +81,13 @@ func (plugin *PluginConfig) MustRestoreFile(filenamePath string) {
 	gplog.FatalOnError(err, string(output))
 }
 
-func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) {
+func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) string {
+	plugin.checkPluginAPIVersion(c)
+
+	return plugin.getPluginNativeVersion(c)
+}
+
+func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 	remoteOutput := c.GenerateAndExecuteCommand(
 		"Checking that plugin exists on all hosts",
 		func(contentID int) string {
@@ -89,36 +95,91 @@ func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) {
 				operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
 		},
 		cluster.ON_HOSTS_AND_MASTER)
-
 	c.CheckClusterError(
 		remoteOutput,
 		fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath),
 		func(contentID int) string {
 			return fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath)
 		})
-
 	requiredVersion, err := semver.Make(RequiredPluginVersion)
 	if err != nil {
 		gplog.Fatal(fmt.Errorf("cannot parse hardcoded internal string of required version: %s",
 			err.Error()), RequiredPluginVersion)
 	}
-
 	numIncorrect := 0
+	var pluginVersion string
+	var version semver.Version
+	index := 0
 	for contentID := range remoteOutput.Stdouts {
-		version, err := semver.Make(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
+		// check consistency of plugin version across all segments
+		tempPluginVersion := strings.TrimSpace(remoteOutput.Stdouts[contentID])
+		if pluginVersion != "" && tempPluginVersion != "" {
+			if pluginVersion != tempPluginVersion {
+				gplog.Verbose("Plugin %s on content ID %v with API version %s is not consistent with version on another segment", plugin.ExecutablePath, contentID, version)
+				cluster.LogFatalClusterError("Plugin API version is inconsistent across segments; please reinstall plugin across segments", cluster.ON_HOSTS_AND_MASTER, numIncorrect)
+			}
+		}
+
+		pluginVersion = tempPluginVersion
+		version, err = semver.Make(pluginVersion)
 		if err != nil {
 			gplog.Fatal(fmt.Errorf("Unable to parse plugin API version: %s", err.Error()), "")
 		}
 		if !version.GE(requiredVersion) {
-			gplog.Verbose("Plugin %s API version %s is not compatible with supported API version %s",
-				plugin.ExecutablePath, version, requiredVersion)
+			gplog.Verbose("Plugin %s API version %s is not compatible with supported API version %s", plugin.ExecutablePath, version, requiredVersion)
 			numIncorrect++
 		}
+		index++
 	}
 	if numIncorrect > 0 {
 		cluster.LogFatalClusterError("Plugin API version incorrect",
 			cluster.ON_HOSTS_AND_MASTER, numIncorrect)
 	}
+}
+
+func (plugin *PluginConfig) getPluginNativeVersion(c *cluster.Cluster) string {
+	remoteOutput := c.GenerateAndExecuteCommand(
+		"Checking that plugin exists on all hosts",
+		func(contentID int) string {
+			return fmt.Sprintf("source %s/greenplum_path.sh && %s --version",
+				operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
+		},
+		cluster.ON_HOSTS_AND_MASTER)
+	c.CheckClusterError(
+		remoteOutput,
+		fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath),
+		func(contentID int) string {
+			return fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath)
+		})
+	numIncorrect := 0
+	var pluginVersion string
+	index := 0
+	badPluginVersion := ""
+	var parts []string
+	for contentID := range remoteOutput.Stdouts {
+		tempPluginVersion := strings.TrimSpace(remoteOutput.Stdouts[contentID])
+		// check consistency of plugin version across all segments
+		if pluginVersion != "" && tempPluginVersion != "" {
+			if pluginVersion != tempPluginVersion {
+				gplog.Verbose("Plugin %s on content ID %v with --version %s is not consistent with version on another segment", plugin.ExecutablePath, contentID, pluginVersion)
+				cluster.LogFatalClusterError("Plugin --version is inconsistent across segments; please reinstall plugin across segments", cluster.ON_HOSTS_AND_MASTER, numIncorrect)
+			}
+		}
+
+		parts = strings.Split(tempPluginVersion, " ")
+		if len(parts) < 3 {
+			numIncorrect++
+			badPluginVersion = tempPluginVersion
+		} else {
+			pluginVersion = tempPluginVersion
+		}
+		index++
+	}
+	if numIncorrect > 0 || pluginVersion == "" {
+		cluster.LogFatalClusterError(fmt.Sprintf("Plugin --version response '%s' incorrect", badPluginVersion),
+			cluster.ON_HOSTS_AND_MASTER, numIncorrect)
+	}
+	return parts[2]
 }
 
 /*-----------------------------Hooks------------------------------------------*/
@@ -267,6 +328,7 @@ func (plugin *PluginConfig) createHostPluginConfig(contentIDForSegmentOnHost int
 
 	// add current pgport as attribute
 	plugin.Options["pgport"] = strconv.Itoa(c.GetPortForContent(contentIDForSegmentOnHost))
+	plugin.Options["backup_plugin_version"] = plugin.BackupPluginVersion()
 	if plugin.UsesEncryption() {
 		pluginName, err := plugin.GetPluginName(c)
 		if err != nil {
@@ -355,4 +417,17 @@ func (plugin *PluginConfig) GetPluginName(c *cluster.Cluster) (pluginName string
 	}
 
 	return s[0], nil
+}
+
+func (plugin *PluginConfig) BackupPluginVersion() string {
+	return plugin.backupPluginVersion
+}
+
+func (plugin *PluginConfig) SetBackupPluginVersion(timestamp string, historicalPluginVersion string) {
+	if historicalPluginVersion == "" {
+		gplog.Warn("cannot recover plugin version from history using timestamp %s, so using current plugin version. This is fine unless there is a backwards compatibility consideration within the plugin", timestamp)
+		plugin.backupPluginVersion = ""
+	} else {
+		plugin.backupPluginVersion = historicalPluginVersion
+	}
 }

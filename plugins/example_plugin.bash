@@ -86,4 +86,9 @@ plugin_api_version(){
   echo "0.4.0" >> /tmp/plugin_out.txt
 }
 
+--version(){
+  echo "example_plugin version 1.0.0"
+  echo "example_plugin version 1.0.0" >> /tmp/plugin_out.txt
+}
+
 "$@"

@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/testutils"
+
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/pkg/errors"
 
@@ -22,26 +24,39 @@ import (
 )
 
 var _ = Describe("utils/plugin tests", func() {
-	clusterStdOut := make(map[int]string, 1)
 	var testCluster *cluster.Cluster
-	var executor testhelper.TestExecutor
+	var executor testutils.TestExecutorMultiple
 	var subject utils.PluginConfig
 	var tempDir string
 
 	BeforeEach(func() {
+		tempDir, _ = ioutil.TempDir("", "temp")
 		operating.System.Stdout = stdout
 		subject = utils.PluginConfig{
 			ExecutablePath: "/a/b/myPlugin",
 			ConfigPath:     "/tmp/my_plugin_config.yaml",
+			Options:        make(map[string]string),
 		}
 		subject.Options = make(map[string]string, 0)
-		executor = testhelper.TestExecutor{
-			ClusterOutput: &cluster.RemoteOutput{
-				Stdouts: clusterStdOut,
-			},
+		executor = testutils.TestExecutorMultiple{
+			ClusterOutputs: make([]*cluster.RemoteOutput, 2),
 		}
-		clusterStdOut[0] = utils.RequiredPluginVersion // this is a successful result
-		tempDir, _ = ioutil.TempDir("", "temp")
+		// set up fake command results
+		apiResponse := make(map[int]string, 1)
+		apiResponse[-1] = utils.RequiredPluginVersion // this is a successful result fpr API version
+		apiResponse[0] = utils.RequiredPluginVersion
+		apiResponse[1] = utils.RequiredPluginVersion
+		executor.ClusterOutputs[0] = &cluster.RemoteOutput{
+			Stdouts: apiResponse,
+		}
+		nativeResponse := make(map[int]string, 1)
+		nativeResponse[-1] = "myPlugin version 1.2.3" // this is a successful result for --version
+		nativeResponse[0] = "myPlugin version 1.2.3"
+		nativeResponse[1] = "myPlugin version 1.2.3"
+		executor.ClusterOutputs[1] = &cluster.RemoteOutput{
+			Stdouts: nativeResponse,
+		}
+
 		testCluster = &cluster.Cluster{
 			ContentIDs: []int{-1, 0, 1},
 			Executor:   &executor,
@@ -53,29 +68,37 @@ var _ = Describe("utils/plugin tests", func() {
 		}
 	})
 	AfterEach(func() {
-		operating.System = operating.InitializeSystemFunctions()
 		err := os.RemoveAll(tempDir)
 		Expect(err).To(Not(HaveOccurred()))
 		_ = os.Remove(subject.ConfigPath)
+		_ = os.Remove(subject.ConfigPath + "_-1")
+		_ = os.Remove(subject.ConfigPath + "_0")
+		_ = os.Remove(subject.ConfigPath + "_1")
 	})
-	Describe("gpbackup plugin interface generates the correct", func() {
-		It("api command", func() {
+	Describe("plugin versions via CheckPluginExistsOnAllHosts()", func() {
+		It(" generates the correct commands", func() {
 			operating.System.Getenv = func(key string) string {
 				return "my/install/dir"
 			}
 
-			subject.CheckPluginExistsOnAllHosts(testCluster)
+			_ = subject.CheckPluginExistsOnAllHosts(testCluster)
 
-			allCommands := executor.ClusterCommands[0] // only one set of commands was issued
+			apiVersionCommands := executor.ClusterCommands[0]
 			expectedCommand := "source my/install/dir/greenplum_path.sh && /a/b/myPlugin plugin_api_version"
 			for _, contentID := range testCluster.ContentIDs {
-				cmd := allCommands[contentID]
+				cmd := apiVersionCommands[contentID]
+				Expect(cmd[len(cmd)-1]).To(Equal(expectedCommand))
+			}
+			nativeVersionCommands := executor.ClusterCommands[1]
+			expectedCommand = "source my/install/dir/greenplum_path.sh && /a/b/myPlugin --version"
+			for _, contentID := range testCluster.ContentIDs {
+				cmd := nativeVersionCommands[contentID]
 				Expect(cmd[len(cmd)-1]).To(Equal(expectedCommand))
 			}
 		})
 	})
-	Describe("plugin config", func() {
-		It("successfully copies to all hosts", func() {
+	Describe("copy plugin config", func() {
+		It("successfully copies to all hosts, appending PGPORT and the --version of the plugin", func() {
 			testConfigPath := "/tmp/my_plugin_config.yaml"
 			testConfigContents := `
 executablepath: /tmp/fake_path
@@ -86,10 +109,10 @@ options:
 `
 			err := ioutil.WriteFile(testConfigPath, []byte(testConfigContents), 0777)
 			Expect(err).To(Not(HaveOccurred()))
-
+			subject.SetBackupPluginVersion("myTimestamp", "my.test.version")
 			subject.CopyPluginConfigToAllHosts(testCluster)
 
-			Expect(executor.NumExecutions).To(Equal(1))
+			Expect(executor.NumRemoteExecutions).To(Equal(1))
 			cc := executor.ClusterCommands[0]
 			Expect(len(cc)).To(Equal(3))
 			Expect(cc[-1][2]).To(Equal("scp /tmp/my_plugin_config.yaml_-1 master:/tmp/my_plugin_config.yaml; rm /tmp/my_plugin_config.yaml_-1"))
@@ -99,10 +122,13 @@ options:
 			// check contents
 			contents := strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_-1"), "\n")
 			Expect(contents).To(ContainSubstring("\n  pgport: \"100\""))
+			Expect(contents).To(ContainSubstring("\n  backup_plugin_version: my.test.version"))
 			contents = strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_0"), "\n")
 			Expect(contents).To(ContainSubstring("\n  pgport: \"101\""))
+			Expect(contents).To(ContainSubstring("\n  backup_plugin_version: my.test.version"))
 			contents = strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_1"), "\n")
 			Expect(contents).To(ContainSubstring("\n  pgport: \"102\""))
+			Expect(contents).To(ContainSubstring("\n  backup_plugin_version: my.test.version"))
 		})
 		When("copying for a plugin with encryption", func() {
 			It("copies the encryption key", func() {
@@ -117,7 +143,6 @@ options:
 `
 				err := ioutil.WriteFile(testConfigPath, []byte(testConfigContents), 0777)
 				subject.Options["password_encryption"] = "on"
-
 				mdd := testCluster.GetDirForContent(-1)
 				_ = os.MkdirAll(mdd, 0777)
 				secretFilePath := filepath.Join(mdd, utils.SecretKeyFile)
@@ -160,34 +185,48 @@ options:
 				// add one to whatever the current required version might be
 				version, _ := semver.Make(utils.RequiredPluginVersion)
 				greater, _ := semver.Make(strconv.Itoa(int(version.Major)+1) + ".0.0")
-				executor.ClusterOutput.Stdouts[0] = greater.String()
+				executor.ClusterOutputs[0].Stdouts[-1] = greater.String()
+				executor.ClusterOutputs[0].Stdouts[0] = greater.String()
+				executor.ClusterOutputs[0].Stdouts[1] = greater.String()
 
-				subject.CheckPluginExistsOnAllHosts(testCluster)
+				_ = subject.CheckPluginExistsOnAllHosts(testCluster)
 			})
 		})
 		When("version is too low", func() {
 			It("panics with message", func() {
-				executor.ClusterOutput.Stdouts[0] = "0.2.0"
-
+				executor.ClusterOutputs[0].Stdouts[-1] = "0.2.0"
+				executor.ClusterOutputs[0].Stdouts[0] = "0.2.0"
+				executor.ClusterOutputs[0].Stdouts[1] = "0.2.0"
 				defer testhelper.ShouldPanicWithMessage("Plugin API version incorrect")
-				subject.CheckPluginExistsOnAllHosts(testCluster)
+
+				_ = subject.CheckPluginExistsOnAllHosts(testCluster)
 			})
 		})
 		When("version cannot be parsed", func() {
 			It("panics with message", func() {
-				executor.ClusterOutput.Stdouts[0] = "foo"
-
+				executor.ClusterOutputs[0].Stdouts[-1] = "foo"
+				executor.ClusterOutputs[0].Stdouts[0] = "foo"
+				executor.ClusterOutputs[0].Stdouts[1] = "foo"
 				defer testhelper.ShouldPanicWithMessage("Unable to parse plugin API version")
-				subject.CheckPluginExistsOnAllHosts(testCluster)
+
+				_ = subject.CheckPluginExistsOnAllHosts(testCluster)
 			})
 		})
 		When("version command fails", func() {
 			It("panics with message", func() {
 				subject.ExecutablePath = "myFailingPlugin"
-				executor.ClusterOutput.NumErrors = 1
-
+				executor.ClusterOutputs[0].NumErrors = 1
 				defer testhelper.ShouldPanicWithMessage("Unable to execute plugin myFailingPlugin")
-				subject.CheckPluginExistsOnAllHosts(testCluster)
+
+				_ = subject.CheckPluginExistsOnAllHosts(testCluster)
+			})
+		})
+		When("version inconsistent", func() {
+			It("panics with message", func() {
+				executor.ClusterOutputs[0].Stdouts[-1] = "99.99.9999"
+				defer testhelper.ShouldPanicWithMessage("Plugin API version is inconsistent across segments")
+
+				_ = subject.CheckPluginExistsOnAllHosts(testCluster)
 			})
 		})
 	})
@@ -258,9 +297,10 @@ options:
 		When("config has encryption", func() {
 			It("sends the correct cluster command to delete config file", func() {
 				subject.Options["password_encryption"] = "on"
+
 				subject.DeletePluginConfigWhenEncrypting(testCluster)
 
-				Expect(executor.NumExecutions).To(Equal(1))
+				Expect(executor.NumRemoteExecutions).To(Equal(1))
 				cc := executor.ClusterCommands[0]
 				Expect(len(cc)).To(Equal(3))
 				Expect(cc[-1][2]).To(Equal("rm -f /tmp/my_plugin_config.yaml"))
@@ -272,7 +312,7 @@ options:
 			It("does not send a cluster command to delete config file", func() {
 				subject.DeletePluginConfigWhenEncrypting(testCluster)
 
-				Expect(executor.NumExecutions).To(Equal(0))
+				Expect(executor.NumLocalExecutions).To(Equal(0))
 			})
 		})
 	})

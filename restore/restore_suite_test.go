@@ -13,7 +13,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -42,13 +41,6 @@ var _ = BeforeEach(func() {
 	buffer = gbytes.NewBuffer()
 
 	cmdFlags = pflag.NewFlagSet("gprestore", pflag.ExitOnError)
+	restore.SetFlagDefaults(cmdFlags)
 	restore.SetCmdFlags(cmdFlags)
-
-	cmdFlags.Bool(utils.ON_ERROR_CONTINUE, false, "")
-	cmdFlags.Bool(utils.DATA_ONLY, false, "")
-	cmdFlags.String(utils.PLUGIN_CONFIG, "", "")
-	cmdFlags.StringSlice(utils.INCLUDE_RELATION, []string{}, "")
-	cmdFlags.StringSlice(utils.EXCLUDE_RELATION, []string{}, "")
-	cmdFlags.StringSlice(utils.INCLUDE_SCHEMA, []string{}, "")
-	cmdFlags.StringSlice(utils.EXCLUDE_SCHEMA, []string{}, "")
 })

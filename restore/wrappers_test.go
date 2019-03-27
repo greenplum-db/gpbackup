@@ -1,6 +1,13 @@
 package restore_test
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
+	"github.com/greenplum-db/gpbackup/testutils"
+
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/restore"
@@ -116,5 +123,196 @@ var _ = Describe("wrapper tests", func() {
 				To(Equal([]string{"schema1.table1", "schema2.table2"}))
 		})
 
+	})
+	Describe("restore history tests", func() {
+		sampleConfigContents := `
+executablepath: /bin/echo
+options:
+  hostname: "10.85.20.10"
+  storage_unit: "GPDB"
+  username: "gpadmin"
+  password: "changeme"
+  password_encryption:
+  directory: "/blah"
+  replication: "off"
+  remote_hostname: "10.85.20.11"
+  remote_storage_unit: "GPDB"
+  remote_username: "gpadmin"
+  remote_password: "changeme"
+  remote_directory: "/blah"
+  pgport: 1234
+`
+
+		sampleBackupHistory := `
+backupconfigs:
+- backupdir: ""
+  backupversion: 1.11.0+dev.28.g10571fd
+  compressed: false
+  databasename: plugin_test_db
+  databaseversion: 5.15.0+dev.18.gb29642fb22 build dev
+  dataonly: false
+  deleted: false
+  excluderelations: []
+  excludeschemafiltered: false
+  excludeschemas: []
+  excludetablefiltered: false
+  includerelations: []
+  includeschemafiltered: false
+  includeschemas: []
+  includetablefiltered: false
+  incremental: false
+  leafpartitiondata: false
+  metadataonly: false
+  plugin: /Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin
+  restoreplan:
+  - timestamp: "20170415154408"
+    tablefqns:
+    - public.test_table
+  singledatafile: false
+  timestamp: "20170415154408"
+  withstatistics: false
+- backupdir: ""
+  backupversion: 1.11.0+dev.28.g10571fd
+  compressed: false
+  databasename: plugin_test_db
+  databaseversion: 5.15.0+dev.18.gb29642fb22 build dev
+  dataonly: false
+  deleted: false
+  excluderelations: []
+  excludeschemafiltered: false
+  excludeschemas: []
+  excludetablefiltered: false
+  includerelations: []
+  includeschemafiltered: false
+  includeschemas: []
+  includetablefiltered: false
+  incremental: false
+  leafpartitiondata: false
+  metadataonly: false
+  plugin: /Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin
+  pluginversion: "99.99.9999"
+  restoreplan:
+  - timestamp: "20180415154238"
+    tablefqns:
+    - public.test_table
+  singledatafile: true
+  timestamp: "20180415154238"
+  withstatistics: false
+`
+
+		sampleBackupConfig := `
+backupdir: ""
+backupversion: 1.11.0+dev.28.g10571fd
+compressed: false
+databasename: plugin_test_db
+databaseversion: 5.15.0+dev.18.gb29642fb22 build dev
+dataonly: false
+deleted: false
+excluderelations: []
+excludeschemafiltered: false
+excludeschemas: []
+excludetablefiltered: false
+includerelations: []
+includeschemafiltered: false
+includeschemas: []
+includetablefiltered: false
+incremental: false
+leafpartitiondata: false
+metadataonly: false
+plugin: /Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin
+pluginversion: "99.99.9999"
+restoreplan:
+- timestamp: "20180415154238"
+tablefqns:
+- public.test_table
+singledatafile: true
+timestamp: "20180415154238"
+withstatistics: false
+`
+		//stdOutResults := make(map[int]string, 1)
+		var executor testutils.TestExecutorMultiple
+		var testConfigPath = "/tmp/unit_test_plugin_config.yml"
+		var oldWd string
+		var mdd string
+		var tempDir string
+
+		BeforeEach(func() {
+			tempDir, _ = ioutil.TempDir("", "temp")
+
+			err := ioutil.WriteFile(testConfigPath, []byte(sampleConfigContents), 0777)
+			Expect(err).ToNot(HaveOccurred())
+			err = cmdFlags.Set(utils.PLUGIN_CONFIG, testConfigPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			executor = testutils.TestExecutorMultiple{
+				ClusterOutputs: make([]*cluster.RemoteOutput, 2),
+			}
+			// set up fake command results
+			apiResponse := make(map[int]string, 1)
+			apiResponse[-1] = utils.RequiredPluginVersion // this is a successful result fpr API version
+			apiResponse[0] = utils.RequiredPluginVersion
+			apiResponse[1] = utils.RequiredPluginVersion
+			executor.ClusterOutputs[0] = &cluster.RemoteOutput{
+				Stdouts: apiResponse,
+			}
+
+			nativeResponse := make(map[int]string, 1)
+			nativeResponse[-1] = "myPlugin version 1.2.3" // this is a successful result for --version
+			nativeResponse[0] = "myPlugin version 1.2.3"
+			nativeResponse[1] = "myPlugin version 1.2.3"
+			executor.ClusterOutputs[1] = &cluster.RemoteOutput{
+				Stdouts: nativeResponse,
+			}
+
+			// write history file using test cluster directories
+			testCluster := testutils.SetupTestCluster()
+			testCluster.Executor = &executor
+			oldWd, err = os.Getwd()
+			Expect(err).ToNot(HaveOccurred())
+			err = os.Chdir(tempDir)
+			Expect(err).ToNot(HaveOccurred())
+			mdd = filepath.Join(tempDir, testCluster.GetDirForContent(-1))
+			err = os.MkdirAll(mdd, 0777)
+			Expect(err).ToNot(HaveOccurred())
+			historyPath := filepath.Join(mdd, "gpbackup_history.yaml")
+			_ = os.Remove(historyPath) // make sure no previous copy
+			err = ioutil.WriteFile(historyPath, []byte(sampleBackupHistory), 0777)
+			Expect(err).ToNot(HaveOccurred())
+
+			// create backup config file
+			configDir := filepath.Join(mdd, "backups/20170101/20170101010101/")
+			_ = os.MkdirAll(configDir, 0777)
+			configPath := filepath.Join(configDir, "gpbackup_20170101010101_config.yaml")
+			err = ioutil.WriteFile(configPath, []byte(sampleBackupConfig), 0777)
+			Expect(err).ToNot(HaveOccurred())
+
+			restore.SetVersion("1.11.0+dev.28.g10571fd")
+		})
+		AfterEach(func() {
+			err := os.RemoveAll(tempDir)
+			Expect(err).To(Not(HaveOccurred()))
+			_ = os.Chdir(oldWd)
+			_ = os.Remove(testConfigPath)
+			_ = os.Remove(testConfigPath + "_0")
+			_ = os.Remove(testConfigPath + "_1")
+		})
+		Describe("RecoverMetadataFilesUsingPlugin", func() {
+			It("proceed without warning when plugin version is found", func() {
+				_ = cmdFlags.Set(utils.TIMESTAMP, "20180415154238")
+				restore.RecoverMetadataFilesUsingPlugin()
+				Expect(string(logfile.Contents())).ToNot(ContainSubstring("cannot recover plugin version"))
+			})
+			It("logs warning when plugin version not found", func() {
+				_ = cmdFlags.Set(utils.TIMESTAMP, "20170415154408")
+				restore.RecoverMetadataFilesUsingPlugin()
+				Expect(string(logfile.Contents())).To(ContainSubstring("cannot recover plugin version"))
+			})
+		})
+		Describe("FindHistoricalPluginVersion", func() {
+			It("finds plugin version", func() {
+				resultPluginVersion := restore.FindHistoricalPluginVersion("20180415154238")
+				Expect(resultPluginVersion).To(Equal("99.99.9999"))
+			})
+		})
 	})
 })

@@ -142,7 +142,12 @@ func RecoverMetadataFilesUsingPlugin() {
 	var err error
 	pluginConfig, err = utils.ReadPluginConfig(MustGetFlagString(utils.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
+
 	pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
+
+	timestamp := MustGetFlagString(utils.TIMESTAMP)
+	historicalPluginVersion := FindHistoricalPluginVersion(timestamp)
+	pluginConfig.SetBackupPluginVersion(timestamp, historicalPluginVersion)
 
 	pluginConfig.CopyPluginConfigToAllHosts(globalCluster)
 	pluginConfig.SetupPluginForRestore(globalCluster, globalFPInfo)
@@ -171,6 +176,24 @@ func RecoverMetadataFilesUsingPlugin() {
 			pluginConfig.RestoreSegmentTOCs(globalCluster, fpInfo)
 		}
 	}
+}
+
+func FindHistoricalPluginVersion(timestamp string) string {
+	// in order for plugins to implement backwards compatibility,
+	// first, read history from master and provide the historical version
+	// of the plugin that was used to create the original backup
+
+	// adapted from incremental GetLatestMatchingBackupTimestamp
+	var historicalPluginVersion string
+	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
+		history, err := backup_history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+		gplog.FatalOnError(err)
+		foundBackupConfig := history.FindBackupConfig(timestamp)
+		if foundBackupConfig != nil {
+			historicalPluginVersion = foundBackupConfig.PluginVersion
+		}
+	}
+	return historicalPluginVersion
 }
 
 /*
