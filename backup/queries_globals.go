@@ -277,8 +277,8 @@ type Role struct {
 	ValidUntil      string
 	ResQueue        string
 	ResGroup        string
-	Createrextgpfd  bool `db:"rolcreaterexthttp"`
-	Createrexthttp  bool `db:"rolcreaterextgpfd"`
+	Createrexthttp  bool `db:"rolcreaterexthttp"`
+	Createrextgpfd  bool `db:"rolcreaterextgpfd"`
 	Createwextgpfd  bool `db:"rolcreatewextgpfd"`
 	Createrexthdfs  bool `db:"rolcreaterexthdfs"`
 	Createwexthdfs  bool `db:"rolcreatewexthdfs"`
