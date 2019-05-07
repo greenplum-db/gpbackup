@@ -86,7 +86,7 @@ resources:
     branch: 6X_STABLE
     tag_filter: 6.*
 
-- name: bin_gpdb6 # centos 7
+- name: bin_gpdb6
   type: gcs
   source:
       bucket: ((gcs-bucket))
@@ -128,13 +128,11 @@ resources:
       secret_access_key: {{bucket-secret-access-key}}
 
 - name: bin_gpdb_6x_stable_centos7
-  type: s3
+  type: gcs
   source:
-      bucket: gpdb-stable-concourse-builds
-      versioned_file: release_candidates/bin_gpdb_centos7/gpdb6/prod/bin_gpdb.tar.gz
-      region_name: us-west-2
-      access_key_id: {{bucket-access-key-id}}
-      secret_access_key: {{bucket-secret-access-key}}
+      bucket: ((gcs-bucket))
+      json_key: ((concourse-gcs-resources-service-account-key))
+      regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
 
 - name: bin_gpdb_43_stable
   type: s3
@@ -679,7 +677,7 @@ jobs:
   ensure:
     <<: *set_failed_aws
 
-- name: GPDB6-centos7
+- name: integrations-GPDB6-centos7
   plan:
   - aggregate:
     - get: gpbackup
@@ -715,12 +713,12 @@ jobs:
           - -c
           - |
             set -ex
+            mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
+
             source gpdb_src/concourse/scripts/common.bash
             time install_gpdb
             time ./gpdb_src/concourse/scripts/setup_gpadmin_user.bash
-            # Run inside a subshell so it does not pollute the environment after
-            # sourcing greenplum_path
-            time (make_cluster)
+            time make_cluster
 
             source /usr/local/greenplum-db-devel/greenplum_path.sh
 
@@ -758,6 +756,7 @@ jobs:
                 make build
                 make unit
                 make integration
+                make end_to_end
               popd
 
             SCRIPT
