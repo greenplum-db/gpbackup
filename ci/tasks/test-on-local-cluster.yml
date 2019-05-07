@@ -1,0 +1,75 @@
+platform: linux
+
+params:
+  IS_GPDB6:
+
+inputs:
+- name: gpdb_src
+- name: bin_gpdb
+- name: gpbackup
+- name: dummy_seclabel_gpdb_linux
+  optional: true
+- name: gpbackup-dependencies
+
+run:
+  path: bash
+  args:
+  - -c
+  - |
+    set -ex
+    if [ ! -f bin_gpdb/bin_gpdb.tar.gz ] ; then
+      mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
+    fi
+
+    source gpdb_src/concourse/scripts/common.bash
+    time install_gpdb
+    time ./gpdb_src/concourse/scripts/setup_gpadmin_user.bash
+    time make_cluster
+
+    source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+    if $IS_GPDB6 ; then
+      # dummy security label: copy library from bucket to correct location
+      # (someday this will be part of the bin_gpdb tarball?)
+      mkdir -p "$GPHOME/postgresql"
+      install -m 755 -T dummy_seclabel_gpdb_linux/dummy_seclabel-v6.so "$GPHOME/lib/postgresql/dummy_seclabel.so"
+    fi
+
+    # copy gpbackup & deps into the GOPATH used by user "gpadmin"
+    export GOPATH=/home/gpadmin/go
+    mkdir -p $GOPATH/src/github.com/greenplum-db
+    cp -R gpbackup $GOPATH/src/github.com/greenplum-db/
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com/greenplum-db/gpbackup/
+    chown -R gpadmin $GOPATH
+
+    cat <<SCRIPT > /tmp/run_tests.bash
+      set -ex
+      cd ~
+      source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+      # use "temp build dir" of parent shell
+      source $(pwd)/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
+      export GOPATH=\$HOME/go
+      # reference PATH defined by parent shell
+      export PATH=$PATH:\$PATH:\$GOPATH/bin
+
+      if $IS_GPDB6 ; then
+        # sec label
+        gpconfig -c shared_preload_libraries -v dummy_seclabel
+        gpstop -ra
+        gpconfig -s shared_preload_libraries | grep dummy_seclabel
+      fi
+
+      # Build gpbackup
+      pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
+        make depend
+        make build
+        make unit
+        make integration
+        make end_to_end
+      popd
+
+    SCRIPT
+
+    chmod +x /tmp/run_tests.bash
+    sudo su - gpadmin bash -c /tmp/run_tests.bash
