@@ -1,4 +1,4 @@
-  #!/bin/bash
+#!/bin/bash
 set -e
 
 setup_plugin_for_backup(){
