@@ -185,95 +185,100 @@ cleanup_test_dir $testdir
 # ----------------------------------------------
 # Delete backup directory function
 # ----------------------------------------------
+time_second_for_del=$(date +"%Y%m%d%H%M%S")
+current_date_for_del=$(echo $time_second_for_del | cut -c 1-8)
+sleep 1
+time_second_for_del2=$(date +"%Y%m%d%H%M%S")
+current_date_for_del2=$(echo $time_second_for_del | cut -c 1-8)
 
-# `awk` call returns 1 for true, 0 for false (contrary to bash logic)
-if (( 1 == $(echo "0.4.0 $api_version" | awk '{print ($1 > $2)}') )) ; then
-  echo "[SKIPPING] delete_backup (only compatible with version >= 0.4.0)"
-else
-  time_second_for_del=$(date +"%Y%m%d%H%M%S")
-  current_date_for_del=$(echo $time_second_for_del | cut -c 1-8)
-  sleep 1
-  time_second_for_del2=$(date +"%Y%m%d%H%M%S")
-  current_date_for_del2=$(echo $time_second_for_del | cut -c 1-8)
+testdir_for_del="/tmp/testseg/backups/$current_date_for_del/$time_second_for_del"
+testdata_for_del="$testdir_for_del/testdata_$time_second_for_del.txt"
+testfile_for_del="$testdir_for_del/testfile_$time_second_for_del.txt"
 
-  testdir_for_del="/tmp/testseg/backups/$current_date_for_del/$time_second_for_del"
-  testdata_for_del="$testdir_for_del/testdata_$time_second_for_del.txt"
-  testfile_for_del="$testdir_for_del/testfile_$time_second_for_del.txt"
+testdir_for_del2="/tmp/testseg/backups/$current_date_for_del2/$time_second_for_del2"
+testdata_for_del2="$testdir_for_del2/testdata_$time_second_for_del2.txt"
+testfile_for_del2="$testdir_for_del2/testfile_$time_second_for_del2.txt"
 
-  testdir_for_del2="/tmp/testseg/backups/$current_date_for_del2/$time_second_for_del2"
-  testdata_for_del2="$testdir_for_del2/testdata_$time_second_for_del2.txt"
-  testfile_for_del2="$testdir_for_del2/testfile_$time_second_for_del2.txt"
+mkdir -p $testdir_for_del
+mkdir -p $testdir_for_del2
 
-  mkdir -p $testdir_for_del
-  mkdir -p $testdir_for_del2
+echo $text > $testfile_for_del
+echo $text > $testfile_for_del2
 
-  echo $text > $testfile_for_del
-  echo $text > $testfile_for_del2
+echo "[RUNNING] delete_backup"
 
-  echo "[RUNNING] delete_backup"
+# first backup
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del master \"-1\"
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment_host
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment \"0\"
 
-  # first backup
-  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del master \"-1\"
-  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment_host
-  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment \"0\"
+echo $data | $plugin backup_data $plugin_config $testdata_for_del
+$plugin backup_file $plugin_config $testfile_for_del
 
-  echo $data | $plugin backup_data $plugin_config $testdata_for_del
-  $plugin backup_file $plugin_config $testfile_for_del
+# second backup
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 master \"-1\"
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment_host
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment \"0\"
 
-  # second backup
-  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 master \"-1\"
-  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment_host
-  $plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment \"0\"
+echo $data | $plugin backup_data $plugin_config $testdata_for_del2
+$plugin backup_file $plugin_config $testfile_for_del2
 
-  echo $data | $plugin backup_data $plugin_config $testdata_for_del2
-  $plugin backup_file $plugin_config $testfile_for_del2
+# here's the real test: can we delete and confirm deletion, while sibling backup remains?
+$plugin delete_backup $plugin_config $time_second_for_del
 
-  # here's the real test: can we delete and confirm deletion, while sibling backup remains?
-  $plugin delete_backup $plugin_config $time_second_for_del
+set +e
+# test deletion from local server
+output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del 2>/dev/null)
+retval_data_restore=$(echo $?)
+if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
+  echo "Failed to delete backup data from local server using plugin"
+  exit 1
+fi
+$plugin restore_file $plugin_config $testfile_for_del 2>/dev/null
+retval_file_restore=$(echo $?)
+if [ "$retval_file_restore" = "0" ] ; then
+  echo "Failed to delete backup file from local server using plugin"
+  exit 1
+fi
 
-  set +e
-  # test deletion from local server
-  output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del 2>/dev/null)
+# test deletion from remote server
+if [ -n "$secondary_plugin_config" ]; then
+  output_data_restore=$($plugin restore_data $secondary_plugin_config $testdata_for_del 2>/dev/null)
   retval_data_restore=$(echo $?)
   if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
-    echo "Failed to delete backup data from local server using plugin"
+    echo "Failed to delete backup data from remote server using plugin"
     exit 1
   fi
-  $plugin restore_file $plugin_config $testfile_for_del 2>/dev/null
+  $plugin restore_file $secondary_plugin_config $testfile_for_del 2>/dev/null
   retval_file_restore=$(echo $?)
   if [ "$retval_file_restore" = "0" ] ; then
-    echo "Failed to delete backup file from local server using plugin"
+    echo "Failed to delete backup file from remote server using plugin"
     exit 1
   fi
-
-  # test deletion from remote server
-  if [ -n "$secondary_plugin_config" ]; then
-    output_data_restore=$($plugin restore_data $secondary_plugin_config $testdata_for_del 2>/dev/null)
-    retval_data_restore=$(echo $?)
-    if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
-      echo "Failed to delete backup data from remote server using plugin"
-      exit 1
-    fi
-    $plugin restore_file $secondary_plugin_config $testfile_for_del 2>/dev/null
-    retval_file_restore=$(echo $?)
-    if [ "$retval_file_restore" = "0" ] ; then
-      echo "Failed to delete backup file from remote server using plugin"
-      exit 1
-    fi
-  fi
-
-  # confirm sibling backup remains
-  output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del2 2>/dev/null)
-  retval_data_restore=$(echo $?)
-  if [ "${output_data_restore}" != "${data}"  ] || [ "$retval_data_restore" != "0" ] ; then
-    echo "Failed to leave behind a sibling backup after a sibling delete from local server using plugin"
-    exit 1
-  fi
-
-  set -e
-  echo "[PASSED] delete_backup"
-  cleanup_test_dir $testdir_for_del
 fi
+
+# confirm sibling backup remains
+output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del2 2>/dev/null)
+retval_data_restore=$(echo $?)
+if [ "${output_data_restore}" != "${data}"  ] || [ "$retval_data_restore" != "0" ] ; then
+  echo "Failed to leave behind a sibling backup after a sibling delete from local server using plugin"
+  exit 1
+fi
+
+set -e
+echo "[PASSED] delete_backup"
+cleanup_test_dir $testdir_for_del
+
+
+set +e
+echo "[RUNNING] fails with unknown command"
+$plugin unknown_command &> /dev/null
+if [ $? -eq 0 ] ; then
+  echo "Plugin should exit non-zero when provided an unknown command"
+  exit 1
+fi
+echo "[PASSED] fails with unknown command"
+set -e
 
 # ----------------------------------------------
 # Run test gpbackup and gprestore with plugin
