@@ -50,14 +50,15 @@ run:
 
       GPBACKUP_VERSION=\$(cat github_release_components/gpbackup_version)
       ./gpbackup/ci/scripts/gpbackup_rpm.sh \$GPBACKUP_VERSION github_release_components/bin_gpbackup.tar.gz
-      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 4 rhel5
+      # gpdb 4 gppkgs must have 'orca' in its version because of the version validation done on the name
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 4.3orca rhel5
       # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 4 sles11
-      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 rhel6
-      ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 rhel7
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 rhel6
+      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 rhel7
       # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 sles11
       # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 5 sles12
       ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 6 rhel6
-      ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 6 rhel7
+      # ./gpbackup/ci/scripts/gpbackup_gppkg.sh \$GPBACKUP_VERSION 6 rhel7
 
       DDBOOST_PLUGIN_VERSION=\$(cat github_release_components/ddboost_plugin_version)
       ./gpbackup/ci/scripts/ddboost_rpm.sh \$DDBOOST_PLUGIN_VERSION github_release_components/bin_gpbackup.tar.gz

@@ -13,6 +13,7 @@ inputs:
 - name: cluster_env_files
 - name: pgcrypto43
   optional: true
+- name: gppkgs
 
 run:
   path: bash
@@ -24,16 +25,31 @@ run:
     ccp_src/scripts/setup_ssh_to_cluster.sh
 
     cat <<SCRIPT > /tmp/run_tests.bash
-    set -ex
-    source env.sh
+      set -ex
+      source env.sh
 
-    cd \$GOPATH/src/github.com/greenplum-db/gpbackup
-    export OLD_BACKUP_VERSION="$GPBACKUP_VERSION"
+      # only install if not installed already
+      is_installed_output=\$(source env.sh; gppkg -q gpbackup*gp*.gppkg)
+      set +e
+      echo \$is_installed_output | grep 'is installed'
+      if [ \$? -ne 0 ] ; then
+        set -e
+        gppkg -i gpbackup*gp*.gppkg
+      fi
+      set -e
+      cd \$GOPATH/src/github.com/greenplum-db/gpbackup
+      export OLD_BACKUP_VERSION="$GPBACKUP_VERSION"
 
-    make unit
-    make integration
-    make end_to_end
+      make unit
+      make integration
+      make end_to_end
     SCRIPT
+
+    out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
+    gpdbversion=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
+    mkdir /tmp/untarred
+    tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+    scp /tmp/untarred/gpbackup*gp$gpdbversion*.gppkg mdw:/home/gpadmin
 
     chmod +x /tmp/run_tests.bash
     scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash

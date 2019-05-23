@@ -34,7 +34,7 @@ run:
       make depend
 
       # NOTE: we are building binaries without a cluster installed, so distributing the backup_helper fails--continue anyway
-      make build || true
+      CGO_ENABLED=0 make build || true
       version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
     popd
     echo ${version} > gpbackup_version
@@ -42,7 +42,7 @@ run:
     # Build s3 plugin
     pushd $GOPATH/src/github.com/greenplum-db/gpbackup-s3-plugin
       make depend
-      make build
+      CGO_ENABLED=0 make build
       s3_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
     popd
     echo ${s3_plugin_version} > s3_plugin_version
@@ -58,7 +58,7 @@ run:
       sudo cp rhel6_x86_64/lib/libyaml*so* /usr/lib64/.
       sudo cp rhel5_x86_64/lib/libDDBoost.so /usr/lib64/.
 
-      make build
+      CGO_ENABLED=0 make build
       ddboost_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
     popd
     echo ${ddboost_plugin_version} > ddboost_plugin_version

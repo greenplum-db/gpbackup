@@ -10,6 +10,7 @@ inputs:
 - name: dummy_seclabel
   optional: true
 - name: gpbackup-dependencies
+- name: gppkgs
 
 run:
   path: bash
@@ -63,10 +64,26 @@ run:
       gpconfig -s shared_preload_libraries | grep dummy_seclabel
     fi
 
+    # Install gpbackup gppkg
+    out=\$(psql postgres -c "select version();")
+    gpdbversion=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
+    mkdir /tmp/untarred
+    tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+    
+    # only install if not installed already
+    is_installed_output=\$(gppkg -q /tmp/untarred/gpbackup*gp\$gpdbversion*.gppkg)
+    set +e
+    echo \$is_installed_output | grep 'is installed'
+    if [ \$? -ne 0 ] ; then
+      set -e
+      gppkg -i /tmp/untarred/gpbackup*gp\$gpdbversion*.gppkg
+    fi
+    set -e
+    
     # Build gpbackup
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
       make depend
-      make build
+      # make build
       make unit
       make integration
       make end_to_end
@@ -74,5 +91,6 @@ run:
 
     SCRIPT
 
+    cp -r gppkgs /home/gpadmin
     chmod +x /tmp/run_tests.bash
     su - gpadmin bash -c /tmp/run_tests.bash
