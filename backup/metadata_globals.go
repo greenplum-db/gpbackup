@@ -99,15 +99,21 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	/*
 	 * total cpu_rate_limit and memory_limit should less than 100, so clean
 	 * them before we seting new memory_limit and cpu_rate_limit.
+	 *
+	 * minimal memory_limit is adjusted from 1 to 0 since 5.20.
 	 */
+	minMemoryLimit := "1"
+	if connectionPool.Version.AtLeast("5.20") {
+		minMemoryLimit = "0"
+	}
 	defSettings := []struct {
 		name    string
 		setting string
 	}{
 		{"admin_group", "SET CPU_RATE_LIMIT 1"},
 		{"admin_group", "SET MEMORY_LIMIT 1"},
-		{"default_group", "SET CPU_RATE_LIMIT 1"},
-		{"default_group", "SET MEMORY_LIMIT 1"},
+		{"default_group", "SET CPU_RATE_LIMIT " + minMemoryLimit},
+		{"default_group", "SET MEMORY_LIMIT " + minMemoryLimit},
 	}
 
 	for _, prepare := range defSettings {
@@ -122,30 +128,39 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resGroups []ResourceGroup, resGroupMetadata MetadataMap) {
 	for _, resGroup := range resGroups {
 
+		/*
+		 * memory_spill_ratio can be set in absolute value format since 5.20,
+		 * so it has to be set as a quoted string.
+		 */
+		memorySpillRatio := resGroup.MemorySpillRatio
+		if connectionPool.Version.AtLeast("5.20") {
+			memorySpillRatio = "'" + memorySpillRatio + "'"
+		}
+
 		var start uint64
 		section, entry := resGroup.GetMetadataEntry()
 		if resGroup.Name == "default_group" || resGroup.Name == "admin_group" {
 			resGroupList := []struct {
 				setting string
-				value   int
+				value   string
 			}{
 				{"MEMORY_LIMIT", resGroup.MemoryLimit},
 				{"MEMORY_SHARED_QUOTA", resGroup.MemorySharedQuota},
-				{"MEMORY_SPILL_RATIO", resGroup.MemorySpillRatio},
+				{"MEMORY_SPILL_RATIO", memorySpillRatio},
 				{"CONCURRENCY", resGroup.Concurrency},
 			}
 			for _, property := range resGroupList {
 				start = metadataFile.ByteCount
-				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET %s %d;", resGroup.Name, property.setting, property.value)
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET %s %s;", resGroup.Name, property.setting, property.value)
 
 				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 			}
 
 			/* special handling for cpu properties */
 			start = metadataFile.ByteCount
-			if resGroup.CPURateLimit >= 0 {
+			if !strings.HasPrefix(resGroup.CPURateLimit, "-") {
 				/* cpu rate mode */
-				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_RATE_LIMIT %d;", resGroup.Name, resGroup.CPURateLimit)
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_RATE_LIMIT %s;", resGroup.Name, resGroup.CPURateLimit)
 			} else {
 				/* cpuset mode */
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
@@ -158,9 +173,9 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			attributes := []string{}
 
 			/* special handling for cpu properties */
-			if resGroup.CPURateLimit >= 0 {
+			if !strings.HasPrefix(resGroup.CPURateLimit, "-") {
 				/* cpu rate mode */
-				attributes = append(attributes, fmt.Sprintf("CPU_RATE_LIMIT=%d", resGroup.CPURateLimit))
+				attributes = append(attributes, fmt.Sprintf("CPU_RATE_LIMIT=%s", resGroup.CPURateLimit))
 			} else {
 				/* cpuset mode */
 				attributes = append(attributes, fmt.Sprintf("CPUSET='%s'", resGroup.Cpuset))
@@ -173,16 +188,16 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			 * - "": not set, e.g. created on an older version which does not
 			 *   support memory_auditor yet, consider it as vmtracker;
 			 */
-			if resGroup.MemoryAuditor == 1 {
+			if resGroup.MemoryAuditor == "1" {
 				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=cgroup"))
 			} else {
 				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=vmtracker"))
 			}
 
-			attributes = append(attributes, fmt.Sprintf("MEMORY_LIMIT=%d", resGroup.MemoryLimit))
-			attributes = append(attributes, fmt.Sprintf("MEMORY_SHARED_QUOTA=%d", resGroup.MemorySharedQuota))
-			attributes = append(attributes, fmt.Sprintf("MEMORY_SPILL_RATIO=%d", resGroup.MemorySpillRatio))
-			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%d", resGroup.Concurrency))
+			attributes = append(attributes, fmt.Sprintf("MEMORY_LIMIT=%s", resGroup.MemoryLimit))
+			attributes = append(attributes, fmt.Sprintf("MEMORY_SHARED_QUOTA=%s", resGroup.MemorySharedQuota))
+			attributes = append(attributes, fmt.Sprintf("MEMORY_SPILL_RATIO=%s", memorySpillRatio))
+			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%s", resGroup.Concurrency))
 			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
 
 			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

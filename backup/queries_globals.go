@@ -193,12 +193,12 @@ FROM
 type ResourceGroup struct {
 	Oid               uint32
 	Name              string
-	Concurrency       int
-	CPURateLimit      int
-	MemoryLimit       int
-	MemorySharedQuota int
-	MemorySpillRatio  int
-	MemoryAuditor     int
+	Concurrency       string
+	CPURateLimit      string
+	MemoryLimit       string
+	MemorySharedQuota string
+	MemorySpillRatio  string
+	MemoryAuditor     string
 	Cpuset            string
 }
 
@@ -226,13 +226,13 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 	query := `
 SELECT g.oid,
 	quote_ident(g.rsgname) AS name,
-	t1.proposed AS concurrency,
-	t2.value    AS cpuratelimit,
-	t3.proposed AS memorylimit,
-	t4.proposed AS memorysharedquota,
-	t5.proposed AS memoryspillratio,
-	t6.value    AS memoryauditor,
-	t7.value    AS cpuset
+	t1.value AS concurrency,
+	t2.value AS cpuratelimit,
+	t3.value AS memorylimit,
+	t4.value AS memorysharedquota,
+	t5.value AS memoryspillratio,
+	t6.value AS memoryauditor,
+	t7.value AS cpuset
 FROM pg_resgroup g
 	JOIN pg_resgroupcapability t1 ON t1.resgroupid = g.oid
 	JOIN pg_resgroupcapability t2 ON t2.resgroupid = g.oid
