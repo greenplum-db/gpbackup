@@ -15,6 +15,9 @@ import (
  * such as roles and database configuration.
  */
 
+// todo need to change this to 5.20.0 when that tag ships!
+const GPDB_TAG_WITH_RES_GROUP_CHANGE = "5.19.0"
+
 func PrintSessionGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gucs SessionGUCs) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf(`
@@ -103,7 +106,7 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	 * minimal memory_limit is adjusted from 1 to 0 since 5.20.
 	 */
 	minMemoryLimit := "1"
-	if connectionPool.Version.AtLeast("5.20") {
+	if connectionPool.Version.AtLeast(GPDB_TAG_WITH_RES_GROUP_CHANGE) {
 		minMemoryLimit = "0"
 	}
 	defSettings := []struct {
@@ -112,7 +115,7 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	}{
 		{"admin_group", "SET CPU_RATE_LIMIT 1"},
 		{"admin_group", "SET MEMORY_LIMIT 1"},
-		{"default_group", "SET CPU_RATE_LIMIT " + minMemoryLimit},
+		{"default_group", "SET CPU_RATE_LIMIT 1"},
 		{"default_group", "SET MEMORY_LIMIT " + minMemoryLimit},
 	}
 
@@ -133,7 +136,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 		 * so it has to be set as a quoted string.
 		 */
 		memorySpillRatio := resGroup.MemorySpillRatio
-		if connectionPool.Version.AtLeast("5.20") {
+		if connectionPool.Version.AtLeast(GPDB_TAG_WITH_RES_GROUP_CHANGE) {
 			memorySpillRatio = "'" + memorySpillRatio + "'"
 		}
 

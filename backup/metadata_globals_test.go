@@ -187,7 +187,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				`CREATE RESOURCE GROUP some_group2 WITH (CPUSET='0-3', MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=10, CONCURRENCY=25);`)
 		})
 		It("prints memory_spill_ratio resource groups in new syntax", func() {
-			testhelper.SetDBVersion(connectionPool, "5.20.0")
+			testhelper.SetDBVersion(connectionPool, backup.GPDB_TAG_WITH_RES_GROUP_CHANGE)
 
 			default_group := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30 MB"}
 			someGroup := backup.ResourceGroup{Oid: 2, Name: "some_group", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40 MB"}
@@ -215,14 +215,14 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				`ALTER RESOURCE GROUP default_group SET MEMORY_LIMIT 1;`)
 		})
 		It("prints prepare resource groups in new syntax", func() {
-			testhelper.SetDBVersion(connectionPool, "5.20.0")
+			testhelper.SetDBVersion(connectionPool, backup.GPDB_TAG_WITH_RES_GROUP_CHANGE)
 
 			backup.PrintResetResourceGroupStatements(backupfile, toc)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "admin_group", "RESOURCE GROUP")
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`ALTER RESOURCE GROUP admin_group SET CPU_RATE_LIMIT 1;`,
 				`ALTER RESOURCE GROUP admin_group SET MEMORY_LIMIT 1;`,
-				`ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 0;`,
+				`ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 1;`,
 				`ALTER RESOURCE GROUP default_group SET MEMORY_LIMIT 0;`)
 		})
 	})

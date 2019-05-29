@@ -13,6 +13,14 @@ import (
 	"github.com/onsi/gomega/gbytes"
 )
 
+const (
+	concurrencyDefault = "20"
+	memSharedDefault   = "80"
+	memSpillDefault    = "128 MB"
+	memAuditDefault    = "0"
+	cpuSetDefault      = "-1"
+)
+
 var _ = Describe("backup integration create statement tests", func() {
 	var includeSecurityLabels bool
 	BeforeEach(func() {
@@ -139,7 +147,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfBefore5(connectionPool)
 		})
 		It("creates a basic resource group", func() {
-			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
+			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
 			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{someGroup}, emptyMetadataMap)
@@ -157,8 +165,43 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			Fail("Could not find some_group")
 		})
+		It("creates a resource group with defaults", func() {
+			expectedDefaults := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: concurrencyDefault, MemorySharedQuota: memSharedDefault, MemorySpillRatio: memSpillDefault, MemoryAuditor: memAuditDefault, Cpuset: cpuSetDefault}
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE RESOURCE GROUP some_group WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20);")
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP some_group`)
+
+			resultResourceGroups := backup.GetResourceGroups(connectionPool)
+
+			for _, resultGroup := range resultResourceGroups {
+				if resultGroup.Name == "some_group" {
+					structmatcher.ExpectStructsToMatchExcluding(&expectedDefaults, &resultGroup, "Oid")
+					return
+				}
+			}
+			Fail("Could not find some_group")
+		})
+		It("creates a resource group using old format for MemorySpillRatio", func() {
+			if connectionPool.Version.Before(backup.GPDB_TAG_WITH_RES_GROUP_CHANGE) {
+				Skip("Test only applicable to GPDB 5.20 and above")
+			}
+			expectedDefaults := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: concurrencyDefault, MemorySharedQuota: memSharedDefault, MemorySpillRatio: "19", MemoryAuditor: memAuditDefault, Cpuset: cpuSetDefault}
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE RESOURCE GROUP some_group WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SPILL_RATIO=19);")
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP some_group`)
+
+			resultResourceGroups := backup.GetResourceGroups(connectionPool)
+
+			for _, resultGroup := range resultResourceGroups {
+				if resultGroup.Name == "some_group" {
+					structmatcher.ExpectStructsToMatchExcluding(&expectedDefaults, &resultGroup, "Oid")
+					return
+				}
+			}
+			Fail("Could not find some_group")
+		})
 		It("alters a default resource group", func() {
-			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
+			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
 			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{defaultGroup}, emptyMetadataMap)

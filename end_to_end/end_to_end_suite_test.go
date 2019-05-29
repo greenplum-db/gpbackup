@@ -232,6 +232,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		testhelper.SetupTestLogger()
 		_ = exec.Command("dropdb", "testdb").Run()
 		_ = exec.Command("dropdb", "restoredb").Run()
+		_ = exec.Command("psql", "postgres", "-c", "DROP RESOURCE QUEUE test_queue").Run()
 
 		err = exec.Command("createdb", "testdb").Run()
 		if err != nil {
@@ -275,6 +276,10 @@ var _ = Describe("backup end to end integration tests", func() {
 		if backupConn.Version.Before("6") {
 			testutils.DestroyTestFilespace(backupConn)
 		} else {
+			_ = exec.Command("dropdb", "testdb").Run()
+			_ = exec.Command("dropdb", "restoredb").Run()
+			_ = exec.Command("psql", "postgres", "-c", "DROP RESOURCE QUEUE test_queue").Run()
+			_ = exec.Command("psql", "postgres", "-c", "DROP TABLESPACE test_tablespace").Run()
 			remoteOutput := backupCluster.GenerateAndExecuteCommand("Removing /tmp/test_dir* directories on all hosts", func(contentID int) string {
 				return fmt.Sprintf("rm -rf /tmp/test_dir*")
 			}, cluster.ON_HOSTS_AND_MASTER)

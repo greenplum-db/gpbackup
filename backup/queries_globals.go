@@ -226,6 +226,19 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 	query := `
 SELECT g.oid,
 	quote_ident(g.rsgname) AS name,
+	t1.proposed AS concurrency,
+	t2.value    AS cpuratelimit,
+	t3.proposed AS memorylimit,
+	t4.proposed AS memorysharedquota,
+	t5.proposed AS memoryspillratio,
+	t6.value    AS memoryauditor,
+	t7.value    AS cpuset
+`
+
+	if connectionPool.Version.AtLeast(GPDB_TAG_WITH_RES_GROUP_CHANGE) {
+		query = `
+SELECT g.oid,
+	quote_ident(g.rsgname) AS name,
 	t1.value AS concurrency,
 	t2.value AS cpuratelimit,
 	t3.value AS memorylimit,
@@ -233,7 +246,10 @@ SELECT g.oid,
 	t5.value AS memoryspillratio,
 	t6.value AS memoryauditor,
 	t7.value AS cpuset
-FROM pg_resgroup g
+`
+	}
+
+	query += `FROM pg_resgroup g
 	JOIN pg_resgroupcapability t1 ON t1.resgroupid = g.oid
 	JOIN pg_resgroupcapability t2 ON t2.resgroupid = g.oid
 	JOIN pg_resgroupcapability t3 ON t3.resgroupid = g.oid
@@ -248,7 +264,6 @@ WHERE t1.reslimittype = 1 AND
 	t5.reslimittype = 5 AND
 	t6.reslimittype = 6 AND
 	t7.reslimittype = 7;`
-
 	results := make([]ResourceGroup, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)

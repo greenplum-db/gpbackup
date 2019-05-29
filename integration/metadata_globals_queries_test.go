@@ -159,7 +159,7 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetResourceGroups(connectionPool)
 
-			someGroup := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: 10, MemoryLimit: 20, Concurrency: 15, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
+			someGroup := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
 
 			for _, resultGroup := range results {
 				if resultGroup.Name == `"someGroup"` {
@@ -175,11 +175,27 @@ var _ = Describe("backup integration tests", func() {
 
 			results := backup.GetResourceGroups(connectionPool)
 
-			someGroup := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: 10, MemoryLimit: 20, Concurrency: 0, MemorySharedQuota: 25, MemorySpillRatio: 30, MemoryAuditor: 0, Cpuset: "-1"}
+			someGroup := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: "10", MemoryLimit: "20", Concurrency: "0", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
 
 			for _, resultGroup := range results {
 				if resultGroup.Name == `"someGroup"` {
 					structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "Oid")
+					return
+				}
+			}
+			Fail("Resource group 'someGroup' was not found.")
+		})
+		It("returns a resource group with defaults", func() {
+			testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20);`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP "someGroup"`)
+
+			results := backup.GetResourceGroups(connectionPool)
+
+			expectedDefaults := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: "10", MemoryLimit: "20", Concurrency: concurrencyDefault, MemorySharedQuota: memSharedDefault, MemorySpillRatio: memSpillDefault, MemoryAuditor: memAuditDefault, Cpuset: cpuSetDefault}
+
+			for _, resultGroup := range results {
+				if resultGroup.Name == `"someGroup"` {
+					structmatcher.ExpectStructsToMatchExcluding(&expectedDefaults, &resultGroup, "Oid")
 					return
 				}
 			}
