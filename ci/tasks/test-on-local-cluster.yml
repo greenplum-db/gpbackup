@@ -52,10 +52,10 @@ run:
     # use "temp build dir" of parent shell
     source $(pwd)/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
     export GOPATH=\$HOME/go
+    mkdir -p \$GOPATH/bin
+    mkdir -p \$GOPATH/src
     # reference PATH defined by parent shell
     export PATH=/usr/local/go/bin:$PATH:\$PATH:\$GOPATH/bin
-    go get github.com/alecthomas/gometalinter
-
 
     if $REQUIRES_DUMMY_SEC ; then
       # sec label
@@ -64,12 +64,13 @@ run:
       gpconfig -s shared_preload_libraries | grep dummy_seclabel
     fi
 
-    # Install gpbackup gppkg
     out=\$(psql postgres -c "select version();")
     gpdbversion=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
+
+    # Install gpbackup gppkg
     mkdir /tmp/untarred
     tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-    
+
     # only install if not installed already
     is_installed_output=\$(gppkg -q /tmp/untarred/gpbackup*gp\$gpdbversion*.gppkg)
     set +e
@@ -79,16 +80,14 @@ run:
       gppkg -i /tmp/untarred/gpbackup*gp\$gpdbversion*.gppkg
     fi
     set -e
-    
-    # Build gpbackup
+
+    # Test gpbackup
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
       make depend
-      # make build
       make unit
       make integration
       make end_to_end
     popd
-
     SCRIPT
 
     cp -r gppkgs /home/gpadmin
