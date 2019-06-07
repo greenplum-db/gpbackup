@@ -19,7 +19,7 @@ groups:
   - scale-master
   - build_dependencies
   - push-to-github
-  - package_gpbackup_for_release
+  - gppkgs_smoketest
   - push-to-pivnet-gpbackup
 - name: GPDB4.3
   jobs:
@@ -48,7 +48,7 @@ groups:
 - name: Packaging and Release
   jobs:
   - push-to-github
-  - package_gpbackup_for_release
+  - gppkgs_smoketest
   - push-to-pivnet-gpbackup
 
 resource_types:
@@ -1535,57 +1535,60 @@ jobs:
   ensure:
     <<: *set_failed
 
-- name: package_gpbackup_for_release
+- name: gppkgs_smoketest
   plan:
-  - aggregate:
-    - get: gpbackup_tagged_src
-      trigger: true
-    - get: gpbackup_s3_plugin_tagged_src
-    - get: gpbackup_ddboost_plugin_tagged_src
-    # While the resource is not used, it ensures only releasing if
-    # tests are passing
-    - get: gpbackup
-      passed:
-        - GPDB5
-        - GPDB6
-        - GPDB4.3
-        - GPDB5-sles11
-        - GPDB5-oracle7
-        - master
-        - backward-compatibility
-        - s3_plugin_tests
-        - ddboost_plugin_and_boostfs_tests_43
-        - ddboost_plugin_and_boostfs_tests_5x
-    - get: gpdb6_src
-    - get: bin_gpdb_6x_stable_centos6
-    - get: gpbackup-dependencies
-  - task: compile_package
-    file: gpbackup/ci/tasks/compile_package.yml
-    params:
-      IVYREPO_USER: {{ivyrepo_user}}
-      IVYREPO_PASSWD: {{ivyrepo_passwd}}
-      IVYREPO_HOST: {{ivyrepo_host}}
-    on_failure:
-      *slack_alert
-  - task: build_gppkg
-    file: gpbackup/ci/tasks/build-gppkg.yml
-    input_mapping:
-      gpdb_src: gpdb6_src
-      bin_gpdb: bin_gpdb_6x_stable_centos6
-    on_failure:
-      *slack_alert
-  - aggregate:
-    - put: gppkgs
-      params:
-        file: gppkgs/gpbackup-gppkgs.tar.gz
-    - put: github_release_components
-      params:
-        file: github_release_components/gpbackup-*.tar.gz
+    - aggregate:
+        - get: gpbackup_tagged_src
+          trigger: true
+        - get: gpbackup_s3_plugin_tagged_src
+        - get: gpbackup_ddboost_plugin_tagged_src
+        - get: github_release_components
+          passed:
+            - build_binaries
+        # While the resource is not used, it ensures only releasing if
+        # tests are passing
+        - get: gppkgs
+          passed:
+            # - GPDB5
+            # - GPDB6
+            - GPDB4.3
+            # - GPDB5-sles11
+            # - GPDB5-oracle7
+            - master
+            # - backward-compatibility
+            - s3_plugin_tests
+            # - ddboost_plugin_and_boostfs_tests
+        - get: gpbackup
+      # - get: gpdb6_src
+      # - get: bin_gpdb_6x_stable_centos6
+      # - get: gpbackup-dependencies
+    # - task: compile_package
+    #   file: gpbackup/ci/tasks/compile_package.yml
+    #   params:
+    #     IVYREPO_USER: {{ivyrepo_user}}
+    #     IVYREPO_PASSWD: {{ivyrepo_passwd}}
+    #     IVYREPO_HOST: {{ivyrepo_host}}
+    #   on_failure:
+    #     *slack_alert
+    # - task: build_gppkg
+    #   file: gpbackup/ci/tasks/build-gppkg.yml
+    #   input_mapping:
+    #     gpdb_src: gpdb6_src
+    #     bin_gpdb: bin_gpdb_6x_stable_centos6
+    #   on_failure:
+    #     *slack_alert
+    - aggregate:
+        - put: gppkgs
+          params:
+            file: gppkgs/gpbackup-gppkgs.tar.gz
+        - put: github_release_components
+          params:
+            file: github_release_components/gpbackup-*.tar.gz
 
 - name: push-to-github
   plan:
   - get: github_release_components
-    passed: [package_gpbackup_for_release]
+    passed: [gppkgs_smoketest]
 
   - task: prepare-for-release
     config:
@@ -1620,9 +1623,9 @@ jobs:
   plan:
     - aggregate:
       - get: gppkgs
-        passed: [package_gpbackup_for_release]
+        passed: [gppkgs_smoketest]
       - get: gpbackup
-        passed: [package_gpbackup_for_release]
+        passed: [gppkgs_smoketest]
       - get: gpbackup-release-license
     - task: update metadata.yml
       config:
