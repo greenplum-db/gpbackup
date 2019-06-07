@@ -1,64 +1,64 @@
 release:
-  version: <VERSION>
+  version: <TILE_RELEASE_VERSION>
   release_type: Beta Release
   eula_slug: pivotal_beta_eula
   description: Pivotal Greenplum Backup and Restore
   release_notes_url: http://gpbackup.docs.pivotal.io/
-  availability: Admins Only
+  availability: All Users # TODO: revert back to Admins Only
   controlled: false
   eccn: 5D002
   license_exception: ENC
 product_files:
 ########## Gpbackup Pkgs ##########
-# - file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp4-rhel5-x86_64.gppkg
-#   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP4-RHEL5]
-#   file_type: Software
-#   file_version: <GPBAR_VERSION>
-# - file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp4-sles11-x86_64.gppkg
+- file: workspace/files-to-upload/gpbackup-gp4.3orca-rhel5-x86_64-<TILE_RELEASE_VERSION>.gppkg
+  upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP4-RHEL5]
+  file_type: Software
+  file_version: <GPBAR_VERSION>
+# - file: workspace/files-to-upload/gpbackup-gp4-sles11-x86_64-<TILE_RELEASE_VERSION>.gppkg
 #   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP4-SLES11]
 #   file_type: Software
 #   file_version: <GPBAR_VERSION>
-# - file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp5-rhel6-x86_64.gppkg
-#   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP5-RHEL6]
-#   file_type: Software
-#   file_version: <GPBAR_VERSION>
-# - file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp5-rhel7-x86_64.gppkg
+- file: workspace/files-to-upload/gpbackup-gp5-rhel6-x86_64-<TILE_RELEASE_VERSION>.gppkg
+  upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP5-RHEL6]
+  file_type: Software
+  file_version: <GPBAR_VERSION>
+# - file: workspace/files-to-upload/gpbackup-gp5-rhel7-x86_64-<TILE_RELEASE_VERSION>.gppkg
 #   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP5-RHEL7]
 #   file_type: Software
 #   file_version: <GPBAR_VERSION>
-# - file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp5-sles11-x86_64.gppkg
+# - file: workspace/files-to-upload/gpbackup-gp5-sles11-x86_64-<TILE_RELEASE_VERSION>.gppkg
 #   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP5-SLES11]
 #   file_type: Software
 #   file_version: <GPBAR_VERSION>
-# - file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp5-sles12-x86_64.gppkg
+# - file: workspace/files-to-upload/gpbackup-gp5-sles12-x86_64-<TILE_RELEASE_VERSION>.gppkg
 #   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP5-SLES12]
 #   file_type: Software
 #   file_version: <GPBAR_VERSION>
-- file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp6-rhel6-x86_64.gppkg
+- file: workspace/files-to-upload/gpbackup-gp6-rhel6-x86_64-<TILE_RELEASE_VERSION>.gppkg
   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP6-RHEL6]
   file_type: Software
   file_version: <GPBAR_VERSION>
-- file: workspace/files-to-upload/gpbackup-<GPBAR_VERSION>-gp6-rhel7-x86_64.gppkg
-  upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP6-RHEL7]
-  file_type: Software
-  file_version: <GPBAR_VERSION>
+# - file: workspace/files-to-upload/gpbackup-gp6-rhel7-x86_64-<TILE_RELEASE_VERSION>.gppkg
+#   upload_as: Pivotal Greenplum Backup and Restore v<GPBAR_VERSION> [GP6-RHEL7]
+#   file_type: Software
+#   file_version: <GPBAR_VERSION>
 
 ########## DDBoost Plugin Pkgs ##########
-- file: workspace/files-to-upload/ddboost-<DDBOOST_PLUGIN_VERSION>-gp6-rhel6-x86_64.gppkg
+- file: workspace/files-to-upload/ddboost-<DDBOOST_PLUGIN_VERSION>-gp6-rhel6-x86_64-<TILE_RELEASE_VERSION>.gppkg
   upload_as: Pivotal Greenplum Backup and Restore DDBOOST plugin v<DDBOOST_PLUGIN_VERSION> [GP6-RHEL6]
   file_type: Software
   file_version: <DDBOOST_PLUGIN_VERSION>
-- file: workspace/files-to-upload/ddboost-<DDBOOST_PLUGIN_VERSION>-gp6-rhel7-x86_64.gppkg
+- file: workspace/files-to-upload/ddboost-<DDBOOST_PLUGIN_VERSION>-gp6-rhel7-x86_64-<TILE_RELEASE_VERSION>.gppkg
   upload_as: Pivotal Greenplum Backup and Restore DDBOOST plugin v<DDBOOST_PLUGIN_VERSION> [GP6-RHEL7]
   file_type: Software
   file_version: <DDBOOST_PLUGIN_VERSION>
 
 ########## S3 Plugin Pkgs ##########
-- file: workspace/files-to-upload/s3-<S3_PLUGIN_VERSION>-gp6-rhel6-x86_64.gppkg
+- file: workspace/files-to-upload/s3-<S3_PLUGIN_VERSION>-gp6-rhel6-x86_64-<TILE_RELEASE_VERSION>.gppkg
   upload_as: Pivotal Greenplum Backup and Restore S3 plugin v<S3_PLUGIN_VERSION> [GP6-RHEL6]
   file_type: Software
   file_version: <S3_PLUGIN_VERSION>
-- file: workspace/files-to-upload/s3-<S3_PLUGIN_VERSION>-gp6-rhel7-x86_64.gppkg
+- file: workspace/files-to-upload/s3-<S3_PLUGIN_VERSION>-gp6-rhel7-x86_64-<TILE_RELEASE_VERSION>.gppkg
   upload_as: Pivotal Greenplum Backup and Restore S3 plugin v<S3_PLUGIN_VERSION> [GP6-RHEL7]
   file_type: Software
   file_version: <S3_PLUGIN_VERSION>

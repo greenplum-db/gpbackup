@@ -326,6 +326,15 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     regexp: components/gpbackup/gpbackup-(.*).tar.gz
 
+- name: pivnet_release_cache
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: gpbackup-pivotal-network-staging
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    regexp: pivnet_release_version/v-(.*)
+
 - name: gppkgs
   type: s3
   source:
@@ -1537,53 +1546,53 @@ jobs:
 
 - name: gppkgs_smoketest
   plan:
-    - aggregate:
-        - get: gpbackup_tagged_src
-          trigger: true
-        - get: gpbackup_s3_plugin_tagged_src
-        - get: gpbackup_ddboost_plugin_tagged_src
-        - get: github_release_components
-          passed:
-            - build_binaries
-        # While the resource is not used, it ensures only releasing if
-        # tests are passing
-        - get: gppkgs
-          passed:
-            # - GPDB5
-            # - GPDB6
-            - GPDB4.3
-            # - GPDB5-sles11
-            # - GPDB5-oracle7
-            - master
-            # - backward-compatibility
-            - s3_plugin_tests
-            # - ddboost_plugin_and_boostfs_tests
-        - get: gpbackup
-      # - get: gpdb6_src
-      # - get: bin_gpdb_6x_stable_centos6
-      # - get: gpbackup-dependencies
-    # - task: compile_package
-    #   file: gpbackup/ci/tasks/compile_package.yml
-    #   params:
-    #     IVYREPO_USER: {{ivyrepo_user}}
-    #     IVYREPO_PASSWD: {{ivyrepo_passwd}}
-    #     IVYREPO_HOST: {{ivyrepo_host}}
-    #   on_failure:
-    #     *slack_alert
-    # - task: build_gppkg
-    #   file: gpbackup/ci/tasks/build-gppkg.yml
-    #   input_mapping:
-    #     gpdb_src: gpdb6_src
-    #     bin_gpdb: bin_gpdb_6x_stable_centos6
-    #   on_failure:
-    #     *slack_alert
-    - aggregate:
-        - put: gppkgs
-          params:
-            file: gppkgs/gpbackup-gppkgs.tar.gz
-        - put: github_release_components
-          params:
-            file: github_release_components/gpbackup-*.tar.gz
+  - aggregate:
+    - get: gpbackup_tagged_src
+      trigger: true
+    - get: gpbackup_s3_plugin_tagged_src
+    - get: gpbackup_ddboost_plugin_tagged_src
+    - get: github_release_components
+      passed:
+        - build_binaries
+    # While the resource is not used, it ensures only releasing if
+    # tests are passing
+    - get: gppkgs
+      passed:
+        # - GPDB5
+        # - GPDB6
+        - GPDB4.3
+        # - GPDB5-sles11
+        # - GPDB5-oracle7
+        - master
+        # - backward-compatibility
+        - s3_plugin_tests
+        # - ddboost_plugin_and_boostfs_tests
+    - get: gpbackup
+    # - get: gpdb6_src
+    # - get: bin_gpdb_6x_stable_centos6
+    # - get: gpbackup-dependencies
+  # - task: compile_package
+  #   file: gpbackup/ci/tasks/compile_package.yml
+  #   params:
+  #     IVYREPO_USER: {{ivyrepo_user}}
+  #     IVYREPO_PASSWD: {{ivyrepo_passwd}}
+  #     IVYREPO_HOST: {{ivyrepo_host}}
+  #   on_failure:
+  #     *slack_alert
+  # - task: build_gppkg
+  #   file: gpbackup/ci/tasks/build-gppkg.yml
+  #   input_mapping:
+  #     gpdb_src: gpdb6_src
+  #     bin_gpdb: bin_gpdb_6x_stable_centos6
+  #   on_failure:
+  #     *slack_alert
+  - aggregate:
+    - put: gppkgs
+      params:
+        file: gppkgs/gpbackup-gppkgs.tar.gz
+    - put: github_release_components
+      params:
+        file: github_release_components/gpbackup-*.tar.gz
 
 - name: push-to-github
   plan:
@@ -1623,10 +1632,11 @@ jobs:
   plan:
     - aggregate:
       - get: gppkgs
-        passed: [gppkgs_smoketest]
+        # passed: [gppkgs_smoketest]
       - get: gpbackup
-        passed: [gppkgs_smoketest]
+        # passed: [gppkgs_smoketest]
       - get: gpbackup-release-license
+      - get: pivnet_release_cache
     - task: update metadata.yml
       config:
         platform: linux
@@ -1638,6 +1648,7 @@ jobs:
           - name: gppkgs
           - name: gpbackup
           - name: gpbackup-release-license
+          - name: pivnet_release_cache
         outputs:
           - name: workspace
         run:
@@ -1646,21 +1657,32 @@ jobs:
             - -exc
             - |
               mkdir workspace/files-to-upload
-
               cp gpbackup/ci/pivnet_release/metadata.yml workspace/
-
               tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
+              GPBACKUP_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
 
-              RELEASE_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
+              pushd pivnet_release_cache
+                PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}-*"
+                if [ -f $PRV_TILE_RELEASE_VERSION ]; then
+                  # increment the counter if the expected release version has been used before
+                  COUNT=$(echo $PRV_TILE_RELEASE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
+                  COUNT=$(($COUNT+1))
+                else
+                  # reset the version count
+                  COUNT=1
+                fi
+                TILE_RELEASE_VERSION=${GPBACKUP_VERSION}-${COUNT}
+                touch ../workspace/v-${TILE_RELEASE_VERSION}
+              popd
 
-              if [ ! -f gpbackup-release-license/gpbackup-osl-v${RELEASE_VERSION}.txt ] ; then
-                echo "License file gpbackup-osl-v${RELEASE_VERSION}.txt does not exist in resource.\n Ensure the OSL is properly uploaded to the GCS bucket prior to pushing to pivnet." 1>&2
+              if [ ! -f gpbackup-release-license/gpbackup-osl-v${GPBACKUP_VERSION}.txt ] ; then
+                echo "License file gpbackup-osl-v${GPBACKUP_VERSION}.txt does not exist in resource.\n Ensure the OSL is properly uploaded to the GCS bucket prior to pushing to pivnet." 1>&2
                 exit 1
               fi
-              cp gpbackup-release-license/gpbackup-osl-v${RELEASE_VERSION}.txt workspace/files-to-upload/
+              cp gpbackup-release-license/gpbackup-osl-v${GPBACKUP_VERSION}.txt workspace/files-to-upload/
 
-              # TODO: currently, <VERSION> corresponds only with the tile release version. This poses an issue when we have a unique version upgrade for a plugin (which is included in this tile), but gpbackup remains the same. The division of releases and versioning is a product decision.
-              sed -i "s/<VERSION>/${RELEASE_VERSION}/g" workspace/metadata.yml
+              # NOTE: We must use the Pivnet Release Version (including the counter) because we cannot upload files with the same name in different tile releases
+              sed -i "s/<TILE_RELEASE_VERSION>/${TILE_RELEASE_VERSION}/g" workspace/metadata.yml
 
               GPBAR_VERSION=$(echo workspace/files-to-upload/gpbackup-osl-v*.txt | sed -n 's#workspace/files-to-upload/gpbackup-osl-v\(.*\)\.txt#\1#p')
               sed -i "s/<GPBAR_VERSION>/${GPBAR_VERSION}/g" workspace/metadata.yml
@@ -1672,8 +1694,20 @@ jobs:
               sed -i "s/<S3_PLUGIN_VERSION>/${S3_PLUGIN_VERSION}/g" workspace/metadata.yml
 
               cat workspace/metadata.yml
+              pushd workspace/files-to-upload
+              # rename files to match the name inside metadata.yml
+              for filename in *.gppkg; do
+                newFilename=$(sed -e "s/gpbackup-${GPBACKUP_VERSION}-/gpbackup-/" -e "s/.gppkg/-${TILE_RELEASE_VERSION}.gppkg/" <<< "$filename")
+                mv "$filename" "$newFilename"
+              done
+              popd
 
+              rm workspace/files-to-upload/*_version
               ls -l workspace/files-to-upload
+
+    - put: pivnet_release_cache
+      params:
+        file: workspace/v-*
 
     - put: pivnet-gpbackup
       params:
