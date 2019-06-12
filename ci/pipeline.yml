@@ -10,7 +10,8 @@ groups:
   - master
   - s3_plugin_tests
   - backward-compatibility
-  - ddboost_plugin_and_boostfs_tests
+  - ddboost_plugin_and_boostfs_tests_43
+  - ddboost_plugin_and_boostfs_tests_5x
   - scale-43
   - scale-5x
   - scale-6x
@@ -22,13 +23,14 @@ groups:
 - name: GPDB4.3
   jobs:
   - GPDB4.3
+  - ddboost_plugin_and_boostfs_tests_43
 - name: GPDB5
   jobs:
   - GPDB5
   - GPDB5-oracle7
   - GPDB5-sles11
   - s3_plugin_tests
-  - ddboost_plugin_and_boostfs_tests
+  - ddboost_plugin_and_boostfs_tests_5x
   - backward-compatibility
 - name: GPDB6
   jobs:
@@ -181,6 +183,15 @@ resources:
       region_name: us-west-2
       access_key_id: {{bucket-access-key-id}}
       secret_access_key: {{bucket-secret-access-key}}
+
+- name: pgcrypto43
+  type: s3
+  source:
+      bucket: pgcrypto43
+      access_key_id: {{bucket-access-key-id}}
+      region_name: {{aws-region}}
+      secret_access_key: {{bucket-secret-access-key}}
+      regexp: pgcrypto-ossv1.1_pv(.*)_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: dummy_seclabel_linux_gpdb6
   type: gcs
@@ -468,7 +479,202 @@ jobs:
   ensure:
     <<: *set_failed
 
-- name: ddboost_plugin_and_boostfs_tests
+- name: ddboost_plugin_and_boostfs_tests_43
+  plan:
+  - aggregate:
+    - get: gpbackup_ddboost_plugin
+      tags: ["ddboost"]
+      trigger: true
+    - get: gpbackup
+      tags: ["ddboost"]
+      trigger: true
+    - get: ccp_src
+      tags: ["ddboost"]
+    - get: gpdb5_src
+      tags: ["ddboost"]
+    - get: bin_gpdb_43_stable
+      tags: ["ddboost"]
+    - get: boostfs_installer
+      tags: ["ddboost"]
+    - get: nightly-trigger
+      trigger: true
+    - get: gpbackup-dependencies
+      tags: ["ddboost"]
+      passed:
+       - build_dependencies
+    - get: pgcrypto43
+  - put: ddboost_terraform
+    tags: ["ddboost"]
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws/
+      vars:
+        aws_instance-node-instance_type: t2.medium
+        PLATFORM: centos6
+  - task: gen_cluster
+    params:
+      <<: *ddboost_ccp_gen_cluster_default_params
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      terraform: ddboost_terraform
+      gpdb_binary: bin_gpdb_43_stable
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    tags: ["ddboost"]
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: install_dependencies
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: gpbackup_ddboost_plugin
+       - name: pgcrypto43
+
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '7-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+
+          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
+          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
+
+          scp -r pgcrypto43/pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg mdw:.
+          ssh -t gpadmin@mdw "source env.sh; gppkg -i pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg"
+          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -f \$GPHOME/share/postgresql/contrib/pgcrypto.sql"
+    on_failure:
+      do:
+      - *slack_alert
+      - *ddboost_debug_sleep
+  - task: boostfs_installation
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: boostfs_installer
+       - name: gpbackup
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/ccp
+          tag: '7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+          export DD_IP={{datadomain_source_host}}
+          export DD_USER={{datadomain_user}}
+          export DD_PASSWORD={{datadomain_password}}
+          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
+          gpbackup/ci/scripts/setup_boostfs.sh
+    on_failure:
+      do:
+      - *ddboost_debug_sleep
+  - task: run_tests
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: gpbackup
+         path: go/src/github.com/greenplum-db/gpbackup
+       - name: ccp_src
+       - name: cluster_env_files
+
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '7-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+
+          cat <<SCRIPT > /tmp/run_tests.bash
+          set -ex
+          source env.sh
+
+          pushd gpbackup_ddboost_plugin
+          make test
+          make build
+          make install
+
+          # important: whitespace of yaml below is critical, do not change it
+          cat << CONFIG > \$HOME/ddboost_config_replication.yaml
+          executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+          options:
+            hostname: {{datadomain_source_host}}
+            username: {{datadomain_user}}
+            storage_unit: GPDB
+            directory: gpbackup_tests
+            replication: on
+            pgport: 5432
+            remote_hostname: {{datadomain_dest_host}}
+            remote_username: {{datadomain_user}}
+            remote_storage_unit: GPDB
+            remote_directory: gpbackup_tests
+            password: {{encrypted_datadomain_password}}
+            password_encryption: "on"
+            remote_password: {{encrypted_datadomain_password}}
+            remote_password_encryption: "on"
+            gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764
+          CONFIG
+
+          # important: whitespace of yaml below is critical, do not change it
+          cat << CONFIG > \$HOME/ddboost_config_replication_restore.yaml
+          executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+          options:
+            hostname: {{datadomain_dest_host}}
+            username: {{datadomain_user}}
+            password: {{datadomain_password}}
+            storage_unit: GPDB
+            directory: gpbackup_tests
+            pgport: 5432
+          CONFIG
+
+          pushd \$GOPATH/src/github.com/greenplum-db/gpbackup/plugins
+
+          ./plugin_test_bench.sh \$GPHOME/bin/gpbackup_ddboost_plugin \$HOME/ddboost_config_replication.yaml \$HOME/ddboost_config_replication_restore.yaml
+
+          # exercise boostfs, which is mounted at /data/gpdata/dd_dir
+          pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
+          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end
+          SCRIPT
+
+          chmod +x /tmp/run_tests.bash
+          scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
+          ssh -t mdw "bash /home/gpadmin/run_tests.bash"
+    on_failure:
+      do:
+      - *slack_alert
+      - *ddboost_debug_sleep
+  ensure:
+      <<: *ddboost_ccp_destroy
+
+- name: ddboost_plugin_and_boostfs_tests_5x
   plan:
   - aggregate:
     - get: gpbackup_ddboost_plugin
@@ -540,7 +746,6 @@ jobs:
           scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
 
           ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
-          # TODO: this needs different logic for different version of GPDB
           ssh -t gpadmin@mdw "source env.sh; psql -d postgres -f \$GPHOME/share/postgresql/contrib/pgcrypto.sql"
     on_failure:
       do:
@@ -1119,7 +1324,8 @@ jobs:
         - master
         - backward-compatibility
         - s3_plugin_tests
-        - ddboost_plugin_and_boostfs_tests
+        - ddboost_plugin_and_boostfs_tests_43
+        - ddboost_plugin_and_boostfs_tests_5x
     - get: gpdb6_src
     - get: bin_gpdb_6x_stable_centos6
     - get: gpbackup-dependencies
