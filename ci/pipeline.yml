@@ -370,17 +370,12 @@ resources:
       bucket: gpdb5-pipeline-dynamic-terraform
       bucket_path: clusters-aws/
 
-- name: pivnet-gpbackup
-  type: pivnet
+- name: pivnet_client
+  type: git
   source:
-    api_token: ((pivnet_api_token))
-    product_slug: ((pivnet_product_slug))
-    endpoint: ((pivnet_endpoint))
-    bucket: ((pivnet_bucket_name))
-    access_key_id: ((pivnet_bucket_access_key_id))
-    secret_access_key: ((pivnet_bucket_secret_access_key))
-    region: ((pivnet_aws_region))
-    sort_by: semver
+    branch: {{pivnet_client-branch}}
+    private_key: {{pivnet_client-remote-deploy-key}}
+    uri: {{pivnet_client-git-remote}}
 
 - name: gpbackup-release-license
   type: gcs
@@ -1637,6 +1632,7 @@ jobs:
         # passed: [gppkgs_smoketest]
       - get: gpbackup-release-license
       - get: pivnet_release_cache
+      - get: pivnet_client
     - task: update metadata.yml
       config:
         platform: linux
@@ -1656,13 +1652,14 @@ jobs:
           args:
             - -exc
             - |
+
               mkdir workspace/files-to-upload
               cp gpbackup/ci/pivnet_release/metadata.yml workspace/
               tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
               GPBACKUP_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
 
               pushd pivnet_release_cache
-                PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}-*"
+                PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}*"
                 if [ -f $PRV_TILE_RELEASE_VERSION ]; then
                   # increment the counter if the expected release version has been used before
                   COUNT=$(echo $PRV_TILE_RELEASE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
@@ -1702,18 +1699,42 @@ jobs:
               done
               popd
 
+              echo ${TILE_RELEASE_VERSION} > workspace/tile_release_version
               rm workspace/files-to-upload/*_version
               ls -l workspace/files-to-upload
+
+    - task: push-to-pivnet
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ruby
+            tag: '2.5'
+        inputs:
+          - name: pivnet_client
+          - name: workspace
+        params:
+          PIVNET_ENDPOINT: ((pivnet_endpoint))
+          PIVNET_REFRESH_TOKEN: ((pivnet_api_token))
+          PIVNET_PRODUCT_SLUG: ((pivnet_product_slug))
+          PIVNET_S3_FILEPATH_PREFIX: product-files/((pivnet_product_slug))
+        run:
+          path: bash
+          args:
+            - -exc
+            - |
+              TILE_RELEASE_VERSION=$(cat workspace/tile_release_version)
+
+              # upload to pivnet using the pivnet client
+              pushd pivnet_client/
+                bundle install
+                bundle exec pivnet_client upload --verbose --metadata ../workspace/metadata.yml --search_path ../ --gpdb_version ${TILE_RELEASE_VERSION}
+              popd
 
     - put: pivnet_release_cache
       params:
         file: workspace/v-*
-
-    - put: pivnet-gpbackup
-      params:
-        metadata_file: workspace/metadata.yml
-        file_glob: workspace/files-to-upload/*
-        s3_filepath_prefix: ((pivnet_s3_filepath_prefix))
 
 ccp_default_params_anchor: &ccp_default_params
   action: create
