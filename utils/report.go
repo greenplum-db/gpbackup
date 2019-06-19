@@ -32,6 +32,11 @@ type Report struct {
 	backup_history.BackupConfig
 }
 
+type LineInfo struct {
+	Key   string
+	Value string
+}
+
 func ParseErrorMessage(errStr string) string {
 	if errStr == "" {
 		return ""
@@ -85,12 +90,12 @@ func (report *Report) ConstructBackupParamsString() {
 	if report.WithStatistics {
 		statsStr = "Yes"
 	}
-	backupParamsTemplate := `Compression: %s
-Plugin Executable: %s
-Backup Section: %s
-Object Filtering: %s
-Includes Statistics: %s
-Data File Format: %s
+	backupParamsTemplate := `compression: %s
+plugin executable: %s
+backup section: %s
+object filtering: %s
+includes statistics: %s
+data file format: %s
 %s`
 	report.BackupParamsString = fmt.Sprintf(backupParamsTemplate, compressStr, pluginStr, sectionStr, filterStr,
 		statsStr, filesStr, report.constructIncrementalSection())
@@ -98,14 +103,14 @@ Data File Format: %s
 
 func (report *Report) constructIncrementalSection() string {
 	if !report.Incremental {
-		return "Incremental: False"
+		return "incremental: False"
 	}
 	backupTimestamps := make([]string, 0)
 	for _, restorePlanEntry := range report.RestorePlan {
 		backupTimestamps = append(backupTimestamps, restorePlanEntry.Timestamp)
 	}
-	return fmt.Sprintf(`Incremental: True
-Incremental Backup Set:
+	return fmt.Sprintf(`incremental: True
+incremental backup set:
 %s`, strings.Join(backupTimestamps, "\n"))
 }
 
@@ -115,43 +120,55 @@ func (report *Report) WriteBackupReportFile(reportFilename string, timestamp str
 		gplog.Error("Unable to open backup report file %s", reportFilename)
 		return
 	}
-	reportFileTemplate := `Greenplum Database Backup Report
-
-Timestamp Key: %s
-GPDB Version: %s
-gpbackup Version: %s
-
-Database Name: %s
-Command Line: %s
-%s
-
-Start Time: %s
-End Time: %s
-Duration: %s
-
-Backup Status: %s
-%s`
 
 	gpbackupCommandLine := strings.Join(os.Args, " ")
 	start, end, duration := GetDurationInfo(timestamp, operating.System.Now())
-	backupStatus := "Success"
+
+	reportInfo := make([]LineInfo, 0)
+	reportInfo = append(reportInfo,
+		LineInfo{Key: "timestamp key:", Value: timestamp},
+		LineInfo{Key: "gpdb version:", Value: report.DatabaseVersion},
+		LineInfo{Key: "gpbackup version:", Value: fmt.Sprintf("%s\n", report.BackupVersion)},
+		LineInfo{Key: "database name:", Value: report.DatabaseName},
+		LineInfo{Key: "command line:", Value: gpbackupCommandLine},
+	)
+
+	err = AppendBackupParams(&reportInfo, report.BackupParamsString)
+
+	reportInfo = append(reportInfo,
+		LineInfo{},
+		LineInfo{Key: "start time:", Value: start},
+		LineInfo{Key: "end time:", Value: end},
+		LineInfo{Key: "duration:", Value: duration})
+
 	if errMsg != "" {
-		backupStatus = fmt.Sprintf("Failure\nBackup Error: %s", errMsg)
+		reportInfo = append(reportInfo,
+			LineInfo{},
+			LineInfo{Key: "backup status:", Value: "Failure"},
+			LineInfo{Key: "backup error:", Value: fmt.Sprintf("%s", errMsg)})
+	} else {
+		reportInfo = append(reportInfo,
+			LineInfo{},
+			LineInfo{Key: "backup status:", Value: fmt.Sprintf("%s", "Success")})
 	}
-	dbSizeStr := ""
 	if report.DatabaseSize != "" {
-		dbSizeStr = fmt.Sprintf("\nDatabase Size: %s", report.DatabaseSize)
+		reportInfo = append(reportInfo,
+			LineInfo{},
+			LineInfo{Key: "database size:", Value: strings.ToUpper(report.DatabaseSize)})
 	}
 
-	_, err = fmt.Fprintf(reportFile, reportFileTemplate,
-		timestamp, report.DatabaseVersion, report.BackupVersion,
-		report.DatabaseName, gpbackupCommandLine, report.BackupParamsString,
-		start, end, duration,
-		backupStatus, dbSizeStr)
+	_, err = fmt.Fprint(reportFile, "Greenplum Database Backup Report\n\n")
+	if err != nil {
+		gplog.Error("Unable to open backup report file %s", reportFilename)
+		return
+	}
+
 	if err != nil {
 		gplog.Error("Unable to write backup report file %s", reportFilename)
 		return
 	}
+
+	logOutputReport(reportFile, reportInfo)
 
 	PrintObjectCounts(reportFile, objectCounts)
 	_ = operating.System.Chmod(reportFilename, 0444)
@@ -163,41 +180,63 @@ func WriteRestoreReportFile(reportFilename string, backupTimestamp string, start
 		gplog.Error("Unable to open restore report file %s", reportFilename)
 		return
 	}
-	reportFileTemplate := `Greenplum Database Restore Report
-
-Timestamp Key: %s
-GPDB Version: %s
-gprestore Version: %s
-
-Database Name: %s
-Command Line: %s
-
-Start Time: %s
-End Time: %s
-Duration: %s
-
-Restore Status: %s`
 
 	gprestoreCommandLine := strings.Join(os.Args, " ")
 	start, end, duration := GetDurationInfo(startTimestamp, operating.System.Now())
-	restoreStatus := "Success"
+
+	MustPrintf(reportFile, "Greenplum Database Restore Report\n\n")
+
+	reportInfo := make([]LineInfo, 0)
+	reportInfo = append(reportInfo,
+		LineInfo{Key: "timestamp key:", Value: backupTimestamp},
+		LineInfo{Key: "gpdb version:", Value: connectionPool.Version.VersionString},
+		LineInfo{Key: "gprestore version:", Value: fmt.Sprintf("%s\n", restoreVersion)},
+		LineInfo{Key: "database name:", Value: connectionPool.DBName},
+		LineInfo{Key: "command line:", Value: fmt.Sprintf("%s\n", gprestoreCommandLine)},
+		LineInfo{Key: "start time:", Value: start},
+		LineInfo{Key: "end time:", Value: end},
+		LineInfo{Key: "duration:", Value: fmt.Sprintf("%s", duration)},
+	)
+
+	var restoreStatus string
 	errorCode := gplog.GetErrorCode()
 	if errorCode == 1 {
 		restoreStatus = fmt.Sprintf("Success but non-fatal errors occurred. See log file %s for details.", gplog.GetLogFilePath())
+		reportInfo = append(reportInfo,
+			LineInfo{},
+			LineInfo{Key: "restore status:", Value: restoreStatus})
 	} else if errMsg != "" {
-		restoreStatus = fmt.Sprintf("Failure\nRestore Error: %s", errMsg)
+		reportInfo = append(reportInfo,
+			LineInfo{},
+			LineInfo{Key: "restore status:", Value: "Failure"},
+			LineInfo{Key: "restore error:", Value: errMsg})
+	} else {
+		reportInfo = append(reportInfo,
+			LineInfo{},
+			LineInfo{Key: "restore status:", Value: "Success"})
 	}
 
-	_, err = fmt.Fprintf(reportFile, reportFileTemplate,
-		backupTimestamp, connectionPool.Version.VersionString, restoreVersion,
-		connectionPool.DBName, gprestoreCommandLine,
-		start, end, duration, restoreStatus)
-	if err != nil {
-		gplog.Error("Unable to write restore report file %s", reportFilename)
-		return
-	}
+	logOutputReport(reportFile, reportInfo)
 
 	_ = operating.System.Chmod(reportFilename, 0444)
+}
+
+func logOutputReport(reportFile io.WriteCloser, reportInfo []LineInfo) {
+	maxSize := 0
+	for _, lineInfo := range reportInfo {
+		k := lineInfo.Key
+		if len(k) > maxSize {
+			maxSize = len(k)
+		}
+	}
+
+	for _, lineInfo := range reportInfo {
+		if lineInfo.Key == "" {
+			MustPrintf(reportFile, fmt.Sprintf("\n"))
+		} else {
+			MustPrintf(reportFile, fmt.Sprintf("%-*s%s\n", maxSize+3, lineInfo.Key, lineInfo.Value))
+		}
+	}
 }
 
 func GetDurationInfo(timestamp string, endTime time.Time) (string, string, string) {
@@ -219,15 +258,22 @@ func reformatDuration(duration time.Duration) string {
 }
 
 func PrintObjectCounts(reportFile io.WriteCloser, objectCounts map[string]int) {
-	objectStr := "\nCount of Database Objects in Backup:\n"
+	objectStr := "\ncount of database objects in backup:\n"
 	objectSlice := make([]string, 0)
+	maxSize := 0
 	for k := range objectCounts {
 		objectSlice = append(objectSlice, k)
+		if len(k) > maxSize {
+			maxSize = len(k)
+		}
 	}
 	sort.Strings(objectSlice)
 	for _, object := range objectSlice {
-		objectStr += fmt.Sprintf("%-29s%d\n", object, objectCounts[object])
-
+		if object == "Database GUC's" {
+			objectStr += fmt.Sprintf("%-*s%d\n", maxSize+3, "database GUC's", objectCounts[object])
+		} else {
+			objectStr += fmt.Sprintf("%-*s%d\n", maxSize+3, strings.ToLower(object), objectCounts[object])
+		}
 	}
 	MustPrintf(reportFile, objectStr)
 }
@@ -345,4 +391,20 @@ func EmailReport(c *cluster.Cluster, timestamp string, reportFilePath string, ut
 	if sendErr != nil {
 		gplog.Warn("Unable to send email report: %s", output)
 	}
+}
+
+func AppendBackupParams(infoArr *[]LineInfo, paramsStr string) error {
+	paramsStr = strings.Trim(paramsStr, "\n")
+	params := strings.Split(paramsStr, "\n")
+	for _, param := range params {
+		tup := strings.Split(param, ":")
+		k := strings.TrimSpace(tup[0])
+		v := strings.TrimSpace(tup[1])
+		if k == "" || v == "" {
+			return errors.New("Missing key or value in report params")
+		}
+		*infoArr = append(*infoArr, LineInfo{Key: k + ":", Value: v})
+	}
+
+	return nil
 }
