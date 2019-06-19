@@ -88,8 +88,8 @@ Object Filtering: None
 Includes Statistics: No
 Data File Format: Single Data File Per Segment
 
-Start Time: 2017-01-01 01:01:01
-End Time: 2017-01-01 05:04:03
+Start Time: Sun Jan 01 2017 01:01:01
+End Time: Sun Jan 01 2017 05:04:03
 Duration: 4:03:02
 
 Backup Status: Success
@@ -116,8 +116,8 @@ Object Filtering: None
 Includes Statistics: No
 Data File Format: Single Data File Per Segment
 
-Start Time: 2017-01-01 01:01:01
-End Time: 2017-01-01 05:04:03
+Start Time: Sun Jan 01 2017 01:01:01
+End Time: Sun Jan 01 2017 05:04:03
 Duration: 4:03:02
 
 Backup Status: Failure
@@ -146,8 +146,8 @@ Object Filtering: None
 Includes Statistics: No
 Data File Format: Single Data File Per Segment
 
-Start Time: 2017-01-01 01:01:01
-End Time: 2017-01-01 05:04:03
+Start Time: Sun Jan 01 2017 01:01:01
+End Time: Sun Jan 01 2017 05:04:03
 Duration: 4:03:02
 
 Backup Status: Success
@@ -196,8 +196,8 @@ gprestore Version: 0\.1\.0
 Database Name: testdb
 Command Line: .*
 
-Start Time: 2017-01-01 01:01:02
-End Time: 2017-01-01 05:04:03
+Start Time: Sun Jan 01 2017 01:01:02
+End Time: Sun Jan 01 2017 05:04:03
 Duration: 4:03:01
 
 Restore Status: Failure
@@ -215,8 +215,8 @@ gprestore Version: 0\.1\.0
 Database Name: testdb
 Command Line: .*
 
-Start Time: 2017-01-01 01:01:02
-End Time: 2017-01-01 05:04:03
+Start Time: Sun Jan 01 2017 01:01:02
+End Time: Sun Jan 01 2017 05:04:03
 Duration: 4:03:01
 
 Restore Status: Success`))
@@ -233,8 +233,8 @@ gprestore Version: 0\.1\.0
 Database Name: testdb
 Command Line: .*
 
-Start Time: 2017-01-01 01:01:02
-End Time: 2017-01-01 05:04:03
+Start Time: Sun Jan 01 2017 01:01:02
+End Time: Sun Jan 01 2017 05:04:03
 Duration: 4:03:01
 
 Restore Status: Success but non-fatal errors occurred. See log file .+ for details.`))
@@ -283,29 +283,29 @@ Restore Status: Success but non-fatal errors occurred. See log file .+ for detai
 		It("prints times and duration for a sub-minute backup", func() {
 			endTime := time.Date(2017, 1, 1, 1, 1, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
-			Expect(start).To(Equal("2017-01-01 01:01:01"))
-			Expect(end).To(Equal("2017-01-01 01:01:03"))
+			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
+			Expect(end).To(Equal("Sun Jan 01 2017 01:01:03"))
 			Expect(duration).To(Equal("0:00:02"))
 		})
 		It("prints times and duration for a sub-hour backup", func() {
 			endTime := time.Date(2017, 1, 1, 1, 4, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
-			Expect(start).To(Equal("2017-01-01 01:01:01"))
-			Expect(end).To(Equal("2017-01-01 01:04:03"))
+			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
+			Expect(end).To(Equal("Sun Jan 01 2017 01:04:03"))
 			Expect(duration).To(Equal("0:03:02"))
 		})
 		It("prints times and duration for a multiple-hour backup", func() {
 			endTime := time.Date(2017, 1, 1, 5, 4, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
-			Expect(start).To(Equal("2017-01-01 01:01:01"))
-			Expect(end).To(Equal("2017-01-01 05:04:03"))
+			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
+			Expect(end).To(Equal("Sun Jan 01 2017 05:04:03"))
 			Expect(duration).To(Equal("4:03:02"))
 		})
 		It("prints times and duration for a backup going past midnight", func() {
 			endTime := time.Date(2017, 1, 2, 1, 4, 3, 2, operating.System.Local)
 			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
-			Expect(start).To(Equal("2017-01-01 01:01:01"))
-			Expect(end).To(Equal("2017-01-02 01:04:03"))
+			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
+			Expect(end).To(Equal("Mon Jan 02 2017 01:04:03"))
 			Expect(duration).To(Equal("24:03:02"))
 		})
 		It("prints times and duration for a backup during the spring time change", func() {
@@ -313,8 +313,8 @@ Restore Status: Success but non-fatal errors occurred. See log file .+ for detai
 			dst := "20170312010000"
 			endTime := time.Date(2017, 3, 12, 3, 0, 0, 0, operating.System.Local)
 			start, end, duration := utils.GetDurationInfo(dst, endTime)
-			Expect(start).To(Equal("2017-03-12 01:00:00"))
-			Expect(end).To(Equal("2017-03-12 03:00:00"))
+			Expect(start).To(Equal("Sun Mar 12 2017 01:00:00"))
+			Expect(end).To(Equal("Sun Mar 12 2017 03:00:00"))
 			Expect(duration).To(Equal("1:00:00"))
 		})
 		It("prints times and duration for a backup during the fall time change", func() {
@@ -322,8 +322,8 @@ Restore Status: Success but non-fatal errors occurred. See log file .+ for detai
 			dst := "20171105010000"
 			endTime := time.Date(2017, 11, 5, 3, 0, 0, 0, operating.System.Local)
 			start, end, duration := utils.GetDurationInfo(dst, endTime)
-			Expect(start).To(Equal("2017-11-05 01:00:00"))
-			Expect(end).To(Equal("2017-11-05 03:00:00"))
+			Expect(start).To(Equal("Sun Nov 05 2017 01:00:00"))
+			Expect(end).To(Equal("Sun Nov 05 2017 03:00:00"))
 			Expect(duration).To(Equal("3:00:00"))
 		})
 	})
