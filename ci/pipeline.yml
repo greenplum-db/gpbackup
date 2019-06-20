@@ -535,25 +535,6 @@ jobs:
             cp ../go_components/gpbackup_s3_plugin bin/
             cp ../go_components/gpbackup_manager bin/
             cp ../ddboost_components/gpbackup_ddboost_plugin bin/
-            # # Create test script
-            # cp ../gpbackup_version .
-            # cp ../gpbackup_version version
-            # cp ../s3_plugin_version .
-            # cp $GOPATH/src/github.com/greenplum-db/gpbackup/ci/scripts/smoke_test_component_gpbackup.sh smoke_test_gpdb_component
-            # # Assemble binaries
-            # mkdir -p bin
-            # cp $GOPATH/bin/gpbackup bin/
-            # cp $GOPATH/bin/gpbackup_helper bin/
-            # cp $GOPATH/bin/gprestore bin/
-            # cp $GOPATH/bin/gpbackup_s3_plugin bin/
-            # cp $GOPATH/bin/gpbackup_manager bin/
-
-            # need to end up with a folder bin with everything
-
-            # Test package
-            export PATH=$PATH:`pwd`/bin
-            # TODO reenable this
-            # ./smoke_test_gpdb_component
 
             tar -czvf bin_gpbackup.tar.gz bin/
 
@@ -606,7 +587,6 @@ jobs:
     - get: gpbackup-dependencies
       passed:
        - build_dependencies
-    # not used; it serves only as a trigger
     - get: gppkgs
       passed:
        - build_binaries
@@ -1199,7 +1179,6 @@ jobs:
     - get: nightly-trigger
       trigger: true
     - get: dummy_seclabel_linux_master
-    # not used; it serves only as a trigger
     - get: gppkgs
       passed:
        - build_binaries
