@@ -24,6 +24,7 @@ run:
 
     export GOPATH=$PWD/go
     export PATH=$GOPATH/bin:$PATH
+    mkdir -p $GOPATH/bin
 
     tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com/greenplum-db/gpbackup/
 
