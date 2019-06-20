@@ -719,6 +719,11 @@ jobs:
       passed:
        - build_dependencies
     - get: pgcrypto43
+    - get: gppkgs
+      tags: ["ddboost"]
+      passed:
+        - build_binaries
+      trigger: true
   - put: ddboost_terraform
     tags: ["ddboost"]
     params:
@@ -1602,7 +1607,8 @@ jobs:
 - name: push-to-github
   plan:
   - get: github_release_components
-    passed: [gppkgs_smoketest]
+    passed:
+      - gppkgs_smoketest
 
   - task: prepare-for-release
     config:
@@ -1637,9 +1643,20 @@ jobs:
   plan:
     - aggregate:
       - get: gppkgs
-        # passed: [gppkgs_smoketest]
+        passed:
+          - build_binaries
+          - GPDB4.3
+          - GPDB5
+          - GPDB5-oracle7
+          - GPDB5-sles11
+          - GPDB6
+          - master
+          - s3_plugin_tests
+          - backward-compatibility
+          - ddboost_plugin_and_boostfs_tests_43
+          - ddboost_plugin_and_boostfs_tests_5x
+          - gppkgs_smoketest
       - get: gpbackup
-        # passed: [gppkgs_smoketest]
       - get: gpbackup-release-license
       - get: pivnet_release_cache
       - get: pivnet_client
