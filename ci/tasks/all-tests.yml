@@ -42,7 +42,7 @@ run:
 
       make unit
       make integration
-      make end_to_end
+      make end_to_end_without_install
     SCRIPT
 
     out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`

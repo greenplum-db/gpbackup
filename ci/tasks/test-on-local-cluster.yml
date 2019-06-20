@@ -86,7 +86,7 @@ run:
       make depend
       make unit
       make integration
-      make end_to_end
+      make end_to_end_without_install
     popd
     SCRIPT
 
