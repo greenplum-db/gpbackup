@@ -1,0 +1,2037 @@
+---
+groups:
+- name: All
+  jobs:
+  - build_binaries
+  - GPDB4.3
+  - GPDB5
+  - GPDB5-oracle7
+  - GPDB5-sles11
+  - GPDB6
+  - s3_plugin_tests
+  - backward-compatibility
+  - ddboost_plugin_and_boostfs_tests_43
+  - ddboost_plugin_and_boostfs_tests_5x
+  - build_dependencies
+{% if "gpbackup-release" == pipeline_name %}
+  - push-to-github
+  - green_gate
+  - push-to-pivnet-gpbackup
+{% endif %}
+{% if "gpbackup" == pipeline_name %}
+  - master
+  - final_gate
+{% endif %}
+- name: GPDB4.3
+  jobs:
+  - GPDB4.3
+  - ddboost_plugin_and_boostfs_tests_43
+- name: GPDB5
+  jobs:
+  - GPDB5
+  - GPDB5-oracle7
+  - GPDB5-sles11
+  - s3_plugin_tests
+  - ddboost_plugin_and_boostfs_tests_5x
+  - backward-compatibility
+- name: GPDB6
+  jobs:
+  - GPDB6
+{% if "gpbackup" == pipeline_name %}
+- name: Master
+  jobs:
+  - master
+{% endif %}
+- name: Scale
+  jobs:
+  - scale-43
+  - scale-5x
+  - scale-6x
+{% if "gpbackup" == pipeline_name %}
+  - scale-master
+{% endif %}
+{% if "gpbackup-release" == pipeline_name %}
+- name: Packaging and Release
+  jobs:
+  - build_binaries
+  - push-to-github
+  - green_gate
+  - push-to-pivnet-gpbackup
+{% endif %}
+
+resource_types:
+- name: terraform
+  type: docker-image
+  source:
+    repository: ljfranklin/terraform-resource
+    # We fixed this version after v0.12.1 had a breaking change
+    tag: 0.11.14
+
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+- name: gcs
+  type: docker-image
+  source:
+    repository: frodenas/gcs-resource
+
+- name: pivnet
+  type: docker-image
+  source:
+    repository: pivotalcf/pivnet-resource
+    tag: latest-final
+
+
+resources:
+##### Docker Images #####
+- name: centos7-image
+  type: docker-image
+  source:
+    repository: pivotaldata/centos-gpdb-dev
+    tag: '7-gcc6.2-llvm3.7'
+
+- name: centos6-image
+  type: docker-image
+  source:
+    repository: pivotaldata/centos-gpdb-dev
+    tag: '6-gcc6.2-llvm3.7'
+
+##### Other Resources #####
+{% if (nightly_trigger and "gpbackup" == pipeline_name) %}
+- name: nightly-trigger
+  type: time
+  source:
+    location: America/Los_Angeles
+    days: [Sunday, Monday, Tuesday, Wednesday, Thursday, Friday]
+    start: 6:00 AM
+    stop: 7:00 AM
+{% endif %}
+
+# TODO mark these as src with name change
+- name: gpbackup
+  type: git
+  source:
+    uri: https://github.com/greenplum-db/gpbackup
+    branch: {{gpbackup-git-branch}}
+{% if "gpbackup-release" == pipeline_name %}
+    tag_filter: 1.*
+{% endif %}
+
+- name: gpbackup_s3_plugin
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/greenplum-db/gpbackup-s3-plugin
+{% if "gpbackup-release" == pipeline_name %}
+    tag_filter: 1.*
+{% endif %}
+
+- name: gpbackup_ddboost_plugin
+  type: git
+  source:
+    branch: master
+    private_key: {{gpbackup-ddboost-plugin-remote-key}}
+    uri: {{gpbackup-ddboost-plugin-git-remote}}
+{% if "gpbackup-release" == pipeline_name %}
+    tag_filter: 1.*
+{% endif %}
+
+- name: gpbackup_manager_src
+  type: git
+  source:
+    branch: master
+    private_key: {{gp-backup-manager-remote-deploy-key}}
+    uri: {{gp-backup-manager-git-remote}}
+{% if "gpbackup-release" == pipeline_name %}
+    tag_filter: 1.*
+{% endif %}
+
+# NOTE: This tag filter must always be enabled in order to properly compile ddboost
+- name: gpbackup_ddboost_plugin_tagged_src
+  type: git
+  source:
+    branch: master
+    private_key: {{gpbackup-ddboost-plugin-remote-key}}
+    uri: {{gpbackup-ddboost-plugin-git-remote}}
+    tag_filter: 1.*
+
+- name: gpdb5_src
+  type: git
+  source:
+    uri: https://github.com/greenplum-db/gpdb
+    branch: 5X_STABLE
+{% if "gpbackup-release" == pipeline_name %}
+    tag_filter: 5.*
+{% endif %}
+
+- name: gpdb6_src
+  type: git
+  source:
+    uri: https://github.com/greenplum-db/gpdb
+    branch: 6X_STABLE
+{% if "gpbackup-release" == pipeline_name %}
+    tag_filter: 6.*
+{% endif %}
+
+{% if "gpbackup" == pipeline_name %}
+- name: gpdb_master_src
+  type: git
+  source:
+    uri: https://github.com/greenplum-db/gpdb
+    branch: master
+
+- name: bin_gpdb_master_centos6
+  type: gcs
+  source:
+      bucket: ((gcs-bucket))
+      json_key: ((concourse-gcs-resources-service-account-key))
+      regexp: server/published/master/server-rc-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
+
+- name: bin_gpdb_master_centos7
+  type: gcs
+  source:
+      bucket: ((gcs-bucket))
+      json_key: ((concourse-gcs-resources-service-account-key))
+      regexp: server/published/master/server-rc-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
+{% endif %}
+
+- name: gpbackup-dependencies
+  type: s3
+  source:
+      bucket: gpbackup-dependencies
+      versioned_file: gpbackup-dependencies/dependencies.tar.gz
+      region_name: us-west-2
+      access_key_id: {{bucket-access-key-id}}
+      secret_access_key: {{bucket-secret-access-key}}
+
+- name: pgcrypto43
+  type: s3
+  source:
+      bucket: pgcrypto43
+      access_key_id: {{bucket-access-key-id}}
+      region_name: {{aws-region}}
+      secret_access_key: {{bucket-secret-access-key}}
+      regexp: pgcrypto-ossv1.1_pv(.*)_gpdb4.3orca-rhel5-x86_64.gppkg
+
+- name: dummy_seclabel_linux_gpdb6
+  type: gcs
+  source:
+    bucket: dummy_seclabel_gpdb_linux
+    json_key: ((gcp_svc_acct_key))
+    regexp: dummy_seclabel_gpdb6-v(.*).so
+
+{% if "gpbackup" == pipeline_name %}
+- name: dummy_seclabel_linux_master
+  type: gcs
+  source:
+    bucket: dummy_seclabel_gpdb_linux
+    json_key: ((gcp_svc_acct_key))
+    regexp: dummy_seclabel_gpdb7-v(.*).so
+{% endif %}
+
+- name: bin_gpdb_5x_stable_centos6
+  type: s3
+  source:
+      bucket: gpdb-stable-concourse-builds
+      versioned_file: release_candidates/bin_gpdb_centos6/gpdb5/bin_gpdb.tar.gz
+      region_name: us-west-2
+      access_key_id: {{bucket-access-key-id}}
+      secret_access_key: {{bucket-secret-access-key}}
+
+- name: bin_gpdb_5x_stable_centos7
+  type: s3
+  source:
+      bucket: gpdb-stable-concourse-builds
+      versioned_file: release_candidates/bin_gpdb_centos7/gpdb5/bin_gpdb.tar.gz
+      region_name: us-west-2
+      access_key_id: {{bucket-access-key-id}}
+      secret_access_key: {{bucket-secret-access-key}}
+
+- name: bin_gpdb_6x_stable_centos6
+  type: gcs
+  source:
+      bucket: ((gcs-bucket))
+      json_key: ((concourse-gcs-resources-service-account-key))
+      regexp: server/published/gpdb6/server-rc-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
+
+- name: bin_gpdb_6x_stable_centos7
+  type: gcs
+  source:
+      bucket: ((gcs-bucket))
+      json_key: ((concourse-gcs-resources-service-account-key))
+      regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
+
+- name: bin_gpdb_43_stable
+  type: s3
+  source:
+      bucket: gpdb-4.3-stable-concourse
+      versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
+      region_name: us-west-2
+      access_key_id: {{gpdb4-bucket-access-key-id}}
+      secret_access_key: {{gpdb4-bucket-secret-access-key}}
+
+- name: ccp_src
+  type: git
+  source:
+    branch: {{ccp-git-branch}}
+    private_key: {{ccp-git-key}}
+    uri: {{ccp-git-remote}}
+
+- name: terraform
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      GOOGLE_CREDENTIALS: {{google-service-account-key}}
+    vars:
+      project_id: {{google-project-id}}
+    storage:
+      access_key_id: {{tf-machine-access-key-id}}
+      secret_access_key: {{tf-machine-secret-access-key}}
+      region_name: {{aws-region}}
+      bucket: {{tf-bucket-name}}
+      bucket_path: clusters-google/
+
+- name: ddboost_terraform
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+    storage:
+      access_key_id: {{tf-machine-access-key-id}}
+      secret_access_key: {{tf-machine-secret-access-key}}
+      region_name: {{aws-region}}
+      bucket: {{tf-bucket-name}}
+      bucket_path: clusters-aws/
+
+- name: scale_schema
+  type: s3
+  source:
+    access_key_id: {{gpdb4-bucket-access-key-id}}
+    bucket: {{dpm_bucket}}
+    region_name: {{aws-region}}
+    secret_access_key: {{gpdb4-bucket-secret-access-key}}
+    versioned_file: scale-schemas/scale_db1.tgz
+
+- name: boostfs_installer
+  type: s3
+  source:
+    access_key_id: {{gpdb4-bucket-access-key-id}}
+    bucket: {{dpm_bucket}}
+    region_name: {{aws-region}}
+    secret_access_key: {{gpdb4-bucket-secret-access-key}}
+    versioned_file: DDBoostFS-1.1.0.1-565598.rhel.x86_64.rpm
+
+- name: slack-alert
+  type: slack-notification
+  source:
+    url: {{dpm_webhook_url}}
+    disable: ((dpm_disable_slack_alert))
+
+{% if "gpbackup-release" == pipeline_name %}
+- name: github_release_components
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{gpdb-stable-bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    regexp: components/gpbackup/intermediates/gpbackup-(.*).tar.gz
+
+- name: github_release_components_rc
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{gpdb-stable-bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    regexp: components/gpbackup/gpbackup-(.*).tar.gz
+
+- name: pivnet_release_cache
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: gpbackup-pivotal-network-staging
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    regexp: pivnet_release_version/v-(.*)
+{% endif %}
+
+- name: gppkgs
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{gpdb-stable-bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: gppkgs/gpbackup-gppkgs.tar.gz
+
+{% if "gpbackup-release" == pipeline_name %}
+- name: gpbackup_github_release
+  type: github-release
+  source:
+    owner: greenplum-db
+    repository: gpbackup
+    access_token: {{gpbackup-git-access-token}}
+    release: ((dpm-enable-release))
+{% endif %}
+
+- name: terraform_aws
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+      GOOGLE_CREDENTIALS: {{google-service-account-key}}
+    vars:
+      project_id: {{google-project-id}}
+    storage:
+      access_key_id: {{tf-machine-access-key-id}}
+      secret_access_key: {{tf-machine-secret-access-key}}
+      region_name: {{aws-region}}
+      # This is not parameterized, on purpose. All tfstates will go to this spot,
+      # and different teams will place there clusters' tfstate files under different paths
+      bucket: gpdb5-pipeline-dynamic-terraform
+      bucket_path: clusters-aws/
+{% if "gpbackup-release" == pipeline_name %}
+- name: pivnet_client
+  type: git
+  source:
+    branch: {{pivnet_client-branch}}
+    private_key: {{pivnet_client-remote-deploy-key}}
+    uri: {{pivnet_client-git-remote}}
+
+- name: gpbackup-release-license
+  type: gcs
+  source:
+    bucket: gpbackup-release-licenses
+    json_key: ((gcp_svc_acct_key))
+    regexp: gpbackup-osl-v(.*).txt
+{% endif %}
+
+jobs:
+- name: build_binaries
+  plan:
+  - aggregate:
+    - get: gpbackup
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: gpdb6_src
+    - get: gpbackup-dependencies
+      passed:
+      - build_dependencies
+    - get: bin_gpdb_6x_stable_centos6
+    - get: gpbackup_s3_plugin
+    - get: gpbackup_manager_src
+{% if "gpbackup-release" == pipeline_name %}
+    - get: pivnet_release_cache
+      trigger: true
+{% endif %}
+# TODO this ddboost source ref should NOT be tagged for normal pipeline
+    - get: gpbackup_ddboost_plugin_tagged_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+  - aggregate:
+    - task: build-go-binaries
+      config:
+        platform: linux
+        inputs:
+          - name: gpbackup-dependencies
+          - name: gpbackup
+            path: go/src/github.com/greenplum-db/gpbackup
+          - name: gpbackup_s3_plugin
+            path: go/src/github.com/greenplum-db/gpbackup-s3-plugin
+          - name: gpbackup_manager_src
+            path: go/src/github.com/pivotal/gp-backup-manager
+        outputs:
+          - name: go_components
+        image_resource:
+          type: docker-image
+          source:
+            repository: golang
+            tag: '1.12.5'
+        run:
+          path: bash
+          args:
+          - -c
+          - |
+            set -ex
+            export GOPATH=$(pwd)/go
+            export PATH=$PATH:$GOPATH/bin
+
+            tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com/greenplum-db/gpbackup/
+
+            # Build gpbackup
+            pushd $GOPATH/src/github.com/greenplum-db/gpbackup
+              make depend
+              make unit
+              # NOTE: we are building binaries without a cluster installed, so distributing the backup_helper fails--continue anyway
+              make build || true
+              version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
+            popd
+            echo ${version} > go_components/gpbackup_version
+
+            if [ "gpbackup version ${version}" != "$($GOPATH/bin/gpbackup --version)" ]; then
+              echo "unexpected difference in version recorded for gpbackup: expected ${version} to be same as:"
+              $GOPATH/bin/gpbackup --version
+              exit 1
+            fi
+
+
+            # Build s3 plugin
+            pushd $GOPATH/src/github.com/greenplum-db/gpbackup-s3-plugin
+              make depend
+              make unit
+              make build
+              s3_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
+            popd
+            echo ${s3_plugin_version} > go_components/s3_plugin_version
+
+            if [ "gpbackup_s3_plugin version ${s3_plugin_version}" != "$($GOPATH/bin/gpbackup_s3_plugin --version)" ]; then
+              echo "unexpected difference in version recorded for gpbackup_s3_plugin: expected ${s3_plugin_version} to be same as:"
+              $GOPATH/bin/gpbackup_s3_plugin --version
+              exit 1
+            fi
+
+            # gpbackup-manager
+            pushd $GOPATH/src/github.com/pivotal/gp-backup-manager
+              make depend
+              make unit
+              make build
+              gpbackup_manager_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
+            popd
+            echo ${gpbackup_manager_version} > go_components/gpbackup_manager_version
+
+            # todo: gpbackup_manager puts newline in front of version line; should be fixed in future
+            output=$($GOPATH/bin/gpbackup_manager --version | grep gpbackup)
+            if [ "gpbackup_manager version ${gpbackup_manager_version}" != "$output" ]; then
+              echo "unexpected difference in version recorded for gpbackup_manager: expected 'gpbackup_manager version ${gpbackup_manager_version}' to be same as: '$output'"
+              exit 1
+            fi
+
+            cp $GOPATH/bin/gpbackup go_components/
+            cp $GOPATH/bin/gpbackup_helper go_components/
+            cp $GOPATH/bin/gprestore go_components/
+            cp $GOPATH/bin/gpbackup_s3_plugin go_components/
+            cp $GOPATH/bin/gpbackup_manager go_components/
+    - task: build-ddboost
+      params:
+        IVYREPO_USER: {{ivyrepo_user}}
+        IVYREPO_PASSWD: {{ivyrepo_passwd}}
+        IVYREPO_HOST: {{ivyrepo_host}}
+      config:
+        platform: linux
+        inputs:
+          - name: gpbackup_ddboost_plugin_tagged_src
+        outputs:
+          - name: ddboost_components
+        image_resource:
+          type: docker-image
+          source:
+            repository: pivotaldata/centos-gpdb-dev
+            tag: '6-gcc6.2-llvm3.7'
+        run:
+          path: bash
+          args:
+          - -c
+          - |
+            set -ex
+            pushd gpbackup_ddboost_plugin_tagged_src
+              # TODO: remove these steps once ddboost plugin is revved
+              curl -u${IVYREPO_USER}:${IVYREPO_PASSWD} -O "https://${IVYREPO_HOST}/gpdb-ext-release-local/third-party/ext/gpdb5_ext-3.3/targzs/rhel6_x86_64-gpdb5_ext-3.3.targz"
+              curl -u${IVYREPO_USER}:${IVYREPO_PASSWD} -O "https://${IVYREPO_HOST}/gpdb-ext-release-local/emc/DDBoostSDK/3.3.0.4-550644/targzs/DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz"
+              tar -xf rhel6_x86_64-gpdb5_ext-3.3.targz
+              tar -xf DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz
+              sudo cp rhel6_x86_64/include/yaml.h /usr/local/include/yaml.h
+              sudo cp rhel5_x86_64/include/* /usr/local/include/.
+              sudo cp rhel6_x86_64/lib/libyaml*so* /usr/lib64/.
+              sudo cp rhel5_x86_64/lib/libDDBoost.so /usr/lib64/.
+
+              make build
+              ddboost_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
+            popd
+            echo ${ddboost_plugin_version} > ddboost_components/ddboost_plugin_version
+            cp gpbackup_ddboost_plugin_tagged_src/gpbackup_ddboost_plugin ddboost_components/
+  - task: tar-binaries
+    config:
+      platform: linux
+      inputs:
+        - name: go_components
+        - name: ddboost_components
+      outputs:
+        - name: github_release_components
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '6-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          pushd github_release_components
+            # Create install script
+            printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
+            chmod +x install_gpdb_component
+
+            cp ../go_components/*_version .
+            mv ../go_components/gpbackup_version version
+            cp ../ddboost_components/*_version .
+
+            mkdir -p bin
+            cp ../go_components/gpbackup bin/
+            cp ../go_components/gpbackup_helper bin/
+            cp ../go_components/gprestore bin/
+            cp ../go_components/gpbackup_s3_plugin bin/
+            cp ../go_components/gpbackup_manager bin/
+            cp ../ddboost_components/gpbackup_ddboost_plugin bin/
+
+            tar -czvf bin_gpbackup.tar.gz bin/
+
+            version=`cat version`
+            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version
+          popd
+  - task: build_gppkg
+    file: gpbackup/ci/tasks/build-gppkg.yml
+    input_mapping:
+      gpdb_src: gpdb6_src
+      bin_gpdb: bin_gpdb_6x_stable_centos6
+    on_failure:
+      *slack_alert
+
+  - put: gppkgs
+    params:
+      file: gppkgs/gpbackup-gppkgs.tar.gz
+
+{% if "gpbackup-release" == pipeline_name %}
+  - put: github_release_components
+    params:
+      file: github_release_components/gpbackup-*.tar.gz
+{% endif %}
+
+
+- name: build_dependencies
+  plan:
+  - aggregate:
+    - get: gpbackup
+      trigger: true
+    - get: gpbackup-dependencies
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+  - task: build-dependencies
+    file: gpbackup/ci/tasks/build-dependencies.yml
+    attempts: 5
+  - put: gpbackup-dependencies
+    params:
+        file: output_deps/dependencies.tar.gz
+
+- name: s3_plugin_tests
+  plan:
+  - aggregate:
+    - get: gpbackup_s3_plugin
+      trigger: true
+    - get: gpbackup
+    - get: ccp_src
+    - get: gpdb5_src
+    - get: bin_gpdb_5x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+    - get: gppkgs
+      passed:
+       - build_binaries
+      trigger: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    params:
+      <<: *ccp_gen_cluster_default_params
+    input_mapping:
+      gpdb_binary: bin_gpdb_5x_stable_centos6
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: run_tests
+    config:
+      platform: linux
+      inputs:
+       - name: gpbackup
+         path: go/src/github.com/greenplum-db/gpbackup
+       - name: gpbackup_s3_plugin
+         path: go/src/github.com/greenplum-db/gpbackup-s3-plugin
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: gppkgs
+
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '6-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+          scp -r gppkgs/gpbackup-gppkgs.tar.gz mdw:/home/gpadmin
+
+          cat <<SCRIPT > /tmp/run_tests.bash
+            set -ex
+            source env.sh
+
+            # install s3 plugin binary
+            tar xvzf gpbackup-gppkgs.tar.gz
+            is_installed_output=\$(gppkg -q s3-*gp5-rhel6*.gppkg)
+            set +e
+            echo \$is_installed_output | grep 'is installed'
+            if [ \$? -ne 0 ] ; then
+              set -e
+              gppkg -i s3-*gp5-rhel6*.gppkg
+            fi
+            set -e
+
+            cat << CONFIG > \$HOME/s3_config.yaml
+          executablepath: \$GPHOME/bin/gpbackup_s3_plugin
+          options:
+            region: us-west-2
+            aws_access_key_id: {{bucket-access-key-id}}
+            aws_secret_access_key: {{bucket-secret-access-key}}
+            bucket: {{gpbackup-s3-plugin-test-bucket}}
+            folder: test/backup
+          CONFIG
+
+            pushd ~/go/src/github.com/greenplum-db/gpbackup/plugins
+              ./plugin_test_bench.sh \$GPHOME/bin/gpbackup_s3_plugin \$HOME/s3_config.yaml
+            popd
+          SCRIPT
+
+          chmod +x /tmp/run_tests.bash
+          scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
+          ssh -t mdw "bash /home/gpadmin/run_tests.bash"
+
+  on_success:
+    <<: *ccp_destroy
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+- name: ddboost_plugin_and_boostfs_tests_43
+  plan:
+  - aggregate:
+    - get: gpbackup_ddboost_plugin
+      tags: ["ddboost"]
+      trigger: true
+    - get: gpbackup
+      tags: ["ddboost"]
+      trigger: true
+    - get: ccp_src
+      tags: ["ddboost"]
+    - get: gpdb5_src
+      tags: ["ddboost"]
+    - get: bin_gpdb_43_stable
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+      tags: ["ddboost"]
+    - get: boostfs_installer
+      tags: ["ddboost"]
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      tags: ["ddboost"]
+      passed:
+       - build_dependencies
+    - get: pgcrypto43
+    - get: gppkgs
+      tags: ["ddboost"]
+      passed:
+        - build_binaries
+      trigger: true
+  - put: ddboost_terraform
+    tags: ["ddboost"]
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws/
+      vars:
+        aws_instance-node-instance_type: t2.medium
+        PLATFORM: centos6
+  - task: gen_cluster
+    params:
+      <<: *ddboost_ccp_gen_cluster_default_params
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      terraform: ddboost_terraform
+      gpdb_binary: bin_gpdb_43_stable
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    tags: ["ddboost"]
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: install_dependencies
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: gpbackup_ddboost_plugin
+       - name: pgcrypto43
+
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '7-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+
+          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
+          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
+
+          scp -r pgcrypto43/pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg mdw:.
+          ssh -t gpadmin@mdw "source env.sh; gppkg -i pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg"
+          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -f \$GPHOME/share/postgresql/contrib/pgcrypto.sql"
+    on_failure:
+      do:
+      - *slack_alert
+      - *ddboost_debug_sleep
+  - task: boostfs_installation
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: boostfs_installer
+       - name: gpbackup
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/ccp
+          tag: '7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+          export DD_IP={{datadomain_source_host}}
+          export DD_USER={{datadomain_user}}
+          export DD_PASSWORD={{datadomain_password}}
+          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
+          gpbackup/ci/scripts/setup_boostfs.sh
+    on_failure:
+      do:
+      - *ddboost_debug_sleep
+  - task: run_tests
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: gpbackup
+         path: go/src/github.com/greenplum-db/gpbackup
+       - name: ccp_src
+       - name: cluster_env_files
+
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '7-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+
+          cat <<SCRIPT > /tmp/run_tests.bash
+          set -ex
+          source env.sh
+
+          pushd gpbackup_ddboost_plugin
+          make test
+          make build
+          make install
+
+          # important: whitespace of yaml below is critical, do not change it
+          cat << CONFIG > \$HOME/ddboost_config_replication.yaml
+          executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+          options:
+            hostname: {{datadomain_source_host}}
+            username: {{datadomain_user}}
+            storage_unit: GPDB
+            directory: gpbackup_tests
+            replication: on
+            pgport: 5432
+            remote_hostname: {{datadomain_dest_host}}
+            remote_username: {{datadomain_user}}
+            remote_storage_unit: GPDB
+            remote_directory: gpbackup_tests
+            password: {{encrypted_datadomain_password}}
+            password_encryption: "on"
+            remote_password: {{encrypted_datadomain_password}}
+            remote_password_encryption: "on"
+            gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764
+          CONFIG
+
+          # important: whitespace of yaml below is critical, do not change it
+          cat << CONFIG > \$HOME/ddboost_config_replication_restore.yaml
+          executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+          options:
+            hostname: {{datadomain_dest_host}}
+            username: {{datadomain_user}}
+            password: {{datadomain_password}}
+            storage_unit: GPDB
+            directory: gpbackup_tests
+            pgport: 5432
+          CONFIG
+
+          pushd \$GOPATH/src/github.com/greenplum-db/gpbackup/plugins
+
+          ./plugin_test_bench.sh \$GPHOME/bin/gpbackup_ddboost_plugin \$HOME/ddboost_config_replication.yaml \$HOME/ddboost_config_replication_restore.yaml
+
+          # exercise boostfs, which is mounted at /data/gpdata/dd_dir
+          pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
+          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end
+          SCRIPT
+
+          chmod +x /tmp/run_tests.bash
+          scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
+          ssh -t mdw "bash /home/gpadmin/run_tests.bash"
+    on_failure:
+      do:
+      - *slack_alert
+      - *ddboost_debug_sleep
+  ensure:
+      <<: *ddboost_ccp_destroy
+
+- name: ddboost_plugin_and_boostfs_tests_5x
+  plan:
+  - aggregate:
+    - get: gpbackup_ddboost_plugin
+      tags: ["ddboost"]
+      trigger: true
+    - get: gpbackup
+      tags: ["ddboost"]
+    - get: ccp_src
+      tags: ["ddboost"]
+    - get: gpdb5_src
+      tags: ["ddboost"]
+    - get: bin_gpdb_5x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+      tags: ["ddboost"]
+    - get: boostfs_installer
+      tags: ["ddboost"]
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      tags: ["ddboost"]
+      passed:
+       - build_dependencies
+    # not used; it serves only as a trigger
+    - get: gppkgs
+      tags: ["ddboost"]
+      passed:
+       - build_binaries
+      trigger: true
+  - put: ddboost_terraform
+    tags: ["ddboost"]
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws/
+      vars:
+        aws_instance-node-instance_type: t2.medium
+        PLATFORM: centos6
+  - task: gen_cluster
+    params:
+      <<: *ddboost_ccp_gen_cluster_default_params
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      terraform: ddboost_terraform
+      gpdb_binary: bin_gpdb_5x_stable_centos6
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    tags: ["ddboost"]
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: install_dependencies
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: gpbackup_ddboost_plugin
+
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '7-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+
+          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
+
+          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
+          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -f \$GPHOME/share/postgresql/contrib/pgcrypto.sql"
+    on_failure:
+      do:
+      - *slack_alert
+      - *ddboost_debug_sleep
+  - task: boostfs_installation
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: boostfs_installer
+       - name: gpbackup
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/ccp
+          tag: '7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+          export DD_IP={{datadomain_source_host}}
+          export DD_USER={{datadomain_user}}
+          export DD_PASSWORD={{datadomain_password}}
+          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
+          gpbackup/ci/scripts/setup_boostfs.sh
+    on_failure:
+      do:
+      - *ddboost_debug_sleep
+  - task: run_tests
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: gpbackup
+         path: go/src/github.com/greenplum-db/gpbackup
+       - name: ccp_src
+       - name: cluster_env_files
+
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '7-gcc6.2-llvm3.7'
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+
+          cat <<SCRIPT > /tmp/run_tests.bash
+          set -ex
+          source env.sh
+
+          pushd gpbackup_ddboost_plugin
+          make test
+          make build
+          make install
+
+          # important: whitespace of yaml below is critical, do not change it
+          cat << CONFIG > \$HOME/ddboost_config_replication.yaml
+          executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+          options:
+            hostname: {{datadomain_source_host}}
+            username: {{datadomain_user}}
+            storage_unit: GPDB
+            directory: gpbackup_tests
+            replication: on
+            pgport: 5432
+            remote_hostname: {{datadomain_dest_host}}
+            remote_username: {{datadomain_user}}
+            remote_storage_unit: GPDB
+            remote_directory: gpbackup_tests
+            password: {{encrypted_datadomain_password}}
+            password_encryption: "on"
+            remote_password: {{encrypted_datadomain_password}}
+            remote_password_encryption: "on"
+            gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764
+          CONFIG
+
+          # important: whitespace of yaml below is critical, do not change it
+          cat << CONFIG > \$HOME/ddboost_config_replication_restore.yaml
+          executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+          options:
+            hostname: {{datadomain_dest_host}}
+            username: {{datadomain_user}}
+            password: {{datadomain_password}}
+            storage_unit: GPDB
+            directory: gpbackup_tests
+            pgport: 5432
+          CONFIG
+
+          pushd \$GOPATH/src/github.com/greenplum-db/gpbackup/plugins
+
+          ./plugin_test_bench.sh \$GPHOME/bin/gpbackup_ddboost_plugin \$HOME/ddboost_config_replication.yaml \$HOME/ddboost_config_replication_restore.yaml
+
+          # exercise boostfs, which is mounted at /data/gpdata/dd_dir
+          pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
+          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end
+          SCRIPT
+
+          chmod +x /tmp/run_tests.bash
+          scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
+          ssh -t mdw "bash /home/gpadmin/run_tests.bash"
+    on_failure:
+      do:
+      - *slack_alert
+      - *ddboost_debug_sleep
+  ensure:
+      <<: *ddboost_ccp_destroy
+
+- name: GPDB5-sles11
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_5x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb5_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+      - build_dependencies
+    # not used; it serves only as a trigger
+    - get: gppkgs
+      passed:
+       - build_binaries
+      trigger: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        PLATFORM: sles12
+        default_image_user: root
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: sles12
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_5x_stable_centos6
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: integration-tests
+    file: gpbackup/ci/tasks/sles-tests.yml
+  on_success:
+    <<: *ccp_destroy
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+- name: GPDB5-oracle7
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_5x_stable_centos7
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb5_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+    - get: gppkgs
+      trigger: true
+      passed:
+       - build_binaries
+  - put: terraform_aws
+    params:
+      <<: *ccp_default_params_aws
+      vars:
+        <<: *ccp_default_vars_aws
+        PLATFORM: oracle7
+        default_ami_user: clckwrk
+        disk_size: 30
+  - task: gen_cluster
+    tags: ['aws']
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      terraform: terraform_aws
+      gpdb_binary: bin_gpdb_5x_stable_centos7
+      gpdb5_src: gpdb5_src
+    params:
+      <<: *ccp_gen_cluster_default_params_aws
+      PLATFORM: oracle7
+  - task: gpinitsystem
+    tags: ['aws']
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-oracle-env
+    tags: ['aws']
+    file: gpbackup/ci/tasks/setup-oracle-env.yml
+  - task: integration-tests
+    tags: ['aws']
+    file: gpbackup/ci/tasks/all-tests.yml
+  on_success:
+    <<: *ccp_destroy_aws
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed_aws
+
+{% if "gpbackup" == pipeline_name %}
+- name: master
+  plan:
+  - aggregate:
+    - get: centos6-image
+    - get: centos7-image
+    - get: gpbackup
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+    - get: bin_gpdb_master_centos6
+      trigger: true
+    - get: bin_gpdb_master_centos7
+    - get: gpdb_master_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: dummy_seclabel_linux_master
+    - get: gppkgs
+      passed:
+       - build_binaries
+      trigger: true
+  - aggregate:
+    - task: run-tests-locally-centos6
+      image: centos6-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+      input_mapping:
+        gpdb_src: gpdb_master_src
+        bin_gpdb: bin_gpdb_master_centos6
+        dummy_seclabel: dummy_seclabel_linux_master
+    - task: run-tests-locally-centos7
+      image: centos7-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+      input_mapping:
+        gpdb_src: gpdb_master_src
+        bin_gpdb: bin_gpdb_master_centos7
+        dummy_seclabel: dummy_seclabel_linux_master
+  on_failure:
+    *slack_alert
+{% endif %}
+
+- name: GPDB5
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_5x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb5_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+    - get: gppkgs
+      trigger: true
+      passed:
+       - build_binaries
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_5x_stable_centos6
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: integration-tests
+    file: gpbackup/ci/tasks/all-tests.yml
+  on_success:
+    <<: *ccp_destroy
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+- name: GPDB4.3
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_43_stable
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb5_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+    - get: gppkgs
+      trigger: true
+      passed:
+       - build_binaries
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_43_stable
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: integration-tests
+    file: gpbackup/ci/tasks/all-tests.yml
+  on_success:
+    <<: *ccp_destroy
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+- name: GPDB6
+  plan:
+  - aggregate:
+    - get: centos6-image
+    - get: centos7-image
+    - get: gpbackup
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+    - get: bin_gpdb_6x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: bin_gpdb_6x_stable_centos7
+    - get: gpdb6_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: dummy_seclabel_linux_gpdb6
+    - get: gppkgs
+      trigger: true
+      passed:
+       - build_binaries
+  - aggregate:
+    - task: run-tests-locally-centos6
+      image: centos6-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+      input_mapping:
+        gpdb_src: gpdb6_src
+        bin_gpdb: bin_gpdb_6x_stable_centos6
+        dummy_seclabel: dummy_seclabel_linux_gpdb6
+    - task: run-tests-locally-centos7
+      image: centos7-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+      input_mapping:
+        gpdb_src: gpdb6_src
+        bin_gpdb: bin_gpdb_6x_stable_centos7
+        dummy_seclabel: dummy_seclabel_linux_gpdb6
+  on_failure:
+    *slack_alert
+
+- name: backward-compatibility
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_5x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb5_src
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+    - get: gppkgs
+      trigger: true
+      passed:
+       - build_binaries
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_5x_stable_centos6
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: backup-1.0.0-restore-latest
+    file: gpbackup/ci/tasks/all-tests.yml
+    params:
+      GPBACKUP_VERSION: "1.0.0"
+  - task: backup-1.7.1-restore-latest
+    file: gpbackup/ci/tasks/all-tests.yml
+    params:
+      GPBACKUP_VERSION: "1.7.1"
+  on_success:
+    <<: *ccp_destroy
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+{% if "gpbackup" == pipeline_name %}
+- name: scale-master
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_master_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb_master_src
+    - get: scale_schema
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        ccp_reap_minutes: 720
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_master_centos6
+      gpdb_src: gpdb_master_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: scale-tests
+    file: gpbackup/ci/tasks/scale-tests.yml
+  on_success:
+    <<: *ccp_destroy_nvme
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+{% endif %}
+
+- name: scale-6x
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_6x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb6_src
+    - get: scale_schema
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        ccp_reap_minutes: 720
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_6x_stable_centos6
+      gpdb_src: gpdb6_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: scale-tests
+    file: gpbackup/ci/tasks/scale-tests.yml
+  on_success:
+    <<: *ccp_destroy_nvme
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+- name: scale-5x
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_5x_stable_centos6
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb5_src
+    - get: scale_schema
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_5x_stable_centos6
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: scale-tests
+    file: gpbackup/ci/tasks/scale-tests.yml
+  on_success:
+    <<: *ccp_destroy_nvme
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+- name: scale-43
+  plan:
+  - aggregate:
+    - get: gpbackup
+    - get: bin_gpdb_43_stable
+{% if "gpbackup" == pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb5_src
+    - get: scale_schema
+{% if nightly_trigger and "gpbackup" == pipeline_name %}
+    - get: nightly-trigger
+      trigger: true
+{% endif %}
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_43_stable
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: scale-tests
+    file: gpbackup/ci/tasks/scale-tests.yml
+  on_success:
+    <<: *ccp_destroy_nvme
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
+{% if "gpbackup-release" == pipeline_name %}
+- name: green_gate
+  plan:
+  - aggregate:
+    - get: github_release_components
+      passed:
+        - build_binaries
+    - get: gppkgs
+      trigger: true
+      passed:
+        - build_binaries
+        - GPDB4.3
+        - GPDB5
+        - GPDB5-oracle7
+        - GPDB5-sles11
+        - GPDB6
+        - s3_plugin_tests
+        - backward-compatibility
+        - ddboost_plugin_and_boostfs_tests_43
+        - ddboost_plugin_and_boostfs_tests_5x
+    - get: gpbackup
+  - aggregate:
+    - put: gppkgs
+      params:
+        file: gppkgs/gpbackup-gppkgs.tar.gz
+    - put: github_release_components_rc
+      params:
+        file: github_release_components/gpbackup-*.tar.gz
+
+- name: push-to-github
+  plan:
+  - get: github_release_components_rc
+    passed:
+      - green_gate
+
+  - task: prepare-for-release
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/centos-gpdb-dev
+          tag: '6-gcc6.2-llvm3.7'
+      inputs:
+        - name: github_release_components_rc
+      outputs:
+        - name: github_release_components_untarred
+      run:
+        path: "sh"
+        args:
+          - -exc
+          - |
+            set -x
+            tar xvzf github_release_components_rc/*.gz -C github_release_components_untarred
+            tar xvzf github_release_components_untarred/bin_gpbackup.tar.gz -C github_release_components_untarred
+  - put: gpbackup_github_release
+    params:
+      name: github_release_components_untarred/gpbackup_version
+      tag: github_release_components_untarred/gpbackup_version
+      globs:
+      - github_release_components_untarred/bin/gpbackup
+      - github_release_components_untarred/bin/gprestore
+      - github_release_components_untarred/bin/gpbackup_helper
+
+- name: push-to-pivnet-gpbackup
+  plan:
+    - aggregate:
+      - get: gppkgs
+        passed:
+          - green_gate
+      - get: gpbackup
+      - get: gpbackup-release-license
+      - get: pivnet_release_cache
+      - get: pivnet_client
+    - task: update metadata.yml
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: bash
+        inputs:
+          - name: gppkgs
+          - name: gpbackup
+          - name: gpbackup-release-license
+          - name: pivnet_release_cache
+        outputs:
+          - name: workspace
+        run:
+          path: bash
+          args:
+            - -exc
+            - |
+
+              mkdir workspace/files-to-upload
+              cp gpbackup/ci/pivnet_release/metadata.yml workspace/
+              tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
+              GPBACKUP_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
+
+              pushd pivnet_release_cache
+                PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}*"
+                if [ -f $PRV_TILE_RELEASE_VERSION ]; then
+                  # increment the counter if the expected release version has been used before
+                  COUNT=$(echo $PRV_TILE_RELEASE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
+                  COUNT=$(($COUNT+1))
+                else
+                  # reset the version count
+                  COUNT=1
+                fi
+                TILE_RELEASE_VERSION=${GPBACKUP_VERSION}-${COUNT}
+                touch ../workspace/v-${TILE_RELEASE_VERSION}
+              popd
+
+              if [ ! -f gpbackup-release-license/gpbackup-osl-v${GPBACKUP_VERSION}.txt ] ; then
+                echo "License file gpbackup-osl-v${GPBACKUP_VERSION}.txt does not exist in resource.\n Ensure the OSL is properly uploaded to the GCS bucket prior to pushing to pivnet." 1>&2
+                exit 1
+              fi
+              cp gpbackup-release-license/gpbackup-osl-v${GPBACKUP_VERSION}.txt workspace/files-to-upload/
+
+              # NOTE: We must use the Pivnet Release Version (including the counter) because we cannot upload files with the same name in different tile releases
+              sed -i "s/<TILE_RELEASE_VERSION>/${TILE_RELEASE_VERSION}/g" workspace/metadata.yml
+
+              GPBAR_VERSION=$(echo workspace/files-to-upload/gpbackup-osl-v*.txt | sed -n 's#workspace/files-to-upload/gpbackup-osl-v\(.*\)\.txt#\1#p')
+              sed -i "s/<GPBAR_VERSION>/${GPBAR_VERSION}/g" workspace/metadata.yml
+
+              DDBOOST_PLUGIN_VERSION=$(cat workspace/files-to-upload/ddboost_plugin_version)
+              sed -i "s/<DDBOOST_PLUGIN_VERSION>/${DDBOOST_PLUGIN_VERSION}/g" workspace/metadata.yml
+
+              S3_PLUGIN_VERSION=$(cat workspace/files-to-upload/s3_plugin_version)
+              sed -i "s/<S3_PLUGIN_VERSION>/${S3_PLUGIN_VERSION}/g" workspace/metadata.yml
+
+              cat workspace/metadata.yml
+              pushd workspace/files-to-upload
+              # rename files to match the name inside metadata.yml
+              for filename in *.gppkg; do
+                newFilename=$(sed -e "s/gpbackup-${GPBACKUP_VERSION}-/gpbackup-/" -e "s/.gppkg/-${TILE_RELEASE_VERSION}.gppkg/" <<< "$filename")
+                mv "$filename" "$newFilename"
+              done
+              popd
+
+              echo ${TILE_RELEASE_VERSION} > workspace/tile_release_version
+              rm workspace/files-to-upload/*_version
+              ls -l workspace/files-to-upload
+
+    - task: push-to-pivnet
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ruby
+            tag: '2.5'
+        inputs:
+          - name: pivnet_client
+          - name: workspace
+        params:
+          PIVNET_ENDPOINT: ((pivnet_endpoint))
+          PIVNET_REFRESH_TOKEN: ((pivnet_api_token))
+          PIVNET_PRODUCT_SLUG: ((pivnet_product_slug))
+          PIVNET_S3_FILEPATH_PREFIX: product-files/((pivnet_product_slug))
+        run:
+          path: bash
+          args:
+            - -exc
+            - |
+              TILE_RELEASE_VERSION=$(cat workspace/tile_release_version)
+
+              # upload to pivnet using the pivnet client
+              pushd pivnet_client/
+                bundle install
+                bundle exec pivnet_client upload --verbose --metadata ../workspace/metadata.yml --search_path ../ --gpdb_version ${TILE_RELEASE_VERSION}
+              popd
+
+    - put: pivnet_release_cache
+      params:
+        file: workspace/v-*
+{% endif %}
+
+
+{% if "gpbackup" == pipeline_name %}
+- name: final_gate
+  plan:
+  - aggregate:
+    - get: gppkgs
+      trigger: true
+      passed:
+        - build_binaries
+        - GPDB4.3
+        - GPDB5
+        - GPDB5-oracle7
+        - GPDB5-sles11
+        - GPDB6
+        - master
+        - s3_plugin_tests
+        - backward-compatibility
+        - ddboost_plugin_and_boostfs_tests_43
+        - ddboost_plugin_and_boostfs_tests_5x
+{% endif %}
+
+ccp_default_params_anchor: &ccp_default_params
+  action: create
+  delete_on_failure: true
+  generate_random_name: true
+  terraform_source: ccp_src/google/
+
+ccp_vars_anchor: &ccp_default_vars
+  instance_type: n1-standard-1
+  PLATFORM: centos6
+
+ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: clusters-google/
+  BUCKET_NAME: {{tf-bucket-name}}
+  CLOUD_PROVIDER: google
+
+ddboost_ccp_gen_cluster_default_params_anchor: &ddboost_ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: clusters-aws/
+  BUCKET_NAME: {{tf-bucket-name}}
+  CLOUD_PROVIDER: aws
+
+ccp_destroy_anchor: &ccp_destroy
+  put: terraform
+  params:
+    action: destroy
+    env_name_file: terraform/name
+    terraform_source: ccp_src/google/
+    vars:
+      aws_instance-node-instance_type: t2.micro
+      aws_ebs_volume_type: standard
+      instance_type: n1-standard-1
+  get_params:
+    action: destroy
+
+ccp_nvme_destroy_anchor: &ccp_destroy_nvme
+  put: terraform
+  params:
+    action: destroy
+    env_name_file: terraform/name
+    terraform_source: ccp_src/google-nvme-block-device/
+    vars:
+      aws_instance-node-instance_type: t2.micro
+      aws_ebs_volume_type: standard
+      instance_type: n1-standard-1
+  get_params:
+    action: destroy
+
+ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
+  put: ddboost_terraform
+  params:
+    action: destroy
+    env_name_file: ddboost_terraform/name
+    terraform_source: ccp_src/aws/
+    vars:
+      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
+  get_params:
+    action: destroy
+
+set_failed_anchor: &set_failed
+  do:
+  - task: on_failure_set_failed
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/ccp
+          tag: "7"
+      inputs:
+        - name: ccp_src
+        - name: terraform
+      run:
+        path: 'ccp_src/google/ccp_failed_test.sh'
+      params:
+        GOOGLE_CREDENTIALS: {{google-service-account-key}}
+        GOOGLE_PROJECT_ID: {{google-project-id}}
+        GOOGLE_ZONE: {{google-zone}}
+        GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
+        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+        AWS_DEFAULT_REGION: {{tf-machine-region}}
+        BUCKET_PATH: clusters-google/
+        BUCKET_NAME: {{tf-bucket-name}}
+
+ddboost_debug_sleep_anchor: &ddboost_debug_sleep
+  task: debug_sleep
+  config:
+    platform: linux
+    image_resource:
+      type: docker-image
+      source:
+        repository: alpine
+        tag: latest
+    run:
+      path: 'sh'
+      args: ['-c', 'sleep 2h']
+  ensure:
+    <<: *ddboost_ccp_destroy
+
+ccp_default_params_aws_anchor: &ccp_default_params_aws
+  action: create
+  delete_on_failure: true
+  generate_random_name: true
+  terraform_source: ccp_src/aws/
+
+ccp_vars_anchor_aws: &ccp_default_vars_aws
+  aws_instance-node-instance_type: t2.medium
+  PLATFORM: centos6
+
+ccp_gen_cluster_default_params_anchor_aws: &ccp_gen_cluster_default_params_aws
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: clusters-aws/
+  BUCKET_NAME: {{tf-bucket-name}}
+  CLOUD_PROVIDER: aws
+
+ccp_destroy_anchor_aws: &ccp_destroy_aws
+  put: terraform_aws
+  params:
+    action: destroy
+    env_name_file: terraform_aws/name
+    terraform_source: ccp_src/aws/
+    vars:
+      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
+      aws_ebs_volume_type: standard
+  get_params:
+    action: destroy
+
+set_failed_anchor_aws: &set_failed_aws
+  do:
+  - task: on_failure_set_failed
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: pivotaldata/ccp
+          tag: "7"
+      inputs:
+        - name: ccp_src
+        - name: terraform_aws
+          path: terraform
+      run:
+        path: 'ccp_src/aws/ccp_failed_test.sh'
+      params:
+        GOOGLE_CREDENTIALS: {{google-service-account-key}}
+        GOOGLE_PROJECT_ID: {{google-project-id}}
+        GOOGLE_ZONE: {{google-zone}}
+        GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
+        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+        AWS_DEFAULT_REGION: {{tf-machine-region}}
+        BUCKET_PATH: clusters-aws/
+        BUCKET_NAME: {{tf-bucket-name}}
+
+slack_alert_anchor: &slack_alert
+  put: slack-alert
+  params:
+    text: |
+      [gpbackup/$BUILD_JOB_NAME] failed:
+      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
