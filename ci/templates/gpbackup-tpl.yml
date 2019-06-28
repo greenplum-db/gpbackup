@@ -7,6 +7,9 @@ groups:
   - GPDB5
   - GPDB5-oracle7
   - GPDB5-sles11
+{% if "gpbackup" == pipeline_name %}
+  - 5X-head-gpbackup-fixed-test
+{% endif %}
   - GPDB6
   - s3_plugin_tests
   - backward-compatibility
@@ -31,6 +34,9 @@ groups:
   - GPDB5
   - GPDB5-oracle7
   - GPDB5-sles11
+{% if "gpbackup" == pipeline_name %}
+  - 5X-head-gpbackup-fixed-test
+{% endif %}
   - s3_plugin_tests
   - ddboost_plugin_and_boostfs_tests_5x
   - backward-compatibility
@@ -165,6 +171,20 @@ resources:
     branch: 5X_STABLE
 {% if "gpbackup-release" == pipeline_name %}
     tag_filter: 5.*
+{% endif %}
+
+{% if "gpbackup" == pipeline_name %}
+# We use this intermediate binary in an effort to catch possible
+# inconsistencies (between a new gpdb5 bin and a fixed version of gpbackup)
+# before a final release_candidate is generated & shipped
+- name: bin_gpdb_5x_stable_intermediate
+  type: s3
+  source:
+      bucket: gpdb5-stable-concourse-builds
+      versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
+      region_name: us-west-2
+      access_key_id: {{bucket-access-key-id}}
+      secret_access_key: {{bucket-secret-access-key}}
 {% endif %}
 
 - name: gpdb6_src
@@ -1490,6 +1510,52 @@ jobs:
     <<: *set_failed
 
 {% if "gpbackup" == pipeline_name %}
+# Ensure compatibility between a new gpdb5 binary and a fixed version of gpbackup
+- name: 5X-head-gpbackup-fixed-test
+  plan:
+  - aggregate:
+    # NOTE: This is not being used, but is required input for the final_gate
+    - get: gppkgs
+      passed:
+      - build_binaries
+      trigger: true
+    - get: gpbackup
+    - get: bin_gpdb_5x_stable_intermediate
+      trigger: true
+    - get: ccp_src
+    - get: gpdb5_src
+    - get: gpbackup-dependencies
+      passed:
+       - build_dependencies
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      gpdb_binary: bin_gpdb_5x_stable_intermediate
+      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: gpbackup-1.12.1-test
+    file: gpbackup/ci/tasks/integration-tests-fixed-version.yml
+    params:
+      GPBACKUP_VERSION: "1.12.1"
+  on_success:
+    <<: *ccp_destroy
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+{% endif %}
+
+{% if "gpbackup" == pipeline_name %}
 - name: scale-master
   plan:
   - aggregate:
@@ -1864,6 +1930,7 @@ jobs:
         - master
         - s3_plugin_tests
         - backward-compatibility
+        - 5X-head-gpbackup-fixed-test
         - ddboost_plugin_and_boostfs_tests_43
         - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
