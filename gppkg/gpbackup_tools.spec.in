@@ -1,5 +1,5 @@
-Name:       gpbackup
-Version:    %{gpbackup_version}
+Name:       gpbackup_tools
+Version:    %{rpm_version}
 Release:    1
 Summary:    Backup and restore utilities for Greenplum
 License:    Pivotal Software EULA
@@ -18,9 +18,11 @@ Backup and restore utilities for Greenplum
 
 %install
 mkdir -p $RPM_BUILD_ROOT%{prefix}/bin
-cp bin/gpbackup bin/gprestore bin/gpbackup_helper $RPM_BUILD_ROOT%{prefix}/bin
+cp bin/gpbackup bin/gprestore bin/gpbackup_helper bin/gpbackup_ddboost_plugin bin/gpbackup_s3_plugin $RPM_BUILD_ROOT%{prefix}/bin
 
 %files
 %{prefix}/bin/gpbackup
 %{prefix}/bin/gprestore
 %{prefix}/bin/gpbackup_helper
+%{prefix}/bin/gpbackup_ddboost_plugin
+%{prefix}/bin/gpbackup_s3_plugin

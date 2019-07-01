@@ -362,6 +362,15 @@ resources:
     disable: ((dpm_disable_slack_alert))
 {% endif %}
 
+- name: pivnet_release_cache
+  type: s3
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: gpbackup-pivotal-network-staging
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    regexp: pivnet_release_version/v-(.*)
+
 {% if "gpbackup-release" == pipeline_name %}
 - name: github_release_components
   type: s3
@@ -380,15 +389,6 @@ resources:
     region_name: {{aws-region}}
     secret_access_key: {{bucket-secret-access-key}}
     regexp: components/gpbackup/gpbackup-(.*).tar.gz
-
-- name: pivnet_release_cache
-  type: s3
-  source:
-    access_key_id: {{bucket-access-key-id}}
-    bucket: gpbackup-pivotal-network-staging
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
-    regexp: pivnet_release_version/v-(.*)
 {% endif %}
 
 - name: gppkgs
@@ -458,10 +458,8 @@ jobs:
     - get: bin_gpdb_6x_stable_centos6
     - get: gpbackup_s3_plugin
     - get: gpbackup_manager_src
-{% if "gpbackup-release" == pipeline_name %}
     - get: pivnet_release_cache
       trigger: true
-{% endif %}
 # TODO this ddboost source ref should NOT be tagged for normal pipeline
     - get: gpbackup_ddboost_plugin_tagged_src
 {% if nightly_trigger and "gpbackup" == pipeline_name %}
@@ -630,7 +628,7 @@ jobs:
             version=`cat version`
             tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version
           popd
-  - task: build_gppkg
+  - task: build_RHEL_gppkgs
     file: gpbackup/ci/tasks/build-gppkg.yml
     input_mapping:
       gpdb_src: gpdb6_src

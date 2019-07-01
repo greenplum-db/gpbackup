@@ -1,4 +1,4 @@
-Pkgname: gpbackup
+Pkgname: gpbackup_tools
 Architecture: x86_64
 OS: ${OS}
 Version: ${GPBACKUP_VERSION}-gp${GPDB_MAJOR_VERSION}
