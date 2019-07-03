@@ -13,20 +13,10 @@ import (
 	"github.com/onsi/gomega/gbytes"
 )
 
-var (
-	concurrencyDefault = "20"
-	memSharedDefault   = "20"
-	memSpillDefault    = "20"
-	memAuditDefault    = "0"
-	cpuSetDefault      = "-1"
-)
-
 var _ = Describe("backup integration create statement tests", func() {
 	var includeSecurityLabels bool
 	BeforeEach(func() {
 		if connectionPool.Version.AtLeast("6") {
-			memSharedDefault = "80"
-			memSpillDefault = "0"
 			includeSecurityLabels = true
 		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")

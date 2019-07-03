@@ -31,6 +31,13 @@ var (
 	testCluster             *cluster.Cluster
 	gpbackupHelperPath      string
 	stdout, stderr, logFile *gbytes.Buffer
+
+	// GUC defaults. Initially set to GPDB4 values
+	concurrencyDefault = "20"
+	memSharedDefault   = "20"
+	memSpillDefault    = "20"
+	memAuditDefault    = "0"
+	cpuSetDefault      = "-1"
 )
 
 func TestQueries(t *testing.T) {
@@ -78,6 +85,12 @@ var _ = BeforeSuite(func() {
 	}
 
 	gpbackupHelperPath = buildAndInstallBinaries()
+
+	// Set GUC Defaults
+	if connectionPool.Version.AtLeast("6") {
+		memSharedDefault = "80"
+		memSpillDefault = "0"
+	}
 })
 
 var backupCmdFlags *pflag.FlagSet
