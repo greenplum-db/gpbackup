@@ -33,11 +33,12 @@ var (
 	stdout, stderr, logFile *gbytes.Buffer
 
 	// GUC defaults. Initially set to GPDB4 values
-	concurrencyDefault = "20"
-	memSharedDefault   = "20"
-	memSpillDefault    = "20"
-	memAuditDefault    = "0"
-	cpuSetDefault      = "-1"
+	concurrencyDefault    = "20"
+	memSharedDefault      = "20"
+	memSpillDefault       = "20"
+	memAuditDefault       = "0"
+	cpuSetDefault         = "-1"
+	includeSecurityLabels = false
 )
 
 func TestQueries(t *testing.T) {
@@ -86,10 +87,12 @@ var _ = BeforeSuite(func() {
 
 	gpbackupHelperPath = buildAndInstallBinaries()
 
-	// Set GUC Defaults
+	// Set GUC Defaults and version logic
 	if connectionPool.Version.AtLeast("6") {
 		memSharedDefault = "80"
 		memSpillDefault = "0"
+
+		includeSecurityLabels = true
 	}
 })
 

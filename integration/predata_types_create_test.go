@@ -12,14 +12,10 @@ import (
 
 var _ = Describe("backup integration create statement tests", func() {
 	var (
-		includeSecurityLabels bool
-		emptyMetadata         backup.ObjectMetadata
-		emptyMetadataMap      backup.MetadataMap
+		emptyMetadata    backup.ObjectMetadata
+		emptyMetadataMap backup.MetadataMap
 	)
 	BeforeEach(func() {
-		if connectionPool.Version.AtLeast("6") {
-			includeSecurityLabels = true
-		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 		emptyMetadata = backup.ObjectMetadata{}
 		emptyMetadataMap = backup.MetadataMap{}

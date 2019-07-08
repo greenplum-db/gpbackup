@@ -11,11 +11,7 @@ import (
 )
 
 var _ = Describe("backup integration create statement tests", func() {
-	var includeSecurityLabels bool
 	BeforeEach(func() {
-		if connectionPool.Version.AtLeast("6") {
-			includeSecurityLabels = true
-		}
 		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateIndexStatements", func() {

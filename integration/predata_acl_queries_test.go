@@ -14,12 +14,6 @@ import (
 var _ = Describe("backup integration tests", func() {
 	Describe("GetMetadataForObjectType", func() {
 		Context("default metadata for all objects of one type", func() {
-			var includeSecurityLabels bool
-			BeforeEach(func() {
-				if connectionPool.Version.AtLeast("6") {
-					includeSecurityLabels = true
-				}
-			})
 			It("returns a slice of metadata with modified privileges", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foo")
