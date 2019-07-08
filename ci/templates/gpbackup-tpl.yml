@@ -718,7 +718,12 @@ jobs:
           set -ex
 
           ccp_src/scripts/setup_ssh_to_cluster.sh
-          scp -r gppkgs/gpbackup-gppkgs.tar.gz mdw:/home/gpadmin
+          out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
+          GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
+          mkdir /tmp/untarred
+          tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+          scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg mdw:/home/gpadmin
+          ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*.gppkg"
 
           cat <<SCRIPT > /tmp/run_tests.bash
             set -ex
@@ -830,7 +835,6 @@ jobs:
        - name: cluster_env_files
        - name: gpbackup_ddboost_plugin
        - name: pgcrypto43
-
       image_resource:
         type: docker-image
         source:
@@ -897,6 +901,7 @@ jobs:
          path: go/src/github.com/greenplum-db/gpbackup
        - name: ccp_src
        - name: cluster_env_files
+       - name: gppkgs
 
       image_resource:
         type: docker-image
@@ -910,7 +915,14 @@ jobs:
         - |
           set -ex
 
+          # setup cluster and install gpbackup using gppkg
           ccp_src/scripts/setup_ssh_to_cluster.sh
+          out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
+          GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
+          mkdir /tmp/untarred
+          tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+          scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg mdw:/home/gpadmin
+          ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*.gppkg"
 
           cat <<SCRIPT > /tmp/run_tests.bash
           set -ex
@@ -918,8 +930,6 @@ jobs:
 
           pushd gpbackup_ddboost_plugin
           make test
-          make build
-          make install
 
           # important: whitespace of yaml below is critical, do not change it
           cat << CONFIG > \$HOME/ddboost_config_replication.yaml
@@ -1106,7 +1116,7 @@ jobs:
          path: go/src/github.com/greenplum-db/gpbackup
        - name: ccp_src
        - name: cluster_env_files
-
+       - name: gppkgs
       image_resource:
         type: docker-image
         source:
@@ -1119,7 +1129,14 @@ jobs:
         - |
           set -ex
 
+          # setup cluster and install gpbackup tools using gppkg
           ccp_src/scripts/setup_ssh_to_cluster.sh
+          out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
+          GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
+          mkdir /tmp/untarred
+          tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+          scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg mdw:/home/gpadmin
+          ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*.gppkg"
 
           cat <<SCRIPT > /tmp/run_tests.bash
           set -ex
@@ -1127,8 +1144,6 @@ jobs:
 
           pushd gpbackup_ddboost_plugin
           make test
-          make build
-          make install
 
           # important: whitespace of yaml below is critical, do not change it
           cat << CONFIG > \$HOME/ddboost_config_replication.yaml

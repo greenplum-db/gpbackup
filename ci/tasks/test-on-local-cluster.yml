@@ -64,20 +64,19 @@ run:
       gpconfig -s shared_preload_libraries | grep dummy_seclabel
     fi
 
-    out=\$(psql postgres -c "select version();")
-    gpdbversion=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
-
     # Install gpbackup gppkg
     mkdir /tmp/untarred
     tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
 
     # only install if not installed already
-    is_installed_output=\$(gppkg -q /tmp/untarred/gpbackup*gp\$gpdbversion*.gppkg)
+    out=\$(psql postgres -c "select version();")
+    GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
+    is_installed_output=\$(gppkg -q /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*RHEL*.gppkg)
     set +e
     echo \$is_installed_output | grep 'is installed'
     if [ \$? -ne 0 ] ; then
       set -e
-      gppkg -i /tmp/untarred/gpbackup*gp\$gpdbversion*.gppkg
+      gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*RHEL*.gppkg
     fi
     set -e
 
