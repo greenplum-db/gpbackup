@@ -717,6 +717,7 @@ jobs:
         - |
           set -ex
 
+          # setup cluster and install gpbackup tools using gppkg
           ccp_src/scripts/setup_ssh_to_cluster.sh
           out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
           GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
@@ -728,17 +729,6 @@ jobs:
           cat <<SCRIPT > /tmp/run_tests.bash
             set -ex
             source env.sh
-
-            # install s3 plugin binary
-            tar xvzf gpbackup-gppkgs.tar.gz
-            is_installed_output=\$(gppkg -q s3-*gp5-rhel6*.gppkg)
-            set +e
-            echo \$is_installed_output | grep 'is installed'
-            if [ \$? -ne 0 ] ; then
-              set -e
-              gppkg -i s3-*gp5-rhel6*.gppkg
-            fi
-            set -e
 
             cat << CONFIG > \$HOME/s3_config.yaml
           executablepath: \$GPHOME/bin/gpbackup_s3_plugin
@@ -915,7 +905,7 @@ jobs:
         - |
           set -ex
 
-          # setup cluster and install gpbackup using gppkg
+          # setup cluster and install gpbackup tools using gppkg
           ccp_src/scripts/setup_ssh_to_cluster.sh
           out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
           GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
