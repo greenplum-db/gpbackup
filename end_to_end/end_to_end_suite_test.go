@@ -1,6 +1,7 @@
 package end_to_end_test
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -108,6 +109,18 @@ func assertDataRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
 		tupleCount := dbconn.MustSelectString(conn, fmt.Sprintf("SELECT count(*) AS string from %s", name))
 		Expect(tupleCount).To(Equal(strconv.Itoa(numTuples)))
 	}
+}
+
+func getTableData(conn *dbconn.DBConn, tableName string) []string {
+	tableRows, err := conn.Query(fmt.Sprintf("SELECT * FROM public.%s", tableName), conn.ValidateConnNum())
+	Expect(err).ToNot(HaveOccurred())
+	retArr := make([]string, 0)
+	for tableRows.Rows.Next() {
+		var result sql.NullString
+		tableRows.Rows.Scan(&result)
+		retArr = append(retArr, result.String)
+	}
+	return retArr
 }
 
 func assertRelationsCreated(conn *dbconn.DBConn, numTables int) {
@@ -1131,6 +1144,27 @@ PARTITION BY LIST (gender)
 				cmd := exec.Command("gpbackup", includeTableArgs...)
 				_, err = cmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Describe("precise backup of reals", func() {
+			It(`successfully backs up precise data types`, func() {
+				backupdir := filepath.Join(customBackupDir, "real_precision") // Must be unique
+				tableName := "test_real_precision"
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE public.%s (val real)`, tableName))
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO public.%s VALUES (0.24006299674511::real)`, tableName))
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--dbname", "testdb", "--include-table", fmt.Sprintf("public.%s", tableName))
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
+				tableData := getTableData(restoreConn, tableName)
+				expectedValue := 0.24006299674511
+
+				retFloat, err := strconv.ParseFloat(tableData[0], 64)
+				Expect(err).ToNot(HaveOccurred())
+				if backupConn.Version.AtLeast("6") {
+					// GP6+ uses 3 additional precision points
+					Expect(fmt.Sprintf("%.9f", retFloat)).To(Equal(fmt.Sprintf("%.9f", expectedValue)))
+				} else {
+					Expect(fmt.Sprintf("%.8f", retFloat)).To(Equal(fmt.Sprintf("%.8f", expectedValue)))
+				}
 			})
 		})
 	})

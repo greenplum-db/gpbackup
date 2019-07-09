@@ -62,6 +62,9 @@ func SetSessionGUCs(connNum int) {
 	if connectionPool.Version.AtLeast("6") {
 		connectionPool.MustExec("SET INTERVALSTYLE = POSTGRES", connNum)
 		connectionPool.MustExec("SET lock_timeout = 0", connNum)
+		connectionPool.MustExec("SET extra_float_digits=3")
+	} else {
+		connectionPool.MustExec("SET extra_float_digits=2")
 	}
 }
 
