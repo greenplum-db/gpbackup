@@ -976,7 +976,7 @@ jobs:
 
           # exercise boostfs, which is mounted at /data/gpdata/dd_dir
           pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
-          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end
+          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end_43/\$RANDOM
           SCRIPT
 
           chmod +x /tmp/run_tests.bash
@@ -1185,7 +1185,7 @@ jobs:
 
           # exercise boostfs, which is mounted at /data/gpdata/dd_dir
           pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
-          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end
+          make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end_5x/\$RANDOM
           SCRIPT
 
           chmod +x /tmp/run_tests.bash
