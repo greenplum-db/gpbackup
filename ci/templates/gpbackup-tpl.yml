@@ -156,15 +156,6 @@ resources:
 #     tag_filter: 1.*
 {% endif %}
 
-# NOTE: This tag filter must always be enabled in order to properly compile ddboost
-- name: gpbackup_ddboost_plugin_tagged_src
-  type: git
-  source:
-    branch: master
-    private_key: {{gpbackup-ddboost-plugin-remote-key}}
-    uri: {{gpbackup-ddboost-plugin-git-remote}}
-    tag_filter: 1.*
-
 - name: gpdb5_src
   type: git
   source:
@@ -460,8 +451,7 @@ jobs:
     - get: gpbackup_manager_src
     - get: pivnet_release_cache
       trigger: true
-# TODO this ddboost source ref should NOT be tagged for normal pipeline
-    - get: gpbackup_ddboost_plugin_tagged_src
+    - get: gpbackup_ddboost_plugin
 {% if nightly_trigger and "gpbackup" == pipeline_name %}
     - get: nightly-trigger
       trigger: true
@@ -550,14 +540,11 @@ jobs:
             cp $GOPATH/bin/gpbackup_s3_plugin go_components/
             cp $GOPATH/bin/gpbackup_manager go_components/
     - task: build-ddboost
-      params:
-        IVYREPO_USER: {{ivyrepo_user}}
-        IVYREPO_PASSWD: {{ivyrepo_passwd}}
-        IVYREPO_HOST: {{ivyrepo_host}}
       config:
         platform: linux
         inputs:
-          - name: gpbackup_ddboost_plugin_tagged_src
+          - name: gpbackup_ddboost_plugin
+          - name: bin_gpdb_6x_stable_centos6
         outputs:
           - name: ddboost_components
         image_resource:
@@ -571,22 +558,21 @@ jobs:
           - -c
           - |
             set -ex
-            pushd gpbackup_ddboost_plugin_tagged_src
-              # TODO: remove these steps once ddboost plugin is revved
-              curl -u${IVYREPO_USER}:${IVYREPO_PASSWD} -O "https://${IVYREPO_HOST}/gpdb-ext-release-local/third-party/ext/gpdb5_ext-3.3/targzs/rhel6_x86_64-gpdb5_ext-3.3.targz"
-              curl -u${IVYREPO_USER}:${IVYREPO_PASSWD} -O "https://${IVYREPO_HOST}/gpdb-ext-release-local/emc/DDBoostSDK/3.3.0.4-550644/targzs/DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz"
-              tar -xf rhel6_x86_64-gpdb5_ext-3.3.targz
-              tar -xf DDBoostSDK-rhel5_x86_64-3.3.0.4-550644.targz
-              sudo cp rhel6_x86_64/include/yaml.h /usr/local/include/yaml.h
-              sudo cp rhel5_x86_64/include/* /usr/local/include/.
-              sudo cp rhel6_x86_64/lib/libyaml*so* /usr/lib64/.
-              sudo cp rhel5_x86_64/lib/libDDBoost.so /usr/lib64/.
 
+            # Install gpdb binaries
+            # This is required because ddboost has a dependency on libpq-fe.h
+            mkdir -p /usr/local/greenplum-db-devel
+            tar -xzf bin_gpdb_6x_stable_centos6/*.tar.gz -C /usr/local/greenplum-db-devel
+            source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+            # build ddboost plugin
+            pushd gpbackup_ddboost_plugin
               make build
               ddboost_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
             popd
+
             echo ${ddboost_plugin_version} > ddboost_components/ddboost_plugin_version
-            cp gpbackup_ddboost_plugin_tagged_src/gpbackup_ddboost_plugin ddboost_components/
+            cp gpbackup_ddboost_plugin/gpbackup_ddboost_plugin ddboost_components/
   - task: tar-binaries
     config:
       platform: linux
