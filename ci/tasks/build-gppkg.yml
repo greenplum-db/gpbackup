@@ -7,7 +7,8 @@ image_resource:
     tag: '6-gcc6.2-llvm3.7'
 
 inputs:
-- name: github_release_components
+- name: RHEL_binaries
+- name: SLES_binaries
 - name: gpbackup
 - name: gpdb_src
 - name: bin_gpdb
@@ -33,7 +34,7 @@ run:
     # Setup gpadmin user
     gpdb_src/concourse/scripts/setup_gpadmin_user.bash centos
 
-    GPBACKUP_VERSION=$(cat github_release_components/gpbackup_version)
+    GPBACKUP_VERSION=$(cat RHEL_binaries/gpbackup_version)
 
     pushd pivnet_release_cache
       PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}*"
@@ -56,14 +57,20 @@ run:
 
       source /usr/local/greenplum-db-devel/greenplum_path.sh
 
-      # make rpm of gpbackup tools
-      ./gpbackup/ci/scripts/gpbackup_tools_rpm.sh $RPM_VERSION github_release_components/bin_gpbackup.tar.gz
-
-      # gpdb 4 gppkgs must have 'orca' in its version because of the version validation done on the name
+      # gpdb4 gppkgs must have 'orca' in its version because of the version validation done on the name
+      # Build gppkgs for RHEL using binaries built on RHEL6. They should also be compatible with RHEL7.
+      ./gpbackup/ci/scripts/gpbackup_tools_rpm.sh $RPM_VERSION RHEL_binaries/bin_gpbackup.tar.gz RHEL
       ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 4.3orca RHEL
       ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 5 RHEL
       ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 6 RHEL
       ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 7 RHEL
+
+      # Build gppkgs for SLES using binaries built on SLES11
+      ./gpbackup/ci/scripts/gpbackup_tools_rpm.sh $RPM_VERSION SLES_binaries/bin_gpbackup.tar.gz SLES
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 4.3orca SLES
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 5 SLES
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 6 SLES
+      ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION 7 SLES
     EOF
 
     chown gpadmin:gpadmin .
@@ -72,7 +79,7 @@ run:
 
     mv gpbackup_gppkg/* gppkgs/
 
-    cp github_release_components/*_version gppkgs/
+    cp RHEL_binaries/*_version gppkgs/
     pushd gppkgs
       tar cvfz gpbackup-gppkgs.tar.gz *.gppkg *_version
     popd

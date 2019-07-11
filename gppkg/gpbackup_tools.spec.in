@@ -1,4 +1,4 @@
-Name:       gpbackup_tools
+Name:       gpbackup_tools_%{operating_system}
 Version:    %{rpm_version}
 Release:    1
 Summary:    Backup and restore utilities for Greenplum

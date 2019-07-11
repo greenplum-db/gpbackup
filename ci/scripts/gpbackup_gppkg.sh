@@ -26,7 +26,7 @@ mkdir -p ${GPPKG_SOURCE_DIR}/deps
 envsubst < ${GPBACKUP_DIR}/gppkg/gppkg_spec.yml.in > ${GPPKG_SOURCE_DIR}/gppkg_spec.yml
 cat ${GPPKG_SOURCE_DIR}/gppkg_spec.yml
 
-cp ${RPMROOT}/RPMS/x86_64/*.rpm ${GPPKG_SOURCE_DIR}
+cp ${RPMROOT}/RPMS/x86_64/*${OS}*.rpm ${GPPKG_SOURCE_DIR}
 gppkg --build ${GPPKG_SOURCE_DIR}
 echo "Successfully built gppkg"
 
