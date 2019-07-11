@@ -44,6 +44,7 @@ var _ = Describe("utils/report tests", func() {
     })
     Describe("WriteBackupReportFile", func() {
         timestamp := "20170101010101"
+        endtime := time.Date(2017, 1, 1, 5, 4, 3, 2, time.Local)
         config := backup_history.BackupConfig{
             BackupVersion:   "0.1.0",
             DatabaseName:    "testdb",
@@ -74,7 +75,7 @@ data file format: Single Data File Per Segment`,
         })
 
         It("writes a report for a successful backup", func() {
-            backupReport.WriteBackupReportFile("filename", timestamp, objectCounts, "")
+            backupReport.WriteBackupReportFile("filename", timestamp, endtime, objectCounts, "")
             Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
 
 timestamp key:         20170101010101
@@ -103,7 +104,7 @@ tables      42
 types       1000`))
         })
         It("writes a report for a failed backup", func() {
-            backupReport.WriteBackupReportFile("filename", timestamp, objectCounts, "Cannot access /tmp/backups: Permission denied")
+            backupReport.WriteBackupReportFile("filename", timestamp, endtime, objectCounts, "Cannot access /tmp/backups: Permission denied")
             Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
 
 timestamp key:         20170101010101
@@ -134,7 +135,7 @@ types       1000`))
         })
         It("writes a report without database size information", func() {
             backupReport.DatabaseSize = ""
-            backupReport.WriteBackupReportFile("filename", timestamp, objectCounts, "")
+            backupReport.WriteBackupReportFile("filename", timestamp, endtime, objectCounts, "")
             Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
 
 timestamp key:         20170101010101

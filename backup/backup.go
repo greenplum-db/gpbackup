@@ -11,6 +11,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -419,7 +420,8 @@ func DoTeardown() {
 		if backupReport != nil {
 			backupReport.ConstructBackupParamsString()
 			backup_history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
-			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, objectCounts, errMsg)
+			endtime, _ := time.ParseInLocation("20060102150405", backupReport.BackupConfig.EndTime, operating.System.Local)
+			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, endtime, objectCounts, errMsg)
 			utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup")
 			if pluginConfig != nil {
 				err := pluginConfig.BackupFile(configFilename)

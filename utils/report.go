@@ -114,7 +114,7 @@ incremental backup set:
 %s`, strings.Join(backupTimestamps, "\n"))
 }
 
-func (report *Report) WriteBackupReportFile(reportFilename string, timestamp string, objectCounts map[string]int, errMsg string) {
+func (report *Report) WriteBackupReportFile(reportFilename string, timestamp string, endtime time.Time, objectCounts map[string]int, errMsg string) {
 	reportFile, err := iohelper.OpenFileForWriting(reportFilename)
 	if err != nil {
 		gplog.Error("Unable to open backup report file %s", reportFilename)
@@ -122,7 +122,7 @@ func (report *Report) WriteBackupReportFile(reportFilename string, timestamp str
 	}
 
 	gpbackupCommandLine := strings.Join(os.Args, " ")
-	start, end, duration := GetDurationInfo(timestamp, operating.System.Now())
+	start, end, duration := GetDurationInfo(timestamp, endtime)
 
 	reportInfo := make([]LineInfo, 0)
 	reportInfo = append(reportInfo,
