@@ -157,8 +157,10 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 	}
 
 	if fatalErr != nil {
+		fmt.Println("")
 		gplog.Fatal(fatalErr, "")
 	} else if numErrors > 0 {
+		fmt.Println("")
 		gplog.Error("Encountered %d errors during table data restore; see log file %s for a list of table errors.", numErrors, gplog.GetLogFilePath())
 	}
 }

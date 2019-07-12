@@ -61,8 +61,10 @@ func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.P
 		workerPool.Wait()
 	}
 	if fatalErr != nil {
+		fmt.Println("")
 		gplog.Fatal(fatalErr, "")
 	} else if numErrors > 0 {
+		fmt.Println("")
 		gplog.Error("Encountered %d errors during metadata restore; see log file %s for a list of failed statements.", numErrors, gplog.GetLogFilePath())
 	}
 }
