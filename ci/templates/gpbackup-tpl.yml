@@ -7,7 +7,7 @@ groups:
   - GPDB5
   - GPDB5-oracle7
   - GPDB5-sles11
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
 {% endif %}
   - GPDB6
@@ -21,7 +21,7 @@ groups:
   - green_gate
   - push-to-pivnet-gpbackup
 {% endif %}
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
   - master
   - final_gate
 {% endif %}
@@ -34,7 +34,7 @@ groups:
   - GPDB5
   - GPDB5-oracle7
   - GPDB5-sles11
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
 {% endif %}
   - s3_plugin_tests
@@ -43,7 +43,7 @@ groups:
 - name: GPDB6
   jobs:
   - GPDB6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 - name: Master
   jobs:
   - master
@@ -53,7 +53,7 @@ groups:
   - scale-43
   - scale-5x
   - scale-6x
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
   - scale-master
 {% endif %}
 {% if "gpbackup-release" == pipeline_name %}
@@ -106,7 +106,7 @@ resources:
     tag: '6-gcc6.2-llvm3.7'
 
 ##### Other Resources #####
-{% if (nightly_trigger and "gpbackup" == pipeline_name) %}
+{% if (nightly_trigger and "gpbackup-release" != pipeline_name) %}
 - name: nightly-trigger
   type: time
   source:
@@ -165,7 +165,7 @@ resources:
     tag_filter: 5.*
 {% endif %}
 
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 # We use this intermediate binary in an effort to catch possible
 # inconsistencies (between a new gpdb5 bin and a fixed version of gpbackup)
 # before a final release_candidate is generated & shipped
@@ -188,7 +188,7 @@ resources:
     tag_filter: 6.*
 {% endif %}
 
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 - name: gpdb_master_src
   type: git
   source:
@@ -235,7 +235,7 @@ resources:
     json_key: ((gcp_svc_acct_key))
     regexp: dummy_seclabel_gpdb6-v(.*).so
 
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 - name: dummy_seclabel_linux_master
   type: gcs
   source:
@@ -439,7 +439,7 @@ jobs:
   plan:
   - aggregate:
     - get: gpbackup
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: gpdb6_src
@@ -452,7 +452,7 @@ jobs:
     - get: pivnet_release_cache
       trigger: true
     - get: gpbackup_ddboost_plugin
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -643,7 +643,7 @@ jobs:
     - get: gpbackup
       trigger: true
     - get: gpbackup-dependencies
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -663,10 +663,10 @@ jobs:
     - get: ccp_src
     - get: gpdb5_src
     - get: bin_gpdb_5x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -773,13 +773,13 @@ jobs:
     - get: gpdb5_src
       tags: ["ddboost"]
     - get: bin_gpdb_43_stable
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
       tags: ["ddboost"]
     - get: boostfs_installer
       tags: ["ddboost"]
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -990,13 +990,13 @@ jobs:
     - get: gpdb5_src
       tags: ["ddboost"]
     - get: bin_gpdb_5x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
       tags: ["ddboost"]
     - get: boostfs_installer
       tags: ["ddboost"]
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1196,12 +1196,12 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_5x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb5_src
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1248,12 +1248,12 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_5x_stable_centos7
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb5_src
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1302,7 +1302,7 @@ jobs:
   ensure:
     <<: *set_failed_aws
 
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 - name: master
   plan:
   - aggregate:
@@ -1316,7 +1316,7 @@ jobs:
       trigger: true
     - get: bin_gpdb_master_centos7
     - get: gpdb_master_src
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1357,12 +1357,12 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_5x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb5_src
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1407,12 +1407,12 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_43_stable
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb5_src
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1462,12 +1462,12 @@ jobs:
       passed:
        - build_dependencies
     - get: bin_gpdb_6x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: bin_gpdb_6x_stable_centos7
     - get: gpdb6_src
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1507,12 +1507,12 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_5x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb5_src
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1558,7 +1558,7 @@ jobs:
   ensure:
     <<: *set_failed
 
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 # Ensure compatibility between a new gpdb5 binary and a fixed version of gpbackup
 - name: 5X-head-gpbackup-fixed-test
   plan:
@@ -1608,19 +1608,19 @@ jobs:
     <<: *set_failed
 {% endif %}
 
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 - name: scale-master
   plan:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_master_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb_master_src
     - get: scale_schema
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1664,13 +1664,13 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_6x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb6_src
     - get: scale_schema
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1713,13 +1713,13 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_5x_stable_centos6
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb5_src
     - get: scale_schema
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1761,13 +1761,13 @@ jobs:
   - aggregate:
     - get: gpbackup
     - get: bin_gpdb_43_stable
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
     - get: gpdb5_src
     - get: scale_schema
-{% if nightly_trigger and "gpbackup" == pipeline_name %}
+{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1983,7 +1983,7 @@ jobs:
 {% endif %}
 
 
-{% if "gpbackup" == pipeline_name %}
+{% if "gpbackup-release" != pipeline_name %}
 - name: final_gate
   plan:
   - aggregate:
