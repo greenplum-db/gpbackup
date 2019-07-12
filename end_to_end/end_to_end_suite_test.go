@@ -1151,6 +1151,7 @@ PARTITION BY LIST (gender)
 				backupdir := filepath.Join(customBackupDir, "real_precision") // Must be unique
 				tableName := "test_real_precision"
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE public.%s (val real)`, tableName))
+				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE public.%s`, tableName))
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO public.%s VALUES (0.24006299674511::real)`, tableName))
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupdir, "--dbname", "testdb", "--include-table", fmt.Sprintf("public.%s", tableName))
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupdir)
