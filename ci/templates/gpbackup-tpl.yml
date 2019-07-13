@@ -1299,7 +1299,7 @@ jobs:
   plan:
   - aggregate:
     - get: gpbackup
-    - get: bin_gpdb_5x_stable_centos6
+    - get: bin_gpdb_5x_sles11
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
@@ -1330,7 +1330,7 @@ jobs:
       PLATFORM: sles12
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
-      gpdb_binary: bin_gpdb_5x_stable_centos6
+      gpdb_binary: bin_gpdb_5x_sles11
       gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml

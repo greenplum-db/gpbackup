@@ -12,6 +12,7 @@ inputs:
 - name: ccp_src
 - name: cluster_env_files
 - name: gpbackup-dependencies
+- name: gppkgs
 
 run:
   path: bash
@@ -21,29 +22,46 @@ run:
     set -ex
 
     ccp_src/scripts/setup_ssh_to_cluster.sh
-
-    cat <<SCRIPT > /tmp/run_tests.bash
-    set -ex
-    export GOPATH=/home/gpadmin/go
-    export PGPORT=5432
-    export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
-    export PATH=\$GOPATH/bin:/usr/local/go/bin:\$PATH
-    
-    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com/greenplum-db/gpbackup/
-    
-    cd \$GOPATH/src/github.com/greenplum-db/gpbackup
-    make depend
-    source /usr/local/greenplum-db-devel/greenplum_path.sh # We source greenplum_path.sh here to avoid certificate issues during `go get`
-    export PATH=\$GOPATH/bin:/usr/local/go/bin:\$PATH
-    make build
-    make end_to_end
-    SCRIPT
-
     ssh -t root@mdw "sudo zypper -n install wget git && wget https://storage.googleapis.com/golang/go1.10.3.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz"
     ssh -t root@mdw "sudo mkdir /home/gpadmin/go && sudo chown gpadmin:gpadmin -R /home/gpadmin/go"
-    chmod +x /tmp/run_tests.bash
     rsync -a gpbackup-dependencies mdw:/home/gpadmin
-    scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
     ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"
     scp -r go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
+
+    # Install gpbackup binaries using gppkg
+    cat << ENV_SCRIPT > /tmp/env.sh
+      # export GOPATH=/home/gpadmin/go
+      source /usr/local/greenplum-db-devel/greenplum_path.sh
+      export PGPORT=5432
+      export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
+      # export PATH=\$GOPATH/bin:/usr/local/go/bin:\$PATH
+    ENV_SCRIPT
+    chmod +x /tmp/env.sh
+    scp /tmp/env.sh mdw:/home/gpadmin/env.sh
+
+    out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
+    GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
+    mkdir /tmp/untarred
+    tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+    scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*SLES*.gppkg mdw:/home/gpadmin
+    ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*SLES*.gppkg"
+
+    cat <<SCRIPT > /tmp/run_tests.bash
+      set -ex
+      export GOPATH=/home/gpadmin/go
+      export PGPORT=5432
+      export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
+      export PATH=\$GOPATH/bin:/usr/local/go/bin:\$PATH
+
+      tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com/greenplum-db/gpbackup/
+
+      cd \$GOPATH/src/github.com/greenplum-db/gpbackup
+      make depend # Needed to install ginkgo
+      # Source greenplum_path.sh after "make depend" to avoid certificate issues.
+      source /usr/local/greenplum-db-devel/greenplum_path.sh
+      make end_to_end_without_install
+    SCRIPT
+
+    chmod +x /tmp/run_tests.bash
+    scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
     ssh -t mdw "bash /home/gpadmin/run_tests.bash"
