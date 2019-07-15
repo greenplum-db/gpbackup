@@ -1,0 +1,86 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: pivotaldata/centos-gpdb-dev
+    tag: '7-gcc6.2-llvm3.7'
+
+inputs:
+- name: gpbackup_manager_src
+  path: go/src/github.com/pivotal/gp-backup-manager
+- name: gpdb_src
+- name: bin_gpdb
+- name: gppkgs
+
+params:
+  GOLANG_VERSION: 1.12.7
+
+run:
+  path: bash
+  args:
+  - -c
+  - |
+    set -ex
+    if [ ! -f bin_gpdb/bin_gpdb.tar.gz ] ; then
+      mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
+    fi
+
+    # We download a fixed version GOLANG_VERSION of Go to run ginkgo, our testing framework, on gpbackup_manager.
+    # This is because gpbackup_manager has tests that require Go 1.12+
+    # TODO: bake a new image with Go 1.12+ pre-installed.
+    wget https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz && \
+    sudo rm -rf /usr/local/go && \
+    tar -xzf go${GOLANG_VERSION}.linux-amd64.tar.gz -C /usr/local
+
+    source gpdb_src/concourse/scripts/common.bash
+    time install_gpdb
+    time ./gpdb_src/concourse/scripts/setup_gpadmin_user.bash
+    time make_cluster
+
+    source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+    # copy gpbackup-manager into the GOPATH used by user "gpadmin"
+    export GOPATH=/home/gpadmin/go
+    mkdir -p $GOPATH/src/github.com/pivotal
+    cp -R go/src/github.com/pivotal/gp-backup-manager $GOPATH/src/github.com/pivotal/
+
+    chown -R gpadmin $GOPATH
+
+    cat <<SCRIPT > /tmp/run_tests.bash
+    #!/bin/bash
+    set -ex
+    cd ~
+    source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+    # use "temp build dir" of parent shell
+    source $(pwd)/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
+    export GOPATH=\$HOME/go
+    mkdir -p \$GOPATH/bin
+    mkdir -p \$GOPATH/src
+    # reference PATH defined by parent shell
+    export PATH=/usr/local/go/bin:$PATH:\$PATH:\$GOPATH/bin
+
+    # Install gppkgs
+    mkdir /tmp/untarred
+    tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+    out=\$(psql postgres -c "select version();")
+    GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
+    gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*RHEL*.gppkg
+
+    # install pgcrypto; works for GPDB 6+
+    psql -d postgres -c "create extension pgcrypto"
+
+    # Test gpbackup manager
+    pushd \$GOPATH/src/github.com/pivotal/gp-backup-manager
+      make depend
+      make unit
+      make integration
+      make end_to_end_without_install
+    popd
+
+    SCRIPT
+
+    cp -r gppkgs /home/gpadmin
+    chmod +x /tmp/run_tests.bash
+    su - gpadmin bash -c /tmp/run_tests.bash
