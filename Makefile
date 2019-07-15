@@ -15,6 +15,7 @@ HELPER_VERSION_STR="-X github.com/greenplum-db/gpbackup/helper.version=$(GIT_VER
 # note that /testutils is not a production directory, but has unit tests to validate testing tools
 SUBDIRS_HAS_UNIT=backup/ backup_filepath/ backup_history/ helper/ options/ restore/ utils/ testutils/
 SUBDIRS_ALL=$(SUBDIRS_HAS_UNIT) integration/ end_to_end/
+GOLANG_LINTER=$(GOPATH)/bin/golangci-lint
 
 DEST = .
 
@@ -24,8 +25,7 @@ CUSTOM_BACKUP_DIR ?= "/tmp"
 
 .PHONY : coverage integration end_to_end
 
-dependencies :
-		ci/scripts/install_linter.bash
+dependencies : $(GOLANG_LINTER)
 		curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 		dep ensure -v
 		@cd vendor/golang.org/x/tools/cmd/goimports; go install .
@@ -34,8 +34,12 @@ dependencies :
 format :
 		goimports -w .
 
-lint :
-		! goimports -l $(SUBDIRS_ALL) | read
+LINTER_VERSION=1.16.0
+$(GOLANG_LINTER) :
+		mkdir -p $(GOPATH)/bin
+		curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v${LINTER_VERSION}
+
+lint : $(GOLANG_LINTER)
 		golangci-lint run --tests=false
 
 unit :
