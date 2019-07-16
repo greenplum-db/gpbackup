@@ -25,8 +25,9 @@ fi
 
 time_second=$(date +"%Y%m%d%H%M%S")
 current_date=$(echo $time_second | cut -c 1-8)
-testdir="/tmp/testseg/backups/$current_date/$time_second"
 
+testdir_base="/tmp/$RANDOM"
+testdir="${testdir_base}/testseg/backups/$current_date/$time_second"
 testfile="$testdir/testfile_$time_second.txt"
 testdata="$testdir/testdata_$time_second.txt"
 test_no_data="$testdir/test_no_data_$time_second.txt"
@@ -203,11 +204,11 @@ sleep 1
 time_second_for_del2=$(date +"%Y%m%d%H%M%S")
 current_date_for_del2=$(echo $time_second_for_del | cut -c 1-8)
 
-testdir_for_del="/tmp/testseg/backups/$current_date_for_del/$time_second_for_del"
+testdir_for_del="${testdir_base}/testseg/backups/$current_date_for_del/$time_second_for_del"
 testdata_for_del="$testdir_for_del/testdata_$time_second_for_del.txt"
 testfile_for_del="$testdir_for_del/testfile_$time_second_for_del.txt"
 
-testdir_for_del2="/tmp/testseg/backups/$current_date_for_del2/$time_second_for_del2"
+testdir_for_del2="${testdir_base}/testseg/backups/$current_date_for_del2/$time_second_for_del2"
 testdata_for_del2="$testdir_for_del2/testdata_$time_second_for_del2.txt"
 testfile_for_del2="$testdir_for_del2/testfile_$time_second_for_del2.txt"
 
@@ -368,7 +369,7 @@ echo "Cleaning up leftover test artifacts"
 
 dropdb $test_db
 rm $log_file
-rm -r /tmp/testseg
+rm -r $testdir_base
 
 if (( 1 == $(echo "0.4.0 $api_version" | awk '{print ($1 > $2)}') )) ; then
   echo "[SKIPPING] cleanup of uploaded test artifacts using plugins (only compatible with version >= 0.4.0)"
