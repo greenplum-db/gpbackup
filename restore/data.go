@@ -13,6 +13,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/jackc/pgx"
 	"github.com/pkg/errors"
 	pb "gopkg.in/cheggaaa/pb.v1"
 )
@@ -39,7 +40,14 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	query := fmt.Sprintf("COPY %s%s FROM %s WITH CSV DELIMITER '%s' ON SEGMENT;", tableName, tableAttributes, copyCommand, tableDelim)
 	result, err := connectionPool.Exec(query, whichConn)
 	if err != nil {
-		return 0, errors.Wrap(err, fmt.Sprintf("Error loading data into table %s", tableName))
+		errStr := fmt.Sprintf("Error loading data into table %s", tableName)
+
+		// The COPY ON SEGMENT error might contain useful CONTEXT output
+		if err.(pgx.PgError).Where != "" {
+			errStr = fmt.Sprintf("%s: %s", errStr, err.(pgx.PgError).Where)
+		}
+
+		return 0, errors.Wrap(err, errStr)
 	}
 	numRows, _ := result.RowsAffected()
 	return numRows, err
