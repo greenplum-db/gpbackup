@@ -13,9 +13,6 @@ inputs:
 - name: bin_gpdb
 - name: gppkgs
 
-params:
-  GOLANG_VERSION: 1.12.7
-
 run:
   path: bash
   args:
@@ -25,13 +22,6 @@ run:
     if [ ! -f bin_gpdb/bin_gpdb.tar.gz ] ; then
       mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
     fi
-
-    # We download a fixed version GOLANG_VERSION of Go to run ginkgo, our testing framework, on gpbackup_manager.
-    # This is because gpbackup_manager has tests that require Go 1.12+
-    # TODO: bake a new image with Go 1.12+ pre-installed.
-    wget https://storage.googleapis.com/golang/go${GOLANG_VERSION}.linux-amd64.tar.gz && \
-    sudo rm -rf /usr/local/go && \
-    tar -xzf go${GOLANG_VERSION}.linux-amd64.tar.gz -C /usr/local
 
     source gpdb_src/concourse/scripts/common.bash
     time install_gpdb
