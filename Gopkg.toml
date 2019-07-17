@@ -75,3 +75,7 @@ required = ["golang.org/x/tools/cmd/goimports", "github.com/onsi/ginkgo/ginkgo"]
   branch = "master"
   name = "github.com/blang/vfs"
   source = "https://github.com/dsharp-pivotal/vfs.git"
+
+[[constraint]]
+  name = "github.com/jackc/pgx"
+  version = "v3.3.0"

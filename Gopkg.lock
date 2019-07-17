@@ -326,6 +326,7 @@
     "github.com/greenplum-db/gp-common-go-libs/operating",
     "github.com/greenplum-db/gp-common-go-libs/structmatcher",
     "github.com/greenplum-db/gp-common-go-libs/testhelper",
+    "github.com/jackc/pgx",
     "github.com/lib/pq",
     "github.com/nightlyone/lockfile",
     "github.com/onsi/ginkgo",
