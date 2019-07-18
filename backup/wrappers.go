@@ -56,15 +56,21 @@ func SetSessionGUCs(connNum int) {
 	connectionPool.MustExec("SET statement_timeout = 0", connNum)
 	connectionPool.MustExec("SET DATESTYLE = ISO", connNum)
 	connectionPool.MustExec("SET standard_conforming_strings = 1", connNum) // Needed for 4.3, default on in 5+
+
+	// The fix to raise the max of extra_float_digits GUC is going out with
+	// GPDB 4.3.33.1. This means if we set the GUC using 'SET
+	// extra_float_digits=3', gpbackup would be broken with GPDB 4.3.33.0 since
+	// our Semver package only allows up to 3 digits. To avoid any complicated
+	// version diffs of setting this GUC, we use set_config() with a subquery
+	// getting the max value of the GUC.
+	connectionPool.MustExec("SELECT set_config('extra_float_digits', (SELECT max_val FROM pg_settings WHERE name = 'extra_float_digits'), false)")
+
 	if connectionPool.Version.AtLeast("5") {
 		connectionPool.MustExec("SET synchronize_seqscans TO off", connNum)
 	}
 	if connectionPool.Version.AtLeast("6") {
 		connectionPool.MustExec("SET INTERVALSTYLE = POSTGRES", connNum)
 		connectionPool.MustExec("SET lock_timeout = 0", connNum)
-		connectionPool.MustExec("SET extra_float_digits=3")
-	} else {
-		connectionPool.MustExec("SET extra_float_digits=2")
 	}
 }
 
