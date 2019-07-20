@@ -493,7 +493,6 @@ jobs:
     - get: gpbackup_s3_plugin
     - get: gpbackup_manager_src
     - get: pivnet_release_cache
-      trigger: true
     - get: gpbackup_ddboost_plugin
 {% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
@@ -2126,16 +2125,39 @@ jobs:
               tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
               GPBACKUP_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
 
+              # the same gpbackup version will exist in the tile version string
+              # if this release only includes updates to components outside of
+              # gpbackup itself (e.g. plugins, manager)
               pushd pivnet_release_cache
-                PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}*"
-                if [ -f $PRV_TILE_RELEASE_VERSION ]; then
-                  # increment the counter if the expected release version has been used before
-                  COUNT=$(echo $PRV_TILE_RELEASE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
+                PRV_TILE_VERSION=$(echo v-*)
+                CURR_TILE_VERSION="v-${GPBACKUP_VERSION}*"
+                if [ -f $CURR_TILE_VERSION ]; then
+                  COUNT=$(echo $CURR_TILE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
                   COUNT=$(($COUNT+1))
+                  # If same gpbackup version, then not a major/minor release
+                  RELEASE_TYPE="Maintenance"
                 else
                   # reset the version count
                   COUNT=1
+                  # detect the release type
+                  PRV_MAJOR=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f1)
+                  PRV_MINOR=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f2)
+                  PRV_PATCH=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f3 | sed -r "s/([0-9]+).*/\1/")
+                  CURR_MAJOR=$(echo $GPBACKUP_VERSION |cut -d. -f1)
+                  CURR_MINOR=$(echo $GPBACKUP_VERSION |cut -d. -f2)
+                  CURR_PATCH=$(echo $GPBACKUP_VERSION |cut -d. -f3)
+                  if [ "$PRV_MAJOR" != "$CURR_MAJOR" ] ; then
+                    RELEASE_TYPE="Major"
+                  elif [ "$PRV_MINOR" != "$CURR_MINOR" ] ; then
+                    RELEASE_TYPE="Minor"
+                  elif [ "$PRV_PATCH" != "$CURR_PATCH" ] ; then
+                    RELEASE_TYPE="Maintenance"
+                  else
+                    echo "Unable to determine release type."
+                    exit 1
+                  fi
                 fi
+
                 TILE_RELEASE_VERSION=${GPBACKUP_VERSION}-${COUNT}
                 touch ../workspace/v-${TILE_RELEASE_VERSION}
               popd
@@ -2157,6 +2179,8 @@ jobs:
               sed -i "s/<GPBAR_VERSION>/${GPBACKUP_VERSION}/g" workspace/metadata.yml
               OSL_FILENAME=$(basename -- gpbackup-release-license/open_source_license_pivotal-gpdb-backup-${GPBACKUP_VERSION}-*.txt)
               sed -i "s/<OSL_FILENAME>/${OSL_FILENAME}/g" workspace/metadata.yml
+              sed -i "s/<RELEASE_TYPE>/${RELEASE_TYPE} Release/g" workspace/metadata.yml
+
               # The URL adjusts based on major/minor version
               REL_NOTES_VERSION=$(echo ${GPBACKUP_VERSION//./-} | cut -d- -f1,2)
               sed -i "s/<REL_NOTES_VERSION>/${REL_NOTES_VERSION}/g" workspace/metadata.yml

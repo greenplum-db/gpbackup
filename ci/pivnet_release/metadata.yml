@@ -1,9 +1,9 @@
 release:
   version: <TILE_RELEASE_VERSION>
-  release_type: Beta Release
-  eula_slug: pivotal_beta_eula
+  release_type: <RELEASE_TYPE>
+  eula_slug: pivotal_software_eula
   description: |
-    The Pivotal Greenplum Backup and Restore <TILE_RELEASE_VERSION> release contains the following versions of binaries:
+        The Pivotal Greenplum Backup and Restore <TILE_RELEASE_VERSION> release contains the following versions of binaries for use with the Pivotal Greenplum Server:
         - gpbackup <GPBAR_VERSION>
         - gpbackup_helper <GPBAR_VERSION>
         - gprestore <GPBAR_VERSION>
@@ -15,6 +15,7 @@ release:
   controlled: false
   eccn: EAR99
   license_exception: NLR
+  end_of_support_date: 2021-05-28
 
 product_files:
 ########## SLES Gppkgs ##########
