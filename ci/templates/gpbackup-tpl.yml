@@ -493,7 +493,9 @@ jobs:
     - get: gpbackup_s3_plugin
     - get: gpbackup_manager_src
     - get: pivnet_release_cache
+{% if "gpbackup-release" == pipeline_name %}
       trigger: true
+{% endif %}
     - get: gpbackup_ddboost_plugin
 {% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
