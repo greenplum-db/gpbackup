@@ -44,6 +44,7 @@ var (
 	content          *int
 	dataFile         *string
 	oidFile          *string
+	onErrorContinue  *bool
 	pipeFile         *string
 	pluginConfigFile *string
 	printVersion     *bool
@@ -86,11 +87,17 @@ func InitializeGlobals() {
 	compressionLevel = flag.Int("compression-level", 0, "The level of compression to use with gzip. O indicates no compression.")
 	dataFile = flag.String("data-file", "", "Absolute path to the data file")
 	oidFile = flag.String("oid-file", "", "Absolute path to the file containing a list of oids to restore")
+	onErrorContinue = flag.Bool("on-error-continue", false, "Continue restore even when encountering an error")
 	pipeFile = flag.String("pipe-file", "", "Absolute path to the pipe file")
 	pluginConfigFile = flag.String("plugin-config", "", "The configuration file to use for a plugin")
 	printVersion = flag.Bool("version", false, "Print version number and exit")
 	restoreAgent = flag.Bool("restore-agent", false, "Use gpbackup_helper as an agent for restore")
 	tocFile = flag.String("toc-file", "", "Absolute path to the table of contents file")
+
+	if *onErrorContinue && !*restoreAgent {
+		fmt.Printf("--on-error-continue flag can only be used with --restore-agent flag")
+		os.Exit(1)
+	}
 
 	flag.Parse()
 	if *printVersion {
@@ -194,4 +201,9 @@ func DoCleanup() {
 func log(s string, v ...interface{}) {
 	s = fmt.Sprintf("Segment %d: %s", *content, s)
 	gplog.Verbose(s, v...)
+}
+
+func logError(s string, v ...interface{}) {
+	s = fmt.Sprintf("Segment %d: %s", *content, s)
+	gplog.Error(s, v...)
 }

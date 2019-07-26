@@ -19,6 +19,13 @@ import (
  * Functions to run commands on entire cluster during both backup and restore
  */
 
+/*
+ * The reason that gprestore is in charge of creating the first pipe to ensure
+ * that the first pipe is created before the first COPY FROM is issued.  If
+ * gpbackup_helper was in charge of creating the first pipe, there is a
+ * possibility that the COPY FROM commands start before gpbackup_helper is done
+ * starting up and setting up the first pipe.
+ */
 func CreateFirstSegmentPipeOnAllHosts(oid string, c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Creating segment data pipes", func(contentID int) string {
 		pipeName := fpInfo.GetSegmentPipeFilePath(contentID)

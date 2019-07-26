@@ -199,6 +199,69 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			Expect(err).To(HaveOccurred())
 			assertErrorsHandled()
 		})
+		It("Continues restore process when encountering an error with flag --on-error-continue", func() {
+			// Write data file
+			dataFile := dataFileFullPath
+			f, _ := os.Create(dataFile + ".gz")
+			gzipf := gzip.NewWriter(f)
+			// Named pipes can buffer, so we need to write more than the buffer size to trigger flush error
+			custom_data := "here is some data\n"
+			dataLength := 128*1024 + 1
+			custom_data += strings.Repeat("a", dataLength)
+			custom_data += "here is some data\n"
+
+			_, _ = gzipf.Write([]byte(custom_data))
+			gzipf.Close()
+
+			// Write oid file
+			fOid, _ := os.Create(oidFile)
+			_, _ = fOid.WriteString("1\n2\n3\n")
+			defer os.Remove(oidFile)
+
+			// Write custom TOC
+			customTOC := fmt.Sprintf(`dataentries:
+  1:
+    startbyte: 0
+    endbyte: 18
+  2:
+    startbyte: 18
+    endbyte: %[1]d
+  3:
+    startbyte: %[1]d
+    endbyte: %d
+`, dataLength+18, dataLength+18+18)
+			fToc, _ := os.Create(tocFile)
+			_, _ = fToc.WriteString(customTOC)
+			defer os.Remove(tocFile)
+
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".gz", "--on-error-continue")
+
+			for k, v := range []int{1, 2, 3} {
+				currentPipe := fmt.Sprintf("%s_%d", pipeFile, v)
+
+				if k == 1 {
+					// Do not read from the pipe to cause data load error on the helper by interrupting the write.
+					file, errOpen := os.Open(currentPipe)
+					Expect(errOpen).ToNot(HaveOccurred())
+					errClose := file.Close()
+					Expect(errClose).ToNot(HaveOccurred())
+				} else {
+					contents, err := ioutil.ReadFile(currentPipe)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(string(contents)).To(Equal("here is some data\n"))
+				}
+			}
+
+			// Block here until gpbackup_helper finishes (cleaning up pipes)
+			_ = helperCmd.Wait()
+			for _, i := range []int{1, 2, 3} {
+				currentPipe := fmt.Sprintf("%s_%d", pipeFile, i)
+				Expect(currentPipe).ToNot(BeAnExistingFile())
+			}
+
+			// Check that an error file was created
+			Expect(errorFile).To(BeAnExistingFile())
+		})
 	})
 })
 

@@ -20,23 +20,19 @@ import (
 func doRestoreAgent() error {
 	tocEntries := utils.NewSegmentTOC(*tocFile).DataEntries
 	var lastByte uint64
+	var bytesRead int64
+	var start uint64
+	var end uint64
+	var numDiscarded int
+	var errRemove error
+	var lastError error
+
 	oidList, err := getOidListFromFile()
 	if err != nil {
 		return err
 	}
 
-	currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[0])
-	log(fmt.Sprintf("Opening pipe for oid %d", oidList[0]))
-	/*
-	 * It is important that we create the writer before creating the reader
-	 * so that we establish a connection to the first pipe (created by gprestore)
-	 * and properly clean it up if an error occurs while creating the reader.
-	 */
-	writer, writeHandle, err = getRestorePipeWriter(currentPipe)
-	if err != nil {
-		return err
-	}
-	reader, err := getRestorePipeReader()
+	reader, err := getRestoreDataReader()
 	if err != nil {
 		return err
 	}
@@ -45,54 +41,85 @@ func doRestoreAgent() error {
 		if wasTerminated {
 			return errors.New("Terminated due to user request")
 		}
-		log(fmt.Sprintf("Restoring table with oid %d", oid))
+
+		currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i])
 		if i < len(oidList)-1 {
 			nextPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i+1])
+			log(fmt.Sprintf("Creating pipe for oid %d: %s", oidList[i+1], nextPipe))
 			err := createPipe(nextPipe)
 			if err != nil {
+				// In the case this error is hit it means we have lost the
+				// ability to create pipes normally, so hard quit even if
+				// --on-error-continue is given
 				return err
 			}
-		} else {
-			nextPipe = ""
 		}
-		start := tocEntries[uint(oid)].StartByte
-		end := tocEntries[uint(oid)].EndByte
-		log(fmt.Sprintf("Start Byte: %d; End Byte: %d; Last Byte: %d", start, end, lastByte))
-		_, err := reader.Discard(int(start - lastByte))
+
+		start = tocEntries[uint(oid)].StartByte
+		end = tocEntries[uint(oid)].EndByte
+
+		log(fmt.Sprintf("Opening pipe for oid %d: %s", oid, currentPipe))
+		writer, writeHandle, err = getRestorePipeWriter(currentPipe)
 		if err != nil {
+			// In the case this error is hit it means we have lost the
+			// ability to open pipes normally, so hard quit even if
+			// --on-error-continue is given
+			_ = removeFileIfExists(currentPipe)
 			return err
 		}
-		log(fmt.Sprintf("Discarded %d bytes", start-lastByte))
-		bytesRead, err := io.CopyN(writer, reader, int64(end-start))
-		log(fmt.Sprintf("Read %d bytes", bytesRead))
+
+		log(fmt.Sprintf("Data Reader - Start Byte: %d; End Byte: %d; Last Byte: %d", start, end, lastByte))
+		numDiscarded, err = reader.Discard(int(start - lastByte))
 		if err != nil {
-			return errors.Wrap(err, strings.Trim(errBuf.String(), "\x00"))
-		}
-		log(fmt.Sprintf("Closing pipe for oid %d", oid))
-		err = flushAndCloseRestoreWriter()
-		if err != nil {
+			// Always hard quit if data reader has issues
+			_ = removeFileIfExists(currentPipe)
 			return err
+		}
+		log(fmt.Sprintf("Data Reader discarded %d bytes", numDiscarded))
+
+		log(fmt.Sprintf("Restoring table with oid %d", oid))
+		bytesRead, err = io.CopyN(writer, reader, int64(end-start))
+		if err != nil {
+			// In case COPY FROM or copyN fails in the middle of a load. We
+			// need to update the lastByte with the amount of bytes that was
+			// copied before it errored out
+			lastByte += uint64(bytesRead)
+			err = errors.Wrap(err, strings.Trim(errBuf.String(), "\x00"))
+			goto LoopEnd
 		}
 		lastByte = end
+		log(fmt.Sprintf("Copied %d bytes into the pipe", bytesRead))
 
-		lastPipe = currentPipe
-		currentPipe = nextPipe
-		err = removeFileIfExists(lastPipe)
+		log(fmt.Sprintf("Closing pipe for oid %d: %s", oid, currentPipe))
+		err = flushAndCloseRestoreWriter()
 		if err != nil {
-			return err
+			goto LoopEnd
 		}
-		if currentPipe != "" {
-			log(fmt.Sprintf("Opening pipe for oid %d", oid))
-			writer, writeHandle, err = getRestorePipeWriter(currentPipe)
-			if err != nil {
+
+	LoopEnd:
+		log(fmt.Sprintf("Removing pipe for oid %d: %s", oid, currentPipe))
+		errRemove = removeFileIfExists(currentPipe)
+		if errRemove != nil {
+			_ = removeFileIfExists(nextPipe)
+			return errRemove
+		}
+
+		if err != nil {
+			if *onErrorContinue {
+				logError(fmt.Sprintf("Error encountered: %v", err))
+				lastError = err
+				err = nil
+				continue
+			} else {
 				return err
 			}
 		}
 	}
-	return nil
+
+	return lastError
 }
 
-func getRestorePipeReader() (*bufio.Reader, error) {
+func getRestoreDataReader() (*bufio.Reader, error) {
 	var readHandle io.Reader
 	var err error
 	if *pluginConfigFile != "" {
@@ -123,6 +150,7 @@ func getRestorePipeReader() (*bufio.Reader, error) {
 }
 
 func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File, error) {
+	// Opening this pipe will block until a reader connects to the pipe
 	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY, os.ModeNamedPipe)
 	if err != nil {
 		return nil, nil, err
