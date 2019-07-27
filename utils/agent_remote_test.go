@@ -122,6 +122,34 @@ var _ = Describe("agent remote", func() {
 			Expect(err).To(Equal(tw.WriteErr))
 		})
 	})
+	Describe("StartAgents()", func() {
+		var (
+			fpInfo       backup_filepath.FilePathInfo
+			testCluster  *cluster.Cluster
+			testExecutor *testhelper.TestExecutor
+			remoteOutput *cluster.RemoteOutput
+		)
+		BeforeEach(func() {
+			masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
+			localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
+			remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
+
+			testExecutor = &testhelper.TestExecutor{}
+			remoteOutput = &cluster.RemoteOutput{}
+			testExecutor.ClusterOutput = remoteOutput
+
+			testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
+			testCluster.Executor = testExecutor
+
+			fpInfo = backup_filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
+		})
+		It("Correctly propagates --on-error-continue flag to gpbackup_helper", func() {
+			utils.StartAgent(testCluster, fpInfo, "operation", "/tmp/pluginConfigFile.yml", " compressStr", true)
+
+			cc := testExecutor.ClusterCommands[0]
+			Expect(cc[0][4]).To(ContainSubstring(" --on-error-continue"))
+		})
+	})
 })
 
 type testWriter struct {

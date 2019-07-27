@@ -107,7 +107,7 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 		if wasTerminated {
 			return
 		}
-		utils.StartAgent(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(utils.PLUGIN_CONFIG), "")
+		utils.StartAgent(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(utils.PLUGIN_CONFIG), "", MustGetFlagBool(utils.ON_ERROR_CONTINUE))
 	}
 	/*
 	 * We break when an interrupt is received and rely on
@@ -125,6 +125,9 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 			defer workerPool.Done()
 			setGUCsForConnection(gucStatements, whichConn)
 			for entry := range tasks {
+				// if fatal file exists on any segment {
+				// fatalErr = "fatal"
+				// }
 				if wasTerminated || fatalErr != nil {
 					dataProgressBar.(*pb.ProgressBar).NotPrint = true
 					return
@@ -132,7 +135,7 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 				err := restoreSingleTableData(&fpInfo, entry, tableNum, len(dataEntries), whichConn)
 				if err != nil {
 					if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
-						gplog.Verbose(err.Error())
+						gplog.Error(err.Error())
 						atomic.AddInt32(&numErrors, 1)
 					} else {
 						fatalErr = err

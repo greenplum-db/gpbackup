@@ -112,7 +112,7 @@ func VerifyHelperVersionOnSegments(version string, c *cluster.Cluster) {
 	}
 }
 
-func StartAgent(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo, operation string, pluginConfigFile string, compressStr string) {
+func StartAgent(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo, operation string, pluginConfigFile string, compressStr string, onErrorContinue bool) {
 	remoteOutput := c.GenerateAndExecuteCommand("Starting gpbackup_helper agent", func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
 		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
@@ -125,7 +125,11 @@ func StartAgent(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo, operati
 			_, configFilename := filepath.Split(pluginConfigFile)
 			pluginStr = fmt.Sprintf(" --plugin-config /tmp/%s", configFilename)
 		}
-		helperCmdStr := fmt.Sprintf("gpbackup_helper %s --toc-file %s --oid-file %s --pipe-file %s --data-file %s --content %d%s%s", operation, tocFile, oidFile, pipeFile, backupFile, contentID, pluginStr, compressStr)
+		onErrorContinueStr := ""
+		if onErrorContinue {
+			onErrorContinueStr = " --on-error-continue"
+		}
+		helperCmdStr := fmt.Sprintf("gpbackup_helper %s --toc-file %s --oid-file %s --pipe-file %s --data-file %s --content %d%s%s%s", operation, tocFile, oidFile, pipeFile, backupFile, contentID, pluginStr, compressStr, onErrorContinueStr)
 
 		return fmt.Sprintf(`cat << HEREDOC > %s
 #!/bin/bash
