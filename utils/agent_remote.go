@@ -101,7 +101,7 @@ func VerifyHelperVersionOnSegments(version string, c *cluster.Cluster) {
 		}
 	}
 	if numIncorrect > 0 {
-		cluster.LogFatalClusterError("The version of gpbackup_helper must match the version of gprestore, but found gpbackup_helper binaries with invalid version", cluster.ON_HOSTS, numIncorrect)
+		cluster.LogFatalClusterError("The version of gpbackup_helper must match the version of gpbackup/gprestore, but found gpbackup_helper binaries with invalid version", cluster.ON_HOSTS, numIncorrect)
 	}
 }
 

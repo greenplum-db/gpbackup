@@ -142,6 +142,9 @@ func RecoverMetadataFilesUsingPlugin() {
 	var err error
 	pluginConfig, err = utils.ReadPluginConfig(MustGetFlagString(utils.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
+	pluginConfig.ConfigPath = pluginConfig.ConfigPath + "_" + backup_history.CurrentTimestamp()
+	_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
+	gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 
 	pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
 

@@ -108,6 +108,9 @@ func DoSetup() {
 
 	if pluginConfigFlag != "" {
 		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
+		pluginConfig.ConfigPath = pluginConfig.ConfigPath + "_" + timestamp
+		_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
+		gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 		gplog.FatalOnError(err)
 	}
 
