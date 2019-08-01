@@ -102,6 +102,7 @@ var metadataFilenameMap = map[string]string{
 	"statistics":        "statistics.sql",
 	"table of contents": "toc.yaml",
 	"report":            "report",
+	"plugin_config":     "plugin_config.yaml",
 }
 
 func (backupFPInfo *FilePathInfo) GetBackupFilePath(filetype string) string {
@@ -139,6 +140,10 @@ func (backupFPInfo *FilePathInfo) GetConfigFilePath() string {
 
 func (backupFPInfo *FilePathInfo) GetSegmentTOCFilePath(contentID int) string {
 	return fmt.Sprintf("%s/gpbackup_%d_%s_toc.yaml", backupFPInfo.GetDirForContent(contentID), contentID, backupFPInfo.Timestamp)
+}
+
+func (backupFPInfo *FilePathInfo) GetPluginConfigPath() string {
+	return backupFPInfo.GetBackupFilePath("plugin_config")
 }
 
 func (backupFPInfo *FilePathInfo) GetSegmentHelperFilePath(contentID int, suffix string) string {
