@@ -3,6 +3,7 @@ package backup
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -108,7 +109,9 @@ func DoSetup() {
 
 	if pluginConfigFlag != "" {
 		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
-		pluginConfig.ConfigPath = pluginConfig.ConfigPath + "_" + timestamp
+		configFilename := filepath.Base(pluginConfig.ConfigPath)
+		configDirname := filepath.Dir(pluginConfig.ConfigPath)
+		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp + "_" + configFilename)
 		_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 		gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 		gplog.FatalOnError(err)
