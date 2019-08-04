@@ -203,7 +203,7 @@ func DoBackup() {
 		if MustGetFlagBool(utils.WITH_STATS) {
 			pluginConfig.MustBackupFile(globalFPInfo.GetStatisticsFilePath())
 		}
-		utils.CopyFile(pluginConfigFlag, globalFPInfo.GetPluginConfigPath())
+		_ = utils.CopyFile(pluginConfigFlag, globalFPInfo.GetPluginConfigPath())
 		pluginConfig.MustBackupFile(globalFPInfo.GetPluginConfigPath())
 	}
 
