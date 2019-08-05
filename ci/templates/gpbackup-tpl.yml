@@ -1309,9 +1309,9 @@ jobs:
     - get: gpdb_master_src
     - get: dummy_seclabel_linux_master
     - get: gppkgs
+      trigger: true
       passed:
        - build_binaries
-      trigger: true
   - aggregate:
     - task: run-tests-locally-centos6
       image: centos6-image
@@ -1339,97 +1339,74 @@ jobs:
 {% endif %}
 {% endif %}
 
-- name: GPDB5
-  plan:
-  - aggregate:
-    - get: gpbackup
-    - get: bin_gpdb_5x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
-    - get: ccp_src
-    - get: gpdb5_src
-    - get: gpbackup-dependencies
-      passed:
-       - build_binaries
-    - get: gppkgs
-      trigger: true
-      passed:
-       - build_binaries
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      vars:
-        <<: *ccp_default_vars
-  - task: gen_cluster
-    params:
-      <<: *ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_5x_stable_centos6
-      gpdb_src: gpdb5_src
-  - task: gpinitsystem
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
-  - task: integration-tests
-    file: gpbackup/ci/tasks/all-tests.yml
-  on_success:
-    <<: *ccp_destroy
-  on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
-    *slack_alert
-{% endif %}
-  ensure:
-    <<: *set_failed
-
 - name: GPDB4.3
   plan:
   - aggregate:
+    - get: centos6-image
     - get: gpbackup
+    - get: gpbackup-dependencies
+      passed:
+       - build_binaries
     - get: bin_gpdb_43_stable
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-    - get: ccp_src
     - get: gpdb5_src
-    - get: gpbackup-dependencies
-      passed:
-       - build_binaries
     - get: gppkgs
       trigger: true
       passed:
        - build_binaries
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      vars:
-        <<: *ccp_default_vars
-  - task: gen_cluster
-    params:
-      <<: *ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: run-tests-locally-centos6
+    image: centos6-image
+    file: gpbackup/ci/tasks/test-on-local-cluster.yml
     input_mapping:
-      gpdb_binary: bin_gpdb_43_stable
       gpdb_src: gpdb5_src
-  - task: gpinitsystem
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
-  - task: integration-tests
-    file: gpbackup/ci/tasks/all-tests.yml
-  on_success:
-    <<: *ccp_destroy
+      bin_gpdb: bin_gpdb_43_stable
   on_failure:
 {% if "gpbackup-release" == pipeline_name %}
     *slack_alert_release
 {% else %}
     *slack_alert
 {% endif %}
-  ensure:
-    <<: *set_failed
+
+- name: GPDB5
+  plan:
+  - aggregate:
+    - get: centos6-image
+    - get: centos7-image
+    - get: gpbackup
+    - get: gpbackup-dependencies
+      passed:
+       - build_binaries
+    - get: bin_gpdb_5x_stable_centos6
+{% if "gpbackup-release" != pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: bin_gpdb_5x_stable_centos7
+    - get: gpdb5_src
+    - get: gppkgs
+      trigger: true
+      passed:
+       - build_binaries
+  - aggregate:
+    - task: run-tests-locally-centos6
+      image: centos6-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      input_mapping:
+        gpdb_src: gpdb5_src
+        bin_gpdb: bin_gpdb_5x_stable_centos6
+    - task: run-tests-locally-centos7
+      image: centos7-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      input_mapping:
+        gpdb_src: gpdb5_src
+        bin_gpdb: bin_gpdb_5x_stable_centos7
+  on_failure:
+{% if "gpbackup-release" == pipeline_name %}
+    *slack_alert_release
+{% else %}
+    *slack_alert
+{% endif %}
 
 - name: GPDB6
   plan:
