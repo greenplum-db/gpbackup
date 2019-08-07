@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -17,37 +18,35 @@ import (
 
 var _ = Describe("agent remote", func() {
 	var (
-		oidList []string
+		oidList      []string
+		fpInfo       backup_filepath.FilePathInfo
+		testCluster  *cluster.Cluster
+		testExecutor *testhelper.TestExecutor
+		remoteOutput *cluster.RemoteOutput
 	)
 	BeforeEach(func() {
 		oidList = []string{"1", "2", "3"}
 		operating.System.OpenFileWrite = func(name string, flag int, perm os.FileMode) (io.WriteCloser, error) {
 			return buffer, nil
 		}
+
+		// Setup test cluster
+		masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
+		localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
+		remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
+
+		testExecutor = &testhelper.TestExecutor{}
+		remoteOutput = &cluster.RemoteOutput{}
+		testExecutor.ClusterOutput = remoteOutput
+
+		testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
+		testCluster.Executor = testExecutor
+
+		fpInfo = backup_filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
 	})
 	// note: technically the file system is written to during the call `operating.System.TempFile`
 	//			this file is not used throughout the unit tests below, and it is cleaned up with the method: `operating.System.Remove`
 	Describe("WriteOidListToSegments()", func() {
-		var (
-			fpInfo       backup_filepath.FilePathInfo
-			testCluster  *cluster.Cluster
-			testExecutor *testhelper.TestExecutor
-			remoteOutput *cluster.RemoteOutput
-		)
-		BeforeEach(func() {
-			masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
-			localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
-			remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
-
-			testExecutor = &testhelper.TestExecutor{}
-			remoteOutput = &cluster.RemoteOutput{}
-			testExecutor.ClusterOutput = remoteOutput
-
-			testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
-			testCluster.Executor = testExecutor
-
-			fpInfo = backup_filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
-		})
 		It("generates the correct scp commands to copy oid file to segments", func() {
 			utils.WriteOidListToSegments(oidList, testCluster, fpInfo)
 
@@ -123,32 +122,28 @@ var _ = Describe("agent remote", func() {
 		})
 	})
 	Describe("StartAgents()", func() {
-		var (
-			fpInfo       backup_filepath.FilePathInfo
-			testCluster  *cluster.Cluster
-			testExecutor *testhelper.TestExecutor
-			remoteOutput *cluster.RemoteOutput
-		)
-		BeforeEach(func() {
-			masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
-			localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
-			remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
-
-			testExecutor = &testhelper.TestExecutor{}
-			remoteOutput = &cluster.RemoteOutput{}
-			testExecutor.ClusterOutput = remoteOutput
-
-			testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
-			testCluster.Executor = testExecutor
-
-			fpInfo = backup_filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
-		})
 		It("Correctly propagates --on-error-continue flag to gpbackup_helper", func() {
 			utils.StartAgent(testCluster, fpInfo, "operation", "/tmp/pluginConfigFile.yml", " compressStr", true)
 
 			cc := testExecutor.ClusterCommands[0]
 			Expect(cc[0][4]).To(ContainSubstring(" --on-error-continue"))
 		})
+	})
+	Describe("CheckAgentErrorsOnSegments", func() {
+		It("constructs the correct ssh call to check for the existance of an error file on each segment", func() {
+			err := utils.CheckAgentErrorsOnSegments(testCluster, fpInfo)
+			Expect(err).ToNot(HaveOccurred())
+
+			cc := testExecutor.ClusterCommands[0]
+			errorFile0 := fmt.Sprintf(`/data/gpseg0/gpbackup_0_11112233445566_pipe_%d_error`, fpInfo.PID)
+			expectedCmd0 := fmt.Sprintf(`if [[ -f %[1]s ]]; then echo 'error'; fi; rm -f %[1]s`, errorFile0)
+			Expect(cc[0][4]).To(Equal(expectedCmd0))
+
+			errorFile1 := fmt.Sprintf(`/data/gpseg1/gpbackup_1_11112233445566_pipe_%d_error`, fpInfo.PID)
+			expectedCmd1 := fmt.Sprintf(`if [[ -f %[1]s ]]; then echo 'error'; fi; rm -f %[1]s`, errorFile1)
+			Expect(cc[1][4]).To(Equal(expectedCmd1))
+		})
+
 	})
 })
 

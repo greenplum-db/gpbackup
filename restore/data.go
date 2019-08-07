@@ -117,30 +117,36 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 	var tableNum uint32 = 1
 	tasks := make(chan utils.MasterDataEntry, len(dataEntries))
 	var workerPool sync.WaitGroup
-	var fatalErr error
 	var numErrors int32
+
 	for i := 0; i < connectionPool.NumConns; i++ {
 		workerPool.Add(1)
 		go func(whichConn int) {
 			defer workerPool.Done()
 			setGUCsForConnection(gucStatements, whichConn)
 			for entry := range tasks {
-				// if fatal file exists on any segment {
-				// fatalErr = "fatal"
-				// }
-				if wasTerminated || fatalErr != nil {
+				if wasTerminated {
 					dataProgressBar.(*pb.ProgressBar).NotPrint = true
 					return
 				}
 				err := restoreSingleTableData(&fpInfo, entry, tableNum, len(dataEntries), whichConn)
 				if err != nil {
-					if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
-						gplog.Error(err.Error())
-						atomic.AddInt32(&numErrors, 1)
-					} else {
-						fatalErr = err
+					gplog.Error(err.Error())
+					atomic.AddInt32(&numErrors, 1)
+					if !MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+						dataProgressBar.(*pb.ProgressBar).NotPrint = true
+						return
 					}
 				}
+
+				if backupConfig.SingleDataFile {
+					agentErr := utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
+					if agentErr != nil {
+						gplog.Error(agentErr.Error())
+						return
+					}
+				}
+
 				atomic.AddUint32(&tableNum, 1)
 				dataProgressBar.Increment()
 			}
@@ -152,26 +158,8 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 	close(tasks)
 	workerPool.Wait()
 
-	if backupConfig.SingleDataFile {
-		agentErr := utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
-		if agentErr != nil {
-			/*
-			 * if fatalErr is present, we only want to use gplog.Error here
-			 * so we don't exit before we get a chance to log the other error
-			 */
-			if MustGetFlagBool(utils.ON_ERROR_CONTINUE) || fatalErr != nil {
-				gplog.Error(agentErr.Error())
-			} else {
-				gplog.Fatal(agentErr, "")
-			}
-		}
-	}
-
-	if fatalErr != nil {
+	if numErrors > 0 {
 		fmt.Println("")
-		gplog.Fatal(fatalErr, "")
-	} else if numErrors > 0 {
-		fmt.Println("")
-		gplog.Error("Encountered %d errors during table data restore; see log file %s for a list of table errors.", numErrors, gplog.GetLogFilePath())
+		gplog.Error("Encountered %d error(s) during table data restore; see log file %s for a list of table errors.", numErrors, gplog.GetLogFilePath())
 	}
 }
