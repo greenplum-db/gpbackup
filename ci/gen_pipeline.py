@@ -86,24 +86,27 @@ def print_output_message(args):
     if not args.is_prod:
         if git_branch == "master":
             print "\n[WARNING] You are generating a dev pipeline pointed to the master branch!\n"
-        print "To set this pipeline on dev, run: \n\
-    fly -t gpdb-dev set-pipeline \
+        cmd = "fly -t gpdb-dev set-pipeline \
 -p dev:%s_%s \
 -c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-dev-generated.yml \
 -l ~/workspace/gp-continuous-integration/secrets/gpdb_common-ci-secrets.yml \
 -l ~/workspace/gp-continuous-integration/secrets/ccp_ci_secrets_dev.yml \
 -l ~/workspace/gp-continuous-integration/secrets/gpbackup.dev.yml \
 -v gpbackup-git-branch=%s" % (args.pipeline_name, git_branch, args.pipeline_name, git_branch)
+        print "To set this pipeline on dev, run: \n%s" % (cmd)
 
     if args.is_prod:
         if git_branch != "master":
             print "\n[WARNING] You are generating a prod pipeline, but are not on the master branch!\n"
-        print "To set this pipeline on prod, run: \n\
-    fly -t gpdb-prod set-pipeline \
+        cmd = "fly -t gpdb-prod set-pipeline \
 -p %s \
 -c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml \
 -l ~/workspace/gp-continuous-integration/secrets/gpdb_common-ci-secrets.yml \
 -l ~/workspace/gp-continuous-integration/secrets/gpbackup.prod.yml" % (args.pipeline_name, args.pipeline_name)
+        print "To set this pipeline on prod, run: \n%s" % (cmd)
+    # Expand all home directory paths (i.e. ~/workspace...)
+    cmd = [os.path.expanduser(p) if p[0] == '~' else p for p in cmd.replace('\\\n', '').split()]
+    subprocess.call(cmd)
 
 
 def main():
