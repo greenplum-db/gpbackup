@@ -480,18 +480,26 @@ jobs:
   - aggregate:
     - get: centos6-image
     - get: libyaml-0.1.7
-    - get: gpbackup
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: gpdb6_src
     - get: gpbackup-dependencies
     - get: bin_gpdb_6x_stable_centos6
     - get: bin_gpdb_5x_sles11
+{% if "gpbackup-release" != pipeline_name %}
+    - get: gpbackup_ddboost_plugin
+      trigger: true
+    - get: gpbackup_s3_plugin
+      trigger: true
+    - get: gpbackup_manager_src
+      trigger: true
+    - get: gpbackup
+      trigger: true
+{% else %}
+    - get: gpbackup_ddboost_plugin
     - get: gpbackup_s3_plugin
     - get: gpbackup_manager_src
+    - get: gpbackup
+{% endif %}
     - get: pivnet_release_cache
-    - get: gpbackup_ddboost_plugin
 {% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
@@ -653,7 +661,6 @@ jobs:
   plan:
   - aggregate:
     - get: gpbackup_s3_plugin
-      trigger: true
     - get: gpbackup
     - get: ccp_src
     - get: gpdb5_src
@@ -775,7 +782,6 @@ jobs:
   - aggregate:
     - get: gpbackup_ddboost_plugin
       tags: ["ddboost"]
-      trigger: true
     - get: gpbackup
       tags: ["ddboost"]
     - get: ccp_src
@@ -934,13 +940,13 @@ jobs:
             hostname: {{datadomain_source_host}}
             username: {{datadomain_user}}
             storage_unit: GPDB
-            directory: gpbackup_tests
+            directory: gpbackup_tests4
             replication: on
             pgport: 5432
             remote_hostname: {{datadomain_dest_host}}
             remote_username: {{datadomain_user}}
             remote_storage_unit: GPDB
-            remote_directory: gpbackup_tests
+            remote_directory: gpbackup_tests4
             password: {{encrypted_datadomain_password}}
             password_encryption: "on"
             remote_password: {{encrypted_datadomain_password}}
@@ -956,7 +962,7 @@ jobs:
             username: {{datadomain_user}}
             password: {{datadomain_password}}
             storage_unit: GPDB
-            directory: gpbackup_tests
+            directory: gpbackup_tests4
             pgport: 5432
           CONFIG
 
@@ -988,7 +994,6 @@ jobs:
   - aggregate:
     - get: gpbackup_ddboost_plugin
       tags: ["ddboost"]
-      trigger: true
     - get: gpbackup
       tags: ["ddboost"]
     - get: ccp_src
@@ -1143,13 +1148,13 @@ jobs:
             hostname: {{datadomain_source_host}}
             username: {{datadomain_user}}
             storage_unit: GPDB
-            directory: gpbackup_tests
+            directory: gpbackup_tests5
             replication: on
             pgport: 5432
             remote_hostname: {{datadomain_dest_host}}
             remote_username: {{datadomain_user}}
             remote_storage_unit: GPDB
-            remote_directory: gpbackup_tests
+            remote_directory: gpbackup_tests5
             password: {{encrypted_datadomain_password}}
             password_encryption: "on"
             remote_password: {{encrypted_datadomain_password}}
@@ -1165,7 +1170,7 @@ jobs:
             username: {{datadomain_user}}
             password: {{datadomain_password}}
             storage_unit: GPDB
-            directory: gpbackup_tests
+            directory: gpbackup_tests5
             pgport: 5432
           CONFIG
 
@@ -1197,7 +1202,6 @@ jobs:
   - aggregate:
     - get: gpbackup_ddboost_plugin
       tags: ["ddboost"]
-      trigger: true
     - get: gpbackup
       tags: ["ddboost"]
     - get: ccp_src
@@ -1355,13 +1359,13 @@ jobs:
             hostname: {{datadomain_source_host}}
             username: {{datadomain_user}}
             storage_unit: GPDB
-            directory: gpbackup_tests
+            directory: gpbackup_tests6
             replication: on
             pgport: 5432
             remote_hostname: {{datadomain_dest_host}}
             remote_username: {{datadomain_user}}
             remote_storage_unit: GPDB
-            remote_directory: gpbackup_tests
+            remote_directory: gpbackup_tests6
             password: {{encrypted_datadomain_password}}
             password_encryption: "on"
             remote_password: {{encrypted_datadomain_password}}
@@ -1377,7 +1381,7 @@ jobs:
             username: {{datadomain_user}}
             password: {{datadomain_password}}
             storage_unit: GPDB
-            directory: gpbackup_tests
+            directory: gpbackup_tests6
             pgport: 5432
           CONFIG
 
