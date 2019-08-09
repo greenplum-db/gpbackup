@@ -40,7 +40,7 @@ run:
     export GOPATH=/home/gpadmin/go
     mkdir -p $GOPATH/src/github.com/greenplum-db
     cp -R gpbackup $GOPATH/src/github.com/greenplum-db/
-    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com/greenplum-db/gpbackup/
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com
     chown -R gpadmin $GOPATH
 
     cat <<SCRIPT > /tmp/run_tests.bash

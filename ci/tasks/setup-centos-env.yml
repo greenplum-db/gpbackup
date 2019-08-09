@@ -40,7 +40,7 @@ run:
     gpconfig --skipvalidation -c fsync -v off
     gpstop -u
 
-    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com/greenplum-db/gpbackup/
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com
 
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
         make depend

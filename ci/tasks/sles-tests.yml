@@ -53,7 +53,7 @@ run:
       export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
       export PATH=\$GOPATH/bin:/usr/local/go/bin:\$PATH
 
-      tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com/greenplum-db/gpbackup/
+      tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com
 
       cd \$GOPATH/src/github.com/greenplum-db/gpbackup
       make depend # Needed to install ginkgo

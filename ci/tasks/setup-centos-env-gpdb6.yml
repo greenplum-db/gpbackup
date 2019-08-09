@@ -42,7 +42,7 @@ run:
     gpconfig -c shared_preload_libraries -v dummy_seclabel
     gpstop -ar
 
-    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com/greenplum-db/gpbackup/
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com
 
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
         make depend

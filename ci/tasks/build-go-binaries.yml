@@ -29,18 +29,16 @@ run:
     export GOPATH=$(pwd)/go
     export PATH=$PATH:$GOPATH/bin
 
-    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com/greenplum-db/gpbackup/
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com
 
     # Build gpbackup
     pushd $GOPATH/src/github.com/greenplum-db/gpbackup
       make depend
-      tar cfz dependencies.tar.gz vendor
       make unit
       # NOTE: we are building binaries without a cluster installed, so distributing the backup_helper fails--continue anyway
       make build || true
       version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
     popd
-    cp $GOPATH/src/github.com/greenplum-db/gpbackup/dependencies.tar.gz output_deps/
     echo ${version} > go_components/gpbackup_version
 
     if [ "gpbackup version ${version}" != "$($GOPATH/bin/gpbackup --version)" ]; then
@@ -73,7 +71,13 @@ run:
     popd
     echo ${gpbackup_manager_version} > go_components/gpbackup_manager_version
 
-    # todo: gpbackup_manager puts newline in front of version line; should be fixed in future
+    # tar updated dependencies
+    pushd $GOPATH/src/github.com
+      tar cfz dependencies.tar.gz greenplum-db/gpbackup/vendor pivotal/gp-backup-manager/vendor
+    popd
+    cp $GOPATH/src/github.com/dependencies.tar.gz output_deps/
+
+    # gpbackup_manager puts newline in front of version line
     output=$($GOPATH/bin/gpbackup_manager --version | grep gpbackup)
     if [ "gpbackup_manager version ${gpbackup_manager_version}" != "$output" ]; then
       echo "unexpected difference in version recorded for gpbackup_manager: expected 'gpbackup_manager version ${gpbackup_manager_version}' to be same as: '$output'"
