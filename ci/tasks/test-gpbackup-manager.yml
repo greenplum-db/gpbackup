@@ -12,6 +12,7 @@ inputs:
 - name: gpdb_src
 - name: bin_gpdb
 - name: gppkgs
+- name: gpbackup-dependencies
 
 run:
   path: bash
@@ -33,6 +34,7 @@ run:
     # copy gpbackup-manager into the GOPATH used by user "gpadmin"
     export GOPATH=/home/gpadmin/go
     mkdir -p $GOPATH/src/github.com/pivotal
+    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C $GOPATH/src/github.com
     cp -R go/src/github.com/pivotal/gp-backup-manager $GOPATH/src/github.com/pivotal/
 
     chown -R gpadmin $GOPATH

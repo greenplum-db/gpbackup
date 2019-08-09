@@ -764,10 +764,12 @@ jobs:
         - get: gpbackup_manager_src
         - get: gpbackup
         - get: bin_gpdb_6x_stable_centos6
-        - get: ccp_src
         - get: gpdb6_src
         - get: gppkgs
           trigger: true
+          passed:
+            - build_binaries
+        - get: gpbackup-dependencies
           passed:
             - build_binaries
     - task: run_tests
