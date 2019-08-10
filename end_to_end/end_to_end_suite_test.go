@@ -1125,41 +1125,60 @@ PARTITION BY LIST (gender)
 			assertDataRestored(restoreConn, localSchemaTupleCounts)
 			assertArtifactsCleaned(restoreConn, timestamp)
 		})
-		Describe("support special characters", func() {
-			It(`runs with table name including ~#$%^&*()_-+[]{}><|;:/?!\tC`, func() {
-				var err error
-				allChars := []rune{' ', '`', '~', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '[', ']', '{', '}', '>', '<', '\\', '|', ';', ':', '/', '?', ',', '!', 'C'}
-				var includeTableArgs []string
-				includeTableArgs = append(includeTableArgs, "--dbname")
-				includeTableArgs = append(includeTableArgs, "testdb")
-				for _, char := range allChars {
-					tableName := fmt.Sprintf(`foo%sbar`, string(char))
-					testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE public."%s" ();`, tableName))
-					defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE public."%s";`, tableName))
+		It(`gpbackup runs with table name including special chars ~#$%^&*()_-+[]{}><|;:/?!\tC`, func() {
+			var err error
+			allChars := []rune{' ', '`', '~', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '[', ']', '{', '}', '>', '<', '\\', '|', ';', ':', '/', '?', ',', '!', 'C'}
+			var includeTableArgs []string
+			includeTableArgs = append(includeTableArgs, "--dbname")
+			includeTableArgs = append(includeTableArgs, "testdb")
+			for _, char := range allChars {
+				tableName := fmt.Sprintf(`foo%sbar`, string(char))
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE public."%s" ();`, tableName))
+				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE public."%s";`, tableName))
 
-					includeTableArgs = append(includeTableArgs, "--include-table")
-					includeTableArgs = append(includeTableArgs, fmt.Sprintf(`public.%s`, tableName))
-				}
+				includeTableArgs = append(includeTableArgs, "--include-table")
+				includeTableArgs = append(includeTableArgs, fmt.Sprintf(`public.%s`, tableName))
+			}
 
-				cmd := exec.Command("gpbackup", includeTableArgs...)
-				_, err = cmd.CombinedOutput()
-				Expect(err).ToNot(HaveOccurred())
-			})
+			cmd := exec.Command("gpbackup", includeTableArgs...)
+			_, err = cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
 		})
-		Describe("precise backup of reals", func() {
-			It(`successfully backs up precise data types`, func() {
-				// Versions before 1.13.0 do not set the extra_float_digits GUC
-				skipIfOldBackupVersionBefore("1.13.0")
+		It(`successfully backs up precise real data types`, func() {
+			// Versions before 1.13.0 do not set the extra_float_digits GUC
+			skipIfOldBackupVersionBefore("1.13.0")
 
-				tableName := "public.test_real_precision"
-				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s (val real)`, tableName))
-				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableName))
-				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO %s VALUES (0.100001216)`, tableName))
-				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", fmt.Sprintf("%s", tableName))
-				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
-				tableCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableName))
-				Expect(tableCount).To(Equal(strconv.Itoa(1)))
-			})
+			tableName := "public.test_real_precision"
+			testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s (val real)`, tableName))
+			defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableName))
+			testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO %s VALUES (0.100001216)`, tableName))
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--dbname", "testdb", "--include-table", fmt.Sprintf("%s", tableName))
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
+			tableCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableName))
+			Expect(tableCount).To(Equal(strconv.Itoa(1)))
+		})
+		It(`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue`, func() {
+			// This backup is corrupt because the data for a single row on
+			// segment0 was changed so that the value stored in the row is
+			// 9 instead of 1.  This will cause an issue when COPY FROM
+			// attempts to restore this data because it will error out
+			// stating it belongs to a different segment. This backup was
+			// taken with gpbackup version 1.12.1 and GPDB version 4.3.33.2
+			if !restoreConn.Version.Before("6") {
+				Skip(fmt.Sprintf("Backup artifact only compatible with GPDB4 & GPDB5"))
+			}
+
+			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
+			mustRunCommand(command)
+
+			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--on-error-continue")
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).To(HaveOccurred())
+
+			assertRelationsCreated(restoreConn, 3)
+			// Expect corrupt_table to have 0 tuples because data load should have failed due violation of distribution key constraint.
+			assertDataRestored(restoreConn, map[string]int{"public.corrupt_table": 0, "public.good_table1": 10, "public.good_table2": 10})
+
 		})
 	})
 })
