@@ -226,7 +226,11 @@ resources:
   type: s3
   source:
       bucket: gpbackup-dependencies
+{% if is_prod %}
       versioned_file: gpbackup-dependencies/dependencies.tar.gz
+{% else %}
+      versioned_file: gpbackup-dependencies/dev/dependencies.tar.gz
+{% endif %}
       region_name: us-west-2
       access_key_id: {{bucket-access-key-id}}
       secret_access_key: {{bucket-secret-access-key}}
@@ -508,11 +512,9 @@ jobs:
     - do:
       - task: build-go-binaries
         file: gpbackup/ci/tasks/build-go-binaries.yml
-{% if is_prod %}
       - put: gpbackup-dependencies
         params:
           file: output_deps/dependencies.tar.gz
-{% endif %}
     - task: build-ddboost-RHEL
       config:
         platform: linux
