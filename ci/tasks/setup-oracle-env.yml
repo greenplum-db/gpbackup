@@ -53,5 +53,5 @@ run:
     rsync -a gpbackup-dependencies mdw:/home/gpadmin
     scp /tmp/setup_oracle_env.bash mdw:/home/gpadmin/setup_oracle_env.bash
     ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"
-    scp -r go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
+    scp -r -q go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
     ssh -t mdw "bash /home/gpadmin/setup_oracle_env.bash"

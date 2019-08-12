@@ -26,7 +26,7 @@ run:
     ssh -t root@mdw "sudo mkdir /home/gpadmin/go && sudo chown gpadmin:gpadmin -R /home/gpadmin/go"
     rsync -a gpbackup-dependencies mdw:/home/gpadmin
     ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"
-    scp -r go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
+    scp -r -q go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
 
     # Install gpbackup binaries using gppkg
     cat << ENV_SCRIPT > /tmp/env.sh
