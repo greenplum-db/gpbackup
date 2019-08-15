@@ -94,6 +94,9 @@ def print_output_message(args):
 -l ~/workspace/gp-continuous-integration/secrets/gpbackup.dev.yml \
 -v gpbackup-git-branch=%s" % (args.pipeline_name, git_branch, args.pipeline_name, git_branch)
         print "To set this pipeline on dev, run: \n%s" % (cmd)
+        # Expand all home directory paths (i.e. ~/workspace...)
+        cmd = [os.path.expanduser(p) if p[0] == '~' else p for p in cmd.replace('\\\n', '').split()]
+        subprocess.call(cmd)
 
     if args.is_prod:
         if git_branch != "master":
@@ -104,10 +107,6 @@ def print_output_message(args):
 -l ~/workspace/gp-continuous-integration/secrets/gpdb_common-ci-secrets.yml \
 -l ~/workspace/gp-continuous-integration/secrets/gpbackup.prod.yml" % (args.pipeline_name, args.pipeline_name)
         print "To set this pipeline on prod, run: \n%s" % (cmd)
-    # Expand all home directory paths (i.e. ~/workspace...)
-    cmd = [os.path.expanduser(p) if p[0] == '~' else p for p in cmd.replace('\\\n', '').split()]
-    subprocess.call(cmd)
-
 
 def main():
     """main: parse args and create pipeline"""
