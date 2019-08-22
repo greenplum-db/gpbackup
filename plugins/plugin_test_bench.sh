@@ -35,9 +35,12 @@ testfile="$testdir/testfile_$time_second.txt"
 testdata="$testdir/testdata_$time_second.txt"
 test_no_data="$testdir/test_no_data_$time_second.txt"
 
+logdir="/tmp/test_bench_logs"
+
 text="this is some text"
 data=`LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 1000 ; echo`
 mkdir -p $testdir
+mkdir -p $logdir
 echo $text > $testfile
 
 # ----------------------------------------------
@@ -274,9 +277,13 @@ if [ -n "$secondary_plugin_config" ]; then
 fi
 
 # confirm sibling backup remains
-output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del2 2>/dev/null)
+log_sibling_restore="$logdir/sib_restore"
+output_data_restore=$($plugin restore_data $plugin_config $testdata_for_del2 2>$log_sibling_restore)
 retval_data_restore=$(echo $?)
 if [ "${output_data_restore}" != "${data}"  ] || [ "$retval_data_restore" != "0" ] ; then
+  echo
+  cat $log_sibling_restore
+  echo
   echo "Failed to leave behind a sibling backup after a sibling delete from local server using plugin"
   exit 1
 fi
@@ -306,7 +313,7 @@ set -e
 test_backup_and_restore_with_plugin() {
     flags=$1
     test_db=plugin_test_db
-    log_file=/tmp/plugin_test_log_file
+    log_file="$logdir/plugin_test_log_file"
 
     psql -d postgres -qc "DROP DATABASE IF EXISTS $test_db" 2>/dev/null
     createdb $test_db
@@ -320,8 +327,11 @@ test_backup_and_restore_with_plugin() {
     echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $MASTER_DATA_DIRECTORY/.encrypt
 
     echo "[RUNNING] gpbackup with test database (using ${flags})"
-    gpbackup --dbname $test_db --plugin-config $plugin_config $flags > $log_file
+    gpbackup --dbname $test_db --plugin-config $plugin_config $flags &> $log_file
     if [ ! $? -eq 0 ]; then
+        echo
+        cat $log_file
+        echo
         echo "gpbackup failed. Check gpbackup log file in ~/gpAdminLogs for details."
         exit 1
     fi
@@ -329,8 +339,11 @@ test_backup_and_restore_with_plugin() {
     dropdb $test_db
 
     echo "[RUNNING] gprestore with test database"
-    gprestore --timestamp $timestamp --plugin-config $plugin_config --create-db --quiet
+    gprestore --timestamp $timestamp --plugin-config $plugin_config --create-db &> $log_file
     if [ ! $? -eq 0 ]; then
+        echo
+        cat $log_file
+        echo
         echo "gprestore failed. Check gprestore log file in ~/gpAdminLogs for details."
         exit 1
     fi
@@ -343,8 +356,11 @@ test_backup_and_restore_with_plugin() {
     if [ -n "$secondary_plugin_config" ]; then
         dropdb $test_db
         echo "[RUNNING] gprestore with test database from secondary destination"
-        gprestore --timestamp $timestamp --plugin-config $secondary_plugin_config --create-db --quiet
+        gprestore --timestamp $timestamp --plugin-config $secondary_plugin_config --create-db &> $log_file
         if [ ! $? -eq 0 ]; then
+            echo
+            cat $log_file
+            echo
             echo "gprestore from secondary destination failed. Check gprestore log file in ~/gpAdminLogs for details."
             exit 1
         fi
@@ -371,7 +387,7 @@ test_backup_and_restore_with_plugin "--no-compression"
 echo "Cleaning up leftover test artifacts"
 
 dropdb $test_db
-rm $log_file
+rm -r $logdir
 rm -r /tmp/testseg
 
 if (( 1 == $(echo "0.4.0 $api_version" | awk '{print ($1 > $2)}') )) ; then
