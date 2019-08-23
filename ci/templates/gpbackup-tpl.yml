@@ -593,7 +593,7 @@ jobs:
             tar -czvf bin_gpbackup.tar.gz bin/ lib/
 
             version=`cat version`
-            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version
+            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version ddboost_plugin_version gpbackup_manager_version
           popd
   - task: tar-binaries-SLES
     image: centos6-image
@@ -633,7 +633,7 @@ jobs:
             tar -czvf bin_gpbackup.tar.gz bin/ lib/
 
             version=`cat version`
-            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version
+            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version ddboost_plugin_version gpbackup_manager_version
           popd
   - task: build_gppkgs
     file: gpbackup/ci/tasks/build-gppkg.yml
@@ -1823,6 +1823,9 @@ jobs:
       - get: gppkgs_rc
         passed:
           - green_gate
+      - get: github_release_components_rc
+        passed:
+          - green_gate
       - get: gpbackup
       - get: gpbackup-release-license
       - get: pivnet_release_cache
@@ -1837,6 +1840,7 @@ jobs:
             repository: bash
         inputs:
           - name: gppkgs
+          - name: github_release_components_rc
           - name: gpbackup
           - name: gpbackup-release-license
           - name: pivnet_release_cache
@@ -1849,6 +1853,15 @@ jobs:
             - |
 
               mkdir workspace/files-to-upload
+
+              # Add binary tarball to pivnet upload, excluding version strings
+              cp github_release_components_rc/*.gz /tmp/
+              pushd /tmp
+                mkdir untarred
+                tar xzf *.gz -C untarred
+              popd
+              cp /tmp/untarred/bin_gpbackup.tar.gz workspace/files-to-upload/
+
               cp gpbackup/ci/pivnet_release/metadata.yml workspace/
               tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
               GPBACKUP_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
@@ -1915,11 +1928,13 @@ jobs:
 
               cat workspace/metadata.yml
               pushd workspace/files-to-upload
-              # rename files to match the name inside metadata.yml
-              for filename in *.gppkg; do
-                newFilename=$(sed -e "s/gpbackup_tools-${GPBACKUP_VERSION}_[0-9]*/pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}/" -e "s/RHEL/rhel/" -e "s/SLES11/sles/" <<< "$filename")
-                mv "$filename" "$newFilename"
-              done
+                # rename files to match the name inside metadata.yml
+                for filename in *.gppkg; do
+                  newFilename=$(sed -e "s/gpbackup_tools-${GPBACKUP_VERSION}_[0-9]*/pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}/" -e "s/RHEL/rhel/" -e "s/SLES11/sles/" <<< "$filename")
+                  mv "$filename" "$newFilename"
+                done
+                # rename binary tarball
+                mv "bin_gpbackup.tar.gz" "pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}.tar.gz"
               popd
 
               echo ${TILE_RELEASE_VERSION} > workspace/tile_release_version
