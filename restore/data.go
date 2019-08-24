@@ -107,7 +107,7 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 		if wasTerminated {
 			return
 		}
-		utils.StartAgent(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(utils.PLUGIN_CONFIG), "", MustGetFlagBool(utils.ON_ERROR_CONTINUE))
+		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(utils.PLUGIN_CONFIG), "", MustGetFlagBool(utils.ON_ERROR_CONTINUE))
 	}
 	/*
 	 * We break when an interrupt is received and rely on

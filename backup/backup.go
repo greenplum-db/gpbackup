@@ -111,7 +111,7 @@ func DoSetup() {
 		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
 		configFilename := filepath.Base(pluginConfig.ConfigPath)
 		configDirname := filepath.Dir(pluginConfig.ConfigPath)
-		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp + "_" + configFilename)
+		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp+"_"+configFilename)
 		_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 		gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 		gplog.FatalOnError(err)
@@ -324,7 +324,7 @@ func backupData(tables []Table) {
 			compressStr = " --compression-level 0"
 		}
 		// Do not pass through the --on-error-continue flag because it does not apply to gpbackup
-		utils.StartAgent(globalCluster, globalFPInfo, "--backup-agent",
+		utils.StartGpbackupHelpers(globalCluster, globalFPInfo, "--backup-agent",
 			MustGetFlagString(utils.PLUGIN_CONFIG), compressStr, false)
 	}
 	gplog.Info("Writing data to file")
