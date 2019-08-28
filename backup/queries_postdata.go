@@ -110,13 +110,11 @@ JOIN pg_namespace n
 	ON (ic.relnamespace = n.oid)
 JOIN pg_class c
 	ON (c.oid = i.indrelid)
-LEFT JOIN pg_partitions p
-	ON (c.relname = p.tablename AND p.partitionlevel = 0)
 LEFT JOIN pg_tablespace s
 	ON (ic.reltablespace = s.oid)
 WHERE %s
 AND i.indisvalid
-AND n.nspname || '.' || c.relname NOT IN (SELECT partitionschemaname || '.' || partitiontablename FROM pg_partitions)
+AND NOT EXISTS (SELECT 1 FROM pg_partition p, pg_partition_rule r WHERE r.paroid = p.oid AND r.parchildrelid = c.oid)
 AND %s
 ORDER BY name;`, implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
@@ -144,8 +142,6 @@ JOIN pg_namespace n
 	ON (ic.relnamespace = n.oid)
 JOIN pg_class c
 	ON (c.oid = i.indrelid)
-LEFT JOIN pg_partitions p
-	ON (c.relname = p.tablename AND p.partitionlevel = 0)
 LEFT JOIN pg_tablespace s
 	ON (ic.reltablespace = s.oid)
 LEFT JOIN pg_constraint con
@@ -154,7 +150,7 @@ WHERE %s
 AND i.indisvalid
 AND i.indisready
 AND i.indisprimary = 'f'
-AND n.nspname || '.' || c.relname NOT IN (SELECT partitionschemaname || '.' || partitiontablename FROM pg_partitions)
+AND NOT EXISTS (SELECT 1 FROM pg_partition p, pg_partition_rule r WHERE r.paroid = p.oid AND r.parchildrelid = c.oid)
 AND %s
 ORDER BY name;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
 		err := connectionPool.Select(&resultIndexes, query)
