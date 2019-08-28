@@ -111,7 +111,7 @@ func DoSetup() {
 		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
 		configFilename := filepath.Base(pluginConfig.ConfigPath)
 		configDirname := filepath.Dir(pluginConfig.ConfigPath)
-		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp + "_" + configFilename)
+		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp+"_"+configFilename)
 		_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 		gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 		gplog.FatalOnError(err)
@@ -308,6 +308,13 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 }
 
 func backupData(tables []Table) {
+	if len(tables) == 0 {
+		// No incremental data changes to backup
+		gplog.Info("No tables to backup")
+		gplog.Info("Data backup complete")
+		return
+	}
+
 	if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file backup")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
