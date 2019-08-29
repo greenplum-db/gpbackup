@@ -145,7 +145,7 @@ func RecoverMetadataFilesUsingPlugin() {
 	gplog.FatalOnError(err)
 	configFilename := filepath.Base(pluginConfig.ConfigPath)
 	configDirname := filepath.Dir(pluginConfig.ConfigPath)
-	pluginConfig.ConfigPath = filepath.Join(configDirname, backup_history.CurrentTimestamp() + "_" + configFilename)
+	pluginConfig.ConfigPath = filepath.Join(configDirname, backup_history.CurrentTimestamp()+"_"+configFilename)
 	_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 	gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 

@@ -111,7 +111,7 @@ func DoSetup() {
 		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
 		configFilename := filepath.Base(pluginConfig.ConfigPath)
 		configDirname := filepath.Dir(pluginConfig.ConfigPath)
-		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp + "_" + configFilename)
+		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp+"_"+configFilename)
 		_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 		gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 		gplog.FatalOnError(err)

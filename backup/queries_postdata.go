@@ -8,6 +8,8 @@ package backup
 import (
 	"fmt"
 
+	"time"
+
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -77,12 +79,18 @@ func (i IndexDefinition) FQN() string {
 	return utils.MakeFQN(i.OwningSchema, i.Name)
 }
 
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	gplog.Debug(fmt.Sprintf("%s took %s", name, elapsed))
+}
+
 /*
  * GetIndexes queries for all user and implicitly created indexes, since
  * implicitly created indexes could still have metadata to be backed up.
  * e.g. comments on implicitly created indexes
  */
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
+	defer timeTrack(time.Now(), "GetIndexes")
 	resultIndexes := make([]IndexDefinition, 0)
 	if connectionPool.Version.Before("6") {
 		indexNameSet := ConstructImplicitIndexNames(connectionPool)
