@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -97,4 +98,9 @@ func ValidateGPDBVersionCompatibility(connectionPool *dbconn.DBConn) {
 	} else if connectionPool.Version.Is("5") && connectionPool.Version.Before(MINIMUM_GPDB5_VERSION) {
 		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s or later.`, connectionPool.Version.VersionString, MINIMUM_GPDB5_VERSION), "")
 	}
+}
+
+func LogExecutionTime(start time.Time, name string) {
+	elapsed := time.Since(start)
+	gplog.Debug(fmt.Sprintf("%s took %s", name, elapsed))
 }

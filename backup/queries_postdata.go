@@ -7,7 +7,6 @@ package backup
 
 import (
 	"fmt"
-
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -79,18 +78,13 @@ func (i IndexDefinition) FQN() string {
 	return utils.MakeFQN(i.OwningSchema, i.Name)
 }
 
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	gplog.Debug(fmt.Sprintf("%s took %s", name, elapsed))
-}
-
 /*
  * GetIndexes queries for all user and implicitly created indexes, since
  * implicitly created indexes could still have metadata to be backed up.
  * e.g. comments on implicitly created indexes
  */
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
-	defer timeTrack(time.Now(), "GetIndexes")
+	defer utils.LogExecutionTime(time.Now(), "GetIndexes")
 	resultIndexes := make([]IndexDefinition, 0)
 	if connectionPool.Version.Before("6") {
 		indexNameSet := ConstructImplicitIndexNames(connectionPool)
@@ -122,7 +116,7 @@ LEFT JOIN pg_tablespace s
 	ON (ic.reltablespace = s.oid)
 WHERE %s
 AND i.indisvalid
-AND NOT EXISTS (SELECT 1 FROM pg_partition p, pg_partition_rule r WHERE r.paroid = p.oid AND r.parchildrelid = c.oid)
+AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 AND %s
 ORDER BY name;`, implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
@@ -158,7 +152,7 @@ WHERE %s
 AND i.indisvalid
 AND i.indisready
 AND i.indisprimary = 'f'
-AND NOT EXISTS (SELECT 1 FROM pg_partition p, pg_partition_rule r WHERE r.paroid = p.oid AND r.parchildrelid = c.oid)
+AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 AND %s
 ORDER BY name;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
 		err := connectionPool.Select(&resultIndexes, query)
