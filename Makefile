@@ -36,7 +36,7 @@ depend : $(GOLANG_LINTER) $(DEP)
 		@cd vendor/github.com/onsi/ginkgo/ginkgo; go install .
 
 format :
-		goimports -w .
+		@goimports -w $(shell find . -type f -name '*.go' -not -path "./vendor/*")	
 
 LINTER_VERSION=1.16.0
 $(GOLANG_LINTER) :

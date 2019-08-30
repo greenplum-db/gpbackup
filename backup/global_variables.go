@@ -21,16 +21,17 @@ import (
  * Non-flag variables
  */
 var (
-	backupReport   *utils.Report
-	connectionPool *dbconn.DBConn
-	globalCluster  *cluster.Cluster
-	globalFPInfo   backup_filepath.FilePathInfo
-	globalTOC      *utils.TOC
-	objectCounts   map[string]int
-	pluginConfig   *utils.PluginConfig
-	version        string
-	wasTerminated  bool
-	backupLockFile lockfile.Lockfile
+	backupReport         *utils.Report
+	connectionPool       *dbconn.DBConn
+	globalCluster        *cluster.Cluster
+	globalFPInfo         backup_filepath.FilePathInfo
+	globalTOC            *utils.TOC
+	objectCounts         map[string]int
+	pluginConfig         *utils.PluginConfig
+	version              string
+	wasTerminated        bool
+	backupLockFile       lockfile.Lockfile
+	filterRelationClause string
 
 	/*
 	 * Used for synchronizing DoCleanup.  In DoInit() we increment the group

@@ -17,11 +17,14 @@ import (
 )
 
 func relationAndSchemaFilterClause() string {
-	filterClause := SchemaFilterClause("n")
+	if filterRelationClause != "" {
+		return filterRelationClause
+	}
+	filterRelationClause = SchemaFilterClause("n")
 	if len(MustGetFlagStringSlice(utils.EXCLUDE_RELATION)) > 0 {
 		excludeOids := GetOidsFromRelationList(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_RELATION))
 		if len(excludeOids) > 0 {
-			filterClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ", "))
+			filterRelationClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ", "))
 		}
 	}
 	if len(MustGetFlagStringArray(utils.INCLUDE_RELATION)) > 0 {
@@ -29,9 +32,9 @@ func relationAndSchemaFilterClause() string {
 		gplog.FatalOnError(err)
 
 		includeOids := GetOidsFromRelationList(connectionPool, quotedIncludeRelations)
-		filterClause += fmt.Sprintf("\nAND c.oid IN (%s)", strings.Join(includeOids, ", "))
+		filterRelationClause += fmt.Sprintf("\nAND c.oid IN (%s)", strings.Join(includeOids, ", "))
 	}
-	return filterClause
+	return filterRelationClause
 }
 
 func GetOidsFromRelationList(connectionPool *dbconn.DBConn, quotedIncludeRelations []string) []string {
