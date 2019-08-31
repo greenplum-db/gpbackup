@@ -11,7 +11,7 @@ import (
 	"github.com/blang/vfs"
 	"github.com/blang/vfs/memfs"
 	"github.com/pkg/errors"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

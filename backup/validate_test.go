@@ -4,7 +4,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/utils"
-	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 )

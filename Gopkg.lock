@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:26e56bf1243a3675608f918a1574bf0005d5263b67b84a24a5fb0946ad7a75e3"
+  name = "github.com/DATA-DOG/go-sqlmock"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "3f9954f6f6697845b082ca57995849ddf614f450"
+  version = "v1.3.3"
+
+[[projects]]
   digest = "1:45c41cd27a8d986998680bfc86da0bbff5fa4f90d0f446c00636c8b099028ffe"
   name = "github.com/blang/semver"
   packages = ["."]
@@ -88,7 +96,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:74fca97eba09e8d0f4ced8e1d80e0377c49b856e4d01fc9580d3605648ddaff9"
+  digest = "1:bebbcf72961feb0c111f6f1d490a91a1973e7db88b06817c8a1f44f85cd5ab55"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -96,7 +104,7 @@
     "scram",
   ]
   pruneopts = "NUT"
-  revision = "3427c32cb71afc948325f299f040e53c1dd78979"
+  revision = "78223426e7c66d631117c0a9da1b7f3fde4d23a5"
 
 [[projects]]
   digest = "1:70ef8268170621826f8c111ac1674afe75136f526f449453b4a6631c6dba1946"
@@ -115,7 +123,7 @@
   revision = "0ad87eef1443f64d3d8c50da647e2b1552851124"
 
 [[projects]]
-  digest = "1:dbc24dd0591271d269786adff7458f2c1437305091e41979c5495efe3df09ab8"
+  digest = "1:fe1e78101bb29febcb5dfe55f2a8c2aeaa8adf711e780b8312311d6315ca411d"
   name = "github.com/onsi/ginkgo"
   packages = [
     ".",
@@ -146,11 +154,11 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "eea6ad008b96acdaa524f5b409513bf062b500ad"
-  version = "v1.8.0"
+  revision = "974566c482abc93ffd3df6f4626e79076c7ed290"
+  version = "v1.10.1"
 
 [[projects]]
-  digest = "1:01797bb0a7bd98751c65dff3461b9f948e3be09c443d179468781720326b09fe"
+  digest = "1:4f242066f025afdf7ecb7eb7120314131d22cad1e348025b3aab0e8fb437a0c7"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
@@ -169,8 +177,8 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "90e289841c1ed79b7a598a7cd9959750cb5e89e2"
-  version = "v1.5.0"
+  revision = "bdebf9e0ece900259084cfa4121b97ce1a540939"
+  version = "v1.7.0"
 
 [[projects]]
   digest = "1:14715f705ff5dfe0ffd6571d7d201dd8e921030f8070321a79380d8ca4ec1a24"
@@ -210,7 +218,7 @@
   name = "golang.org/x/crypto"
   packages = ["pbkdf2"]
   pruneopts = "NUT"
-  revision = "4def268fd1a49955bfb3dda92fe3db4f924f2285"
+  revision = "9756ffdc24725223350eb3266ffb92590d28f278"
 
 [[projects]]
   branch = "master"
@@ -222,15 +230,15 @@
     "html/charset",
   ]
   pruneopts = "NUT"
-  revision = "ca1201d0de80cfde86cb01aea620983605dfe99b"
+  revision = "ba9fcec4b297b415637633c5a6e8fa592e4a16c3"
 
 [[projects]]
   branch = "master"
-  digest = "1:9c684a8c6bb9501591c1ac600e7669fdf4683b1a08be53e17e98e4660985c000"
+  digest = "1:c14a7666f03188f6af4d3dec4aeaaba973ff3365bb1b48c630e1922bfc9c9a0c"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "NUT"
-  revision = "51ab0e2deafac1f46c46ad59cf0921be2f180c3d"
+  revision = "1e83adbbebd0f5dc971915fd7e5db032c3d2b731"
 
 [[projects]]
   digest = "1:24fc27c3b00594289e400127e23d9963f07fec119cc7bb59d4cf7626445104d0"
@@ -275,7 +283,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fecf9ac9ba4439d3f8ed168a88810ac2fdb11a9c19bc050ae15480dc6074da27"
+  digest = "1:170a5a59770508acf2d5f9a0c643ba1eb6425a9dc7e465d8a355c08693701c62"
   name = "golang.org/x/tools"
   packages = [
     "cmd/goimports",
@@ -292,7 +300,7 @@
     "internal/semver",
   ]
   pruneopts = "NUT"
-  revision = "88ddfcebc769cb7884c38d144ee893cfb4519053"
+  revision = "573d9926052aeaeb5fbebcd3cf10d994c9c6d4f5"
 
 [[projects]]
   digest = "1:26e56bf1243a3675608f918a1574bf0005d5263b67b84a24a5fb0946ad7a75e3"
@@ -339,6 +347,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/DATA-DOG/go-sqlmock",
     "github.com/blang/semver",
     "github.com/blang/vfs",
     "github.com/blang/vfs/memfs",
@@ -363,7 +372,6 @@
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
     "golang.org/x/tools/cmd/goimports",
-    "gopkg.in/DATA-DOG/go-sqlmock.v1",
     "gopkg.in/cheggaaa/pb.v1",
     "gopkg.in/yaml.v2",
   ]
