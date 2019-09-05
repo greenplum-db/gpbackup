@@ -166,6 +166,9 @@ func (report *Report) WriteBackupReportFile(reportFilename string, timestamp str
 	logOutputReport(reportFile, reportInfo)
 
 	PrintObjectCounts(reportFile, objectCounts)
+
+	err = reportFile.Close()
+	gplog.FatalOnError(err)
 	_ = operating.System.Chmod(reportFilename, 0444)
 }
 
@@ -213,6 +216,8 @@ func WriteRestoreReportFile(reportFilename string, backupTimestamp string, start
 
 	logOutputReport(reportFile, reportInfo)
 
+	err = reportFile.Close()
+	gplog.FatalOnError(err)
 	_ = operating.System.Chmod(reportFilename, 0444)
 }
 

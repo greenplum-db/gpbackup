@@ -60,6 +60,8 @@ func WriteConfigFile(config *BackupConfig, configFilename string) {
 	configContents, _ := yaml.Marshal(config)
 	_, err := configFile.Write(configContents)
 	gplog.FatalOnError(err)
+	err = configFile.Close()
+	gplog.FatalOnError(err)
 	err = operating.System.Chmod(configFilename, 0444)
 	gplog.FatalOnError(err)
 }
@@ -156,13 +158,11 @@ func (history *History) WriteToFileAndMakeReadOnly(filename string) error {
 		return err
 	}
 	historyFile := iohelper.MustOpenFileForWriting(filename)
-	defer func() {
-		err = historyFile.Close()
-		if err != nil {
-			gplog.Warn("cannot close history file: %v", err)
-		}
-	}()
 	_, err = historyFile.Write(historyFileContents)
+	if err != nil {
+		return err
+	}
+	err = historyFile.Close()
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,6 @@ func (history *History) WriteToFileAndMakeReadOnly(filename string) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
