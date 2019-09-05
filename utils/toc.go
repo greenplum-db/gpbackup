@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"os"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"gopkg.in/yaml.v2"
 )
@@ -76,29 +76,53 @@ func NewSegmentTOC(filename string) *SegmentTOC {
 }
 
 func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
-	tocFile := iohelper.MustOpenFileForWriting(filename)
 	tocContents, err := yaml.Marshal(toc)
 	gplog.FatalOnError(err)
-	MustPrintBytes(tocFile, tocContents)
-	err = operating.System.Chmod(filename, 0444)
+
+	tocFile, err := os.OpenFile(filename, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+	gplog.FatalOnError(err)
+
+	_, err = tocFile.Write(tocContents)
+	gplog.FatalOnError(err)
+
+	err = tocFile.Sync()
+	gplog.FatalOnError(err)
+
+	err = tocFile.Close()
+	gplog.FatalOnError(err)
+
+	err = os.Chmod(filename, 0444)
 	gplog.FatalOnError(err)
 }
 
 //This function return an error rather than Fataling because it is called by the helper
 func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) error {
-	tocFile, err := iohelper.OpenFileForWriting(filename)
-	if err != nil {
-		return err
-	}
 	tocContents, err := yaml.Marshal(toc)
 	if err != nil {
 		return err
 	}
+
+	tocFile, err := os.OpenFile(filename, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+
 	_, err = tocFile.Write(tocContents)
 	if err != nil {
 		return err
 	}
-	err = operating.System.Chmod(filename, 0444)
+
+	err = tocFile.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = tocFile.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.Chmod(filename, 0444)
 	return err
 }
 
