@@ -116,6 +116,7 @@ type MetadataQueryStruct struct {
 }
 
 func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
+	gplog.Verbose("Getting metadata for object types")
 	aclStr := "''"
 	kindStr := "''"
 	schemaStr := ""

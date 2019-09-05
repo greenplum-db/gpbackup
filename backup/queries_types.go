@@ -62,6 +62,7 @@ func (t BaseType) FQN() string {
 }
 
 func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
+	gplog.Verbose("Getting base types")
 	version4query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -218,6 +219,7 @@ func (t CompositeType) FQN() string {
 }
 
 func GetCompositeTypes(connectionPool *dbconn.DBConn) []CompositeType {
+	gplog.Verbose("Getting composite types")
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -334,6 +336,7 @@ func (t Domain) FQN() string {
 }
 
 func GetDomainTypes(connectionPool *dbconn.DBConn) []Domain {
+	gplog.Verbose("Getting domain types")
 	results := make([]Domain, 0)
 	before6query := fmt.Sprintf(`
 SELECT
@@ -450,6 +453,7 @@ func (t RangeType) FQN() string {
 }
 
 func GetRangeTypes(connectionPool *dbconn.DBConn) []RangeType {
+	gplog.Verbose("Retrieving range types")
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,
@@ -509,6 +513,7 @@ func (t ShellType) FQN() string {
 }
 
 func GetShellTypes(connectionPool *dbconn.DBConn) []ShellType {
+	gplog.Verbose("Getting shell types")
 	query := fmt.Sprintf(`
 SELECT
 	t.oid,

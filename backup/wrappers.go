@@ -222,18 +222,21 @@ func RetrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]
 }
 
 func RetrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
+	gplog.Verbose("Retrieving constraints")
 	constraints := GetConstraints(connectionPool, tables...)
 	conMetadata := GetCommentsForObjectType(connectionPool, TYPE_CONSTRAINT)
 	return constraints, conMetadata
 }
 
 func RetrieveSequences() ([]Sequence, map[string]string) {
+	gplog.Verbose("Retrieving sequences")
 	sequenceOwnerTables, sequenceOwnerColumns := GetSequenceColumnOwnerMap(connectionPool)
 	sequences := GetAllSequences(connectionPool, sequenceOwnerTables)
 	return sequences, sequenceOwnerColumns
 }
 
 func RetrieveProtocols(sortables *[]Sortable, metadataMap MetadataMap) []ExternalProtocol {
+	gplog.Verbose("Retrieving protocols")
 	protocols := GetExternalProtocols(connectionPool)
 	objectCounts["Protocols"] = len(protocols)
 	protoMetadata := GetMetadataForObjectType(connectionPool, TYPE_PROTOCOL)
@@ -245,6 +248,7 @@ func RetrieveProtocols(sortables *[]Sortable, metadataMap MetadataMap) []Externa
 }
 
 func RetrieveViews(sortables *[]Sortable) {
+	gplog.Verbose("Retrieving views")
 	views := GetViews(connectionPool)
 	objectCounts["Views"] = len(views)
 
@@ -252,6 +256,7 @@ func RetrieveViews(sortables *[]Sortable) {
 }
 
 func RetrieveTSParsers(sortables *[]Sortable, metadataMap MetadataMap) {
+	gplog.Verbose("Retrieving Text Search Parsers")
 	parsers := GetTextSearchParsers(connectionPool)
 	objectCounts["Text Search Parsers"] = len(parsers)
 	parserMetadata := GetCommentsForObjectType(connectionPool, TYPE_TSPARSER)
@@ -364,20 +369,8 @@ func RetrieveUserMappings(sortables *[]Sortable) {
 	*sortables = append(*sortables, convertToSortableSlice(mappings)...)
 }
 
-/*
- * Generic metadata wrapper functions
- */
-
-func LogBackupInfo() {
-	gplog.Info("Backup Timestamp = %s", globalFPInfo.Timestamp)
-	gplog.Info("Backup Database = %s", connectionPool.DBName)
-	params := strings.Split(backupReport.BackupParamsString, "\n")
-	for _, param := range params {
-		gplog.Verbose(param)
-	}
-}
-
 func BackupSessionGUCs(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing Session GUCs")
 	gucs := GetSessionGUCs(connectionPool)
 	PrintSessionGUCs(metadataFile, globalTOC, gucs)
 }
@@ -474,8 +467,8 @@ func BackupShellTypes(metadataFile *utils.FileWithByteCount, shellTypes []ShellT
 }
 
 func BackupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata MetadataMap) {
-	enums := GetEnumTypes(connectionPool)
 	gplog.Verbose("Writing CREATE TYPE statements for enum types to metadata file")
+	enums := GetEnumTypes(connectionPool)
 	objectCounts["Types"] += len(enums)
 	PrintCreateEnumTypeStatements(metadataFile, globalTOC, enums, typeMetadata)
 }

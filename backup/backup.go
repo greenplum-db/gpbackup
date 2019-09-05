@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -113,7 +114,7 @@ func DoSetup() {
 		configDirname := filepath.Dir(pluginConfig.ConfigPath)
 		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp+"_"+configFilename)
 		_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
-		gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
+		gplog.Info("Plugin config path: %s", pluginConfig.ConfigPath)
 		gplog.FatalOnError(err)
 	}
 
@@ -127,7 +128,8 @@ func DoSetup() {
 }
 
 func DoBackup() {
-	LogBackupInfo()
+	gplog.Info("Backup Database: %s from Timestamp: %s", connectionPool.DBName, globalFPInfo.Timestamp)
+	gplog.Verbose("Backup Parameters: {%s}", strings.ReplaceAll(backupReport.BackupParamsString, "\n", ", "))
 
 	pluginConfigFlag := MustGetFlagString(utils.PLUGIN_CONFIG)
 	targetBackupTimestamp := ""

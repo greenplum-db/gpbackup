@@ -195,6 +195,7 @@ var storageTypeCodes = map[string]string{
 
 func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint32]map[string][]ACL) map[uint32][]ColumnDefinition {
 	// This query is adapted from the getTableAttrs() function in pg_dump.c.
+	gplog.Verbose("Getting column definitions")
 	results := make([]ColumnDefinition, 0)
 	version4query := fmt.Sprintf(`
 SELECT
@@ -284,6 +285,7 @@ type ColumnPrivilegesQueryStruct struct {
 }
 
 func GetPrivilegesForColumns(connectionPool *dbconn.DBConn) map[uint32]map[string][]ACL {
+	gplog.Verbose("Getting column priveleges")
 	metadataMap := make(map[uint32]map[string][]ACL)
 	if connectionPool.Version.Before("6") {
 		return metadataMap
@@ -319,6 +321,7 @@ ORDER BY a.attrelid, a.attname;
 }
 
 func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
+	gplog.Verbose("Getting distribution policies")
 	var query string
 	if connectionPool.Version.Before("6") {
 		// This query is adapted from the addDistributedBy() function in pg_dump.c.
@@ -369,6 +372,7 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 }
 
 func GetPartitionDefinitions(connectionPool *dbconn.DBConn) map[uint32]string {
+	gplog.Info("Getting partition defintions")
 	query := fmt.Sprintf(`SELECT p.parrelid AS oid, pg_get_partition_def(p.parrelid, true, true) AS value FROM pg_partition p
 	JOIN pg_class c ON p.parrelid = c.oid
 	JOIN pg_namespace n ON c.relnamespace = n.oid
@@ -377,6 +381,7 @@ func GetPartitionDefinitions(connectionPool *dbconn.DBConn) map[uint32]string {
 }
 
 func GetPartitionTemplates(connectionPool *dbconn.DBConn) map[uint32]string {
+	gplog.Info("Getting partition templates")
 	query := fmt.Sprintf(`SELECT p.parrelid AS oid, pg_get_partition_template_def(p.parrelid, true, true) AS value FROM pg_partition p
 	JOIN pg_class c ON p.parrelid = c.oid
 	JOIN pg_namespace n ON c.relnamespace = n.oid

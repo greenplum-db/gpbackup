@@ -19,6 +19,7 @@ import (
  */
 
 func validateFilterLists() {
+	gplog.Verbose("Validating filters")
 	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_SCHEMA), false)
 	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA), true)
 	ValidateFilterTables(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_RELATION), true)
@@ -57,6 +58,7 @@ func DBValidate(conn *dbconn.DBConn, tableList []string, excludeSet bool) {
 	if len(tableList) == 0 {
 		return
 	}
+	gplog.Verbose("Validating tables")
 	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, tableList)
 	gplog.FatalOnError(err)
 	// todo perhaps store quoted list in options??
