@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"runtime/debug"
 	"sort"
 	"strconv"
@@ -16,7 +17,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/utils"
 )
 
 /*
@@ -64,7 +64,19 @@ func DoHelper() {
 	}()
 
 	InitializeGlobals()
-	utils.InitializeSignalHandler(DoCleanup, fmt.Sprintf("helper agent on segment %d", *content), &wasTerminated)
+	// Initialize signal handler
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		for range signalChan {
+			fmt.Println() // Add newline after "^C" is printed
+			gplog.Warn("Received a termination signal, aborting helper agent on segment %d", *content)
+			wasTerminated = true
+			DoCleanup()
+			os.Exit(2)
+		}
+	}()
+
 	if *backupAgent {
 		err = doBackupAgent()
 	} else if *restoreAgent {

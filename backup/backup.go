@@ -389,8 +389,9 @@ func backupStatistics(tables []Table) {
 }
 
 func DoTeardown() {
+	backupFailed := false
 	defer func() {
-		DoCleanup()
+		DoCleanup(backupFailed)
 
 		errorCode := gplog.GetErrorCode()
 		if errorCode == 0 {
@@ -408,6 +409,7 @@ func DoTeardown() {
 		} else {
 			errStr = fmt.Sprintf("%v", err)
 		}
+		backupFailed = true
 	}
 	if wasTerminated {
 		/*
@@ -417,6 +419,7 @@ func DoTeardown() {
 		 * doesn't exit while cleanup is still in progress.
 		 */
 		CleanupGroup.Wait()
+		backupFailed = true
 		return
 	}
 	if errStr != "" {
@@ -464,7 +467,7 @@ func DoTeardown() {
 	}
 }
 
-func DoCleanup() {
+func DoCleanup(backupFailed bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			gplog.Warn("Encountered error during cleanup: %v", err)
@@ -476,7 +479,10 @@ func DoCleanup() {
 	gplog.Verbose("Beginning cleanup")
 	if globalFPInfo.Timestamp != "" {
 		if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
-			utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
+			if backupFailed {
+				// Cleanup only if terminated or fataled
+				utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
+			}
 			if wasTerminated {
 				// It is possible for the COPY command to become orphaned if an agent process is killed
 				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, "gpbackup")

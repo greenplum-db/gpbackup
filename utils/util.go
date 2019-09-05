@@ -65,7 +65,7 @@ func ValidateFullPath(path string) error {
 	return nil
 }
 
-func InitializeSignalHandler(cleanupFunc func(), procDesc string, termFlag *bool) {
+func InitializeSignalHandler(cleanupFunc func(bool), procDesc string, termFlag *bool) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -73,7 +73,7 @@ func InitializeSignalHandler(cleanupFunc func(), procDesc string, termFlag *bool
 			fmt.Println() // Add newline after "^C" is printed
 			gplog.Warn("Received a termination signal, aborting %s", procDesc)
 			*termFlag = true
-			cleanupFunc()
+			cleanupFunc(true)
 			os.Exit(2)
 		}
 	}()

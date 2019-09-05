@@ -277,8 +277,9 @@ func restoreStatistics() {
 }
 
 func DoTeardown() {
+	restoreFailed := false
 	defer func() {
-		DoCleanup()
+		DoCleanup(restoreFailed)
 
 		errorCode := gplog.GetErrorCode()
 		if errorCode == 0 {
@@ -297,6 +298,7 @@ func DoTeardown() {
 		} else {
 			errStr = fmt.Sprintf("%v", err)
 		}
+		restoreFailed = true
 	}
 	if wasTerminated {
 		/*
@@ -306,6 +308,7 @@ func DoTeardown() {
 		 * cleanup is still in progress.
 		 */
 		CleanupGroup.Wait()
+		restoreFailed = true
 		return
 	}
 	if errStr != "" {
@@ -329,7 +332,7 @@ func DoTeardown() {
 	}
 }
 
-func DoCleanup() {
+func DoCleanup(restoreFailed bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			gplog.Warn("Encountered error during cleanup: %v", err)
@@ -342,7 +345,9 @@ func DoCleanup() {
 	if backupConfig != nil && backupConfig.SingleDataFile {
 		fpInfoList := GetBackupFPInfoListFromRestorePlan()
 		for _, fpInfo := range fpInfoList {
-			utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore")
+			if restoreFailed {
+				utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore")
+			}
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, fpInfo)
 			if wasTerminated { // These should all end on their own in a successful restore
 				utils.TerminateHangingCopySessions(connectionPool, fpInfo, "gprestore")
