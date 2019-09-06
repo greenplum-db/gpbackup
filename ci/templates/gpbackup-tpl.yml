@@ -234,6 +234,16 @@ resources:
       access_key_id: {{bucket-access-key-id}}
       secret_access_key: {{bucket-secret-access-key}}
 
+# These binaries are used for backwards-compatibility testing only
+- name: bin_gpbackup_1.0.0_and_1.7.1
+  type: s3
+  source:
+      bucket: gpbackup-dependencies
+      versioned_file: gpbackup_bins_1.0.0_and_1.7.1.tar.gz
+      region_name: us-west-2
+      access_key_id: {{bucket-access-key-id}}
+      secret_access_key: {{bucket-secret-access-key}}
+
 # This is specifically for sles11 images because it cannot connect to github due to TLS issues
 - name: libyaml-0.1.7
   type: s3
@@ -1461,6 +1471,7 @@ jobs:
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
+    - get: bin_gpbackup_1.0.0_and_1.7.1
     - get: ccp_src
     - get: gpdb5_src
     - get: gpbackup-dependencies

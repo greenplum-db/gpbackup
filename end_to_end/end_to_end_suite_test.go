@@ -248,8 +248,17 @@ var _ = Describe("backup end to end integration tests", func() {
 		testutils.ExecuteSQLFile(backupConn, "test_tables_data.sql")
 		if useOldBackupVersion {
 			oldBackupSemVer = semver.MustParse(os.Getenv("OLD_BACKUP_VERSION"))
+			oldBackupVersionStr := os.Getenv("OLD_BACKUP_VERSION")
+
 			_, restoreHelperPath, gprestorePath = buildAndInstallBinaries()
-			gpbackupPath, backupHelperPath = buildOldBinaries(os.Getenv("OLD_BACKUP_VERSION"))
+
+			// Precompiled binaries will exist when running the ci job, `backward-compatibility`
+			if _, err := os.Stat(fmt.Sprintf("/tmp/%s", oldBackupVersionStr)); err == nil {
+				gpbackupPath = filepath.Join("/tmp", oldBackupVersionStr, "gpbackup")
+				backupHelperPath = filepath.Join("/tmp", oldBackupVersionStr, "gpbackup_helper")
+			} else {
+				gpbackupPath, backupHelperPath = buildOldBinaries(oldBackupVersionStr)
+			}
 		} else {
 			gpbackupPath, backupHelperPath, gprestorePath = buildAndInstallBinaries()
 			restoreHelperPath = backupHelperPath
@@ -775,13 +784,14 @@ var _ = Describe("backup end to end integration tests", func() {
 						_ = gpbackup(gpbackupPath, backupHelperPath,
 							"--incremental", "--leaf-partition-data")
 
+						gpbackupPathOld, backupHelperPathOld := gpbackupPath, backupHelperPath
 						gpbackupPath, backupHelperPath, _ = buildAndInstallBinaries()
 
 						testhelper.AssertQueryRuns(backupConn, "INSERT into schema2.ao1 values(1002)")
 						defer testhelper.AssertQueryRuns(backupConn, "DELETE from schema2.ao1 where i=1002")
 						incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 							"--incremental", "--leaf-partition-data")
-						gpbackupPath, backupHelperPath = buildOldBinaries(os.Getenv("OLD_BACKUP_VERSION"))
+						gpbackupPath, backupHelperPath = gpbackupPathOld, backupHelperPathOld
 
 						gprestore(gprestorePath, restoreHelperPath, incremental2Timestamp, "--redirect-db", "restoredb")
 
