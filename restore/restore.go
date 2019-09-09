@@ -84,7 +84,7 @@ func DoSetup() {
 	restoreStartTime = backup_history.CurrentTimestamp()
 	gplog.Info("Restore Key = %s", MustGetFlagString(utils.TIMESTAMP))
 
-	InitializeConnectionPool("postgres")
+	CreateConnectionPool("postgres")
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := backup_filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))

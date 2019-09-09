@@ -1179,21 +1179,6 @@ PARTITION BY LIST (gender)
 			// stating it belongs to a different segment. This backup was
 			// taken with gpbackup version 1.12.1 and GPDB version 4.3.33.2
 
-			// Temporarily changing the `gp_use_legacy_hashops` GUC allows
-			// GPDB6/7 clusters to distribute data in a way that is consistent
-			// with the backup artifact (generated on GPDB4)
-			if !restoreConn.Version.Before("6") {
-				changeGUCcmd := exec.Command("gpconfig", "-c", "gp_use_legacy_hashops", "-v", "true", "--skipvalidation")
-				mustRunCommand(changeGUCcmd)
-				loadConfigChanges := exec.Command("gpstop", "-u")
-				mustRunCommand(loadConfigChanges)
-
-				defer func() {
-					mustRunCommand(exec.Command("gpconfig", "-r", "gp_use_legacy_hashops", "--skipvalidation"))
-					mustRunCommand(exec.Command("gpstop", "-u"))
-				}()
-			}
-
 			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
 			mustRunCommand(command)
 
