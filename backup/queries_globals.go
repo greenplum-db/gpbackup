@@ -491,11 +491,11 @@ func (rm RoleMember) GetMetadataEntry() (string, utils.MetadataEntry) {
 func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 	query := `
 SELECT
-	quote_ident(pg_get_userbyid(roleid)) AS role,
-	quote_ident(pg_get_userbyid(member)) AS member,
-	quote_ident(pg_get_userbyid(grantor)) AS grantor,
-	admin_option as isadmin
-FROM pg_auth_members
+	quote_ident(pg_get_userbyid(pga.roleid)) AS role,
+	quote_ident(pg_get_userbyid(pga.member)) AS member,
+	CASE WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')' THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor)) END AS grantor,
+	admin_option AS isadmin
+FROM pg_auth_members pga
 ORDER BY roleid, member;`
 
 	results := make([]RoleMember, 0)

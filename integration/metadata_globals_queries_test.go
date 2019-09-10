@@ -479,6 +479,20 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 			}
 			Fail(`Role "1testuser" is not a member of role "1usergroup"`)
 		})
+		It("handles dropped granter", func() {
+			testhelper.AssertQueryRuns(connectionPool, `CREATE ROLE testdropgranter_role`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE testdropgranter_role`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE ROLE testdropgranter_member`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE testdropgranter_member`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE ROLE testdropgranter_granter`)
+			testhelper.AssertQueryRuns(connectionPool, `GRANT testdropgranter_role TO testdropgranter_member GRANTED BY testdropgranter_granter`)
+			testhelper.AssertQueryRuns(connectionPool, `DROP ROLE testdropgranter_granter`)
+			expectedRoleMember := backup.RoleMember{Role: `testdropgranter_role`, Member: `testdropgranter_member`, Grantor: ``, IsAdmin: false}
+
+			roleMember := backup.GetRoleMembers(connectionPool)
+			Expect(len(roleMember)).To(Equal(1))
+			structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember[0])
+		})
 	})
 	Describe("GetRoleGUCs", func() {
 		It("returns a slice of values for user level GUCs", func() {

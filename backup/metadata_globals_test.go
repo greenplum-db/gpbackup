@@ -320,6 +320,7 @@ ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICAT
 	Describe("PrintRoleMembershipStatements", func() {
 		roleWith := backup.RoleMember{Role: "group", Member: "rolewith", Grantor: "grantor", IsAdmin: true}
 		roleWithout := backup.RoleMember{Role: "group", Member: "rolewithout", Grantor: "grantor", IsAdmin: false}
+		roleWithoutGrantor := backup.RoleMember{Role: "group", Member: "rolewithoutgrantor", Grantor: "", IsAdmin: false}
 		It("prints a role without ADMIN OPTION", func() {
 			backup.PrintRoleMembershipStatements(backupfile, toc, []backup.RoleMember{roleWithout})
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "rolewithout", "ROLE GRANT")
@@ -334,6 +335,10 @@ ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICAT
 			testutils.AssertBufferContents(toc.GlobalEntries, buffer,
 				`GRANT group TO rolewith WITH ADMIN OPTION GRANTED BY grantor;`,
 				`GRANT group TO rolewithout GRANTED BY grantor;`)
+		})
+		It("prints a role without a grantor", func() {
+			backup.PrintRoleMembershipStatements(backupfile, toc, []backup.RoleMember{roleWithoutGrantor})
+			testutils.AssertBufferContents(toc.GlobalEntries, buffer, `GRANT group TO rolewithoutgrantor;`)
 		})
 	})
 	Describe("PrintRoleGUCStatements", func() {

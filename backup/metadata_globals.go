@@ -340,7 +340,10 @@ func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *u
 		if roleMember.IsAdmin {
 			metadataFile.MustPrintf(" WITH ADMIN OPTION")
 		}
-		metadataFile.MustPrintf(" GRANTED BY %s;", roleMember.Grantor)
+		if roleMember.Grantor != "" {
+			metadataFile.MustPrintf(" GRANTED BY %s", roleMember.Grantor)
+		}
+		metadataFile.MustPrintf(";")
 
 		section, entry := roleMember.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
