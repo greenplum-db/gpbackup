@@ -109,8 +109,10 @@ func InitializeFilterLists() {
 func BackupConfigurationValidation() {
 	InitializeFilterLists()
 
-	gplog.Verbose("Gathering information on backup directories")
-	VerifyBackupDirectoriesExistOnAllHosts()
+	if !backupConfig.MetadataOnly {
+		gplog.Verbose("Gathering information on backup directories")
+		VerifyBackupDirectoriesExistOnAllHosts()
+	}
 
 	VerifyMetadataFilePaths(MustGetFlagBool(utils.WITH_STATS))
 

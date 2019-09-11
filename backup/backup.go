@@ -9,13 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/greenplum-db/gpbackup/options"
-
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -101,7 +100,12 @@ func DoSetup() {
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := backup_filepath.GetSegPrefix(connectionPool)
 	globalFPInfo = backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
-	CreateBackupDirectoriesOnAllHosts()
+	if MustGetFlagBool(utils.METADATA_ONLY) {
+		_, err = globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(-1)))
+		gplog.FatalOnError(err)
+	} else {
+		CreateBackupDirectoriesOnAllHosts()
+	}
 	globalTOC = &utils.TOC{}
 	globalTOC.InitializeMetadataEntryMap()
 	utils.InitializePipeThroughParameters(!MustGetFlagBool(utils.NO_COMPRESSION), MustGetFlagInt(utils.COMPRESSION_LEVEL))
@@ -110,12 +114,12 @@ func DoSetup() {
 
 	if pluginConfigFlag != "" {
 		pluginConfig, err = utils.ReadPluginConfig(pluginConfigFlag)
+		gplog.FatalOnError(err)
 		configFilename := filepath.Base(pluginConfig.ConfigPath)
 		configDirname := filepath.Dir(pluginConfig.ConfigPath)
 		pluginConfig.ConfigPath = filepath.Join(configDirname, timestamp+"_"+configFilename)
 		_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 		gplog.Info("Plugin config path: %s", pluginConfig.ConfigPath)
-		gplog.FatalOnError(err)
 	}
 
 	InitializeBackupReport(*opts)
