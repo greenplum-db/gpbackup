@@ -104,16 +104,20 @@ func buildOldBinaries(version string) (string, string) {
 }
 
 func assertDataRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
-	for name, numTuples := range tableToTupleCount {
-		tupleCount := dbconn.MustSelectString(conn, fmt.Sprintf("SELECT count(*) AS string from %s", name))
-		Expect(tupleCount).To(Equal(strconv.Itoa(numTuples)))
+	for tableName, expectedNumTuples := range tableToTupleCount {
+		actualTupleCount := dbconn.MustSelectString(conn, fmt.Sprintf("SELECT count(*) AS string from %s", tableName))
+		if strconv.Itoa(expectedNumTuples) != actualTupleCount {
+			Fail(fmt.Sprintf("Expected:\n\t%s rows to have been restored into table %s\nActual:\n\t%s rows were restored", strconv.Itoa(expectedNumTuples), tableName, actualTupleCount))
+		}
 	}
 }
 
-func assertRelationsCreated(conn *dbconn.DBConn, numTables int) {
+func assertRelationsCreated(conn *dbconn.DBConn, expectedNumTables int) {
 	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname IN ('public', 'schema2');`
-	tableCount := dbconn.MustSelectString(conn, countQuery)
-	Expect(tableCount).To(Equal(strconv.Itoa(numTables)))
+	actualTableCount := dbconn.MustSelectString(conn, countQuery)
+	if strconv.Itoa(expectedNumTables) != actualTableCount {
+		Fail(fmt.Sprintf("Expected:\n\t%s relations to have been created\nActual:\n\t%s relations were created", strconv.Itoa(expectedNumTables), actualTableCount))
+	}
 }
 
 func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
