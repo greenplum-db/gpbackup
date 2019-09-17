@@ -178,12 +178,12 @@ type ColumnDefinition struct {
 	StorageType           string
 	DefaultVal            string
 	Comment               string
-	ACL                   []ACL
 	Options               string
 	FdwOptions            string
 	Collation             string
 	SecurityLabelProvider string
 	SecurityLabel         string
+	ACL                   []ACL
 }
 
 var storageTypeCodes = map[string]string{
@@ -199,74 +199,50 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint
 	// Include child partitions that are also external tables
 	gplog.Verbose("Getting column definitions")
 	results := make([]ColumnDefinition, 0)
-	version4query := fmt.Sprintf(`
-SELECT
-	a.attrelid,
-	a.attnum,
-	quote_ident(a.attname) AS name,
-	a.attnotnull,
-	a.atthasdef,
-	pg_catalog.format_type(t.oid,a.atttypmod) AS type,
-	coalesce(pg_catalog.array_to_string(e.attoptions, ','), '') AS encoding,
-	a.attstattarget,
-	CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
-	coalesce(pg_catalog.pg_get_expr(ad.adbin, ad.adrelid), '') AS defaultval,
-	coalesce(d.description,'') AS comment
-FROM pg_catalog.pg_attribute a
-JOIN pg_class c ON a.attrelid = c.oid
-JOIN pg_namespace n ON c.relnamespace = n.oid
-LEFT JOIN pg_catalog.pg_attrdef ad ON (a.attrelid = ad.adrelid AND a.attnum = ad.adnum)
-LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
-LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
-LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
-WHERE %s
-AND c.oid NOT IN (SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable)
-AND a.attnum > 0::pg_catalog.int2
-AND a.attisdropped = 'f'
-ORDER BY a.attrelid, a.attnum;`, relationAndSchemaFilterClause())
+	selectClause := `
+    SELECT
+		a.attrelid,
+		a.attnum,
+		quote_ident(a.attname) AS name,
+		a.attnotnull,
+		a.atthasdef,
+		pg_catalog.format_type(t.oid,a.atttypmod) AS type,
+		COALESCE(pg_catalog.array_to_string(e.attoptions, ','), '') AS encoding,
+		a.attstattarget,
+		CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
+		COALESCE(pg_catalog.pg_get_expr(ad.adbin, ad.adrelid), '') AS defaultval,
+		COALESCE(d.description, '') AS comment`
+	fromClause := `
+	FROM pg_catalog.pg_attribute a
+		JOIN pg_class c ON a.attrelid = c.oid
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+		LEFT JOIN pg_catalog.pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
+		LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
+		LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
+		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum`
+	whereClause := `
+	WHERE ` + relationAndSchemaFilterClause() + `
+		AND NOT EXISTS (SELECT 1 FROM (SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable) par WHERE par.parchildrelid = c.oid)
+		AND c.reltype <> 0
+		AND a.attnum > 0::pg_catalog.int2
+		AND a.attisdropped = 'f'
+	ORDER BY a.attrelid, a.attnum;`
 
-	masterQuery := fmt.Sprintf(`
-SELECT
-	a.attrelid,
-	a.attnum,
-	quote_ident(a.attname) AS name,
-	a.attnotnull,
-	a.atthasdef,
-	pg_catalog.format_type(t.oid,a.atttypmod) AS type,
-	coalesce(pg_catalog.array_to_string(e.attoptions, ','), '') AS encoding,
-	a.attstattarget,
-	CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
-	coalesce(pg_catalog.pg_get_expr(ad.adbin, ad.adrelid), '') AS defaultval,
-	coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
-	coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
-	CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
-	coalesce(sec.provider,'') AS securitylabelprovider,
-	coalesce(sec.label,'') AS securitylabel,
-	coalesce(d.description,'') AS comment
-FROM pg_catalog.pg_attribute a
-JOIN pg_class c ON a.attrelid = c.oid
-JOIN pg_namespace n ON c.relnamespace = n.oid
-LEFT OUTER JOIN pg_catalog.pg_attrdef ad ON (a.attrelid = ad.adrelid AND a.attnum = ad.adnum)
-LEFT OUTER JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
-LEFT OUTER JOIN pg_collation coll on (a.attcollation = coll.oid)
-LEFT OUTER JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
-LEFT OUTER JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
-LEFT OUTER JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
-LEFT OUTER JOIN pg_seclabel sec ON (sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum)
-WHERE %s
-AND c.oid NOT IN (SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable)
-AND c.reltype <> 0
-AND a.attnum > 0::pg_catalog.int2
-AND a.attisdropped = 'f'
-ORDER BY a.attrelid, a.attnum;`, relationAndSchemaFilterClause())
-
-	var err error
-	if connectionPool.Version.Before("6") {
-		err = connectionPool.Select(&results, version4query)
-	} else {
-		err = connectionPool.Select(&results, masterQuery)
+	if connectionPool.Version.AtLeast("6") {
+		selectClause += `,
+		COALESCE(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
+		COALESCE(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
+		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
+		COALESCE(sec.provider,'') AS securitylabelprovider,
+		COALESCE(sec.label,'') AS securitylabel`
+		fromClause += `
+		LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
+		LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
+		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum`
 	}
 
+	query := fmt.Sprintf(`%s %s %s`, selectClause, fromClause, whereClause)
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	resultMap := make(map[uint32][]ColumnDefinition)
 	for _, result := range results {
@@ -289,7 +265,7 @@ type ColumnPrivilegesQueryStruct struct {
 }
 
 func GetPrivilegesForColumns(connectionPool *dbconn.DBConn) map[uint32]map[string][]ACL {
-	gplog.Verbose("Getting column priveleges")
+	gplog.Verbose("Getting column privileges")
 	metadataMap := make(map[uint32]map[string][]ACL)
 	if connectionPool.Version.Before("6") {
 		return metadataMap
