@@ -195,6 +195,8 @@ var storageTypeCodes = map[string]string{
 
 func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint32]map[string][]ACL) map[uint32][]ColumnDefinition {
 	// This query is adapted from the getTableAttrs() function in pg_dump.c.
+	// Optimize Get column definitions to avoid child partitions
+	// Include child partitions that are also external tables
 	gplog.Verbose("Getting column definitions")
 	results := make([]ColumnDefinition, 0)
 	version4query := fmt.Sprintf(`
@@ -218,6 +220,7 @@ LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
 LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
 LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
 WHERE %s
+AND c.oid NOT IN (SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable)
 AND a.attnum > 0::pg_catalog.int2
 AND a.attisdropped = 'f'
 ORDER BY a.attrelid, a.attnum;`, relationAndSchemaFilterClause())
@@ -251,6 +254,7 @@ LEFT OUTER JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AN
 LEFT OUTER JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
 LEFT OUTER JOIN pg_seclabel sec ON (sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum)
 WHERE %s
+AND c.oid NOT IN (SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable)
 AND c.reltype <> 0
 AND a.attnum > 0::pg_catalog.int2
 AND a.attisdropped = 'f'
