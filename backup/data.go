@@ -7,7 +7,6 @@ package backup
 import (
 	"fmt"
 	"strings"
-
 	"sync"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"

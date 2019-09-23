@@ -3,8 +3,8 @@ package utils
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"os"
+	"regexp"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"

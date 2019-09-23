@@ -3,8 +3,8 @@ package restore
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
