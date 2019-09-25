@@ -56,6 +56,7 @@ func SetSessionGUCs(connNum int) {
 	connectionPool.MustExec("SET statement_timeout = 0", connNum)
 	connectionPool.MustExec("SET DATESTYLE = ISO", connNum)
 	connectionPool.MustExec("SET standard_conforming_strings = 1", connNum) // Needed for 4.3, default on in 5+
+	connectionPool.MustExec("SET enable_mergejoin TO off", connNum)
 
 	// The fix to raise the max of extra_float_digits GUC is going out with
 	// GPDB 4.3.33.1. This means if we set the GUC using 'SET
