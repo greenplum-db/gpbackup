@@ -52,6 +52,7 @@ type ProgressBar interface {
 	Start() *pb.ProgressBar
 	Finish()
 	Increment() int
+	Add(int) int
 }
 
 type VerboseProgressBar struct {

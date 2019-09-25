@@ -330,11 +330,50 @@ AND %s;`, optionsStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"
 
 func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	gplog.Info("Acquiring ACCESS SHARE locks on tables")
+
 	progressBar := utils.NewProgressBar(len(tables), "Locks acquired: ", utils.PB_VERBOSE)
 	progressBar.Start()
-	for _, table := range tables {
-		connectionPool.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", table.FQN()))
-		progressBar.Increment()
+
+	const batchSize = 100
+	lastBatchSize := len(tables) % batchSize
+	tableBatches := generateTableBatches(tables, batchSize)
+	currentBatchSize := batchSize
+	for i, currentBatch := range tableBatches {
+		connectionPool.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
+
+		if i == len(tableBatches)-1 && lastBatchSize > 0 {
+			currentBatchSize = lastBatchSize
+		}
+
+		progressBar.Add(currentBatchSize)
 	}
+
 	progressBar.Finish()
+}
+
+// generateTableBatches batches tables to reduce network congestion and
+// resource contention.  Returns an array of batches where a batch of tables is
+// a single string with comma separated tables
+func generateTableBatches(tables []Relation, batchSize int) []string {
+	var tableNames []string
+	for _, table := range tables {
+		tableNames = append(tableNames, table.FQN())
+	}
+
+	var end int
+	var batches []string
+	i := 0
+	for i < len(tables) {
+
+		if i+batchSize < len(tables) {
+			end = i + batchSize
+		} else {
+			end = len(tables)
+		}
+
+		batches = append(batches, strings.Join(tableNames[i:end], ", "))
+		i = end
+	}
+
+	return batches
 }
