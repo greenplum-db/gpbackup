@@ -258,16 +258,18 @@ type Attribute struct {
 }
 
 func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attribute {
+	gplog.Verbose("Getting composite type attributes")
+
 	before6query := `SELECT
 	t.oid AS compositetypeoid,
 	quote_ident(a.attname) AS name,
 	pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
 	coalesce(quote_literal(d.description),'') AS comment
 	FROM pg_type t
+	JOIN pg_class c ON t.typrelid = c.oid
 	JOIN pg_attribute a ON t.typrelid = a.attrelid
 	LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
-	WHERE t.typtype = 'c'
-	ORDER BY t.oid, a.attnum;`
+	WHERE t.typtype = 'c' AND c.relkind = 'c';`
 
 	masterQuery := `SELECT
 	t.oid AS compositetypeoid,
