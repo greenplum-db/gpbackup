@@ -260,7 +260,7 @@ type Attribute struct {
 func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attribute {
 	gplog.Verbose("Getting composite type attributes")
 
-	before6query := `SELECT
+	compositeAttributeQuery := `SELECT
 	t.oid AS compositetypeoid,
 	quote_ident(a.attname) AS name,
 	pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
@@ -271,32 +271,30 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 	LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
 	WHERE t.typtype = 'c' AND c.relkind = 'c';`
 
-	masterQuery := `SELECT
-	t.oid AS compositetypeoid,
-	quote_ident(a.attname) AS name,
-	pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
-	CASE
-		WHEN at.typcollation <> a.attcollation
-		THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname)
-		ELSE ''
-	END AS collation,
-	coalesce(quote_literal(d.description),'') AS comment
-	FROM pg_type t
-	JOIN pg_attribute a ON t.typrelid = a.attrelid
-	JOIN pg_class c ON t.typrelid = c.oid
-	LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
-	LEFT JOIN pg_type at ON at.oid = a.atttypid
-	LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
-	LEFT JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
-	WHERE t.typtype = 'c' AND c.relkind = 'c';`
+	if connectionPool.Version.AtLeast("6") {
+		compositeAttributeQuery = `SELECT
+		t.oid AS compositetypeoid,
+		quote_ident(a.attname) AS name,
+		pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
+		coalesce(quote_literal(d.description),'') AS comment
+		CASE
+			WHEN at.typcollation <> a.attcollation
+			THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname)
+			ELSE ''
+		END AS collation,
+		FROM pg_type t
+		JOIN pg_class c ON t.typrelid = c.oid
+		JOIN pg_attribute a ON t.typrelid = a.attrelid
+		LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
+		LEFT JOIN pg_type at ON at.oid = a.atttypid
+		LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
+		LEFT JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
+		WHERE t.typtype = 'c' AND c.relkind = 'c';`
+	}
 
 	results := make([]Attribute, 0)
 	var err error
-	if connectionPool.Version.Before("6") {
-		err = connectionPool.Select(&results, before6query)
-	} else {
-		err = connectionPool.Select(&results, masterQuery)
-	}
+	err = connectionPool.Select(&results, compositeAttributeQuery)
 	gplog.FatalOnError(err)
 
 	attributeMap := make(map[uint32][]Attribute)
