@@ -283,12 +283,12 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 	coalesce(quote_literal(d.description),'') AS comment
 	FROM pg_type t
 	JOIN pg_attribute a ON t.typrelid = a.attrelid
+	JOIN pg_class c ON t.typrelid = c.oid
+	LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
 	LEFT JOIN pg_type at ON at.oid = a.atttypid
 	LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
 	LEFT JOIN pg_namespace cn on (coll.collnamespace = cn.oid)
-	LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
-	WHERE t.typtype = 'c'
-	ORDER BY t.oid, a.attnum;`
+	WHERE t.typtype = 'c' AND c.relkind = 'c';`
 
 	results := make([]Attribute, 0)
 	var err error
