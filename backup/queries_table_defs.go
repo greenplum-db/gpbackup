@@ -226,7 +226,7 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint
 		AND c.reltype <> 0
 		AND a.attnum > 0::pg_catalog.int2
 		AND a.attisdropped = 'f'
-	ORDER BY a.attrelid, a.attnum;`
+	ORDER BY a.attrelid, a.attnum`
 
 	if connectionPool.Version.AtLeast("6") {
 		selectClause += `,
@@ -241,7 +241,7 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint
 		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum`
 	}
 
-	query := fmt.Sprintf(`%s %s %s`, selectClause, fromClause, whereClause)
+	query := fmt.Sprintf(`%s %s %s;`, selectClause, fromClause, whereClause)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	resultMap := make(map[uint32][]ColumnDefinition)

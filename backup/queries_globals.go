@@ -223,49 +223,64 @@ func (rg ResourceGroup) FQN() string {
 }
 
 func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
-	query := `
-SELECT g.oid,
-	quote_ident(g.rsgname) AS name,
-	t1.proposed AS concurrency,
-	t2.value    AS cpuratelimit,
-	t3.proposed AS memorylimit,
-	t4.proposed AS memorysharedquota,
-	t5.proposed AS memoryspillratio,
-	t6.value    AS memoryauditor,
-	t7.value    AS cpuset
-`
-
-	// This is when pg_dumpall was changed to use the actual values.
+	selectClause := ""
+	// This is when pg_dumpall was changed to use the actual values
 	if connectionPool.Version.AtLeast("5.2.0") {
-		query = `
-SELECT g.oid,
-	quote_ident(g.rsgname) AS name,
-	t1.value AS concurrency,
-	t2.value AS cpuratelimit,
-	t3.value AS memorylimit,
-	t4.value AS memorysharedquota,
-	t5.value AS memoryspillratio,
-	t6.value AS memoryauditor,
-	t7.value AS cpuset
-`
+		selectClause += `
+		SELECT g.oid,
+			quote_ident(g.rsgname) AS name,
+			t1.value AS concurrency,
+			t2.value AS cpuratelimit,
+			t3.value AS memorylimit,
+			t4.value AS memorysharedquota,
+			t5.value AS memoryspillratio,
+			t6.value AS memoryauditor,
+			t7.value AS cpuset`
+	} else { // GPDB 5.0.0 and 5.1.0
+		selectClause += `
+		SELECT
+			g.oid,
+			quote_ident(g.rsgname) AS name,
+			t1.proposed AS concurrency,
+			t2.value    AS cpuratelimit,
+			t3.proposed AS memorylimit,
+			t4.proposed AS memorysharedquota,
+			t5.proposed AS memoryspillratio`
 	}
 
-	query += `FROM pg_resgroup g
-	JOIN pg_resgroupcapability t1 ON t1.resgroupid = g.oid
-	JOIN pg_resgroupcapability t2 ON t2.resgroupid = g.oid
-	JOIN pg_resgroupcapability t3 ON t3.resgroupid = g.oid
-	JOIN pg_resgroupcapability t4 ON t4.resgroupid = g.oid
-	JOIN pg_resgroupcapability t5 ON t5.resgroupid = g.oid
-	LEFT JOIN pg_resgroupcapability t6 ON t6.resgroupid = g.oid
-	LEFT JOIN pg_resgroupcapability t7 ON t7.resgroupid = g.oid
-WHERE t1.reslimittype = 1 AND
-	t2.reslimittype = 2 AND
-	t3.reslimittype = 3 AND
-	t4.reslimittype = 4 AND
-	t5.reslimittype = 5 AND
-	t6.reslimittype = 6 AND
-	t7.reslimittype = 7;`
+	fromClause := `
+	FROM pg_resgroup g
+		JOIN pg_resgroupcapability t1 ON t1.resgroupid = g.oid
+		JOIN pg_resgroupcapability t2 ON t2.resgroupid = g.oid
+		JOIN pg_resgroupcapability t3 ON t3.resgroupid = g.oid
+		JOIN pg_resgroupcapability t4 ON t4.resgroupid = g.oid
+		JOIN pg_resgroupcapability t5 ON t5.resgroupid = g.oid`
+
+	whereClause := `
+	WHERE t1.reslimittype = 1 AND
+		t2.reslimittype = 2 AND
+		t3.reslimittype = 3 AND
+		t4.reslimittype = 4 AND
+		t5.reslimittype = 5`
+
+
+	// Project additional resource group attributes introduced for following GDPB version
+	if connectionPool.Version.AtLeast("5.8.0") {
+		selectClause += `,
+		t6.value AS memoryauditor,
+		t7.value AS cpuset`
+
+		fromClause += `
+		LEFT JOIN pg_resgroupcapability t6 ON t6.resgroupid = g.oid
+		LEFT JOIN pg_resgroupcapability t7 ON t7.resgroupid = g.oid`
+
+		whereClause += ` AND 
+		t6.reslimittype = 6 AND
+		t7.reslimittype = 7`
+	}
+
 	results := make([]ResourceGroup, 0)
+	query := fmt.Sprintf(`%s %s %s;`, selectClause, fromClause, whereClause)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
