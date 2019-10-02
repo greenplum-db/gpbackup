@@ -60,7 +60,7 @@ run:
     GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
     gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*RHEL*.gppkg
 
-    # install pgcrypto; works for GPDB 6+
+    # install pgcrypto; works for GPDB 5.22+ and 6+
     psql -d postgres -c "create extension pgcrypto"
 
     # Test gpbackup manager

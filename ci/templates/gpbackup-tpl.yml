@@ -1005,7 +1005,7 @@ jobs:
           scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
 
           ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
-          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -f \$GPHOME/share/postgresql/contrib/pgcrypto.sql"
+          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -c 'CREATE EXTENSION pgcrypto;'"
     on_failure:
       do:
 {% if "gpbackup-release" == pipeline_name %}
