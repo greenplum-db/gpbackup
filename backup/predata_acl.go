@@ -66,7 +66,7 @@ func PrintObjectMetadata(file *utils.FileWithByteCount, toc *utils.TOC, metadata
 	if entry.ObjectType == "DATABASE METADATA" {
 		entry.ObjectType = "DATABASE"
 	}
-	statements := []string{}
+	statements := make([]string, 0)
 	if comment := metadata.GetCommentStatement(obj.FQN(), entry.ObjectType, owningTable); comment != "" {
 		statements = append(statements, strings.TrimSpace(comment))
 	}
@@ -91,7 +91,6 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 		return MetadataMap{}
 	}
 	var metadata ObjectMetadata
-	quotedRoleNames := GetQuotedRoleNames(connectionPool)
 	currentUniqueID := UniqueID{}
 	// Collect all entries for the same object into one ObjectMetadata
 	for _, result := range results {
@@ -115,7 +114,7 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 			metadata.SecurityLabel = result.SecurityLabel
 		}
 
-		privileges := ParseACL(privilegesStr, quotedRoleNames)
+		privileges := ParseACL(privilegesStr)
 		if privileges != nil {
 			metadata.Privileges = append(metadata.Privileges, *privileges)
 		}
@@ -125,7 +124,7 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 	return metadataMap
 }
 
-func ParseACL(aclStr string, quotedRoleNames map[string]string) *ACL {
+func ParseACL(aclStr string) *ACL {
 	grantee := ""
 	acl := ACL{}
 	if matches := ACLRegex.FindStringSubmatch(aclStr); len(matches) != 0 {
@@ -216,7 +215,7 @@ func ParseACL(aclStr string, quotedRoleNames map[string]string) *ACL {
 }
 
 func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType string, columnName ...string) string {
-	statements := []string{}
+	statements := make([]string, 0)
 	typeStr := fmt.Sprintf("%s ", objectType)
 	if objectType == "VIEW" || objectType == "FOREIGN TABLE" {
 		typeStr = ""
@@ -436,7 +435,7 @@ func (obj ObjectMetadata) GetSecurityLabelStatement(objectName string, objectTyp
 
 func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, privileges []DefaultPrivileges) {
 	for _, priv := range privileges {
-		statements := []string{}
+		statements := make([]string, 0)
 		roleStr := ""
 		if priv.Owner != "" {
 			roleStr = fmt.Sprintf(" FOR ROLE %s", priv.Owner)
@@ -488,8 +487,6 @@ func ConstructDefaultPrivileges(results []DefaultPrivilegesQueryStruct) []Defaul
 	if len(results) == 0 {
 		return []DefaultPrivileges{}
 	}
-	quotedRoles := GetQuotedRoleNames(connectionPool)
-
 	defaultPrivileges := make([]DefaultPrivileges, 0)
 	var priv DefaultPrivileges
 	var currentOid uint32
@@ -513,7 +510,7 @@ func ConstructDefaultPrivileges(results []DefaultPrivilegesQueryStruct) []Defaul
 			priv.ObjectType = result.ObjectType
 		}
 
-		privileges := ParseACL(privilegesStr, quotedRoles)
+		privileges := ParseACL(privilegesStr)
 		if privileges != nil {
 			priv.Privileges = append(priv.Privileges, *privileges)
 		}

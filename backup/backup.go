@@ -109,6 +109,7 @@ func DoSetup() {
 	globalTOC = &utils.TOC{}
 	globalTOC.InitializeMetadataEntryMap()
 	utils.InitializePipeThroughParameters(!MustGetFlagBool(utils.NO_COMPRESSION), MustGetFlagInt(utils.COMPRESSION_LEVEL))
+	GetQuotedRoleNames(connectionPool)
 
 	pluginConfigFlag := MustGetFlagString(utils.PLUGIN_CONFIG)
 

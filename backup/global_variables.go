@@ -32,6 +32,7 @@ var (
 	wasTerminated        bool
 	backupLockFile       lockfile.Lockfile
 	filterRelationClause string
+	quotedRoleNames      map[string]string
 
 	/*
 	 * Used for synchronizing DoCleanup.  In DoInit() we increment the group
@@ -86,8 +87,8 @@ func SetVersion(v string) {
 	version = v
 }
 
-func SetFilterRelationClause(v string) {
-	filterRelationClause = v
+func SetFilterRelationClause(filterClause string) {
+	filterRelationClause = filterClause
 }
 
 // Util functions to enable ease of access to global flag values

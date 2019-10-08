@@ -79,7 +79,6 @@ func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uin
 	var tableMetadata map[string][]ACL
 	var columnMetadata []ACL
 	if len(results) > 0 {
-		quotedRoleNames := GetQuotedRoleNames(connectionPool)
 		currentTable := uint32(0)
 		currentColumn := ""
 		/*
@@ -107,7 +106,7 @@ func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uin
 				currentColumn = result.Name
 				columnMetadata = make([]ACL, 0)
 			}
-			privileges := ParseACL(privilegesStr, quotedRoleNames)
+			privileges := ParseACL(privilegesStr)
 			if privileges != nil {
 				columnMetadata = append(columnMetadata, *privileges)
 			}

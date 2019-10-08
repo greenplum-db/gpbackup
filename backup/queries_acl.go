@@ -285,10 +285,11 @@ ORDER BY n.nspname, a.defaclobjtype, r.rolname`
 }
 
 func GetQuotedRoleNames(connectionPool *dbconn.DBConn) map[string]string {
-	quotedRoleNames := make(map[string]string)
-
-	quotedRoleNamesQuery := `
-SELECT rolname AS rolename, quote_ident(rolname) AS quotedrolename FROM pg_authid`
+	if len(quotedRoleNames) > 0 {
+		return quotedRoleNames
+	}
+	quotedRoleNames = make(map[string]string)
+	quotedRoleNamesQuery := `SELECT rolname AS rolename, quote_ident(rolname) AS quotedrolename FROM pg_authid`
 	results := make([]struct {
 		RoleName       string
 		QuotedRoleName string
