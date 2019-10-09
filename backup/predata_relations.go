@@ -117,6 +117,21 @@ func ConstructColumnPrivilegesMap(results []ColumnPrivilegesQueryStruct) map[uin
 	return metadataMap
 }
 
+func getColumnACL(result ColumnPrivilegesQueryStruct) []ACL {
+	privilegesStr := ""
+	if result.Kind == "Empty" {
+		privilegesStr = "GRANTEE=/GRANTOR"
+	} else if result.Privileges.Valid {
+		privilegesStr = result.Privileges.String
+	}
+	columnMetadata := make([]ACL, 0)
+	privileges := ParseACL(privilegesStr, GetQuotedRoleNames(connectionPool))
+	if privileges != nil {
+		columnMetadata = append(columnMetadata, *privileges)
+	}
+	return columnMetadata
+}
+
 /*
  * This function prints CREATE TABLE statements in a format very similar to pg_dump.  Unlike pg_dump,
  * however, table names are printed fully qualified with their schemas instead of relying on setting
@@ -241,8 +256,9 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 			escapedComment := utils.EscapeSingleQuotes(att.Comment)
 			statements = append(statements, fmt.Sprintf("COMMENT ON COLUMN %s.%s IS '%s';", table.FQN(), att.Name, escapedComment))
 		}
-		if len(att.ACL) > 0 {
-			columnMetadata := ObjectMetadata{Privileges: att.ACL, Owner: tableMetadata.Owner}
+		if att.Privileges.Valid {
+			colPriv := ColumnPrivilegesQueryStruct{ att.Oid, att.Name, att.Privileges, att.Kind }
+			columnMetadata := ObjectMetadata{Privileges: getColumnACL(colPriv), Owner: tableMetadata.Owner}
 			columnPrivileges := columnMetadata.GetPrivilegesStatements(table.FQN(), "COLUMN", att.Name)
 			statements = append(statements, strings.TrimSpace(columnPrivileges))
 		}

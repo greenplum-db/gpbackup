@@ -61,7 +61,6 @@ PARTITION BY RANGE (year)
 		})
 	})
 	Describe("GetColumnDefinitions", func() {
-		emptyColumnACL := []backup.ACL{}
 		It("returns table attribute information for a heap table", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.atttable(a float, b text, c text NOT NULL, d int DEFAULT(5), e text)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.atttable")
@@ -69,13 +68,12 @@ PARTITION BY RANGE (year)
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.atttable DROP COLUMN b")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.atttable ALTER COLUMN e SET STORAGE PLAIN")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "atttable", backup.TYPE_RELATION)
-			privileges := backup.GetPrivilegesForColumns(connectionPool)
-			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 
-			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "double precision", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "att comment", ACL: emptyColumnACL}
-			columnC := backup.ColumnDefinition{Oid: 0, Num: 3, Name: "c", NotNull: true, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL}
-			columnD := backup.ColumnDefinition{Oid: 0, Num: 4, Name: "d", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "5", Comment: "", ACL: emptyColumnACL}
-			columnE := backup.ColumnDefinition{Oid: 0, Num: 5, Name: "e", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "PLAIN", DefaultVal: "", Comment: "", ACL: emptyColumnACL}
+			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "double precision", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "att comment"}
+			columnC := backup.ColumnDefinition{Oid: 0, Num: 3, Name: "c", NotNull: true, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
+			columnD := backup.ColumnDefinition{Oid: 0, Num: 4, Name: "d", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "5", Comment: ""}
+			columnE := backup.ColumnDefinition{Oid: 0, Num: 5, Name: "e", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "PLAIN", DefaultVal: "", Comment: ""}
 
 			Expect(tableAtts).To(HaveLen(4))
 
@@ -88,11 +86,10 @@ PARTITION BY RANGE (year)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.co_atttable(a float, b text ENCODING(blocksize=65536)) WITH (appendonly=true, orientation=column)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.co_atttable")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "co_atttable", backup.TYPE_RELATION)
-			privileges := backup.GetPrivilegesForColumns(connectionPool)
-			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 
-			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "double precision", Encoding: "compresstype=none,blocksize=32768,compresslevel=0", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL}
-			columnB := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "b", NotNull: false, HasDefault: false, Type: "text", Encoding: "blocksize=65536,compresstype=none,compresslevel=0", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL}
+			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "double precision", Encoding: "compresstype=none,blocksize=32768,compresslevel=0", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
+			columnB := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "b", NotNull: false, HasDefault: false, Type: "text", Encoding: "blocksize=65536,compresstype=none,compresslevel=0", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 
 			Expect(tableAtts).To(HaveLen(2))
 
@@ -104,8 +101,7 @@ PARTITION BY RANGE (year)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.nocol_atttable")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "nocol_atttable", backup.TYPE_RELATION)
 
-			privileges := backup.GetPrivilegesForColumns(connectionPool)
-			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 
 			Expect(tableAtts).To(BeEmpty())
 		})
@@ -118,10 +114,9 @@ PARTITION BY RANGE (year)
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.atttable ALTER COLUMN i SET (n_distinct=1);")
 			testhelper.AssertQueryRuns(connectionPool, "SECURITY LABEL FOR dummy ON COLUMN public.atttable.i IS 'unclassified';")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "atttable", backup.TYPE_RELATION)
-			privileges := backup.GetPrivilegesForColumns(connectionPool)
-			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 
-			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "character(8)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", ACL: emptyColumnACL, Options: "n_distinct=1", Collation: "public.some_coll", SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
+			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "character(8)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", Options: "n_distinct=1", Collation: "public.some_coll", SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
 
 			Expect(tableAtts).To(HaveLen(1))
 
@@ -138,12 +133,11 @@ PARTITION BY RANGE (year)
 ) SERVER sc ;`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FOREIGN TABLE public.ft1")
 
-			privileges := backup.GetPrivilegesForColumns(connectionPool)
 			oid := testutils.OidFromObjectName(connectionPool, "public", "ft1", backup.TYPE_RELATION)
-			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 
 			Expect(tableAtts).To(HaveLen(1))
-			column1 := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "c1", NotNull: true, HasDefault: false, Type: "integer", StatTarget: -1, ACL: emptyColumnACL, FdwOptions: "param1 'val1', param2 'val2'"}
+			column1 := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "c1", NotNull: true, HasDefault: false, Type: "integer", StatTarget: -1, FdwOptions: "param1 'val1', param2 'val2'"}
 			structmatcher.ExpectStructsToMatchExcluding(column1, &tableAtts[0], "Oid")
 		})
 		It("handles table with gin index, when index's attribute's collname and namespace are null", func() {
@@ -159,9 +153,8 @@ CREATE TABLE public.test_tsvector (
 			testhelper.AssertQueryRuns(connectionPool, `CREATE INDEX wowidx ON public.test_tsvector USING gin (a)`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP table public.test_tsvector cascade")
 
-			privileges := backup.GetPrivilegesForColumns(connectionPool)
 			oid := testutils.OidFromObjectName(connectionPool, "public", "test_tsvector", backup.TYPE_RELATION)
-			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 
 			Expect(tableAtts).To(HaveLen(3))
 		})
@@ -175,9 +168,8 @@ CREATE TABLE public.test_tsvector (
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.foo(i text COLLATE myschema.mycoll)`)
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public.foo`)
 
-			privileges := backup.GetPrivilegesForColumns(connectionPool)
 			oid := testutils.OidFromObjectName(connectionPool, "public", "foo", backup.TYPE_RELATION)
-			tableAtts := backup.GetColumnDefinitions(connectionPool, privileges)[oid]
+			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 
 			Expect(tableAtts).To(HaveLen(1))
 			Expect(tableAtts[0].Collation).To(Equal("myschema.mycoll"))

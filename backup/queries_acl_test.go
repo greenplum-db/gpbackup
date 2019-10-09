@@ -55,11 +55,12 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 	'table'::regclass::oid AS classid,
 	o.oid,
 	CASE
-		WHEN acl IS NULL OR array_upper(acl, 1) = 0 THEN acl[0]
-		ELSE unnest(acl)
+		WHEN acl IS NULL THEN NULL
+		WHEN array_upper(acl, 1) = 0 THEN acl[0]
+		ELSE UNNEST(acl)
 		END AS privileges,
 	CASE
-		WHEN acl IS NULL THEN 'Default'
+		WHEN acl IS NULL THEN ''
 		WHEN array_upper(acl, 1) = 0 THEN 'Empty'
 		ELSE '' END AS kind,
 	quote_ident(pg_get_userbyid(owner)) AS owner,

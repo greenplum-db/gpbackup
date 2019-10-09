@@ -1,6 +1,7 @@
 package backup_test
 
 import (
+	"database/sql"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -9,8 +10,8 @@ import (
 )
 
 var _ = Describe("backup/predata_relations tests", func() {
-	rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, ACL: []backup.ACL{}}
-	rowTwo := backup.ColumnDefinition{Oid: 1, Num: 2, Name: "j", Type: "character varying(20)", StatTarget: -1, ACL: []backup.ACL{}}
+	rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1}
+	rowTwo := backup.ColumnDefinition{Oid: 1, Num: 2, Name: "j", Type: "character varying(20)", StatTarget: -1}
 
 	noMetadata := backup.ObjectMetadata{}
 
@@ -476,7 +477,7 @@ SET SUBPARTITION TEMPLATE
 ) SERVER fs OPTIONS (delimiter=',' quote='"') ;`)
 			})
 			It("prints a CREATE TABLE block with foreign data options on attributes", func() {
-				rowWithFdwOptions := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, ACL: []backup.ACL{}, FdwOptions: "option1 'val1', option2 'val2'"}
+				rowWithFdwOptions := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, FdwOptions: "option1 'val1', option2 'val2'"}
 				col := []backup.ColumnDefinition{rowWithFdwOptions, rowTwo}
 				testTable.ColumnDefs = col
 				foreignTable := backup.ForeignTableDefinition{Server: "fs"}
@@ -490,8 +491,8 @@ SET SUBPARTITION TEMPLATE
 		})
 	})
 	Describe("PrintPostCreateTableStatements", func() {
-		rowCommentOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Comment: "This is a column comment.", ACL: []backup.ACL{}}
-		rowCommentTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", Type: "integer", StatTarget: -1, Comment: "This is another column comment.", ACL: []backup.ACL{}}
+		rowCommentOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Comment: "This is a column comment."}
+		rowCommentTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", Type: "integer", StatTarget: -1, Comment: "This is another column comment."}
 
 		It("does not print default replica identity statement", func() {
 			testTable.ReplicaIdentity = "d"
@@ -536,7 +537,7 @@ COMMENT ON TABLE public.tablename IS 'This is a table comment.';`)
 COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';`)
 		})
 		It("prints a block with a single column comment containing special characters", func() {
-			rowCommentSpecialCharacters := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Comment: `This is a ta'ble 1+=;,./\>,<@\\n^comment.`, ACL: []backup.ACL{}}
+			rowCommentSpecialCharacters := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Comment: `This is a ta'ble 1+=;,./\>,<@\\n^comment.`}
 
 			col := []backup.ColumnDefinition{rowCommentSpecialCharacters}
 			testTable.ColumnDefs = col
@@ -621,8 +622,8 @@ COMMENT ON COLUMN public.tablename.i IS 'This is a column comment.';
 COMMENT ON COLUMN public.tablename.j IS 'This is another column comment.';`)
 		})
 		It("prints a GRANT statement on a table column", func() {
-			privilegesColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, ACL: []backup.ACL{{Grantee: "testrole", Select: true}}}
-			privilegesColumnTwo := backup.ColumnDefinition{Oid: 1, Num: 2, Name: "j", Type: "character varying(20)", StatTarget: -1, ACL: []backup.ACL{{Grantee: "testrole2", Select: true, Insert: true, Update: true, References: true}}}
+			privilegesColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}}
+			privilegesColumnTwo := backup.ColumnDefinition{Oid: 1, Num: 2, Name: "j", Type: "character varying(20)", StatTarget: -1, Privileges: sql.NullString{String: "testrole2=arwx/testrole2", Valid: true}}
 			col := []backup.ColumnDefinition{privilegesColumnOne, privilegesColumnTwo}
 			testTable.ColumnDefs = col
 			tableMetadata := backup.ObjectMetadata{Owner: "testrole"}

@@ -67,9 +67,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	tables := make([]Table, 0)
 
 	gplog.Info("Gathering additional table metadata")
-	gplog.Verbose("Retrieving column information")
-	columnMetadata := GetPrivilegesForColumns(connectionPool)
-	columnDefs := GetColumnDefinitions(connectionPool, columnMetadata)
+	columnDefs := GetColumnDefinitions(connectionPool)
 	distributionPolicies := GetDistributionPolicies(connectionPool)
 	partitionDefs, partTemplateDefs := GetPartitionDetails(connectionPool)
 	tablespaceNames, storageOptions := GetTableStorage(connectionPool)
@@ -162,12 +160,13 @@ type ColumnDefinition struct {
 	StorageType           string
 	DefaultVal            string
 	Comment               string
+	Privileges            sql.NullString
+	Kind                  string
 	Options               string
 	FdwOptions            string
 	Collation             string
 	SecurityLabelProvider string
 	SecurityLabel         string
-	ACL                   []ACL
 }
 
 var storageTypeCodes = map[string]string{
@@ -177,7 +176,7 @@ var storageTypeCodes = map[string]string{
 	"x": "EXTENDED",
 }
 
-func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint32]map[string][]ACL) map[uint32][]ColumnDefinition {
+func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefinition {
 	// This query is adapted from the getTableAttrs() function in pg_dump.c.
 	// Optimize Get column definitions to avoid child partitions
 	// Include child partitions that are also external tables
@@ -214,6 +213,16 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint
 
 	if connectionPool.Version.AtLeast("6") {
 		selectClause += `,
+		CASE
+			WHEN a.attacl IS NULL THEN NULL
+			WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
+			ELSE UNNEST(a.attacl)
+		END AS privileges,
+		CASE
+			WHEN a.attacl IS NULL THEN ''
+			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
+			ELSE ''
+		END AS kind,
 		coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
 		coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
 		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
@@ -231,11 +240,6 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn, columnMetadata map[uint
 	resultMap := make(map[uint32][]ColumnDefinition)
 	for _, result := range results {
 		result.StorageType = storageTypeCodes[result.StorageType]
-		if connectionPool.Version.Before("6") {
-			result.ACL = []ACL{}
-		} else {
-			result.ACL = columnMetadata[result.Oid][result.Name]
-		}
 		resultMap[result.Oid] = append(resultMap[result.Oid], result)
 	}
 	return resultMap
@@ -255,26 +259,26 @@ func GetPrivilegesForColumns(connectionPool *dbconn.DBConn) map[uint32]map[strin
 		return metadataMap
 	}
 	query := fmt.Sprintf(`
-SELECT
-    a.attrelid AS tableoid,
-    quote_ident(a.attname) AS name,
-	CASE
-		WHEN a.attacl IS NULL OR array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
-		ELSE unnest(a.attacl)
-	END AS privileges,
-	CASE
-		WHEN a.attacl IS NULL THEN 'Default'
-		WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
-		ELSE ''
-	END AS kind
-FROM pg_attribute a
-JOIN pg_class c ON a.attrelid = c.oid
-JOIN pg_namespace n ON c.relnamespace = n.oid
-WHERE %s
-AND a.attnum > 0::pg_catalog.int2
-AND a.attisdropped = 'f'
-ORDER BY a.attrelid, a.attname;
-`, relationAndSchemaFilterClause())
+	SELECT
+		a.attrelid AS tableoid,
+		quote_ident(a.attname) AS name,
+		CASE
+			WHEN a.attacl IS NULL THEN NULL
+			WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
+			ELSE unnest(a.attacl)
+		END AS privileges,
+		CASE
+			WHEN a.attacl IS NULL THEN ''
+			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
+			ELSE ''
+		END AS kind
+	FROM pg_attribute a
+	JOIN pg_class c ON a.attrelid = c.oid
+	JOIN pg_namespace n ON c.relnamespace = n.oid
+	WHERE %s
+	AND a.attnum > 0::pg_catalog.int2
+	AND a.attisdropped = 'f'
+	ORDER BY a.attrelid, a.attname`, relationAndSchemaFilterClause())
 
 	results := make([]ColumnPrivilegesQueryStruct, 0)
 	err := connectionPool.Select(&results, query)

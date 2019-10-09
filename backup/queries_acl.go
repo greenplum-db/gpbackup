@@ -116,6 +116,7 @@ type MetadataQueryStruct struct {
 }
 
 func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
+	gplog.Verbose("Getting object type metadata from " + params.CatalogTable)
 	aclStr := "''"
 	kindStr := "''"
 	schemaStr := ""
@@ -123,14 +124,13 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 
 	if params.ACLField != "" {
 		aclStr = fmt.Sprintf(`CASE
-		WHEN %[1]s IS NULL OR array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
-		ELSE unnest(%[1]s)
-	END`, params.ACLField)
+		WHEN %[1]s IS NULL THEN NULL
+		WHEN array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
+		ELSE UNNEST(%[1]s) END`, params.ACLField)
 		kindStr = fmt.Sprintf(`CASE
-		WHEN %[1]s IS NULL THEN 'Default'
+		WHEN %[1]s IS NULL THEN ''
 		WHEN array_upper(%[1]s, 1) = 0 THEN 'Empty'
-		ELSE ''
-	END`, params.ACLField)
+		ELSE '' END`, params.ACLField)
 	}
 
 	if params.SchemaField != "" {
@@ -150,7 +150,7 @@ WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 	secCols := ""
 	secStr := ""
 	if connectionPool.Version.AtLeast("6") {
-		secCols = "coalesce(sec.label,'') AS securitylabel, coalesce(sec.provider, '') AS securitylabelprovider,"
+		secCols = "COALESCE(sec.label,'') AS securitylabel, COALESCE(sec.provider, '') AS securitylabelprovider,"
 		secTable := "pg_seclabel"
 		secSubidStr := " AND sec.objsubid = 0"
 		if params.Shared {
