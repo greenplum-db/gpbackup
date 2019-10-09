@@ -28,7 +28,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			tempConn = nil
 		})
 		It("exhibits session-like behavior when successive queries are executed on the same connection", func() {
-			tempConn.Exec("SET client_min_messages TO error;", 1)
+			_, _ = tempConn.Exec("SET client_min_messages TO error;", 1)
 			/*
 			 * The default value of client_min_messages is "notice", so now connection 1
 			 * should have it set to "error" and 0 should still have it set to "notice".

@@ -17,7 +17,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintDefaultPrivilegesStatements", func() {
 		It("create default privileges for a table", func() {
-			privs := []backup.ACL{backup.ACL{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", "TABLE")}
+			privs := []backup.ACL{{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", "TABLE")}
 			defaultPrivileges := []backup.DefaultPrivileges{{Schema: "", Privileges: privs, ObjectType: "r", Owner: "testrole"}}
 
 			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
@@ -31,7 +31,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&defaultPrivileges[0], &resultPrivileges[0], "Oid")
 		})
 		It("create default privileges for a sequence with grant option in schema", func() {
-			privs := []backup.ACL{backup.ACL{Grantee: "testrole", SelectWithGrant: true}}
+			privs := []backup.ACL{{Grantee: "testrole", SelectWithGrant: true}}
 			defaultPrivileges := []backup.DefaultPrivileges{{Schema: "", Privileges: privs, ObjectType: "S", Owner: "testrole"}}
 
 			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)

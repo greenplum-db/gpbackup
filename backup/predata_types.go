@@ -158,7 +158,7 @@ func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, to
 
 func PrintPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, composite, "")
-	statements := []string{}
+	statements := make([]string, 0)
 	for _, att := range composite.Attributes {
 		if att.Comment != "" {
 			statements = append(statements, fmt.Sprintf("COMMENT ON COLUMN %s.%s IS %s;", composite.FQN(), att.Name, att.Comment))

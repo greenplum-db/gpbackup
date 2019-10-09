@@ -60,7 +60,7 @@ func PrintDatabaseGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gu
 func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resQueues []ResourceQueue, resQueueMetadata MetadataMap) {
 	for _, resQueue := range resQueues {
 		start := metadataFile.ByteCount
-		attributes := []string{}
+		attributes := make([]string, 0)
 		if resQueue.ActiveStatements != -1 {
 			attributes = append(attributes, fmt.Sprintf("ACTIVE_STATEMENTS=%d", resQueue.ActiveStatements))
 		}
@@ -176,7 +176,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
 		} else {
 			start = metadataFile.ByteCount
-			attributes := []string{}
+			attributes := make([]string, 0)
 
 			/* special handling for cpu properties */
 			if !strings.HasPrefix(resGroup.CPURateLimit, "-") {
@@ -215,7 +215,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roles []Role, roleMetadata MetadataMap) {
 	for _, role := range roles {
 		start := metadataFile.ByteCount
-		attrs := []string{}
+		attrs := make([]string, 0)
 
 		if role.Super {
 			attrs = append(attrs, "SUPERUSER")

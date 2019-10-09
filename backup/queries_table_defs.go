@@ -307,39 +307,37 @@ func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 		// This query is adapted from the addDistributedBy() function in pg_dump.c.
 		query = `
 		SELECT
-			p.localoid as oid,
-			'DISTRIBUTED BY (' || string_agg(quote_ident(a.attname) , ', ' order by index) || ')' AS value	
+			p.localoid AS oid,
+			'DISTRIBUTED BY (' || string_agg(quote_ident(a.attname) , ', ' ORDER BY index) || ')' AS value	
 		FROM
-			(select localoid,
+			(SELECT localoid,
 				unnest(attrnums) AS attnum,
 				generate_series(1,array_upper(attrnums,1)) AS index
-			FROM gp_distribution_policy WHERE attrnums is NOT NULL
+			FROM gp_distribution_policy WHERE attrnums IS NOT NULL
 			) p
 		JOIN pg_attribute a ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
 		GROUP BY localoid
 		UNION ALL
-		SELECT p.localoid as oid,
+		SELECT p.localoid AS oid,
 			'DISTRIBUTED RANDOMLY' AS value
-		FROM gp_distribution_policy p WHERE attrnums is NULL;`
+		FROM gp_distribution_policy p WHERE attrnums IS NULL`
 	} else {
 		query = `
 		SELECT
-			localoid as oid,
-			pg_catalog.pg_get_table_distributedby(localoid) as value
+			localoid AS oid,
+			pg_catalog.pg_get_table_distributedby(localoid) AS value
 		FROM
-			gp_distribution_policy;`
+			gp_distribution_policy`
 	}
 
-	resultMap := selectAsOidToStringMap(connectionPool, query)
-
-	return resultMap
+	return selectAsOidToStringMap(connectionPool, query)
 }
 
 func GetTableType(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
 		return map[uint32]string{}
 	}
-	query := `select oid, reloftype::pg_catalog.regtype AS value from pg_class WHERE reloftype != 0`
+	query := `SELECT oid, reloftype::pg_catalog.regtype AS value from pg_class WHERE reloftype != 0`
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
@@ -347,7 +345,7 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
 		return map[uint32]string{}
 	}
-	query := `select oid, relreplident AS value from pg_class`
+	query := `SELECT oid, relreplident AS value from pg_class`
 	return selectAsOidToStringMap(connectionPool, query)
 }
 

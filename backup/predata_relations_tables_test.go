@@ -507,12 +507,12 @@ SET SUBPARTITION TEMPLATE
 			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
 			testhelper.NotExpectRegexp(buffer, `REPLICA IDENTITY`)
 		})
-		It("prints replica indentity full", func() {
+		It("prints replica identity full", func() {
 			testTable.ReplicaIdentity = "f"
 			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
 			testhelper.ExpectRegexp(buffer, `ALTER TABLE public.tablename REPLICA IDENTITY FULL;`)
 		})
-		It("prints replica indentity nothing", func() {
+		It("prints replica identity nothing", func() {
 			testTable.ReplicaIdentity = "n"
 			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, noMetadata)
 			testhelper.ExpectRegexp(buffer, `ALTER TABLE public.tablename REPLICA IDENTITY NOTHING;`)

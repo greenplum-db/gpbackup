@@ -202,7 +202,7 @@ COMMENT ON PROTOCOL ext_protocol IS 'protocol';
 `)
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (no domain constraint)", func() {
-			constraints := []backup.Constraint{}
+			constraints := make([]backup.Constraint, 0)
 			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, constraints, funcInfoMap)
 			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS

@@ -28,7 +28,7 @@ var _ = Describe("backup/data tests", func() {
 			Expect(atts).To(Equal("(a,b)"))
 		})
 		It("creates an attribute list for a table with no columns", func() {
-			columnDefs := []backup.ColumnDefinition{}
+			columnDefs := make([]backup.ColumnDefinition, 0)
 			atts := backup.ConstructTableAttributesList(columnDefs)
 			Expect(atts).To(Equal(""))
 		})

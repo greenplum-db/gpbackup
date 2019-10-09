@@ -160,7 +160,7 @@ func generateExecuteStatement(extTableDef ExternalTableDefinition) string {
  */
 func tokenizeAndEscapeFormatOpts(formatOpts string) []string {
 	inString := false
-	resultList := []string{}
+	resultList := make([]string, 0)
 	currString := ""
 
 	for i := 0; i < len(formatOpts); i++ {
@@ -317,7 +317,7 @@ func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount,
 		return
 	}
 
-	protocolFunctions := []string{}
+	protocolFunctions := make([]string, 0)
 	if protocol.ReadFunction != 0 {
 		protocolFunctions = append(protocolFunctions, fmt.Sprintf("readfunc = %s", funcInfoMap[protocol.ReadFunction].QualifiedName))
 	}

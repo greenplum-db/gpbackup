@@ -85,7 +85,7 @@ func PrintCreateOperatorClassStatement(metadataFile *utils.FileWithByteCount, to
 		forTypeStr += fmt.Sprintf(" FAMILY %s", operatorFamilyFQN)
 	}
 	metadataFile.MustPrintf("\n\t%s", forTypeStr)
-	opClassClauses := []string{}
+	opClassClauses := make([]string, 0)
 	if len(operatorClass.Operators) != 0 {
 		for _, operator := range operatorClass.Operators {
 			opStr := fmt.Sprintf("OPERATOR %d %s", operator.StrategyNumber, operator.Operator)

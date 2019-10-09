@@ -236,7 +236,7 @@ func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Tab
  */
 func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table, tableMetadata ObjectMetadata) {
 	PrintObjectMetadata(metadataFile, toc, tableMetadata, table, "")
-	statements := []string{}
+	statements := make([]string, 0)
 	for _, att := range table.ColumnDefs {
 		if att.Comment != "" {
 			escapedComment := utils.EscapeSingleQuotes(att.Comment)

@@ -50,6 +50,7 @@ func GetLatestMatchingBackupTimestamp() string {
 	if latestMatchingBackupHistoryEntry == nil {
 		gplog.FatalOnError(errors.Errorf("There was no matching previous backup found with the flags provided. " +
 			"Please take a full backup."))
+		return ""
 	}
 
 	return latestMatchingBackupHistoryEntry.Timestamp

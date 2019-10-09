@@ -34,7 +34,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 
 		Context("No constraints", func() {
 			It("doesn't print anything", func() {
-				constraints := []backup.Constraint{}
+				constraints := make([]backup.Constraint, 0)
 				backup.PrintConstraintStatements(backupfile, toc, constraints, emptyMetadataMap)
 				testhelper.NotExpectRegexp(buffer, `CONSTRAINT`)
 			})

@@ -203,7 +203,7 @@ ALTER TYPE public.base_type
 		})
 	})
 	Describe("PrintCreateDomainStatement", func() {
-		emptyConstraint := []backup.Constraint{}
+		emptyConstraint := make([]backup.Constraint, 0)
 		checkConstraint := []backup.Constraint{{Name: "domain1_check", ConDef: "CHECK (VALUE > 2)", OwningObject: "public.domain1"}}
 		domainOne := backup.Domain{Oid: 1, Schema: "public", Name: "domain1", DefaultVal: "4", BaseType: "numeric", NotNull: true, Collation: "public.mycollation"}
 		domainTwo := backup.Domain{Oid: 1, Schema: "public", Name: "domain2", DefaultVal: "", BaseType: "varchar", NotNull: false, Collation: ""}

@@ -70,7 +70,7 @@ func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByt
 	section, entry := configuration.GetMetadataEntry()
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
-	tokens := []string{}
+	tokens := make([]string, 0)
 	for token := range configuration.TokenToDicts {
 		tokens = append(tokens, token)
 	}

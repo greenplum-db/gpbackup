@@ -767,7 +767,7 @@ LANGUAGE SQL`)
 
 			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
 
-			privs := []backup.ACL{backup.ACL{Grantee: "testrole", Update: true, Select: true}}
+			privs := []backup.ACL{{Grantee: "testrole", Update: true, Select: true}}
 			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "", Privileges: privs, ObjectType: "S", Owner: "testrole"}
 			Expect(resultDefaultPrivileges).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")
@@ -778,7 +778,7 @@ LANGUAGE SQL`)
 
 			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
 
-			privs := []backup.ACL{backup.ACL{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", "TABLE")}
+			privs := []backup.ACL{{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", "TABLE")}
 			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "", Privileges: privs, ObjectType: "r", Owner: "testrole"}
 			Expect(resultDefaultPrivileges).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")
@@ -789,7 +789,7 @@ LANGUAGE SQL`)
 
 			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
 
-			privs := []backup.ACL{backup.ACL{Grantee: "anothertestrole", Select: true, Update: true, Usage: true}, {Grantee: "testrole", Usage: true}}
+			privs := []backup.ACL{{Grantee: "anothertestrole", Select: true, Update: true, Usage: true}, {Grantee: "testrole", Usage: true}}
 			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "", Privileges: privs, ObjectType: "S", Owner: "anothertestrole"}
 			Expect(resultDefaultPrivileges).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")
@@ -800,7 +800,7 @@ LANGUAGE SQL`)
 
 			resultDefaultPrivileges := backup.GetDefaultPrivileges(connectionPool)
 
-			privs := []backup.ACL{backup.ACL{Grantee: "testrole", Usage: true}}
+			privs := []backup.ACL{{Grantee: "testrole", Usage: true}}
 			expectedDefaultPrivileges := backup.DefaultPrivileges{Schema: "public", Privileges: privs, ObjectType: "S", Owner: "testrole"}
 			Expect(resultDefaultPrivileges).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedDefaultPrivileges, &resultDefaultPrivileges[0], "Oid")

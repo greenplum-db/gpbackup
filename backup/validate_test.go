@@ -4,7 +4,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/utils"
-	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
 )
@@ -19,39 +19,39 @@ var _ = Describe("backup/validate tests", func() {
 			backup.ValidateFilterSchemas(connectionPool, filterList, false)
 		})
 		It("passes if single schema is present in database", func() {
-			single_schema_row := sqlmock.NewRows([]string{"string"}).
+			singleSchemaRow := sqlmock.NewRows([]string{"string"}).
 				AddRow("schema1")
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(single_schema_row)
+			mock.ExpectQuery("SELECT (.*)").WillReturnRows(singleSchemaRow)
 			filterList = []string{"schema1"}
 			backup.ValidateFilterSchemas(connectionPool, filterList, false)
 		})
 		It("passes if multiple schemas are present in database", func() {
-			two_schema_rows := sqlmock.NewRows([]string{"string"}).
+			twoSchemaRows := sqlmock.NewRows([]string{"string"}).
 				AddRow("schema1").AddRow("schema2")
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_schema_rows)
+			mock.ExpectQuery("SELECT (.*)").WillReturnRows(twoSchemaRows)
 			filterList = []string{"schema1", "schema2"}
 			backup.ValidateFilterSchemas(connectionPool, filterList, false)
 		})
 		It("panics if schema is not present in database", func() {
-			two_schema_rows := sqlmock.NewRows([]string{"string"}).
+			twoSchemaRows := sqlmock.NewRows([]string{"string"}).
 				AddRow("schema1")
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_schema_rows)
+			mock.ExpectQuery("SELECT (.*)").WillReturnRows(twoSchemaRows)
 			filterList = []string{"schema1", "schema2"}
 			defer testhelper.ShouldPanicWithMessage("Schema schema2 does not exist")
 			backup.ValidateFilterSchemas(connectionPool, filterList, false)
 		})
 		It("panics if all include-schema is not present in database", func() {
-			two_schema_rows := sqlmock.NewRows([]string{"string"})
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_schema_rows)
+			twoSchemaRows := sqlmock.NewRows([]string{"string"})
+			mock.ExpectQuery("SELECT (.*)").WillReturnRows(twoSchemaRows)
 			filterList = []string{"schema2", "schema3"}
 			defer testhelper.ShouldPanicWithMessage("Schema schema2 does not exist")
 			backup.ValidateFilterSchemas(connectionPool, filterList, false)
 		})
 		It("does not panic if schema is not present in database and noFatal is true", func() {
 			_, _, logfile = testhelper.SetupTestLogger()
-			two_schema_rows := sqlmock.NewRows([]string{"string"}).
+			twoSchemaRows := sqlmock.NewRows([]string{"string"}).
 				AddRow("schema1")
-			mock.ExpectQuery("SELECT (.*)").WillReturnRows(two_schema_rows)
+			mock.ExpectQuery("SELECT (.*)").WillReturnRows(twoSchemaRows)
 			filterList = []string{"schema1", "schema2"}
 			backup.ValidateFilterSchemas(connectionPool, filterList, true)
 			testhelper.ExpectRegexp(logfile, "[WARNING]:-Excluded schema schema2 does not exist")

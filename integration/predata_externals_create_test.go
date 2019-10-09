@@ -30,10 +30,10 @@ var _ = Describe("backup integration create statement tests", func() {
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
 				TableDefinition: backup.TableDefinition{IsExternal: true},
 			}
-			os.Create("/tmp/ext_table_file")
+			_, _ = os.Create("/tmp/ext_table_file")
 		})
 		AfterEach(func() {
-			os.Remove("/tmp/ext_table_file")
+			_ = os.Remove("/tmp/ext_table_file")
 			testhelper.AssertQueryRuns(connectionPool, "DROP EXTERNAL TABLE public.testtable")
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE IF EXISTS public.err_table")
 			testhelper.AssertQueryRuns(connectionPool, `DROP TABLE IF EXISTS public."err_table%percent"`)

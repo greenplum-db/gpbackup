@@ -40,7 +40,7 @@ AND relnamespace = 0;`)
 			attStats = []backup.AttributeStatistic{
 				{Schema: "testschema", Table: "testtable", AttName: "testattWithArray", Type: "_array"},
 				{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "_array", Relid: 2, AttNumber: 3, NullFraction: .4,
-					Width: 10, Distinct: .5, Kind1: 20, Operator1: 10, Numbers1: pq.StringArray([]string{"1", "2", "3"}), Values1: pq.StringArray([]string{"4", "5", "6"})},
+					Width: 10, Distinct: .5, Kind1: 20, Operator1: 10, Numbers1: []string{"1", "2", "3"}, Values1: []string{"4", "5", "6"}},
 			}
 			backup.PrintStatisticsStatementsForTable(backupfile, toc, tableTestTable, attStats, tupleStats)
 			testutils.ExpectEntry(toc.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
@@ -266,11 +266,11 @@ INSERT INTO pg_statistic VALUES (
 	})
 	Describe("AnyValues", func() {
 		It("returns properly casted string when length of anyvalues is greater than 0", func() {
-			castedString := backup.AnyValues(pq.StringArray([]string{"1", "2"}), "int")
+			castedString := backup.AnyValues([]string{"1", "2"}, "int")
 			Expect(castedString).To(Equal(`array_in('{"1","2"}', 'int'::regtype::oid, -1)`))
 		})
 		It("returns NULL if anyvalues is of length 0", func() {
-			castedString := backup.AnyValues(pq.StringArray([]string{}), "int")
+			castedString := backup.AnyValues([]string{}, "int")
 			Expect(castedString).To(Equal(`NULL`))
 		})
 	})

@@ -150,8 +150,8 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				`CREATE RESOURCE GROUP some_group2 WITH (CPU_RATE_LIMIT=20, MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=10, CONCURRENCY=25);`)
 		})
 		It("prints ALTER statement for default_group resource group", func() {
-			default_group := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30"}
-			resGroups := []backup.ResourceGroup{default_group}
+			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30"}
+			resGroups := []backup.ResourceGroup{defaultGroup}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, resGroups, emptyResGroupMetadata)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "default_group", "RESOURCE GROUP")
@@ -190,11 +190,11 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 		It("prints memory_spill_ratio resource groups in new syntax", func() {
 			testhelper.SetDBVersion(connectionPool, "5.2.0")
 
-			default_group := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30 MB"}
-			admin_group := backup.ResourceGroup{Oid: 2, Name: "admin_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30"}
+			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30 MB"}
+			adminGroup := backup.ResourceGroup{Oid: 2, Name: "admin_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30"}
 			someGroup := backup.ResourceGroup{Oid: 3, Name: "some_group", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40 MB"}
 			someGroup2 := backup.ResourceGroup{Oid: 4, Name: "some_group2", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40"}
-			resGroups := []backup.ResourceGroup{default_group, admin_group, someGroup, someGroup2}
+			resGroups := []backup.ResourceGroup{defaultGroup, adminGroup, someGroup, someGroup2}
 
 			backup.PrintCreateResourceGroupStatements(backupfile, toc, resGroups, emptyResGroupMetadata)
 			testutils.ExpectEntry(toc.GlobalEntries, 0, "", "", "default_group", "RESOURCE GROUP")

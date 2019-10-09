@@ -277,7 +277,7 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 		t.oid AS compositetypeoid,
 		quote_ident(a.attname) AS name,
 		pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
-		coalesce(quote_literal(d.description),'') AS comment,
+		COALESCE(quote_literal(d.description),'') AS comment,
 		CASE
 			WHEN at.typcollation <> a.attcollation
 			THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname)

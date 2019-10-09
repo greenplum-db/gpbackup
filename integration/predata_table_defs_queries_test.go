@@ -191,7 +191,7 @@ CREATE TABLE public.test_tsvector (
 			metadataMap := backup.GetPrivilegesForColumns(connectionPool)
 
 			oid := testutils.OidFromObjectName(connectionPool, "public", "default_privileges", backup.TYPE_RELATION)
-			expectedACL := []backup.ACL{}
+			expectedACL := make([]backup.ACL, 0)
 			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[oid]).To(HaveLen(1))
 			Expect(metadataMap[oid]["i"]).To(Equal(expectedACL))
@@ -421,7 +421,7 @@ PARTITION BY LIST (gender)
 			`)
 			oid := testutils.OidFromObjectName(connectionPool, "testschema", "part_table", backup.TYPE_RELATION)
 
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 			results := backup.GetPartitionDefinitions(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -523,7 +523,7 @@ SET SUBPARTITION TEMPLATE
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table2")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
-			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
+			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
 
 			results := backup.GetPartitionTemplates(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -588,7 +588,7 @@ SET SUBPARTITION TEMPLATE
     EVERY (INTERVAL '1 month') ) `)
 			oid := testutils.OidFromObjectName(connectionPool, "testschema", "part_table", backup.TYPE_RELATION)
 
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 			results := backup.GetPartitionTemplates(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -799,7 +799,7 @@ SET SUBPARTITION TEMPLATE
 		It("constructs dependencies correctly if there are no table dependencies", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.parent(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent")
-			tables := []backup.Relation{}
+			tables := make([]backup.Relation, 0)
 
 			inheritanceMap := backup.GetTableInheritance(connectionPool, tables)
 
@@ -809,8 +809,8 @@ SET SUBPARTITION TEMPLATE
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.parent(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent")
 
-			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.parent")
-			tables := []backup.Relation{}
+			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.parent")
+			tables := make([]backup.Relation, 0)
 
 			inheritanceMap := backup.GetTableInheritance(connectionPool, tables)
 
@@ -824,7 +824,7 @@ SET SUBPARTITION TEMPLATE
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.child_two() INHERITS (public.parent)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.child_two")
 
-			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.child_one")
+			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.child_one")
 			childOne.Oid = testutils.OidFromObjectName(connectionPool, "public", "child_one", backup.TYPE_RELATION)
 			tables := []backup.Relation{childOne}
 

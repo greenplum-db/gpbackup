@@ -15,7 +15,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgx"
 	"github.com/pkg/errors"
-	pb "gopkg.in/cheggaaa/pb.v1"
+	"gopkg.in/cheggaaa/pb.v1"
 )
 
 var (

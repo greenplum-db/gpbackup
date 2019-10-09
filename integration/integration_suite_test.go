@@ -46,7 +46,7 @@ func TestQueries(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	exec.Command("dropdb", "testdb").Run()
+	_ = exec.Command("dropdb", "testdb").Run()
 	err := exec.Command("createdb", "testdb").Run()
 	if err != nil {
 		Fail("Cannot create database testdb; is GPDB running?")
@@ -55,8 +55,8 @@ var _ = BeforeSuite(func() {
 	stdout, stderr, logFile = testhelper.SetupTestLogger()
 	connectionPool = testutils.SetupTestDbConn("testdb")
 	// We can't use AssertQueryRuns since if a role already exists it will error
-	connectionPool.Exec("CREATE ROLE testrole SUPERUSER")
-	connectionPool.Exec("CREATE ROLE anothertestrole SUPERUSER")
+	_, _ = connectionPool.Exec("CREATE ROLE testrole SUPERUSER")
+	_, _ = connectionPool.Exec("CREATE ROLE anothertestrole SUPERUSER")
 	backup.InitializeMetadataParams(connectionPool)
 	backup.SetConnection(connectionPool)
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
@@ -134,6 +134,6 @@ var _ = AfterSuite(func() {
 	testhelper.AssertQueryRuns(connection1, "DROP ROLE testrole")
 	testhelper.AssertQueryRuns(connection1, "DROP ROLE anothertestrole")
 	connection1.Close()
-	os.RemoveAll("/tmp/helper_test")
-	os.RemoveAll("/tmp/plugin_dest")
+	_ = os.RemoveAll("/tmp/helper_test")
+	_ = os.RemoveAll("/tmp/plugin_dest")
 })

@@ -10,7 +10,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -487,7 +487,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`,
 		colK2 := backup.ColumnPrivilegesQueryStruct{TableOid: 2, Name: "k", Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: ""}
 		colDefault := backup.ColumnPrivilegesQueryStruct{TableOid: 2, Name: "l", Privileges: sql.NullString{String: "", Valid: false}, Kind: "Default"}
 		colEmpty := backup.ColumnPrivilegesQueryStruct{TableOid: 2, Name: "m", Privileges: sql.NullString{String: "", Valid: false}, Kind: "Empty"}
-		privileges := []backup.ColumnPrivilegesQueryStruct{}
+		privileges := make([]backup.ColumnPrivilegesQueryStruct, 0)
 		BeforeEach(func() {
 			rolnames := sqlmock.NewRows([]string{"rolename", "quotedrolename"}).
 				AddRow("gpadmin", "gpadmin").
@@ -532,7 +532,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`,
 			privileges = []backup.ColumnPrivilegesQueryStruct{colDefault}
 			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
 
-			expectedACLForDefaultKind := []backup.ACL{}
+			expectedACLForDefaultKind := make([]backup.ACL, 0)
 
 			Expect(metadataMap).To(HaveLen(1))
 			Expect(metadataMap[2]).To(HaveLen(1))

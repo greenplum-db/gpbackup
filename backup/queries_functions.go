@@ -609,10 +609,9 @@ func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 	 */
 	argStr := ""
 	if connectionPool.Version.Before("5") {
-		argStr = `'' AS functionargs,
-	coalesce(p.oid, 0::oid) AS functionoid,`
+		argStr = `'' AS functionargs, COALESCE(p.oid, 0::oid) AS functionoid,`
 	} else {
-		argStr = `coalesce(pg_get_function_arguments(p.oid), '') AS functionargs,`
+		argStr = `COALESCE(pg_get_function_arguments(p.oid), '') AS functionargs,`
 	}
 	methodStr := ""
 	if connectionPool.Version.AtLeast("6") {

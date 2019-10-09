@@ -340,14 +340,11 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	currentBatchSize := batchSize
 	for i, currentBatch := range tableBatches {
 		connectionPool.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
-
 		if i == len(tableBatches)-1 && lastBatchSize > 0 {
 			currentBatchSize = lastBatchSize
 		}
-
 		progressBar.Add(currentBatchSize)
 	}
-
 	progressBar.Finish()
 }
 
@@ -364,16 +361,13 @@ func generateTableBatches(tables []Relation, batchSize int) []string {
 	var batches []string
 	i := 0
 	for i < len(tables) {
-
 		if i+batchSize < len(tables) {
 			end = i + batchSize
 		} else {
 			end = len(tables)
 		}
-
 		batches = append(batches, strings.Join(tableNames[i:end], ", "))
 		i = end
 	}
-
 	return batches
 }

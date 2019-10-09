@@ -29,7 +29,7 @@ var _ = Describe("backup integration tests", func() {
 		It("returns schema information for single specific schema", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA bar")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA bar")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "bar")
+			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "bar")
 
 			schemas := backup.GetAllUserSchemas(connectionPool)
 
@@ -43,7 +43,7 @@ var _ = Describe("backup integration tests", func() {
 		It("returns schema information for multiple specific schemas", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA bar")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA bar")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "bar,public")
+			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "bar,public")
 			schemas := backup.GetAllUserSchemas(connectionPool)
 
 			schemaBar := backup.Schema{Oid: 0, Name: "bar"}
@@ -203,7 +203,7 @@ PARTITION BY RANGE (date)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.constraints_table(a int, b text, c float)")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.constraints_table")
 				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY testschema.constraints_table ADD CONSTRAINT uniq2 UNIQUE (a, b)")
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 				constraints := backup.GetConstraints(connectionPool)
 
@@ -237,13 +237,13 @@ PARTITION BY RANGE (date)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.other_table(d bool, e float)")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.other_table")
 
-				backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.other_table")
+				_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.other_table")
 				defer backupCmdFlags.Set(utils.EXCLUDE_RELATION, "")
 				constraints := backup.GetConstraints(connectionPool)
 				Expect(constraints).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &uniqueConstraint, "Oid")
 
-				backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.constraints_table")
+				_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.constraints_table")
 				backup.SetFilterRelationClause("")
 				constraints = backup.GetConstraints(connectionPool)
 				Expect(constraints).To(BeEmpty())

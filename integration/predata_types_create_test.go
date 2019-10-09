@@ -150,7 +150,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			domainType := backup.Domain{
 				Oid: 1, Schema: "public", Name: "domain_type", BaseType: "character(8)", DefaultVal: "'abc'::bpchar", NotNull: true, Collation: ""}
 			It("creates domain types", func() {
-				constraints := []backup.Constraint{}
+				constraints := make([]backup.Constraint, 0)
 				if connectionPool.Version.AtLeast("6") {
 					testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
 					defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
