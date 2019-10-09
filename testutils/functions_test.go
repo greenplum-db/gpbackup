@@ -75,7 +75,7 @@ var _ = Describe("testutils/functions", func() {
 			Expect(CompareSlicesIgnoringWhitespace(actual, expected)).To(BeTrue())
 		})
 		It("returns false when slices are of different lengths", func() {
-			actual := []string{}
+			actual := make([]string, 0)
 			expected := []string{"CREATE TABLE foo (i int);"}
 			Expect(CompareSlicesIgnoringWhitespace(actual, expected)).To(BeFalse())
 		})

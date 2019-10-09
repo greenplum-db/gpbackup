@@ -211,12 +211,14 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			custom_data += "here is some data\n"
 
 			_, _ = gzipf.Write([]byte(custom_data))
-			gzipf.Close()
+			_ = gzipf.Close()
 
 			// Write oid file
 			fOid, _ := os.Create(oidFile)
 			_, _ = fOid.WriteString("1\n2\n3\n")
-			defer os.Remove(oidFile)
+			defer func() {
+				_ = os.Remove(oidFile)
+			}()
 
 			// Write custom TOC
 			customTOC := fmt.Sprintf(`dataentries:
@@ -232,7 +234,9 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 `, dataLength+18, dataLength+18+18)
 			fToc, _ := os.Create(tocFile)
 			_, _ = fToc.WriteString(customTOC)
-			defer os.Remove(tocFile)
+			defer func() {
+				_ = os.Remove(tocFile)
+			}()
 
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".gz", "--on-error-continue")
 
@@ -275,7 +279,9 @@ func setupRestoreFiles(withCompression bool, withPlugin bool) {
 	if withCompression {
 		f, _ := os.Create(dataFile + ".gz")
 		gzipf := gzip.NewWriter(f)
-		defer gzipf.Close()
+		defer func() {
+			_ = gzipf.Close()
+		}()
 		_, _ = gzipf.Write([]byte(expectedData))
 	} else {
 		f, _ := os.Create(dataFile)

@@ -10,7 +10,7 @@ import (
 var _ = Describe("backup internal tests", func() {
 	Describe("generateLockQueries", func() {
 		It("batches tables together and generates lock queries", func() {
-			tables := []Relation{}
+			tables := make([]Relation, 0)
 			for i := 0; i < 200; i++ {
 				tables = append(tables, Relation{0, 0, "public", fmt.Sprintf("foo%d", i)})
 			}
@@ -20,7 +20,7 @@ var _ = Describe("backup internal tests", func() {
 			Expect(len(lockQueries)).To(Equal(2))
 		})
 		It("batches up remaining leftover tables together in a single lock query", func() {
-			tables := []Relation{}
+			tables := make([]Relation, 0)
 			for i := 0; i < 101; i++ {
 				tables = append(tables, Relation{0, 0, "public", fmt.Sprintf("foo%d", i)})
 			}

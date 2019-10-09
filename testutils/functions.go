@@ -53,8 +53,7 @@ func SetDefaultSegmentConfiguration() *cluster.Cluster {
 	configMaster := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
 	configSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "gpseg0"}
 	configSegTwo := cluster.SegConfig{ContentID: 1, Hostname: "localhost", DataDir: "gpseg1"}
-	cluster := cluster.NewCluster([]cluster.SegConfig{configMaster, configSegOne, configSegTwo})
-	return cluster
+	return cluster.NewCluster([]cluster.SegConfig{configMaster, configSegOne, configSegTwo})
 }
 
 func SetupTestFilespace(connectionPool *dbconn.DBConn, testCluster *cluster.Cluster) {
@@ -99,7 +98,7 @@ func DestroyTestFilespace(connectionPool *dbconn.DBConn) {
 }
 
 func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComment bool, hasSecurityLabel bool) backup.ObjectMetadata {
-	privileges := []backup.ACL{}
+	privileges := make([]backup.ACL, 0)
 	if hasPrivileges {
 		privileges = []backup.ACL{DefaultACLForType("testrole", objType)}
 	}
@@ -282,7 +281,7 @@ func DefaultACLWithGrantWithout(grantee string, objType string, revoke ...string
 
 func SliceBufferByEntries(entries []utils.MetadataEntry, buffer *gbytes.Buffer) ([]string, string) {
 	contents := buffer.Contents()
-	hunks := []string{}
+	hunks := make([]string, 0)
 	length := uint64(len(contents))
 	var end uint64
 	for _, entry := range entries {

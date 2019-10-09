@@ -237,10 +237,8 @@ ORDER BY cfgname;`, SchemaFilterClause("cfg_ns"), ExtensionFilterClause("c"))
 			tokenName := parserTokens.TokenName(connectionPool, row.ParserOid, mapping.TokenType)
 			config.TokenToDicts[tokenName] = append(config.TokenToDicts[tokenName], mapping.Dictionary)
 		}
-
 		configurations = append(configurations, config)
 	}
-
 	return configurations
 }
 

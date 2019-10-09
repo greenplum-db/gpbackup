@@ -145,7 +145,7 @@ func lockHistoryFile() lockfile.Lockfile {
 
 func (history *History) WriteToFileAndMakeReadOnly(filename string) error {
 	_, err := operating.System.Stat(filename)
-	fileExists := (err == nil)
+	fileExists := err == nil
 	if fileExists {
 		err = operating.System.Chmod(filename, 0644)
 		if err != nil {

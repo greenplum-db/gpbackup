@@ -22,7 +22,6 @@ func FilterTablesForIncremental(lastBackupTOC, currentTOC *utils.TOC, tables []T
 			filteredTables = append(filteredTables, table)
 		}
 	}
-
 	return filteredTables
 }
 
@@ -50,9 +49,7 @@ func GetLatestMatchingBackupTimestamp() string {
 	if latestMatchingBackupHistoryEntry == nil {
 		gplog.FatalOnError(errors.Errorf("There was no matching previous backup found with the flags provided. " +
 			"Please take a full backup."))
-		return ""
 	}
-
 	return latestMatchingBackupHistoryEntry.Timestamp
 }
 
@@ -62,7 +59,6 @@ func GetLatestMatchingBackupConfig(history *backup_history.History, currentBacku
 			return &backupConfig
 		}
 	}
-
 	return nil
 }
 
@@ -104,7 +100,7 @@ func PopulateRestorePlan(changedTables []Table,
 		allTableFQNs[tableFQN] = true
 	}
 
-	//Removing filtered table FQNs for the current backup from entries with previous timestamps
+	// Removing filtered table FQNs for the current backup from entries with previous timestamps
 	for i, restorePlanEntry := range restorePlan {
 		tableFQNs := make([]string, 0)
 		for _, tableFQN := range restorePlanEntry.TableFQNs {

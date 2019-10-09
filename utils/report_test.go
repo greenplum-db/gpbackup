@@ -461,32 +461,32 @@ Timestamp Key: 20170101010101`)
 			contactsFilename := fmt.Sprintf("%s/bin/gp_email_contacts.yaml", operating.System.Getenv("GPHOME"))
 			It("Gets a list of gpbackup contacts on success", func() {
 				gplog.SetErrorCode(0)
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				contacts := utils.GetContacts(contactsFilename, "gpbackup")
 				Expect(contacts).To(Equal("contact1@example.com"))
 			})
 			It("Gets a list of gpbackup contacts on success with errors", func() {
 				gplog.SetErrorCode(1)
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				contacts := utils.GetContacts(contactsFilename, "gpbackup")
 				Expect(contacts).To(Equal("contact1@example.com contact2@example.org"))
 			})
 			It("Gets a list of gpbackup contacts on failure", func() {
 				gplog.SetErrorCode(2)
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				contacts := utils.GetContacts(contactsFilename, "gpbackup")
 				Expect(contacts).To(Equal("contact2@example.org"))
 			})
 			It("Gets a list of gprestore contacts and doesn't fail when no status specified", func() {
 				gplog.SetErrorCode(0)
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				contacts := utils.GetContacts(contactsFilename, "gprestore")
 				Expect(contacts).To(Equal("contact4@example.org"))
@@ -494,8 +494,8 @@ Timestamp Key: 20170101010101`)
 		})
 		Context("ConstructEmailMessage", func() {
 			It("adds HTML formatting to the contents of the report file", func() {
-				w.Write(reportFileContents)
-				w.Close()
+				_, _ = w.Write(reportFileContents)
+				_ = w.Close()
 
 				message := utils.ConstructEmailMessage(testFPInfo.Timestamp, contactsList, "report_file", "gpbackup")
 				expectedMessage := `To: contact1@example.com contact2@example.org
@@ -531,8 +531,8 @@ Content-Disposition: inline
 </html>" | sendmail -t`
 			)
 			It("sends no email and raises a warning if no gp_email_contacts.yaml file is found", func() {
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				testExecutor.LocalError = errors.Errorf("exit status 2")
 
@@ -542,8 +542,8 @@ Content-Disposition: inline
 				Expect(stdout).To(gbytes.Say("Found neither gphome/bin/gp_email_contacts.yaml nor home/gp_email_contacts.yaml"))
 			})
 			It("sends an email to contacts in $HOME/gp_email_contacts.yaml if only that file is found", func() {
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				testExecutor.ErrorOnExecNum = 2 // Shouldn't hit this case, as it shouldn't be executed a second time
 				testExecutor.LocalError = errors.Errorf("exit status 2")
@@ -554,8 +554,8 @@ Content-Disposition: inline
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))
 			})
 			It("sends an email to contacts in $GPHOME/bin/gp_email_contacts.yaml if only that file is found", func() {
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				testExecutor.ErrorOnExecNum = 1
 				testExecutor.LocalError = errors.Errorf("exit status 2")
@@ -566,8 +566,8 @@ Content-Disposition: inline
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))
 			})
 			It("sends an email to contacts in $HOME/gp_email_contacts.yaml if a file exists in both $HOME and $GPHOME/bin", func() {
-				w.Write(contactsFileContents)
-				w.Close()
+				_, _ = w.Write(contactsFileContents)
+				_ = w.Close()
 
 				utils.EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(2))

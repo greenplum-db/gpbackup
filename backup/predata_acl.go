@@ -66,7 +66,7 @@ func PrintObjectMetadata(file *utils.FileWithByteCount, toc *utils.TOC, metadata
 	if entry.ObjectType == "DATABASE METADATA" {
 		entry.ObjectType = "DATABASE"
 	}
-	statements := []string{}
+	statements := make([]string, 0)
 	if comment := metadata.GetCommentStatement(obj.FQN(), entry.ObjectType, owningTable); comment != "" {
 		statements = append(statements, strings.TrimSpace(comment))
 	}
@@ -216,7 +216,7 @@ func ParseACL(aclStr string, quotedRoleNames map[string]string) *ACL {
 }
 
 func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType string, columnName ...string) string {
-	statements := []string{}
+	statements := make([]string, 0)
 	typeStr := fmt.Sprintf("%s ", objectType)
 	if objectType == "VIEW" || objectType == "FOREIGN TABLE" {
 		typeStr = ""
@@ -436,7 +436,7 @@ func (obj ObjectMetadata) GetSecurityLabelStatement(objectName string, objectTyp
 
 func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, privileges []DefaultPrivileges) {
 	for _, priv := range privileges {
-		statements := []string{}
+		statements := make([]string, 0)
 		roleStr := ""
 		if priv.Owner != "" {
 			roleStr = fmt.Sprintf(" FOR ROLE %s", priv.Owner)

@@ -96,7 +96,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			StorageOpts:        tableStorageOptions[oid],
 			TablespaceName:     tablespaceNames[oid],
 			ColumnDefs:         columnDefs[oid],
-			IsExternal:         (extTableDefs[oid].Oid != 0),
+			IsExternal:         extTableDefs[oid].Oid != 0,
 			ExtTableDef:        extTableDefs[oid],
 			PartitionLevelInfo: partTableMap[oid],
 			TableType:          tableTypeMap[oid],
@@ -295,9 +295,7 @@ ORDER BY a.attrelid, a.attname;
 	results := make([]ColumnPrivilegesQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
-	metadataMap = ConstructColumnPrivilegesMap(results)
-
-	return metadataMap
+	return ConstructColumnPrivilegesMap(results)
 }
 
 func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
@@ -329,7 +327,6 @@ func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 		FROM
 			gp_distribution_policy`
 	}
-
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
@@ -422,7 +419,6 @@ FROM pg_foreign_table ft JOIN pg_foreign_server fs on ft.ftserver = fs.oid;
 	for _, foreignTableDef := range queryResults {
 		resultMap[foreignTableDef.Oid] = foreignTableDef
 	}
-
 	return resultMap
 }
 

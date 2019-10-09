@@ -54,7 +54,7 @@ var _ = Describe("utils/io tests", func() {
 			Expect(resultString).To(Equal(expectedString))
 		})
 		It("returns an empty string when given an empty slice", func() {
-			inputStrings := []string{}
+			inputStrings := make([]string, 0)
 			resultString := utils.SliceToQuotedString(inputStrings)
 			Expect(resultString).To(Equal(""))
 		})
