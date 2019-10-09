@@ -322,6 +322,14 @@ ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO somerole WIT
 		})
 	})
 	Describe("ParseACL", func() {
+		var quotedRoleNames map[string]string
+		BeforeEach(func() {
+			quotedRoleNames = map[string]string{
+				"testrole":  "testrole",
+				"Test|role": `"Test|role"`,
+			}
+			backup.SetQuotedRoleNames(quotedRoleNames)
+		})
 		It("parses an ACL string representing default privileges", func() {
 			aclStr := ""
 			result := backup.ParseACL(aclStr)
@@ -346,7 +354,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE testrole GRANT USAGE ON TABLES TO somerole WIT
 			structmatcher.ExpectStructsToMatch(&expected, result)
 		})
 		It("parses an ACL string containing a role name with special characters", func() {
-			aclStr := `"Test|role"=a/gpadmin`
+			aclStr := `Test|role=a/gpadmin`
 			expected := backup.ACL{Grantee: `"Test|role"`, Insert: true}
 			result := backup.ParseACL(aclStr)
 			structmatcher.ExpectStructsToMatch(&expected, result)

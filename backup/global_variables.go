@@ -91,6 +91,10 @@ func SetFilterRelationClause(filterClause string) {
 	filterRelationClause = filterClause
 }
 
+func SetQuotedRoleNames(quotedRoles map[string]string) {
+	quotedRoleNames = quotedRoles
+}
+
 // Util functions to enable ease of access to global flag values
 
 func MustGetFlagString(flagName string) string {
