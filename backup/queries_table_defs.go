@@ -122,31 +122,20 @@ type PartitionLevelInfo struct {
 
 func GetPartitionTableMap(connectionPool *dbconn.DBConn) map[uint32]PartitionLevelInfo {
 	query := `
-	SELECT
-		pc.oid AS oid,
+	SELECT pc.oid AS oid,
 		'p' AS level,
 		'' AS rootname
 	FROM pg_partition p
-	JOIN pg_class pc
-		ON p.parrelid = pc.oid
+		JOIN pg_class pc ON p.parrelid = pc.oid
 	UNION
-	SELECT
-		r.parchildrelid AS oid,
+	SELECT r.parchildrelid AS oid,
 		CASE WHEN p.parlevel = levels.pl THEN 'l' ELSE 'i' END AS level,
-		quote_ident(cparent.relname) AS rootname
+		QUOTE_IDENT(cparent.relname) AS rootname
 	FROM pg_partition p
-	JOIN pg_partition_rule r
-		ON p.oid = r.paroid
-	JOIN pg_class cparent
-		ON cparent.oid = p.parrelid
-	JOIN (
-		SELECT
-			parrelid AS relid,
-			max(parlevel) AS pl
-		FROM pg_partition
-		GROUP BY parrelid
-	) AS levels
-		ON p.parrelid = levels.relid
+		JOIN pg_partition_rule r ON p.oid = r.paroid
+		JOIN pg_class cparent ON cparent.oid = p.parrelid
+		JOIN (SELECT parrelid AS relid, MAX(parlevel) AS pl
+			FROM pg_partition GROUP BY parrelid) AS levels ON p.parrelid = levels.relid
 	WHERE r.parchildrelid != 0`
 
 	results := make([]PartitionLevelInfo, 0)
@@ -299,28 +288,20 @@ func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
 		// This query is adapted from the addDistributedBy() function in pg_dump.c.
 		query = `
-		SELECT
-			p.localoid AS oid,
-			'DISTRIBUTED BY (' || string_agg(quote_ident(a.attname) , ', ' ORDER BY index) || ')' AS value	
-		FROM
-			(SELECT localoid,
-				unnest(attrnums) AS attnum,
-				generate_series(1,array_upper(attrnums,1)) AS index
-			FROM gp_distribution_policy WHERE attrnums IS NOT NULL
-			) p
-		JOIN pg_attribute a ON (p.localoid,p.attnum) = (a.attrelid,a.attnum)
+		SELECT p.localoid AS oid,
+			'DISTRIBUTED BY (' || string_agg(QUOTE_IDENT(a.attname) , ', ' ORDER BY index) || ')' AS value	
+		FROM (SELECT localoid, unnest(attrnums) AS attnum,
+				GENERATE_SERIES(1, ARRAY_UPPER(attrnums, 1)) AS index
+				FROM gp_distribution_policy WHERE attrnums IS NOT NULL) p
+			JOIN pg_attribute a ON (p.localoid, p.attnum) = (a.attrelid, a.attnum)
 		GROUP BY localoid
 		UNION ALL
-		SELECT p.localoid AS oid,
-			'DISTRIBUTED RANDOMLY' AS value
+		SELECT p.localoid AS oid, 'DISTRIBUTED RANDOMLY' AS value
 		FROM gp_distribution_policy p WHERE attrnums IS NULL`
 	} else {
 		query = `
-		SELECT
-			localoid AS oid,
-			pg_catalog.pg_get_table_distributedby(localoid) AS value
-		FROM
-			gp_distribution_policy`
+		SELECT localoid AS oid, pg_catalog.PG_GET_TABLE_DISTRIBUTEDBY(localoid) AS value
+		FROM gp_distribution_policy`
 	}
 
 	return selectAsOidToStringMap(connectionPool, query)
@@ -346,8 +327,8 @@ func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[
 	gplog.Info("Getting partition definitions")
 	query := fmt.Sprintf(`
     SELECT p.parrelid AS oid,
-        pg_get_partition_def(p.parrelid, true, true) AS definition,
-        pg_get_partition_template_def(p.parrelid, true, true) AS template
+        PG_GET_PARTITION_DEF(p.parrelid, true, true) AS definition,
+        PG_GET_PARTITION_TEMPLATE_DEF(p.parrelid, true, true) AS template
     FROM pg_partition p
 		JOIN pg_class c ON p.parrelid = c.oid
 		JOIN pg_namespace n ON c.relnamespace = n.oid
@@ -374,8 +355,8 @@ func GetTableStorage(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint
 	gplog.Info("Getting storage information")
 	query := fmt.Sprintf(`
     SELECT c.oid,
-        quote_ident(t.spcname) AS tablespace,
-        array_to_string(reloptions, ', ') AS reloptions
+        QUOTE_IDENT(t.spcname) AS tablespace,
+        ARRAY_TO_STRING(reloptions, ', ') AS reloptions
     FROM pg_class c
         JOIN pg_namespace n ON c.relnamespace = n.oid
         LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace
@@ -431,11 +412,13 @@ func GetForeignTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Foreig
 	queryResults := make([]ForeignTableDefinition, 0)
 
 	query := `
-	SELECT ftrelid, fs.srvname as ftserver,
-		pg_catalog.array_to_string(ARRAY(
-			SELECT pg_catalog.quote_ident(option_name) ||' ' || pg_catalog.quote_literal(option_value)
-			FROM pg_catalog.pg_options_to_table(ftoptions) ORDER BY option_name), e',    ') AS ftoptions
-	FROM pg_foreign_table ft JOIN pg_foreign_server fs on ft.ftserver = fs.oid`
+	SELECT ftrelid, fs.srvname AS ftserver,
+		pg_catalog.ARRAY_TO_STRING(ARRAY(
+			SELECT pg_catalog.QUOTE_IDENT(option_name) || ' ' || pg_catalog.QUOTE_LITERAL(option_value)
+			FROM pg_catalog.PG_OPTIONS_TO_TABLE(ftoptions) ORDER BY option_name
+		), e',    ') AS ftoptions
+	FROM pg_foreign_table ft
+		JOIN pg_foreign_server fs ON ft.ftserver = fs.oid`
 	err := connectionPool.Select(&queryResults, query)
 	gplog.FatalOnError(err)
 
@@ -466,9 +449,8 @@ func GetTableInheritance(connectionPool *dbconn.DBConn, tables []Relation) map[u
 	}
 
 	query := fmt.Sprintf(`
-	SELECT
-		i.inhrelid AS oid,
-		quote_ident(n.nspname) || '.' || quote_ident(p.relname) AS referencedobject
+	SELECT i.inhrelid AS oid,
+		QUOTE_IDENT(n.nspname) || '.' || QUOTE_IDENT(p.relname) AS referencedobject
 	FROM pg_inherits i
 		JOIN pg_class p ON i.inhparent = p.oid
 		JOIN pg_namespace n ON p.relnamespace = n.oid
