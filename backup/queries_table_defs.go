@@ -71,13 +71,8 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	columnMetadata := GetPrivilegesForColumns(connectionPool)
 	columnDefs := GetColumnDefinitions(connectionPool, columnMetadata)
 	distributionPolicies := GetDistributionPolicies(connectionPool)
-	gplog.Verbose("Retrieving partition information")
-	partitionDefs := GetPartitionDefinitions(connectionPool)
-	partTemplateDefs := GetPartitionTemplates(connectionPool)
-	gplog.Verbose("Retrieving storage information")
-	tableStorageOptions := GetTableStorageOptions(connectionPool)
-	tablespaceNames := GetTablespaceNames(connectionPool)
-	gplog.Verbose("Retrieving external table information")
+	partitionDefs, partTemplateDefs := GetPartitionDetails(connectionPool)
+	tablespaceNames, storageOptions := GetTableStorage(connectionPool)
 	extTableDefs := GetExternalTableDefinitions(connectionPool)
 	partTableMap := GetPartitionTableMap(connectionPool)
 	tableTypeMap := GetTableType(connectionPool)
@@ -93,7 +88,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			DistPolicy:         distributionPolicies[oid],
 			PartDef:            partitionDefs[oid],
 			PartTemplateDef:    partTemplateDefs[oid],
-			StorageOpts:        tableStorageOptions[oid],
+			StorageOpts:        storageOptions[oid],
 			TablespaceName:     tablespaceNames[oid],
 			ColumnDefs:         columnDefs[oid],
 			IsExternal:         extTableDefs[oid].Oid != 0,
@@ -127,33 +122,33 @@ type PartitionLevelInfo struct {
 
 func GetPartitionTableMap(connectionPool *dbconn.DBConn) map[uint32]PartitionLevelInfo {
 	query := `
-SELECT
-	pc.oid AS oid,
-	'p' AS level,
-	'' AS rootname
-FROM pg_partition p
-JOIN pg_class pc
-	ON p.parrelid = pc.oid
-UNION
-SELECT
-	r.parchildrelid AS oid,
-	CASE WHEN p.parlevel = levels.pl THEN 'l' ELSE 'i' END AS level,
-	quote_ident(cparent.relname) AS rootname
-FROM pg_partition p
-JOIN pg_partition_rule r
-	ON p.oid = r.paroid
-JOIN pg_class cparent
-	ON cparent.oid = p.parrelid
-JOIN (
 	SELECT
-		parrelid AS relid,
-		max(parlevel) AS pl
-	FROM pg_partition
-	GROUP BY parrelid
-) AS levels
-	ON p.parrelid = levels.relid
-WHERE r.parchildrelid != 0;
-`
+		pc.oid AS oid,
+		'p' AS level,
+		'' AS rootname
+	FROM pg_partition p
+	JOIN pg_class pc
+		ON p.parrelid = pc.oid
+	UNION
+	SELECT
+		r.parchildrelid AS oid,
+		CASE WHEN p.parlevel = levels.pl THEN 'l' ELSE 'i' END AS level,
+		quote_ident(cparent.relname) AS rootname
+	FROM pg_partition p
+	JOIN pg_partition_rule r
+		ON p.oid = r.paroid
+	JOIN pg_class cparent
+		ON cparent.oid = p.parrelid
+	JOIN (
+		SELECT
+			parrelid AS relid,
+			max(parlevel) AS pl
+		FROM pg_partition
+		GROUP BY parrelid
+	) AS levels
+		ON p.parrelid = levels.relid
+	WHERE r.parchildrelid != 0`
+
 	results := make([]PartitionLevelInfo, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -327,6 +322,7 @@ func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 		FROM
 			gp_distribution_policy`
 	}
+
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
@@ -346,32 +342,63 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
-func GetPartitionDefinitions(connectionPool *dbconn.DBConn) map[uint32]string {
+func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint32]string) {
 	gplog.Info("Getting partition definitions")
-	query := fmt.Sprintf(`SELECT p.parrelid AS oid, pg_get_partition_def(p.parrelid, true, true) AS value FROM pg_partition p
-	JOIN pg_class c ON p.parrelid = c.oid
-	JOIN pg_namespace n ON c.relnamespace = n.oid
+	query := fmt.Sprintf(`
+    SELECT p.parrelid AS oid,
+        pg_get_partition_def(p.parrelid, true, true) AS definition,
+        pg_get_partition_template_def(p.parrelid, true, true) AS template
+    FROM pg_partition p
+		JOIN pg_class c ON p.parrelid = c.oid
+		JOIN pg_namespace n ON c.relnamespace = n.oid
 	WHERE %s`, relationAndSchemaFilterClause())
-	return selectAsOidToStringMap(connectionPool, query)
+	var results []struct {
+		Oid          uint32
+		Definition   string
+		Template     sql.NullString
+	}
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	partitionDef := make(map[uint32]string)
+	partitionTemp := make(map[uint32]string)
+	for _, result := range results {
+		partitionDef[result.Oid] = result.Definition
+		if result.Template.Valid {
+		    partitionTemp[result.Oid] = result.Template.String
+		}
+	}
+	return partitionDef, partitionTemp
 }
 
-func GetPartitionTemplates(connectionPool *dbconn.DBConn) map[uint32]string {
-	gplog.Info("Getting partition templates")
-	query := fmt.Sprintf(`SELECT p.parrelid AS oid, pg_get_partition_template_def(p.parrelid, true, true) AS value FROM pg_partition p
-	JOIN pg_class c ON p.parrelid = c.oid
-	JOIN pg_namespace n ON c.relnamespace = n.oid
-	WHERE %s`, relationAndSchemaFilterClause())
-	return selectAsOidToStringMap(connectionPool, query)
-}
-
-func GetTableStorageOptions(connectionPool *dbconn.DBConn) map[uint32]string {
-	query := `SELECT oid, array_to_string(reloptions, ', ') AS value FROM pg_class WHERE reloptions IS NOT NULL;`
-	return selectAsOidToStringMap(connectionPool, query)
-}
-
-func GetTablespaceNames(connectionPool *dbconn.DBConn) map[uint32]string {
-	query := `SELECT c.oid, quote_ident(t.spcname) AS value FROM pg_class c JOIN pg_tablespace t ON t.oid = c.reltablespace`
-	return selectAsOidToStringMap(connectionPool, query)
+func GetTableStorage(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint32]string) {
+	gplog.Info("Getting storage information")
+	query := fmt.Sprintf(`
+    SELECT c.oid,
+        quote_ident(t.spcname) AS tablespace,
+        array_to_string(reloptions, ', ') AS reloptions
+    FROM pg_class c
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace
+    WHERE %s
+        AND t.spcname IS NOT NULL OR reloptions IS NOT NULL`, relationAndSchemaFilterClause())
+	var results []struct {
+		Oid          uint32
+		Tablespace   sql.NullString
+		RelOptions   sql.NullString
+	}
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	tableSpaces := make(map[uint32]string)
+	relOptions := make(map[uint32]string)
+	for _, result := range results {
+		if result.Tablespace.Valid {
+			tableSpaces[result.Oid] = result.Tablespace.String
+		}
+		if result.RelOptions.Valid {
+			relOptions[result.Oid] = result.RelOptions.String
+		}
+	}
+	return tableSpaces, relOptions
 }
 
 func GetUnloggedTables(connectionPool *dbconn.DBConn) map[uint32]bool {
@@ -403,15 +430,12 @@ func GetForeignTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Foreig
 	}
 	queryResults := make([]ForeignTableDefinition, 0)
 
-	query := `SELECT ftrelid, fs.srvname as ftserver,
-              pg_catalog.array_to_string(array
-       (
-                select pg_catalog.quote_ident(option_name) ||' ' || pg_catalog.quote_literal(option_value)
-                FROM pg_catalog.pg_options_to_table(ftoptions)
-                ORDER BY option_name), e',    ')
-              AS ftoptions
-FROM pg_foreign_table ft JOIN pg_foreign_server fs on ft.ftserver = fs.oid;
-`
+	query := `
+	SELECT ftrelid, fs.srvname as ftserver,
+		pg_catalog.array_to_string(ARRAY(
+			SELECT pg_catalog.quote_ident(option_name) ||' ' || pg_catalog.quote_literal(option_value)
+			FROM pg_catalog.pg_options_to_table(ftoptions) ORDER BY option_name), e',    ') AS ftoptions
+	FROM pg_foreign_table ft JOIN pg_foreign_server fs on ft.ftserver = fs.oid`
 	err := connectionPool.Select(&queryResults, query)
 	gplog.FatalOnError(err)
 
@@ -442,14 +466,14 @@ func GetTableInheritance(connectionPool *dbconn.DBConn, tables []Relation) map[u
 	}
 
 	query := fmt.Sprintf(`
-SELECT
-	i.inhrelid AS oid,
-	quote_ident(n.nspname) || '.' || quote_ident(p.relname) AS referencedobject
-FROM pg_inherits i
-JOIN pg_class p ON i.inhparent = p.oid
-JOIN pg_namespace n ON p.relnamespace = n.oid
-WHERE %s%s
-ORDER BY i.inhrelid, i.inhseqno`, ExtensionFilterClause("p"), tableFilterStr)
+	SELECT
+		i.inhrelid AS oid,
+		quote_ident(n.nspname) || '.' || quote_ident(p.relname) AS referencedobject
+	FROM pg_inherits i
+		JOIN pg_class p ON i.inhparent = p.oid
+		JOIN pg_namespace n ON p.relnamespace = n.oid
+	WHERE %s%s
+	ORDER BY i.inhrelid, i.inhseqno`, ExtensionFilterClause("p"), tableFilterStr)
 
 	results := make([]Dependency, 0)
 	inheritanceMap := make(map[uint32][]string)

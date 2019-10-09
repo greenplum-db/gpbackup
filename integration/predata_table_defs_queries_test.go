@@ -337,9 +337,9 @@ CREATE TABLE public.test_tsvector (
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "simple_table", backup.TYPE_RELATION)
 
-			result := backup.GetPartitionDefinitions(connectionPool)[oid]
+			result, _ := backup.GetPartitionDetails(connectionPool)
 
-			Expect(result).To(Equal(""))
+			Expect(result[oid]).To(Equal(""))
 		})
 		It("returns a value for a partition definition", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (id int, rank int, year int, gender
@@ -353,7 +353,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
-			result := backup.GetPartitionDefinitions(connectionPool)[oid]
+			result, _ := backup.GetPartitionDetails(connectionPool)
 
 			// The spacing is very specific here and is output from the postgres function
 			expectedResult := fmt.Sprintf(`PARTITION BY LIST(gender) `+`
@@ -362,7 +362,7 @@ PARTITION BY LIST (gender)
           PARTITION boys VALUES('M') WITH (tablename='part_table_1_prt_boys', appendonly=%[1]s), `+`
           DEFAULT PARTITION other  WITH (tablename='part_table_1_prt_other', appendonly=%[1]s)
           )`, partitionPartFalseExpectation)
-			Expect(result).To(Equal(expectedResult))
+			Expect(result[oid]).To(Equal(expectedResult))
 		})
 		It("returns a value for a partition definition for a specific table", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (id int, rank int, year int, gender
@@ -385,9 +385,9 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table2")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
-			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
+			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
 
-			results := backup.GetPartitionDefinitions(connectionPool)
+			results, _ := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
@@ -424,7 +424,7 @@ PARTITION BY LIST (gender)
 
 			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
-			results := backup.GetPartitionDefinitions(connectionPool)
+			results, _ := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
@@ -444,9 +444,9 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "simple_table", backup.TYPE_RELATION)
 
-			result := backup.GetPartitionTemplates(connectionPool)[oid]
+			_, result := backup.GetPartitionDetails(connectionPool)
 
-			Expect(result).To(Equal(""))
+			Expect(result[oid]).To(Equal(""))
 		})
 		It("returns a value for a subpartition template", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (trans_id int, date date, amount decimal(9,2), region text)
@@ -464,7 +464,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
-			result := backup.GetPartitionTemplates(connectionPool)[oid]
+			_, result := backup.GetPartitionDetails(connectionPool)
 
 			/*
 			 * The spacing is very specific here and is output from the postgres function
@@ -493,7 +493,7 @@ SET SUBPARTITION TEMPLATE
 `
 			}
 
-			Expect(result).To(Equal(expectedResult))
+			Expect(result[oid]).To(Equal(expectedResult))
 		})
 		It("returns a value for a subpartition template for a specific table", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (trans_id int, date date, amount decimal(9,2), region text)
@@ -526,7 +526,7 @@ SET SUBPARTITION TEMPLATE
 
 			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
 
-			results := backup.GetPartitionTemplates(connectionPool)
+			_, results := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
@@ -591,7 +591,7 @@ SET SUBPARTITION TEMPLATE
 
 			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
-			results := backup.GetPartitionTemplates(connectionPool)
+			_, results := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
 			result := results[oid]
 
@@ -727,18 +727,18 @@ SET SUBPARTITION TEMPLATE
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "simple_table", backup.TYPE_RELATION)
 
-			result := backup.GetTableStorageOptions(connectionPool)[oid]
+			_, result := backup.GetTableStorage(connectionPool)
 
-			Expect(result).To(Equal(""))
+			Expect(result[oid]).To(Equal(""))
 		})
 		It("returns a value for storage options of a table ", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.ao_table(i int) with (appendonly=true)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.ao_table")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "ao_table", backup.TYPE_RELATION)
 
-			result := backup.GetTableStorageOptions(connectionPool)[oid]
+			_, result := backup.GetTableStorage(connectionPool)
 
-			Expect(result).To(Equal("appendonly=true"))
+			Expect(result[oid]).To(Equal("appendonly=true"))
 		})
 	})
 	Describe("GetTableInheritance", func() {
