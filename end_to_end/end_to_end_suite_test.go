@@ -264,8 +264,11 @@ var _ = Describe("backup end to end integration tests", func() {
 				gpbackupPath, backupHelperPath = buildOldBinaries(oldBackupVersionStr)
 			}
 		} else {
-			gpbackupPath, backupHelperPath, gprestorePath = buildAndInstallBinaries()
+			binDir := fmt.Sprintf("%s/go/bin", operating.System.Getenv("HOME"))
+			gpbackupPath = fmt.Sprintf("%s/gpbackup", binDir)
+			backupHelperPath = fmt.Sprintf("%s/gpbackup_helper", binDir)
 			restoreHelperPath = backupHelperPath
+			gprestorePath = fmt.Sprintf("%s/gprestore", binDir)
 		}
 		segConfig := cluster.MustGetSegmentConfiguration(backupConn)
 		backupCluster = cluster.NewCluster(segConfig)
