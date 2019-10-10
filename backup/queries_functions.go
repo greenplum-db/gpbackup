@@ -106,20 +106,20 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	}
 	query := fmt.Sprintf(`
 	SELECT p.oid,
-		QUOTE_IDENT(nspname) AS schema,
-		QUOTE_IDENT(proname) AS name,
+		quote_ident(nspname) AS schema,
+		quote_ident(proname) AS name,
 		proretset,
-		COALESCE(prosrc, '') AS functionbody,
-		COALESCE(probin, '') AS binarypath,
-		pg_catalog.PG_GET_FUNCTION_ARGUMENTS(p.oid) AS arguments,
-		pg_catalog.PG_GET_FUNCTION_IDENTITY_ARGUMENTS(p.oid) AS identargs,
-		pg_catalog.PG_GET_FUNCTION_RESULT(p.oid) AS resulttype,
+		coalesce(prosrc, '') AS functionbody,
+		coalesce(probin, '') AS binarypath,
+		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+		pg_catalog.pg_get_function_result(p.oid) AS resulttype,
 		provolatile,
 		proisstrict,
 		prosecdef,
 		%s
-		COALESCE(ARRAY_TO_STRING(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
-			FROM PG_OPTIONS_TO_TABLE(proconfig)), ' '), '') AS proconfig,
+		coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
+			FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
 		procost,
 		prorows,
 		prodataaccess,
@@ -207,10 +207,10 @@ func UnescapeDoubleQuote(value string) string {
 func GetFunctions4(connectionPool *dbconn.DBConn) []Function {
 	query := fmt.Sprintf(`
 	SELECT p.oid,
-		QUOTE_IDENT(nspname) AS schema,
-		QUOTE_IDENT(proname) AS name,
+		quote_ident(nspname) AS schema,
+		quote_ident(proname) AS name,
 		proretset,
-		COALESCE(prosrc, '') AS functionbody,
+		coalesce(prosrc, '') AS functionbody,
 		CASE WHEN probin = '-' THEN '' ELSE probin END AS binarypath,
 		provolatile,
 		proisstrict,
@@ -237,10 +237,10 @@ func GetFunctions4(connectionPool *dbconn.DBConn) []Function {
 func GetFunctionArgsAndIdentArgs(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint32]string) {
 	query := `
 	SELECT p.oid,
-		CASE WHEN proallargtypes IS NOT NULL THEN FORMAT_TYPE(UNNEST(proallargtypes), NULL)
-			ELSE FORMAT_TYPE(UNNEST(proargtypes), NULL) END AS type,
-		CASE WHEN proargnames IS NOT NULL THEN QUOTE_IDENT(UNNEST(proargnames)) ELSE '' END AS name,
-		CASE WHEN proargmodes IS NOT NULL THEN UNNEST(proargmodes) ELSE '' END AS mode
+		CASE WHEN proallargtypes IS NOT NULL THEN format_type(unnest(proallargtypes), NULL)
+			ELSE format_type(unnest(proargtypes), NULL) END AS type,
+		CASE WHEN proargnames IS NOT NULL THEN quote_ident(unnest(proargnames)) ELSE '' END AS name,
+		CASE WHEN proargmodes IS NOT NULL THEN unnest(proargmodes) ELSE '' END AS mode
 	FROM pg_proc p
 		JOIN pg_namespace n ON p.pronamespace = n.oid`
 
@@ -297,8 +297,8 @@ func GetFunctionReturnTypes(connectionPool *dbconn.DBConn) map[uint32]Function {
 	query := fmt.Sprintf(`
 	SELECT p.oid,
 		proretset,
-		CASE WHEN proretset = 't' THEN 'SETOF ' || FORMAT_TYPE(prorettype, NULL)
-			ELSE FORMAT_TYPE(prorettype, NULL) END AS resulttype
+		CASE WHEN proretset = 't' THEN 'SETOF ' || format_type(prorettype, NULL)
+			ELSE format_type(prorettype, NULL) END AS resulttype
 	FROM pg_proc p
 		JOIN pg_namespace n ON p.pronamespace = n.oid
 	WHERE %s`, SchemaFilterClause("n"))
@@ -377,17 +377,17 @@ func (a Aggregate) FQN() string {
 func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 	version4query := fmt.Sprintf(`
 	SELECT p.oid,
-		QUOTE_IDENT(n.nspname) AS schema,
+		quote_ident(n.nspname) AS schema,
 		p.proname AS name,
 		'' AS arguments,
 		'' AS identargs,
 		a.aggtransfn::regproc::oid,
 		a.aggprelimfn::regproc::oid,
 		a.aggfinalfn::regproc::oid,
-		COALESCE(o.oprname, '') AS sortoperator,
-		COALESCE(QUOTE_IDENT(opn.nspname), '') AS sortoperatorschema,
-		FORMAT_TYPE(a.aggtranstype, NULL) as transitiondatatype,
-		COALESCE(a.agginitval, '') AS initialvalue,
+		coalesce(o.oprname, '') AS sortoperator,
+		coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema,
+		format_type(a.aggtranstype, NULL) as transitiondatatype,
+		coalesce(a.agginitval, '') AS initialvalue,
 		(a.agginitval IS NULL) AS initvalisnull,
 		true AS minitvalisnull,
 		a.aggordered
@@ -400,17 +400,17 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 
 	version5query := fmt.Sprintf(`
 	SELECT p.oid,
-		QUOTE_IDENT(n.nspname) AS schema,
+		quote_ident(n.nspname) AS schema,
 		p.proname AS name,
-		pg_catalog.PG_GET_FUNCTION_ARGUMENTS(p.oid) AS arguments,
-		pg_catalog.PG_GET_FUNCTION_IDENTITY_ARGUMENTS(p.oid) AS identargs,
+		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
 		a.aggtransfn::regproc::oid,
 		a.aggprelimfn::regproc::oid,
 		a.aggfinalfn::regproc::oid,
-		COALESCE(o.oprname, '') AS sortoperator,
-		COALESCE(QUOTE_IDENT(opn.nspname), '') AS sortoperatorschema,
-		FORMAT_TYPE(a.aggtranstype, NULL) as transitiondatatype,
-		COALESCE(a.agginitval, '') AS initialvalue,
+		coalesce(o.oprname, '') AS sortoperator,
+		coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema, 
+		format_type(a.aggtranstype, NULL) as transitiondatatype,
+		coalesce(a.agginitval, '') AS initialvalue,
 		(a.agginitval IS NULL) AS initvalisnull,
 		true AS minitvalisnull,
 		a.aggordered
@@ -424,31 +424,31 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 
 	masterQuery := fmt.Sprintf(`
 	SELECT p.oid,
-		QUOTE_IDENT(n.nspname) AS schema,
+		quote_ident(n.nspname) AS schema,
 		p.proname AS name,
-		pg_catalog.PG_GET_FUNCTION_ARGUMENTS(p.oid) AS arguments,
-		pg_catalog.PG_GET_FUNCTION_IDENTITY_ARGUMENTS(p.oid) AS identargs,
+		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
 		a.aggtransfn::regproc::oid,
 		a.aggcombinefn::regproc::oid,
 		a.aggserialfn::regproc::oid,
 		a.aggdeserialfn::regproc::oid,
 		a.aggfinalfn::regproc::oid,
 		a.aggfinalextra AS finalfuncextra,
-		COALESCE(o.oprname, '') AS sortoperator,
-		COALESCE(QUOTE_IDENT(opn.nspname), '') AS sortoperatorschema,
+		coalesce(o.oprname, '') AS sortoperator,
+		coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema, 
 		(a.aggkind = 'h') AS hypothetical,
-		FORMAT_TYPE(a.aggtranstype, NULL) as transitiondatatype,
+		format_type(a.aggtranstype, NULL) as transitiondatatype,
 		aggtransspace,
-		COALESCE(a.agginitval, '') AS initialvalue,
+		coalesce(a.agginitval, '') AS initialvalue,
 		(a.agginitval IS NULL) AS initvalisnull,
 		a.aggmtransfn::regproc::oid,
 		a.aggminvtransfn::regproc::oid,
 		a.aggmfinalfn::regproc::oid,
 		a.aggmfinalextra AS mfinalfuncextra,
-		FORMAT_TYPE(a.aggmtranstype, NULL) as mtransitiondatatype,
+		format_type(a.aggmtranstype, NULL) as mtransitiondatatype,
 		aggmtransspace,
 		(a.aggminitval IS NULL) AS minitvalisnull,
-		COALESCE(a.aggminitval, '') AS minitialvalue
+		coalesce(a.aggminitval, '') AS minitialvalue
 	FROM pg_aggregate a
 		LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
@@ -493,15 +493,15 @@ type FunctionInfo struct {
 func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionInfo {
 	version4query := `
 	SELECT p.oid,
-		QUOTE_IDENT(n.nspname) AS schema,
-		QUOTE_IDENT(p.proname) AS name
+		quote_ident(n.nspname) AS schema,
+		quote_ident(p.proname) AS name
 	FROM pg_proc p
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid`
 	query := `
 	SELECT p.oid,
-		QUOTE_IDENT(n.nspname) AS schema,
-		QUOTE_IDENT(p.proname) AS name,
-		pg_catalog.PG_GET_FUNCTION_ARGUMENTS(p.oid) AS arguments
+		quote_ident(n.nspname) AS schema,
+		quote_ident(p.proname) AS name,
+		pg_catalog.pg_get_function_arguments(p.oid) AS arguments
 	FROM pg_proc p
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid`
 
@@ -579,9 +579,9 @@ func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 	 */
 	argStr := ""
 	if connectionPool.Version.Before("5") {
-		argStr = `'' AS functionargs, COALESCE(p.oid, 0::oid) AS functionoid,`
+		argStr = `'' AS functionargs, coalesce(p.oid, 0::oid) AS functionoid,`
 	} else {
-		argStr = `COALESCE(pg_get_function_arguments(p.oid), '') AS functionargs,`
+		argStr = `coalesce(pg_get_function_arguments(p.oid), '') AS functionargs,`
 	}
 	methodStr := ""
 	if connectionPool.Version.AtLeast("6") {
@@ -592,10 +592,10 @@ func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 	query := fmt.Sprintf(`
 	SELECT
 		c.oid,
-		QUOTE_IDENT(sn.nspname) || '.' || QUOTE_IDENT(st.typname) AS sourcetypefqn,
-		QUOTE_IDENT(tn.nspname) || '.' || QUOTE_IDENT(tt.typname) AS targettypefqn,
-		COALESCE(QUOTE_IDENT(n.nspname), '') AS functionschema,
-		COALESCE(QUOTE_IDENT(p.proname), '') AS functionname,
+		quote_ident(sn.nspname) || '.' || quote_ident(st.typname) AS sourcetypefqn,
+		quote_ident(tn.nspname) || '.' || quote_ident(tt.typname) AS targettypefqn,
+		coalesce(quote_ident(n.nspname), '') AS functionschema,
+		coalesce(quote_ident(p.proname), '') AS functionname,
 		%s
 		%s
 		c.castcontext
@@ -657,8 +657,8 @@ func GetExtensions(connectionPool *dbconn.DBConn) []Extension {
 
 	query := `
 	SELECT e.oid,
-		QUOTE_IDENT(extname) AS name,
-		QUOTE_IDENT(n.nspname) AS schema
+		quote_ident(extname) AS name,
+		quote_ident(n.nspname) AS schema
 	FROM pg_extension e
 		JOIN pg_namespace n ON e.extnamespace = n.oid`
 	err := connectionPool.Select(&results, query)
@@ -702,8 +702,8 @@ func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage 
 	// Languages are owned by the bootstrap superuser, OID 10
 	version4query := `
 	SELECT oid,
-		QUOTE_IDENT(l.lanname) AS name,
-		PG_GET_USERBYID(10) as owner,
+		quote_ident(l.lanname) AS name,
+		pg_get_userbyid(10) AS owner, 
 		l.lanispl,
 		l.lanpltrusted,
 		l.lanplcallfoid::regprocedure::oid,
@@ -714,8 +714,8 @@ func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage 
 		AND l.lanname != 'plpgsql'`
 	query := fmt.Sprintf(`
 	SELECT oid,
-		QUOTE_IDENT(l.lanname) AS name,
-		PG_GET_USERBYID(l.lanowner) as owner,
+		quote_ident(l.lanname) AS name,
+		pg_get_userbyid(l.lanowner) AS owner,
 		l.lanispl,
 		l.lanpltrusted,
 		l.lanplcallfoid::regprocedure::oid,
@@ -769,11 +769,11 @@ func GetConversions(connectionPool *dbconn.DBConn) []Conversion {
 	results := make([]Conversion, 0)
 	query := fmt.Sprintf(`
 	SELECT c.oid,
-		QUOTE_IDENT(n.nspname) AS schema,
-		QUOTE_IDENT(c.conname) AS name,
-		PG_ENCODING_TO_CHAR(c.conforencoding) AS forencoding,
-		PG_ENCODING_TO_CHAR(c.contoencoding) AS toencoding,
-		QUOTE_IDENT(fn.nspname) || '.' || QUOTE_IDENT(p.proname) AS conversionfunction,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(c.conname) AS name,
+		pg_encoding_to_char(c.conforencoding) AS forencoding,
+		pg_encoding_to_char(c.contoencoding) AS toencoding,
+		quote_ident(fn.nspname) || '.' || quote_ident(p.proname) AS conversionfunction,
 		c.condefault
 	FROM pg_conversion c
 		JOIN pg_namespace n ON c.connamespace = n.oid
@@ -820,12 +820,12 @@ func GetForeignDataWrappers(connectionPool *dbconn.DBConn) []ForeignDataWrapper 
 	results := make([]ForeignDataWrapper, 0)
 	query := fmt.Sprintf(`
 	SELECT oid,
-		QUOTE_IDENT(fdwname) AS name,
+		quote_ident(fdwname) AS name,
 		fdwvalidator AS validator,
 		fdwhandler AS handler,
-		ARRAY_TO_STRING(ARRAY(
-			SELECT pg_catalog.QUOTE_IDENT(option_name) || ' ' || pg_catalog.QUOTE_LITERAL(option_value)
-			FROM PG_OPTIONS_TO_TABLE(fdwoptions) ORDER BY option_name), ', ') AS options
+		array_to_string(ARRAY(
+			SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
+			FROM pg_options_to_table(fdwoptions) ORDER BY option_name), ', ') AS options
 	FROM pg_foreign_data_wrapper
 	WHERE %s`, ExtensionFilterClause(""))
 
@@ -867,13 +867,13 @@ func GetForeignServers(connectionPool *dbconn.DBConn) []ForeignServer {
 	results := make([]ForeignServer, 0)
 	query := fmt.Sprintf(`
 	SELECT fs.oid,
-		QUOTE_IDENT(fs.srvname) AS name,
-		COALESCE(fs.srvtype, '') AS type,
-		COALESCE(fs.srvversion, '') AS version,
-		QUOTE_IDENT(fdw.fdwname) AS foreigndatawrapper,
-		ARRAY_TO_STRING(ARRAY(
-			SELECT pg_catalog.QUOTE_IDENT(option_name) || ' ' || pg_catalog.QUOTE_LITERAL(option_value)
-			FROM PG_OPTIONS_TO_TABLE(fs.srvoptions) ORDER BY option_name), ', ') AS options
+		quote_ident(fs.srvname) AS name,
+		coalesce(fs.srvtype, '') AS type,
+		coalesce(fs.srvversion, '') AS version,
+		quote_ident(fdw.fdwname) AS foreigndatawrapper,
+		array_to_string(ARRAY(
+			SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
+			FROM pg_options_to_table(fs.srvoptions) ORDER BY option_name), ', ') AS options
 	FROM pg_foreign_server fs
 		LEFT JOIN pg_foreign_data_wrapper fdw ON fdw.oid = srvfdw
 	WHERE %s`, ExtensionFilterClause("fs"))
@@ -912,18 +912,18 @@ func (um UserMapping) FQN() string {
 }
 
 func GetUserMappings(connectionPool *dbconn.DBConn) []UserMapping {
-	results := make([]UserMapping, 0)
-	query := fmt.Sprintf(`
+	query := `
 	SELECT um.umid AS oid,
-		QUOTE_IDENT(um.usename) AS user,
-		QUOTE_IDENT(um.srvname) AS server,
-		ARRAY_TO_STRING(ARRAY(
-			SELECT pg_catalog.QUOTE_IDENT(option_name) || ' ' || pg_catalog.QUOTE_LITERAL(option_value)
-			FROM PG_OPTIONS_TO_TABLE(um.umoptions) ORDER BY option_name), ', ') AS options
+		quote_ident(um.usename) AS user,
+		quote_ident(um.srvname) AS server,
+		array_to_string(ARRAY(
+			SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
+			FROM pg_options_to_table(um.umoptions) ORDER BY option_name), ', ') AS options
 	FROM pg_user_mappings um
 	WHERE um.umid NOT IN (select objid from pg_depend where deptype = 'e')
-	ORDER by um.usename`)
+	ORDER by um.usename`
 
+	results := make([]UserMapping, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
