@@ -222,6 +222,7 @@ var _ = Describe("backup end to end integration tests", func() {
 	const (
 		TOTAL_RELATIONS               = 37
 		TOTAL_RELATIONS_AFTER_EXCLUDE = 21
+		TOTAL_CREATE_STATEMENTS       = 9
 	)
 
 	var gpbackupPath, backupHelperPath, restoreHelperPath, gprestorePath, pluginConfigPath string
@@ -992,8 +993,10 @@ var _ = Describe("backup end to end integration tests", func() {
 		It("runs gpbackup and gprestore with jobs flag", func() {
 			skipIfOldBackupVersionBefore("1.3.0")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--jobs", "4")
-			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir, "--jobs", "4")
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir, "--jobs", "4", "--verbose")
 
+			expectedString := fmt.Sprintf("table %d of %d", TOTAL_CREATE_STATEMENTS, TOTAL_CREATE_STATEMENTS)
+			Expect(string(output)).To(ContainSubstring(expectedString))
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, schema2TupleCounts)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)

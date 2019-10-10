@@ -53,26 +53,19 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	return numRows, err
 }
 
-func restoreSingleTableData(fpInfo *backup_filepath.FilePathInfo, entry utils.MasterDataEntry, tableNum uint32, totalTables int, whichConn int) error {
-	name := utils.MakeFQN(entry.Schema, entry.Name)
-	if gplog.GetVerbosity() > gplog.LOGINFO {
-		// No progress bar at this log level, so we note table count here
-		gplog.Verbose("Reading data for table %s from file (table %d of %d)", name, tableNum, totalTables)
-	} else {
-		gplog.Verbose("Reading data for table %s from file", name)
-	}
+func restoreSingleTableData(fpInfo *backup_filepath.FilePathInfo, entry utils.MasterDataEntry, tableName string, whichConn int) error {
 	destinationToRead := ""
 	if backupConfig.SingleDataFile {
 		destinationToRead = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
 	} else {
 		destinationToRead = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, utils.GetPipeThroughProgram().Extension, backupConfig.SingleDataFile)
 	}
-	numRowsRestored, err := CopyTableIn(connectionPool, name, entry.AttributeString, destinationToRead, backupConfig.SingleDataFile, whichConn)
+	numRowsRestored, err := CopyTableIn(connectionPool, tableName, entry.AttributeString, destinationToRead, backupConfig.SingleDataFile, whichConn)
 	if err != nil {
 		return err
 	}
 	numRowsBackedUp := entry.RowsCopied
-	err = CheckRowsRestored(numRowsRestored, numRowsBackedUp, name)
+	err = CheckRowsRestored(numRowsRestored, numRowsBackedUp, tableName)
 	if err != nil {
 		return err
 	}
@@ -89,7 +82,8 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 
 func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries []utils.MasterDataEntry,
 	gucStatements []utils.StatementWithType, dataProgressBar utils.ProgressBar) {
-	if len(dataEntries) == 0 {
+	totalTables := len(dataEntries)
+	if totalTables == 0 {
 		gplog.Verbose("No data to restore for timestamp = %s", fpInfo.Timestamp)
 		return
 	}
@@ -97,7 +91,7 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
-		filteredOids := make([]string, len(dataEntries))
+		filteredOids := make([]string, totalTables)
 		for i, entry := range dataEntries {
 			filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
 		}
@@ -114,8 +108,8 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 	 * TerminateHangingCopySessions to kill any COPY
 	 * statements in progress if they don't finish on their own.
 	 */
-	var tableNum uint32 = 1
-	tasks := make(chan utils.MasterDataEntry, len(dataEntries))
+	var tableNum uint32 = 0
+	tasks := make(chan utils.MasterDataEntry, totalTables)
 	var workerPool sync.WaitGroup
 	var numErrors int32
 
@@ -129,7 +123,17 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 					dataProgressBar.(*pb.ProgressBar).NotPrint = true
 					return
 				}
-				err := restoreSingleTableData(&fpInfo, entry, tableNum, len(dataEntries), whichConn)
+				tableName := utils.MakeFQN(entry.Schema, entry.Name)
+				err := restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
+
+				atomic.AddUint32(&tableNum, 1)
+				if gplog.GetVerbosity() > gplog.LOGINFO {
+					// No progress bar at this log level, so we note table count here
+					gplog.Verbose("Restored data to table %s from file (table %d of %d)", tableName, tableNum, totalTables)
+				} else {
+					gplog.Verbose("Restored data to table %s from file", tableName)
+				}
+
 				if err != nil {
 					gplog.Error(err.Error())
 					atomic.AddInt32(&numErrors, 1)
@@ -147,7 +151,6 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 					}
 				}
 
-				atomic.AddUint32(&tableNum, 1)
 				dataProgressBar.Increment()
 			}
 		}(i)
