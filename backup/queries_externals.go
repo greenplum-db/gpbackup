@@ -233,5 +233,6 @@ FROM (
 		}
 		partInfoMap[partInfo.PartitionRuleOid] = partInfo
 	}
+
 	return extPartitions, partInfoMap
 }

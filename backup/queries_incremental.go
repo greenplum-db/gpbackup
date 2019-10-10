@@ -20,6 +20,7 @@ func GetAOIncrementalMetadata(connectionPool *dbconn.DBConn) map[string]utils.AO
 			LastDDLTimestamp: lastDDLTimestamps[aoTableFQN],
 		}
 	}
+
 	return aoTableEntries
 }
 

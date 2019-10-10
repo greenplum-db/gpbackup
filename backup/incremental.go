@@ -22,6 +22,7 @@ func FilterTablesForIncremental(lastBackupTOC, currentTOC *utils.TOC, tables []T
 			filteredTables = append(filteredTables, table)
 		}
 	}
+
 	return filteredTables
 }
 
@@ -50,6 +51,7 @@ func GetLatestMatchingBackupTimestamp() string {
 		gplog.FatalOnError(errors.Errorf("There was no matching previous backup found with the flags provided. " +
 			"Please take a full backup."))
 	}
+
 	return latestMatchingBackupHistoryEntry.Timestamp
 }
 
@@ -59,6 +61,7 @@ func GetLatestMatchingBackupConfig(history *backup_history.History, currentBacku
 			return &backupConfig
 		}
 	}
+
 	return nil
 }
 

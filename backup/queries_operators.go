@@ -244,6 +244,7 @@ AND %s`, SchemaFilterClause("cls_ns"), ExtensionFilterClause("c"))
 	for i := range results {
 		results[i].Functions = functions[results[i].Oid]
 	}
+
 	return results
 }
 

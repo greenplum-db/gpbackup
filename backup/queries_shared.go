@@ -198,5 +198,6 @@ func ExtensionFilterClause(namespace string) string {
 	if namespace != "" {
 		oidStr = fmt.Sprintf("%s.oid", namespace)
 	}
+
 	return fmt.Sprintf("%s NOT IN (select objid from pg_depend where deptype = 'e')", oidStr)
 }

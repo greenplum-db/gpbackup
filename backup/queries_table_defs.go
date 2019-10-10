@@ -334,7 +334,7 @@ func GetTableType(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
 		return map[uint32]string{}
 	}
-	query := `SELECT oid, reloftype::pg_catalog.regtype AS value from pg_class WHERE reloftype != 0`
+	query := `SELECT oid, reloftype::pg_catalog.regtype AS value FROM pg_class WHERE reloftype != 0`
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
@@ -342,7 +342,7 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
 		return map[uint32]string{}
 	}
-	query := `SELECT oid, relreplident AS value from pg_class`
+	query := `SELECT oid, relreplident AS value FROM pg_class`
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
@@ -419,6 +419,7 @@ FROM pg_foreign_table ft JOIN pg_foreign_server fs on ft.ftserver = fs.oid;
 	for _, foreignTableDef := range queryResults {
 		resultMap[foreignTableDef.Oid] = foreignTableDef
 	}
+
 	return resultMap
 }
 
