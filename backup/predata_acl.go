@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
@@ -122,6 +123,26 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 	metadata.Privileges = sortACLs(metadata.Privileges)
 	metadataMap[currentUniqueID] = metadata
 	return metadataMap
+}
+
+type ColumnPrivilegesQueryStruct struct {
+	Privileges sql.NullString
+	Kind       string
+}
+
+func getColumnACL(result ColumnPrivilegesQueryStruct) []ACL {
+	privilegesStr := ""
+	if result.Kind == "Empty" {
+		privilegesStr = "GRANTEE=/GRANTOR"
+	} else if result.Privileges.Valid {
+		privilegesStr = result.Privileges.String
+	}
+	columnMetadata := make([]ACL, 0)
+	privileges := ParseACL(privilegesStr)
+	if privileges != nil {
+		columnMetadata = append(columnMetadata, *privileges)
+	}
+	return columnMetadata
 }
 
 func ParseACL(aclStr string) *ACL {

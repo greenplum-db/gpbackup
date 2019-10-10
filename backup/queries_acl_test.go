@@ -57,7 +57,7 @@ ORDER BY o.oid;`)).WillReturnRows(emptyRows)
 	CASE
 		WHEN acl IS NULL THEN NULL
 		WHEN array_upper(acl, 1) = 0 THEN acl[0]
-		ELSE UNNEST(acl)
+		ELSE unnest(acl)
 		END AS privileges,
 	CASE
 		WHEN acl IS NULL THEN ''

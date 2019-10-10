@@ -175,35 +175,6 @@ CREATE TABLE public.test_tsvector (
 			Expect(tableAtts[0].Collation).To(Equal("myschema.mycoll"))
 		})
 	})
-	Describe("GetPrivilegesForColumns", func() {
-		It("Default column", func() {
-			testutils.SkipIfBefore6(connectionPool)
-			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.default_privileges(i int)")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.default_privileges")
-
-			metadataMap := backup.GetPrivilegesForColumns(connectionPool)
-
-			oid := testutils.OidFromObjectName(connectionPool, "public", "default_privileges", backup.TYPE_RELATION)
-			expectedACL := make([]backup.ACL, 0)
-			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[oid]).To(HaveLen(1))
-			Expect(metadataMap[oid]["i"]).To(Equal(expectedACL))
-		})
-		It("Column with granted privileges", func() {
-			testutils.SkipIfBefore6(connectionPool)
-			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.granted_privileges(i int)")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.granted_privileges")
-			testhelper.AssertQueryRuns(connectionPool, "GRANT SELECT (i) ON TABLE public.granted_privileges TO testrole")
-
-			metadataMap := backup.GetPrivilegesForColumns(connectionPool)
-
-			oid := testutils.OidFromObjectName(connectionPool, "public", "granted_privileges", backup.TYPE_RELATION)
-			expectedACL := []backup.ACL{{Grantee: "testrole", Select: true}}
-			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[oid]).To(HaveLen(1))
-			Expect(metadataMap[oid]["i"]).To(Equal(expectedACL))
-		})
-	})
 	Describe("GetDistributionPolicies", func() {
 		It("returns distribution policy info for a table DISTRIBUTED RANDOMLY", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.dist_random(a int, b text) DISTRIBUTED RANDOMLY")

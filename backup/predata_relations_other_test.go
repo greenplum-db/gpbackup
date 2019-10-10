@@ -1,7 +1,6 @@
 package backup_test
 
 import (
-	"database/sql"
 	"math"
 	"sort"
 
@@ -10,8 +9,6 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -477,76 +474,6 @@ GRANT ALL ON shamwow.shazam TO testrole;`,
 			expectedName := `"long!naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_ext_part_"`
 			suffixName := backup.AppendExtPartSuffix(tablename)
 			Expect(suffixName).To(Equal(expectedName))
-		})
-	})
-	Describe("ConstructColumnPrivilegesMap", func() {
-		expectedACL := []backup.ACL{{Grantee: "gpadmin", Select: true}}
-		colI := backup.ColumnPrivilegesQueryStruct{TableOid: 1, Name: "i", Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}, Kind: ""}
-		colJ := backup.ColumnPrivilegesQueryStruct{TableOid: 1, Name: "j", Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}, Kind: ""}
-		colK1 := backup.ColumnPrivilegesQueryStruct{TableOid: 2, Name: "k", Privileges: sql.NullString{String: "gpadmin=r/gpadmin", Valid: true}, Kind: ""}
-		colK2 := backup.ColumnPrivilegesQueryStruct{TableOid: 2, Name: "k", Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}, Kind: ""}
-		colDefault := backup.ColumnPrivilegesQueryStruct{TableOid: 2, Name: "l", Privileges: sql.NullString{String: "", Valid: false}, Kind: "Default"}
-		colEmpty := backup.ColumnPrivilegesQueryStruct{TableOid: 2, Name: "m", Privileges: sql.NullString{String: "", Valid: false}, Kind: "Empty"}
-		privileges := make([]backup.ColumnPrivilegesQueryStruct, 0)
-		BeforeEach(func() {
-			rolnames := sqlmock.NewRows([]string{"rolename", "quotedrolename"}).
-				AddRow("gpadmin", "gpadmin").
-				AddRow("testrole", "testrole")
-			mock.ExpectQuery("SELECT rolname (.*)").
-				WillReturnRows(rolnames)
-			privileges = []backup.ColumnPrivilegesQueryStruct{}
-		})
-		It("No columns", func() {
-			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-			Expect(metadataMap).To(BeEmpty())
-		})
-		It("One column", func() {
-			privileges = []backup.ColumnPrivilegesQueryStruct{colI}
-			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[1]).To(HaveLen(1))
-			Expect(metadataMap[1]["i"]).To(Equal(expectedACL))
-		})
-		It("Multiple columns on same table", func() {
-			privileges = []backup.ColumnPrivilegesQueryStruct{colI, colJ}
-			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[1]).To(HaveLen(2))
-			Expect(metadataMap[1]["i"]).To(Equal(expectedACL))
-			Expect(metadataMap[1]["j"]).To(Equal(expectedACL))
-		})
-		It("Multiple columns on multiple tables", func() {
-			privileges = []backup.ColumnPrivilegesQueryStruct{colI, colJ, colK1, colK2}
-			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-
-			expectedACLForK := []backup.ACL{{Grantee: "gpadmin", Select: true}, {Grantee: "testrole", Select: true}}
-
-			Expect(metadataMap).To(HaveLen(2))
-			Expect(metadataMap[1]).To(HaveLen(2))
-			Expect(metadataMap[2]).To(HaveLen(1))
-			Expect(metadataMap[1]["i"]).To(Equal(expectedACL))
-			Expect(metadataMap[1]["j"]).To(Equal(expectedACL))
-			Expect(metadataMap[2]["k"]).To(Equal(expectedACLForK))
-		})
-		It("Default kind", func() {
-			privileges = []backup.ColumnPrivilegesQueryStruct{colDefault}
-			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-
-			expectedACLForDefaultKind := make([]backup.ACL, 0)
-
-			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[2]).To(HaveLen(1))
-			Expect(metadataMap[2]["l"]).To(Equal(expectedACLForDefaultKind))
-		})
-		It("'Empty' kind", func() {
-			privileges = []backup.ColumnPrivilegesQueryStruct{colEmpty}
-			metadataMap := backup.ConstructColumnPrivilegesMap(privileges)
-
-			expectedACLForEmptyKind := []backup.ACL{{Grantee: "GRANTEE"}}
-
-			Expect(metadataMap).To(HaveLen(1))
-			Expect(metadataMap[2]).To(HaveLen(1))
-			Expect(metadataMap[2]["m"]).To(Equal(expectedACLForEmptyKind))
 		})
 	})
 })

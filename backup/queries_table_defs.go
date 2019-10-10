@@ -245,47 +245,6 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 	return resultMap
 }
 
-type ColumnPrivilegesQueryStruct struct {
-	TableOid   uint32
-	Name       string
-	Privileges sql.NullString
-	Kind       string
-}
-
-func GetPrivilegesForColumns(connectionPool *dbconn.DBConn) map[uint32]map[string][]ACL {
-	gplog.Verbose("Getting column privileges")
-	metadataMap := make(map[uint32]map[string][]ACL)
-	if connectionPool.Version.Before("6") {
-		return metadataMap
-	}
-	query := fmt.Sprintf(`
-	SELECT
-		a.attrelid AS tableoid,
-		quote_ident(a.attname) AS name,
-		CASE
-			WHEN a.attacl IS NULL THEN NULL
-			WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
-			ELSE unnest(a.attacl)
-		END AS privileges,
-		CASE
-			WHEN a.attacl IS NULL THEN ''
-			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
-			ELSE ''
-		END AS kind
-	FROM pg_attribute a
-	JOIN pg_class c ON a.attrelid = c.oid
-	JOIN pg_namespace n ON c.relnamespace = n.oid
-	WHERE %s
-	AND a.attnum > 0::pg_catalog.int2
-	AND a.attisdropped = 'f'
-	ORDER BY a.attrelid, a.attname`, relationAndSchemaFilterClause())
-
-	results := make([]ColumnPrivilegesQueryStruct, 0)
-	err := connectionPool.Select(&results, query)
-	gplog.FatalOnError(err)
-	return ConstructColumnPrivilegesMap(results)
-}
-
 func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 	gplog.Verbose("Getting distribution policies")
 	var query string
