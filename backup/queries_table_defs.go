@@ -321,7 +321,7 @@ func GetTableStorage(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint
 		array_to_string(reloptions, ', ') AS reloptions
 	FROM pg_class c
 		JOIN pg_namespace n ON c.relnamespace = n.oid
-        LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace
+		LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace
 	WHERE %s
 		AND t.spcname IS NOT NULL OR reloptions IS NOT NULL`, relationAndSchemaFilterClause())
 	var results []struct {

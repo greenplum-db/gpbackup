@@ -125,22 +125,17 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 	return metadataMap
 }
 
-type ColumnPrivilegesQueryStruct struct {
-	Privileges sql.NullString
-	Kind       string
-}
-
-func getColumnACL(result ColumnPrivilegesQueryStruct) []ACL {
+func getColumnACL(privileges sql.NullString, kind string) []ACL {
 	privilegesStr := ""
-	if result.Kind == "Empty" {
+	if kind == "Empty" {
 		privilegesStr = "GRANTEE=/GRANTOR"
-	} else if result.Privileges.Valid {
-		privilegesStr = result.Privileges.String
+	} else if privileges.Valid {
+		privilegesStr = privileges.String
 	}
 	columnMetadata := make([]ACL, 0)
-	privileges := ParseACL(privilegesStr)
-	if privileges != nil {
-		columnMetadata = append(columnMetadata, *privileges)
+	acl := ParseACL(privilegesStr)
+	if acl != nil {
+		columnMetadata = append(columnMetadata, *acl)
 	}
 	return columnMetadata
 }

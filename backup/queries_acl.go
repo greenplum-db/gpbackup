@@ -161,20 +161,19 @@ WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 	}
 
 	query := fmt.Sprintf(`
-SELECT
-	'%s'::regclass::oid AS classid,
-	o.oid,
-	%s AS privileges,
-	%s AS kind,
-	%s AS owner,
-	%s
-	coalesce(description,'') AS comment
-FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
-%s
-%s
-AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
-ORDER BY o.oid;
-`, params.CatalogTable, aclStr, kindStr, ownerStr, secCols, params.CatalogTable, descFunc, params.CatalogTable, subidStr, secStr, schemaStr)
+	SELECT
+		'%s'::regclass::oid AS classid,
+		o.oid,
+		%s AS privileges,
+		%s AS kind,
+		%s AS owner,
+		%s
+		coalesce(description,'') AS comment
+	FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
+		%s
+		%s
+		AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
+	ORDER BY o.oid`, params.CatalogTable, aclStr, kindStr, ownerStr, secCols, params.CatalogTable, descFunc, params.CatalogTable, subidStr, secStr, schemaStr)
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
@@ -207,12 +206,11 @@ func GetCommentsForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 		commentTable = params.CommentTable
 	}
 	query := fmt.Sprintf(`
-SELECT
-	'%s'::regclass::oid AS classid,
-	o.%s AS oid,
-	coalesce(description,'') AS comment
-	FROM %s o JOIN %s d ON (d.objoid = %s AND d.classoid = '%s'::regclass%s)%s;
-`, params.CatalogTable, params.OidField, params.CatalogTable, descTable, params.OidField, commentTable, subidStr, schemaStr)
+	SELECT '%s'::regclass::oid AS classid,
+		o.%s AS oid,
+		coalesce(description,'') AS comment
+	FROM %s o JOIN %s d ON (d.objoid = %s AND d.classoid = '%s'::regclass%s)%s
+	`, params.CatalogTable, params.OidField, params.CatalogTable, descTable, params.OidField, commentTable, subidStr, schemaStr)
 
 	results := make([]struct {
 		UniqueID
@@ -259,24 +257,25 @@ func (dp DefaultPrivileges) GetMetadataEntry() (string, utils.MetadataEntry) {
 }
 
 func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
-	query := `SELECT
-	a.oid,
-	quote_ident(r.rolname) AS owner,
-	coalesce(quote_ident(n.nspname),'') AS schema,
-	CASE
-		WHEN a.defaclacl IS NULL OR array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
-		ELSE unnest(a.defaclacl)
-	END AS privileges,
-	CASE
-		WHEN a.defaclacl IS NULL THEN 'Default'
-		WHEN array_upper(a.defaclacl, 1) = 0 THEN 'Empty'
-		ELSE ''
-	END AS kind,
-	a.defaclobjtype AS objecttype
-FROM pg_default_acl a
-JOIN pg_roles r ON r.oid = a.defaclrole
-LEFT JOIN pg_namespace n ON n.oid = a.defaclnamespace
-ORDER BY n.nspname, a.defaclobjtype, r.rolname`
+	query := `
+	SELECT a.oid,
+		quote_ident(r.rolname) AS owner,
+		coalesce(quote_ident(n.nspname),'') AS schema,
+		CASE
+			WHEN a.defaclacl IS NULL THEN NULL
+			WHEN array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
+			ELSE unnest(a.defaclacl)
+		END AS privileges,
+		CASE
+			WHEN a.defaclacl IS NULL THEN ''
+			WHEN array_upper(a.defaclacl, 1) = 0 THEN 'Empty'
+			ELSE ''
+		END AS kind,
+		a.defaclobjtype AS objecttype
+	FROM pg_default_acl a
+		JOIN pg_roles r ON r.oid = a.defaclrole
+		LEFT JOIN pg_namespace n ON n.oid = a.defaclnamespace
+	ORDER BY n.nspname, a.defaclobjtype, r.rolname`
 	results := make([]DefaultPrivilegesQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
