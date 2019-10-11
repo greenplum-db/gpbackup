@@ -108,7 +108,7 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 	 * TerminateHangingCopySessions to kill any COPY
 	 * statements in progress if they don't finish on their own.
 	 */
-	var tableNum uint32 = 0
+	var tableNum int64 = 0
 	tasks := make(chan utils.MasterDataEntry, totalTables)
 	var workerPool sync.WaitGroup
 	var numErrors int32
@@ -126,7 +126,7 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 				tableName := utils.MakeFQN(entry.Schema, entry.Name)
 				err := restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
 
-				atomic.AddUint32(&tableNum, 1)
+				atomic.AddInt64(&tableNum, 1)
 				if gplog.GetVerbosity() > gplog.LOGINFO {
 					// No progress bar at this log level, so we note table count here
 					gplog.Verbose("Restored data to table %s from file (table %d of %d)", tableName, tableNum, totalTables)
