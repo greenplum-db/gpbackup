@@ -263,7 +263,6 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 		t4.reslimittype = 4 AND
 		t5.reslimittype = 5`
 
-
 	// Project additional resource group attributes introduced for following GDPB version
 	if connectionPool.Version.AtLeast("5.8.0") {
 		selectClause += `,
