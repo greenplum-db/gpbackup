@@ -84,6 +84,7 @@ func WriteOids(writer io.Writer, oidList []string) error {
 			return err
 		}
 	}
+
 	return nil
 }
 

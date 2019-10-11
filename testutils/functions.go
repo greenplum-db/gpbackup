@@ -14,12 +14,12 @@ import (
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
 /*

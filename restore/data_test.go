@@ -7,10 +7,10 @@ import (
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgx"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
 var _ = Describe("restore/data tests", func() {

@@ -6,10 +6,10 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
 var _ = Describe("backup/queries_acl tests", func() {

@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/onsi/gomega/gbytes"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 )
 
 func TestTestUtils(t *testing.T) {

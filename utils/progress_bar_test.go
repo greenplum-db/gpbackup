@@ -6,12 +6,11 @@ import (
 	"os/user"
 	"time"
 
-	"gopkg.in/cheggaaa/pb.v1"
-
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
+	"gopkg.in/cheggaaa/pb.v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

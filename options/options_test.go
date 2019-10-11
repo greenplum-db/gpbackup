@@ -6,15 +6,14 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
-
-	"github.com/greenplum-db/gpbackup/utils"
-
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/spf13/pflag"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/pflag"
 )
 
 var _ = Describe("options", func() {

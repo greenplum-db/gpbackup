@@ -5,9 +5,10 @@ package main
 import (
 	"os"
 
-	. "github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
+
+	. "github.com/greenplum-db/gpbackup/restore"
 )
 
 func main() {

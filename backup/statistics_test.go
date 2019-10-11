@@ -5,6 +5,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

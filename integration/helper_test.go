@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

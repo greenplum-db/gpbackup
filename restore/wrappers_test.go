@@ -5,17 +5,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/greenplum-db/gpbackup/testutils"
-
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/restore"
+	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("wrapper tests", func() {

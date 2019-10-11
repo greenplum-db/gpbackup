@@ -4,12 +4,10 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/greenplum-db/gpbackup/utils"
-
-	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-
 	"github.com/blang/vfs"
 	"github.com/blang/vfs/memfs"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 

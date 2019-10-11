@@ -6,6 +6,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

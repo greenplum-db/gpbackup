@@ -5,12 +5,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/spf13/pflag"
-
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
 )
 
 type Options struct {

@@ -7,10 +7,11 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var (

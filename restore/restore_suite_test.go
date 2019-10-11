@@ -8,15 +8,15 @@ package restore_test
 import (
 	"testing"
 
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
-
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/spf13/pflag"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var (

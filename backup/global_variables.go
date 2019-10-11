@@ -7,7 +7,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
-
 	"github.com/nightlyone/lockfile"
 	"github.com/spf13/pflag"
 )
