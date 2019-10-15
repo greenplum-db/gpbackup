@@ -1,8 +1,6 @@
 platform: linux
-
-params:
-  REQUIRES_DUMMY_SEC:
-
+image_resource:
+  type: docker-image
 inputs:
 - name: gpdb_src
 - name: bin_gpdb
@@ -11,6 +9,9 @@ inputs:
   optional: true
 - name: gpbackup-dependencies
 - name: gppkgs
+
+params:
+  REQUIRES_DUMMY_SEC:
 
 run:
   path: bash

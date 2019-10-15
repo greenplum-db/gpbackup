@@ -161,7 +161,7 @@ ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
   get_params:
     action: destroy
 
-ddboost_debug_sleep_anchor: &ddboost_debug_sleep
+debug_sleep_anchor: &debug_sleep
   task: debug_sleep
   config:
     platform: linux
@@ -699,10 +699,11 @@ resources:
 jobs:
 - name: build_binaries
   plan:
-  - aggregate:
+  - in_parallel:
     - get: centos6-image
     - get: libyaml-0.1.7
-    - get: gpdb6_src
+    - get: gpdb_src
+      resource: gpdb6_src
     - get: gpbackup-dependencies
     - get: bin_gpdb_6x_stable_centos6
     - get: bin_gpdb_5x_sles11
@@ -726,51 +727,21 @@ jobs:
     - get: nightly-trigger
       trigger: true
 {% endif %}
-  - aggregate:
+  - in_parallel:
     - do:
       - task: build-go-binaries
+        image: centos6-image
         file: gpbackup/ci/tasks/build-go-binaries.yml
       - put: gpbackup-dependencies
         params:
           file: output_deps/dependencies.tar.gz
     - task: build-ddboost-RHEL
-      config:
-        platform: linux
-        inputs:
-          - name: gpbackup_ddboost_plugin
-          - name: bin_gpdb_6x_stable_centos6
-        outputs:
-          - name: ddboost_components
-        image_resource:
-          type: docker-image
-          source:
-            repository: pivotaldata/centos-gpdb-dev
-            tag: '6-gcc6.2-llvm3.7'
-        run:
-          path: bash
-          args:
-          - -c
-          - |
-            set -ex
-
-            # Install gpdb binaries
-            # This is required because ddboost has a dependency on libpq-fe.h
-            mkdir -p /usr/local/greenplum-db-devel
-            tar -xzf bin_gpdb_6x_stable_centos6/*.tar.gz -C /usr/local/greenplum-db-devel
-            source /usr/local/greenplum-db-devel/greenplum_path.sh
-
-            # build ddboost plugin
-            pushd gpbackup_ddboost_plugin
-              make build
-              ddboost_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
-            popd
-
-            echo ${ddboost_plugin_version} > ddboost_components/ddboost_plugin_version
-            cp gpbackup_ddboost_plugin/gpbackup_ddboost_plugin ddboost_components/
-            cp gpbackup_ddboost_plugin/DDBoostSDK/lib/release/linux/64/libDDBoost.so ddboost_components/
+      image: centos6-image
+      file: gpbackup/ci/tasks/build-ddboost-rhel.yml
     - task: build-ddboost-SLES
       file: gpbackup/ci/tasks/build-ddboost-sles.yml
   - task: tar-binaries-RHEL
+    image: centos6-image
     config:
       platform: linux
       inputs:
@@ -778,11 +749,6 @@ jobs:
         - name: ddboost_components
       outputs:
         - name: github_release_components
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '6-gcc6.2-llvm3.7'
       run:
         path: bash
         args:
@@ -816,48 +782,11 @@ jobs:
           popd
   - task: tar-binaries-SLES
     image: centos6-image
-    config:
-      platform: linux
-      inputs:
-        - name: go_components
-        - name: ddboost_components_SLES
-      outputs:
-        - name: SLES_binaries
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          pushd SLES_binaries
-            # Create install script
-            printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
-            chmod +x install_gpdb_component
-
-            cp ../go_components/*_version .
-            mv ../go_components/gpbackup_version version
-            cp ../ddboost_components_SLES/*_version .
-
-            mkdir -p bin
-            cp ../go_components/gpbackup bin/
-            cp ../go_components/gpbackup_helper bin/
-            cp ../go_components/gprestore bin/
-            cp ../go_components/gpbackup_s3_plugin bin/
-            cp ../go_components/gpbackup_manager bin/
-            cp ../ddboost_components_SLES/gpbackup_ddboost_plugin bin/
-
-            mkdir -p lib
-            cp ../ddboost_components_SLES/libDDBoost.so lib/
-
-            tar -czvf bin_gpbackup.tar.gz bin/ lib/
-
-            version=`cat version`
-            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version ddboost_plugin_version gpbackup_manager_version
-          popd
+    file: gpbackup/ci/tasks/sles-binaries.yml
   - task: build_gppkgs
+    image: centos6-image
     file: gpbackup/ci/tasks/build-gppkg.yml
     input_mapping:
-      gpdb_src: gpdb6_src
       bin_gpdb: bin_gpdb_6x_stable_centos6
       RHEL_binaries: github_release_components
       SLES_binaries: SLES_binaries
@@ -867,35 +796,33 @@ jobs:
 {% else %}
       *slack_alert
 {% endif %}
-
   - put: gppkgs
     params:
       file: gppkgs/gpbackup-gppkgs.tar.gz
-
 {% if "gpbackup-release" == pipeline_name %}
   - put: github_release_components
     params:
       file: github_release_components/gpbackup-*.tar.gz
 {% endif %}
 
-
 - name: s3_plugin_tests
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup_s3_plugin
     - get: gpbackup
     - get: ccp_src
-    - get: gpdb5_src
-    - get: bin_gpdb_5x_stable_centos6
+    - get: centos6-image
+    - get: gpdb_src
+      resource: gpdb5_src
+    - get: gpdb_binary
+      resource: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: gppkgs
-      passed:
-       - build_binaries
+      passed: [build_binaries]
       trigger: true
   - put: terraform
     params:
@@ -906,69 +833,13 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     params:
       <<: *ccp_gen_cluster_default_params
-    input_mapping:
-      gpdb_binary: bin_gpdb_5x_stable_centos6
-      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: run_tests
-    config:
-      platform: linux
-      inputs:
-       - name: gpbackup
-         path: go/src/github.com/greenplum-db/gpbackup
-       - name: gpbackup_s3_plugin
-         path: go/src/github.com/greenplum-db/gpbackup-s3-plugin
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: gppkgs
-
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '6-gcc6.2-llvm3.7'
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-
-          # setup cluster and install gpbackup tools using gppkg
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-          out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
-          GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
-          mkdir /tmp/untarred
-          tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-          scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg mdw:/home/gpadmin
-          ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*.gppkg"
-
-          cat <<SCRIPT > /tmp/run_tests.bash
-            set -ex
-            source env.sh
-
-            cat << CONFIG > \$HOME/s3_config.yaml
-          executablepath: \$GPHOME/bin/gpbackup_s3_plugin
-          options:
-            region: us-west-2
-            aws_access_key_id: {{bucket-access-key-id}}
-            aws_secret_access_key: {{bucket-secret-access-key}}
-            bucket: {{gpbackup-s3-plugin-test-bucket}}
-            folder: test/backup
-          CONFIG
-
-            pushd ~/go/src/github.com/greenplum-db/gpbackup/plugins
-              ./plugin_test_bench.sh \$GPHOME/bin/gpbackup_s3_plugin \$HOME/s3_config.yaml
-            popd
-          SCRIPT
-
-          chmod +x /tmp/run_tests.bash
-          scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
-          ssh -t mdw "bash /home/gpadmin/run_tests.bash"
-
+    image: centos6-image
+    file: gpbackup/ci/tasks/s3-plugin-tests.yml
   on_success:
     <<: *ccp_destroy
   on_failure:
@@ -982,35 +853,32 @@ jobs:
 
 - name: gpbackup-manager-tests
   plan:
-    - aggregate:
-        - get: gpbackup_manager_src
-        - get: gpbackup
-        - get: bin_gpdb_6x_stable_centos6
-        - get: gpdb6_src
-        - get: gppkgs
-          trigger: true
-          passed:
-            - build_binaries
-        - get: gpbackup-dependencies
-          passed:
-            - build_binaries
-    - task: run_tests
-      file: gpbackup/ci/tasks/test-gpbackup-manager.yml
-      input_mapping:
-        gpdb_src: gpdb6_src
-        bin_gpdb: bin_gpdb_6x_stable_centos6
-
+  - in_parallel:
+    - get: gpbackup_manager_src
+    - get: gpbackup
+    - get: bin_gpdb
+      resource: bin_gpdb_6x_stable_centos6
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: gppkgs
+      trigger: true
+      passed: [build_binaries]
+    - get: gpbackup-dependencies
+      passed: [build_binaries]
+  - task: run_tests
+    file: gpbackup/ci/tasks/test-gpbackup-manager.yml
 
 - name: ddboost_plugin_and_boostfs_tests_43
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup_ddboost_plugin
       tags: ["ddboost"]
     - get: gpbackup
       tags: ["ddboost"]
     - get: ccp_src
       tags: ["ddboost"]
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
       tags: ["ddboost"]
     - get: bin_gpdb_43_stable
 {% if "gpbackup-release" != pipeline_name %}
@@ -1021,13 +889,12 @@ jobs:
       tags: ["ddboost"]
     - get: gpbackup-dependencies
       tags: ["ddboost"]
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: pgcrypto43
+      tags: ["ddboost"]
     - get: gppkgs
       tags: ["ddboost"]
-      passed:
-        - build_binaries
+      passed: [build_binaries]
       trigger: true
   - put: ddboost_terraform
     tags: ["ddboost"]
@@ -1038,14 +905,13 @@ jobs:
         aws_instance-node-instance_type: t2.medium
         PLATFORM: centos6
   - task: gen_cluster
+    tags: ["ddboost"]
     params:
       <<: *ddboost_ccp_gen_cluster_default_params
-    tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       terraform: ddboost_terraform
       gpdb_binary: bin_gpdb_43_stable
-      gpdb_src: gpdb5_src
   - task: gpinitsystem
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gpinitsystem.yml
@@ -1053,6 +919,7 @@ jobs:
     tags: ["ddboost"]
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: install_dependencies
+    image: centos7-image
     tags: ["ddboost"]
     config:
       platform: linux
@@ -1061,11 +928,6 @@ jobs:
        - name: cluster_env_files
        - name: gpbackup_ddboost_plugin
        - name: pgcrypto43
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '7-gcc6.2-llvm3.7'
       run:
         path: bash
         args:
@@ -1088,36 +950,13 @@ jobs:
 {% else %}
       - *slack_alert
 {% endif %}
-      - *ddboost_debug_sleep
+      - *debug_sleep
   - task: boostfs_installation
     tags: ["ddboost"]
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: boostfs_installer
-       - name: gpbackup
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/ccp
-          tag: '7'
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-          export DD_IP={{datadomain_source_host}}
-          export DD_USER={{datadomain_user}}
-          export DD_PASSWORD={{datadomain_password}}
-          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
-          gpbackup/ci/scripts/setup_boostfs.sh
+    file: ccp_src/ci/tasks/boostfs-install.yml
     on_failure:
       do:
-      - *ddboost_debug_sleep
+      - *debug_sleep
   - task: run_tests
     tags: ["ddboost"]
     file: gpbackup/ci/tasks/ddboost-tests.yml
@@ -1134,22 +973,24 @@ jobs:
 {% else %}
       - *slack_alert
 {% endif %}
-      - *ddboost_debug_sleep
+      - *debug_sleep
   ensure:
       <<: *ddboost_ccp_destroy
 
 - name: ddboost_plugin_and_boostfs_tests_5x
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup_ddboost_plugin
       tags: ["ddboost"]
     - get: gpbackup
       tags: ["ddboost"]
     - get: ccp_src
       tags: ["ddboost"]
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
       tags: ["ddboost"]
-    - get: bin_gpdb_5x_stable_centos6
+    - get: gpdb_binary
+      resource: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
@@ -1158,12 +999,10 @@ jobs:
       tags: ["ddboost"]
     - get: gpbackup-dependencies
       tags: ["ddboost"]
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: gppkgs
       tags: ["ddboost"]
-      passed:
-       - build_binaries
+      passed: [build_binaries]
       trigger: true
   - put: ddboost_terraform
     tags: ["ddboost"]
@@ -1174,14 +1013,116 @@ jobs:
         aws_instance-node-instance_type: t2.medium
         PLATFORM: centos6
   - task: gen_cluster
+    tags: ["ddboost"]
     params:
       <<: *ddboost_ccp_gen_cluster_default_params
-    tags: ["ddboost"]
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       terraform: ddboost_terraform
-      gpdb_binary: bin_gpdb_5x_stable_centos6
-      gpdb_src: gpdb5_src
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    tags: ["ddboost"]
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: install_dependencies
+    image: centos7-image
+    tags: ["ddboost"]
+    config:
+      platform: linux
+      inputs:
+       - name: ccp_src
+       - name: cluster_env_files
+       - name: gpbackup_ddboost_plugin
+      run:
+        path: bash
+        args:
+        - -c
+        - |
+          set -ex
+          ccp_src/scripts/setup_ssh_to_cluster.sh
+          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
+          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
+          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -c 'CREATE EXTENSION pgcrypto;'"
+    on_failure:
+      do:
+{% if "gpbackup-release" == pipeline_name %}
+      - *slack_alert_release
+{% else %}
+      - *slack_alert
+{% endif %}
+      - *debug_sleep
+  - task: boostfs_installation
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/boostfs-install.yml
+    on_failure:
+      do:
+      - *debug_sleep
+  - task: run_tests
+    tags: ["ddboost"]
+    file: gpbackup/ci/tasks/ddboost-tests.yml
+    params:
+      DD_SOURCE_HOST: {{datadomain_source_host}}
+      DD_DEST_HOST: {{datadomain_dest_host}}
+      DD_USER: {{datadomain_user}}
+      DD_PW: {{datadomain_password}}
+      DD_ENCRYPTED_PW: {{encrypted_datadomain_password}}
+    on_failure:
+      do:
+{% if "gpbackup-release" == pipeline_name %}
+      - *slack_alert_release
+{% else %}
+      - *slack_alert
+{% endif %}
+      - *debug_sleep
+  ensure:
+      <<: *ddboost_ccp_destroy
+
+- name: ddboost_plugin_and_boostfs_tests_6x
+  plan:
+  - in_parallel:
+    - get: gpbackup_ddboost_plugin
+      tags: ["ddboost"]
+    - get: gpbackup
+      tags: ["ddboost"]
+    - get: ccp_src
+      tags: ["ddboost"]
+    - get: gpdb_src
+      resource: gpdb6_src
+      tags: ["ddboost"]
+    - get: gpdb_binary
+      resource: bin_gpdb_6x_stable_centos6
+{% if "gpbackup-release" != pipeline_name %}
+      trigger: true
+{% endif %}
+      tags: ["ddboost"]
+    - get: boostfs_installer
+      tags: ["ddboost"]
+    - get: gpbackup-dependencies
+      tags: ["ddboost"]
+      passed: [build_binaries]
+    - get: gppkgs
+      tags: ["ddboost"]
+      passed: [build_binaries]
+      trigger: true
+    - get: dummy_seclabel
+      resource: dummy_seclabel_linux_gpdb6
+      tags: ["ddboost"]
+  - put: ddboost_terraform
+    tags: ["ddboost"]
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws/
+      vars:
+        aws_instance-node-instance_type: t2.medium
+        PLATFORM: centos6
+  - task: gen_cluster
+    tags: ["ddboost"]
+    params:
+      <<: *ddboost_ccp_gen_cluster_default_params
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      terraform: ddboost_terraform
   - task: gpinitsystem
     tags: ["ddboost"]
     file: ccp_src/ci/tasks/gpinitsystem.yml
@@ -1190,29 +1131,21 @@ jobs:
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: install_dependencies
     tags: ["ddboost"]
+    image: centos7-image
     config:
       platform: linux
       inputs:
        - name: ccp_src
        - name: cluster_env_files
        - name: gpbackup_ddboost_plugin
-
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '7-gcc6.2-llvm3.7'
       run:
         path: bash
         args:
         - -c
         - |
           set -ex
-
           ccp_src/scripts/setup_ssh_to_cluster.sh
-
           scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
-
           ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
           ssh -t gpadmin@mdw "source env.sh; psql -d postgres -c 'CREATE EXTENSION pgcrypto;'"
     on_failure:
@@ -1222,36 +1155,13 @@ jobs:
 {% else %}
       - *slack_alert
 {% endif %}
-      - *ddboost_debug_sleep
+      - *debug_sleep
   - task: boostfs_installation
     tags: ["ddboost"]
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: boostfs_installer
-       - name: gpbackup
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/ccp
-          tag: '7'
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-          export DD_IP={{datadomain_source_host}}
-          export DD_USER={{datadomain_user}}
-          export DD_PASSWORD={{datadomain_password}}
-          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
-          gpbackup/ci/scripts/setup_boostfs.sh
+    file: ccp_src/ci/tasks/boostfs-install.yml
     on_failure:
       do:
-      - *ddboost_debug_sleep
+      - *debug_sleep
   - task: run_tests
     tags: ["ddboost"]
     file: gpbackup/ci/tasks/ddboost-tests.yml
@@ -1268,163 +1178,26 @@ jobs:
 {% else %}
       - *slack_alert
 {% endif %}
-      - *ddboost_debug_sleep
-  ensure:
-      <<: *ddboost_ccp_destroy
-
-- name: ddboost_plugin_and_boostfs_tests_6x
-  plan:
-  - aggregate:
-    - get: gpbackup_ddboost_plugin
-      tags: ["ddboost"]
-    - get: gpbackup
-      tags: ["ddboost"]
-    - get: ccp_src
-      tags: ["ddboost"]
-    - get: gpdb6_src
-      tags: ["ddboost"]
-    - get: bin_gpdb_6x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
-      tags: ["ddboost"]
-    - get: boostfs_installer
-      tags: ["ddboost"]
-    - get: gpbackup-dependencies
-      tags: ["ddboost"]
-      passed:
-       - build_binaries
-    - get: gppkgs
-      tags: ["ddboost"]
-      passed:
-       - build_binaries
-      trigger: true
-    - get: dummy_seclabel_linux_gpdb6
-  - put: ddboost_terraform
-    tags: ["ddboost"]
-    params:
-      <<: *ccp_default_params
-      terraform_source: ccp_src/aws/
-      vars:
-        aws_instance-node-instance_type: t2.medium
-        PLATFORM: centos6
-  - task: gen_cluster
-    params:
-      <<: *ddboost_ccp_gen_cluster_default_params
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      terraform: ddboost_terraform
-      gpdb_binary: bin_gpdb_6x_stable_centos6
-      gpdb_src: gpdb6_src
-  - task: gpinitsystem
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/setup-centos-env-gpdb6.yml
-    input_mapping:
-      dummy_seclabel: dummy_seclabel_linux_gpdb6
-  - task: install_dependencies
-    tags: ["ddboost"]
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: gpbackup_ddboost_plugin
-
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '7-gcc6.2-llvm3.7'
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-
-          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
-
-          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
-          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -c 'CREATE EXTENSION pgcrypto;'"
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *ddboost_debug_sleep
-  - task: boostfs_installation
-    tags: ["ddboost"]
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: boostfs_installer
-       - name: gpbackup
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/ccp
-          tag: '7'
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-          export DD_IP={{datadomain_source_host}}
-          export DD_USER={{datadomain_user}}
-          export DD_PASSWORD={{datadomain_password}}
-          chmod +x gpbackup/ci/scripts/setup_boostfs.sh
-          gpbackup/ci/scripts/setup_boostfs.sh
-    on_failure:
-      do:
-      - *ddboost_debug_sleep
-  - task: run_tests
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/ddboost-tests.yml
-    params:
-      DD_SOURCE_HOST: {{datadomain_source_host}}
-      DD_DEST_HOST: {{datadomain_dest_host}}
-      DD_USER: {{datadomain_user}}
-      DD_PW: {{datadomain_password}}
-      DD_ENCRYPTED_PW: {{encrypted_datadomain_password}}
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *ddboost_debug_sleep
+      - *debug_sleep
   ensure:
       <<: *ddboost_ccp_destroy
 
 - name: GPDB5-sles11
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup
-    - get: bin_gpdb_5x_sles11
+    - get: gpdb_binary
+      resource: bin_gpdb_5x_sles11
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed:
-      - build_binaries
+      passed: [build_binaries]
     - get: gppkgs
-      passed:
-       - build_binaries
+      passed: [build_binaries]
       trigger: true
   - put: terraform
     params:
@@ -1438,9 +1211,6 @@ jobs:
       <<: *ccp_gen_cluster_default_params
       PLATFORM: sles12
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_5x_sles11
-      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: integration-tests
@@ -1458,22 +1228,23 @@ jobs:
 
 - name: GPDB5-oracle7
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup
-    - get: bin_gpdb_5x_stable_centos7
+    - get: gpdb_binary
+      resource: bin_gpdb_5x_stable_centos7
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: gppkgs
       trigger: true
-      passed:
-       - build_binaries
-  - put: terraform_aws
+      passed: [build_binaries]
+  - put: terraform
+    resource: terraform_aws
     params:
       <<: *ccp_default_params_aws
       vars:
@@ -1484,10 +1255,6 @@ jobs:
   - task: gen_cluster
     tags: ['aws']
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      terraform: terraform_aws
-      gpdb_binary: bin_gpdb_5x_stable_centos7
-      gpdb5_src: gpdb5_src
     params:
       <<: *ccp_gen_cluster_default_params_aws
       PLATFORM: oracle7
@@ -1496,9 +1263,12 @@ jobs:
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-oracle-env
     tags: ['aws']
-    file: gpbackup/ci/tasks/setup-oracle-env.yml
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+    params:
+      default_ami_user: clckwrk
   - task: integration-tests
     tags: ['aws']
+    image: centos6-image
     file: gpbackup/ci/tasks/all-tests.yml
   on_success:
     <<: *ccp_destroy_aws
@@ -1514,41 +1284,37 @@ jobs:
 {% if "gpbackup-release" != pipeline_name %}
 - name: master
   plan:
-  - aggregate:
+  - in_parallel:
     - get: centos6-image
     - get: centos7-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: bin_gpdb_master_centos6
       trigger: true
     - get: bin_gpdb_master_centos7
-    - get: gpdb_master_src
-    - get: dummy_seclabel_linux_master
+    - get: gpdb_src
+      resource: gpdb_master_src
+    - get: dummy_seclabel
+      resource: dummy_seclabel_linux_master
     - get: gppkgs
       trigger: true
-      passed:
-       - build_binaries
-  - aggregate:
+      passed: [build_binaries]
+  - in_parallel:
     - task: run-tests-locally-centos6
       image: centos6-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
       input_mapping:
-        gpdb_src: gpdb_master_src
         bin_gpdb: bin_gpdb_master_centos6
-        dummy_seclabel: dummy_seclabel_linux_master
     - task: run-tests-locally-centos7
       image: centos7-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
       input_mapping:
-        gpdb_src: gpdb_master_src
         bin_gpdb: bin_gpdb_master_centos7
-        dummy_seclabel: dummy_seclabel_linux_master
   on_failure:
 {% if "gpbackup-release" == pipeline_name %}
     *slack_alert_release
@@ -1559,27 +1325,24 @@ jobs:
 
 - name: GPDB4.3
   plan:
-  - aggregate:
+  - in_parallel:
     - get: centos6-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
-    - get: bin_gpdb_43_stable
+      passed: [build_binaries]
+    - get: bin_gpdb
+      resource: bin_gpdb_43_stable
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: gppkgs
+      passed: [build_binaries]
       trigger: true
-      passed:
-       - build_binaries
   - task: run-tests-locally-centos6
     image: centos6-image
     file: gpbackup/ci/tasks/test-on-local-cluster.yml
-    input_mapping:
-      gpdb_src: gpdb5_src
-      bin_gpdb: bin_gpdb_43_stable
   on_failure:
 {% if "gpbackup-release" == pipeline_name %}
     *slack_alert_release
@@ -1589,35 +1352,32 @@ jobs:
 
 - name: GPDB5
   plan:
-  - aggregate:
+  - in_parallel:
     - get: centos6-image
     - get: centos7-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: bin_gpdb_5x_stable_centos7
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: gppkgs
       trigger: true
-      passed:
-       - build_binaries
-  - aggregate:
+      passed: [build_binaries]
+  - in_parallel:
     - task: run-tests-locally-centos6
       image: centos6-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       input_mapping:
-        gpdb_src: gpdb5_src
         bin_gpdb: bin_gpdb_5x_stable_centos6
     - task: run-tests-locally-centos7
       image: centos7-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       input_mapping:
-        gpdb_src: gpdb5_src
         bin_gpdb: bin_gpdb_5x_stable_centos7
   on_failure:
 {% if "gpbackup-release" == pipeline_name %}
@@ -1628,43 +1388,39 @@ jobs:
 
 - name: GPDB6
   plan:
-  - aggregate:
+  - in_parallel:
     - get: centos6-image
     - get: centos7-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: bin_gpdb_6x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: bin_gpdb_6x_stable_centos7
-    - get: gpdb6_src
-    - get: dummy_seclabel_linux_gpdb6
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: dummy_seclabel
+      resource: dummy_seclabel_linux_gpdb6
     - get: gppkgs
       trigger: true
-      passed:
-       - build_binaries
-  - aggregate:
+      passed: [build_binaries]
+  - in_parallel:
     - task: run-tests-locally-centos6
       image: centos6-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
       input_mapping:
-        gpdb_src: gpdb6_src
         bin_gpdb: bin_gpdb_6x_stable_centos6
-        dummy_seclabel: dummy_seclabel_linux_gpdb6
     - task: run-tests-locally-centos7
       image: centos7-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
       input_mapping:
-        gpdb_src: gpdb6_src
         bin_gpdb: bin_gpdb_6x_stable_centos7
-        dummy_seclabel: dummy_seclabel_linux_gpdb6
   on_failure:
 {% if "gpbackup-release" == pipeline_name %}
     *slack_alert_release
@@ -1674,22 +1430,22 @@ jobs:
 
 - name: backward-compatibility
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup
-    - get: bin_gpdb_5x_stable_centos6
+    - get: gpdb_binary
+      resource: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: bin_gpbackup_1.0.0_and_1.7.1
     - get: ccp_src
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
     - get: gppkgs
+      passed: [build_binaries]
       trigger: true
-      passed:
-       - build_binaries
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1699,19 +1455,18 @@ jobs:
     params:
       <<: *ccp_gen_cluster_default_params
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_5x_stable_centos6
-      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: backup-1.0.0-restore-latest
     file: gpbackup/ci/tasks/all-tests.yml
+    image: centos6-image
     params:
       GPBACKUP_VERSION: "1.0.0"
   - task: backup-1.7.1-restore-latest
     file: gpbackup/ci/tasks/all-tests.yml
+    image: centos6-image
     params:
       GPBACKUP_VERSION: "1.7.1"
   on_success:
@@ -1729,20 +1484,20 @@ jobs:
 # Ensure compatibility between a new gpdb5 binary and a fixed version of gpbackup
 - name: 5X-head-gpbackup-fixed-test
   plan:
-  - aggregate:
+  - in_parallel:
     # NOTE: This is not being used, but is required input for the final_gate
     - get: gppkgs
-      passed:
-      - build_binaries
+      passed: [build_binaries]
       trigger: true
     - get: gpbackup
-    - get: bin_gpdb_5x_stable_intermediate
+    - get: gpdb_binary
+      resource: bin_gpdb_5x_stable_intermediate
       trigger: true
     - get: ccp_src
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1752,9 +1507,6 @@ jobs:
     params:
       <<: *ccp_gen_cluster_default_params
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_5x_stable_intermediate
-      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -1778,25 +1530,25 @@ jobs:
 {% if "gpbackup-release" != pipeline_name %}
 - name: scale-master
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup
-    - get: bin_gpdb_master_centos6
+    - get: gpdb_binary
+      resource: bin_gpdb_master_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
-    - get: gpdb_master_src
+    - get: gpdb_src
+      resource: gpdb_master_src
     - get: scale_schema
 {% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed:
-        - build_binaries
+      passed: [build_binaries]
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1808,9 +1560,6 @@ jobs:
     params:
       <<: *ccp_gen_cluster_default_params
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_master_centos6
-      gpdb_src: gpdb_master_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -1831,25 +1580,25 @@ jobs:
 
 - name: scale-6x
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup
-    - get: bin_gpdb_6x_stable_centos6
+    - get: gpdb_binary
+      resource: bin_gpdb_6x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
-    - get: gpdb6_src
+    - get: gpdb_src
+      resource: gpdb6_src
     - get: scale_schema
 {% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed:
-        - build_binaries
+      passed: [build_binaries]
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1861,9 +1610,6 @@ jobs:
     params:
       <<: *ccp_gen_cluster_default_params
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_6x_stable_centos6
-      gpdb_src: gpdb6_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -1883,25 +1629,24 @@ jobs:
 
 - name: scale-5x
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup
     - get: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: scale_schema
 {% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed:
-        - build_binaries
+      passed: [build_binaries]
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1914,7 +1659,6 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       gpdb_binary: bin_gpdb_5x_stable_centos6
-      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -1934,25 +1678,25 @@ jobs:
 
 - name: scale-43
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gpbackup
-    - get: bin_gpdb_43_stable
+    - get: gpdb_binary
+      resource: bin_gpdb_43_stable
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: ccp_src
-    - get: gpdb5_src
+    - get: gpdb_src
+      resource: gpdb5_src
     - get: scale_schema
 {% if nightly_trigger and "gpbackup-release" != pipeline_name %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed:
-        - build_binaries
+      passed: [build_binaries]
     - get: gpbackup-dependencies
-      passed:
-       - build_binaries
+      passed: [build_binaries]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1963,9 +1707,6 @@ jobs:
     params:
       <<: *ccp_gen_cluster_default_params
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_43_stable
-      gpdb_src: gpdb5_src
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -1986,10 +1727,9 @@ jobs:
 {% if "gpbackup-release" == pipeline_name %}
 - name: green_gate
   plan:
-  - aggregate:
+  - in_parallel:
     - get: github_release_components
-      passed:
-        - build_binaries
+      passed: [build_binaries]
     - get: gppkgs
       trigger: true
       passed:
@@ -2003,10 +1743,10 @@ jobs:
         - backward-compatibility
         - ddboost_plugin_and_boostfs_tests_43
         - ddboost_plugin_and_boostfs_tests_5x
-        - gpbackup-manager-tests
         - ddboost_plugin_and_boostfs_tests_6x
+        - gpbackup-manager-tests
     - get: gpbackup
-  - aggregate:
+  - in_parallel:
     - put: gppkgs_rc
       params:
         file: gppkgs/gpbackup-gppkgs.tar.gz
@@ -2019,15 +1759,10 @@ jobs:
   - get: github_release_components_rc
     passed:
       - green_gate
-
   - task: prepare-for-release
+    image: centos6-image
     config:
       platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/centos-gpdb-dev
-          tag: '6-gcc6.2-llvm3.7'
       inputs:
         - name: github_release_components_rc
       outputs:
@@ -2051,8 +1786,9 @@ jobs:
 
 - name: push-to-pivnet
   plan:
-    - aggregate:
-      - get: gppkgs_rc
+    - in_parallel:
+      - get: gppkgs
+        resource: gppkgs_rc
         passed:
           - green_gate
       - get: github_release_components_rc
@@ -2062,125 +1798,12 @@ jobs:
       - get: gpbackup-release-license
       - get: pivnet_release_cache
     - task: update metadata.yml
-      input_mapping:
-        gppkgs: gppkgs_rc
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: bash
-        inputs:
-          - name: gppkgs
-          - name: github_release_components_rc
-          - name: gpbackup
-          - name: gpbackup-release-license
-          - name: pivnet_release_cache
-        outputs:
-          - name: workspace
-        run:
-          path: bash
-          args:
-            - -exc
-            - |
-
-              mkdir workspace/files-to-upload
-
-              # Add binary tarball to pivnet upload, excluding version strings
-              cp github_release_components_rc/*.gz /tmp/
-              pushd /tmp
-                mkdir untarred
-                tar xzf *.gz -C untarred
-              popd
-              cp /tmp/untarred/bin_gpbackup.tar.gz workspace/files-to-upload/
-
-              cp gpbackup/ci/pivnet_release/metadata.yml workspace/
-              tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
-              GPBACKUP_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
-
-              # the same gpbackup version will exist in the tile version string
-              # if this release only includes updates to components outside of
-              # gpbackup itself (e.g. plugins, manager)
-              pushd pivnet_release_cache
-                PRV_TILE_VERSION=$(echo v-*)
-                CURR_TILE_VERSION="v-${GPBACKUP_VERSION}*"
-                if [ -f $CURR_TILE_VERSION ]; then
-                  COUNT=$(echo $CURR_TILE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
-                  COUNT=$(($COUNT+1))
-                  # If same gpbackup version, then not a major/minor release
-                  RELEASE_TYPE="Maintenance"
-                else
-                  # reset the version count
-                  COUNT=1
-                  # detect the release type
-                  PRV_MAJOR=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f1)
-                  PRV_MINOR=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f2)
-                  PRV_PATCH=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f3 | sed -r "s/([0-9]+).*/\1/")
-                  CURR_MAJOR=$(echo $GPBACKUP_VERSION |cut -d. -f1)
-                  CURR_MINOR=$(echo $GPBACKUP_VERSION |cut -d. -f2)
-                  CURR_PATCH=$(echo $GPBACKUP_VERSION |cut -d. -f3)
-                  if [ "$PRV_MAJOR" != "$CURR_MAJOR" ] ; then
-                    RELEASE_TYPE="Major"
-                  elif [ "$PRV_MINOR" != "$CURR_MINOR" ] ; then
-                    RELEASE_TYPE="Minor"
-                  elif [ "$PRV_PATCH" != "$CURR_PATCH" ] ; then
-                    RELEASE_TYPE="Maintenance"
-                  else
-                    echo "Unable to determine release type."
-                    exit 1
-                  fi
-                fi
-
-                TILE_RELEASE_VERSION=${GPBACKUP_VERSION}-${COUNT}
-                touch ../workspace/v-${TILE_RELEASE_VERSION}
-              popd
-
-              if [ ! -f gpbackup-release-license/open_source_license_pivotal-gpdb-backup-${GPBACKUP_VERSION}-*.txt ] ; then
-                echo "License file for gpbackup version ${GPBACKUP_VERSION} does not exist in resource.\n Ensure the OSL is properly uploaded to the GCS bucket prior to pushing to pivnet." 1>&2
-                exit 1
-              fi
-              cp gpbackup-release-license/open_source_license_pivotal-gpdb-backup-${GPBACKUP_VERSION}-*.txt workspace/files-to-upload/
-
-              # NOTE: We must use the Pivnet Release Version (including the counter) because we cannot upload files with the same name in different tile releases
-              DDBOOST_PLUGIN_VERSION=$(cat workspace/files-to-upload/ddboost_plugin_version)
-              sed -i "s/<DDBOOST_PLUGIN_VERSION>/${DDBOOST_PLUGIN_VERSION}/g" workspace/metadata.yml
-              S3_PLUGIN_VERSION=$(cat workspace/files-to-upload/s3_plugin_version)
-              sed -i "s/<S3_PLUGIN_VERSION>/${S3_PLUGIN_VERSION}/g" workspace/metadata.yml
-              BMAN_VERSION=$(cat workspace/files-to-upload/gpbackup_manager_version)
-              sed -i "s/<BMAN_VERSION>/${BMAN_VERSION}/g" workspace/metadata.yml
-              sed -i "s/<TILE_RELEASE_VERSION>/${TILE_RELEASE_VERSION}/g" workspace/metadata.yml
-              sed -i "s/<GPBAR_VERSION>/${GPBACKUP_VERSION}/g" workspace/metadata.yml
-              OSL_FILENAME=$(basename -- gpbackup-release-license/open_source_license_pivotal-gpdb-backup-${GPBACKUP_VERSION}-*.txt)
-              sed -i "s/<OSL_FILENAME>/${OSL_FILENAME}/g" workspace/metadata.yml
-              sed -i "s/<RELEASE_TYPE>/${RELEASE_TYPE} Release/g" workspace/metadata.yml
-
-              # The URL adjusts based on major/minor version
-              REL_NOTES_VERSION=$(echo ${GPBACKUP_VERSION//./-} | cut -d- -f1,2)
-              sed -i "s/<REL_NOTES_VERSION>/${REL_NOTES_VERSION}/g" workspace/metadata.yml
-
-              cat workspace/metadata.yml
-              pushd workspace/files-to-upload
-                # rename files to match the name inside metadata.yml
-                for filename in *.gppkg; do
-                  newFilename=$(sed -e "s/gpbackup_tools-${GPBACKUP_VERSION}_[0-9]*/pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}/" -e "s/RHEL/rhel/" -e "s/SLES11/sles/" <<< "$filename")
-                  mv "$filename" "$newFilename"
-                done
-                # rename binary tarball
-                mv "bin_gpbackup.tar.gz" "pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}.tar.gz"
-              popd
-
-              echo ${TILE_RELEASE_VERSION} > workspace/tile_release_version
-              rm workspace/files-to-upload/*_version
-              # We must remove unnecessary GP7 artifacts from the pivnet upload directory
-              rm workspace/files-to-upload/*-gp7-*
-              ls -l workspace/files-to-upload
-
+      file: gpbackup/ci/tasks/update-metadata.yml
     - put: pivnet-upload
       params:
         metadata_file: workspace/metadata.yml
         file_glob: workspace/files-to-upload/*
         s3_filepath_prefix: ((pivnet_s3_filepath_prefix))
-
     - put: pivnet_release_cache
       params:
         file: workspace/v-*
@@ -2190,7 +1813,7 @@ jobs:
 {% if "gpbackup-release" != pipeline_name %}
 - name: final_gate
   plan:
-  - aggregate:
+  - in_parallel:
     - get: gppkgs
       trigger: true
       passed:

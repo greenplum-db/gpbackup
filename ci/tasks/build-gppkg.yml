@@ -1,11 +1,6 @@
-PLATFORM: linux
-
+platform: linux
 image_resource:
   type: docker-image
-  source:
-    repository: pivotaldata/centos-gpdb-dev
-    tag: '6-gcc6.2-llvm3.7'
-
 inputs:
 - name: RHEL_binaries
 - name: SLES_binaries
@@ -13,7 +8,6 @@ inputs:
 - name: gpdb_src
 - name: bin_gpdb
 - name: pivnet_release_cache
-
 outputs:
 - name: gppkgs
 
@@ -23,7 +17,6 @@ run:
   - -c
   - |
     set -ex
-
     sudo yum -y install rpm-build
 
     # Install gpdb binaries

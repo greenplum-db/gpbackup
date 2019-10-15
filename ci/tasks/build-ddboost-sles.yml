@@ -1,17 +1,13 @@
----
-PLATFORM: linux
-
+platform: linux
 image_resource:
   type: docker-image
   source:
     repository: pivotaldata/sles-gpdb-dev
     tag: '11-beta'
-
 inputs:
 - name: libyaml-0.1.7
 - name: gpbackup_ddboost_plugin
 - name: bin_gpdb_5x_sles11
-
 outputs:
 - name: ddboost_components_SLES
 
@@ -21,7 +17,6 @@ run:
   - -c
   - |
     set -ex
-
     # Install gpdb binaries
     # This is required because ddboost has a dependency on libpq-fe.h
     mkdir -p /usr/local/greenplum-db-devel

@@ -1,11 +1,9 @@
-PLATFORM: linux
-
+platform: linux
 image_resource:
   type: docker-image
   source:
     repository: pivotaldata/sles-gpdb-dev
     tag: 11-beta
-
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup

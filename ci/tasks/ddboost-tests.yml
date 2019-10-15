@@ -1,11 +1,12 @@
-PLATFORM: linux
-
+platform: linux
 image_resource:
   type: docker-image
-  source:
-    repository: pivotaldata/centos-gpdb-dev
-    tag: '7-gcc6.2-llvm3.7'
-
+inputs:
+- name: gpbackup
+  path: go/src/github.com/greenplum-db/gpbackup
+- name: ccp_src
+- name: cluster_env_files
+- name: gppkgs
 params:
   DD_SOURCE_HOST:
   DD_DEST_HOST:
@@ -13,20 +14,12 @@ params:
   DD_PW:
   DD_ENCRYPTED_PW:
 
-inputs:
-- name: gpbackup
-  path: go/src/github.com/greenplum-db/gpbackup
-- name: ccp_src
-- name: cluster_env_files
-- name: gppkgs
-
 run:
   path: bash
   args:
   - -c
   - |
     set -ex
-
     # setup cluster and install gpbackup tools using gppkg
     ccp_src/scripts/setup_ssh_to_cluster.sh
     out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`

@@ -1,19 +1,13 @@
-PLATFORM: linux
-
+platform: linux
 image_resource:
   type: docker-image
-  source:
-    repository: pivotaldata/centos-gpdb-dev
-    tag: '6-gcc6.2-llvm3.7'
-
-params:
-  GPBACKUP_VERSION:
-
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
 - name: ccp_src
 - name: cluster_env_files
+params:
+  GPBACKUP_VERSION:
 
 run:
   path: bash
@@ -21,7 +15,6 @@ run:
   - -c
   - |
     set -ex
-
     ccp_src/scripts/setup_ssh_to_cluster.sh
 
     cat <<SCRIPT > /tmp/run_tests.bash
@@ -41,7 +34,6 @@ run:
 
     # Possibly need to revert the dependencies back to $GPBACKUP_VERSION dependencies
     make depend
-
     make integration
 
     # NOTE: This is a temporary hotfix intended to skip this test when running on CCP cluster because the backup artifact that this test is using only works on local clusters.
