@@ -266,11 +266,17 @@ var _ = Describe("backup end to end integration tests", func() {
 				gpbackupPath, backupHelperPath = buildOldBinaries(oldBackupVersionStr)
 			}
 		} else {
+			// Check if gpbackup binary has been installed using gppkg
+			gpHomeDir := operating.System.Getenv("GPHOME")
 			binDir := fmt.Sprintf("%s/go/bin", operating.System.Getenv("HOME"))
+			if _, err := os.Stat(fmt.Sprintf("%s/bin/gpbackup", gpHomeDir)); err == nil {
+				binDir = fmt.Sprintf("%s/bin", gpHomeDir)
+			}
+
 			gpbackupPath = fmt.Sprintf("%s/gpbackup", binDir)
+			gprestorePath = fmt.Sprintf("%s/gprestore", binDir)
 			backupHelperPath = fmt.Sprintf("%s/gpbackup_helper", binDir)
 			restoreHelperPath = backupHelperPath
-			gprestorePath = fmt.Sprintf("%s/gprestore", binDir)
 		}
 		segConfig := cluster.MustGetSegmentConfiguration(backupConn)
 		backupCluster = cluster.NewCluster(segConfig)
@@ -1018,7 +1024,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(300)+500) * time.Millisecond)
-				cmd.Process.Signal(os.Interrupt)
+				_ = cmd.Process.Signal(os.Interrupt)
 			}()
 			output, _ := cmd.CombinedOutput()
 			stdout := string(output)
@@ -1044,7 +1050,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(300)+500) * time.Millisecond)
-				cmd.Process.Signal(os.Interrupt)
+				_ = cmd.Process.Signal(os.Interrupt)
 			}()
 			output, _ := cmd.CombinedOutput()
 			stdout := string(output)
@@ -1064,7 +1070,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test_bench.sh %s/example_plugin.bash %s/example_plugin_config.yaml", pluginsDir, pluginsDir, pluginsDir))
 			mustRunCommand(command)
 
-			os.RemoveAll("/tmp/plugin_dest")
+			_ = os.RemoveAll("/tmp/plugin_dest")
 		})
 		It("runs gpbackup with --version flag", func() {
 			if useOldBackupVersion {
