@@ -67,6 +67,184 @@ groups:
   - push-to-pivnet
 {% endif %}
 
+##### Anchors #####
+ccp_default_params_anchor: &ccp_default_params
+  action: create
+  delete_on_failure: true
+  generate_random_name: true
+  terraform_source: ccp_src/google/
+
+ccp_default_params_aws_anchor: &ccp_default_params_aws
+  action: create
+  delete_on_failure: true
+  generate_random_name: true
+  terraform_source: ccp_src/aws/
+
+ccp_vars_anchor: &ccp_default_vars
+  instance_type: n1-standard-1
+  PLATFORM: centos6
+
+ccp_vars_anchor_aws: &ccp_default_vars_aws
+  aws_instance-node-instance_type: t2.medium
+  PLATFORM: centos6
+
+ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: clusters-google/
+  BUCKET_NAME: {{tf-bucket-name}}
+  CLOUD_PROVIDER: google
+
+ccp_gen_cluster_default_params_anchor_aws: &ccp_gen_cluster_default_params_aws
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: clusters-aws/
+  BUCKET_NAME: {{tf-bucket-name}}
+  CLOUD_PROVIDER: aws
+
+ddboost_ccp_gen_cluster_default_params_anchor: &ddboost_ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+  AWS_DEFAULT_REGION: {{aws-region}}
+  BUCKET_PATH: clusters-aws/
+  BUCKET_NAME: {{tf-bucket-name}}
+  CLOUD_PROVIDER: aws
+
+ccp_destroy_anchor: &ccp_destroy
+  put: terraform
+  params:
+    action: destroy
+    env_name_file: terraform/name
+    terraform_source: ccp_src/google/
+    vars:
+      aws_instance-node-instance_type: t2.micro
+      aws_ebs_volume_type: standard
+      instance_type: n1-standard-1
+  get_params:
+    action: destroy
+
+ccp_destroy_anchor_aws: &ccp_destroy_aws
+  put: terraform_aws
+  params:
+    action: destroy
+    env_name_file: terraform_aws/name
+    terraform_source: ccp_src/aws/
+    vars:
+      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
+      aws_ebs_volume_type: standard
+  get_params:
+    action: destroy
+
+ccp_nvme_destroy_anchor: &ccp_destroy_nvme
+  put: terraform
+  params:
+    action: destroy
+    env_name_file: terraform/name
+    terraform_source: ccp_src/google-nvme-block-device/
+    vars:
+      aws_instance-node-instance_type: t2.micro
+      aws_ebs_volume_type: standard
+      instance_type: n1-standard-1
+  get_params:
+    action: destroy
+
+ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
+  put: ddboost_terraform
+  params:
+    action: destroy
+    env_name_file: ddboost_terraform/name
+    terraform_source: ccp_src/aws/
+    vars:
+      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
+  get_params:
+    action: destroy
+
+ddboost_debug_sleep_anchor: &ddboost_debug_sleep
+  task: debug_sleep
+  config:
+    platform: linux
+    image_resource:
+      type: docker-image
+      source:
+        repository: alpine
+        tag: latest
+    run:
+      path: 'sh'
+      args: ['-c', 'sleep 2h']
+  ensure:
+    <<: *ddboost_ccp_destroy
+
+set_failed_anchor: &set_failed
+  do:
+    - task: on_failure_set_failed
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: pivotaldata/ccp
+            tag: "7"
+        inputs:
+          - name: ccp_src
+          - name: terraform
+        run:
+          path: 'ccp_src/google/ccp_failed_test.sh'
+        params:
+          GOOGLE_CREDENTIALS: {{google-service-account-key}}
+          GOOGLE_PROJECT_ID: {{google-project-id}}
+          GOOGLE_ZONE: {{google-zone}}
+          GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
+          AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+          AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+          AWS_DEFAULT_REGION: {{tf-machine-region}}
+          BUCKET_PATH: clusters-google/
+          BUCKET_NAME: {{tf-bucket-name}}
+
+set_failed_anchor_aws: &set_failed_aws
+  do:
+    - task: on_failure_set_failed
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: pivotaldata/ccp
+            tag: "7"
+        inputs:
+          - name: ccp_src
+          - name: terraform_aws
+            path: terraform
+        run:
+          path: 'ccp_src/aws/ccp_failed_test.sh'
+        params:
+          GOOGLE_CREDENTIALS: {{google-service-account-key}}
+          GOOGLE_PROJECT_ID: {{google-project-id}}
+          GOOGLE_ZONE: {{google-zone}}
+          GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
+          AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
+          AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
+          AWS_DEFAULT_REGION: {{tf-machine-region}}
+          BUCKET_PATH: clusters-aws/
+          BUCKET_NAME: {{tf-bucket-name}}
+
+{% if "gpbackup-release" == pipeline_name %}
+slack_alert_anchor_release: &slack_alert_release
+  put: slack-alert-release
+  params:
+    text: |
+      [gpbackup-release/$BUILD_JOB_NAME] failed:
+      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup-release/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+{% else %}
+slack_alert_anchor: &slack_alert
+  put: slack-alert
+  params:
+    text: |
+      [gpbackup/$BUILD_JOB_NAME] failed:
+      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+{% endif %}
+
 resource_types:
 - name: terraform
   type: docker-image
@@ -1987,181 +2165,4 @@ jobs:
         - ddboost_plugin_and_boostfs_tests_5x
         - gpbackup-manager-tests
         - ddboost_plugin_and_boostfs_tests_6x
-{% endif %}
-
-ccp_default_params_anchor: &ccp_default_params
-  action: create
-  delete_on_failure: true
-  generate_random_name: true
-  terraform_source: ccp_src/google/
-
-ccp_vars_anchor: &ccp_default_vars
-  instance_type: n1-standard-1
-  PLATFORM: centos6
-
-ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
-  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: clusters-google/
-  BUCKET_NAME: {{tf-bucket-name}}
-  CLOUD_PROVIDER: google
-
-ddboost_ccp_gen_cluster_default_params_anchor: &ddboost_ccp_gen_cluster_default_params
-  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: clusters-aws/
-  BUCKET_NAME: {{tf-bucket-name}}
-  CLOUD_PROVIDER: aws
-
-ccp_destroy_anchor: &ccp_destroy
-  put: terraform
-  params:
-    action: destroy
-    env_name_file: terraform/name
-    terraform_source: ccp_src/google/
-    vars:
-      aws_instance-node-instance_type: t2.micro
-      aws_ebs_volume_type: standard
-      instance_type: n1-standard-1
-  get_params:
-    action: destroy
-
-ccp_nvme_destroy_anchor: &ccp_destroy_nvme
-  put: terraform
-  params:
-    action: destroy
-    env_name_file: terraform/name
-    terraform_source: ccp_src/google-nvme-block-device/
-    vars:
-      aws_instance-node-instance_type: t2.micro
-      aws_ebs_volume_type: standard
-      instance_type: n1-standard-1
-  get_params:
-    action: destroy
-
-ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
-  put: ddboost_terraform
-  params:
-    action: destroy
-    env_name_file: ddboost_terraform/name
-    terraform_source: ccp_src/aws/
-    vars:
-      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
-  get_params:
-    action: destroy
-
-set_failed_anchor: &set_failed
-  do:
-  - task: on_failure_set_failed
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/ccp
-          tag: "7"
-      inputs:
-        - name: ccp_src
-        - name: terraform
-      run:
-        path: 'ccp_src/google/ccp_failed_test.sh'
-      params:
-        GOOGLE_CREDENTIALS: {{google-service-account-key}}
-        GOOGLE_PROJECT_ID: {{google-project-id}}
-        GOOGLE_ZONE: {{google-zone}}
-        GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
-        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-        AWS_DEFAULT_REGION: {{tf-machine-region}}
-        BUCKET_PATH: clusters-google/
-        BUCKET_NAME: {{tf-bucket-name}}
-
-ddboost_debug_sleep_anchor: &ddboost_debug_sleep
-  task: debug_sleep
-  config:
-    platform: linux
-    image_resource:
-      type: docker-image
-      source:
-        repository: alpine
-        tag: latest
-    run:
-      path: 'sh'
-      args: ['-c', 'sleep 2h']
-  ensure:
-    <<: *ddboost_ccp_destroy
-
-ccp_default_params_aws_anchor: &ccp_default_params_aws
-  action: create
-  delete_on_failure: true
-  generate_random_name: true
-  terraform_source: ccp_src/aws/
-
-ccp_vars_anchor_aws: &ccp_default_vars_aws
-  aws_instance-node-instance_type: t2.medium
-  PLATFORM: centos6
-
-ccp_gen_cluster_default_params_anchor_aws: &ccp_gen_cluster_default_params_aws
-  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: clusters-aws/
-  BUCKET_NAME: {{tf-bucket-name}}
-  CLOUD_PROVIDER: aws
-
-ccp_destroy_anchor_aws: &ccp_destroy_aws
-  put: terraform_aws
-  params:
-    action: destroy
-    env_name_file: terraform_aws/name
-    terraform_source: ccp_src/aws/
-    vars:
-      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
-      aws_ebs_volume_type: standard
-  get_params:
-    action: destroy
-
-set_failed_anchor_aws: &set_failed_aws
-  do:
-  - task: on_failure_set_failed
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: pivotaldata/ccp
-          tag: "7"
-      inputs:
-        - name: ccp_src
-        - name: terraform_aws
-          path: terraform
-      run:
-        path: 'ccp_src/aws/ccp_failed_test.sh'
-      params:
-        GOOGLE_CREDENTIALS: {{google-service-account-key}}
-        GOOGLE_PROJECT_ID: {{google-project-id}}
-        GOOGLE_ZONE: {{google-zone}}
-        GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
-        AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-        AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-        AWS_DEFAULT_REGION: {{tf-machine-region}}
-        BUCKET_PATH: clusters-aws/
-        BUCKET_NAME: {{tf-bucket-name}}
-
-{% if "gpbackup-release" == pipeline_name %}
-slack_alert_anchor_release: &slack_alert_release
-  put: slack-alert-release
-  params:
-    text: |
-      [gpbackup-release/$BUILD_JOB_NAME] failed:
-      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup-release/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
-{% else %}
-slack_alert_anchor: &slack_alert
-  put: slack-alert
-  params:
-    text: |
-      [gpbackup/$BUILD_JOB_NAME] failed:
-      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
 {% endif %}

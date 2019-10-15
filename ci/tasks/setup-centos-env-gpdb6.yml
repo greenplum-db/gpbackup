@@ -46,7 +46,6 @@ run:
 
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
         make depend
-        make build
     popd
     SCRIPT
 
