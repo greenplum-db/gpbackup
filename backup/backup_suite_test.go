@@ -14,7 +14,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/spf13/pflag"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

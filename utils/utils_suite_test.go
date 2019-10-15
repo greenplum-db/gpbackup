@@ -3,7 +3,7 @@ package utils_test
 import (
 	"testing"
 
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"github.com/DATA-DOG/go-sqlmock"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"

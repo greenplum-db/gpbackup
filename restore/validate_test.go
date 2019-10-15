@@ -6,7 +6,7 @@ import (
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

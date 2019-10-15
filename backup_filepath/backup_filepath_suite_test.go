@@ -8,7 +8,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/onsi/gomega/gbytes"
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

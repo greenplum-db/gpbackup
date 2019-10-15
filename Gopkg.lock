@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:26e56bf1243a3675608f918a1574bf0005d5263b67b84a24a5fb0946ad7a75e3"
+  name = "github.com/DATA-DOG/go-sqlmock"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "3f9954f6f6697845b082ca57995849ddf614f450"
+  version = "v1.3.3"
+
+[[projects]]
   digest = "1:45c41cd27a8d986998680bfc86da0bbff5fa4f90d0f446c00636c8b099028ffe"
   name = "github.com/blang/semver"
   packages = ["."]
@@ -295,14 +303,6 @@
   revision = "88ddfcebc769cb7884c38d144ee893cfb4519053"
 
 [[projects]]
-  digest = "1:26e56bf1243a3675608f918a1574bf0005d5263b67b84a24a5fb0946ad7a75e3"
-  name = "gopkg.in/DATA-DOG/go-sqlmock.v1"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "3f9954f6f6697845b082ca57995849ddf614f450"
-  version = "v1.3.3"
-
-[[projects]]
   digest = "1:21562b59c496f4cbd7a40beaa257ac6761002dd3e36259f532216082abace8b1"
   name = "gopkg.in/cheggaaa/pb.v1"
   packages = ["."]
@@ -339,6 +339,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/DATA-DOG/go-sqlmock",
     "github.com/blang/semver",
     "github.com/blang/vfs",
     "github.com/blang/vfs/memfs",
@@ -363,7 +364,6 @@
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
     "golang.org/x/tools/cmd/goimports",
-    "gopkg.in/DATA-DOG/go-sqlmock.v1",
     "gopkg.in/cheggaaa/pb.v1",
     "gopkg.in/yaml.v2",
   ]
