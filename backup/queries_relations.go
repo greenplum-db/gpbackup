@@ -6,6 +6,7 @@ package backup
  */
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -338,8 +339,15 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	lastBatchSize := len(tables) % batchSize
 	tableBatches := generateTableBatches(tables, batchSize)
 	currentBatchSize := batchSize
+
+	// The LOCK TABLE query could block if someone else is
+	// holding an AccessExclusiveLock on the table. If gpbackup
+	// is interrupted and exits, the SQL session will leak if
+	// we don't cancel the query.
+	queryContext, queryCancelFunc = context.WithCancel(context.Background())
+
 	for i, currentBatch := range tableBatches {
-		connectionPool.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
+		connectionPool.MustExecContext(queryContext, fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
 
 		if i == len(tableBatches)-1 && lastBatchSize > 0 {
 			currentBatchSize = lastBatchSize
@@ -347,6 +355,11 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 
 		progressBar.Add(currentBatchSize)
 	}
+
+	// We're done grabbing table locks. Unset the Context globals
+	// so we don't use them during DoCleanup.
+	queryContext = context.TODO()
+	queryCancelFunc = nil
 
 	progressBar.Finish()
 }

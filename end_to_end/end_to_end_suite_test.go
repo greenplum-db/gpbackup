@@ -1061,6 +1061,47 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertArtifactsCleaned(restoreConn, timestamp)
 
 		})
+		It("runs gpbackup and sends a SIGINT to ensure blocked LOCK TABLE query is canceled", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+
+			// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
+			backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
+			args := []string{"--dbname", "testdb", "--backup-dir", backupDir, "--verbose"}
+			cmd := exec.Command(gpbackupPath, args...)
+
+			// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
+			// Once blocked, we send a SIGINT to cancel gpbackup.
+			var beforeLockCount int
+			go func() {
+				iterations := 50
+				for iterations > 0 {
+					_ = backupConn.Get(&beforeLockCount, "SELECT count(*) FROM pg_locks l, pg_class c WHERE l.relation = c.oid AND c.relnamespace = 'schema2'::regnamespace AND c.relname = 'foo2' AND l.granted = 'f'")
+					if beforeLockCount < 1 {
+						time.Sleep(100 * time.Millisecond)
+						iterations--
+					} else {
+						break
+					}
+				}
+				_ = cmd.Process.Signal(os.Interrupt)
+			}()
+			output, _ := cmd.CombinedOutput()
+			Expect(beforeLockCount).To(Equal(1))
+
+			// After gpbackup has been canceled, we should no longer see a blocked SQL
+			// session trying to acquire AccessShareLock on foo2.
+			var afterLockCount int
+			_ = backupConn.Get(&afterLockCount, "SELECT count(*) FROM pg_locks l, pg_class c WHERE l.relation = c.oid AND c.relnamespace = 'schema2'::regnamespace AND c.relname = 'foo2' AND l.granted = 'f'")
+                        Expect(afterLockCount).To(Equal(0))
+			backupConn.MustExec("ROLLBACK")
+
+			stdout := string(output)
+			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
+			Expect(stdout).To(ContainSubstring("Cleanup complete"))
+			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+		})
 		It("runs example_plugin.bash with plugin_test_bench", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the latest backup version")

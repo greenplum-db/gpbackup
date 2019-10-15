@@ -500,6 +500,15 @@ func DoCleanup(backupFailed bool) {
 		gplog.Warn("Failed to remove lock file %s.", backupLockFile)
 	}
 	if connectionPool != nil {
+		// The connection pool might still have an ongoing transaction. Try
+		// to cancel it. We need to queue a ROLLBACK to ensure the transaction
+		// cancel actually happened because the Golang Context cancel function
+		// does not block... nor is there a cancel acknowledgement function.
+		if queryCancelFunc != nil {
+			queryCancelFunc()
+			connectionPool.MustExec("ROLLBACK")
+		}
+
 		connectionPool.Close()
 	}
 }
