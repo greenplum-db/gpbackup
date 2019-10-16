@@ -78,6 +78,8 @@ func DoFlagValidation(cmd *cobra.Command) {
 // This function handles setup that must be done after parsing flags.
 func DoSetup() {
 	SetLoggerVerbosity()
+	gplog.Verbose("Backup Command: %s", os.Args)
+
 	utils.CheckGpexpandRunning(utils.BackupPreventedByGpexpandMessage)
 	timestamp := backup_history.CurrentTimestamp()
 	CreateBackupLockFile(timestamp)
