@@ -270,7 +270,7 @@ func restoreStatistics() {
 	}
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
-	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, []string{}, true, false)
+	statements := GetRestoreMetadataStatements("statistics", statisticsFilename, []string{}, []string{}, true, true)
 	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
 	gplog.Info("Query planner statistics restore complete")
 }

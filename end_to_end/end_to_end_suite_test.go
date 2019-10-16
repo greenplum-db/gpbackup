@@ -997,6 +997,34 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertDataRestored(restoreConn, schema2TupleCounts)
 
 		})
+		It("runs gprestore with --include-table flag to only restore tables specified ", func() {
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE public.table_to_include_with_stats(i int)")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.table_to_include_with_stats")
+			testhelper.AssertQueryRuns(backupConn, "INSERT INTO public.table_to_include_with_stats VALUES (1)")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir, "--include-table", "public.table_to_include_with_stats")
+
+			assertRelationsCreated(restoreConn, 1)
+
+			localSchemaTupleCounts := map[string]int{
+				`public."table_to_include_with_stats"`: 1,
+			}
+			assertDataRestored(restoreConn, localSchemaTupleCounts)
+			assertArtifactsCleaned(restoreConn, timestamp)
+		})
+		It("restores statistics only for tables specified in --include-table flag when runs gprestore with with-stats flag", func() {
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE public.table_to_include_with_stats(i int)")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.table_to_include_with_stats")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats", "--backup-dir", backupDir)
+			statFiles, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "*statistics.sql"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(statFiles).To(HaveLen(1))
+
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--with-stats", "--backup-dir", backupDir, "--include-table", "public.table_to_include_with_stats")
+
+			rawCount := dbconn.MustSelectString(restoreConn, "SELECT COUNT(*) FROM pg_stat_all_tables WHERE schemaname='public'")
+			Expect(rawCount).To(Equal(strconv.Itoa(1)))
+		})
 		It("runs gpbackup and gprestore with jobs flag", func() {
 			skipIfOldBackupVersionBefore("1.3.0")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--jobs", "4")
