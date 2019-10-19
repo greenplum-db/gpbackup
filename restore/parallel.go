@@ -15,6 +15,7 @@ import (
 )
 
 func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr *error, numErrors *int32, progressBar utils.ProgressBar, whichConn int) {
+	var mutex = &sync.Mutex{}
 	for statement := range statements {
 		if wasTerminated || *fatalErr != nil {
 			return
@@ -24,6 +25,9 @@ func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr 
 			gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
 			if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
 				atomic.AddInt32(numErrors, 1)
+				mutex.Lock()
+				errorTablesMetadata[statement.Schema + "." + statement.Name] = Empty{}
+				mutex.Unlock()
 			} else {
 				*fatalErr = err
 			}

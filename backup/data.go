@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -49,7 +50,6 @@ func AddTableDataEntriesToTOC(tables []Table, rowsCopiedMaps []map[uint32]int64)
 type BackupProgressCounters struct {
 	NumRegTables   int64
 	TotalRegTables int64
-	mutex          sync.Mutex
 	ProgressBar    utils.ProgressBar
 }
 
@@ -85,10 +85,9 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 	if table.SkipDataBackup() {
 		gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
 	} else {
-		counters.mutex.Lock()
-		counters.NumRegTables++
+
+		atomic.AddInt64(&counters.NumRegTables, 1)
 		numTables := counters.NumRegTables //We save this so it won't be modified before we log it
-		counters.mutex.Unlock()
 		if gplog.GetVerbosity() > gplog.LOGINFO {
 			// No progress bar at this log level, so we note table count here
 			gplog.Verbose("Writing data for table %s to file (table %d of %d)", table.FQN(), numTables, counters.TotalRegTables)

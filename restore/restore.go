@@ -1,6 +1,7 @@
 package restore
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -322,7 +324,6 @@ func DoTeardown() {
 		if statErr != nil { // Even if this isn't os.IsNotExist, don't try to write a report file in case of further errors
 			return
 		}
-
 		reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
 		utils.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, errMsg)
 		utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore")
@@ -330,7 +331,48 @@ func DoTeardown() {
 			pluginConfig.CleanupPluginForRestore(globalCluster, globalFPInfo)
 			pluginConfig.DeletePluginConfigWhenEncrypting(globalCluster)
 		}
+		if len(errorTablesMetadata) > 0 {
+			// tables with metadata errors
+			writeErrorTables(true)
+		}
+		if len(errorTablesData) > 0 {
+			// tables with data errors
+			writeErrorTables(false)
+		}
 	}
+}
+
+func writeErrorTables(isMetadata bool) {
+	var errorTables *map[string]Empty
+	var errorFilename string
+
+	if isMetadata == true {
+		errorFilename = globalFPInfo.GetErrorTablesMetadataFilePath(restoreStartTime)
+		errorTables = &errorTablesMetadata
+		gplog.Verbose("Logging error tables during metadata restore in %s", errorFilename)
+	} else {
+		errorFilename = globalFPInfo.GetErrorTablesDataFilePath(restoreStartTime)
+		errorTables = &errorTablesData
+		gplog.Verbose("Logging error tables during data restore in %s", errorFilename)
+	}
+
+	errorFile, err := os.OpenFile(errorFilename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	gplog.FatalOnError(err)
+	errorWriter := bufio.NewWriter(errorFile)
+	start := true
+	for table, _ := range *errorTables {
+		if start  == false {
+			errorWriter.WriteString("\n")
+		} else {
+			start = false
+		}
+		errorWriter.WriteString(table)
+	}
+	err = errorWriter.Flush()
+	err = errorFile.Close()
+	gplog.FatalOnError(err)
+	err = operating.System.Chmod(errorFilename, 0444)
+	gplog.FatalOnError(err)
 }
 
 func DoCleanup(restoreFailed bool) {

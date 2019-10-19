@@ -1276,6 +1276,8 @@ PARTITION BY LIST (gender)
 			assertDataRestored(restoreConn, map[string]int{"public.corrupt_table": 0, "public.good_table1": 10, "public.good_table2": 10})
 
 		})
+<<<<<<< HEAD
+
 		It("backup and restore all data when NOT VALID option on constraints is specified", func() {
 			testutils.SkipIfBefore6(backupConn)
 			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE legacy_table_violate_constraints (a int)")
@@ -1300,6 +1302,57 @@ PARTITION BY LIST (gender)
 			Expect(err).To(HaveOccurred())
 
 			assertArtifactsCleaned(restoreConn, timestamp)
+		})
+
+=======
+>>>>>>> Updated errorTables to use maps instead of slices
+		It(`gprestore logs error tables with --on-error-continue`, func() {
+			// Ensure no error tables with successful restore
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupDir)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
+			files, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(files).To(HaveLen(0))
+
+			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
+			mustRunCommand(command)
+
+			// Restore command with data error
+			// Metadata errors due to invalid alter ownership
+			expectedErrorTablesData := []string{"public.corrupt_table"}
+			expectedErrorTablesMetadata := []string{"public.corrupt_table", "public.good_table1", "public.good_table2"}
+			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--on-error-continue")
+			gprestoreCmd.CombinedOutput()
+
+			files, _ = filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
+			Expect(files[0]).To(HaveSuffix("_data"))
+			contents, err := ioutil.ReadFile(files[0])
+			Expect(err).ToNot(HaveOccurred())
+			tables := strings.Split(string(contents), "\n")
+			Expect(tables).To(Equal(expectedErrorTablesData))
+			os.Remove(files[0])
+
+			Expect(files).To(HaveLen(2))
+			Expect(files[1]).To(HaveSuffix("_metadata"))
+			contents, err = ioutil.ReadFile(files[1])
+			Expect(err).ToNot(HaveOccurred())
+			tables = strings.Split(string(contents), "\n")
+			Expect(tables).To(Equal(expectedErrorTablesMetadata))
+			os.Remove(files[1])
+
+			// Restore command with tables containing multiple metadata errors
+			// This test is to ensure we don't have tables with multiple errors show up twice
+			gprestoreCmd = exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--metadata-only", "--on-error-continue")
+			gprestoreCmd.CombinedOutput()
+			expectedErrorTablesMetadata = []string{"public.corrupt_table", "public.good_table1", "public.good_table2"}
+			files, _ = filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
+			Expect(files).To(HaveLen(1))
+			Expect(files[0]).To(HaveSuffix("_metadata"))
+			contents, err = ioutil.ReadFile(files[0])
+			Expect(err).ToNot(HaveOccurred())
+			tables = strings.Split(string(contents), "\n")
+			Expect(tables).To(Equal(expectedErrorTablesMetadata))
+			os.Remove(files[0])
 		})
 	})
 })

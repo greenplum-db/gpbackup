@@ -97,12 +97,14 @@ func (backupFPInfo *FilePathInfo) GetTableBackupFilePathForCopyCommand(tableOid 
 }
 
 var metadataFilenameMap = map[string]string{
-	"config":            "config.yaml",
-	"metadata":          "metadata.sql",
-	"statistics":        "statistics.sql",
-	"table of contents": "toc.yaml",
-	"report":            "report",
-	"plugin_config":     "plugin_config.yaml",
+	"config":                "config.yaml",
+	"metadata":              "metadata.sql",
+	"statistics":            "statistics.sql",
+	"table of contents":     "toc.yaml",
+	"report":                "report",
+	"plugin_config":         "plugin_config.yaml",
+	"error_tables_metadata": "error_tables_metadata",
+	"error_tables_data":     "error_tables_data",
 }
 
 func (backupFPInfo *FilePathInfo) GetBackupFilePath(filetype string) string {
@@ -130,8 +132,20 @@ func (backupFPInfo *FilePathInfo) GetBackupReportFilePath() string {
 	return backupFPInfo.GetBackupFilePath("report")
 }
 
+func (backupFPInfo *FilePathInfo) GetRestoreFilePath(restoreTimestamp string, filetype string) string {
+	return path.Join(backupFPInfo.GetDirForContent(-1), fmt.Sprintf("gprestore_%s_%s_%s", backupFPInfo.Timestamp, restoreTimestamp, metadataFilenameMap[filetype]))
+}
+
 func (backupFPInfo *FilePathInfo) GetRestoreReportFilePath(restoreTimestamp string) string {
-	return path.Join(backupFPInfo.GetDirForContent(-1), fmt.Sprintf("gprestore_%s_%s_report", backupFPInfo.Timestamp, restoreTimestamp))
+	return backupFPInfo.GetRestoreFilePath(restoreTimestamp, "report")
+}
+
+func (backupFPInfo *FilePathInfo) GetErrorTablesMetadataFilePath(restoreTimestamp string) string {
+	return backupFPInfo.GetRestoreFilePath(restoreTimestamp, "error_tables_metadata")
+}
+
+func (backupFPInfo *FilePathInfo) GetErrorTablesDataFilePath(restoreTimestamp string) string {
+	return backupFPInfo.GetRestoreFilePath(restoreTimestamp, "error_tables_data")
 }
 
 func (backupFPInfo *FilePathInfo) GetConfigFilePath() string {

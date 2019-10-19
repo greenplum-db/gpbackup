@@ -112,6 +112,7 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 	tasks := make(chan utils.MasterDataEntry, totalTables)
 	var workerPool sync.WaitGroup
 	var numErrors int32
+	var mutex = &sync.Mutex{}
 
 	for i := 0; i < connectionPool.NumConns; i++ {
 		workerPool.Add(1)
@@ -141,6 +142,9 @@ func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries [
 						dataProgressBar.(*pb.ProgressBar).NotPrint = true
 						return
 					}
+					mutex.Lock()
+					errorTablesData[tableName] = Empty{}
+					mutex.Unlock()
 				}
 
 				if backupConfig.SingleDataFile {

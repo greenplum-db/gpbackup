@@ -12,6 +12,11 @@ import (
 )
 
 /*
+ * Empty struct type used for value with 0 bytes
+ */
+type Empty struct{}
+
+/*
  * This file contains global variables and setter functions for those variables
  * used in testing.
  */
@@ -21,16 +26,17 @@ import (
  */
 
 var (
-	backupConfig     *backup_history.BackupConfig
-	connectionPool   *dbconn.DBConn
-	globalCluster    *cluster.Cluster
-	globalFPInfo     backup_filepath.FilePathInfo
-	globalTOC        *utils.TOC
-	pluginConfig     *utils.PluginConfig
-	restoreStartTime string
-	version          string
-	wasTerminated    bool
-
+	backupConfig        *backup_history.BackupConfig
+	connectionPool      *dbconn.DBConn
+	globalCluster       *cluster.Cluster
+	globalFPInfo        backup_filepath.FilePathInfo
+	globalTOC           *utils.TOC
+	pluginConfig        *utils.PluginConfig
+	restoreStartTime    string
+	version             string
+	wasTerminated       bool
+	errorTablesMetadata map[string]Empty
+	errorTablesData     map[string]Empty
 	/*
 	 * Used for synchronizing DoCleanup.  In DoInit() we increment the group
 	 * and then wait for at least one DoCleanup to finish, either in DoTeardown
@@ -38,6 +44,12 @@ var (
 	 */
 	CleanupGroup *sync.WaitGroup
 )
+
+func init() {
+	// Initialize global variables
+	errorTablesMetadata = make(map[string]Empty)
+	errorTablesData = make(map[string]Empty)
+}
 
 /*
  * Command-line flags
