@@ -1125,7 +1125,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			// session trying to acquire AccessShareLock on foo2.
 			var afterLockCount int
 			_ = backupConn.Get(&afterLockCount, checkLockQuery)
-                        Expect(afterLockCount).To(Equal(0))
+			Expect(afterLockCount).To(Equal(0))
 			backupConn.MustExec("ROLLBACK")
 
 			stdout := string(output)
@@ -1275,6 +1275,30 @@ PARTITION BY LIST (gender)
 			// Expect corrupt_table to have 0 tuples because data load should have failed due violation of distribution key constraint.
 			assertDataRestored(restoreConn, map[string]int{"public.corrupt_table": 0, "public.good_table1": 10, "public.good_table2": 10})
 
+		})
+		It("backup and restore all data when NOT VALID option on constraints is specified", func() {
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE legacy_table_violate_constraints (a int)")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE legacy_table_violate_constraints")
+			testhelper.AssertQueryRuns(backupConn, "INSERT INTO legacy_table_violate_constraints values (0), (1), (2), (3), (4), (5), (6), (7)")
+
+			testhelper.AssertQueryRuns(backupConn, "ALTER TABLE legacy_table_violate_constraints ADD CONSTRAINT new_constraint_not_valid CHECK (a > 4) NOT VALID")
+			defer testhelper.AssertQueryRuns(backupConn, "ALTER TABLE legacy_table_violate_constraints DROP CONSTRAINT new_constraint_not_valid")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
+
+			legacySchemaTupleCounts := map[string]int{
+				`public."legacy_table_violate_constraints"`: 8,
+			}
+			assertDataRestored(restoreConn, legacySchemaTupleCounts)
+
+			isConstraintHere := dbconn.MustSelectString(restoreConn, "SELECT COUNT(*) FROM pg_constraint WHERE conname='new_constraint_not_valid'")
+			Expect(isConstraintHere).To(Equal(strconv.Itoa(1)))
+
+			_, err := restoreConn.Exec("INSERT INTO legacy_table_violate_constraints VALUES (1)")
+			Expect(err).To(HaveOccurred())
+
+			assertArtifactsCleaned(restoreConn, timestamp)
 		})
 	})
 })
