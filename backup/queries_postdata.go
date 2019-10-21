@@ -25,21 +25,16 @@ import (
  */
 func ConstructImplicitIndexNames(connectionPool *dbconn.DBConn) string {
 	query := `
-SELECT DISTINCT
-	n.nspname || '.' || t.relname || '_' || a.attname || '_key' AS string
-FROM pg_constraint c
-JOIN pg_class t
-	ON c.conrelid = t.oid
-JOIN pg_namespace n
-	ON (t.relnamespace = n.oid)
-JOIN pg_attribute a
-	ON c.conrelid = a.attrelid
-JOIN pg_index i
-	ON i.indrelid = c.conrelid
-WHERE a.attnum > 0
-AND i.indisunique = 't'
-AND i.indisprimary = 'f';
-`
+	SELECT DISTINCT
+		n.nspname || '.' || t.relname || '_' || a.attname || '_key' AS string
+	FROM pg_constraint c
+		JOIN pg_class t ON c.conrelid = t.oid
+		JOIN pg_namespace n ON t.relnamespace = n.oid
+		JOIN pg_attribute a ON c.conrelid = a.attrelid
+		JOIN pg_index i ON i.indrelid = c.conrelid
+	WHERE a.attnum > 0
+		AND i.indisunique = 't'
+		AND i.indisprimary = 'f'`
 	indexNames := dbconn.MustSelectStringSlice(connectionPool, query)
 	return utils.SliceToQuotedString(indexNames)
 }
@@ -91,68 +86,53 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 			implicitIndexStr = fmt.Sprintf("OR n.nspname || '.' || ic.relname IN (%s)", indexNameSet)
 		}
 		query := fmt.Sprintf(`
-SELECT DISTINCT
-	i.indexrelid AS oid,
-	quote_ident(ic.relname) AS name,
-	quote_ident(n.nspname) AS owningschema,
-	quote_ident(c.relname) AS owningtable,
-	coalesce(quote_ident(s.spcname), '') AS tablespace,
-	pg_get_indexdef(i.indexrelid) AS def,
-	i.indisclustered AS isclustered,
-	CASE
-		WHEN i.indisprimary = 't' %s THEN 't'
-		ELSE 'f'
-	END AS supportsconstraint
-FROM pg_index i
-JOIN pg_class ic
-	ON (ic.oid = i.indexrelid)
-JOIN pg_namespace n
-	ON (ic.relnamespace = n.oid)
-JOIN pg_class c
-	ON (c.oid = i.indrelid)
-LEFT JOIN pg_tablespace s
-	ON (ic.reltablespace = s.oid)
-WHERE %s
-AND i.indisvalid
-AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
-AND %s
-ORDER BY name;`, implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+	SELECT DISTINCT i.indexrelid AS oid,
+		quote_ident(ic.relname) AS name,
+		quote_ident(n.nspname) AS owningschema,
+		quote_ident(c.relname) AS owningtable,
+		coalesce(quote_ident(s.spcname), '') AS tablespace,
+		pg_get_indexdef(i.indexrelid) AS def,
+		i.indisclustered AS isclustered,
+		CASE WHEN i.indisprimary = 't' %s THEN 't' ELSE 'f' END AS supportsconstraint
+	FROM pg_index i
+		JOIN pg_class ic ON (ic.oid = i.indexrelid)
+		JOIN pg_namespace n ON (ic.relnamespace = n.oid)
+		JOIN pg_class c ON (c.oid = i.indrelid)
+		LEFT JOIN pg_tablespace s ON (ic.reltablespace = s.oid)
+	WHERE %s
+		AND i.indisvalid
+		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
+		AND %s
+	ORDER BY name`,
+	implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 		err := connectionPool.Select(&resultIndexes, query)
 		gplog.FatalOnError(err)
 	} else {
 		query := fmt.Sprintf(`
-SELECT DISTINCT
-	i.indexrelid AS oid,
-	quote_ident(ic.relname) AS name,
-	quote_ident(n.nspname) AS owningschema,
-	quote_ident(c.relname) AS owningtable,
-	coalesce(quote_ident(s.spcname), '') AS tablespace,
-	pg_get_indexdef(i.indexrelid) AS def,
-	i.indisclustered AS isclustered,
-	i.indisreplident AS isreplicaidentity,
-	CASE
-		WHEN conindid > 0 THEN 't'
-		ELSE 'f'
-	END as supportsconstraint
-FROM pg_index i
-JOIN pg_class ic
-	ON (ic.oid = i.indexrelid)
-JOIN pg_namespace n
-	ON (ic.relnamespace = n.oid)
-JOIN pg_class c
-	ON (c.oid = i.indrelid)
-LEFT JOIN pg_tablespace s
-	ON (ic.reltablespace = s.oid)
-LEFT JOIN pg_constraint con
-	ON (i.indexrelid = con.conindid)
-WHERE %s
-AND i.indisvalid
-AND i.indisready
-AND i.indisprimary = 'f'
-AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
-AND %s
-ORDER BY name;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
+	SELECT DISTINCT i.indexrelid AS oid,
+		quote_ident(ic.relname) AS name,
+		quote_ident(n.nspname) AS owningschema,
+		quote_ident(c.relname) AS owningtable,
+		coalesce(quote_ident(s.spcname), '') AS tablespace,
+		pg_get_indexdef(i.indexrelid) AS def,
+		i.indisclustered AS isclustered,
+		i.indisreplident AS isreplicaidentity,
+		CASE WHEN conindid > 0 THEN 't' ELSE 'f' END as supportsconstraint
+	FROM pg_index i
+		JOIN pg_class ic ON ic.oid = i.indexrelid
+		JOIN pg_namespace n ON ic.relnamespace = n.oid
+		JOIN pg_class c ON c.oid = i.indrelid
+		LEFT JOIN pg_tablespace s ON ic.reltablespace = s.oid
+		LEFT JOIN pg_constraint con ON i.indexrelid = con.conindid
+	WHERE %s
+		AND i.indisvalid
+		AND i.indisready
+		AND i.indisprimary = 'f'
+		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
+		AND %s
+	ORDER BY name`,
+	relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
 		err := connectionPool.Select(&resultIndexes, query)
 		gplog.FatalOnError(err)
 	}
@@ -195,22 +175,20 @@ func (r RuleDefinition) FQN() string {
  */
 func GetRules(connectionPool *dbconn.DBConn) []RuleDefinition {
 	query := fmt.Sprintf(`
-SELECT
-	r.oid AS oid,
-	quote_ident(r.rulename) AS name,
-	quote_ident(n.nspname) AS owningschema,
-	quote_ident(c.relname) AS owningtable,
-	pg_get_ruledef(r.oid) AS def
-FROM pg_rewrite r
-JOIN pg_class c
-	ON (c.oid = r.ev_class)
-JOIN pg_namespace n
-	ON (c.relnamespace = n.oid)
-WHERE %s
-AND rulename NOT LIKE '%%RETURN'
-AND rulename NOT LIKE 'pg_%%'
-AND %s
-ORDER BY rulename;`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+	SELECT r.oid AS oid,
+		quote_ident(r.rulename) AS name,
+		quote_ident(n.nspname) AS owningschema,
+		quote_ident(c.relname) AS owningtable,
+		pg_get_ruledef(r.oid) AS def
+	FROM pg_rewrite r
+		JOIN pg_class c ON c.oid = r.ev_class
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+	WHERE %s
+		AND rulename NOT LIKE '%%RETURN'
+		AND rulename NOT LIKE 'pg_%%'
+		AND %s
+	ORDER BY rulename`,
+	relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 	results := make([]RuleDefinition, 0)
 	err := connectionPool.Select(&results, query)
@@ -247,22 +225,20 @@ func GetTriggers(connectionPool *dbconn.DBConn) []TriggerDefinition {
 		constraintClause = "tgisconstraint = 'f'"
 	}
 	query := fmt.Sprintf(`
-SELECT
-	t.oid AS oid,
-	quote_ident(t.tgname) AS name,
-	quote_ident(n.nspname) AS owningschema,
-	quote_ident(c.relname) AS owningtable,
-	pg_get_triggerdef(t.oid) AS def
-FROM pg_trigger t
-JOIN pg_class c
-	ON (c.oid = t.tgrelid)
-JOIN pg_namespace n
-	ON (c.relnamespace = n.oid)
-WHERE %s
-AND tgname NOT LIKE 'pg_%%'
-AND %s
-AND %s
-ORDER BY tgname;`, relationAndSchemaFilterClause(), constraintClause, ExtensionFilterClause("c"))
+	SELECT t.oid AS oid,
+		quote_ident(t.tgname) AS name,
+		quote_ident(n.nspname) AS owningschema,
+		quote_ident(c.relname) AS owningtable,
+		pg_get_triggerdef(t.oid) AS def
+	FROM pg_trigger t
+		JOIN pg_class c ON c.oid = t.tgrelid
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+	WHERE %s
+		AND tgname NOT LIKE 'pg_%%'
+		AND %s
+		AND %s
+	ORDER BY tgname`,
+	relationAndSchemaFilterClause(), constraintClause, ExtensionFilterClause("c"))
 
 	results := make([]TriggerDefinition, 0)
 	err := connectionPool.Select(&results, query)
@@ -301,16 +277,15 @@ func (et EventTrigger) FQN() string {
 
 func GetEventTriggers(connectionPool *dbconn.DBConn) []EventTrigger {
 	query := fmt.Sprintf(`
-SELECT
-	et.oid,
-	quote_ident(et.evtname) AS name,
-	et.evtevent AS event,
-	array_to_string(array(select quote_literal(x) from unnest(evttags) as t(x)), ', ') AS eventtags,
-	et.evtfoid::regproc AS functionname,
-	et.evtenabled AS enabled
-FROM pg_event_trigger et
-WHERE %s
-ORDER BY name;`, ExtensionFilterClause("et"))
+	SELECT et.oid,
+		quote_ident(et.evtname) AS name,
+		et.evtevent AS event,
+		array_to_string(array(select quote_literal(x) from unnest(evttags) as t(x)), ', ') AS eventtags,
+		et.evtfoid::regproc AS functionname,
+		et.evtenabled AS enabled
+	FROM pg_event_trigger et
+	WHERE %s
+	ORDER BY name`, ExtensionFilterClause("et"))
 
 	results := make([]EventTrigger, 0)
 	err := connectionPool.Select(&results, query)

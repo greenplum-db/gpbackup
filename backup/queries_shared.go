@@ -58,14 +58,9 @@ func GetAllUserSchemas(connectionPool *dbconn.DBConn) []Schema {
 	 * which schemas are backed up.
 	 */
 	query := fmt.Sprintf(`
-SELECT
-	oid,
-	quote_ident(nspname) AS name
-FROM pg_namespace n
-WHERE %s
-AND %s
-ORDER BY name;`, SchemaFilterClause("n"), ExtensionFilterClause(""))
-
+	SELECT oid, quote_ident(nspname) AS name FROM pg_namespace n
+		WHERE %s AND %s ORDER BY name`,
+		SchemaFilterClause("n"), ExtensionFilterClause(""))
 	results := make([]Schema, 0)
 
 	err := connectionPool.Select(&results, query)
@@ -118,50 +113,46 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		groupByConIsLocal = `con.conislocal,`
 	}
 	// This query is adapted from the queries underlying \d in psql.
-	tableQuery := fmt.Sprintf(`SELECT
-	con.oid,
-	quote_ident(n.nspname) AS schema,
-	quote_ident(conname) AS name,
-	contype,
-	%s
-	pg_get_constraintdef(con.oid, TRUE) AS condef,
-	quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
-	'f' AS isdomainconstraint,
-	CASE
-		WHEN pt.parrelid IS NULL THEN 'f'
-		ELSE 't'
-	END AS ispartitionparent
-FROM pg_constraint con
-LEFT JOIN pg_class c ON con.conrelid = c.oid
-LEFT JOIN pg_partition pt ON con.conrelid = pt.parrelid
-JOIN pg_namespace n ON n.oid = con.connamespace
-WHERE %s
-AND %s
-AND c.relname IS NOT NULL
-AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
-AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
-GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)
+	tableQuery := fmt.Sprintf(`
+	SELECT con.oid,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(conname) AS name,
+		contype,
+		%s
+		pg_get_constraintdef(con.oid, TRUE) AS condef,
+		quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
+		'f' AS isdomainconstraint,
+		CASE WHEN pt.parrelid IS NULL THEN 'f'
+			ELSE 't' END AS ispartitionparent
+	FROM pg_constraint con
+		LEFT JOIN pg_class c ON con.conrelid = c.oid
+		LEFT JOIN pg_partition pt ON con.conrelid = pt.parrelid
+		JOIN pg_namespace n ON n.oid = con.connamespace
+	WHERE %s
+		AND %s
+		AND c.relname IS NOT NULL
+		AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
+		AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
+	GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)
 
-	nonTableQuery := fmt.Sprintf(`SELECT
-	con.oid,
-	quote_ident(n.nspname) AS schema,
-	quote_ident(conname) AS name,
-	contype,
-	%s
-	pg_get_constraintdef(con.oid, TRUE) AS condef,
-	quote_ident(n.nspname) || '.' || quote_ident(t.typname) AS owningobject,
-	't' AS isdomainconstraint,
-	'f' AS ispartitionparent
-FROM pg_constraint con
-LEFT JOIN pg_type t ON con.contypid = t.oid
-JOIN pg_namespace n ON n.oid = con.connamespace
-WHERE %s
-AND %s
-AND t.typname IS NOT NULL
-GROUP BY con.oid, conname, contype, n.nspname, %s t.typname
-ORDER BY name;
-
-`, selectConIsLocal, SchemaFilterClause("n"), ExtensionFilterClause("con"), groupByConIsLocal)
+	nonTableQuery := fmt.Sprintf(`
+	SELECT con.oid,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(conname) AS name,
+		contype,
+		%s
+		pg_get_constraintdef(con.oid, TRUE) AS condef,
+		quote_ident(n.nspname) || '.' || quote_ident(t.typname) AS owningobject,
+		't' AS isdomainconstraint,
+		'f' AS ispartitionparent
+	FROM pg_constraint con
+		LEFT JOIN pg_type t ON con.contypid = t.oid
+		JOIN pg_namespace n ON n.oid = con.connamespace
+	WHERE %s
+		AND %s
+		AND t.typname IS NOT NULL
+	GROUP BY con.oid, conname, contype, n.nspname, %s t.typname
+	ORDER BY name`, selectConIsLocal, SchemaFilterClause("n"), ExtensionFilterClause("con"), groupByConIsLocal)
 
 	query := ""
 	if len(includeTables) > 0 {

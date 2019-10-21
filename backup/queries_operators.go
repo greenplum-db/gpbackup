@@ -59,40 +59,38 @@ func (o Operator) FQN() string {
 func GetOperators(connectionPool *dbconn.DBConn) []Operator {
 	results := make([]Operator, 0)
 	version4query := fmt.Sprintf(`
-SELECT
-	o.oid AS oid,
-	quote_ident(n.nspname) AS schema,
-	oprname AS name,
-	oprcode::regproc AS procedure,
-	oprleft::regtype AS leftargtype,
-	oprright::regtype AS rightargtype,
-	oprcom::regoper AS commutatorop,
-	oprnegate::regoper AS negatorop,
-	oprrest AS restrictfunction,
-	oprjoin AS joinfunction,
-	oprcanhash AS canhash
-FROM pg_operator o
-JOIN pg_namespace n on n.oid = o.oprnamespace
-WHERE %s AND oprcode != 0`, SchemaFilterClause("n"))
+	SELECT o.oid AS oid,
+		quote_ident(n.nspname) AS schema,
+		oprname AS name,
+		oprcode::regproc AS procedure,
+		oprleft::regtype AS leftargtype,
+		oprright::regtype AS rightargtype,
+		oprcom::regoper AS commutatorop,
+		oprnegate::regoper AS negatorop,
+		oprrest AS restrictfunction,
+		oprjoin AS joinfunction,
+		oprcanhash AS canhash
+	FROM pg_operator o
+		JOIN pg_namespace n on n.oid = o.oprnamespace
+	WHERE %s AND oprcode != 0`, SchemaFilterClause("n"))
 
 	masterQuery := fmt.Sprintf(`
-SELECT
-	o.oid AS oid,
-	quote_ident(n.nspname) AS schema,
-	oprname AS name,
-	oprcode::regproc AS procedure,
-	oprleft::regtype AS leftargtype,
-	oprright::regtype AS rightargtype,
-	oprcom::regoper AS commutatorop,
-	oprnegate::regoper AS negatorop,
-	oprrest AS restrictfunction,
-	oprjoin AS joinfunction,
-	oprcanmerge AS canmerge,
-	oprcanhash AS canhash
-FROM pg_operator o
-JOIN pg_namespace n on n.oid = o.oprnamespace
-WHERE %s AND oprcode != 0
-AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("o"))
+	SELECT o.oid AS oid,
+		quote_ident(n.nspname) AS schema,
+		oprname AS name,
+		oprcode::regproc AS procedure,
+		oprleft::regtype AS leftargtype,
+		oprright::regtype AS rightargtype,
+		oprcom::regoper AS commutatorop,
+		oprnegate::regoper AS negatorop,
+		oprrest AS restrictfunction,
+		oprjoin AS joinfunction,
+		oprcanmerge AS canmerge,
+		oprcanhash AS canhash
+	FROM pg_operator o
+		JOIN pg_namespace n on n.oid = o.oprnamespace
+	WHERE %s AND oprcode != 0
+		AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("o"))
 
 	var err error
 	if connectionPool.Version.Before("5") {
@@ -139,15 +137,15 @@ func (opf OperatorFamily) FQN() string {
 func GetOperatorFamilies(connectionPool *dbconn.DBConn) []OperatorFamily {
 	results := make([]OperatorFamily, 0)
 	query := fmt.Sprintf(`
-SELECT
-	o.oid AS oid,
-	quote_ident(n.nspname) AS schema,
-	quote_ident(opfname) AS name,
-	(SELECT quote_ident(amname) FROM pg_am WHERE oid = opfmethod) AS indexMethod
-FROM pg_opfamily o
-JOIN pg_namespace n on n.oid = o.opfnamespace
-WHERE %s
-AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("o"))
+	SELECT o.oid AS oid,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(opfname) AS name,
+		(SELECT quote_ident(amname) FROM pg_am WHERE oid = opfmethod) AS indexMethod
+	FROM pg_opfamily o
+		JOIN pg_namespace n on n.oid = o.opfnamespace
+	WHERE %s
+		AND %s`,
+		SchemaFilterClause("n"), ExtensionFilterClause("o"))
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
@@ -196,37 +194,36 @@ func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 	 * family have the same schema and name will work for both versions.
 	 */
 	version4query := fmt.Sprintf(`
-SELECT
-	c.oid AS oid,
-	quote_ident(cls_ns.nspname) AS schema,
-	quote_ident(opcname) AS name,
-	'' AS familyschema,
-	'' AS familyname,
-	(SELECT amname FROM pg_catalog.pg_am WHERE oid = opcamid) AS indexmethod,
-	opcintype::pg_catalog.regtype AS type,
-	opcdefault AS default,
-	opckeytype::pg_catalog.regtype AS storagetype
-FROM pg_catalog.pg_opclass c
-JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
-WHERE %s`, SchemaFilterClause("cls_ns"))
+	SELECT c.oid AS oid,
+		quote_ident(cls_ns.nspname) AS schema,
+		quote_ident(opcname) AS name,
+		'' AS familyschema,
+		'' AS familyname,
+		(SELECT amname FROM pg_catalog.pg_am WHERE oid = opcamid) AS indexmethod,
+		opcintype::pg_catalog.regtype AS type,
+		opcdefault AS default,
+		opckeytype::pg_catalog.regtype AS storagetype
+	FROM pg_catalog.pg_opclass c
+		JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
+	WHERE %s`, SchemaFilterClause("cls_ns"))
 
 	masterQuery := fmt.Sprintf(`
-SELECT
-	c.oid AS oid,
-	quote_ident(cls_ns.nspname) AS schema,
-	quote_ident(opcname) AS name,
-	quote_ident(fam_ns.nspname) AS familyschema,
-	quote_ident(opfname) AS familyname,
-	(SELECT amname FROM pg_catalog.pg_am WHERE oid = opcmethod) AS indexmethod,
-	opcintype::pg_catalog.regtype AS type,
-	opcdefault AS default,
-	opckeytype::pg_catalog.regtype AS storagetype
-FROM pg_catalog.pg_opclass c
-LEFT JOIN pg_catalog.pg_opfamily f ON f.oid = opcfamily
-JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
-JOIN pg_catalog.pg_namespace fam_ns ON fam_ns.oid = opfnamespace
-WHERE %s
-AND %s`, SchemaFilterClause("cls_ns"), ExtensionFilterClause("c"))
+	SELECT c.oid AS oid,
+		quote_ident(cls_ns.nspname) AS schema,
+		quote_ident(opcname) AS name,
+		quote_ident(fam_ns.nspname) AS familyschema,
+		quote_ident(opfname) AS familyname,
+		(SELECT amname FROM pg_catalog.pg_am WHERE oid = opcmethod) AS indexmethod,
+		opcintype::pg_catalog.regtype AS type,
+		opcdefault AS default,
+		opckeytype::pg_catalog.regtype AS storagetype
+	FROM pg_catalog.pg_opclass c
+		LEFT JOIN pg_catalog.pg_opfamily f ON f.oid = opcfamily
+		JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
+		JOIN pg_catalog.pg_namespace fam_ns ON fam_ns.oid = opfnamespace
+	WHERE %s
+		AND %s`,
+		SchemaFilterClause("cls_ns"), ExtensionFilterClause("c"))
 
 	var err error
 	if connectionPool.Version.Before("5") {
@@ -259,42 +256,36 @@ type OperatorClassOperator struct {
 func GetOperatorClassOperators(connectionPool *dbconn.DBConn) map[uint32][]OperatorClassOperator {
 	results := make([]OperatorClassOperator, 0)
 	version4query := fmt.Sprintf(`
-SELECT
-	amopclaid AS classoid,
-	amopstrategy AS strategynumber,
-	amopopr::pg_catalog.regoperator AS operator,
-	amopreqcheck AS recheck
-FROM pg_catalog.pg_amop
-ORDER BY amopstrategy
-`)
+	SELECT amopclaid AS classoid,
+		amopstrategy AS strategynumber,
+		amopopr::pg_catalog.regoperator AS operator,
+		amopreqcheck AS recheck
+	FROM pg_catalog.pg_amop
+	ORDER BY amopstrategy`)
 
 	version5query := fmt.Sprintf(`
-SELECT
-	refobjid AS classoid,
-	amopstrategy AS strategynumber,
-	amopopr::pg_catalog.regoperator AS operator,
-	amopreqcheck AS recheck
-FROM pg_catalog.pg_amop ao
-JOIN pg_catalog.pg_depend d ON d.objid = ao.oid
-WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
-AND classid = 'pg_catalog.pg_amop'::pg_catalog.regclass
-ORDER BY amopstrategy
-`)
+	SELECT refobjid AS classoid,
+		amopstrategy AS strategynumber,
+		amopopr::pg_catalog.regoperator AS operator,
+		amopreqcheck AS recheck
+	FROM pg_catalog.pg_amop ao
+		JOIN pg_catalog.pg_depend d ON d.objid = ao.oid
+	WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
+		AND classid = 'pg_catalog.pg_amop'::pg_catalog.regclass
+	ORDER BY amopstrategy`)
 
 	masterQuery := fmt.Sprintf(`
-SELECT
-	refobjid AS classoid,
-	amopstrategy AS strategynumber,
-	amopopr::pg_catalog.regoperator AS operator,
-	coalesce(quote_ident(ns.nspname) || '.' || quote_ident(opf.opfname), '') AS orderbyfamily
-FROM pg_catalog.pg_amop ao
-JOIN pg_catalog.pg_depend d ON d.objid = ao.oid
-LEFT JOIN pg_opfamily opf ON opf.oid = ao.amopsortfamily
-LEFT JOIN pg_namespace ns ON ns.oid = opf.opfnamespace
-WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
-AND classid = 'pg_catalog.pg_amop'::pg_catalog.regclass
-ORDER BY amopstrategy
-`)
+	SELECT refobjid AS classoid,
+		amopstrategy AS strategynumber,
+		amopopr::pg_catalog.regoperator AS operator,
+		coalesce(quote_ident(ns.nspname) || '.' || quote_ident(opf.opfname), '') AS orderbyfamily
+	FROM pg_catalog.pg_amop ao
+		JOIN pg_catalog.pg_depend d ON d.objid = ao.oid
+		LEFT JOIN pg_opfamily opf ON opf.oid = ao.amopsortfamily
+		LEFT JOIN pg_namespace ns ON ns.oid = opf.opfnamespace
+	WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
+		AND classid = 'pg_catalog.pg_amop'::pg_catalog.regclass
+	ORDER BY amopstrategy`)
 	var err error
 	if connectionPool.Version.Before("5") {
 		err = connectionPool.Select(&results, version4query)
@@ -323,27 +314,23 @@ type OperatorClassFunction struct {
 func GetOperatorClassFunctions(connectionPool *dbconn.DBConn) map[uint32][]OperatorClassFunction {
 	results := make([]OperatorClassFunction, 0)
 	version4query := fmt.Sprintf(`
-SELECT
-	amopclaid AS classoid,
-	amprocnum AS supportnumber,
-	amproc::regprocedure AS functionname
-FROM pg_catalog.pg_amproc
-ORDER BY amprocnum
-`)
+	SELECT amopclaid AS classoid,
+		amprocnum AS supportnumber,
+		amproc::regprocedure AS functionname
+	FROM pg_catalog.pg_amproc
+	ORDER BY amprocnum`)
 
 	masterQuery := fmt.Sprintf(`
-SELECT
-	refobjid AS classoid,
-	amprocnum AS supportnumber,
-	amproclefttype::regtype,
-	amprocrighttype::regtype,
-	amproc::regprocedure::text AS functionname
-FROM pg_catalog.pg_amproc ap
-JOIN pg_catalog.pg_depend d ON d.objid = ap.oid
-WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
-AND classid = 'pg_catalog.pg_amproc'::pg_catalog.regclass
-ORDER BY amprocnum
-`)
+	SELECT refobjid AS classoid,
+		amprocnum AS supportnumber,
+		amproclefttype::regtype,
+		amprocrighttype::regtype,
+		amproc::regprocedure::text AS functionname
+	FROM pg_catalog.pg_amproc ap
+		JOIN pg_catalog.pg_depend d ON d.objid = ap.oid
+	WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
+		AND classid = 'pg_catalog.pg_amproc'::pg_catalog.regclass
+	ORDER BY amprocnum`)
 
 	var err error
 	if connectionPool.Version.Before("5") {

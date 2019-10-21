@@ -20,9 +20,9 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		array_to_string(execlocation, ',') AS execlocation,`
 	options := `array_to_string(ARRAY(SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
 			FROM pg_options_to_table(options) ORDER BY option_name), E',\n\t') AS options,`
-	errtable := `coalesce(quote_ident(c.relname),'') AS errtablename,
+	errTable := `coalesce(quote_ident(c.relname),'') AS errtablename,
 		coalesce((SELECT quote_ident(nspname) FROM pg_namespace n WHERE n.oid = c.relnamespace), '') AS errtableschema,`
-	errcolumn := `fmterrtbl`
+	errColumn := `fmterrtbl`
 
 	if connectionPool.Version.Before("5") {
 		execOptions := "'ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'"
@@ -30,10 +30,10 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		CASE WHEN split_part(location[1], ':', 1) IN (%s) THEN unnest(location) ELSE 'ALL_SEGMENTS' END AS execlocation,`, execOptions, execOptions)
 		options = "'' AS options,"
 	} else if !connectionPool.Version.Before("6") {
-		errtable = `CASE WHEN logerrors = 'false' THEN '' ELSE quote_ident(c.relname) END AS errtablename,
+		errTable = `CASE WHEN logerrors = 'false' THEN '' ELSE quote_ident(c.relname) END AS errtablename,
 		CASE WHEN logerrors = 'false' THEN '' ELSE coalesce(
 			(SELECT quote_ident(nspname) FROM pg_namespace n WHERE n.oid = c.relnamespace), '') END AS errtableschema,`
-		errcolumn = `reloid`
+		errColumn = `reloid`
 	}
 
 	query := fmt.Sprintf(`
@@ -49,7 +49,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		pg_encoding_to_char(encoding) AS encoding,
 		writable
 	FROM pg_exttable e
-		LEFT JOIN pg_class c ON e.%s = c.oid`, location, options, errtable, errcolumn)
+		LEFT JOIN pg_class c ON e.%s = c.oid`, location, options, errTable, errColumn)
 
 	results := make([]ExternalTableDefinition, 0)
 	err := connectionPool.Select(&results, query)

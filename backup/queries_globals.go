@@ -72,12 +72,12 @@ func GetDefaultDatabaseEncodingInfo(connectionPool *dbconn.DBConn) Database {
 		lcQuery = "datcollate AS collate, datctype AS ctype,"
 	}
 
-	query := fmt.Sprintf(`SELECT
-	datname AS name,
-	%s
-	pg_encoding_to_char(encoding) AS encoding
+	query := fmt.Sprintf(`
+	SELECT datname AS name,
+		%s
+		pg_encoding_to_char(encoding) AS encoding
 	FROM pg_database
-WHERE datname = 'template0'`, lcQuery)
+	WHERE datname = 'template0'`, lcQuery)
 
 	result := Database{}
 	err := connectionPool.Get(&result, query)
@@ -91,16 +91,14 @@ func GetDatabaseInfo(connectionPool *dbconn.DBConn) Database {
 		lcQuery = "datcollate AS collate, datctype AS ctype,"
 	}
 	query := fmt.Sprintf(`
-SELECT
-	d.oid,
-	quote_ident(d.datname) AS name,
-	quote_ident(t.spcname) AS tablespace,
-	%s
-	pg_encoding_to_char(d.encoding) AS encoding
-FROM pg_database d
-JOIN pg_tablespace t
-ON d.dattablespace = t.oid
-WHERE d.datname = '%s';`, lcQuery, utils.EscapeSingleQuotes(connectionPool.DBName))
+	SELECT d.oid,
+		quote_ident(d.datname) AS name,
+		quote_ident(t.spcname) AS tablespace,
+		%s
+		pg_encoding_to_char(d.encoding) AS encoding
+	FROM pg_database d
+		JOIN pg_tablespace t ON d.dattablespace = t.oid
+	WHERE d.datname = '%s'`, lcQuery, utils.EscapeSingleQuotes(connectionPool.DBName))
 
 	result := Database{}
 	err := connectionPool.Get(&result, query)
@@ -111,20 +109,16 @@ WHERE d.datname = '%s';`, lcQuery, utils.EscapeSingleQuotes(connectionPool.DBNam
 func GetDatabaseGUCs(connectionPool *dbconn.DBConn) []string {
 	//We do not want to quote list type config settings such as search_path and DateStyle
 	query := `
-SELECT CASE
-	WHEN option_name='search_path' OR option_name = 'DateStyle'
-	THEN ('SET ' || option_name || ' TO ' || option_value)
-	ELSE ('SET ' || option_name || ' TO ''' || option_value || '''')
-END AS string
-FROM pg_options_to_table(
-	(%s)
-);`
+	SELECT CASE WHEN option_name='search_path' OR option_name = 'DateStyle'
+		THEN ('SET ' || option_name || ' TO ' || option_value)
+		ELSE ('SET ' || option_name || ' TO ''' || option_value || '''') END AS string
+	FROM pg_options_to_table((%s))`
 	if connectionPool.Version.Before("6") {
-		subquery := fmt.Sprintf("SELECT datconfig FROM pg_database WHERE datname = '%s'", utils.EscapeSingleQuotes(connectionPool.DBName))
-		query = fmt.Sprintf(query, subquery)
+		subQuery := fmt.Sprintf("SELECT datconfig FROM pg_database WHERE datname = '%s'", utils.EscapeSingleQuotes(connectionPool.DBName))
+		query = fmt.Sprintf(query, subQuery)
 	} else {
-		subquery := fmt.Sprintf("SELECT setconfig FROM pg_db_role_setting WHERE setrole = 0 AND setdatabase = (SELECT oid FROM pg_database WHERE datname = '%s')", utils.EscapeSingleQuotes(connectionPool.DBName))
-		query = fmt.Sprintf(query, subquery)
+		subQuery := fmt.Sprintf("SELECT setconfig FROM pg_db_role_setting WHERE setrole = 0 AND setdatabase = (SELECT oid FROM pg_database WHERE datname = '%s')", utils.EscapeSingleQuotes(connectionPool.DBName))
+		query = fmt.Sprintf(query, subQuery)
 	}
 	return dbconn.MustSelectStringSlice(connectionPool, query)
 }
@@ -166,24 +160,19 @@ func GetResourceQueues(connectionPool *dbconn.DBConn) []ResourceQueue {
 	 * and cast them as text for more consistent formatting. pg_dumpall does this as well.
 	 */
 	query := `
-SELECT
-	r.oid,
-	quote_ident(rsqname) AS name,
-	rsqcountlimit AS activestatements,
-	ROUND(rsqcostlimit::numeric, 2)::text AS maxcost,
-	rsqovercommit AS costovercommit,
-	ROUND(rsqignorecostlimit::numeric, 2)::text AS mincost,
-	priority_capability.ressetting::text AS priority,
-	memory_capability.ressetting::text AS memorylimit
-FROM
-	pg_resqueue r
-		JOIN
-		(SELECT resqueueid, ressetting FROM pg_resqueuecapability WHERE restypid = 5) priority_capability
-		ON r.oid = priority_capability.resqueueid
-	JOIN
-		(SELECT resqueueid, ressetting FROM pg_resqueuecapability WHERE restypid = 6) memory_capability
-		ON r.oid = memory_capability.resqueueid;
-`
+	SELECT r.oid,
+		quote_ident(rsqname) AS name,
+		rsqcountlimit AS activestatements,
+		ROUND(rsqcostlimit::numeric, 2)::text AS maxcost,
+		rsqovercommit AS costovercommit,
+		ROUND(rsqignorecostlimit::numeric, 2)::text AS mincost,
+		priority_capability.ressetting::text AS priority,
+		memory_capability.ressetting::text AS memorylimit
+	FROM pg_resqueue r
+		JOIN (SELECT resqueueid, ressetting FROM pg_resqueuecapability WHERE restypid = 5) priority_capability
+			ON r.oid = priority_capability.resqueueid
+		JOIN (SELECT resqueueid, ressetting FROM pg_resqueuecapability WHERE restypid = 6) memory_capability
+			ON r.oid = memory_capability.resqueueid`
 	results := make([]ResourceQueue, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -238,8 +227,7 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 			t7.value AS cpuset`
 	} else { // GPDB 5.0.0 and 5.1.0
 		selectClause += `
-		SELECT
-			g.oid,
+		SELECT g.oid,
 			quote_ident(g.rsgname) AS name,
 			t1.proposed AS concurrency,
 			t2.value    AS cpuratelimit,
@@ -355,38 +343,34 @@ func GetRoles(connectionPool *dbconn.DBConn) []Role {
 	}
 
 	query := fmt.Sprintf(`
-SELECT
-	oid,
-	quote_ident(rolname) AS name,
-	rolsuper,
-	rolinherit,
-	rolcreaterole,
-	rolcreatedb,
-	rolcanlogin,
-	%s
-	rolconnlimit,
-	coalesce(rolpassword, '') AS password,
-	CASE
-		WHEN (rolvaliduntil = 'infinity'::timestamp OR rolvaliduntil = '-infinity'::timestamp)
-		THEN timezone('UTC', rolvaliduntil)::text
-		ELSE coalesce(timezone('UTC', rolvaliduntil) || '-00', '')
-	END AS validuntil,
-	(SELECT quote_ident(rsqname) FROM pg_resqueue WHERE pg_resqueue.oid = rolresqueue) AS resqueue,
-	%s
-	rolcreaterexthttp,
-	%s
-	%s
-	rolcreaterextgpfd,
-	rolcreatewextgpfd
-FROM
-	pg_authid`, replicationQuery, resgroupQuery, readExtHdfs, writeExtHdfs)
+	SELECT oid,
+		quote_ident(rolname) AS name,
+		rolsuper,
+		rolinherit,
+		rolcreaterole,
+		rolcreatedb,
+		rolcanlogin,
+		%s
+		rolconnlimit,
+		coalesce(rolpassword, '') AS password,
+		CASE WHEN (rolvaliduntil = 'infinity'::timestamp OR rolvaliduntil = '-infinity'::timestamp)
+			THEN timezone('UTC', rolvaliduntil)::text
+			ELSE coalesce(timezone('UTC', rolvaliduntil) || '-00', '')
+		END AS validuntil,
+		(SELECT quote_ident(rsqname) FROM pg_resqueue WHERE pg_resqueue.oid = rolresqueue) AS resqueue,
+		%s
+		rolcreaterexthttp,
+		%s
+		%s
+		rolcreaterextgpfd,
+		rolcreatewextgpfd
+	FROM pg_authid`, replicationQuery, resgroupQuery, readExtHdfs, writeExtHdfs)
 
 	roles := make([]Role, 0)
 	err := connectionPool.Select(&roles, query)
 	gplog.FatalOnError(err)
 
 	constraintsByRole := getTimeConstraintsByRole(connectionPool)
-
 	for idx, role := range roles {
 		roles[idx].TimeConstraints = constraintsByRole[role.Oid]
 	}
@@ -416,34 +400,26 @@ func GetRoleGUCs(connectionPool *dbconn.DBConn) map[string][]RoleGUC {
 	gucsForDBQuery := ""
 	if connectionPool.Version.AtLeast("6") {
 		gucsForDBQuery = `UNION
-	SELECT
-		quote_ident(r.rolname) AS rolename,
+	SELECT quote_ident(r.rolname) AS rolename,
 		quote_ident(d.datname) AS dbname,
 		(pg_options_to_table(setconfig)).option_name,
 		(pg_options_to_table(setconfig)).option_value
 	FROM pg_db_role_setting pgdb
-	JOIN pg_database d ON pgdb.setdatabase = d.oid
-	JOIN pg_roles r ON pgdb.setrole = r.oid`
+		JOIN pg_database d ON pgdb.setdatabase = d.oid
+		JOIN pg_roles r ON pgdb.setrole = r.oid`
 	}
 
 	query := fmt.Sprintf(`
-SELECT
-	rolename,
-	dbname,
-	CASE
-		WHEN option_name='search_path' OR option_name = 'DateStyle'
-		THEN ('SET ' || option_name || ' TO ' || option_value)
-		ELSE ('SET ' || option_name || ' TO ''' || option_value || '''')
-	END AS config
-FROM (
-	SELECT
-		quote_ident(rolname) AS rolename,
-		'' AS dbname,
-		(pg_options_to_table(rolconfig)).option_name,
-		(pg_options_to_table(rolconfig)).option_value 
-	FROM pg_roles
-	%s
-) AS options;`, gucsForDBQuery)
+	SELECT rolename,
+		dbname,
+		CASE WHEN option_name='search_path' OR option_name = 'DateStyle'
+			THEN ('SET ' || option_name || ' TO ' || option_value)
+			ELSE ('SET ' || option_name || ' TO ''' || option_value || '''') END AS config
+	FROM ( SELECT quote_ident(rolname) AS rolename,
+			'' AS dbname,
+			(pg_options_to_table(rolconfig)).option_name,
+			(pg_options_to_table(rolconfig)).option_value 
+			FROM pg_roles %s ) AS options;`, gucsForDBQuery)
 
 	results := make([]RoleGUC, 0)
 	err := connectionPool.Select(&results, query)
@@ -459,16 +435,12 @@ FROM (
 func getTimeConstraintsByRole(connectionPool *dbconn.DBConn) map[uint32][]TimeConstraint {
 	timeConstraints := make([]TimeConstraint, 0)
 	query := `
-SELECT
-	authid AS oid,
-	start_day AS startday,
-	start_time::text AS starttime,
-	end_day AS endday,
-	end_time::text AS endtime
-FROM
-	pg_auth_time_constraint
-	`
-
+	SELECT authid AS oid,
+		start_day AS startday,
+		start_time::text AS starttime,
+		end_day AS endday,
+		end_time::text AS endtime
+	FROM pg_auth_time_constraint`
 	err := connectionPool.Select(&timeConstraints, query)
 	gplog.FatalOnError(err)
 
@@ -505,13 +477,13 @@ func (rm RoleMember) GetMetadataEntry() (string, utils.MetadataEntry) {
 
 func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 	query := `
-SELECT
-	quote_ident(pg_get_userbyid(pga.roleid)) AS role,
-	quote_ident(pg_get_userbyid(pga.member)) AS member,
-	CASE WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')' THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor)) END AS grantor,
-	admin_option AS isadmin
-FROM pg_auth_members pga
-ORDER BY roleid, member;`
+	SELECT quote_ident(pg_get_userbyid(pga.roleid)) AS role,
+		quote_ident(pg_get_userbyid(pga.member)) AS member,
+		CASE WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
+			THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor)) END AS grantor,
+		admin_option AS isadmin
+	FROM pg_auth_members pga
+	ORDER BY roleid, member`
 
 	results := make([]RoleMember, 0)
 	err := connectionPool.Select(&results, query)
@@ -549,24 +521,21 @@ func (t Tablespace) FQN() string {
 
 func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {
 	before6query := `
-SELECT
-	t.oid,
-	quote_ident(t.spcname) AS tablespace,
-	quote_ident(f.fsname) AS filelocation
-FROM pg_tablespace t
-JOIN pg_filespace f
-ON t.spcfsoid = f.oid
-WHERE spcname != 'pg_default'
-AND spcname != 'pg_global';`
+	SELECT t.oid,
+		quote_ident(t.spcname) AS tablespace,
+		quote_ident(f.fsname) AS filelocation
+	FROM pg_tablespace t
+		JOIN pg_filespace f ON t.spcfsoid = f.oid
+	WHERE spcname != 'pg_default'
+		AND spcname != 'pg_global'`
 	query := `
-SELECT
-	oid,
-	quote_ident(spcname) AS tablespace,
-	'''' || pg_catalog.pg_tablespace_location(oid) || '''' AS filelocation,
-    coalesce(array_to_string(spcoptions, ', '), '') AS options
-FROM pg_tablespace
-WHERE spcname != 'pg_default'
-AND spcname != 'pg_global';`
+	SELECT oid,
+		quote_ident(spcname) AS tablespace,
+		'''' || pg_catalog.pg_tablespace_location(oid) || '''' AS filelocation,
+		coalesce(array_to_string(spcoptions, ', '), '') AS options
+	FROM pg_tablespace
+	WHERE spcname != 'pg_default'
+		AND spcname != 'pg_global'`
 
 	results := make([]Tablespace, 0)
 	var err error
@@ -584,10 +553,10 @@ AND spcname != 'pg_global';`
 
 func GetSegmentTablespaces(connectionPool *dbconn.DBConn, Oid uint32) []string {
 	query := fmt.Sprintf(`
-SELECT
-	'content' || gp_segment_id || '=''' || tblspc_loc || '''' AS string
-FROM gp_tablespace_segment_location(%d) WHERE tblspc_loc != pg_tablespace_location(%d)
-ORDER BY gp_segment_id;`, Oid, Oid)
+	SELECT 'content' || gp_segment_id || '=''' || tblspc_loc || '''' AS string
+	FROM gp_tablespace_segment_location(%d)
+	WHERE tblspc_loc != pg_tablespace_location(%d)
+	ORDER BY gp_segment_id;`, Oid, Oid)
 
 	return dbconn.MustSelectStringSlice(connectionPool, query)
 }
@@ -595,7 +564,8 @@ ORDER BY gp_segment_id;`, Oid, Oid)
 //Potentially expensive query
 func GetDBSize(connectionPool *dbconn.DBConn) string {
 	size := struct{ DBSize string }{}
-	sizeQuery := fmt.Sprintf("SELECT pg_size_pretty(pg_database_size('%s')) as dbsize", utils.EscapeSingleQuotes(connectionPool.DBName))
+	sizeQuery := fmt.Sprintf("SELECT pg_size_pretty(pg_database_size('%s')) as dbsize",
+		utils.EscapeSingleQuotes(connectionPool.DBName))
 	err := connectionPool.Get(&size, sizeQuery)
 	gplog.FatalOnError(err)
 	return size.DBSize

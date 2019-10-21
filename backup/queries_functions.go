@@ -420,7 +420,8 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		LEFT JOIN pg_operator o ON a.aggsortop = o.oid
 		LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
 	WHERE %s
-		AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
+		AND %s`,
+		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	masterQuery := fmt.Sprintf(`
 	SELECT p.oid,
@@ -455,7 +456,8 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		LEFT JOIN pg_operator o ON a.aggsortop = o.oid
 		LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
 	WHERE %s
-		AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("p"))
+		AND %s`,
+		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	aggregates := make([]Aggregate, 0)
 	query := ""

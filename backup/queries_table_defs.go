@@ -125,7 +125,7 @@ func GetPartitionTableMap(connectionPool *dbconn.DBConn) map[uint32]PartitionLev
 		'' AS rootname
 	FROM pg_partition p
 		JOIN pg_class pc ON p.parrelid = pc.oid
-	UNION
+	UNION ALL
 	SELECT r.parchildrelid AS oid,
 		CASE WHEN p.parlevel = levels.pl THEN 'l' ELSE 'i' END AS level,
 		quote_ident(cparent.relname) AS rootname
@@ -183,8 +183,7 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 	gplog.Verbose("Getting column definitions")
 	results := make([]ColumnDefinition, 0)
 	selectClause := `
-    SELECT
-		a.attrelid,
+    SELECT a.attrelid,
 		a.attnum,
 		quote_ident(a.attname) AS name,
 		a.attnotnull,
@@ -205,7 +204,9 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum`
 	whereClause := `
 	WHERE ` + relationAndSchemaFilterClause() + `
-		AND NOT EXISTS (SELECT 1 FROM (SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable) par WHERE par.parchildrelid = c.oid)
+		AND NOT EXISTS (SELECT 1 FROM 
+			(SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable)
+			par WHERE par.parchildrelid = c.oid)
 		AND c.reltype <> 0
 		AND a.attnum > 0::pg_catalog.int2
 		AND a.attisdropped = 'f'
@@ -213,16 +214,12 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 
 	if connectionPool.Version.AtLeast("6") {
 		selectClause += `,
-		CASE
-			WHEN a.attacl IS NULL THEN NULL
+		CASE WHEN a.attacl IS NULL THEN NULL
 			WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
-			ELSE UNNEST(a.attacl)
-		END AS privileges,
-		CASE
-			WHEN a.attacl IS NULL THEN ''
+			ELSE UNNEST(a.attacl) END AS privileges,
+		CASE WHEN a.attacl IS NULL THEN ''
 			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
-			ELSE ''
-		END AS kind,
+			ELSE '' END AS kind,
 		coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
 		coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
 		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
@@ -231,7 +228,8 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		fromClause += `
 		LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
 		LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
-		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum`
+		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND
+			sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum`
 	}
 
 	query := fmt.Sprintf(`%s %s %s;`, selectClause, fromClause, whereClause)
@@ -323,7 +321,8 @@ func GetTableStorage(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint
 		JOIN pg_namespace n ON c.relnamespace = n.oid
 		LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace
 	WHERE %s
-		AND t.spcname IS NOT NULL OR reloptions IS NOT NULL`, relationAndSchemaFilterClause())
+		AND (t.spcname IS NOT NULL OR reloptions IS NOT NULL)`,
+		relationAndSchemaFilterClause())
 	var results []struct {
 		Oid          uint32
 		Tablespace   sql.NullString
@@ -414,7 +413,8 @@ func GetTableInheritance(connectionPool *dbconn.DBConn, tables []Relation) map[u
 		JOIN pg_class p ON i.inhparent = p.oid
 		JOIN pg_namespace n ON p.relnamespace = n.oid
 	WHERE %s%s
-	ORDER BY i.inhrelid, i.inhseqno`, ExtensionFilterClause("p"), tableFilterStr)
+	ORDER BY i.inhrelid, i.inhseqno`,
+	ExtensionFilterClause("p"), tableFilterStr)
 
 	results := make([]Dependency, 0)
 	resultMap := make(map[uint32][]string)

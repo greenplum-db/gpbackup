@@ -56,51 +56,50 @@ func GetAttributeStatistics(connectionPool *dbconn.DBConn, tables []Table) map[u
 		statSlotClause = `s.stakind5,
 	s.staop5,
 	s.stanumbers5,
-	s.stavalues5,
-`
+	s.stavalues5,`
 	}
 	tablenames := make([]string, 0)
 	for _, table := range tables {
 		tablenames = append(tablenames, table.FQN())
 	}
 	query := fmt.Sprintf(`
-SELECT
-	c.oid,
-	quote_ident(n.nspname) AS schema,
-	quote_ident(c.relname) AS table,
-	quote_ident(a.attname) AS attname,
-	quote_ident(t.typname) AS type,
-	s.starelid,
-	s.staattnum,
-	%s
-	s.stanullfrac,
-	s.stawidth,
-	s.stadistinct,
-	%s
-	s.stakind1,
-	s.stakind2,
-	s.stakind3,
-	s.stakind4,
-	s.staop1,
-	s.staop2,
-	s.staop3,
-	s.staop4,
-	s.stanumbers1,
-	s.stanumbers2,
-	s.stanumbers3,
-	s.stanumbers4,
-	s.stavalues1,
-	s.stavalues2,
-	s.stavalues3,
-	s.stavalues4
-FROM pg_class c
-JOIN pg_namespace n ON c.relnamespace = n.oid
-JOIN pg_attribute a ON a.attrelid = c.oid
-JOIN pg_statistic s ON (c.oid = s.starelid AND a.attnum = s.staattnum)
-JOIN pg_type t ON a.atttypid = t.oid
-WHERE %s
-AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
-ORDER BY n.nspname, c.relname, a.attnum;`, inheritClause, statSlotClause, SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
+	SELECT c.oid,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(c.relname) AS table,
+		quote_ident(a.attname) AS attname,
+		quote_ident(t.typname) AS type,
+		s.starelid,
+		s.staattnum,
+		%s
+		s.stanullfrac,
+		s.stawidth,
+		s.stadistinct,
+		%s
+		s.stakind1,
+		s.stakind2,
+		s.stakind3,
+		s.stakind4,
+		s.staop1,
+		s.staop2,
+		s.staop3,
+		s.staop4,
+		s.stanumbers1,
+		s.stanumbers2,
+		s.stanumbers3,
+		s.stanumbers4,
+		s.stavalues1,
+		s.stavalues2,
+		s.stavalues3,
+		s.stavalues4
+	FROM pg_class c
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+		JOIN pg_attribute a ON a.attrelid = c.oid
+		JOIN pg_statistic s ON (c.oid = s.starelid AND a.attnum = s.staattnum)
+		JOIN pg_type t ON a.atttypid = t.oid
+	WHERE %s
+		AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
+	ORDER BY n.nspname, c.relname, a.attnum`,
+	inheritClause, statSlotClause, SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
 
 	results := make([]AttributeStatistic, 0)
 	err := connectionPool.Select(&results, query)
@@ -126,17 +125,17 @@ func GetTupleStatistics(connectionPool *dbconn.DBConn, tables []Table) map[uint3
 		tablenames = append(tablenames, table.FQN())
 	}
 	query := fmt.Sprintf(`
-SELECT
-	c.oid,
-	quote_ident(n.nspname) AS schema,
-	quote_ident(c.relname) AS table,
-	c.relpages,
-	c.reltuples
-FROM pg_class c
-JOIN pg_namespace n ON c.relnamespace = n.oid
-WHERE %s
-AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
-ORDER BY n.nspname, c.relname;`, SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
+	SELECT c.oid,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(c.relname) AS table,
+		c.relpages,
+		c.reltuples
+	FROM pg_class c
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+	WHERE %s
+		AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
+	ORDER BY n.nspname, c.relname`,
+	SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
 
 	results := make([]TupleStatistic, 0)
 	err := connectionPool.Select(&results, query)

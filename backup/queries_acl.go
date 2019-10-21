@@ -117,25 +117,21 @@ type MetadataQueryStruct struct {
 
 func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
 	gplog.Verbose("Getting object type metadata from " + params.CatalogTable)
+
 	aclStr := "''"
 	kindStr := "''"
-	schemaStr := ""
-	ownerStr := "''"
-
 	if params.ACLField != "" {
-		aclStr = fmt.Sprintf(`CASE
-		WHEN %[1]s IS NULL THEN NULL
+		aclStr = fmt.Sprintf(`CASE WHEN %[1]s IS NULL THEN NULL
 		WHEN array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
 		ELSE unnest(%[1]s) END`, params.ACLField)
-		kindStr = fmt.Sprintf(`CASE
-		WHEN %[1]s IS NULL THEN ''
+		kindStr = fmt.Sprintf(`CASE WHEN %[1]s IS NULL THEN ''
 		WHEN array_upper(%[1]s, 1) = 0 THEN 'Empty'
 		ELSE '' END`, params.ACLField)
 	}
-
+	schemaStr := ""
 	if params.SchemaField != "" {
 		schemaStr = fmt.Sprintf(`JOIN pg_namespace n ON o.%s = n.oid
-WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
+	WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 	}
 	descFunc := "pg_description"
 	subidStr := " AND d.objsubid = 0"
@@ -143,10 +139,10 @@ WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 		descFunc = "pg_shdescription"
 		subidStr = ""
 	}
+	ownerStr := "''"
 	if params.OwnerField != "" {
 		ownerStr = fmt.Sprintf("quote_ident(pg_get_userbyid(%s))", params.OwnerField)
 	}
-
 	secCols := ""
 	secStr := ""
 	if connectionPool.Version.AtLeast("6") {
@@ -173,7 +169,8 @@ WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 		%s
 		%s
 		AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
-	ORDER BY o.oid`, params.CatalogTable, aclStr, kindStr, ownerStr, secCols, params.CatalogTable, descFunc, params.CatalogTable, subidStr, secStr, schemaStr)
+	ORDER BY o.oid`, params.CatalogTable, aclStr, kindStr, ownerStr, secCols,
+	params.CatalogTable, descFunc, params.CatalogTable, subidStr, secStr, schemaStr)
 
 	results := make([]MetadataQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
@@ -190,9 +187,9 @@ func sortACLs(privileges []ACL) []ACL {
 }
 
 func GetCommentsForObjectType(connectionPool *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
-	schemaStr := ""
+	joinStr := ""
 	if params.SchemaField != "" {
-		schemaStr = fmt.Sprintf(` JOIN pg_namespace n ON o.%s = n.oid
+		joinStr = fmt.Sprintf(`JOIN pg_namespace n ON o.%s = n.oid
 	 WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
 	}
 	descTable := "pg_description"
@@ -209,8 +206,10 @@ func GetCommentsForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	SELECT '%s'::regclass::oid AS classid,
 		o.%s AS oid,
 		coalesce(description,'') AS comment
-	FROM %s o JOIN %s d ON (d.objoid = %s AND d.classoid = '%s'::regclass%s)%s
-	`, params.CatalogTable, params.OidField, params.CatalogTable, descTable, params.OidField, commentTable, subidStr, schemaStr)
+	FROM %s o
+		JOIN %s d ON (d.objoid = %s AND d.classoid = '%s'::regclass%s)
+		%s`, params.CatalogTable, params.OidField, params.CatalogTable, descTable,
+		params.OidField, commentTable, subidStr, joinStr)
 
 	results := make([]struct {
 		UniqueID
@@ -261,16 +260,12 @@ func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
 	SELECT a.oid,
 		quote_ident(r.rolname) AS owner,
 		coalesce(quote_ident(n.nspname),'') AS schema,
-		CASE
-			WHEN a.defaclacl IS NULL THEN NULL
+		CASE WHEN a.defaclacl IS NULL THEN NULL
 			WHEN array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
-			ELSE unnest(a.defaclacl)
-		END AS privileges,
-		CASE
-			WHEN a.defaclacl IS NULL THEN ''
+			ELSE unnest(a.defaclacl) END AS privileges,
+		CASE WHEN a.defaclacl IS NULL THEN ''
 			WHEN array_upper(a.defaclacl, 1) = 0 THEN 'Empty'
-			ELSE ''
-		END AS kind,
+			ELSE '' END AS kind,
 		a.defaclobjtype AS objecttype
 	FROM pg_default_acl a
 		JOIN pg_roles r ON r.oid = a.defaclrole
