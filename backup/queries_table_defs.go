@@ -214,12 +214,16 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 
 	if connectionPool.Version.AtLeast("6") {
 		selectClause += `,
-		CASE WHEN a.attacl IS NULL THEN NULL
+		CASE
+			WHEN a.attacl IS NULL THEN NULL
 			WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
-			ELSE UNNEST(a.attacl) END AS privileges,
-		CASE WHEN a.attacl IS NULL THEN ''
+			ELSE UNNEST(a.attacl)
+		END AS privileges,
+		CASE
+			WHEN a.attacl IS NULL THEN ''
 			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
-			ELSE '' END AS kind,
+			ELSE ''
+		END AS kind,
 		coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
 		coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
 		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,

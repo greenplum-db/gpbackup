@@ -109,9 +109,11 @@ func GetDatabaseInfo(connectionPool *dbconn.DBConn) Database {
 func GetDatabaseGUCs(connectionPool *dbconn.DBConn) []string {
 	//We do not want to quote list type config settings such as search_path and DateStyle
 	query := `
-	SELECT CASE WHEN option_name='search_path' OR option_name = 'DateStyle'
+	SELECT CASE
+		WHEN option_name='search_path' OR option_name = 'DateStyle'
 		THEN ('SET ' || option_name || ' TO ' || option_value)
-		ELSE ('SET ' || option_name || ' TO ''' || option_value || '''') END AS string
+		ELSE ('SET ' || option_name || ' TO ''' || option_value || '''')
+	END AS string
 	FROM pg_options_to_table((%s))`
 	if connectionPool.Version.Before("6") {
 		subQuery := fmt.Sprintf("SELECT datconfig FROM pg_database WHERE datname = '%s'", utils.EscapeSingleQuotes(connectionPool.DBName))
@@ -353,7 +355,8 @@ func GetRoles(connectionPool *dbconn.DBConn) []Role {
 		%s
 		rolconnlimit,
 		coalesce(rolpassword, '') AS password,
-		CASE WHEN (rolvaliduntil = 'infinity'::timestamp OR rolvaliduntil = '-infinity'::timestamp)
+		CASE
+			WHEN (rolvaliduntil = 'infinity'::timestamp OR rolvaliduntil = '-infinity'::timestamp)
 			THEN timezone('UTC', rolvaliduntil)::text
 			ELSE coalesce(timezone('UTC', rolvaliduntil) || '-00', '')
 		END AS validuntil,
@@ -412,9 +415,11 @@ func GetRoleGUCs(connectionPool *dbconn.DBConn) map[string][]RoleGUC {
 	query := fmt.Sprintf(`
 	SELECT rolename,
 		dbname,
-		CASE WHEN option_name='search_path' OR option_name = 'DateStyle'
+		CASE
+			WHEN option_name='search_path' OR option_name = 'DateStyle'
 			THEN ('SET ' || option_name || ' TO ' || option_value)
-			ELSE ('SET ' || option_name || ' TO ''' || option_value || '''') END AS config
+			ELSE ('SET ' || option_name || ' TO ''' || option_value || '''')
+		END AS config
 	FROM ( SELECT quote_ident(rolname) AS rolename,
 			'' AS dbname,
 			(pg_options_to_table(rolconfig)).option_name,
@@ -479,8 +484,10 @@ func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 	query := `
 	SELECT quote_ident(pg_get_userbyid(pga.roleid)) AS role,
 		quote_ident(pg_get_userbyid(pga.member)) AS member,
-		CASE WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
-			THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor)) END AS grantor,
+		CASE
+			WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
+			THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))
+		END AS grantor,
 		admin_option AS isadmin
 	FROM pg_auth_members pga
 	ORDER BY roleid, member`

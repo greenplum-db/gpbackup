@@ -271,8 +271,10 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 			quote_ident(a.attname) AS name,
 			pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
 			coalesce(quote_literal(d.description),'') AS comment,
-			CASE WHEN at.typcollation <> a.attcollation
-				THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation
+			CASE
+				WHEN at.typcollation <> a.attcollation
+				THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE ''
+			END AS collation
 		FROM pg_type t
 			JOIN pg_class c ON t.typrelid = c.oid
 			JOIN pg_attribute a ON t.typrelid = a.attrelid
@@ -349,7 +351,11 @@ func GetDomainTypes(connectionPool *dbconn.DBConn) []Domain {
 		quote_ident(n.nspname) AS schema,
 		quote_ident(t.typname) AS name,
 		coalesce(t.typdefault, '') AS defaultval,
-		CASE WHEN t.typcollation <> u.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(c.collname) ELSE '' END AS collation,
+		CASE
+			WHEN t.typcollation <> u.typcollation
+			THEN quote_ident(cn.nspname) || '.' || quote_ident(c.collname)
+			ELSE ''
+		END AS collation,
 		format_type(t.typbasetype, t.typtypmod) AS basetype,
 		t.typnotnull AS notnull
 	FROM pg_type t
@@ -447,14 +453,22 @@ func GetRangeTypes(connectionPool *dbconn.DBConn) []RangeType {
 		quote_ident(n.nspname) AS schema,
 		quote_ident(t.typname) AS name,
 		format_type(st.oid, st.typtypmod) AS subtype,
-		CASE WHEN c.collname IS NULL THEN ''
-			ELSE quote_ident(nc.nspname) || '.' || quote_ident(c.collname) END AS collation,
-		CASE WHEN opc.opcname IS NULL THEN ''
-			ELSE quote_ident(nopc.nspname) || '.' || quote_ident(opc.opcname) END AS subtypeopclass,
-		CASE WHEN r.rngcanonical = '-'::regproc THEN ''
-			ELSE r.rngcanonical::regproc::text END AS canonical,
-		CASE WHEN r.rngsubdiff = '-'::regproc THEN ''
-			ELSE r.rngsubdiff::regproc::text END AS subtypediff
+		CASE
+			WHEN c.collname IS NULL THEN ''
+			ELSE quote_ident(nc.nspname) || '.' || quote_ident(c.collname)
+		END AS collation,
+		CASE
+			WHEN opc.opcname IS NULL THEN ''
+			ELSE quote_ident(nopc.nspname) || '.' || quote_ident(opc.opcname)
+		END AS subtypeopclass,
+		CASE
+			WHEN r.rngcanonical = '-'::regproc THEN ''
+			ELSE r.rngcanonical::regproc::text
+		END AS canonical,
+		CASE
+			WHEN r.rngsubdiff = '-'::regproc THEN ''
+			ELSE r.rngsubdiff::regproc::text
+		END AS subtypediff
 	FROM pg_range r
 		JOIN pg_type t ON t.oid = r.rngtypid
 		JOIN pg_namespace n ON t.typnamespace = n.oid

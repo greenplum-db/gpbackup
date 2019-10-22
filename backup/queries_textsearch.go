@@ -56,7 +56,10 @@ func GetTextSearchParsers(connectionPool *dbconn.DBConn) []TextSearchParser {
 		prstoken::regproc::text AS tokenfunc,
 		prsend::regproc::text AS endfunc,
 		prslextype::regproc::text AS lextypesfunc,
-		CASE WHEN prsheadline::regproc::text = '-' THEN '' ELSE prsheadline::regproc::text END AS headlinefunc 
+		CASE
+			WHEN prsheadline::regproc::text = '-'
+			THEN '' ELSE prsheadline::regproc::text
+		END AS headlinefunc 
 	FROM pg_ts_parser p
 		JOIN pg_namespace n ON n.oid = p.prsnamespace
 	WHERE %s
@@ -102,7 +105,10 @@ func GetTextSearchTemplates(connectionPool *dbconn.DBConn) []TextSearchTemplate 
 	SELECT p.oid,
 		quote_ident(nspname) as schema,
 		quote_ident(tmplname) AS name,
-		CASE WHEN tmplinit::regproc::text = '-' THEN '' ELSE tmplinit::regproc::text END AS initfunc,
+		CASE
+			WHEN tmplinit::regproc::text = '-'
+			THEN '' ELSE tmplinit::regproc::text
+		END AS initfunc,
 		tmpllexize::regproc::text AS lexizefunc
 	FROM pg_ts_template p
 		JOIN pg_namespace n ON n.oid = p.tmplnamespace

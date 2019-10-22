@@ -122,8 +122,10 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		pg_get_constraintdef(con.oid, TRUE) AS condef,
 		quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
 		'f' AS isdomainconstraint,
-		CASE WHEN pt.parrelid IS NULL THEN 'f'
-			ELSE 't' END AS ispartitionparent
+		CASE
+			WHEN pt.parrelid IS NULL THEN 'f'
+			ELSE 't'
+		END AS ispartitionparent
 	FROM pg_constraint con
 		LEFT JOIN pg_class c ON con.conrelid = c.oid
 		LEFT JOIN pg_partition pt ON con.conrelid = pt.parrelid

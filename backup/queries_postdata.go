@@ -93,7 +93,10 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		coalesce(quote_ident(s.spcname), '') AS tablespace,
 		pg_get_indexdef(i.indexrelid) AS def,
 		i.indisclustered AS isclustered,
-		CASE WHEN i.indisprimary = 't' %s THEN 't' ELSE 'f' END AS supportsconstraint
+		CASE
+			WHEN i.indisprimary = 't' %s THEN 't'
+			ELSE 'f'
+		END AS supportsconstraint
 	FROM pg_index i
 		JOIN pg_class ic ON (ic.oid = i.indexrelid)
 		JOIN pg_namespace n ON (ic.relnamespace = n.oid)
@@ -118,7 +121,10 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		pg_get_indexdef(i.indexrelid) AS def,
 		i.indisclustered AS isclustered,
 		i.indisreplident AS isreplicaidentity,
-		CASE WHEN conindid > 0 THEN 't' ELSE 'f' END as supportsconstraint
+		CASE
+			WHEN conindid > 0 THEN 't'
+			ELSE 'f'
+		END as supportsconstraint
 	FROM pg_index i
 		JOIN pg_class ic ON ic.oid = i.indexrelid
 		JOIN pg_namespace n ON ic.relnamespace = n.oid

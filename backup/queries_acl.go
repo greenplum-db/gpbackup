@@ -121,10 +121,12 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	aclStr := "''"
 	kindStr := "''"
 	if params.ACLField != "" {
-		aclStr = fmt.Sprintf(`CASE WHEN %[1]s IS NULL THEN NULL
+		aclStr = fmt.Sprintf(`CASE
+		WHEN %[1]s IS NULL THEN NULL
 		WHEN array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
 		ELSE unnest(%[1]s) END`, params.ACLField)
-		kindStr = fmt.Sprintf(`CASE WHEN %[1]s IS NULL THEN ''
+		kindStr = fmt.Sprintf(`CASE
+		WHEN %[1]s IS NULL THEN ''
 		WHEN array_upper(%[1]s, 1) = 0 THEN 'Empty'
 		ELSE '' END`, params.ACLField)
 	}
@@ -260,12 +262,16 @@ func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
 	SELECT a.oid,
 		quote_ident(r.rolname) AS owner,
 		coalesce(quote_ident(n.nspname),'') AS schema,
-		CASE WHEN a.defaclacl IS NULL THEN NULL
+		CASE
+			WHEN a.defaclacl IS NULL THEN NULL
 			WHEN array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
-			ELSE unnest(a.defaclacl) END AS privileges,
-		CASE WHEN a.defaclacl IS NULL THEN ''
+			ELSE unnest(a.defaclacl)
+		END AS privileges,
+		CASE
+			WHEN a.defaclacl IS NULL THEN ''
 			WHEN array_upper(a.defaclacl, 1) = 0 THEN 'Empty'
-			ELSE '' END AS kind,
+			ELSE ''
+		END AS kind,
 		a.defaclobjtype AS objecttype
 	FROM pg_default_acl a
 		JOIN pg_roles r ON r.oid = a.defaclrole
