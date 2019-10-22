@@ -300,6 +300,7 @@ resources:
 # TODO mark these as src with name change
 - name: gpbackup
   type: git
+  icon: github-circle
   source:
     uri: https://github.com/greenplum-db/gpbackup
     branch: {{gpbackup-git-branch}}
@@ -309,6 +310,7 @@ resources:
 
 - name: gpbackup_s3_plugin
   type: git
+  icon: github-circle
   source:
     branch: master
     uri: https://github.com/greenplum-db/gpbackup-s3-plugin
@@ -318,6 +320,7 @@ resources:
 
 - name: gpbackup_ddboost_plugin
   type: git
+  icon: github-circle
   source:
     branch: master
     private_key: {{gpbackup-ddboost-plugin-remote-key}}
@@ -328,6 +331,7 @@ resources:
 
 - name: gpbackup_manager_src
   type: git
+  icon: github-circle
   source:
     branch: master
     private_key: {{gp-backup-manager-remote-deploy-key}}
@@ -338,6 +342,7 @@ resources:
 
 - name: gpdb5_src
   type: git
+  icon: github-circle
   source:
     uri: https://github.com/greenplum-db/gpdb
     branch: 5X_STABLE
@@ -351,6 +356,7 @@ resources:
 # before a final release_candidate is generated & shipped
 - name: bin_gpdb_5x_stable_intermediate
   type: s3
+  icon: amazon
   source:
       bucket: gpdb5-stable-concourse-builds
       versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
@@ -361,6 +367,7 @@ resources:
 
 - name: gpdb6_src
   type: git
+  icon: github-circle
   source:
     uri: https://github.com/greenplum-db/gpdb
     branch: 6X_STABLE
@@ -370,6 +377,7 @@ resources:
 
 - name: bin_gpdb_5x_sles11
   type: s3
+  icon: amazon
   source:
     bucket: gpdb5-stable-concourse-builds
     access_key_id: {{bucket-access-key-id}}
@@ -380,12 +388,14 @@ resources:
 {% if "gpbackup-release" != pipeline_name %}
 - name: gpdb_master_src
   type: git
+  icon: github-circle
   source:
     uri: https://github.com/greenplum-db/gpdb
     branch: master
 
 - name: bin_gpdb_master_centos6
   type: gcs
+  icon: google
   source:
       bucket: ((gcs-bucket))
       json_key: ((concourse-gcs-resources-service-account-key))
@@ -393,6 +403,7 @@ resources:
 
 - name: bin_gpdb_master_centos7
   type: gcs
+  icon: google
   source:
       bucket: ((gcs-bucket))
       json_key: ((concourse-gcs-resources-service-account-key))
@@ -401,6 +412,7 @@ resources:
 
 - name: gpbackup-dependencies
   type: s3
+  icon: amazon
   source:
       bucket: gpbackup-dependencies
 {% if is_prod %}
@@ -415,6 +427,7 @@ resources:
 # These binaries are used for backwards-compatibility testing only
 - name: bin_gpbackup_1.0.0_and_1.7.1
   type: s3
+  icon: amazon
   source:
       bucket: gpbackup-dependencies
       versioned_file: gpbackup_bins_1.0.0_and_1.7.1.tar.gz
@@ -425,6 +438,7 @@ resources:
 # This is specifically for sles11 images because it cannot connect to github due to TLS issues
 - name: libyaml-0.1.7
   type: s3
+  icon: amazon
   source:
       bucket: gpbackup-dependencies
       versioned_file: gpbackup-dependencies/libyaml-0.1.7.tar.gz
@@ -434,6 +448,7 @@ resources:
 
 - name: pgcrypto43
   type: s3
+  icon: amazon
   source:
       bucket: pgcrypto43
       access_key_id: {{bucket-access-key-id}}
@@ -443,6 +458,7 @@ resources:
 
 - name: dummy_seclabel_linux_gpdb6
   type: gcs
+  icon: google
   source:
     bucket: dummy_seclabel_gpdb_linux
     json_key: ((gcp_svc_acct_key))
@@ -451,6 +467,7 @@ resources:
 {% if "gpbackup-release" != pipeline_name %}
 - name: dummy_seclabel_linux_master
   type: gcs
+  icon: google
   source:
     bucket: dummy_seclabel_gpdb_linux
     json_key: ((gcp_svc_acct_key))
@@ -459,6 +476,7 @@ resources:
 
 - name: bin_gpdb_5x_stable_centos6
   type: s3
+  icon: amazon
   source:
       bucket: gpdb-stable-concourse-builds
       versioned_file: release_candidates/bin_gpdb_centos6/gpdb5/bin_gpdb.tar.gz
@@ -468,6 +486,7 @@ resources:
 
 - name: bin_gpdb_5x_stable_centos7
   type: s3
+  icon: amazon
   source:
       bucket: gpdb-stable-concourse-builds
       versioned_file: release_candidates/bin_gpdb_centos7/gpdb5/bin_gpdb.tar.gz
@@ -477,6 +496,7 @@ resources:
 
 - name: bin_gpdb_6x_stable_centos6
   type: gcs
+  icon: google
   source:
       bucket: ((gcs-bucket))
       json_key: ((concourse-gcs-resources-service-account-key))
@@ -484,6 +504,7 @@ resources:
 
 - name: bin_gpdb_6x_stable_centos7
   type: gcs
+  icon: google
   source:
       bucket: ((gcs-bucket))
       json_key: ((concourse-gcs-resources-service-account-key))
@@ -491,6 +512,7 @@ resources:
 
 - name: bin_gpdb_43_stable
   type: s3
+  icon: amazon
   source:
       bucket: gpdb-4.3-stable-concourse
       versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
@@ -500,6 +522,7 @@ resources:
 
 - name: ccp_src
   type: git
+  icon: github-circle
   source:
     branch: {{ccp-git-branch}}
     private_key: {{ccp-git-key}}
@@ -536,6 +559,7 @@ resources:
 
 - name: scale_schema
   type: s3
+  icon: amazon
   source:
     access_key_id: {{gpdb4-bucket-access-key-id}}
     bucket: {{dpm_bucket}}
@@ -545,6 +569,7 @@ resources:
 
 - name: boostfs_installer
   type: s3
+  icon: amazon
   source:
     access_key_id: {{gpdb4-bucket-access-key-id}}
     bucket: {{dpm_bucket}}
@@ -568,6 +593,7 @@ resources:
 
 - name: pivnet_release_cache
   type: s3
+  icon: amazon
   source:
     access_key_id: {{bucket-access-key-id}}
     bucket: {{pivnet_bucket_name}}
@@ -578,6 +604,7 @@ resources:
 {% if "gpbackup-release" == pipeline_name %}
 - name: github_release_components
   type: s3
+  icon: amazon
   source:
     access_key_id: {{bucket-access-key-id}}
     bucket: {{gpdb-stable-bucket-name}}
@@ -587,6 +614,7 @@ resources:
 
 - name: github_release_components_rc
   type: s3
+  icon: amazon
   source:
     access_key_id: {{bucket-access-key-id}}
     bucket: {{gpdb-stable-bucket-name}}
@@ -596,6 +624,7 @@ resources:
 
 - name: gppkgs_rc
   type: s3
+  icon: amazon
   source:
     access_key_id: {{bucket-access-key-id}}
     bucket: {{gpdb-stable-bucket-name}}
@@ -606,6 +635,7 @@ resources:
 
 - name: gppkgs
   type: s3
+  icon: amazon
   source:
     access_key_id: {{bucket-access-key-id}}
     bucket: {{gpdb-stable-bucket-name}}
@@ -659,6 +689,7 @@ resources:
 
 - name: gpbackup-release-license
   type: gcs
+  icon: google
   source:
     bucket: gpbackup-release-licenses
     json_key: ((gcp_svc_acct_key))
