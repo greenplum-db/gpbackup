@@ -1,4 +1,8 @@
 platform: linux
+
+image_resource:
+  type: docker-image
+
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
@@ -7,6 +11,13 @@ inputs:
 - name: ccp_src
 - name: cluster_env_files
 - name: gppkgs
+
+params:
+  REGION:
+  AWS_ACCESS_KEY_ID:
+  AWS_SECRET_ACCESS_KEY:
+  BUCKET:
+
 run:
   path: bash
   args:
@@ -29,10 +40,10 @@ run:
       cat << CONFIG > \$HOME/s3_config.yaml
     executablepath: \$GPHOME/bin/gpbackup_s3_plugin
     options:
-      region: us-west-2
-      aws_access_key_id: {{bucket-access-key-id}}
-      aws_secret_access_key: {{bucket-secret-access-key}}
-      bucket: {{gpbackup-s3-plugin-test-bucket}}
+      region: ${REGION}
+      aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+      aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      bucket: ${BUCKET}
       folder: test/backup
     CONFIG
 

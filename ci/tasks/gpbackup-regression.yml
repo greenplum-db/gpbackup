@@ -1,6 +1,8 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
@@ -8,6 +10,7 @@ inputs:
 - name: cluster_env_files
 - name: gpdb_src
 - name: sqldump
+
 outputs:
 - name: artifacts
 

@@ -1,6 +1,8 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: gpbackup_manager_src
   path: go/src/github.com/pivotal/gp-backup-manager

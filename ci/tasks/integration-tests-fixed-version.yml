@@ -1,11 +1,14 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
 - name: ccp_src
 - name: cluster_env_files
+
 params:
   GPBACKUP_VERSION:
 

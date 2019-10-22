@@ -26,10 +26,12 @@ groups:
   - master
   - final_gate
 {% endif %}
+
 - name: GPDB4.3
   jobs:
   - GPDB4.3
   - ddboost_plugin_and_boostfs_tests_43
+
 - name: GPDB5
   jobs:
   - GPDB5
@@ -41,15 +43,18 @@ groups:
   - s3_plugin_tests
   - ddboost_plugin_and_boostfs_tests_5x
   - backward-compatibility
+
 - name: GPDB6
   jobs:
   - GPDB6
   - ddboost_plugin_and_boostfs_tests_6x
+
 {% if "gpbackup-release" != pipeline_name %}
 - name: Master
   jobs:
   - master
 {% endif %}
+
 - name: Scale
   jobs:
   - scale-43
@@ -58,6 +63,7 @@ groups:
 {% if "gpbackup-release" != pipeline_name %}
   - scale-master
 {% endif %}
+
 {% if "gpbackup-release" == pipeline_name %}
 - name: Packaging and Release
   jobs:
@@ -73,12 +79,6 @@ ccp_default_params_anchor: &ccp_default_params
   delete_on_failure: true
   generate_random_name: true
   terraform_source: ccp_src/google/
-
-ccp_default_params_aws_anchor: &ccp_default_params_aws
-  action: create
-  delete_on_failure: true
-  generate_random_name: true
-  terraform_source: ccp_src/aws/
 
 ccp_vars_anchor: &ccp_default_vars
   instance_type: n1-standard-1
@@ -96,25 +96,19 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   BUCKET_NAME: {{tf-bucket-name}}
   CLOUD_PROVIDER: google
 
-ccp_gen_cluster_default_params_anchor_aws: &ccp_gen_cluster_default_params_aws
-  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: clusters-aws/
-  BUCKET_NAME: {{tf-bucket-name}}
-  CLOUD_PROVIDER: aws
+ddboost_params_anchor: &ddboost_params
+  DD_SOURCE_HOST: {{datadomain_source_host}}
+  DD_USER: {{datadomain_user}}
+  DD_PW: {{datadomain_password}}
 
-ddboost_ccp_gen_cluster_default_params_anchor: &ddboost_ccp_gen_cluster_default_params
-  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
-  BUCKET_PATH: clusters-aws/
-  BUCKET_NAME: {{tf-bucket-name}}
-  CLOUD_PROVIDER: aws
+ddboost_test_params_anchor: &ddboost_test_params
+  <<: *ddboost_params
+  DD_DEST_HOST: {{datadomain_dest_host}}
+  DD_ENCRYPTED_PW: {{encrypted_datadomain_password}}
 
 ccp_destroy_anchor: &ccp_destroy
   put: terraform
-  params:
+  params: &destroy_params
     action: destroy
     env_name_file: terraform/name
     terraform_source: ccp_src/google/
@@ -128,36 +122,26 @@ ccp_destroy_anchor: &ccp_destroy
 ccp_destroy_anchor_aws: &ccp_destroy_aws
   put: terraform_aws
   params:
-    action: destroy
+    <<: *destroy_params
     env_name_file: terraform_aws/name
     terraform_source: ccp_src/aws/
-    vars:
-      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
-      aws_ebs_volume_type: standard
   get_params:
     action: destroy
 
 ccp_nvme_destroy_anchor: &ccp_destroy_nvme
   put: terraform
   params:
-    action: destroy
-    env_name_file: terraform/name
+    <<: *destroy_params
     terraform_source: ccp_src/google-nvme-block-device/
-    vars:
-      aws_instance-node-instance_type: t2.micro
-      aws_ebs_volume_type: standard
-      instance_type: n1-standard-1
   get_params:
     action: destroy
 
 ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
   put: ddboost_terraform
   params:
-    action: destroy
+    <<: *destroy_params
     env_name_file: ddboost_terraform/name
     terraform_source: ccp_src/aws/
-    vars:
-      aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
   get_params:
     action: destroy
 
@@ -181,7 +165,7 @@ set_failed_anchor: &set_failed
     - task: on_failure_set_failed
       config:
         platform: linux
-        image_resource:
+        image_resource: &failed_image_resource
           type: docker-image
           source:
             repository: pivotaldata/ccp
@@ -191,7 +175,7 @@ set_failed_anchor: &set_failed
           - name: terraform
         run:
           path: 'ccp_src/google/ccp_failed_test.sh'
-        params:
+        params: &failed_params
           GOOGLE_CREDENTIALS: {{google-service-account-key}}
           GOOGLE_PROJECT_ID: {{google-project-id}}
           GOOGLE_ZONE: {{google-zone}}
@@ -208,10 +192,7 @@ set_failed_anchor_aws: &set_failed_aws
       config:
         platform: linux
         image_resource:
-          type: docker-image
-          source:
-            repository: pivotaldata/ccp
-            tag: "7"
+          <<: *failed_image_resource
         inputs:
           - name: ccp_src
           - name: terraform_aws
@@ -219,28 +200,17 @@ set_failed_anchor_aws: &set_failed_aws
         run:
           path: 'ccp_src/aws/ccp_failed_test.sh'
         params:
-          GOOGLE_CREDENTIALS: {{google-service-account-key}}
-          GOOGLE_PROJECT_ID: {{google-project-id}}
-          GOOGLE_ZONE: {{google-zone}}
-          GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
-          AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-          AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-          AWS_DEFAULT_REGION: {{tf-machine-region}}
+          <<: *failed_params
           BUCKET_PATH: clusters-aws/
-          BUCKET_NAME: {{tf-bucket-name}}
 
-{% if "gpbackup-release" == pipeline_name %}
-slack_alert_anchor_release: &slack_alert_release
-  put: slack-alert-release
-  params:
-    text: |
-      [gpbackup-release/$BUILD_JOB_NAME] failed:
-      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup-release/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
-{% else %}
 slack_alert_anchor: &slack_alert
   put: slack-alert
   params:
     text: |
+{% if "gpbackup-release" == pipeline_name %}
+      [gpbackup-release/$BUILD_JOB_NAME] failed:
+      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup-release/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+{% else %}
       [gpbackup/$BUILD_JOB_NAME] failed:
       https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
 {% endif %}
@@ -284,7 +254,6 @@ resources:
   source:
     repository: pivotaldata/centos-gpdb-dev
     tag: '6-gcc6.2-llvm3.7'
-
 
 ##### Other Resources #####
 {% if (nightly_trigger and "gpbackup-release" != pipeline_name) %}
@@ -577,19 +546,11 @@ resources:
     secret_access_key: {{gpdb4-bucket-secret-access-key}}
     versioned_file: DDBoostFS-1.1.0.1-565598.rhel.x86_64.rpm
 
-{% if "gpbackup-release" == pipeline_name %}
-- name: slack-alert-release
-  type: slack-notification
-  source:
-    url: {{dpm_webhook_url}}
-    disable: ((dpm_disable_slack_alert))
-{% else %}
 - name: slack-alert
   type: slack-notification
   source:
     url: {{dpm_webhook_url}}
     disable: ((dpm_disable_slack_alert))
-{% endif %}
 
 - name: pivnet_release_cache
   type: s3
@@ -742,44 +703,7 @@ jobs:
       file: gpbackup/ci/tasks/build-ddboost-sles.yml
   - task: tar-binaries-RHEL
     image: centos6-image
-    config:
-      platform: linux
-      inputs:
-        - name: go_components
-        - name: ddboost_components
-      outputs:
-        - name: github_release_components
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          pushd github_release_components
-            # Create install script
-            printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
-            chmod +x install_gpdb_component
-
-            cp ../go_components/*_version .
-            mv ../go_components/gpbackup_version version
-            cp ../ddboost_components/*_version .
-
-            mkdir -p bin
-            cp ../go_components/gpbackup bin/
-            cp ../go_components/gpbackup_helper bin/
-            cp ../go_components/gprestore bin/
-            cp ../go_components/gpbackup_s3_plugin bin/
-            cp ../go_components/gpbackup_manager bin/
-            cp ../ddboost_components/gpbackup_ddboost_plugin bin/
-
-            mkdir -p lib
-            cp ../ddboost_components/libDDBoost.so lib/
-
-            tar -czvf bin_gpbackup.tar.gz bin/ lib/
-
-            version=`cat version`
-            tar -czvf "gpbackup-${version}.tar.gz" bin_gpbackup.tar.gz install_gpdb_component gpbackup_version version s3_plugin_version ddboost_plugin_version gpbackup_manager_version
-          popd
+    file: gpbackup/ci/tasks/rhel-binaries.yml
   - task: tar-binaries-SLES
     image: centos6-image
     file: gpbackup/ci/tasks/sles-binaries.yml
@@ -791,11 +715,7 @@ jobs:
       RHEL_binaries: github_release_components
       SLES_binaries: SLES_binaries
     on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-      *slack_alert_release
-{% else %}
       *slack_alert
-{% endif %}
   - put: gppkgs
     params:
       file: gppkgs/gpbackup-gppkgs.tar.gz
@@ -808,10 +728,10 @@ jobs:
 - name: s3_plugin_tests
   plan:
   - in_parallel:
+    - get: centos6-image
     - get: gpbackup_s3_plugin
     - get: gpbackup
     - get: ccp_src
-    - get: centos6-image
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpdb_binary
@@ -840,20 +760,22 @@ jobs:
   - task: run_tests
     image: centos6-image
     file: gpbackup/ci/tasks/s3-plugin-tests.yml
+    params:
+      REGION: us-west-2
+      AWS_ACCESS_KEY_ID: {{bucket-access-key-id}}
+      AWS_SECRET_ACCESS_KEY: {{bucket-secret-access-key}}
+      BUCKET: {{gpbackup-s3-plugin-test-bucket}}
   on_success:
     <<: *ccp_destroy
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 
 - name: gpbackup-manager-tests
   plan:
   - in_parallel:
+    - get: centos7-image
     - get: gpbackup_manager_src
     - get: gpbackup
     - get: bin_gpdb
@@ -866,321 +788,125 @@ jobs:
     - get: gpbackup-dependencies
       passed: [build_binaries]
   - task: run_tests
+    image: centos7-image
     file: gpbackup/ci/tasks/test-gpbackup-manager.yml
 
 - name: ddboost_plugin_and_boostfs_tests_43
   plan:
   - in_parallel:
+    - get: centos7-image
     - get: gpbackup_ddboost_plugin
-      tags: ["ddboost"]
     - get: gpbackup
-      tags: ["ddboost"]
     - get: ccp_src
-      tags: ["ddboost"]
     - get: gpdb_src
       resource: gpdb5_src
-      tags: ["ddboost"]
-    - get: bin_gpdb_43_stable
+    - get: gpdb_binary
+      resource: bin_gpdb_43_stable
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-      tags: ["ddboost"]
-    - get: boostfs_installer
-      tags: ["ddboost"]
-    - get: gpbackup-dependencies
-      tags: ["ddboost"]
-      passed: [build_binaries]
     - get: pgcrypto43
+  ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
+    do:
+    - put: ddboost_terraform
       tags: ["ddboost"]
-    - get: gppkgs
+      params:
+        <<: *ccp_default_params
+        terraform_source: ccp_src/aws/
+        vars:
+          aws_instance-node-instance_type: t2.medium
+          PLATFORM: centos6
+    - task: gen_cluster
       tags: ["ddboost"]
-      passed: [build_binaries]
-      trigger: true
-  - put: ddboost_terraform
-    tags: ["ddboost"]
-    params:
-      <<: *ccp_default_params
-      terraform_source: ccp_src/aws/
-      vars:
-        aws_instance-node-instance_type: t2.medium
-        PLATFORM: centos6
-  - task: gen_cluster
-    tags: ["ddboost"]
-    params:
-      <<: *ddboost_ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      terraform: ddboost_terraform
-      gpdb_binary: bin_gpdb_43_stable
-  - task: gpinitsystem
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/setup-centos-env.yml
-  - task: install_dependencies
-    image: centos7-image
-    tags: ["ddboost"]
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: gpbackup_ddboost_plugin
-       - name: pgcrypto43
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
+      params:
+        <<: *ccp_gen_cluster_default_params
+        BUCKET_PATH: clusters-aws/
+        CLOUD_PROVIDER: aws
+      file: ccp_src/ci/tasks/gen_cluster.yml
+      input_mapping:
+        terraform: ddboost_terraform
+    - task: gpinitsystem
+      tags: ["ddboost"]
+      file: ccp_src/ci/tasks/gpinitsystem.yml
+    - task: setup-centos-env
+      tags: ["ddboost"]
+      file: gpbackup/ci/tasks/setup-centos-env.yml
+    - task: install_dependencies
+      tags: ["ddboost"]
+      image: centos7-image
+      file: gpbackup/ci/tasks/install-ddboost-deps.yml
+      on_failure:
+        do:
+        - *slack_alert
+        - *debug_sleep
+    - task: boostfs_installation
+      tags: ["ddboost"]
+      file: gpbackup/ci/tasks/boostfs-install.yml
+      params:
+        <<: *ddboost_params
+      on_failure:
+        do:
+        - *debug_sleep
+    - task: run_tests
+      tags: ["ddboost"]
+      image: centos7-image
+      file: gpbackup/ci/tasks/ddboost-tests.yml
+      params:
+        <<: *ddboost_test_params
+      on_failure:
+        do:
+        - *slack_alert
+        - *debug_sleep
+    ensure:
+        <<: *ddboost_ccp_destroy
 
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-
-          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
-          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
-
-          scp -r pgcrypto43/pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg mdw:.
-          ssh -t gpadmin@mdw "source env.sh; gppkg -i pgcrypto-ossv1.1_pv1.3_gpdb4.3orca-rhel5-x86_64.gppkg"
-          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -f \$GPHOME/share/postgresql/contrib/pgcrypto.sql"
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *debug_sleep
-  - task: boostfs_installation
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/boostfs-install.yml
-    on_failure:
-      do:
-      - *debug_sleep
-  - task: run_tests
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/ddboost-tests.yml
-    params:
-      DD_SOURCE_HOST: {{datadomain_source_host}}
-      DD_DEST_HOST: {{datadomain_dest_host}}
-      DD_USER: {{datadomain_user}}
-      DD_PW: {{datadomain_password}}
-      DD_ENCRYPTED_PW: {{encrypted_datadomain_password}}
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *debug_sleep
-  ensure:
-      <<: *ddboost_ccp_destroy
+  <<: *ddboost_plugin_and_boostfs_tests
 
 - name: ddboost_plugin_and_boostfs_tests_5x
   plan:
   - in_parallel:
+    - get: centos7-image
     - get: gpbackup_ddboost_plugin
-      tags: ["ddboost"]
     - get: gpbackup
-      tags: ["ddboost"]
     - get: ccp_src
-      tags: ["ddboost"]
     - get: gpdb_src
       resource: gpdb5_src
-      tags: ["ddboost"]
     - get: gpdb_binary
       resource: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-      tags: ["ddboost"]
     - get: boostfs_installer
-      tags: ["ddboost"]
     - get: gpbackup-dependencies
-      tags: ["ddboost"]
       passed: [build_binaries]
     - get: gppkgs
-      tags: ["ddboost"]
       passed: [build_binaries]
       trigger: true
-  - put: ddboost_terraform
-    tags: ["ddboost"]
-    params:
-      <<: *ccp_default_params
-      terraform_source: ccp_src/aws/
-      vars:
-        aws_instance-node-instance_type: t2.medium
-        PLATFORM: centos6
-  - task: gen_cluster
-    tags: ["ddboost"]
-    params:
-      <<: *ddboost_ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      terraform: ddboost_terraform
-  - task: gpinitsystem
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/setup-centos-env.yml
-  - task: install_dependencies
-    image: centos7-image
-    tags: ["ddboost"]
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: gpbackup_ddboost_plugin
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
-          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
-          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -c 'CREATE EXTENSION pgcrypto;'"
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *debug_sleep
-  - task: boostfs_installation
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/boostfs-install.yml
-    on_failure:
-      do:
-      - *debug_sleep
-  - task: run_tests
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/ddboost-tests.yml
-    params:
-      DD_SOURCE_HOST: {{datadomain_source_host}}
-      DD_DEST_HOST: {{datadomain_dest_host}}
-      DD_USER: {{datadomain_user}}
-      DD_PW: {{datadomain_password}}
-      DD_ENCRYPTED_PW: {{encrypted_datadomain_password}}
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *debug_sleep
-  ensure:
-      <<: *ddboost_ccp_destroy
+    <<: *ddboost_plugin_and_boostfs_tests
 
 - name: ddboost_plugin_and_boostfs_tests_6x
   plan:
   - in_parallel:
+    - get: centos7-image
     - get: gpbackup_ddboost_plugin
-      tags: ["ddboost"]
     - get: gpbackup
-      tags: ["ddboost"]
     - get: ccp_src
-      tags: ["ddboost"]
     - get: gpdb_src
       resource: gpdb6_src
-      tags: ["ddboost"]
     - get: gpdb_binary
       resource: bin_gpdb_6x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-      tags: ["ddboost"]
     - get: boostfs_installer
-      tags: ["ddboost"]
     - get: gpbackup-dependencies
-      tags: ["ddboost"]
       passed: [build_binaries]
     - get: gppkgs
-      tags: ["ddboost"]
       passed: [build_binaries]
       trigger: true
     - get: dummy_seclabel
       resource: dummy_seclabel_linux_gpdb6
-      tags: ["ddboost"]
-  - put: ddboost_terraform
-    tags: ["ddboost"]
-    params:
-      <<: *ccp_default_params
-      terraform_source: ccp_src/aws/
-      vars:
-        aws_instance-node-instance_type: t2.medium
-        PLATFORM: centos6
-  - task: gen_cluster
-    tags: ["ddboost"]
-    params:
-      <<: *ddboost_ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      terraform: ddboost_terraform
-  - task: gpinitsystem
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/setup-centos-env.yml
-  - task: install_dependencies
-    tags: ["ddboost"]
-    image: centos7-image
-    config:
-      platform: linux
-      inputs:
-       - name: ccp_src
-       - name: cluster_env_files
-       - name: gpbackup_ddboost_plugin
-      run:
-        path: bash
-        args:
-        - -c
-        - |
-          set -ex
-          ccp_src/scripts/setup_ssh_to_cluster.sh
-          scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
-          ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
-          ssh -t gpadmin@mdw "source env.sh; psql -d postgres -c 'CREATE EXTENSION pgcrypto;'"
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *debug_sleep
-  - task: boostfs_installation
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/boostfs-install.yml
-    on_failure:
-      do:
-      - *debug_sleep
-  - task: run_tests
-    tags: ["ddboost"]
-    file: gpbackup/ci/tasks/ddboost-tests.yml
-    params:
-      DD_SOURCE_HOST: {{datadomain_source_host}}
-      DD_DEST_HOST: {{datadomain_dest_host}}
-      DD_USER: {{datadomain_user}}
-      DD_PW: {{datadomain_password}}
-      DD_ENCRYPTED_PW: {{encrypted_datadomain_password}}
-    on_failure:
-      do:
-{% if "gpbackup-release" == pipeline_name %}
-      - *slack_alert_release
-{% else %}
-      - *slack_alert
-{% endif %}
-      - *debug_sleep
-  ensure:
-      <<: *ddboost_ccp_destroy
+    <<: *ddboost_plugin_and_boostfs_tests
 
 - name: GPDB5-sles11
   plan:
@@ -1218,17 +944,14 @@ jobs:
   on_success:
     <<: *ccp_destroy
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 
 - name: GPDB5-oracle7
   plan:
   - in_parallel:
+    - get: centos6-image
     - get: gpbackup
     - get: gpdb_binary
       resource: bin_gpdb_5x_stable_centos7
@@ -1243,10 +966,10 @@ jobs:
     - get: gppkgs
       trigger: true
       passed: [build_binaries]
-  - put: terraform
-    resource: terraform_aws
+  - put: terraform_aws
     params:
-      <<: *ccp_default_params_aws
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws/
       vars:
         <<: *ccp_default_vars_aws
         PLATFORM: oracle7
@@ -1255,8 +978,12 @@ jobs:
   - task: gen_cluster
     tags: ['aws']
     file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      terraform: terraform_aws
     params:
-      <<: *ccp_gen_cluster_default_params_aws
+      <<: *ccp_gen_cluster_default_params
+      BUCKET_PATH: clusters-aws/
+      CLOUD_PROVIDER: aws
       PLATFORM: oracle7
   - task: gpinitsystem
     tags: ['aws']
@@ -1273,11 +1000,7 @@ jobs:
   on_success:
     <<: *ccp_destroy_aws
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed_aws
 
@@ -1316,11 +1039,7 @@ jobs:
       input_mapping:
         bin_gpdb: bin_gpdb_master_centos7
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
 {% endif %}
 
 - name: GPDB4.3
@@ -1344,11 +1063,7 @@ jobs:
     image: centos6-image
     file: gpbackup/ci/tasks/test-on-local-cluster.yml
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
 
 - name: GPDB5
   plan:
@@ -1380,11 +1095,7 @@ jobs:
       input_mapping:
         bin_gpdb: bin_gpdb_5x_stable_centos7
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
 
 - name: GPDB6
   plan:
@@ -1422,15 +1133,12 @@ jobs:
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_centos7
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
 
 - name: backward-compatibility
   plan:
   - in_parallel:
+    - get: centos6-image
     - get: gpbackup
     - get: gpdb_binary
       resource: bin_gpdb_5x_stable_centos6
@@ -1460,23 +1168,19 @@ jobs:
   - task: setup-centos-env
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: backup-1.0.0-restore-latest
-    file: gpbackup/ci/tasks/all-tests.yml
     image: centos6-image
+    file: gpbackup/ci/tasks/all-tests.yml
     params:
       GPBACKUP_VERSION: "1.0.0"
   - task: backup-1.7.1-restore-latest
-    file: gpbackup/ci/tasks/all-tests.yml
     image: centos6-image
+    file: gpbackup/ci/tasks/all-tests.yml
     params:
       GPBACKUP_VERSION: "1.7.1"
   on_success:
     <<: *ccp_destroy
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 
@@ -1485,6 +1189,7 @@ jobs:
 - name: 5X-head-gpbackup-fixed-test
   plan:
   - in_parallel:
+    - get: centos6-image
     # NOTE: This is not being used, but is required input for the final_gate
     - get: gppkgs
       passed: [build_binaries]
@@ -1512,17 +1217,14 @@ jobs:
   - task: setup-centos-env
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: gpbackup-1.12.1-test
+    image: centos6-image
     file: gpbackup/ci/tasks/integration-tests-fixed-version.yml
     params:
       GPBACKUP_VERSION: "1.12.1"
   on_success:
     <<: *ccp_destroy
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 {% endif %}
@@ -1531,6 +1233,7 @@ jobs:
 - name: scale-master
   plan:
   - in_parallel:
+    - get: centos6-image
     - get: gpbackup
     - get: gpdb_binary
       resource: bin_gpdb_master_centos6
@@ -1565,15 +1268,12 @@ jobs:
   - task: setup-centos-env
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: scale-tests
+    image: centos6-image
     file: gpbackup/ci/tasks/scale-tests.yml
   on_success:
     <<: *ccp_destroy_nvme
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 {% endif %}
@@ -1619,11 +1319,7 @@ jobs:
   on_success:
     <<: *ccp_destroy_nvme
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 
@@ -1631,7 +1327,8 @@ jobs:
   plan:
   - in_parallel:
     - get: gpbackup
-    - get: bin_gpdb_5x_stable_centos6
+    - get: gpdb_binary
+      resource: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
@@ -1657,8 +1354,6 @@ jobs:
     params:
       <<: *ccp_gen_cluster_default_params
     file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      gpdb_binary: bin_gpdb_5x_stable_centos6
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
@@ -1668,11 +1363,7 @@ jobs:
   on_success:
     <<: *ccp_destroy_nvme
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 
@@ -1716,11 +1407,7 @@ jobs:
   on_success:
     <<: *ccp_destroy_nvme
   on_failure:
-{% if "gpbackup-release" == pipeline_name %}
-    *slack_alert_release
-{% else %}
     *slack_alert
-{% endif %}
   ensure:
     <<: *set_failed
 
@@ -1809,7 +1496,6 @@ jobs:
         file: workspace/v-*
 {% endif %}
 
-
 {% if "gpbackup-release" != pipeline_name %}
 - name: final_gate
   plan:
@@ -1829,6 +1515,6 @@ jobs:
         - 5X-head-gpbackup-fixed-test
         - ddboost_plugin_and_boostfs_tests_43
         - ddboost_plugin_and_boostfs_tests_5x
-        - gpbackup-manager-tests
         - ddboost_plugin_and_boostfs_tests_6x
+        - gpbackup-manager-tests
 {% endif %}

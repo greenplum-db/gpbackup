@@ -1,9 +1,11 @@
 platform: linux
+
 image_resource:
   type: docker-image
   source:
     repository: pivotaldata/centos-gpdb-dev
     tag: '6-gcc6.2-llvm3.7'
+
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
@@ -40,7 +42,7 @@ run:
     chmod +x env.sh
     source env.sh
     gpconfig --skipvalidation -c fsync -v off
-    if [ -f dummy_seclabel/dummy_seclabel*.so ]; then
+    if [ -f /usr/local/greenplum-db-devel/lib/postgresql/dummy_seclabel.so ]; then
         gpconfig -c shared_preload_libraries -v dummy_seclabel
         gpstop -ar
     else
@@ -48,7 +50,6 @@ run:
     fi
 
     tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com
-
     pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
         make depend
     popd

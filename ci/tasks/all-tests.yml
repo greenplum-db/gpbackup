@@ -1,6 +1,8 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
@@ -11,6 +13,7 @@ inputs:
 - name: pgcrypto43
   optional: true
 - name: gppkgs
+
 params:
   GPBACKUP_VERSION:
 

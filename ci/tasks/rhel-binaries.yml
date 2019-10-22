@@ -5,10 +5,10 @@ image_resource:
 
 inputs:
 - name: go_components
-- name: ddboost_components_SLES
+- name: ddboost_components
 
 outputs:
-- name: SLES_binaries
+- name: github_release_components
 
 run:
   path: bash
@@ -16,14 +16,14 @@ run:
   - -c
   - |
     set -ex
-    pushd SLES_binaries
+    pushd github_release_components
       # Create install script
       printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
       chmod +x install_gpdb_component
 
       cp ../go_components/*_version .
       mv ../go_components/gpbackup_version version
-      cp ../ddboost_components_SLES/*_version .
+      cp ../ddboost_components/*_version .
 
       mkdir -p bin
       cp ../go_components/gpbackup bin/
@@ -31,10 +31,10 @@ run:
       cp ../go_components/gprestore bin/
       cp ../go_components/gpbackup_s3_plugin bin/
       cp ../go_components/gpbackup_manager bin/
-      cp ../ddboost_components_SLES/gpbackup_ddboost_plugin bin/
+      cp ../ddboost_components/gpbackup_ddboost_plugin bin/
 
       mkdir -p lib
-      cp ../ddboost_components_SLES/libDDBoost.so lib/
+      cp ../ddboost_components/libDDBoost.so lib/
 
       tar -czvf bin_gpbackup.tar.gz bin/ lib/
 

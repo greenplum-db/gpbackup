@@ -1,6 +1,8 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: gpbackup
 - name: gpdb_src

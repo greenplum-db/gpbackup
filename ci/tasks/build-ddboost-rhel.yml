@@ -1,7 +1,12 @@
 platform: linux
+
+image_resource:
+  type: docker-image
+
 inputs:
 - name: gpbackup_ddboost_plugin
 - name: bin_gpdb_6x_stable_centos6
+
 outputs:
 - name: ddboost_components
 

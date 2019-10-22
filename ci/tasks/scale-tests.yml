@@ -1,6 +1,8 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
@@ -17,7 +19,6 @@ run:
     set -ex
 
     ccp_src/scripts/setup_ssh_to_cluster.sh
-
     out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
     GPDB_VERSION=`echo $out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
     mkdir /tmp/untarred

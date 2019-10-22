@@ -1,6 +1,8 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: RHEL_binaries
 - name: SLES_binaries
@@ -8,6 +10,7 @@ inputs:
 - name: gpdb_src
 - name: bin_gpdb
 - name: pivnet_release_cache
+
 outputs:
 - name: gppkgs
 

@@ -1,12 +1,15 @@
 platform: linux
+
 image_resource:
   type: docker-image
+
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
 - name: ccp_src
 - name: cluster_env_files
 - name: gppkgs
+
 params:
   DD_SOURCE_HOST:
   DD_DEST_HOST:
@@ -40,19 +43,19 @@ run:
     cat << CONFIG > \$HOME/ddboost_config_replication.yaml
     executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
     options:
-      hostname: $DD_SOURCE_HOST
-      username: $DD_USER
+      hostname: ${DD_SOURCE_HOST}
+      username: ${DD_USER}
       storage_unit: GPDB
       directory: gpbackup_tests${GPDB_VERSION}
       replication: on
       pgport: 5432
-      remote_hostname: $DD_DEST_HOST
-      remote_username: $DD_USER
+      remote_hostname: ${DD_DEST_HOST}
+      remote_username: ${DD_USER}
       remote_storage_unit: GPDB
       remote_directory: gpbackup_tests${GPDB_VERSION}
-      password: $DD_ENCRYPTED_PW
+      password: ${DD_ENCRYPTED_PW}
       password_encryption: "on"
-      remote_password: $DD_ENCRYPTED_PW
+      remote_password: ${DD_ENCRYPTED_PW}
       remote_password_encryption: "on"
       gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764
     CONFIG
@@ -61,9 +64,9 @@ run:
     cat << CONFIG > \$HOME/ddboost_config_replication_restore.yaml
     executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
     options:
-      hostname: $DD_DEST_HOST
-      username: $DD_USER
-      password: $DD_PW
+      hostname: ${DD_DEST_HOST}
+      username: ${DD_USER}
+      password: ${DD_PW}
       storage_unit: GPDB
       directory: gpbackup_tests${GPDB_VERSION}
       pgport: 5432
