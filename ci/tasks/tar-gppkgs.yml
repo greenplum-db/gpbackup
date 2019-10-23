@@ -1,0 +1,16 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+
+inputs:
+- name: rhel-gppkg
+- name: sles-gppkg
+- name: ubuntu-gppkg
+- name: gpbackup
+
+outputs:
+- name: gppkgs
+
+run:
+  path: gpbackup/ci/scripts/tar-gppkgs.bash

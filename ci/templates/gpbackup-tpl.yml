@@ -3,10 +3,12 @@ groups:
 - name: All
   jobs:
   - build_binaries
+  - build_gppkgs
   - GPDB4.3
   - GPDB5
   - GPDB5-oracle7
   - GPDB5-sles11
+  - GPDB6-ubuntu
   - gpbackup-manager-tests
 {% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
@@ -47,6 +49,7 @@ groups:
 - name: GPDB6
   jobs:
   - GPDB6
+  - GPDB6-ubuntu
   - ddboost_plugin_and_boostfs_tests_6x
 
 {% if "gpbackup-release" != pipeline_name %}
@@ -225,9 +228,9 @@ ddboost_plugin_and_boostfs_anchor: &ddboost_plugin_and_boostfs
     - get: ccp_src
     - get: boostfs_installer
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
       trigger: true
 
 ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
@@ -324,6 +327,24 @@ resources:
   source:
     repository: pivotaldata/centos-gpdb-dev
     tag: '6-gcc6.2-llvm3.7'
+
+- name: sles11-image
+  type: docker-image
+  source:
+    repository: pivotaldata/sles-gpdb-dev
+    tag: '11-beta'
+
+- name: ubuntu-debian-image
+  type: docker-image
+  source:
+    repository: pivotaldata/gpdb6-ubuntu18.04-build
+    tag: 'latest'
+
+- name: ubuntu-debian-test-image
+  type: docker-image
+  source:
+    repository: pivotaldata/gpdb6-ubuntu18.04-test
+    tag: 'latest'
 
 ##### Other Resources #####
 {% if (nightly_trigger and "gpbackup-release" != pipeline_name) %}
@@ -424,7 +445,15 @@ resources:
     secret_access_key: {{bucket-secret-access-key}}
     versioned_file: bin_gpdb_sles11/gpdb_branch_5X_STABLE/icw_green/bin_gpdb.tar.gz
 
-{% if "gpbackup-release" != pipeline_name %}
+- name: bin_gpdb_6x_stable_ubuntu
+  type: gcs
+  icon: google
+  source:
+    bucket: ((gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/gpdb6/server-rc-(.*)-ubuntu18.04_x86_64((rc-build-type-gcs)).tar.gz
+
+  {% if "gpbackup-release" != pipeline_name %}
 - name: gpdb_master_src
   type: git
   icon: github-circle
@@ -664,6 +693,16 @@ resources:
     versioned_file: gppkgs/gpbackup-gppkgs.tar.gz
 {% endif %}
 
+- name: gpbackup-go-components
+  type: s3
+  icon: amazon
+  source:
+    access_key_id: {{bucket-access-key-id}}
+    bucket: {{gpdb-stable-bucket-name}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    versioned_file: gpbackup-go-components/go_components.tar.gz
+
 - name: gppkgs
   type: s3
   icon: amazon
@@ -732,15 +771,8 @@ jobs:
   plan:
   - in_parallel:
     - get: centos6-image
-    - get: libyaml-0.1.7
-    - get: gpdb_src
-      resource: gpdb6_src
     - get: gpbackup-dependencies
-    - get: bin_gpdb_6x_stable_centos6
-    - get: bin_gpdb_5x_sles11
 {% if "gpbackup-release" != pipeline_name %}
-    - get: gpbackup_ddboost_plugin
-      trigger: true
     - get: gpbackup_s3_plugin
       trigger: true
     - get: gpbackup_manager_src
@@ -748,7 +780,6 @@ jobs:
     - get: gpbackup
       trigger: true
 {% else %}
-    - get: gpbackup_ddboost_plugin
     - get: gpbackup_s3_plugin
     - get: gpbackup_manager_src
     - get: gpbackup
@@ -758,42 +789,101 @@ jobs:
     - get: nightly-trigger
       trigger: true
 {% endif %}
+  - task: build-go-binaries
+    image: centos6-image
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+  - put: gpbackup-go-components
+    params:
+      file: go_components/go_components.tar.gz
+  - put: gpbackup-dependencies
+    params:
+      file: output_deps/dependencies.tar.gz
+
+- name: build_gppkgs
+  plan:
   - in_parallel:
-    - do:
-      - task: build-go-binaries
+    - get: centos6-image
+    - get: sles11-image
+    - get: ubuntu-debian-image
+    - get: libyaml-0.1.7
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: gpbackup-go-components
+      trigger: true
+      passed: [build_binaries]
+    - get: gpbackup-dependencies
+      passed: [build_binaries]
+    - get: bin_gpdb_6x_stable_centos6
+    - get: bin_gpdb_5x_sles11
+    - get: bin_gpdb_6x_stable_ubuntu
+    - get: gpbackup
+    - get: gpbackup_ddboost_plugin
+{% if "gpbackup-release" != pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: pivnet_release_cache
+  - in_parallel:
+    - do: # RHEL
+      - task: build-ddboost-RHEL
         image: centos6-image
-        file: gpbackup/ci/tasks/build-go-binaries.yml
-      - put: gpbackup-dependencies
+        file: gpbackup/ci/tasks/build-ddboost.yml
+        input_mapping:
+          bin_gpdb: bin_gpdb_6x_stable_centos6
+      - task: tar-binaries-RHEL
+        image: centos6-image
+        file: gpbackup/ci/tasks/build-os-tars.yml
+      - task: build_gppkgs-RHEL
+        image: centos6-image
+        file: gpbackup/ci/tasks/build-gppkg.yml
+        input_mapping:
+          bin_gpdb: bin_gpdb_6x_stable_centos6
+        output_mapping:
+          gppkgs: rhel-gppkg
         params:
-          file: output_deps/dependencies.tar.gz
-    - task: build-ddboost-RHEL
-      image: centos6-image
-      file: gpbackup/ci/tasks/build-ddboost-rhel.yml
-    - task: build-ddboost-SLES
-      file: gpbackup/ci/tasks/build-ddboost-sles.yml
-  - task: tar-binaries-RHEL
+          OS: RHEL
+    - do: # SLES
+      - task: build-ddboost-SLES
+        image: sles11-image
+        file: gpbackup/ci/tasks/build-ddboost.yml
+        input_mapping:
+          bin_gpdb: bin_gpdb_5x_sles11
+      - task: tar-binaries-SLES
+        image: sles11-image
+        file: gpbackup/ci/tasks/build-os-tars.yml
+      - task: build_gppkgs-SLES
+        # We need to use centos image for doing rpm-build for sles
+        image: centos6-image
+        file: gpbackup/ci/tasks/build-gppkg.yml
+        input_mapping:
+          bin_gpdb: bin_gpdb_5x_sles11
+        output_mapping:
+          gppkgs: sles-gppkg
+        params:
+          OS: SLES
+    - do: # ubuntu
+        - task: build-ddboost-ubuntu
+          image: ubuntu-debian-image
+          file: gpbackup/ci/tasks/build-ddboost.yml
+          input_mapping:
+            bin_gpdb: bin_gpdb_6x_stable_ubuntu
+        - task: tar-binaries-ubuntu
+          image: ubuntu-debian-image
+          file: gpbackup/ci/tasks/build-os-tars.yml
+        - task: build_gppkgs-ubuntu
+          image: ubuntu-debian-image
+          file: gpbackup/ci/tasks/build-gppkg.yml
+          input_mapping:
+            bin_gpdb: bin_gpdb_6x_stable_ubuntu
+          output_mapping:
+            gppkgs: ubuntu-gppkg
+          params:
+            OS: ubuntu
+  - task: tar-gppkgs
     image: centos6-image
-    file: gpbackup/ci/tasks/rhel-binaries.yml
-  - task: tar-binaries-SLES
-    image: centos6-image
-    file: gpbackup/ci/tasks/sles-binaries.yml
-  - task: build_gppkgs
-    image: centos6-image
-    file: gpbackup/ci/tasks/build-gppkg.yml
-    input_mapping:
-      bin_gpdb: bin_gpdb_6x_stable_centos6
-      RHEL_binaries: github_release_components
-      SLES_binaries: SLES_binaries
-    on_failure:
-      *slack_alert
+    file: gpbackup/ci/tasks/tar-gppkgs.yml
   - put: gppkgs
     params:
       file: gppkgs/gpbackup-gppkgs.tar.gz
-{% if "gpbackup-release" == pipeline_name %}
-  - put: github_release_components
-    params:
-      file: github_release_components/gpbackup-*.tar.gz
-{% endif %}
 
 - name: s3_plugin_tests
   plan:
@@ -810,9 +900,9 @@ jobs:
       trigger: true
 {% endif %}
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
       trigger: true
   - put: terraform
     params:
@@ -854,9 +944,9 @@ jobs:
       resource: gpdb6_src
     - get: gppkgs
       trigger: true
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - task: run_tests
     image: centos7-image
     file: gpbackup/ci/tasks/test-gpbackup-manager.yml
@@ -916,9 +1006,9 @@ jobs:
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
       trigger: true
   - put: terraform
     params:
@@ -957,10 +1047,10 @@ jobs:
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gppkgs
       trigger: true
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - put: terraform_aws
     params:
       <<: *ccp_default_params
@@ -999,6 +1089,48 @@ jobs:
   ensure:
     <<: *set_failed_aws
 
+- name: GPDB6-ubuntu
+  plan:
+  - in_parallel:
+    - get: gpbackup
+    - get: gpdb_binary
+      resource: bin_gpdb_6x_stable_ubuntu
+{% if "gpbackup-release" != pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: ccp_src
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: ubuntu-debian-test-image
+    - get: gpbackup-dependencies
+      passed: [build_gppkgs]
+    - get: gppkgs
+      passed: [build_gppkgs]
+      trigger: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      vars:
+        <<: *ccp_default_vars
+        PLATFORM: ubuntu18.04
+        default_image_user: root
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: ubuntu
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: integration-tests
+    image: ubuntu-debian-test-image
+    file: gpbackup/ci/tasks/ubuntu-tests.yml
+  on_success:
+    <<: *ccp_destroy
+  on_failure:
+    *slack_alert
+  ensure:
+    <<: *set_failed
+
 {% if "gpbackup-release" != pipeline_name %}
 - name: master
   plan:
@@ -1007,7 +1139,7 @@ jobs:
     - get: centos7-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: bin_gpdb_master_centos6
       trigger: true
     - get: bin_gpdb_master_centos7
@@ -1017,7 +1149,7 @@ jobs:
       resource: dummy_seclabel_linux_master
     - get: gppkgs
       trigger: true
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - in_parallel:
     - task: run-tests-locally-centos6
       image: centos6-image
@@ -1043,7 +1175,7 @@ jobs:
     - get: centos6-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: bin_gpdb
       resource: bin_gpdb_43_stable
 {% if "gpbackup-release" != pipeline_name %}
@@ -1052,7 +1184,7 @@ jobs:
     - get: gpdb_src
       resource: gpdb5_src
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
       trigger: true
   - task: run-tests-locally-centos6
     image: centos6-image
@@ -1067,7 +1199,7 @@ jobs:
     - get: centos7-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: bin_gpdb_5x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
@@ -1077,7 +1209,7 @@ jobs:
       resource: gpdb5_src
     - get: gppkgs
       trigger: true
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - in_parallel:
     - task: run-tests-locally-centos6
       image: centos6-image
@@ -1097,21 +1229,24 @@ jobs:
   - in_parallel:
     - get: centos6-image
     - get: centos7-image
+    - get: ubuntu-debian-image
+    - get: ubuntu-debian-test-image
     - get: gpbackup
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: bin_gpdb_6x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: bin_gpdb_6x_stable_centos7
+    - get: bin_gpdb_6x_stable_ubuntu
     - get: gpdb_src
       resource: gpdb6_src
     - get: dummy_seclabel
       resource: dummy_seclabel_linux_gpdb6
     - get: gppkgs
       trigger: true
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - in_parallel:
     - task: run-tests-locally-centos6
       image: centos6-image
@@ -1127,6 +1262,13 @@ jobs:
         REQUIRES_DUMMY_SEC: true
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_centos7
+    - task: run-tests-locally-ubuntu-debian
+      image: ubuntu-debian-test-image
+      file: gpbackup/ci/tasks/test-on-local-cluster-ubuntu.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+      input_mapping:
+        bin_gpdb: bin_gpdb_6x_stable_ubuntu
   on_failure:
     *slack_alert
 
@@ -1145,9 +1287,9 @@ jobs:
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
       trigger: true
   - put: terraform
     params:
@@ -1187,7 +1329,7 @@ jobs:
     - get: centos6-image
     # NOTE: This is not being used, but is required input for the final_gate
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
       trigger: true
     - get: gpbackup
     - get: gpdb_binary
@@ -1197,7 +1339,7 @@ jobs:
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1242,9 +1384,9 @@ jobs:
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1291,9 +1433,9 @@ jobs:
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1338,9 +1480,9 @@ jobs:
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1384,9 +1526,9 @@ jobs:
       trigger: true
 {% endif %}
     - get: gppkgs
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gpbackup-dependencies
-      passed: [build_binaries]
+      passed: [build_gppkgs]
   - put: terraform
     params:
       <<: *ccp_default_params
@@ -1417,7 +1559,7 @@ jobs:
   plan:
   - in_parallel:
     - get: github_release_components
-      passed: [build_binaries]
+      passed: [build_gppkgs]
     - get: gppkgs
       trigger: true
       passed:
@@ -1504,12 +1646,13 @@ jobs:
     - get: gppkgs
       trigger: true
       passed:
-        - build_binaries
+        - build_gppkgs
         - GPDB4.3
         - GPDB5
         - GPDB5-oracle7
         - GPDB5-sles11
         - GPDB6
+        - GPDB6-ubuntu
         - master
         - s3_plugin_tests
         - backward-compatibility

@@ -4,11 +4,11 @@ image_resource:
   type: docker-image
 
 inputs:
-- name: go_components
+- name: gpbackup-go-components
 - name: ddboost_components
 
 outputs:
-- name: github_release_components
+- name: gpbackup_tar
 
 run:
   path: bash
@@ -16,21 +16,28 @@ run:
   - -c
   - |
     set -ex
-    pushd github_release_components
+
+    pushd gpbackup-go-components
+      tar -xzf go_components.tar.gz
+    popd
+
+    pushd gpbackup_tar
       # Create install script
       printf "#!/bin/sh\nset -x\ntar -xzvf bin_gpbackup.tar.gz -C \$GPHOME" > install_gpdb_component
       chmod +x install_gpdb_component
 
-      cp ../go_components/*_version .
-      mv ../go_components/gpbackup_version version
-      cp ../ddboost_components/*_version .
+      cp ../gpbackup-go-components/gpbackup_manager_version .
+      cp ../gpbackup-go-components/s3_plugin_version .
+      cp ../gpbackup-go-components/gpbackup_version .
+      mv ../gpbackup-go-components/gpbackup_version version
+      cp ../ddboost_components/ddboost_plugin_version .
 
       mkdir -p bin
-      cp ../go_components/gpbackup bin/
-      cp ../go_components/gpbackup_helper bin/
-      cp ../go_components/gprestore bin/
-      cp ../go_components/gpbackup_s3_plugin bin/
-      cp ../go_components/gpbackup_manager bin/
+      cp ../gpbackup-go-components/gpbackup bin/
+      cp ../gpbackup-go-components/gpbackup_helper bin/
+      cp ../gpbackup-go-components/gprestore bin/
+      cp ../gpbackup-go-components/gpbackup_s3_plugin bin/
+      cp ../gpbackup-go-components/gpbackup_manager bin/
       cp ../ddboost_components/gpbackup_ddboost_plugin bin/
 
       mkdir -p lib

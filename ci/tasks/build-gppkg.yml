@@ -4,80 +4,17 @@ image_resource:
   type: docker-image
 
 inputs:
-- name: RHEL_binaries
-- name: SLES_binaries
-- name: gpbackup
+- name: gpbackup_tar
 - name: gpdb_src
 - name: bin_gpdb
+- name: gpbackup
 - name: pivnet_release_cache
 
 outputs:
 - name: gppkgs
 
+params:
+  OS:
+
 run:
-  path: bash
-  args:
-  - -c
-  - |
-    set -ex
-    sudo yum -y install rpm-build
-
-    # Install gpdb binaries
-    mv bin_gpdb/{*.tar.gz,bin_gpdb.tar.gz}
-    mkdir -p /usr/local/greenplum-db-devel
-    tar -xzf bin_gpdb/bin_gpdb.tar.gz -C /usr/local/greenplum-db-devel
-
-    # Setup gpadmin user
-    gpdb_src/concourse/scripts/setup_gpadmin_user.bash centos
-
-    GPBACKUP_VERSION=$(cat RHEL_binaries/gpbackup_version)
-
-    pushd pivnet_release_cache
-      PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}*"
-      if [ -f $PRV_TILE_RELEASE_VERSION ]; then
-        # increment the counter if the expected release version has been used before
-        COUNT=$(echo $PRV_TILE_RELEASE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
-        COUNT=$(($COUNT+1))
-      else
-        # reset the version count
-        COUNT=1
-      fi
-      # RPM_VERSION is the tile release version with the `-` changed to a `_`
-      # because the `-` is reserved in RPM SPEC to denote `%{version}-%{release}`
-      RPM_VERSION=${GPBACKUP_VERSION}_${COUNT}
-    popd
-
-    # Create gppkgs
-    cat <<EOF > gpadmin_cmds.sh
-      #!/bin/sh
-      set -ex
-
-      OS=\$1
-      # gpdb4 gppkgs must have 'orca' in its version because of the version validation done on the name
-      GPDB_VER=( "4.3orca" "5" "6" "7")
-    
-      # Create RPM before sourcing greenplum path
-      ./gpbackup/ci/scripts/gpbackup_tools_rpm.bash $RPM_VERSION RHEL_binaries/bin_gpbackup.tar.gz \$OS
-
-      source /usr/local/greenplum-db-devel/greenplum_path.sh
-      for i in "\${GPDB_VER[@]}"; do
-        ./gpbackup/ci/scripts/gpbackup_gppkg.bash $RPM_VERSION \$i \$OS
-      done
-    EOF
-
-    chown gpadmin:gpadmin .
-    chmod +x gpadmin_cmds.sh
-
-    # Build gppkgs for RHEL using binaries built on RHEL6. They should also be compatible with RHEL7.
-    su gpadmin -c "./gpadmin_cmds.sh RHEL"
-    # Build gppkgs for SLES using binaries built on SLES11
-    su gpadmin -c "./gpadmin_cmds.sh SLES11"
-
-    # Create tar of all generated gppkgs
-    mv gpbackup_gppkg/* gppkgs/
-    cp RHEL_binaries/*_version gppkgs/
-    pushd gppkgs
-      tar cvfz gpbackup-gppkgs.tar.gz *.gppkg *_version
-    popd
-
-    tar tvf gppkgs/gpbackup-gppkgs.tar.gz
+  path: gpbackup/ci/scripts/build-gppkgs.bash

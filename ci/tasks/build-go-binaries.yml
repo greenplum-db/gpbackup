@@ -85,3 +85,4 @@ run:
     cp $GOPATH/bin/gprestore go_components/
     cp $GOPATH/bin/gpbackup_s3_plugin go_components/
     cp $GOPATH/bin/gpbackup_manager go_components/
+    cd go_components && tar cfz go_components.tar.gz *

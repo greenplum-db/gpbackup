@@ -4,8 +4,10 @@ image_resource:
   type: docker-image
 
 inputs:
+- name: libyaml-0.1.7
+  optional: true
 - name: gpbackup_ddboost_plugin
-- name: bin_gpdb_6x_stable_centos6
+- name: bin_gpdb
 
 outputs:
 - name: ddboost_components
@@ -19,11 +21,17 @@ run:
     # Install gpdb binaries
     # This is required because ddboost has a dependency on libpq-fe.h
     mkdir -p /usr/local/greenplum-db-devel
-    tar -xzf bin_gpdb_6x_stable_centos6/*.tar.gz -C /usr/local/greenplum-db-devel
+    tar -xzf bin_gpdb/*.tar.gz -C /usr/local/greenplum-db-devel
     source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+    if [ -f libyaml-0.1.7/libyaml-0.1.7.tar.gz ]; then
+      # unpack libyaml so makefile does not try to curl it
+      tar xzf libyaml-0.1.7/libyaml-0.1.7.tar.gz -C gpbackup_ddboost_plugin
+    fi
 
     # build ddboost plugin
     pushd gpbackup_ddboost_plugin
+      source /opt/gcc_env.sh || true
       make build
       ddboost_plugin_version=`git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/'`
     popd
