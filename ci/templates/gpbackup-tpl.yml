@@ -215,6 +215,74 @@ slack_alert_anchor: &slack_alert
       https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
 {% endif %}
 
+ddboost_plugin_and_boostfs_anchor: &ddboost_plugin_and_boostfs
+  in_parallel:
+    - get: centos7-image
+    - get: gpbackup_ddboost_plugin
+    - get: gpbackup
+    - get: ccp_src
+    - get: boostfs_installer
+    - get: gpbackup-dependencies
+      passed: [build_binaries]
+    - get: gppkgs
+      passed: [build_binaries]
+      trigger: true
+
+ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
+  do:
+  - put: ddboost_terraform
+    tags: ["ddboost"]
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/aws/
+      vars:
+        aws_instance-node-instance_type: t2.medium
+        PLATFORM: centos6
+  - task: gen_cluster
+    tags: ["ddboost"]
+    params:
+      <<: *ccp_gen_cluster_default_params
+      BUCKET_PATH: clusters-aws/
+      CLOUD_PROVIDER: aws
+    file: ccp_src/ci/tasks/gen_cluster.yml
+    input_mapping:
+      terraform: ddboost_terraform
+  - task: gpinitsystem
+    tags: ["ddboost"]
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    tags: ["ddboost"]
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: install_dependencies
+    tags: ["ddboost"]
+    image: centos7-image
+    file: gpbackup/ci/tasks/install-ddboost-deps.yml
+    on_failure:
+      do:
+        - *slack_alert
+        - *debug_sleep
+  - task: boostfs_installation
+    tags: ["ddboost"]
+    file: gpbackup/ci/tasks/boostfs-install.yml
+    params:
+      <<: *ddboost_params
+    on_failure:
+      do:
+        - *debug_sleep
+  - task: run_tests
+    tags: ["ddboost"]
+    image: centos7-image
+    file: gpbackup/ci/tasks/ddboost-tests.yml
+    params:
+      <<: *ddboost_test_params
+    on_failure:
+      do:
+        - *slack_alert
+        - *debug_sleep
+  ensure:
+    <<: *ddboost_ccp_destroy
+
+
 resource_types:
 - name: terraform
   type: docker-image
@@ -327,11 +395,11 @@ resources:
   type: s3
   icon: amazon
   source:
-      bucket: gpdb5-stable-concourse-builds
-      versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
-      region_name: us-west-2
-      access_key_id: {{bucket-access-key-id}}
-      secret_access_key: {{bucket-secret-access-key}}
+    bucket: gpdb5-stable-concourse-builds
+    versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
+    region_name: us-west-2
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
 {% endif %}
 
 - name: gpdb6_src
@@ -366,64 +434,64 @@ resources:
   type: gcs
   icon: google
   source:
-      bucket: ((gcs-bucket))
-      json_key: ((concourse-gcs-resources-service-account-key))
-      regexp: server/published/master/server-rc-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
+    bucket: ((gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/master/server-rc-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
 
 - name: bin_gpdb_master_centos7
   type: gcs
   icon: google
   source:
-      bucket: ((gcs-bucket))
-      json_key: ((concourse-gcs-resources-service-account-key))
-      regexp: server/published/master/server-rc-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
+    bucket: ((gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/master/server-rc-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
 {% endif %}
 
 - name: gpbackup-dependencies
   type: s3
   icon: amazon
   source:
-      bucket: gpbackup-dependencies
+    bucket: gpbackup-dependencies
 {% if is_prod %}
-      versioned_file: gpbackup-dependencies/dependencies.tar.gz
+    versioned_file: gpbackup-dependencies/dependencies.tar.gz
 {% else %}
-      versioned_file: gpbackup-dependencies/dev/dependencies.tar.gz
+    versioned_file: gpbackup-dependencies/dev/dependencies.tar.gz
 {% endif %}
-      region_name: us-west-2
-      access_key_id: {{bucket-access-key-id}}
-      secret_access_key: {{bucket-secret-access-key}}
+    region_name: us-west-2
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
 
 # These binaries are used for backwards-compatibility testing only
 - name: bin_gpbackup_1.0.0_and_1.7.1
   type: s3
   icon: amazon
   source:
-      bucket: gpbackup-dependencies
-      versioned_file: gpbackup_bins_1.0.0_and_1.7.1.tar.gz
-      region_name: us-west-2
-      access_key_id: {{bucket-access-key-id}}
-      secret_access_key: {{bucket-secret-access-key}}
+    bucket: gpbackup-dependencies
+    versioned_file: gpbackup_bins_1.0.0_and_1.7.1.tar.gz
+    region_name: us-west-2
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
 
 # This is specifically for sles11 images because it cannot connect to github due to TLS issues
 - name: libyaml-0.1.7
   type: s3
   icon: amazon
   source:
-      bucket: gpbackup-dependencies
-      versioned_file: gpbackup-dependencies/libyaml-0.1.7.tar.gz
-      region_name: us-west-2
-      access_key_id: {{bucket-access-key-id}}
-      secret_access_key: {{bucket-secret-access-key}}
+    bucket: gpbackup-dependencies
+    versioned_file: gpbackup-dependencies/libyaml-0.1.7.tar.gz
+    region_name: us-west-2
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
 
 - name: pgcrypto43
   type: s3
   icon: amazon
   source:
-      bucket: pgcrypto43
-      access_key_id: {{bucket-access-key-id}}
-      region_name: {{aws-region}}
-      secret_access_key: {{bucket-secret-access-key}}
-      regexp: pgcrypto-ossv1.1_pv(.*)_gpdb4.3orca-rhel5-x86_64.gppkg
+    bucket: pgcrypto43
+    access_key_id: {{bucket-access-key-id}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    regexp: pgcrypto-ossv1.1_pv(.*)_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: dummy_seclabel_linux_gpdb6
   type: gcs
@@ -447,47 +515,47 @@ resources:
   type: s3
   icon: amazon
   source:
-      bucket: gpdb-stable-concourse-builds
-      versioned_file: release_candidates/bin_gpdb_centos6/gpdb5/bin_gpdb.tar.gz
-      region_name: us-west-2
-      access_key_id: {{bucket-access-key-id}}
-      secret_access_key: {{bucket-secret-access-key}}
+    bucket: gpdb-stable-concourse-builds
+    versioned_file: release_candidates/bin_gpdb_centos6/gpdb5/bin_gpdb.tar.gz
+    region_name: us-west-2
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
 
 - name: bin_gpdb_5x_stable_centos7
   type: s3
   icon: amazon
   source:
-      bucket: gpdb-stable-concourse-builds
-      versioned_file: release_candidates/bin_gpdb_centos7/gpdb5/bin_gpdb.tar.gz
-      region_name: us-west-2
-      access_key_id: {{bucket-access-key-id}}
-      secret_access_key: {{bucket-secret-access-key}}
+    bucket: gpdb-stable-concourse-builds
+    versioned_file: release_candidates/bin_gpdb_centos7/gpdb5/bin_gpdb.tar.gz
+    region_name: us-west-2
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
 
 - name: bin_gpdb_6x_stable_centos6
   type: gcs
   icon: google
   source:
-      bucket: ((gcs-bucket))
-      json_key: ((concourse-gcs-resources-service-account-key))
-      regexp: server/published/gpdb6/server-rc-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
+    bucket: ((gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
 
 - name: bin_gpdb_6x_stable_centos7
   type: gcs
   icon: google
   source:
-      bucket: ((gcs-bucket))
-      json_key: ((concourse-gcs-resources-service-account-key))
-      regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
+    bucket: ((gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64((rc-build-type-gcs)).tar.gz
 
 - name: bin_gpdb_43_stable
   type: s3
   icon: amazon
   source:
-      bucket: gpdb-4.3-stable-concourse
-      versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
-      region_name: us-west-2
-      access_key_id: {{gpdb4-bucket-access-key-id}}
-      secret_access_key: {{gpdb4-bucket-secret-access-key}}
+    bucket: gpdb-4.3-stable-concourse
+    versioned_file: bin_gpdb_centos/bin_gpdb.tar.gz
+    region_name: us-west-2
+    access_key_id: {{gpdb4-bucket-access-key-id}}
+    secret_access_key: {{gpdb4-bucket-secret-access-key}}
 
 - name: ccp_src
   type: git
@@ -794,10 +862,6 @@ jobs:
 - name: ddboost_plugin_and_boostfs_tests_43
   plan:
   - in_parallel:
-    - get: centos7-image
-    - get: gpbackup_ddboost_plugin
-    - get: gpbackup
-    - get: ccp_src
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpdb_binary
@@ -806,69 +870,12 @@ jobs:
       trigger: true
 {% endif %}
     - get: pgcrypto43
-  ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
-    do:
-    - put: ddboost_terraform
-      tags: ["ddboost"]
-      params:
-        <<: *ccp_default_params
-        terraform_source: ccp_src/aws/
-        vars:
-          aws_instance-node-instance_type: t2.medium
-          PLATFORM: centos6
-    - task: gen_cluster
-      tags: ["ddboost"]
-      params:
-        <<: *ccp_gen_cluster_default_params
-        BUCKET_PATH: clusters-aws/
-        CLOUD_PROVIDER: aws
-      file: ccp_src/ci/tasks/gen_cluster.yml
-      input_mapping:
-        terraform: ddboost_terraform
-    - task: gpinitsystem
-      tags: ["ddboost"]
-      file: ccp_src/ci/tasks/gpinitsystem.yml
-    - task: setup-centos-env
-      tags: ["ddboost"]
-      file: gpbackup/ci/tasks/setup-centos-env.yml
-    - task: install_dependencies
-      tags: ["ddboost"]
-      image: centos7-image
-      file: gpbackup/ci/tasks/install-ddboost-deps.yml
-      on_failure:
-        do:
-        - *slack_alert
-        - *debug_sleep
-    - task: boostfs_installation
-      tags: ["ddboost"]
-      file: gpbackup/ci/tasks/boostfs-install.yml
-      params:
-        <<: *ddboost_params
-      on_failure:
-        do:
-        - *debug_sleep
-    - task: run_tests
-      tags: ["ddboost"]
-      image: centos7-image
-      file: gpbackup/ci/tasks/ddboost-tests.yml
-      params:
-        <<: *ddboost_test_params
-      on_failure:
-        do:
-        - *slack_alert
-        - *debug_sleep
-    ensure:
-        <<: *ddboost_ccp_destroy
-
-  <<: *ddboost_plugin_and_boostfs_tests
+  - <<: *ddboost_plugin_and_boostfs
+  - <<: *ddboost_plugin_and_boostfs_tests
 
 - name: ddboost_plugin_and_boostfs_tests_5x
   plan:
   - in_parallel:
-    - get: centos7-image
-    - get: gpbackup_ddboost_plugin
-    - get: gpbackup
-    - get: ccp_src
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpdb_binary
@@ -876,21 +883,12 @@ jobs:
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-    - get: boostfs_installer
-    - get: gpbackup-dependencies
-      passed: [build_binaries]
-    - get: gppkgs
-      passed: [build_binaries]
-      trigger: true
-    <<: *ddboost_plugin_and_boostfs_tests
+  - <<: *ddboost_plugin_and_boostfs
+  - <<: *ddboost_plugin_and_boostfs_tests
 
 - name: ddboost_plugin_and_boostfs_tests_6x
   plan:
   - in_parallel:
-    - get: centos7-image
-    - get: gpbackup_ddboost_plugin
-    - get: gpbackup
-    - get: ccp_src
     - get: gpdb_src
       resource: gpdb6_src
     - get: gpdb_binary
@@ -898,15 +896,10 @@ jobs:
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-    - get: boostfs_installer
-    - get: gpbackup-dependencies
-      passed: [build_binaries]
-    - get: gppkgs
-      passed: [build_binaries]
-      trigger: true
     - get: dummy_seclabel
       resource: dummy_seclabel_linux_gpdb6
-    <<: *ddboost_plugin_and_boostfs_tests
+  - <<: *ddboost_plugin_and_boostfs
+  - <<: *ddboost_plugin_and_boostfs_tests
 
 - name: GPDB5-sles11
   plan:
