@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -1276,7 +1277,6 @@ PARTITION BY LIST (gender)
 			assertDataRestored(restoreConn, map[string]int{"public.corrupt_table": 0, "public.good_table1": 10, "public.good_table2": 10})
 
 		})
-<<<<<<< HEAD
 
 		It("backup and restore all data when NOT VALID option on constraints is specified", func() {
 			testutils.SkipIfBefore6(backupConn)
@@ -1304,16 +1304,7 @@ PARTITION BY LIST (gender)
 			assertArtifactsCleaned(restoreConn, timestamp)
 		})
 
-=======
->>>>>>> Updated errorTables to use maps instead of slices
-		It(`gprestore logs error tables with --on-error-continue`, func() {
-			// Ensure no error tables with successful restore
-			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupDir)
-			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
-			files, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(files).To(HaveLen(0))
-
+		It(`ensure gprestore on corrupt backup with --on-error-continue logs error tables`, func() {
 			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
 			mustRunCommand(command)
 
@@ -1324,7 +1315,9 @@ PARTITION BY LIST (gender)
 			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--on-error-continue")
 			gprestoreCmd.CombinedOutput()
 
-			files, _ = filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
+			files, _ := filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
+			Expect(files).To(HaveLen(2))
+
 			Expect(files[0]).To(HaveSuffix("_data"))
 			contents, err := ioutil.ReadFile(files[0])
 			Expect(err).ToNot(HaveOccurred())
@@ -1337,6 +1330,7 @@ PARTITION BY LIST (gender)
 			contents, err = ioutil.ReadFile(files[1])
 			Expect(err).ToNot(HaveOccurred())
 			tables = strings.Split(string(contents), "\n")
+			sort.Strings(tables)
 			Expect(tables).To(Equal(expectedErrorTablesMetadata))
 			os.Remove(files[1])
 
@@ -1351,8 +1345,18 @@ PARTITION BY LIST (gender)
 			contents, err = ioutil.ReadFile(files[0])
 			Expect(err).ToNot(HaveOccurred())
 			tables = strings.Split(string(contents), "\n")
-			Expect(tables).To(Equal(expectedErrorTablesMetadata))
+			sort.Strings(tables)
+			Expect(tables).To(HaveLen(len(expectedErrorTablesMetadata)))
 			os.Remove(files[0])
+		})
+
+		It(`ensure successful gprestore with --on-error-continue does not log error tables`, func() {
+			// Ensure no error tables with successful restore
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupDir)
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
+			files, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(files).To(HaveLen(0))
 		})
 	})
 })

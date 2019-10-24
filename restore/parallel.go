@@ -14,8 +14,11 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr *error, numErrors *int32, progressBar utils.ProgressBar, whichConn int) {
-	var mutex = &sync.Mutex{}
+var (
+	mutex = &sync.Mutex{}
+)
+
+func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr *error, numErrors *int32, progressBar utils.ProgressBar, whichConn int, executeInParallel bool) {
 	for statement := range statements {
 		if wasTerminated || *fatalErr != nil {
 			return
@@ -24,10 +27,15 @@ func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr 
 		if err != nil {
 			gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
 			if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
-				atomic.AddInt32(numErrors, 1)
-				mutex.Lock()
-				errorTablesMetadata[statement.Schema + "." + statement.Name] = Empty{}
-				mutex.Unlock()
+				if executeInParallel {
+					atomic.AddInt32(numErrors, 1)
+					mutex.Lock()
+					errorTablesMetadata[statement.Schema + "." + statement.Name] = Empty{}
+					mutex.Unlock()
+				} else {
+					*numErrors = *numErrors + 1
+					errorTablesMetadata[statement.Schema + "." + statement.Name] = Empty{}
+				}
 			} else {
 				*fatalErr = err
 			}
@@ -52,14 +60,14 @@ func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.P
 
 	if !executeInParallel {
 		connNum := connectionPool.ValidateConnNum(whichConn...)
-		executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum)
+		executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum, executeInParallel)
 	} else {
 		for i := 0; i < connectionPool.NumConns; i++ {
 			workerPool.Add(1)
 			go func(connNum int) {
 				defer workerPool.Done()
 				connNum = connectionPool.ValidateConnNum(connNum)
-				executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum)
+				executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum, executeInParallel)
 			}(i)
 		}
 		workerPool.Wait()
