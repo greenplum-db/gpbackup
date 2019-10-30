@@ -3,7 +3,7 @@ set -ex
 
 # USAGE: ./gpbackup_gppkg.sh [gpbackup version] [gpdb major version] [os]
 # Example: ./gpbackup_gppkg.sh 1.8.0 6 rhel6
-if [ "$#" -ne 3 ]; then
+if [[ "$#" -ne 3 ]]; then
     echo "./gpbackup_gppkg.sh [gpbackup version] [gpdb major version] [os]"
 fi
 
@@ -30,20 +30,20 @@ cp ${RPMROOT}/RPMS/x86_64/*${OS}*.rpm ${GPPKG_SOURCE_DIR}
 gppkg --build ${GPPKG_SOURCE_DIR}
 echo "Successfully built gppkg"
 
-if [ ${GPDB_MAJOR_VERSION} == '6' ] && [ ${OS} == "rhel6" ]; then
+if [[ ${GPDB_MAJOR_VERSION} == '6' ]] && [[ ${OS} == "rhel6" ]]; then
     echo "Testing installation of gpbackup using gppkg"
 
     GPBIN=${GPHOME}/bin
     rm -f ${GPBIN}/gpbackup ${GPBIN}/gprestore ${GPBIN}/gpbackup_helper
 
     gppkg -i ${GPBACKUP_GPPKG}
-    if [ ! -f ${GPBIN}/gpbackup ] || [ ! -f ${GPBIN}/gprestore ] || [ ! -f ${GPBIN}/gpbackup_helper ]; then
+    if [[ ! -f ${GPBIN}/gpbackup ]] || [[ ! -f ${GPBIN}/gprestore ]] || [[ ! -f ${GPBIN}/gpbackup_helper ]]; then
         echo "Failed to install gpbackup using gppkg!"
         exit 1
     fi
 
     gppkg -r gpbackup
-    if [ -f ${GPBIN}/gpbackup ] || [ -f ${GPBIN}/gprestore ] || [ -f ${GPBIN}/gpbackup_helper ]; then
+    if [[ -f ${GPBIN}/gpbackup ]] || [[ -f ${GPBIN}/gprestore ]] || [[ -f ${GPBIN}/gpbackup_helper ]]; then
         echo "Failed to remove gpbackup using gppkg!"
         exit 1
     fi

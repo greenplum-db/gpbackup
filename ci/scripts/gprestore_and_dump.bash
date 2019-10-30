@@ -20,4 +20,4 @@ pushd /tmp
       pg_dump regression -f /tmp/post_regression_dump.sql --schema-only
     set -e
     xz -z /tmp/post_regression_dump.sql
- popd
+popd

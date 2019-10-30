@@ -8,7 +8,6 @@ image_resource:
 
 inputs:
 - name: gpbackup
-  path: go/src/github.com/greenplum-db/gpbackup
 - name: ccp_src
 - name: cluster_env_files
 - name: dummy_seclabel
@@ -19,51 +18,4 @@ params:
   default_ami_user: centos
 
 run:
-  path: bash
-  args:
-  - -c
-  - |
-    set -ex
-
-    ccp_src/scripts/setup_ssh_to_cluster.sh
-
-    cat <<SCRIPT > /tmp/setup_centos_env.bash
-    set -ex
-        cat << ENV_SCRIPT > env.sh
-        export GOPATH=/home/gpadmin/go
-        source /usr/local/greenplum-db-devel/greenplum_path.sh
-        export PGPORT=5432
-        export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
-        export PATH=\\\$GOPATH/bin:/usr/local/go/bin:\\\$PATH
-    ENV_SCRIPT
-
-    export GOPATH=/home/gpadmin/go
-    chown gpadmin:gpadmin -R \$GOPATH
-    chmod +x env.sh
-    source env.sh
-    gpconfig --skipvalidation -c fsync -v off
-    if [ -f /usr/local/greenplum-db-devel/lib/postgresql/dummy_seclabel.so ]; then
-        gpconfig -c shared_preload_libraries -v dummy_seclabel
-        gpstop -ar
-    else
-        gpstop -u
-    fi
-
-    tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com
-    pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
-        make depend
-    popd
-    SCRIPT
-
-    if [ -f dummy_seclabel/dummy_seclabel*.so ]; then
-        scp dummy_seclabel/dummy_seclabel*.so mdw:/usr/local/greenplum-db-devel/lib/postgresql/dummy_seclabel.so
-        scp dummy_seclabel/dummy_seclabel*.so sdw1:/usr/local/greenplum-db-devel/lib/postgresql/dummy_seclabel.so
-    fi
-
-    ssh -t ${default_ami_user}@mdw "sudo yum -y install git && wget https://storage.googleapis.com/golang/go1.12.7.linux-amd64.tar.gz && tar -xzf go1.12.7.linux-amd64.tar.gz && sudo mv go /usr/local"
-    chmod +x /tmp/setup_centos_env.bash
-    rsync -a gpbackup-dependencies mdw:/home/gpadmin
-    scp /tmp/setup_centos_env.bash mdw:/home/gpadmin/setup_centos_env.bash
-    ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"
-    scp -r -q go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
-    ssh -t mdw "bash /home/gpadmin/setup_centos_env.bash"
+  path: gpbackup/ci/scripts/setup-centos-env.bash

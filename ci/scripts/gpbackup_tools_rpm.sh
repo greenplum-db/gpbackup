@@ -3,7 +3,7 @@ set -ex
 
 # USAGE: ./gpbackup_rpm.sh [rpm version] [source targz file] [OS]
 # Example: ./gpbackup_rpm.sh 1.8.0 mybinaries.tar.gz
-if [ "$#" -ne 2 ]; then
+if [[ "$#" -ne 2 ]]; then
     echo "./gpbackup_tools_rpm.sh [rpm version] [source targz file] [OS]"
 fi
 
