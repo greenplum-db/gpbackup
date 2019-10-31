@@ -209,6 +209,22 @@ LANGUAGE SQL`)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
+			It("returns a slice of default metadata for a materialized view", func() {
+				testutils.SkipIfBefore7(connectionPool)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE MATERIALIZED VIEW public.testmview AS SELECT * FROM pg_class`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.testmview")
+				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON public.testmview TO testrole")
+				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON MATERIALIZED VIEW public.testmview IS 'This is a materialized view comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "MATERIALIZED VIEW", "public.testmview")
+
+				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
+
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testmview", backup.TYPE_RELATION)
+				expectedMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, includeSecurityLabels)
+				Expect(resultMetadataMap).To(HaveLen(1))
+				resultMetadata := resultMetadataMap[uniqueID]
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+			})
 			It("returns a slice of default metadata for a schema", func() {
 				testhelper.AssertQueryRuns(connectionPool, `CREATE SCHEMA testschema`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
@@ -558,6 +574,26 @@ LANGUAGE SQL`)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testview", backup.TYPE_RELATION)
 				expectedMetadata := testutils.DefaultMetadata("VIEW", true, true, true, false)
+				Expect(resultMetadataMap).To(HaveLen(1))
+				resultMetadata := resultMetadataMap[uniqueID]
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+			})
+			It("returns a slice of default metadata for a materialized view in a specific schema", func() {
+				testutils.SkipIfBefore7(connectionPool)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE MATERIALIZED VIEW public.testmview AS SELECT * FROM pg_class`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.testmview")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
+				testhelper.AssertQueryRuns(connectionPool, `CREATE MATERIALIZED VIEW testschema.testmview AS SELECT * FROM pg_class`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW testschema.testmview")
+				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON testschema.testmview TO testrole")
+				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON MATERIALIZED VIEW testschema.testmview IS 'This is a materialized view comment.'")
+
+				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
+
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testmview", backup.TYPE_RELATION)
+				expectedMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, false)
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")

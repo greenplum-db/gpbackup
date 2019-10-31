@@ -535,6 +535,15 @@ var _ = Describe("backup end to end integration tests", func() {
 					defer testhelper.AssertQueryRuns(backupConn, "DROP FOREIGN DATA WRAPPER fdw CASCADE;")
 					defer testhelper.AssertQueryRuns(restoreConn, "DROP FOREIGN DATA WRAPPER fdw CASCADE;")
 				}
+				if backupConn.Version.AtLeast("7") {
+					testhelper.AssertQueryRuns(backupConn, "CREATE TABLE mview_table1(i int, j text);")
+					defer testhelper.AssertQueryRuns(restoreConn, "DROP TABLE mview_table1;")
+					testhelper.AssertQueryRuns(backupConn, "CREATE MATERIALIZED VIEW mview1 (i2) as select i from mview_table1;")
+					defer testhelper.AssertQueryRuns(restoreConn, "DROP MATERIALIZED VIEW mview1;")
+					testhelper.AssertQueryRuns(backupConn, "CREATE MATERIALIZED VIEW mview2 as select * from mview1;")
+					defer testhelper.AssertQueryRuns(restoreConn, "DROP MATERIALIZED VIEW mview2;")
+				}
+
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--single-data-file")
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
 				assertArtifactsCleaned(restoreConn, timestamp)

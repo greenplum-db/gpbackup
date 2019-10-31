@@ -167,6 +167,7 @@ var objNameToClassID = map[string]uint32{
 	"TYPE":                      1247,
 	"USER MAPPING":              1418,
 	"VIEW":                      1259,
+	"MATERIALIZED VIEW":         1259,
 }
 
 func ClassIDFromObjectName(objName string) uint32 {
@@ -176,13 +177,13 @@ func ClassIDFromObjectName(objName string) uint32 {
 func DefaultACLForType(grantee string, objType string) backup.ACL {
 	return backup.ACL{
 		Grantee:    grantee,
-		Select:     objType == "PROTOCOL" || objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
-		Insert:     objType == "PROTOCOL" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
-		Update:     objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
-		Delete:     objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
-		Truncate:   objType == "TABLE" || objType == "VIEW",
-		References: objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
-		Trigger:    objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE",
+		Select:     objType == "PROTOCOL" || objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
+		Insert:     objType == "PROTOCOL" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
+		Update:     objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
+		Delete:     objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
+		Truncate:   objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
+		References: objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
+		Trigger:    objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
 		Usage:      objType == "LANGUAGE" || objType == "SCHEMA" || objType == "SEQUENCE" || objType == "FOREIGN DATA WRAPPER" || objType == "FOREIGN SERVER",
 		Execute:    objType == "FUNCTION" || objType == "AGGREGATE",
 		Create:     objType == "DATABASE" || objType == "SCHEMA" || objType == "TABLESPACE",
@@ -194,13 +195,13 @@ func DefaultACLForType(grantee string, objType string) backup.ACL {
 func DefaultACLForTypeWithGrant(grantee string, objType string) backup.ACL {
 	return backup.ACL{
 		Grantee:             grantee,
-		SelectWithGrant:     objType == "PROTOCOL" || objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW",
-		InsertWithGrant:     objType == "PROTOCOL" || objType == "TABLE" || objType == "VIEW",
-		UpdateWithGrant:     objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW",
-		DeleteWithGrant:     objType == "TABLE" || objType == "VIEW",
-		TruncateWithGrant:   objType == "TABLE" || objType == "VIEW",
-		ReferencesWithGrant: objType == "TABLE" || objType == "VIEW",
-		TriggerWithGrant:    objType == "TABLE" || objType == "VIEW",
+		SelectWithGrant:     objType == "PROTOCOL" || objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
+		InsertWithGrant:     objType == "PROTOCOL" || objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
+		UpdateWithGrant:     objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
+		DeleteWithGrant:     objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
+		TruncateWithGrant:   objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
+		ReferencesWithGrant: objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
+		TriggerWithGrant:    objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
 		UsageWithGrant:      objType == "LANGUAGE" || objType == "SCHEMA" || objType == "SEQUENCE" || objType == "FOREIGN DATA WRAPPER" || objType == "FOREIGN SERVER",
 		ExecuteWithGrant:    objType == "FUNCTION",
 		CreateWithGrant:     objType == "DATABASE" || objType == "SCHEMA" || objType == "TABLESPACE",
@@ -444,6 +445,12 @@ func SkipIfBefore5(connectionPool *dbconn.DBConn) {
 func SkipIfBefore6(connectionPool *dbconn.DBConn) {
 	if connectionPool.Version.Before("6") {
 		Skip("Test only applicable to GPDB6 and above")
+	}
+}
+
+func SkipIfBefore7(connectionPool *dbconn.DBConn) {
+	if connectionPool.Version.Before("7") {
+		Skip("Test only applicable to GPDB7 and above")
 	}
 }
 

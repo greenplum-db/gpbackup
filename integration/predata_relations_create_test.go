@@ -451,6 +451,43 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatch(&view, &resultViews[0])
 		})
 	})
+	Describe("PrintMaterializedCreateViewStatements", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
+		})
+		It("creates a view with privileges, owner, security label, and comment", func() {
+			view := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplemview", Definition: " SELECT 1;"}
+			viewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, includeSecurityLabels)
+
+			backup.PrintCreateMaterializedViewStatement(backupfile, toc, view, viewMetadata)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplemview")
+
+			_, resultViews := backup.GetAllViews(connectionPool)
+			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
+
+			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplemview", backup.TYPE_RELATION)
+			Expect(resultViews).To(HaveLen(1))
+			resultMetadata := resultMetadataMap[view.GetUniqueID()]
+			structmatcher.ExpectStructsToMatch(&view, &resultViews[0])
+			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
+		})
+		It("creates a materialized view with options", func() {
+			view := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: " SELECT 1;"}
+
+			backup.PrintCreateMaterializedViewStatement(backupfile, toc, view, backup.ObjectMetadata{})
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplemview")
+
+			_, resultViews := backup.GetAllViews(connectionPool)
+
+			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplemview", backup.TYPE_RELATION)
+			Expect(resultViews).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatch(&view, &resultViews[0])
+		})
+	})
 	Describe("PrintCreateSequenceStatements", func() {
 		var (
 			sequence            backup.Relation

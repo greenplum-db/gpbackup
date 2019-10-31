@@ -425,5 +425,43 @@ PARTITION BY LIST (gender)
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "Oid")
 		})
+		It("returns a slice for materialized views", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview AS SELECT 1")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
+
+			_, results := backup.GetAllViews(connectionPool)
+
+			materialView := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
+		})
+		It("returns a slice for materialized views with storage parameters", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview WITH (fillfactor=50, autovacuum_enabled=false) AS SELECT 1")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
+
+			_, results := backup.GetAllViews(connectionPool)
+
+			materialView := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Options: " WITH (fillfactor=50, autovacuum_enabled=false)"}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
+		})
+		It("returns a slice for materialized views with tablespaces", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview TABLESPACE test_tablespace AS SELECT 1")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
+
+			_, results := backup.GetAllViews(connectionPool)
+
+			materialView := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Tablespace: "test_tablespace"}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
+		})
 	})
 })

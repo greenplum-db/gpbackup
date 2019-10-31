@@ -476,4 +476,44 @@ GRANT ALL ON shamwow.shazam TO testrole;`,
 			Expect(suffixName).To(Equal(expectedName))
 		})
 	})
+	Describe("PrintCreateMaterializedViewStatement", func() {
+		var (
+			mview         backup.MaterializedView
+			emptyMetadata backup.ObjectMetadata
+		)
+		BeforeEach(func() {
+			testhelper.SetDBVersion(connectionPool, "7.0.0")
+			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
+			mview = backup.MaterializedView{Oid: 1, Schema: "schema1", Name: "mview1", Definition: "SELECT count(*) FROM pg_tables;"}
+			emptyMetadata = backup.ObjectMetadata{}
+		})
+		It("can print a basic materialized view", func() {
+			backup.PrintCreateMaterializedViewStatement(backupfile, toc, mview, emptyMetadata)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "schema1", "", "mview1", "MATERIALIZED VIEW")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer,
+				`CREATE MATERIALIZED VIEW schema1.mview1 AS SELECT count(*) FROM pg_tables
+WITH NO DATA;`)
+		})
+		It("can print a view with privileges, an owner, and a comment", func() {
+			mviewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, false)
+			backup.PrintCreateMaterializedViewStatement(backupfile, toc, mview, mviewMetadata)
+			expectedEntries := []string{`CREATE MATERIALIZED VIEW schema1.mview1 AS SELECT count(*) FROM pg_tables
+WITH NO DATA;`,
+				"COMMENT ON MATERIALIZED VIEW schema1.mview1 IS 'This is a materialized view comment.';",
+				"ALTER MATERIALIZED VIEW schema1.mview1 OWNER TO testrole;",
+				`REVOKE ALL ON schema1.mview1 FROM PUBLIC;
+REVOKE ALL ON schema1.mview1 FROM testrole;
+GRANT ALL ON schema1.mview1 TO testrole;`}
+			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedEntries...)
+		})
+		It("can print a materialized view with options and a tablespace", func() {
+			mview.Options = " WITH (security_barrier=true)"
+			mview.Tablespace = "myTablespace"
+			backup.PrintCreateMaterializedViewStatement(backupfile, toc, mview, emptyMetadata)
+			testutils.ExpectEntry(toc.PredataEntries, 0, "schema1", "", "mview1", "MATERIALIZED VIEW")
+			testutils.AssertBufferContents(toc.PredataEntries, buffer,
+				`CREATE MATERIALIZED VIEW schema1.mview1 WITH (security_barrier=true) TABLESPACE myTablespace AS SELECT count(*) FROM pg_tables
+WITH NO DATA;`)
+		})
+	})
 })

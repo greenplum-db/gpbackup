@@ -92,6 +92,31 @@ var _ = Describe("backup integration tests", func() {
 			Expect(deps[childEntry]).To(HaveKey(parent1Entry))
 			Expect(deps[childEntry]).To(HaveKey(parent2Entry))
 		})
+		It("constructs dependencies correctly for a materialized view that depends on two other materialized views", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.parent1 AS SELECT relname FROM pg_class")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.parent1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.parent2 AS SELECT relname FROM pg_class")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.parent2")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.child AS (SELECT * FROM public.parent1 UNION SELECT * FROM public.parent2)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.child")
+
+			parent1Oid := testutils.OidFromObjectName(connectionPool, "public", "parent1", backup.TYPE_RELATION)
+			parent2Oid := testutils.OidFromObjectName(connectionPool, "public", "parent2", backup.TYPE_RELATION)
+			childOid := testutils.OidFromObjectName(connectionPool, "public", "child", backup.TYPE_RELATION)
+
+			parent1Entry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: parent1Oid}
+			parent2Entry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: parent2Oid}
+			childEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: childOid}
+			backupSet := map[backup.UniqueID]bool{parent1Entry: true, parent2Entry: true, childEntry: true}
+
+			deps := backup.GetDependencies(connectionPool, backupSet)
+
+			Expect(deps).To(HaveLen(1))
+			Expect(deps[childEntry]).To(HaveLen(2))
+			Expect(deps[childEntry]).To(HaveKey(parent1Entry))
+			Expect(deps[childEntry]).To(HaveKey(parent2Entry))
+		})
 		It("constructs dependencies correctly for a view dependent on text search objects", func() {
 			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER public.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
