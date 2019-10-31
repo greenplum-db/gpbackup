@@ -426,7 +426,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			resultViews := backup.GetViews(connectionPool)
+			resultViews, _ := backup.GetAllViews(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simpleview", backup.TYPE_RELATION)
@@ -444,7 +444,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			resultViews := backup.GetViews(connectionPool)
+			resultViews, _ := backup.GetAllViews(connectionPool)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simpleview", backup.TYPE_RELATION)
 			Expect(resultViews).To(HaveLen(1))

@@ -233,7 +233,7 @@ func ParseACL(aclStr string) *ACL {
 func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType string, columnName ...string) string {
 	statements := make([]string, 0)
 	typeStr := fmt.Sprintf("%s ", objectType)
-	if objectType == "VIEW" || objectType == "FOREIGN TABLE" {
+	if objectType == "VIEW" || objectType == "FOREIGN TABLE" || objectType == "MATERIALIZED VIEW" {
 		typeStr = ""
 	} else if objectType == "COLUMN" {
 		typeStr = "TABLE "
@@ -311,7 +311,7 @@ func createPrivilegeStrings(acl ACL, objectType string) (string, string) {
 	case "SEQUENCE":
 		hasAllPrivileges = acl.Select && acl.Update && acl.Usage
 		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.UpdateWithGrant && acl.UsageWithGrant
-	case "TABLE":
+	case "TABLE", "VIEW", "MATERIALIZED VIEW":
 		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.Truncate && acl.References && acl.Trigger
 		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
 			acl.TruncateWithGrant && acl.ReferencesWithGrant && acl.TriggerWithGrant
@@ -321,10 +321,6 @@ func createPrivilegeStrings(acl ACL, objectType string) (string, string) {
 	case "TYPE":
 		hasAllPrivileges = acl.Usage
 		hasAllPrivilegesWithGrant = acl.UsageWithGrant
-	case "VIEW":
-		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.Truncate && acl.References && acl.Trigger
-		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
-			acl.TruncateWithGrant && acl.ReferencesWithGrant && acl.TriggerWithGrant
 	}
 	if hasAllPrivileges {
 		privStr = "ALL"

@@ -297,6 +297,8 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 			PrintCreateServerStatement(metadataFile, toc, obj, objMetadata)
 		case UserMapping:
 			PrintCreateUserMappingStatement(metadataFile, toc, obj)
+		case MaterializedView:
+			PrintCreateMaterializedViewStatement(metadataFile, toc, obj, objMetadata)
 		}
 	}
 }

@@ -139,7 +139,7 @@ func GetForeignTableRelations(connectionPool *dbconn.DBConn) []Relation {
 		AND relkind = 'f'
 		AND %s
 	ORDER BY c.oid`,
-	relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 	results := make([]Relation, 0)
 	err := connectionPool.Select(&results, query)
@@ -202,7 +202,7 @@ func GetAllSequenceRelations(connectionPool *dbconn.DBConn) []Relation {
 		AND %s
 		AND %s
 	ORDER BY n.nspname, c.relname`,
-	relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 	results := make([]Relation, 0)
 	err := connectionPool.Select(&results, query)
@@ -268,11 +268,13 @@ func GetSequenceColumnOwnerMap(connectionPool *dbconn.DBConn) (map[string]string
 }
 
 type View struct {
-	Oid        uint32
-	Schema     string
-	Name       string
-	Options    string
-	Definition string
+	Oid            uint32
+	Schema         string
+	Name           string
+	Options        string
+	Definition     string
+	Tablespace     string
+	IsMaterialized bool
 }
 
 func (v View) GetMetadataEntry() (string, utils.MetadataEntry) {
@@ -295,27 +297,101 @@ func (v View) FQN() string {
 	return utils.MakeFQN(v.Schema, v.Name)
 }
 
-func GetViews(connectionPool *dbconn.DBConn) []View {
-	results := make([]View, 0)
-	optionsStr := ""
-	if connectionPool.Version.AtLeast("6") {
-		optionsStr = "coalesce(' WITH (' || array_to_string(c.reloptions, ', ') || ')', '') AS options,"
-	}
-	query := fmt.Sprintf(`
-	SELECT c.oid AS oid,
+// This function retrieves both regular views and materialized views.
+// Materialized views were introduced in GPDB 7.
+func GetAllViews(connectionPool *dbconn.DBConn) (regularViews []View, materializedViews []MaterializedView) {
+	selectClause := `
+	SELECT
+		c.oid AS oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(c.relname) AS name,
-		%s
-		pg_get_viewdef(c.oid) AS definition
+		pg_get_viewdef(c.oid) AS definition`
+	if connectionPool.Version.AtLeast("6") {
+		selectClause += `,
+		coalesce(' WITH (' || array_to_string(c.reloptions, ', ') || ')', '') AS options`
+	}
+	if connectionPool.Version.AtLeast("7") {
+		selectClause += `,
+		coalesce(quote_ident(t.spcname), '') AS tablespace,
+		c.relkind='m' AS ismaterialized`
+	}
+
+	fromClause := `
 	FROM pg_class c
-		LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
-	WHERE c.relkind = 'v'::"char"
+		LEFT JOIN pg_namespace n ON n.oid = c.relnamespace`
+	if connectionPool.Version.AtLeast("7") {
+		fromClause += `
+		LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace`
+	}
+
+	var whereClause string
+	if connectionPool.Version.Before("7") {
+		whereClause += `
+	WHERE c.relkind = 'v'::"char"`
+	} else {
+		whereClause += `
+	WHERE c.relkind IN ('m', 'v')`
+	}
+	whereClause += fmt.Sprintf(`
 		AND %s
-		AND %s`,
-		optionsStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+		AND %s`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+
+	results := make([]View, 0)
+	query := selectClause + fromClause + whereClause
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
-	return results
+
+	regularViews = make([]View, 0)
+	materializedViews = make([]MaterializedView, 0)
+	for _, view := range results {
+		if view.IsMaterialized {
+			materializedViews = append(materializedViews, makeMaterializedView(view))
+		} else {
+			regularViews = append(regularViews, view)
+		}
+	}
+
+	return regularViews, materializedViews
+}
+
+type MaterializedView struct {
+	Oid        uint32
+	Schema     string
+	Name       string
+	Options    string
+	Tablespace string
+	Definition string
+}
+
+func (v MaterializedView) GetMetadataEntry() (string, utils.MetadataEntry) {
+	return "predata",
+		utils.MetadataEntry{
+			Schema:          v.Schema,
+			Name:            v.Name,
+			ObjectType:      "MATERIALIZED VIEW",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (v MaterializedView) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_CLASS_OID, Oid: v.Oid}
+}
+
+func (v MaterializedView) FQN() string {
+	return utils.MakeFQN(v.Schema, v.Name)
+}
+
+func makeMaterializedView(view View) MaterializedView {
+	return MaterializedView{
+		Oid:        view.Oid,
+		Schema:     view.Schema,
+		Name:       view.Name,
+		Options:    view.Options,
+		Definition: view.Definition,
+		Tablespace: view.Tablespace,
+	}
 }
 
 func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {

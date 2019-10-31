@@ -377,7 +377,7 @@ PARTITION BY LIST (gender)
 			structmatcher.ExpectStructsToMatchExcluding(&seqTwoDef, &results[1].SequenceDefinition)
 		})
 	})
-	Describe("GetViews", func() {
+	Describe("GetAllViews", func() {
 		var viewDef string
 		BeforeEach(func() {
 			if connectionPool.Version.Before("6") {
@@ -390,7 +390,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.simpleview AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			results := backup.GetViews(connectionPool)
+			results, _ := backup.GetAllViews(connectionPool)
 
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef}
 
@@ -406,7 +406,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW testschema.simpleview")
 			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
-			results := backup.GetViews(connectionPool)
+			results, _ := backup.GetAllViews(connectionPool)
 
 			view := backup.View{Oid: 1, Schema: "testschema", Name: "simpleview", Definition: viewDef}
 
@@ -418,7 +418,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.simpleview WITH (security_barrier=true) AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			results := backup.GetViews(connectionPool)
+			results, _ := backup.GetAllViews(connectionPool)
 
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef, Options: " WITH (security_barrier=true)"}
 

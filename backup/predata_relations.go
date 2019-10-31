@@ -281,11 +281,29 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 	}
 }
 
+// A view's column names are automatically factored into it's definition.
 func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, view View, viewMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
+	// Option's keyword WITH is expected to be prepended to its options in the SQL statement
 	metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition)
 
 	section, entry := view.GetMetadataEntry()
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, viewMetadata, view, "")
+}
+
+// A materialized view's column names are automatically factored into it's definition.
+func PrintCreateMaterializedViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, mview MaterializedView, mviewMetadata ObjectMetadata) {
+	start := metadataFile.ByteCount
+	var tablespaceClause string
+	if mview.Tablespace != "" {
+		tablespaceClause = fmt.Sprintf(" TABLESPACE %s", mview.Tablespace)
+	}
+	// Option's keyword WITH is expected to be prepended to its options in the SQL statement
+	// Remove trailing ';' at the end of materialized view's definition
+	metadataFile.MustPrintf("\n\nCREATE MATERIALIZED VIEW %s%s%s AS %s\nWITH NO DATA;\n", mview.FQN(), mview.Options, tablespaceClause, mview.Definition[:len(mview.Definition)-1])
+
+	section, entry := mview.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+	PrintObjectMetadata(metadataFile, toc, mviewMetadata, mview, "")
 }
