@@ -57,11 +57,11 @@ run:
       GPDB_VER=( "4.3orca" "5" "6" "7")
     
       # Create RPM before sourcing greenplum path
-      ./gpbackup/ci/scripts/gpbackup_tools_rpm.sh $RPM_VERSION RHEL_binaries/bin_gpbackup.tar.gz \$OS
+      ./gpbackup/ci/scripts/gpbackup_tools_rpm.bash $RPM_VERSION RHEL_binaries/bin_gpbackup.tar.gz \$OS
 
       source /usr/local/greenplum-db-devel/greenplum_path.sh
       for i in "\${GPDB_VER[@]}"; do
-        ./gpbackup/ci/scripts/gpbackup_gppkg.sh $RPM_VERSION \$i \$OS
+        ./gpbackup/ci/scripts/gpbackup_gppkg.bash $RPM_VERSION \$i \$OS
       done
     EOF
 

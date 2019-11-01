@@ -27,5 +27,5 @@ run:
     export DD_IP=${DD_SOURCE_HOST}
     export DD_USER=${DD_USER}
     export DD_PASSWORD=${DD_PW}
-    chmod +x gpbackup/ci/scripts/setup_boostfs.sh
-    gpbackup/ci/scripts/setup_boostfs.sh
+    chmod +x gpbackup/ci/scripts/setup_boostfs.bash
+    gpbackup/ci/scripts/setup_boostfs.bash

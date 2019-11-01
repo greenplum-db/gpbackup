@@ -1,10 +1,11 @@
-#!/bin/sh
+#!/bin/bash
+
 set -ex
 
-# USAGE: ./gpbackup_gppkg.sh [gpbackup version] [gpdb major version] [os]
-# Example: ./gpbackup_gppkg.sh 1.8.0 6 rhel6
+# USAGE: ./gpbackup_gppkg.bash [gpbackup version] [gpdb major version] [os]
+# Example: ./gpbackup_gppkg.bash 1.8.0 6 rhel6
 if [[ "$#" -ne 3 ]]; then
-    echo "./gpbackup_gppkg.sh [gpbackup version] [gpdb major version] [os]"
+    echo "./gpbackup_gppkg.bash [gpbackup version] [gpdb major version] [os]"
 fi
 
 export GPBACKUP_VERSION=$1
