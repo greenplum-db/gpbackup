@@ -431,6 +431,12 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, 13)
 				assertDataRestored(restoreConn, map[string]int{"public.sales": 1, "public.sales_1_prt_jan17": 1})
 			})
+			It("runs gpbackup and gprestore with include-table restore flag which implicitly filters schema restore list", func() {
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir, "--include-table", "schema2.foo3")
+				assertRelationsCreated(restoreConn, 1)
+				assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100})
+			})
 		})
 		Describe("Backup exclude filtering", func() {
 			It("runs gpbackup and gprestore with exclude-schema backup flag", func() {

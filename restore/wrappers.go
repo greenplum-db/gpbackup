@@ -242,6 +242,18 @@ func GetRestoreMetadataStatements(section string, filename string, includeObject
 				toc := utils.NewTOC(tocFilename)
 				inRelations = append(inRelations, utils.GetIncludedPartitionRoots(toc.DataEntries, inRelations)...)
 			}
+			// Update include schemas for schema restore if include table is set
+			if utils.Exists(includeObjectTypes, "SCHEMA") {
+				for _, inRelation := range inRelations {
+					schema := inRelation[:strings.Index(inRelation, ".")]
+					if !utils.Exists(inSchemas, schema) {
+						inSchemas = append(inSchemas, schema)
+					}
+				}
+				// reset relation list as these were required only to extract schemas from inRelations
+				inRelations = nil
+				exRelations = nil
+			}
 		}
 	}
 	statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inRelations, exRelations)
