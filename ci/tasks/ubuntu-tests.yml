@@ -7,6 +7,7 @@ inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
 - name: ccp_src
+- name: dummy_seclabel
 - name: cluster_env_files
 - name: gpbackup-dependencies
 - name: gppkgs
@@ -41,6 +42,11 @@ run:
     mkdir /tmp/untarred
     tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
     scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*ubuntu*.gppkg mdw:/home/gpadmin
+
+
+    scp dummy_seclabel/dummy_seclabel*.so mdw:/usr/local/greenplum-db-devel/lib/postgresql/dummy_seclabel.so
+    scp dummy_seclabel/dummy_seclabel*.so sdw1:/usr/local/greenplum-db-devel/lib/postgresql/dummy_seclabel.so
+
     ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*ubuntu*.gppkg"
 
     cat <<SCRIPT > /tmp/run_tests.bash
@@ -56,6 +62,10 @@ run:
       make depend # Needed to install ginkgo
       # Source greenplum_path.sh after "make depend" to avoid certificate issues.
       source /usr/local/greenplum-db-devel/greenplum_path.sh
+
+      gpconfig -c shared_preload_libraries -v dummy_seclabel
+      gpstop -ra
+      gpconfig -s shared_preload_libraries | grep dummy_seclabel
 
       # NOTE: This is a temporary hotfix intended to skip this test when running on CCP cluster because the backup artifact that this test is using only works on local clusters.
       sed -i 's|\tIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|\tPIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|g' end_to_end/end_to_end_suite_test.go

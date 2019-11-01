@@ -1101,6 +1101,8 @@ jobs:
     - get: ccp_src
     - get: gpdb_src
       resource: gpdb6_src
+    - get: dummy_seclabel
+      resource: dummy_seclabel_linux_gpdb6
     - get: ubuntu-debian-test-image
     - get: gpbackup-dependencies
       passed: [build_gppkgs]
