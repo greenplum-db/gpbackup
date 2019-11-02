@@ -8,6 +8,8 @@ inputs:
 - name: sles-gppkg
 - name: ubuntu-gppkg
 - name: gpbackup
+- name: gpbackup-tools-versions
+- name: gpbackup-go-components
 
 outputs:
 - name: gppkgs

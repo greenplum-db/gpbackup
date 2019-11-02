@@ -2,15 +2,15 @@
 
 set -ex
 
-GPBACKUP_VERSION=`cat gpbackup_tar/gpbackup_version`
+GPBACKUP_TOOLS_VERSION=`cat gpbackup-tools-versions/pkg_version`
 ARCH=amd64
 GPDB_MAJOR_VERSION="6"
 
 ############# Creates .deb installation files for Ubuntu ##############
 
-echo "Building deb installer for gpbackup version: ${GPBACKUP_VERSION} gpdb version: ${GPDB_MAJOR_VERSION} platform: ${OS}"
+echo "Building deb installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} gpdb version: ${GPDB_MAJOR_VERSION} platform: ${OS}"
 
-DEB_NAME=gpbackup_tools-${GPBACKUP_VERSION}-gp${GPDB_MAJOR_VERSION}-${OS}-amd64.deb
+DEB_NAME=gpbackup_tools-${GPBACKUP_TOOLS_VERSION}-gp${GPDB_MAJOR_VERSION}-${OS}-amd64.deb
 PACKAGE_NAME=${DEB_NAME%.*}
 
 mkdir -p deb_build_dir
@@ -22,7 +22,7 @@ Package: GreenplumBackupTools
 Priority: extra
 Maintainer: gpdb-dp@pivotal.io
 Architecture: ${ARCH}
-Version: ${GPBACKUP_VERSION}
+Version: ${GPBACKUP_TOOLS_VERSION}
 Provides: gpbackup_tools
 Description: gpbackup and gprestore are Go utilities for performing Greenplum Database backups.
 Homepage: https://github.com/greenplum-db/gpbackup
@@ -44,7 +44,7 @@ cat <<EOF >"gppkg_spec.yml"
 Pkgname: gpbackup_tools
 Architecture: ${ARCH}
 OS: ${OS}
-Version: ${GPBACKUP_VERSION}-gp${GPDB_MAJOR_VERSION}
+Version: ${GPBACKUP_TOOLS_VERSION}-gp${GPDB_MAJOR_VERSION}
 GPDBVersion: ${GPDB_MAJOR_VERSION}
 Description: gpbackup and gprestore are Go utilities for performing Greenplum Database backups.
 EOF

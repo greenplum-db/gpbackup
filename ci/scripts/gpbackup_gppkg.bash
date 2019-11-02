@@ -8,7 +8,7 @@ if [[ "$#" -ne 3 ]]; then
     echo "./gpbackup_gppkg.bash [gpbackup version] [gpdb major version] [os]"
 fi
 
-export GPBACKUP_VERSION=$1
+export GPBACKUP_TOOLS_VERSION=$1
 export GPDB_MAJOR_VERSION=$2
 export OS=$3
 
@@ -16,7 +16,7 @@ GPBACKUP_DIR=$(dirname $0)/../..
 RPMROOT=/tmp/gpbackup_tools_rpm
 
 GPPKG_DEST_DIR=gpbackup_gppkg
-GPBACKUP_GPPKG=gpbackup_tools-${GPBACKUP_VERSION}-gp${GPDB_MAJOR_VERSION}-${OS}-x86_64.gppkg
+GPBACKUP_GPPKG=gpbackup_tools-${GPBACKUP_TOOLS_VERSION}-gp${GPDB_MAJOR_VERSION}-${OS}-x86_64.gppkg
 
 # Create gppkg directory structure
 GPPKG_SOURCE_DIR=/tmp/gpbackup_gppkg

@@ -52,6 +52,13 @@ product_files:
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
 
+########## Ubuntu Debian Gppkgs ##########
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.gppkg
+    description:
+    upload_as: Backup and Restore for GP 6 on Ubuntu Debian
+    file_type: Software
+    file_version: <TILE_RELEASE_VERSION>
+
 ########## Binary Tarball ##########
   - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>.tar.gz
     description:

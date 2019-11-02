@@ -80,7 +80,7 @@ cat workspace/metadata.yml
 pushd workspace/files-to-upload
   # rename files to match the name inside metadata.yml
   for filename in *.gppkg; do
-    newFilename=$(sed -e "s/gpbackup_tools-${GPBACKUP_VERSION}_[0-9]*/pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}/" -e "s/RHEL/rhel/" -e "s/SLES11/sles/" <<< "$filename")
+    newFilename=$(sed -e "s/gpbackup_tools-${GPBACKUP_VERSION}+[0-9]*/pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}/" -e "s/RHEL/rhel/" -e "s/SLES/sles/" <<< "$filename")
     mv "$filename" "$newFilename"
   done
   # rename binary tarball

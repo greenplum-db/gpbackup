@@ -822,6 +822,9 @@ jobs:
       trigger: true
 {% endif %}
     - get: pivnet_release_cache
+  - task: gpbackup-tools-versions
+    image: centos6-image
+    file: gpbackup/ci/tasks/gpbackup-tools-versions.yml
   - in_parallel:
     - do: # RHEL
       - task: build-ddboost-RHEL
@@ -884,6 +887,11 @@ jobs:
   - put: gppkgs
     params:
       file: gppkgs/gpbackup-gppkgs.tar.gz
+{% if "gpbackup-release" == pipeline_name %}
+  - put: github_release_components
+    params:
+      file: gpbackup_tar/gpbackup-*.tar.gz
+{% endif %}
 
 - name: s3_plugin_tests
   plan:
@@ -1565,11 +1573,12 @@ jobs:
     - get: gppkgs
       trigger: true
       passed:
-        - build_binaries
+        - build_gppkgs
         - GPDB4.3
         - GPDB5
         - GPDB5-oracle7
         - GPDB5-sles11
+        - GPDB6-ubuntu
         - GPDB6
         - s3_plugin_tests
         - backward-compatibility
@@ -1591,6 +1600,7 @@ jobs:
   - get: github_release_components_rc
     passed:
       - green_gate
+  - get: centos6-image
   - task: prepare-for-release
     image: centos6-image
     config:
@@ -1629,7 +1639,9 @@ jobs:
       - get: gpbackup
       - get: gpbackup-release-license
       - get: pivnet_release_cache
+      - get: centos6-image
     - task: update metadata.yml
+      image: centos6-image
       file: gpbackup/ci/tasks/update-metadata.yml
     - put: pivnet-upload
       params:

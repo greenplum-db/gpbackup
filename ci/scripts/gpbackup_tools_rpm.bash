@@ -8,7 +8,7 @@ if [[ "$#" -ne 2 ]]; then
     echo "./gpbackup_tools_rpm.bash [rpm version] [source targz file] [OS]"
 fi
 
-RPM_VERSION=$1
+GPBACKUP_TOOLS_VERSION=$1
 SOURCE_TARGZ=$2
 OS=$3
 
@@ -23,6 +23,6 @@ mkdir -p ${RPMROOT}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cp ${SOURCE_TARGZ} ${RPMROOT}/SOURCES/.
 cp ${GPBACKUP_DIR}/gppkg/gpbackup_tools.spec.in ${RPMROOT}/SPECS/gpbackup_tools.spec
 
-rpmbuild -bb ${RPMROOT}/SPECS/gpbackup_tools.spec --define "%_topdir ${RPMROOT}" --define "debug_package %{nil}" --define "rpm_version ${RPM_VERSION}" --define "operating_system ${OS}"
+rpmbuild -bb ${RPMROOT}/SPECS/gpbackup_tools.spec --define "%_topdir ${RPMROOT}" --define "debug_package %{nil}" --define "rpm_version ${GPBACKUP_TOOLS_VERSION}" --define "operating_system ${OS}"
 
 echo "Successfully built RPM"

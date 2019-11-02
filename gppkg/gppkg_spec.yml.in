@@ -1,8 +1,8 @@
 Pkgname: gpbackup_tools
 Architecture: x86_64
 OS: ${OS}
-Version: ${GPBACKUP_VERSION}-gp${GPDB_MAJOR_VERSION}
+Version: ${GPBACKUP_TOOLS_VERSION}-gp${GPDB_MAJOR_VERSION}
 GPDBVersion: ${GPDB_MAJOR_VERSION}
 Description: gpbackup package
 PostInstall:
-- Master:  "echo 'gpbackup ${GPBACKUP_VERSION} successfully installed';"
+- Master:  "echo 'gpbackup ${GPBACKUP_TOOLS_VERSION} successfully installed';"

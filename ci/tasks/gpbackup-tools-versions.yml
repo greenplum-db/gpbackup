@@ -1,0 +1,16 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+
+inputs:
+- name: gpbackup-go-components
+- name: gpbackup_ddboost_plugin
+- name: gpbackup
+- name: pivnet_release_cache
+
+outputs:
+- name: gpbackup-tools-versions
+
+run:
+  path: gpbackup/ci/scripts/gpbackup-tools-versions.bash
