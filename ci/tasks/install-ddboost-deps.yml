@@ -6,6 +6,7 @@ image_resource:
 inputs:
 - name: ccp_src
 - name: cluster_env_files
+- name: gpbackup
 - name: gpbackup_ddboost_plugin
 - name: pgcrypto43
   optional: true

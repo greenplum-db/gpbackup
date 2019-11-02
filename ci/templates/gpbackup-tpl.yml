@@ -57,9 +57,11 @@ groups:
 
 - name: Scale
   jobs:
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   - scale-43
   - scale-5x
   - scale-6x
+{% endif %}
 {% if "gpbackup-release" != pipeline_name %}
   - scale-master
 {% endif %}
@@ -1230,14 +1232,12 @@ jobs:
     - get: gpbackup
     - get: gpdb_binary
       resource: bin_gpdb_master_centos6
-{% if "gpbackup-release" != pipeline_name %}
       trigger: true
-{% endif %}
     - get: ccp_src
     - get: gpdb_src
       resource: gpdb_master_src
     - get: scale_schema
-{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
+{% if nightly_trigger %}
     - get: nightly-trigger
       trigger: true
 {% endif %}
@@ -1271,6 +1271,7 @@ jobs:
     <<: *set_failed
 {% endif %}
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: scale-6x
   plan:
   - in_parallel:
@@ -1403,6 +1404,7 @@ jobs:
     *slack_alert
   ensure:
     <<: *set_failed
+{% endif %}
 
 {% if "gpbackup-release" == pipeline_name %}
 - name: green_gate
