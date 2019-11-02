@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -ex
+
+ccp_src/scripts/setup_ssh_to_cluster.sh
+
 cat > /tmp/script.sh << SCRIPT
   #!/bin/bash
 
@@ -10,16 +14,16 @@ cat > /tmp/script.sh << SCRIPT
   sudo yum -y install expect
 
   expect << EOD
-spawn /opt/emc/boostfs/bin/boostfs lockbox set -d ${DD_IP} -s gpdb_boostfs -u ${DD_USER}
+spawn /opt/emc/boostfs/bin/boostfs lockbox set -d ${DD_SOURCE_HOST} -s gpdb_boostfs -u ${DD_USER}
 expect "password"
-send "${DD_PASSWORD}\n"
+send "${DD_PW}\n"
 expect "password"
-send "${DD_PASSWORD}\n"
+send "${DD_PW}\n"
 expect eof
 EOD
 
   sudo mkdir /data/gpdata/dd_dir
-  sudo /opt/emc/boostfs/bin/boostfs mount /data/gpdata/dd_dir -d ${DD_IP} -s gpdb_boostfs -o allow-others=true
+  sudo /opt/emc/boostfs/bin/boostfs mount /data/gpdata/dd_dir -d ${DD_SOURCE_HOST} -s gpdb_boostfs -o allow-others=true
 SCRIPT
 chmod +x /tmp/script.sh
 

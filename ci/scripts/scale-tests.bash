@@ -3,51 +3,83 @@
 set -ex
 
 ccp_src/scripts/setup_ssh_to_cluster.sh
-ssh -t root@mdw "sudo wget https://storage.googleapis.com/golang/go1.12.7.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.12.7.linux-amd64.tar.gz"
-ssh -t root@mdw "sudo mkdir /home/gpadmin/go && sudo chown gpadmin:gpadmin -R /home/gpadmin/go"
-rsync -a gpbackup-dependencies mdw:/home/gpadmin
-ssh -t mdw "mkdir -p /home/gpadmin/go/src/github.com/greenplum-db"
-scp -r -q go/src/github.com/greenplum-db/gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
-
-# Install gpbackup binaries using gppkg
-cat << ENV_SCRIPT > /tmp/env.sh
-  # export GOPATH=/home/gpadmin/go
-  source /usr/local/greenplum-db-devel/greenplum_path.sh
-  export PGPORT=5432
-  export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
-  # export PATH=\$GOPATH/bin:/usr/local/go/bin:\$PATH
-ENV_SCRIPT
-chmod +x /tmp/env.sh
-scp /tmp/env.sh mdw:/home/gpadmin/env.sh
-
 out=`ssh -t mdw 'source env.sh && psql postgres -c "select version();"'`
 GPDB_VERSION=`echo ${out} | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p'`
 mkdir /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*SLES*.gppkg mdw:/home/gpadmin
-ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*SLES*.gppkg"
+scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg mdw:/home/gpadmin
 
 cat <<SCRIPT > /tmp/run_tests.bash
-  set -ex
-  export GOPATH=/home/gpadmin/go
-  export PGPORT=5432
-  export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
-  export PATH=\$GOPATH/bin:/usr/local/go/bin:\$PATH
+source env.sh
 
-  tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \$GOPATH/src/github.com
+# only install if not installed already
+is_installed_output=\$(source env.sh; gppkg -q gpbackup*gp*.gppkg)
+set +e
+echo \$is_installed_output | grep 'is installed'
+if [ \$? -ne 0 ] ; then
+  set -e
+  gppkg -i gpbackup*gp*.gppkg
+fi
+set -e
 
-  cd \$GOPATH/src/github.com/greenplum-db/gpbackup
-  make depend # Needed to install ginkgo
-  # Source greenplum_path.sh after "make depend" to avoid certificate issues.
-  source /usr/local/greenplum-db-devel/greenplum_path.sh
+### Data scale tests ###
+log_file=/tmp/gpbackup.log
+echo "## Populating database for data scale test ##"
+createdb datascaledb
+for j in {1..5000}
+do
+  psql -d datascaledb -q -c "CREATE TABLE tbl_1k_\$j(i int) DISTRIBUTED BY (i);"
+  psql -d datascaledb -q -c "INSERT INTO tbl_1k_\$j SELECT generate_series(1,1000)"
+done
+for j in {1..100}
+do
+  psql -d datascaledb -q -c "CREATE TABLE tbl_1M_\$j(i int) DISTRIBUTED BY(i);"
+  psql -d datascaledb -q -c "INSERT INTO tbl_1M_\$j SELECT generate_series(1,1000000)"
+done
+psql -d datascaledb -q -c "CREATE TABLE tbl_1B(i int) DISTRIBUTED BY(i);"
+for j in {1..1000}
+do
+  psql -d datascaledb -q -c "INSERT INTO tbl_1B SELECT generate_series(1,1000000)"
+done
 
-  # NOTE: This is a temporary hotfix intended to skip this test when running on CCP cluster because the backup artifact that this test is using only works on local clusters.
-  sed -i 's|\tIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|\tPIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|g' end_to_end/end_to_end_suite_test.go
-  sed -i 's|\tIt(\`ensure gprestore on corrupt backup with --on-error-continue logs error tables\`, func() {|\tPIt(\`ensure gprestore on corrupt backup with --on-error-continue logs error tables\`, func() {|g' end_to_end/end_to_end_suite_test.go
-  sed -i 's|\tIt(\`ensure successful gprestore with --on-error-continue does not log error tables\`, func() {|\tPIt(\`ensure successful gprestore with --on-error-continue does not log error tables\`, func() {|g' end_to_end/end_to_end_suite_test.go
-  make end_to_end_without_install
+echo "## Performing backup for data scale test ##"
+### Multiple data file test ###
+time gpbackup --dbname datascaledb --backup-dir /data/gpdata/ | tee "\$log_file"
+timestamp=\$(head -5 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+dropdb datascaledb
+echo "## Performing restore for data scale test ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --jobs=4 --quiet
+rm "\$log_file"
+
+echo "## Performing single-data-file backup for data scale test ##"
+### Single data file test ###
+time gpbackup --dbname datascaledb --backup-dir /data/gpdata/ --single-data-file | tee "\$log_file"
+timestamp=\$(head -5 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+dropdb datascaledb
+echo "## Performing single-data-file restore for data scale test ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/  --create-db --quiet
+dropdb datascaledb
+rm "\$log_file"
+
+### Metadata scale test ###
+echo "## Populating database for metadata scale test ##"
+tar -xvf scale_db1.tgz
+createdb metadatascaledb -T template0
+
+psql -f scale_db1.sql -d metadatascaledb -v client_min_messages=error -q
+
+echo "## Performing pg_dump with metadata-only ##"
+time pg_dump -s metadatascaledb > /data/gpdata/pg_dump.sql
+echo "## Performing gpbackup with metadata-only ##"
+time gpbackup --dbname metadatascaledb --backup-dir /data/gpdata/ --metadata-only --verbose | tee "\$log_file"
+
+timestamp=\$(head -5 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+echo "## Performing gprestore with metadata-only ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --redirect-db=metadatascaledb_res --jobs=4 --create-db
+
 SCRIPT
 
 chmod +x /tmp/run_tests.bash
 scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
+scp -r scale_schema/scale_db1.tgz mdw:/home/gpadmin/
 ssh -t mdw "bash /home/gpadmin/run_tests.bash"

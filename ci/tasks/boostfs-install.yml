@@ -18,14 +18,4 @@ params:
   DD_PW:
 
 run:
-  path: bash
-  args:
-  - -c
-  - |
-    set -ex
-    ccp_src/scripts/setup_ssh_to_cluster.sh
-    export DD_IP=${DD_SOURCE_HOST}
-    export DD_USER=${DD_USER}
-    export DD_PASSWORD=${DD_PW}
-    chmod +x gpbackup/ci/scripts/setup_boostfs.bash
-    gpbackup/ci/scripts/setup_boostfs.bash
+  path: gpbackup/ci/scripts/boostfs-install.bash
