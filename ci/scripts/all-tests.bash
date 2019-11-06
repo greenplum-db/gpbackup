@@ -41,7 +41,7 @@ cat <<SCRIPT > /tmp/run_tests.bash
   sed -i 's|\tIt(\`ensure successful gprestore with --on-error-continue does not log error tables\`, func() {|\tPIt(\`ensure successful gprestore with --on-error-continue does not log error tables\`, func() {|g' end_to_end/end_to_end_suite_test.go
 
   if [ -z "\$OLD_BACKUP_VERSION" ] ; then
-    make end_to_end_without_install
+    make end_to_end
   else
     make install_helper helper_path=/tmp/\${OLD_BACKUP_VERSION}/gpbackup_helper
     ginkgo -r -randomizeSuites -slowSpecThreshold=10 -noisySkippings=false -randomizeAllSpecs end_to_end -- --custom_backup_dir "/tmp" 2>&1

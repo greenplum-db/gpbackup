@@ -66,7 +66,7 @@ set -e
 pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
   make unit
   make integration
-  make end_to_end_without_install
+  make end_to_end
 popd
 SCRIPT
 

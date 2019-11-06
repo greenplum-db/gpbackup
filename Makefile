@@ -58,11 +58,7 @@ integration :
 
 test : unit integration
 
-end_to_end : build
-		ginkgo -r -randomizeSuites -slowSpecThreshold=10 -noisySkippings=false -randomizeAllSpecs end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
-
-# special target for pipeline where gppkg install should not be overwritten
-end_to_end_without_install :
+end_to_end :
 		ginkgo -r -randomizeSuites -slowSpecThreshold=10 -noisySkippings=false -randomizeAllSpecs end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
 
 coverage :
@@ -102,16 +98,11 @@ install_helper :
 
 clean :
 		# Build artifacts
-		rm -f $(BIN_DIR)/$(BACKUP) $(BACKUP)
-		rm -f $(BIN_DIR)/$(RESTORE) $(RESTORE)
-		rm -f $(BIN_DIR)/$(HELPER) $(HELPER)
+		rm -f $(BIN_DIR)/$(BACKUP) $(BACKUP) $(BIN_DIR)/$(RESTORE) $(RESTORE) $(BIN_DIR)/$(HELPER) $(HELPER)
 		# Test artifacts
-		rm -rf /tmp/go-build*
-		rm -rf /tmp/gexec_artifacts*
-		rm -rf /tmp/ginkgo*
+		rm -rf /tmp/go-build* /tmp/gexec_artifacts* /tmp/ginkgo*
 		# Code coverage files
-		rm -rf /tmp/cover*
-		rm -rf /tmp/unit*
+		rm -rf /tmp/cover* /tmp/unit*
 
 error-report:
 	@echo "Error messaging:"
