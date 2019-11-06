@@ -68,7 +68,7 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:7eabd95eadc523034e0f3595bbb886c917f8d593535d89509e2bc97d1cae1256"
+  digest = "1:5b42e6f5e032fc5194259c2025bc24efd71043e5c47a4266214d5cab994a5fc0"
   name = "github.com/jackc/pgx"
   packages = [
     ".",
@@ -80,8 +80,8 @@
     "stdlib",
   ]
   pruneopts = "NUT"
-  revision = "a1d6202434aa40c3624688f6c2cacbc27eef5472"
-  version = "v3.5.0"
+  revision = "c73e7d75061bb42b0282945710f344cfe1113d10"
+  version = "v3.6.0"
 
 [[projects]]
   digest = "1:0c11e987235e8f37af4e9f24cca02754827d009e8b66cf24483b0006504f6045"
@@ -96,7 +96,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:74fca97eba09e8d0f4ced8e1d80e0377c49b856e4d01fc9580d3605648ddaff9"
+  digest = "1:bebbcf72961feb0c111f6f1d490a91a1973e7db88b06817c8a1f44f85cd5ab55"
   name = "github.com/lib/pq"
   packages = [
     ".",
@@ -104,15 +104,15 @@
     "scram",
   ]
   pruneopts = "NUT"
-  revision = "3427c32cb71afc948325f299f040e53c1dd78979"
+  revision = "f91d3411e481ed313eeab65ebfe9076466c39d01"
 
 [[projects]]
-  digest = "1:70ef8268170621826f8c111ac1674afe75136f526f449453b4a6631c6dba1946"
+  digest = "1:2b0a4cba3b886187722b7c5750017a4de15d26cccc039ab6fc46af69ae4c6c5f"
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "3ee7d812e62a0804a7d0a324e0249ca2db3476d3"
-  version = "v0.0.4"
+  revision = "f93a0d58d5fd95e53f82782d07bb0c79d23e1290"
+  version = "v0.0.6"
 
 [[projects]]
   branch = "master"
@@ -123,7 +123,7 @@
   revision = "0ad87eef1443f64d3d8c50da647e2b1552851124"
 
 [[projects]]
-  digest = "1:dbc24dd0591271d269786adff7458f2c1437305091e41979c5495efe3df09ab8"
+  digest = "1:43ab83f3c9e11f34201a9e380f244a55ade6fc33aa100d989e13b1417785abc7"
   name = "github.com/onsi/ginkgo"
   packages = [
     ".",
@@ -154,11 +154,11 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "eea6ad008b96acdaa524f5b409513bf062b500ad"
-  version = "v1.8.0"
+  revision = "ce5d301e555bb672c693c099ba6ca5087b06c0b4"
+  version = "v1.10.3"
 
 [[projects]]
-  digest = "1:01797bb0a7bd98751c65dff3461b9f948e3be09c443d179468781720326b09fe"
+  digest = "1:66b4ae93af1b9e546e5a09c2ee482b9afc3ff301921f3ea88559e26d59307844"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
@@ -177,8 +177,8 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "90e289841c1ed79b7a598a7cd9959750cb5e89e2"
-  version = "v1.5.0"
+  revision = "f9a52764bd5a0fd2d201bcca584351d03b72f8da"
+  version = "v1.7.1"
 
 [[projects]]
   digest = "1:14715f705ff5dfe0ffd6571d7d201dd8e921030f8070321a79380d8ca4ec1a24"
@@ -205,12 +205,12 @@
   version = "v0.0.5"
 
 [[projects]]
-  digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
+  digest = "1:d115708a27806831d1babbc6f28a7478ddf8e32a7095507c816e2515fb03a810"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
-  version = "v1.0.3"
+  revision = "2e9d26c8c37aae03e3f9d4e90b7116f5accb7cab"
+  version = "v1.0.5"
 
 [[projects]]
   branch = "master"
@@ -218,11 +218,11 @@
   name = "golang.org/x/crypto"
   packages = ["pbkdf2"]
   pruneopts = "NUT"
-  revision = "4def268fd1a49955bfb3dda92fe3db4f924f2285"
+  revision = "c7e5f84aec591254278750bee18f39e5dd19cdb5"
 
 [[projects]]
   branch = "master"
-  digest = "1:a167b5c532f3245f5a147ade26185f16d6ee8f8d3f6c9846f447e9d8b9705505"
+  digest = "1:94002ae1eb37d085f9aca990b3246b0cf6f0d114b5c0924aedd8eaf2a912143f"
   name = "golang.org/x/net"
   packages = [
     "html",
@@ -230,15 +230,15 @@
     "html/charset",
   ]
   pruneopts = "NUT"
-  revision = "ca1201d0de80cfde86cb01aea620983605dfe99b"
+  revision = "a882066a44e04a21d46e51451c71e131344e830e"
 
 [[projects]]
   branch = "master"
-  digest = "1:9c684a8c6bb9501591c1ac600e7669fdf4683b1a08be53e17e98e4660985c000"
+  digest = "1:761c2f8e6f99d4ad4a5eb07c41f5d238c28629071a9f5d8288197b6c94eb1a8f"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "NUT"
-  revision = "51ab0e2deafac1f46c46ad59cf0921be2f180c3d"
+  revision = "c1f44814a5cd81a6d1cb589ef1e528bc5d305e07"
 
 [[projects]]
   digest = "1:24fc27c3b00594289e400127e23d9963f07fec119cc7bb59d4cf7626445104d0"
@@ -283,7 +283,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fecf9ac9ba4439d3f8ed168a88810ac2fdb11a9c19bc050ae15480dc6074da27"
+  digest = "1:4064f458fb4c4a84382cfcac628f8b8dd0d5b51356738dd36a5a5d44689a0945"
   name = "golang.org/x/tools"
   packages = [
     "cmd/goimports",
@@ -298,9 +298,10 @@
     "internal/imports",
     "internal/module",
     "internal/semver",
+    "internal/span",
   ]
   pruneopts = "NUT"
-  revision = "88ddfcebc769cb7884c38d144ee893cfb4519053"
+  revision = "689d0f08e67ae0c77c260e137ac6a3729498c92f"
 
 [[projects]]
   digest = "1:21562b59c496f4cbd7a40beaa257ac6761002dd3e36259f532216082abace8b1"
@@ -329,11 +330,11 @@
 
 [[projects]]
   branch = "v2"
-  digest = "1:1d7dce90c23a254fb19aeff938f84b86db5ae412c1246d6a15e0b210744524d4"
+  digest = "1:0cbf3cb2d1e4e91f1cd4caaa85dc26e3adc86645f78d2fc6e217edbf4e7a44fa"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "7b8349ac747c6a24702b762d2c4fd9266cf4f1d6"
+  revision = "770b8dae4cf00919e5eafffbd8d58186294b61b5"
 
 [solve-meta]
   analyzer-name = "dep"
