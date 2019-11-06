@@ -610,8 +610,8 @@ func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 	WHERE ((%s) OR (%s) OR (%s))
 		AND %s
 	ORDER BY 1, 2`, argStr, methodStr,
-	SchemaFilterClause("sn"), SchemaFilterClause("tn"),
-	SchemaFilterClause("n"), ExtensionFilterClause("c"))
+		SchemaFilterClause("sn"), SchemaFilterClause("tn"),
+		SchemaFilterClause("n"), ExtensionFilterClause("c"))
 
 	casts := make([]Cast, 0)
 	err := connectionPool.Select(&casts, query)

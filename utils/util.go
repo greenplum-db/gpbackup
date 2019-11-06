@@ -105,7 +105,7 @@ func LogExecutionTime(start time.Time, name string) {
 	gplog.Debug(fmt.Sprintf("%s took %s", name, elapsed))
 }
 
-func Exists(slice []string, val string) (bool) {
+func Exists(slice []string, val string) bool {
 	for _, item := range slice {
 		if item == val {
 			return true

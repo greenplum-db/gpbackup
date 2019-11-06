@@ -30,11 +30,11 @@ func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr 
 				if executeInParallel {
 					atomic.AddInt32(numErrors, 1)
 					mutex.Lock()
-					errorTablesMetadata[statement.Schema + "." + statement.Name] = Empty{}
+					errorTablesMetadata[statement.Schema+"."+statement.Name] = Empty{}
 					mutex.Unlock()
 				} else {
 					*numErrors = *numErrors + 1
-					errorTablesMetadata[statement.Schema + "." + statement.Name] = Empty{}
+					errorTablesMetadata[statement.Schema+"."+statement.Name] = Empty{}
 				}
 			} else {
 				*fatalErr = err

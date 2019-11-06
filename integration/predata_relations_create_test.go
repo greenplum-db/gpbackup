@@ -23,7 +23,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		var (
 			extTableEmpty                 backup.ExternalTableDefinition
 			testTable                     backup.Table
-			partitionPartFalseExpectation  = "false"
+			partitionPartFalseExpectation = "false"
 		)
 		BeforeEach(func() {
 			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: "", ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}

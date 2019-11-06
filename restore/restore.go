@@ -361,7 +361,7 @@ func writeErrorTables(isMetadata bool) {
 	errorWriter := bufio.NewWriter(errorFile)
 	start := true
 	for table, _ := range *errorTables {
-		if start  == false {
+		if start == false {
 			errorWriter.WriteString("\n")
 		} else {
 			start = false

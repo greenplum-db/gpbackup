@@ -69,10 +69,10 @@ PARTITION BY RANGE (year)
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.atttable DROP COLUMN b")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.atttable ALTER COLUMN e SET STORAGE PLAIN")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "atttable", backup.TYPE_RELATION)
-			privileges := sql.NullString {String: "", Valid: false}
+			privileges := sql.NullString{String: "", Valid: false}
 			if connectionPool.Version.AtLeast("6") {
 				testhelper.AssertQueryRuns(connectionPool, "GRANT SELECT (c, d) ON TABLE public.atttable TO testrole")
-				privileges = sql.NullString {String: "testrole=r/testrole", Valid: true}
+				privileges = sql.NullString{String: "testrole=r/testrole", Valid: true}
 			}
 			tableAtts := backup.GetColumnDefinitions(connectionPool)[oid]
 

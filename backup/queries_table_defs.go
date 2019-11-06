@@ -296,9 +296,9 @@ func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[
 		JOIN pg_namespace n ON c.relnamespace = n.oid
 	WHERE %s`, relationAndSchemaFilterClause())
 	var results []struct {
-		Oid          uint32
-		Definition   string
-		Template     sql.NullString
+		Oid        uint32
+		Definition string
+		Template   sql.NullString
 	}
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -307,7 +307,7 @@ func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[
 	for _, result := range results {
 		partitionDef[result.Oid] = result.Definition
 		if result.Template.Valid {
-		    partitionTemp[result.Oid] = result.Template.String
+			partitionTemp[result.Oid] = result.Template.String
 		}
 	}
 	return partitionDef, partitionTemp
@@ -325,9 +325,9 @@ func GetTableStorage(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint
 	WHERE %s
 		AND t.spcname IS NOT NULL OR reloptions IS NOT NULL`, relationAndSchemaFilterClause())
 	var results []struct {
-		Oid          uint32
-		Tablespace   sql.NullString
-		RelOptions   sql.NullString
+		Oid        uint32
+		Tablespace sql.NullString
+		RelOptions sql.NullString
 	}
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
