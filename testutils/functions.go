@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
@@ -16,7 +17,6 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

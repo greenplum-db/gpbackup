@@ -4,12 +4,12 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/blang/vfs"
 	"github.com/blang/vfs/memfs"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
-	"github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

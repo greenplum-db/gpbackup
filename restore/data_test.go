@@ -3,11 +3,11 @@ package restore_test
 import (
 	"regexp"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgx"
-	"github.com/DATA-DOG/go-sqlmock"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
