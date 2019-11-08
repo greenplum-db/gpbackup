@@ -257,6 +257,7 @@ ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
     tags: ["ddboost"]
+    image: centos7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: install_dependencies
     tags: ["ddboost"]
@@ -924,6 +925,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
+    image: centos6-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: run_tests
     image: centos6-image
@@ -1083,6 +1085,7 @@ jobs:
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-oracle-env
     tags: ['aws']
+    image: centos6-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
     params:
       default_ami_user: clckwrk
@@ -1274,9 +1277,10 @@ jobs:
         bin_gpdb: bin_gpdb_6x_stable_centos7
     - task: run-tests-locally-ubuntu-debian
       image: ubuntu-debian-test-image
-      file: gpbackup/ci/tasks/test-on-local-cluster-ubuntu.yml
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
+        OS: ubuntu
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_ubuntu
   on_failure:
@@ -1313,6 +1317,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
+    image: centos6-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: backup-1.0.0-restore-latest
     image: centos6-image
@@ -1362,6 +1367,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
+    image: centos6-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: gpbackup-1.12.1-test
     image: centos6-image
@@ -1411,6 +1417,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
+    image: centos7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: scale-tests
     image: centos6-image
@@ -1460,6 +1467,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
+    image: centos7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: scale-tests
     image: centos6-image
@@ -1506,6 +1514,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
+    image: centos7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: scale-tests
     image: centos6-image
@@ -1552,6 +1561,7 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
+    image: centos7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: scale-tests
     image: centos6-image

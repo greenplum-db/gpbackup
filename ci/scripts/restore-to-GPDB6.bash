@@ -23,7 +23,7 @@ chown -R gpadmin.gpadmin /tmp/gpdb43_regression/
 
 # Generate gprestore wrapper script for gpadmin user to execute
 cat > /home/gpadmin/run_gprestore.sh <<-EOF
-	#! /bin/bash
+	#!/bin/bash
 
 	# Source Greenplum
 	source /usr/local/greenplum-db-devel/greenplum_path.sh

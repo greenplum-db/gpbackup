@@ -218,11 +218,11 @@
   name = "golang.org/x/crypto"
   packages = ["pbkdf2"]
   pruneopts = "NUT"
-  revision = "c7e5f84aec591254278750bee18f39e5dd19cdb5"
+  revision = "f4817d981bb690635456c5c1c6aa0585e5d45891"
 
 [[projects]]
   branch = "master"
-  digest = "1:94002ae1eb37d085f9aca990b3246b0cf6f0d114b5c0924aedd8eaf2a912143f"
+  digest = "1:6ea87aa75ec674ebf2384c6c66be095e639f56e4a2b16001e9a0ae35687225b0"
   name = "golang.org/x/net"
   packages = [
     "html",
@@ -230,7 +230,7 @@
     "html/charset",
   ]
   pruneopts = "NUT"
-  revision = "a882066a44e04a21d46e51451c71e131344e830e"
+  revision = "7e6e90b9ea8824b29cbeee76d03ef838c9187418"
 
 [[projects]]
   branch = "master"
@@ -283,7 +283,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4064f458fb4c4a84382cfcac628f8b8dd0d5b51356738dd36a5a5d44689a0945"
+  digest = "1:75c1e771ddf47c77a525925a62de48660d453adb1adbfa520a0675747f2f4e96"
   name = "golang.org/x/tools"
   packages = [
     "cmd/goimports",
@@ -301,7 +301,7 @@
     "internal/span",
   ]
   pruneopts = "NUT"
-  revision = "689d0f08e67ae0c77c260e137ac6a3729498c92f"
+  revision = "f7ea15e60b12ba031eaab7e3247e845e5c7eba73"
 
 [[projects]]
   digest = "1:21562b59c496f4cbd7a40beaa257ac6761002dd3e36259f532216082abace8b1"

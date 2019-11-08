@@ -46,9 +46,7 @@ psql -d postgres -c "create extension pgcrypto"
 
 # Test gpbackup manager
 pushd \$GOPATH/src/github.com/pivotal/gp-backup-manager
-  make unit
-  make integration
-  make end_to_end
+  make unit integration end_to_end
 popd
 
 SCRIPT
