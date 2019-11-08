@@ -20,58 +20,63 @@ HELPER_VERSION_STR="-X github.com/greenplum-db/gpbackup/helper.version=$(GIT_VER
 SUBDIRS_HAS_UNIT=backup/ backup_filepath/ backup_history/ helper/ options/ restore/ utils/ testutils/
 SUBDIRS_ALL=$(SUBDIRS_HAS_UNIT) integration/ end_to_end/
 GOLANG_LINTER=$(GOPATH)/bin/golangci-lint
-DEP=$(GOPATH)/bin/dep
+GINKGO=$(GOPATH)/bin/ginkgo
+GOIMPORTS=$(GOPATH)/bin/goimports
 
 CUSTOM_BACKUP_DIR ?= "/tmp"
-helper_path=$(BIN_DIR)/$(HELPER)
+helper_path ?= $(BIN_DIR)/$(HELPER)
 
 $(DEP) :
 		mkdir -p $(GOPATH)/bin
 		curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
-depend : $(DEP)
-		dep ensure -v
+depend :
+		go mod download
+
+$(GINKGO) :
+		go get github.com/onsi/ginkgo/ginkgo
+
+$(GOIMPORTS) : depend
 		@cd vendor/golang.org/x/tools/cmd/goimports; go install .
-		@cd vendor/github.com/onsi/ginkgo/ginkgo; go install .
+
+format : $(GOIMPORTS)
+		@goimports -w $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
 LINTER_VERSION=1.16.0
 $(GOLANG_LINTER) :
 		mkdir -p $(GOPATH)/bin
 		curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v${LINTER_VERSION}
 
-format :
-		@goimports -w $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+.PHONY : coverage integration end_to_end
 
 lint : $(GOLANG_LINTER)
 		golangci-lint run --tests=false
 
-.PHONY : coverage integration end_to_end
+unit : depend $(GINKGO)
+		ginkgo -r -keepGoing -randomizeSuites -noisySkippings=false -randomizeAllSpecs $(SUBDIRS_HAS_UNIT) 2>&1
 
-coverage :
-		@./show_coverage.sh
-
-unit :
-		ginkgo $(GINKGO_FLAGS) -keepGoing $(SUBDIRS_HAS_UNIT) 2>&1
-
-integration :
-		ginkgo $(GINKGO_FLAGS) integration 2>&1
+integration : depend $(GINKGO)
+		ginkgo -r -randomizeSuites -noisySkippings=false -randomizeAllSpecs integration 2>&1
 
 test : unit integration
 
-end_to_end :
-		ginkgo $(GINKGO_FLAGS) -slowSpecThreshold=10 end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
+end_to_end : depend $(GINKGO)
+		ginkgo -r -randomizeSuites -slowSpecThreshold=10 -noisySkippings=false -randomizeAllSpecs end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
+
+coverage :
+		@./show_coverage.sh
 
 build : depend
 		go build -tags '$(BACKUP)' $(GOFLAGS) -o $(BIN_DIR)/$(BACKUP) -ldflags $(BACKUP_VERSION_STR)
 		go build -tags '$(RESTORE)' $(GOFLAGS) -o $(BIN_DIR)/$(RESTORE) -ldflags $(RESTORE_VERSION_STR)
 		go build -tags '$(HELPER)' $(GOFLAGS) -o $(BIN_DIR)/$(HELPER) -ldflags $(HELPER_VERSION_STR)
 
-build_linux :
+build_linux : depend
 		env GOOS=linux GOARCH=amd64 go build -tags '$(BACKUP)' $(GOFLAGS) -o $(BACKUP) -ldflags $(BACKUP_VERSION_STR)
 		env GOOS=linux GOARCH=amd64 go build -tags '$(RESTORE)' $(GOFLAGS) -o $(RESTORE) -ldflags $(RESTORE_VERSION_STR)
 		env GOOS=linux GOARCH=amd64 go build -tags '$(HELPER)' $(GOFLAGS) -o $(HELPER) -ldflags $(HELPER_VERSION_STR)
 
-install : build
+install :
 		@psql -t -d template1 -c 'select distinct hostname from gp_segment_configuration where content != -1' > /tmp/seg_hosts 2>/dev/null; \
 		if [ $$? -eq 0 ]; then \
 			gpscp -f /tmp/seg_hosts $(helper_path) =:$(GPHOME)/bin/$(HELPER); \
