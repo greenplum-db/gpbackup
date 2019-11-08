@@ -54,7 +54,7 @@ func init() {
 func gpbackup(gpbackupPath string, backupHelperPath string, args ...string) string {
 	if useOldBackupVersion {
 		_ = os.Chdir("..")
-		command := exec.Command("make", "install_helper", fmt.Sprintf("helper_path=%s", backupHelperPath))
+		command := exec.Command("make", "install", fmt.Sprintf("helper_path=%s", backupHelperPath))
 		mustRunCommand(command)
 		_ = os.Chdir("end_to_end")
 	}
@@ -68,7 +68,7 @@ func gpbackup(gpbackupPath string, backupHelperPath string, args ...string) stri
 func gprestore(gprestorePath string, restoreHelperPath string, timestamp string, args ...string) []byte {
 	if useOldBackupVersion {
 		_ = os.Chdir("..")
-		command := exec.Command("make", "install_helper", fmt.Sprintf("helper_path=%s", restoreHelperPath))
+		command := exec.Command("make", "install", fmt.Sprintf("helper_path=%s", restoreHelperPath))
 		mustRunCommand(command)
 		_ = os.Chdir("end_to_end")
 	}

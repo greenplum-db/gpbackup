@@ -43,7 +43,7 @@ cat <<SCRIPT > /tmp/run_tests.bash
   if [ -z "\$OLD_BACKUP_VERSION" ] ; then
     make end_to_end
   else
-    make install_helper helper_path=/tmp/\${OLD_BACKUP_VERSION}/gpbackup_helper
+    make install helper_path=/tmp/\${OLD_BACKUP_VERSION}/gpbackup_helper
     ginkgo -r -randomizeSuites -slowSpecThreshold=10 -noisySkippings=false -randomizeAllSpecs end_to_end -- --custom_backup_dir "/tmp" 2>&1
   fi
 SCRIPT
