@@ -31,12 +31,12 @@ pushd pivnet_release_cache
     # reset the version count
     COUNT=1
     # detect the release type
-    PRV_MAJOR=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f1)
-    PRV_MINOR=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f2)
-    PRV_PATCH=$(echo ${PRV_TILE_VERSION:2} |cut -d. -f3 | sed -r "s/([0-9]+).*/\1/")
-    CURR_MAJOR=$(echo ${GPBACKUP_VERSION} |cut -d. -f1)
-    CURR_MINOR=$(echo ${GPBACKUP_VERSION} |cut -d. -f2)
-    CURR_PATCH=$(echo ${GPBACKUP_VERSION} |cut -d. -f3)
+    PRV_MAJOR=$(echo ${PRV_TILE_VERSION:2} | cut -d. -f1)
+    PRV_MINOR=$(echo ${PRV_TILE_VERSION:2} | cut -d. -f2)
+    PRV_PATCH=$(echo ${PRV_TILE_VERSION:2} | cut -d. -f3 | sed -r "s/([0-9]+).*/\1/")
+    CURR_MAJOR=$(echo ${GPBACKUP_VERSION} | cut -d. -f1)
+    CURR_MINOR=$(echo ${GPBACKUP_VERSION} | cut -d. -f2)
+    CURR_PATCH=$(echo ${GPBACKUP_VERSION} | cut -d. -f3)
     if [[ "$PRV_MAJOR" != "$CURR_MAJOR" ]] ; then
       RELEASE_TYPE="Major"
     elif [[ "$PRV_MINOR" != "$CURR_MINOR" ]] ; then

@@ -1006,6 +1006,7 @@ jobs:
 - name: GPDB5-sles11
   plan:
   - in_parallel:
+    - get: sles11-image
     - get: gpbackup
     - get: gpdb_binary
       resource: bin_gpdb_5x_sles11
@@ -1035,7 +1036,10 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: integration-tests
-    file: gpbackup/ci/tasks/sles-tests.yml
+    image: sles11-image
+    file: gpbackup/ci/tasks/gpbackup-tests.yml
+    params:
+      OS: SLES
   on_success:
     <<: *ccp_destroy
   on_failure:
@@ -1136,7 +1140,10 @@ jobs:
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: integration-tests
     image: ubuntu-debian-test-image
-    file: gpbackup/ci/tasks/ubuntu-tests.yml
+    file: gpbackup/ci/tasks/gpbackup-tests.yml
+    params:
+      OS: ubuntu
+      default_ami_user: ubuntu
   on_success:
     <<: *ccp_destroy
   on_failure:
@@ -1611,7 +1618,6 @@ jobs:
   - get: github_release_components_rc
     passed:
       - green_gate
-  - get: centos6-image
   - task: prepare-for-release
     image: centos6-image
     config:

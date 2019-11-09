@@ -19,9 +19,9 @@ echo ${DDBOOST_PLUGIN_VERSION} > gpbackup-tools-versions/ddboost_plugin_version
 # get version for future .rpm and .deb files as well as .gppkg files
 pushd pivnet_release_cache
   PRV_TILE_RELEASE_VERSION="v-${GPBACKUP_VERSION}*"
-  if [ -f $PRV_TILE_RELEASE_VERSION ]; then
+  if [[ -f ${PRV_TILE_RELEASE_VERSION} ]]; then
     # increment the counter if the expected release version has been used before
-    COUNT=$(echo $PRV_TILE_RELEASE_VERSION | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
+    COUNT=$(echo ${PRV_TILE_RELEASE_VERSION} | sed -n "s/v-${GPBACKUP_VERSION}-\([0-9]*\).*/\1/p")
     COUNT=$(($COUNT+1))
   else
     # reset the version count

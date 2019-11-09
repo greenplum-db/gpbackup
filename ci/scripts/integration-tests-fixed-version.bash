@@ -9,7 +9,7 @@ set -ex
 
 source env.sh
 
-cd \$GOPATH/src/github.com/greenplum-db/gpbackup
+cd \${GOPATH}/src/github.com/greenplum-db/gpbackup
 
 git checkout ${GPBACKUP_VERSION}
 

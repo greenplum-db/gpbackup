@@ -29,18 +29,17 @@ cat <<SCRIPT > /tmp/run_tests.bash
     gppkg -i gpbackup*gp*.gppkg
   fi
   set -e
-  cd \$GOPATH/src/github.com/greenplum-db/gpbackup
+  cd \${GOPATH}/src/github.com/greenplum-db/gpbackup
   export OLD_BACKUP_VERSION="${GPBACKUP_VERSION}"
 
-  make unit
-  make integration
+  make unit integration
 
   # NOTE: This is a temporary hotfix intended to skip this test when running on CCP cluster because the backup artifact that this test is using only works on local clusters.
   sed -i 's|\tIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|\tPIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|g' end_to_end/end_to_end_suite_test.go
   sed -i 's|\tIt(\`ensure gprestore on corrupt backup with --on-error-continue logs error tables\`, func() {|\tPIt(\`ensure gprestore on corrupt backup with --on-error-continue logs error tables\`, func() {|g' end_to_end/end_to_end_suite_test.go
   sed -i 's|\tIt(\`ensure successful gprestore with --on-error-continue does not log error tables\`, func() {|\tPIt(\`ensure successful gprestore with --on-error-continue does not log error tables\`, func() {|g' end_to_end/end_to_end_suite_test.go
 
-  if [ -z "\$OLD_BACKUP_VERSION" ] ; then
+  if [ -z "\${OLD_BACKUP_VERSION}" ] ; then
     make end_to_end
   else
     make install helper_path=/tmp/\${OLD_BACKUP_VERSION}/gpbackup_helper

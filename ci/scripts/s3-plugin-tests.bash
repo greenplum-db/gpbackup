@@ -15,8 +15,8 @@ cat <<SCRIPT > /tmp/run_tests.bash
   set -ex
   source env.sh
 
-  cat << CONFIG > \$HOME/s3_config.yaml
-executablepath: \$GPHOME/bin/gpbackup_s3_plugin
+  cat << CONFIG > \${HOME}/s3_config.yaml
+executablepath: \${GPHOME}/bin/gpbackup_s3_plugin
 options:
   region: ${REGION}
   aws_access_key_id: ${AWS_ACCESS_KEY_ID}
@@ -26,7 +26,7 @@ options:
 CONFIG
 
   pushd ~/go/src/github.com/greenplum-db/gpbackup/plugins
-    ./plugin_test_bench.sh \$GPHOME/bin/gpbackup_s3_plugin \$HOME/s3_config.yaml
+    ./plugin_test_bench.sh \${GPHOME}/bin/gpbackup_s3_plugin \${HOME}/s3_config.yaml
   popd
 SCRIPT
 

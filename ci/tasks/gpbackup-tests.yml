@@ -2,16 +2,19 @@ platform: linux
 
 image_resource:
   type: docker-image
-  source:
-    repository: pivotaldata/sles-gpdb-dev
-    tag: 11-beta
 
 inputs:
 - name: gpbackup
 - name: ccp_src
+- name: dummy_seclabel
+  optional: true
 - name: cluster_env_files
 - name: gpbackup-dependencies
 - name: gppkgs
 
+params:
+  default_ami_user: root
+  OS:
+
 run:
-  path: gpbackup/ci/scripts/sles-tests.bash
+  path: gpbackup/ci/scripts/gpbackup-tests.bash

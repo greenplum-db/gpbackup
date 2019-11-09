@@ -18,8 +18,8 @@ pushd gpbackup_ddboost_plugin
 make test
 
 # important: whitespace of yaml below is critical, do not change it
-cat << CONFIG > \$HOME/ddboost_config_replication.yaml
-executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+cat << CONFIG > \${HOME}/ddboost_config_replication.yaml
+executablepath: \${GPHOME}/bin/gpbackup_ddboost_plugin
 options:
   hostname: ${DD_SOURCE_HOST}
   username: ${DD_USER}
@@ -39,8 +39,8 @@ options:
 CONFIG
 
 # important: whitespace of yaml below is critical, do not change it
-cat << CONFIG > \$HOME/ddboost_config_replication_restore.yaml
-executablepath: \$GPHOME/bin/gpbackup_ddboost_plugin
+cat << CONFIG > \${HOME}/ddboost_config_replication_restore.yaml
+executablepath: \${GPHOME}/bin/gpbackup_ddboost_plugin
 options:
   hostname: ${DD_DEST_HOST}
   username: ${DD_USER}
@@ -50,12 +50,12 @@ options:
   pgport: 5432
 CONFIG
 
-pushd \$GOPATH/src/github.com/greenplum-db/gpbackup/plugins
+pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup/plugins
 
-./plugin_test_bench.sh \$GPHOME/bin/gpbackup_ddboost_plugin \$HOME/ddboost_config_replication.yaml \$HOME/ddboost_config_replication_restore.yaml
+./plugin_test_bench.sh \${GPHOME}/bin/gpbackup_ddboost_plugin \${HOME}/ddboost_config_replication.yaml \${HOME}/ddboost_config_replication_restore.yaml
 
 # exercise boostfs, which is mounted at /data/gpdata/dd_dir
-pushd \$GOPATH/src/github.com/greenplum-db/gpbackup
+pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
 
 # NOTE: This is a temporary hotfix intended to skip this test when running on CCP cluster because the backup artifact that this test is using only works on local clusters.
 sed -i 's|\tIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|\tPIt(\`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue\`, func() {|g' end_to_end/end_to_end_suite_test.go
