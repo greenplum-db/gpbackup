@@ -93,7 +93,9 @@ var _ = Describe("backup integration tests", func() {
 			Expect(deps[childEntry]).To(HaveKey(parent2Entry))
 		})
 		It("constructs dependencies correctly for a materialized view that depends on two other materialized views", func() {
-			testutils.SkipIfBefore7(connectionPool)
+			if connectionPool.Version.Before("6.2") {
+				Skip("Test only applicable to GPDB 6.2 and above")
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.parent1 AS SELECT relname FROM pg_class")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.parent1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.parent2 AS SELECT relname FROM pg_class")

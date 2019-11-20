@@ -426,7 +426,9 @@ PARTITION BY LIST (gender)
 			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "Oid")
 		})
 		It("returns a slice for materialized views", func() {
-			testutils.SkipIfBefore7(connectionPool)
+			if connectionPool.Version.Before("6.2") {
+				Skip("test only applicable to GPDB 6.2 and above")
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
@@ -438,7 +440,9 @@ PARTITION BY LIST (gender)
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
 		})
 		It("returns a slice for materialized views with storage parameters", func() {
-			testutils.SkipIfBefore7(connectionPool)
+			if connectionPool.Version.Before("6.2") {
+				Skip("test only applicable to GPDB 6.2 and above")
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview WITH (fillfactor=50, autovacuum_enabled=false) AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
@@ -450,7 +454,9 @@ PARTITION BY LIST (gender)
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
 		})
 		It("returns a slice for materialized views with tablespaces", func() {
-			testutils.SkipIfBefore7(connectionPool)
+			if connectionPool.Version.Before("6.2") {
+				Skip("test only applicable to GPDB 6.2 and above")
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview TABLESPACE test_tablespace AS SELECT 1")

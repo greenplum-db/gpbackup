@@ -210,7 +210,9 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a materialized view", func() {
-				testutils.SkipIfBefore7(connectionPool)
+				if connectionPool.Version.Before("6.2") {
+					Skip("Test only applicable to GPDB 6.2 and above")
+				}
 				testhelper.AssertQueryRuns(connectionPool, `CREATE MATERIALIZED VIEW public.testmview AS SELECT * FROM pg_class`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.testmview")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON public.testmview TO testrole")
@@ -579,7 +581,9 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a materialized view in a specific schema", func() {
-				testutils.SkipIfBefore7(connectionPool)
+				if connectionPool.Version.Before("6.2") {
+					Skip("Test only applicable to GPDB 6.2 and above")
+				}
 				testhelper.AssertQueryRuns(connectionPool, `CREATE MATERIALIZED VIEW public.testmview AS SELECT * FROM pg_class`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.testmview")
 				testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")

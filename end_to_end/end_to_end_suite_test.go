@@ -535,7 +535,7 @@ var _ = Describe("backup end to end integration tests", func() {
 					defer testhelper.AssertQueryRuns(backupConn, "DROP FOREIGN DATA WRAPPER fdw CASCADE;")
 					defer testhelper.AssertQueryRuns(restoreConn, "DROP FOREIGN DATA WRAPPER fdw CASCADE;")
 				}
-				if backupConn.Version.AtLeast("7") {
+				if backupConn.Version.AtLeast("6.2") {
 					testhelper.AssertQueryRuns(backupConn, "CREATE TABLE mview_table1(i int, j text);")
 					defer testhelper.AssertQueryRuns(restoreConn, "DROP TABLE mview_table1;")
 					testhelper.AssertQueryRuns(backupConn, "CREATE MATERIALIZED VIEW mview1 (i2) as select i from mview_table1;")

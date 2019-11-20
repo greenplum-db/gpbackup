@@ -482,7 +482,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`,
 			emptyMetadata backup.ObjectMetadata
 		)
 		BeforeEach(func() {
-			testhelper.SetDBVersion(connectionPool, "7.0.0")
+			testhelper.SetDBVersion(connectionPool, "6.2.0")
 			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 			mview = backup.MaterializedView{Oid: 1, Schema: "schema1", Name: "mview1", Definition: "SELECT count(*) FROM pg_tables;"}
 			emptyMetadata = backup.ObjectMetadata{}

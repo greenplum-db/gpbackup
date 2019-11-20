@@ -453,7 +453,9 @@ SET SUBPARTITION TEMPLATE ` + `
 	})
 	Describe("PrintMaterializedCreateViewStatements", func() {
 		BeforeEach(func() {
-			testutils.SkipIfBefore7(connectionPool)
+			if connectionPool.Version.Before("6.2") {
+				Skip("test only applicable to GPDB 6.2 and above")
+			}
 		})
 		It("creates a view with privileges, owner, security label, and comment", func() {
 			view := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplemview", Definition: " SELECT 1;"}

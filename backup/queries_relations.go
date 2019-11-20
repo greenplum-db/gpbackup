@@ -298,7 +298,7 @@ func (v View) FQN() string {
 }
 
 // This function retrieves both regular views and materialized views.
-// Materialized views were introduced in GPDB 7.
+// Materialized views were introduced in GPDB 7 and backported to GPDB 6.2.
 func GetAllViews(connectionPool *dbconn.DBConn) (regularViews []View, materializedViews []MaterializedView) {
 	selectClause := `
 	SELECT
@@ -308,31 +308,18 @@ func GetAllViews(connectionPool *dbconn.DBConn) (regularViews []View, materializ
 		pg_get_viewdef(c.oid) AS definition`
 	if connectionPool.Version.AtLeast("6") {
 		selectClause += `,
-		coalesce(' WITH (' || array_to_string(c.reloptions, ', ') || ')', '') AS options`
-	}
-	if connectionPool.Version.AtLeast("7") {
-		selectClause += `,
+		coalesce(' WITH (' || array_to_string(c.reloptions, ', ') || ')', '') AS options,
 		coalesce(quote_ident(t.spcname), '') AS tablespace,
 		c.relkind='m' AS ismaterialized`
 	}
 
 	fromClause := `
 	FROM pg_class c
-		LEFT JOIN pg_namespace n ON n.oid = c.relnamespace`
-	if connectionPool.Version.AtLeast("7") {
-		fromClause += `
+		LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
 		LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace`
-	}
 
-	var whereClause string
-	if connectionPool.Version.Before("7") {
-		whereClause += `
-	WHERE c.relkind = 'v'::"char"`
-	} else {
-		whereClause += `
-	WHERE c.relkind IN ('m', 'v')`
-	}
-	whereClause += fmt.Sprintf(`
+	whereClause := fmt.Sprintf(`
+	WHERE c.relkind IN ('m', 'v')
 		AND %s
 		AND %s`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
