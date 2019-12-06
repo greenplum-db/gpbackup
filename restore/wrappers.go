@@ -25,6 +25,29 @@ import (
  * Setup and validation wrapper functions
  */
 
+/*
+ * Filter structure to filter schemas and relations
+ */
+type Filters struct {
+	includeSchemas []string
+	excludeSchemas []string
+	includeRelations []string
+	excludeRelations []string
+}
+
+func NewFilters(inSchema []string, exSchemas []string, inRelations []string, exRelations []string) Filters {
+	f := Filters{}
+	f.includeSchemas = inSchema
+	f.excludeSchemas = exSchemas
+	f.includeRelations = inRelations
+	f.excludeRelations  = exRelations
+	return f
+}
+
+func filtersEmpty(filters Filters) bool {
+	return len(filters.includeSchemas) == 0 && len(filters.excludeSchemas) == 0 && len(filters.includeRelations) == 0 && len(filters.excludeRelations) == 0
+}
+
 func SetLoggerVerbosity() {
 	if MustGetFlagBool(utils.QUIET) {
 		gplog.SetVerbosity(gplog.LOGERROR)
@@ -224,36 +247,38 @@ func FindHistoricalPluginVersion(timestamp string) string {
  * Metadata and/or data restore wrapper functions
  */
 
-func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, filterSchemas bool, filterRelations bool) []utils.StatementWithType {
+func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string) []utils.StatementWithType {
+	var statements []utils.StatementWithType
+	statements = GetRestoreMetadataStatementsFiltered(section, filename, includeObjectTypes, excludeObjectTypes, Filters{})
+	return statements
+}
+
+func GetRestoreMetadataStatementsFiltered(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, filters Filters) []utils.StatementWithType {
 	metadataFile := iohelper.MustOpenFileForReading(filename)
 	var statements []utils.StatementWithType
 	var inSchemas, exSchemas, inRelations, exRelations []string
-	if len(includeObjectTypes) > 0 || len(excludeObjectTypes) > 0 || filterSchemas || filterRelations {
-		if filterSchemas {
-			inSchemas = MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)
-			exSchemas = MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)
+	if !filtersEmpty(filters)  {
+		inSchemas = filters.includeSchemas
+		exSchemas = filters.excludeSchemas
+		inRelations = filters.includeRelations
+		exRelations = filters.excludeRelations
+		fpInfoList := GetBackupFPInfoListFromRestorePlan()
+		for _, fpInfo := range fpInfoList {
+			tocFilename := fpInfo.GetTOCFilePath()
+			toc := utils.NewTOC(tocFilename)
+			inRelations = append(inRelations, utils.GetIncludedPartitionRoots(toc.DataEntries, inRelations)...)
 		}
-		if filterRelations {
-			inRelations = MustGetFlagStringSlice(utils.INCLUDE_RELATION)
-			exRelations = MustGetFlagStringSlice(utils.EXCLUDE_RELATION)
-			fpInfoList := GetBackupFPInfoListFromRestorePlan()
-			for _, fpInfo := range fpInfoList {
-				tocFilename := fpInfo.GetTOCFilePath()
-				toc := utils.NewTOC(tocFilename)
-				inRelations = append(inRelations, utils.GetIncludedPartitionRoots(toc.DataEntries, inRelations)...)
-			}
-			// Update include schemas for schema restore if include table is set
-			if utils.Exists(includeObjectTypes, "SCHEMA") {
-				for _, inRelation := range inRelations {
-					schema := inRelation[:strings.Index(inRelation, ".")]
-					if !utils.Exists(inSchemas, schema) {
-						inSchemas = append(inSchemas, schema)
-					}
+		// Update include schemas for schema restore if include table is set
+		if utils.Exists(includeObjectTypes, "SCHEMA") {
+			for _, inRelation := range inRelations {
+				schema := inRelation[:strings.Index(inRelation, ".")]
+				if !utils.Exists(inSchemas, schema) {
+					inSchemas = append(inSchemas, schema)
 				}
-				// reset relation list as these were required only to extract schemas from inRelations
-				inRelations = nil
-				exRelations = nil
 			}
+			// reset relation list as these were required only to extract schemas from inRelations
+			inRelations = nil
+			exRelations = nil
 		}
 	}
 	statements = globalTOC.GetSQLStatementForObjectTypes(section, metadataFile, includeObjectTypes, excludeObjectTypes, inSchemas, exSchemas, inRelations, exRelations)
@@ -280,6 +305,12 @@ func GetBackupFPInfoListFromRestorePlan() []backup_filepath.FilePathInfo {
 	return fpInfoList
 }
 
+func GetBackupFPInfoForTimestamp(timestamp string) backup_filepath.FilePathInfo {
+	segPrefix := backup_filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), timestamp)
+	fpInfo := backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
+	return fpInfo
+}
+
 /*
  * The first time this function is called, it retrieves the session GUCs from the
  * predata file and processes them appropriately, then it returns them so they
@@ -288,7 +319,7 @@ func GetBackupFPInfoListFromRestorePlan() []backup_filepath.FilePathInfo {
 func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int) []utils.StatementWithType {
 	if gucStatements == nil {
 		objectTypes := []string{"SESSION GUCS"}
-		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{}, false, false)
+		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{})
 	}
 	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, false, whichConn)
 	return gucStatements
@@ -316,4 +347,46 @@ func RestoreSchemas(schemaStatements []utils.StatementWithType, progressBar util
 	if numErrors > 0 {
 		gplog.Error("Encountered %d errors during schema restore; see log file %s for a list of errors.", numErrors, gplog.GetLogFilePath())
 	}
+}
+
+func GetExistingTableFQNs() ([]string,  error) {
+	existingTableFQNs := make([]string, 0)
+
+	query := `SELECT quote_ident(n.nspname) || '.' || quote_ident(c.relname)
+			  FROM pg_catalog.pg_class c
+				LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+			  WHERE c.relkind IN ('r','')
+			  AND c.relstorage IN ('h', 'a', 'c','')
+				 AND n.nspname <> 'pg_catalog'
+				 AND n.nspname <> 'information_schema'
+				 AND n.nspname !~ '^pg_toast'
+			  ORDER BY 1;`
+
+	err := connectionPool.Select(&existingTableFQNs, query)
+	return existingTableFQNs, err
+}
+
+func GetExistingSchemas()([]string, error){
+	existingSchemas := make([]string, 0)
+
+	query := `SELECT n.nspname AS "Name"
+			  FROM pg_catalog.pg_namespace n
+			  WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
+			  ORDER BY 1;`
+
+	err := connectionPool.Select(&existingSchemas, query)
+	return existingSchemas, err
+}
+
+func TruncateTablesBeforeRestore(entries []utils.MasterDataEntry) error {
+	query := `TRUNCATE `
+	tableFQNs := make([]string, 0)
+	for _, entry := range entries {
+		tableFQN := utils.MakeFQN(entry.Schema, entry.Name)
+		tableFQNs = append(tableFQNs, tableFQN)
+	}
+	query += strings.Join(tableFQNs, ",")
+	query += ";"
+	_, err := connectionPool.Exec(query)
+	return err
 }

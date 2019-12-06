@@ -108,7 +108,6 @@ func GetUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 
 func GetUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
 	includeOids := GetOidsFromRelationList(connectionPool, includedRelationsQuoted)
-
 	oidStr := strings.Join(includeOids, ", ")
 	query := fmt.Sprintf(`
 	SELECT n.oid AS schemaoid,

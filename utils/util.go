@@ -113,3 +113,15 @@ func Exists(slice []string, val string) bool {
 	}
 	return false
 }
+
+func SchemaIsExcludedByUser(inSchemasUserInput []string, exSchemasUserInput []string, schemaName string) bool{
+	included := Exists(inSchemasUserInput, schemaName) || len(inSchemasUserInput) == 0
+	excluded := Exists(exSchemasUserInput, schemaName)
+	return excluded || !included
+}
+
+func RelationIsExcludedByUser(inRelationsUserInput []string, exRelationsUserInput []string, tableFQN string) bool{
+	included := Exists(inRelationsUserInput, tableFQN) || len(inRelationsUserInput) == 0
+	excluded := Exists(exRelationsUserInput, tableFQN)
+	return excluded || !included
+}
