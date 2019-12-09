@@ -6,7 +6,6 @@ image_resource:
 inputs:
 - name: gpbackup
   path: go/src/github.com/greenplum-db/gpbackup
-- name: gpbackup-dependencies
 - name: gpbackup_s3_plugin
   path: go/src/github.com/greenplum-db/gpbackup-s3-plugin
 - name: gpbackup_manager_src

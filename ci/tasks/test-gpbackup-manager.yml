@@ -9,7 +9,6 @@ inputs:
 - name: bin_gpdb
 - name: gpbackup_manager_src
   path: gp-backup-manager
-- name: gpbackup-dependencies
 - name: gppkgs
 
 run:

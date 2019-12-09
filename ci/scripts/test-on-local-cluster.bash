@@ -32,7 +32,6 @@ export PATH=/usr/local/go/bin:\$PATH:\${GOPATH}/bin
 mkdir -p \${GOPATH}/bin \${GOPATH}/src/github.com/greenplum-db
 
 cp -R $(pwd)/gpbackup \${GOPATH}/src/github.com/greenplum-db/
-tar -zxf $(pwd)/gpbackup-dependencies/dependencies.tar.gz -C \${GOPATH}/src/github.com
 
 # Install dependencies before sourcing greenplum path. Using the GPDB curl is causing issues.
 pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup

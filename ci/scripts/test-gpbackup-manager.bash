@@ -14,7 +14,6 @@ time make_cluster
 # copy gpbackup-manager into the GOPATH used by user "gpadmin"
 export GOPATH=/home/gpadmin/go
 mkdir -p ${GOPATH}/src/github.com/pivotal
-tar -zxf gpbackup-dependencies/dependencies.tar.gz -C ${GOPATH}/src/github.com
 cp -R gp-backup-manager ${GOPATH}/src/github.com/pivotal/
 
 chown -R gpadmin ${GOPATH}

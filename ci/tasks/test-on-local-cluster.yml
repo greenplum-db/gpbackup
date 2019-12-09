@@ -9,7 +9,6 @@ inputs:
 - name: bin_gpdb
 - name: dummy_seclabel
   optional: true
-- name: gpbackup-dependencies
 - name: gppkgs
 
 params:

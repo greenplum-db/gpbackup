@@ -14,7 +14,6 @@ ssh -t ${default_ami_user}@mdw " \
     sudo mkdir -p /home/gpadmin/go/src/github.com/greenplum-db && \
     sudo chown gpadmin:gpadmin -R /home/gpadmin"
 
-rsync -a gpbackup-dependencies mdw:/home/gpadmin
 scp -r -q gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
 
 if test -f dummy_seclabel/dummy_seclabel*.so; then
@@ -44,7 +43,6 @@ if test -f ${GPHOME}/lib/postgresql/dummy_seclabel.so; then
 fi
 gpstop -ar
 
-tar -zxf gpbackup-dependencies/dependencies.tar.gz -C \${GOPATH}/src/github.com
 pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
     make depend # Needed to install ginkgo
 popd

@@ -5,11 +5,8 @@ set -ex
 export GOPATH=$(pwd)/go
 export PATH=$PATH:${GOPATH}/bin
 
-tar -zxf gpbackup-dependencies/dependencies.tar.gz -C ${GOPATH}/src/github.com
-
 # Build gpbackup
 pushd ${GOPATH}/src/github.com/greenplum-db/gpbackup
-  go mod vendor # This is to prevent dependency upload failures that are now unused since we were caching dependencies manually.
   make depend build unit
   version=$(git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/')
 popd
@@ -47,12 +44,6 @@ if [[ "gpbackup_manager version ${gpbackup_manager_version}" != "$output" ]]; th
   echo "unexpected difference in version recorded for gpbackup_manager: expected 'gpbackup_manager version ${gpbackup_manager_version}' to be same as: '$output'"
   exit 1
 fi
-
-# tar updated dependencies
-pushd ${GOPATH}/src/github.com
-  tar cfz dependencies.tar.gz greenplum-db/gpbackup/vendor
-popd
-cp ${GOPATH}/src/github.com/dependencies.tar.gz output_deps/
 
 cp ${GOPATH}/bin/gpbackup go_components/
 cp ${GOPATH}/bin/gpbackup_helper go_components/

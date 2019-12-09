@@ -9,7 +9,6 @@ inputs:
 - name: cluster_env_files
 - name: dummy_seclabel
   optional: true
-- name: gpbackup-dependencies
 
 params:
   default_ami_user: centos
