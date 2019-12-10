@@ -344,6 +344,12 @@ func GetRoles(connectionPool *dbconn.DBConn) []Role {
 		writeExtHdfs = ""
 	}
 
+	var whereClause string
+	if connectionPool.Version.AtLeast("7") {
+		whereClause = `
+	WHERE rolname !~ '^pg_'`
+	}
+
 	query := fmt.Sprintf(`
 	SELECT oid,
 		quote_ident(rolname) AS name,
@@ -368,6 +374,8 @@ func GetRoles(connectionPool *dbconn.DBConn) []Role {
 		rolcreaterextgpfd,
 		rolcreatewextgpfd
 	FROM pg_authid`, replicationQuery, resgroupQuery, readExtHdfs, writeExtHdfs)
+
+	query += whereClause
 
 	roles := make([]Role, 0)
 	err := connectionPool.Select(&roles, query)
@@ -400,7 +408,16 @@ func (rg RoleGUC) GetMetadataEntry() (string, utils.MetadataEntry) {
 }
 
 func GetRoleGUCs(connectionPool *dbconn.DBConn) map[string][]RoleGUC {
-	gucsForDBQuery := ""
+	selectClause := `
+	SELECT rolename,
+		dbname,
+		CASE
+			WHEN option_name='search_path' OR option_name = 'DateStyle'
+			THEN ('SET ' || option_name || ' TO ' || option_value)
+			ELSE ('SET ' || option_name || ' TO ''' || option_value || '''')
+		END AS config`
+
+	var gucsForDBQuery string
 	if connectionPool.Version.AtLeast("6") {
 		gucsForDBQuery = `UNION
 	SELECT quote_ident(r.rolname) AS rolename,
@@ -409,26 +426,27 @@ func GetRoleGUCs(connectionPool *dbconn.DBConn) map[string][]RoleGUC {
 		(pg_options_to_table(setconfig)).option_value
 	FROM pg_db_role_setting pgdb
 		JOIN pg_database d ON pgdb.setdatabase = d.oid
-		JOIN pg_roles r ON pgdb.setrole = r.oid`
+		JOIN pg_roles r ON pgdb.setrole = r.oid `
 	}
-
-	query := fmt.Sprintf(`
-	SELECT rolename,
-		dbname,
-		CASE
-			WHEN option_name='search_path' OR option_name = 'DateStyle'
-			THEN ('SET ' || option_name || ' TO ' || option_value)
-			ELSE ('SET ' || option_name || ' TO ''' || option_value || '''')
-		END AS config
+	fromClause := fmt.Sprintf(`
 	FROM ( SELECT quote_ident(rolname) AS rolename,
 			'' AS dbname,
 			(pg_options_to_table(rolconfig)).option_name,
-			(pg_options_to_table(rolconfig)).option_value 
-			FROM pg_roles %s ) AS options;`, gucsForDBQuery)
+			(pg_options_to_table(rolconfig)).option_value
+			FROM pg_roles %s) AS options`, gucsForDBQuery)
+
+	var whereClause string
+	if connectionPool.Version.AtLeast("7") {
+		whereClause = `
+	WHERE rolename !~ '^pg_'`
+	}
+
+	query := selectClause + fromClause + whereClause
 
 	results := make([]RoleGUC, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
+
 	resultMap := make(map[string][]RoleGUC)
 	for _, result := range results {
 		resultMap[result.RoleName] = append(resultMap[result.RoleName], result)
