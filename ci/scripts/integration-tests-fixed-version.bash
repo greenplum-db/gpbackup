@@ -18,6 +18,8 @@ git checkout ${GPBACKUP_VERSION}
 # with gpdb5, we've decided to simply cherry-pick the commit prior to running tests.
 git cherry-pick c149e8b7b671e931ca892f22c8cdef906512d591
 
+tar -zxf ~/gpbackup_1.12.1_dependencies.tar.gz
+
 make depend build integration
 
 # NOTE: This is a temporary hotfix intended to skip these tests when running on CCP cluster
@@ -29,4 +31,7 @@ SCRIPT
 
 chmod +x /tmp/run_tests.bash
 scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
+
+rsync -a gpbackup_1.12.1_dependencies/gpbackup_1.12.1_dependencies.tar.gz mdw:/home/gpadmin
+
 ssh -t mdw "bash /home/gpadmin/run_tests.bash"

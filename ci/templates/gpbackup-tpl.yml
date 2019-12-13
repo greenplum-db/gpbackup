@@ -492,6 +492,17 @@ resources:
     access_key_id: {{bucket-access-key-id}}
     secret_access_key: {{bucket-secret-access-key}}
 
+# Manual caching to prevent dep flakes when downloading dependencies
+- name: gpbackup_1.12.1_dependencies
+  type: s3
+  icon: amazon
+  source:
+    bucket: gpbackup-dependencies
+    versioned_file: gpbackup_1.12.1_dependencies.tar.gz
+    region_name: us-west-2
+    access_key_id: {{bucket-access-key-id}}
+    secret_access_key: {{bucket-secret-access-key}}
+
 - name: pgcrypto43
   type: s3
   icon: amazon
@@ -1296,7 +1307,7 @@ jobs:
     <<: *set_failed
 
 {% if "gpbackup-release" != pipeline_name %}
-# Ensure compatibility between a new gpdb5 binary and a fixed version of gpbackup
+# Ensure compatibility between a new GPDB5 binary and a fixed version of gpbackup
 - name: 5X-head-gpbackup-fixed-test
   plan:
   - in_parallel:
@@ -1312,6 +1323,7 @@ jobs:
     - get: ccp_src
     - get: gpdb_src
       resource: gpdb5_src
+    - get: gpbackup_1.12.1_dependencies
   - put: terraform
     params:
       <<: *ccp_default_params
