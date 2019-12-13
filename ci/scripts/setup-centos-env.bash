@@ -42,10 +42,6 @@ if test -f ${GPHOME}/lib/postgresql/dummy_seclabel.so; then
     gpconfig -c shared_preload_libraries -v dummy_seclabel
 fi
 gpstop -ar
-
-pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
-    make depend # Needed to install ginkgo
-popd
 SCRIPT
 
 chmod +x /tmp/setup_env.bash
