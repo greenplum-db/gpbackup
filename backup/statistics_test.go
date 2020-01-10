@@ -277,8 +277,8 @@ INSERT INTO pg_statistic VALUES (
 	})
 	Describe("SliceToPostgresArray", func() {
 		It("returns properly quoted string representing a Postgres array", func() {
-			arrayString := backup.SliceToPostgresArray([]string{"ab'c", `ef"g`})
-			Expect(arrayString).To(Equal(`'{"ab''c","ef\"g"}'`))
+			arrayString := backup.SliceToPostgresArray([]string{"ab'c", "ab\\c", "ab\"c", "ef\\'\"g"})
+			Expect(arrayString).To(Equal("'{\"ab''c\",\"ab\\\\c\",\"ab\\\"c\",\"ef\\\\''\\\"g\"}'"))
 		})
 	})
 })

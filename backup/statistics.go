@@ -207,14 +207,17 @@ func generateAttributeSlotsQuery4(attStat AttributeStatistic) string {
 	return attributeQuery
 }
 
+// It is assumed that the elements in the input slice are already escaped
 func SliceToPostgresArray(slice []string) string {
 	quotedStrings := make([]string, len(slice))
 	for i, str := range slice {
+		// Escape single quotes because we are using array_in
 		escapedStr := utils.EscapeSingleQuotes(str)
-		escapedStr = strings.Replace(escapedStr, `"`, `\"`, -1)
-		quotedStrings[i] = fmt.Sprintf(`"%s"`, escapedStr)
+		// Store a Go-syntax representation of the value because writing to the
+		// file will evaluate the string
+		quotedStrings[i] = fmt.Sprintf(`%#v`, escapedStr)
 	}
-	return fmt.Sprintf("'{%s}'", strings.Join(quotedStrings, ","))
+	return fmt.Sprintf(`'{%s}'`, strings.Join(quotedStrings, ","))
 }
 
 func RealValues(reals pq.StringArray) string {
@@ -230,7 +233,7 @@ func RealValues(reals pq.StringArray) string {
  */
 func AnyValues(any pq.StringArray, typ string) string {
 	if len(any) > 0 {
-		return fmt.Sprintf("array_in(%s, '%s'::regtype::oid, -1)", SliceToPostgresArray(any), typ)
+		return fmt.Sprintf(`array_in(%s, '%s'::regtype::oid, -1)`, SliceToPostgresArray(any), typ)
 	}
 	return fmt.Sprintf("NULL")
 }
