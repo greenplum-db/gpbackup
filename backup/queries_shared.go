@@ -53,7 +53,7 @@ func (s Schema) FQN() string {
 	return s.Name
 }
 
-func GetAllUserSchemas(connectionPool *dbconn.DBConn) []Schema {
+func GetAllUserSchemas(connectionPool *dbconn.DBConn, partitionAlteredSchemas map[string]bool) []Schema {
 	/*
 	 * This query is constructed from scratch, but the list of schemas to exclude
 	 * is copied from gpcrondump so that gpbackup exhibits similar behavior regarding
@@ -62,7 +62,8 @@ func GetAllUserSchemas(connectionPool *dbconn.DBConn) []Schema {
 	query := fmt.Sprintf(`
 	SELECT oid, quote_ident(nspname) AS name FROM pg_namespace n
 		WHERE %s AND %s ORDER BY name`,
-		SchemaFilterClause("n"), ExtensionFilterClause(""))
+		SchemaFilterClauseWithAlteredPartitionSchemas("n", partitionAlteredSchemas),
+		ExtensionFilterClause(""))
 	results := make([]Schema, 0)
 
 	err := connectionPool.Select(&results, query)
@@ -184,6 +185,45 @@ func SchemaFilterClause(namespace string) string {
 	}
 	if len(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)) > 0 {
 		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)))
+	}
+	return fmt.Sprintf(`%s.nspname NOT LIKE 'pg_temp_%%' AND %s.nspname NOT LIKE 'pg_toast%%' AND %s.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog') %s`, namespace, namespace, namespace, schemaFilterClauseStr)
+}
+
+/*
+ * A list of schemas we don't want to back up, formatted for use in a
+ * WHERE clause. This function takes into consideration child
+ * partitions that are in different schemas than their root partition.
+ */
+func SchemaFilterClauseWithAlteredPartitionSchemas(namespace string, partitionAlteredSchemas map[string]bool) string {
+	schemaFilterClauseStr := ""
+	if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) > 0 {
+		includeSchemaArray := make([]string, 0)
+
+		// Add partitionAlteredSchemas keys to the string array of options.INCLUDE_SCHEMA
+		for _, includeSchema := range MustGetFlagStringArray(options.INCLUDE_SCHEMA) {
+			partitionAlteredSchemas[includeSchema] = true
+		}
+		for key := range partitionAlteredSchemas {
+			includeSchemaArray = append(includeSchemaArray, key)
+		}
+
+		if len(includeSchemaArray) > 0 {
+			schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(includeSchemaArray))
+		}
+	}
+	if len(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)) > 0 {
+		excludeSchemaArray := make([]string, 0)
+
+		// Remove partitionAlteredSchemas keys from the string array of options.EXCLUDE_SCHEMA
+		for _, excludeSchema := range MustGetFlagStringArray(options.EXCLUDE_SCHEMA) {
+			if !partitionAlteredSchemas[excludeSchema] {
+				excludeSchemaArray = append(excludeSchemaArray, excludeSchema)
+			}
+		}
+
+		if len(excludeSchemaArray) > 0 {
+			schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(excludeSchemaArray))
+		}
 	}
 	return fmt.Sprintf(`%s.nspname NOT LIKE 'pg_temp_%%' AND %s.nspname NOT LIKE 'pg_toast%%' AND %s.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog') %s`, namespace, namespace, namespace, schemaFilterClauseStr)
 }

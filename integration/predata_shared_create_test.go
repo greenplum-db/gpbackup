@@ -15,6 +15,10 @@ var _ = Describe("backup integration create statement tests", func() {
 		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateSchemaStatements", func() {
+		var partitionAlteredSchemas map[string]bool
+		BeforeEach(func() {
+			partitionAlteredSchemas = make(map[string]bool)
+		})
 		It("creates a non public schema", func() {
 			schemas := []backup.Schema{{Oid: 0, Name: "test_schema"}}
 			schemaMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true, includeSecurityLabels)
@@ -24,7 +28,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA test_schema")
 
-			resultSchemas := backup.GetAllUserSchemas(connectionPool)
+			resultSchemas := backup.GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
 
 			Expect(resultSchemas).To(HaveLen(2))
 			Expect(resultSchemas[0].Name).To(Equal("public"))
@@ -42,7 +46,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER SCHEMA public OWNER TO anothertestrole")
 			defer testhelper.AssertQueryRuns(connectionPool, "COMMENT ON SCHEMA public IS 'standard public schema'")
 
-			resultSchemas := backup.GetAllUserSchemas(connectionPool)
+			resultSchemas := backup.GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
 
 			Expect(resultSchemas).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[0])

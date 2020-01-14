@@ -858,4 +858,24 @@ SET SUBPARTITION TEMPLATE
 			Expect(result[oid]).To(Equal("n"))
 		})
 	})
+	Describe("GetPartitionAlteredSchema", func() {
+		It("Returns a map of table oid to array of child partitions with different schemas", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foopart(a int, b int) PARTITION BY RANGE(a) (START(1) END (4) EVERY(1))")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.foopart_1_prt_1 SET SCHEMA testschema")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.foopart_1_prt_2 SET SCHEMA testschema")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foopart")
+
+			oid := testutils.OidFromObjectName(connectionPool, "public", "foopart", backup.TYPE_RELATION)
+			result := backup.GetPartitionAlteredSchema(connectionPool)
+
+			expectedAlteredPartitions := []backup.AlteredPartitionRelation{
+				{OldSchema: "public", NewSchema: "testschema", Name: "foopart_1_prt_1"},
+				{OldSchema: "public", NewSchema: "testschema", Name: "foopart_1_prt_2"},
+			}
+
+			Expect(result[oid]).To(ConsistOf(expectedAlteredPartitions))
+		})
+	})
 })

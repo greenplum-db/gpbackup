@@ -13,10 +13,14 @@ import (
 
 var _ = Describe("backup integration tests", func() {
 	Describe("GetAllUserSchemas", func() {
+		var partitionAlteredSchemas map[string]bool
+		BeforeEach(func() {
+			partitionAlteredSchemas = make(map[string]bool)
+		})
 		It("returns user schema information", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA bar")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA bar")
-			schemas := backup.GetAllUserSchemas(connectionPool)
+			schemas := backup.GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
 
 			schemaBar := backup.Schema{Oid: 0, Name: "bar"}
 			schemaPublic := backup.Schema{Oid: 2200, Name: "public"}
@@ -31,7 +35,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA bar")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "bar")
 
-			schemas := backup.GetAllUserSchemas(connectionPool)
+			schemas := backup.GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
 
 			schemaBar := backup.Schema{Oid: 0, Name: "bar"}
 
@@ -45,7 +49,23 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA bar")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "bar")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "public")
-			schemas := backup.GetAllUserSchemas(connectionPool)
+			schemas := backup.GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
+
+			schemaBar := backup.Schema{Oid: 0, Name: "bar"}
+			schemaPublic := backup.Schema{Oid: 2200, Name: "public"}
+
+			Expect(schemas).To(HaveLen(2))
+			structmatcher.ExpectStructsToMatchExcluding(&schemaBar, &schemas[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&schemaPublic, &schemas[1], "Owner")
+
+		})
+
+		It("returns schema information for filtered schemas with altered partition schema exceptions", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA bar")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA bar")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "public")
+			partitionAlteredSchemas["bar"] = true
+			schemas := backup.GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
 
 			schemaBar := backup.Schema{Oid: 0, Name: "bar"}
 			schemaPublic := backup.Schema{Oid: 2200, Name: "public"}

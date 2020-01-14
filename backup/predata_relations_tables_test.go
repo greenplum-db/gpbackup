@@ -656,5 +656,18 @@ SECURITY LABEL FOR dummy ON COLUMN public.tablename.i IS 'unclassified';
 
 SECURITY LABEL FOR dummy ON COLUMN public.tablename.j IS 'unclassified';`)
 		})
+		It("prints altered schemas of child partitions different from the root partition", func() {
+			testTable.PartitionAlteredSchemas = []backup.AlteredPartitionRelation{
+				{OldSchema: "schema1", NewSchema: "schema2", Name: "table1"},
+				{OldSchema: "schema2", NewSchema: "schema1", Name: "table2"},
+			}
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, backup.ObjectMetadata{})
+			testhelper.ExpectRegexp(buffer, `
+
+ALTER TABLE schema1.table1 SET SCHEMA schema2;
+
+
+ALTER TABLE schema2.table2 SET SCHEMA schema1;`)
+		})
 	})
 })

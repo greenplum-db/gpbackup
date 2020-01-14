@@ -224,6 +224,12 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 		}
 	}
 
+	for _, alteredPartitionRelation := range table.PartitionAlteredSchemas {
+		statements = append(statements,
+			fmt.Sprintf("ALTER TABLE %s SET SCHEMA %s;",
+				utils.MakeFQN(alteredPartitionRelation.OldSchema, alteredPartitionRelation.Name), alteredPartitionRelation.NewSchema))
+	}
+
 	PrintStatements(metadataFile, toc, table, statements)
 }
 

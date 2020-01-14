@@ -42,6 +42,20 @@ func (t Table) GetMetadataEntry() (string, toc.MetadataEntry) {
 		}
 }
 
+/*
+ * Extract all the unique schemas out from a Table array.
+ */
+func CreateAlteredPartitionSchemaSet(tables []Table) map[string]bool {
+	partitionAlteredSchemas := make(map[string]bool)
+	for _, table := range tables {
+		for _, alteredPartitionRelation := range table.PartitionAlteredSchemas {
+			partitionAlteredSchemas[alteredPartitionRelation.NewSchema] = true
+		}
+	}
+
+	return partitionAlteredSchemas
+}
+
 type TableDefinition struct {
 	DistPolicy         string
 	PartDef            string
@@ -57,6 +71,7 @@ type TableDefinition struct {
 	ForeignDef         ForeignTableDefinition
 	Inherits           []string
 	ReplicaIdentity    string
+	PartitionAlteredSchemas []AlteredPartitionRelation
 }
 
 /*
@@ -79,6 +94,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	foreignTableDefs := GetForeignTableDefinitions(connectionPool)
 	inheritanceMap := GetTableInheritance(connectionPool, tableRelations)
 	replicaIdentityMap := GetTableReplicaIdentity(connectionPool)
+	partitionAlteredSchemaMap := GetPartitionAlteredSchema(connectionPool)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, tableRel := range tableRelations {
@@ -98,6 +114,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			ForeignDef:         foreignTableDefs[oid],
 			Inherits:           inheritanceMap[oid],
 			ReplicaIdentity:    replicaIdentityMap[oid],
+			PartitionAlteredSchemas: partitionAlteredSchemaMap[oid],
 		}
 		if tableDef.Inherits == nil {
 			tableDef.Inherits = []string{}
@@ -319,6 +336,46 @@ func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[
 		}
 	}
 	return partitionDef, partitionTemp
+}
+
+type AlteredPartitionRelation struct {
+	OldSchema	string
+	NewSchema	string
+	Name		string
+}
+
+/*
+ * Partition tables could have child partitions in schemas different
+ * than the root partition. We need to keep track of these child
+ * partitions and later create ALTER TABLE SET SCHEMA statements for
+ * them.
+ */
+func GetPartitionAlteredSchema(connectionPool *dbconn.DBConn) map[uint32][]AlteredPartitionRelation {
+	gplog.Info("Getting child partitions with altered schema")
+	query := fmt.Sprintf(`
+	SELECT pgp.parrelid AS oid,
+		quote_ident(pgn2.nspname) AS oldschema,
+		quote_ident(pgn.nspname) AS newschema,
+		quote_ident(pgc.relname) AS name
+	FROM pg_catalog.pg_partition_rule pgpr
+		JOIN pg_catalog.pg_partition pgp ON pgp.oid = pgpr.paroid
+		JOIN pg_catalog.pg_class pgc ON pgpr.parchildrelid = pgc.oid
+		JOIN pg_catalog.pg_class pgc2 ON pgp.parrelid = pgc2.oid
+		JOIN pg_catalog.pg_namespace pgn ON pgc.relnamespace = pgn.oid
+		JOIN pg_catalog.pg_namespace pgn2 ON pgc2.relnamespace = pgn2.oid
+	WHERE pgc.relnamespace != pgc2.relnamespace`)
+	var results []struct {
+		Oid	uint32
+		AlteredPartitionRelation
+	}
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	partitionAlteredSchemaMap := make(map[uint32][]AlteredPartitionRelation)
+	for _, result := range results {
+		alteredPartitionRelation := AlteredPartitionRelation{result.OldSchema, result.NewSchema, result.Name}
+		partitionAlteredSchemaMap[result.Oid] = append(partitionAlteredSchemaMap[result.Oid], alteredPartitionRelation)
+	}
+	return partitionAlteredSchemaMap
 }
 
 func GetTableStorage(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint32]string) {

@@ -258,7 +258,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	funcInfoMap := GetFunctionOidToInfoMap(connectionPool)
 
 	if !tableOnly {
-		BackupSchemas(metadataFile)
+		BackupSchemas(metadataFile, CreateAlteredPartitionSchemaSet(tables))
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 && connectionPool.Version.AtLeast("5") {
 			BackupExtensions(metadataFile)
 		}

@@ -434,9 +434,9 @@ func BackupRoleGrants(metadataFile *utils.FileWithByteCount) {
  * Predata wrapper functions
  */
 
-func BackupSchemas(metadataFile *utils.FileWithByteCount) {
+func BackupSchemas(metadataFile *utils.FileWithByteCount, partitionAlteredSchemas map[string]bool) {
 	gplog.Verbose("Writing CREATE SCHEMA statements to metadata file")
-	schemas := GetAllUserSchemas(connectionPool)
+	schemas := GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
 	objectCounts["Schemas"] = len(schemas)
 	schemaMetadata := GetMetadataForObjectType(connectionPool, TYPE_SCHEMA)
 	PrintCreateSchemaStatements(metadataFile, globalTOC, schemas, schemaMetadata)
