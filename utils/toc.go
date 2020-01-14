@@ -3,11 +3,10 @@ package utils
 import (
 	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
 	"regexp"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"gopkg.in/yaml.v2"
 )
 
@@ -59,7 +58,7 @@ type AOEntry struct {
 
 func NewTOC(filename string) *TOC {
 	toc := &TOC{}
-	contents, err := operating.System.ReadFile(filename)
+	contents, err := ioutil.ReadFile(filename)
 	gplog.FatalOnError(err)
 	err = yaml.Unmarshal(contents, toc)
 	gplog.FatalOnError(err)
@@ -68,7 +67,7 @@ func NewTOC(filename string) *TOC {
 
 func NewSegmentTOC(filename string) *SegmentTOC {
 	toc := &SegmentTOC{}
-	contents, err := operating.System.ReadFile(filename)
+	contents, err := ioutil.ReadFile(filename)
 	gplog.FatalOnError(err)
 	err = yaml.Unmarshal(contents, toc)
 	gplog.FatalOnError(err)
@@ -76,54 +75,18 @@ func NewSegmentTOC(filename string) *SegmentTOC {
 }
 
 func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
-	tocContents, err := yaml.Marshal(toc)
+	contents, err := yaml.Marshal(toc)
 	gplog.FatalOnError(err)
-
-	tocFile, err := os.OpenFile(filename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-	gplog.FatalOnError(err)
-
-	_, err = tocFile.Write(tocContents)
-	gplog.FatalOnError(err)
-
-	err = tocFile.Sync()
-	gplog.FatalOnError(err)
-
-	err = tocFile.Close()
-	gplog.FatalOnError(err)
-
-	err = os.Chmod(filename, 0444)
+	err = WriteToFileAndMakeReadOnly(filename, contents)
 	gplog.FatalOnError(err)
 }
 
-//This function return an error rather than Fataling because it is called by the helper
 func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) error {
-	tocContents, err := yaml.Marshal(toc)
+	contents, err := yaml.Marshal(toc)
 	if err != nil {
 		return err
 	}
-
-	tocFile, err := os.OpenFile(filename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-
-	_, err = tocFile.Write(tocContents)
-	if err != nil {
-		return err
-	}
-
-	err = tocFile.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = tocFile.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Chmod(filename, 0444)
-	return err
+	return WriteToFileAndMakeReadOnly(filename, contents)
 }
 
 type StatementWithType struct {

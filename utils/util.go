@@ -27,6 +27,34 @@ const MINIMUM_GPDB5_VERSION = "5.1.0"
  * General helper functions
  */
 
+func OpenFileForWrite(filename string) (*os.File, error) {
+	return os.OpenFile(filename, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+}
+
+func WriteToFileAndMakeReadOnly(filename string, contents []byte) error {
+	file, err := OpenFileForWrite(filename)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(contents)
+	if err != nil {
+		return err
+	}
+
+	err = file.Sync()
+	if err != nil {
+		return err
+	}
+
+	err = file.Chmod(0444)
+	if err != nil {
+		return err
+	}
+
+	return file.Close()
+}
+
 // Dollar-quoting logic is based on appendStringLiteralDQ() in pg_dump.
 func DollarQuoteString(literal string) string {
 	delimStr := "_XXXXXXX"

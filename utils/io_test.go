@@ -1,7 +1,6 @@
 package utils_test
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
 
@@ -81,37 +80,15 @@ var _ = Describe("utils/io tests", func() {
 	})
 	Describe("Close", func() {
 		var file *utils.FileWithByteCount
-		var wasCalled bool
-		BeforeEach(func() {
-			wasCalled = false
-			operating.System.Chmod = func(name string, mode os.FileMode) error {
-				wasCalled = true
-				return nil
-			}
-			operating.System.OpenFileWrite = func(name string, flag int, perm os.FileMode) (io.WriteCloser, error) {
-				return &os.File{}, nil
-			}
-		})
-		AfterEach(func() {
-			operating.System.OpenFileWrite = operating.OpenFileWrite
-		})
 		It("does nothing if the FileWithByteCount's closer is nil", func() {
 			file = utils.NewFileWithByteCount(buffer)
 			file.Close()
 			file.MustPrintf("message")
 		})
-		It("closes the FileWithByteCount if it has no filename", func() {
-			file = utils.NewFileWithByteCountFromFile("")
-			file.Close()
-			Expect(wasCalled).To(BeFalse())
-			defer testhelper.ShouldPanicWithMessage("invalid memory address or nil pointer dereference")
-			file.MustPrintf("message")
-		})
 		It("closes the FileWithByteCount and makes it read-only if it has a filename", func() {
 			file = utils.NewFileWithByteCountFromFile("testfile")
 			file.Close()
-			Expect(wasCalled).To(BeTrue())
-			defer testhelper.ShouldPanicWithMessage("invalid memory address or nil pointer dereference")
+			defer testhelper.ShouldPanicWithMessage("write testfile: file already closed: Unable to write to file")
 			file.MustPrintf("message")
 		})
 	})

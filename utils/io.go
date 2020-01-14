@@ -9,11 +9,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"os/user"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 )
 
@@ -52,10 +53,10 @@ func EscapeSingleQuotes(str string) string {
  */
 
 func GetUserAndHostInfo() (string, string, string) {
-	currentUser, _ := operating.System.CurrentUser()
+	currentUser, _ := user.Current()
 	userName := currentUser.Username
 	userDir := currentUser.HomeDir
-	hostname, _ := operating.System.Hostname()
+	hostname, _ := os.Hostname()
 	return userName, userDir, hostname
 }
 
@@ -89,8 +90,8 @@ func MustPrintBytes(file io.Writer, bytes []byte) uint64 {
 
 type FileWithByteCount struct {
 	Filename  string
-	writer    io.Writer
-	closer    io.WriteCloser
+	Writer    io.Writer
+	File      *os.File
 	ByteCount uint64
 }
 
@@ -99,13 +100,17 @@ func NewFileWithByteCount(writer io.Writer) *FileWithByteCount {
 }
 
 func NewFileWithByteCountFromFile(filename string) *FileWithByteCount {
-	file := iohelper.MustOpenFileForWriting(filename)
+	file, err := OpenFileForWrite(filename)
+	gplog.FatalOnError(err)
 	return &FileWithByteCount{filename, file, file, 0}
 }
 
 func (file *FileWithByteCount) Close() {
-	if file.closer != nil {
-		_ = file.closer.Close()
+	if file.File != nil {
+		err := file.File.Sync()
+		gplog.FatalOnError(err)
+		err = file.File.Close()
+		gplog.FatalOnError(err)
 		if file.Filename != "" {
 			err := operating.System.Chmod(file.Filename, 0444)
 			gplog.FatalOnError(err)
@@ -114,25 +119,25 @@ func (file *FileWithByteCount) Close() {
 }
 
 func (file *FileWithByteCount) MustPrintln(v ...interface{}) {
-	bytesWritten, err := fmt.Fprintln(file.writer, v...)
+	bytesWritten, err := fmt.Fprintln(file.Writer, v...)
 	gplog.FatalOnError(err, "Unable to write to file")
 	file.ByteCount += uint64(bytesWritten)
 }
 
 func (file *FileWithByteCount) MustPrintf(s string, v ...interface{}) {
-	bytesWritten, err := fmt.Fprintf(file.writer, s, v...)
+	bytesWritten, err := fmt.Fprintf(file.Writer, s, v...)
 	gplog.FatalOnError(err, "Unable to write to file")
 	file.ByteCount += uint64(bytesWritten)
 }
 
 func (file *FileWithByteCount) MustPrint(s string) {
-	bytesWritten, err := fmt.Fprint(file.writer, s)
+	bytesWritten, err := fmt.Fprint(file.Writer, s)
 	gplog.FatalOnError(err, "Unable to write to file")
 	file.ByteCount += uint64(bytesWritten)
 }
 
 func CopyFile(src, dest string) error {
-	info, err := operating.System.Stat(src)
+	info, err := os.Stat(src)
 	if err == nil {
 		var content []byte
 		content, err = ioutil.ReadFile(src)
