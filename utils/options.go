@@ -1,4 +1,4 @@
-package options
+package utils
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 )
@@ -21,24 +20,24 @@ type Options struct {
 }
 
 func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
-	includes, err := initialFlags.GetStringArray(utils.INCLUDE_RELATION)
+	includes, err := initialFlags.GetStringArray(INCLUDE_RELATION)
 	if err != nil {
 		return nil, err
 	}
 
-	includedSchemas, err := initialFlags.GetStringSlice(utils.INCLUDE_SCHEMA)
+	includedSchemas, err := initialFlags.GetStringSlice(INCLUDE_SCHEMA)
 	if err != nil {
 		return nil, err
 	}
 
-	excludedSchemas, err := initialFlags.GetStringSlice(utils.EXCLUDE_SCHEMA)
+	excludedSchemas, err := initialFlags.GetStringSlice(EXCLUDE_SCHEMA)
 	if err != nil {
 		return nil, err
 	}
 
 	// flag for INCLUDE_RELATION_FILE is mutually exclusive with INCLUDE_RELATION flag
 	// so this is not an overwrite, it is a "fresh" setting
-	filename, err := initialFlags.GetString(utils.INCLUDE_RELATION_FILE)
+	filename, err := initialFlags.GetString(INCLUDE_RELATION_FILE)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +53,7 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 		return nil, err
 	}
 
-	leafPartitionData, err := initialFlags.GetBool(utils.LEAF_PARTITION_DATA)
+	leafPartitionData, err := initialFlags.GetBool(LEAF_PARTITION_DATA)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +75,7 @@ func setIncludesFromFile(filename string, initialFlags *pflag.FlagSet) ([]string
 
 	// copy any values for flag INCLUDE_RELATION_FILE into global flag for INCLUDE_RELATION
 	for _, fqn := range includes {
-		err = initialFlags.Set(utils.INCLUDE_RELATION, fqn) //This appends to the slice underlying the flag.
+		err = initialFlags.Set(INCLUDE_RELATION, fqn) //This appends to the slice underlying the flag.
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +112,7 @@ type FqnStruct struct {
 	TableName  string
 }
 
-const QuoteIdent = `SELECT quote_ident('%s') AS schemaname, quote_ident('%s') AS tablename`
+const QueryQuoteIdent = `SELECT quote_ident('%s') AS schemaname, quote_ident('%s') AS tablename`
 
 func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error) {
 	if len(tableNames) == 0 {
@@ -127,7 +126,7 @@ func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error)
 
 	for _, fqn := range fqnSlice {
 		queryResultTable := make([]FqnStruct, 0)
-		query := fmt.Sprintf(QuoteIdent, fqn.SchemaName, fqn.TableName)
+		query := fmt.Sprintf(QueryQuoteIdent, fqn.SchemaName, fqn.TableName)
 		err := conn.Select(&queryResultTable, query)
 		if err != nil {
 			return nil, err
@@ -217,7 +216,7 @@ func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.
 	}
 
 	for _, fqn := range diff {
-		err = flags.Set(utils.INCLUDE_RELATION, fqn)
+		err = flags.Set(INCLUDE_RELATION, fqn)
 		if err != nil {
 			return err
 		}
@@ -305,7 +304,7 @@ ORDER BY c.oid;`, o.schemaFilterClause("n"), oidStr, oidStr, oidStr, childPartit
 }
 
 func getOidsFromRelationList(connectionPool *dbconn.DBConn, quotedRelationNames []string) ([]string, error) {
-	relList := utils.SliceToQuotedString(quotedRelationNames)
+	relList := SliceToQuotedString(quotedRelationNames)
 	query := fmt.Sprintf(`
 SELECT
 	c.oid AS string
@@ -320,10 +319,10 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, relList)
 func (o Options) schemaFilterClause(namespace string) string {
 	schemaFilterClauseStr := ""
 	if len(o.GetIncludedSchemas()) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(o.GetIncludedSchemas()))
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, SliceToQuotedString(o.GetIncludedSchemas()))
 	}
 	if len(o.GetExcludedSchemas()) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(o.GetExcludedSchemas()))
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, SliceToQuotedString(o.GetExcludedSchemas()))
 	}
 	return fmt.Sprintf(`%s.nspname NOT LIKE 'pg_temp_%%' AND %s.nspname NOT LIKE 'pg_toast%%' AND %s.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog') %s`, namespace, namespace, namespace, schemaFilterClauseStr)
 }

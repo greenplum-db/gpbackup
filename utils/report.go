@@ -15,7 +15,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -28,7 +27,7 @@ import (
 type Report struct {
 	BackupParamsString string
 	DatabaseSize       string
-	backup_history.BackupConfig
+	BackupConfig
 }
 
 type LineInfo struct {

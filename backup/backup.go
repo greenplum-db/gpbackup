@@ -12,9 +12,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -81,12 +78,12 @@ func DoSetup() {
 	gplog.Verbose("Backup Command: %s", os.Args)
 
 	utils.CheckGpexpandRunning(utils.BackupPreventedByGpexpandMessage)
-	timestamp := backup_history.CurrentTimestamp()
+	timestamp := utils.CurrentTimestamp()
 	CreateBackupLockFile(timestamp)
 	InitializeConnectionPool()
 
 	gplog.Info("Starting backup of database %s", MustGetFlagString(utils.DBNAME))
-	opts, err := options.NewOptions(cmdFlags)
+	opts, err := utils.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
 	DBValidate(connectionPool, opts.GetIncludedTables(), false)
@@ -100,8 +97,8 @@ func DoSetup() {
 
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := backup_filepath.GetSegPrefix(connectionPool)
-	globalFPInfo = backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
+	segPrefix := utils.GetSegPrefix(connectionPool)
+	globalFPInfo = utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
 	if MustGetFlagBool(utils.METADATA_ONLY) {
 		_, err = globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(-1)))
 		gplog.FatalOnError(err)
@@ -141,10 +138,10 @@ func DoBackup() {
 
 	pluginConfigFlag := MustGetFlagString(utils.PLUGIN_CONFIG)
 	targetBackupTimestamp := ""
-	var targetBackupFPInfo backup_filepath.FilePathInfo
+	var targetBackupFPInfo utils.FilePathInfo
 	if MustGetFlagBool(utils.INCREMENTAL) {
 		targetBackupTimestamp = GetTargetBackupTimestamp()
-		targetBackupFPInfo = backup_filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
+		targetBackupFPInfo = utils.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 			targetBackupTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
 
 		if pluginConfigFlag != "" {
@@ -184,12 +181,12 @@ func DoBackup() {
 	if !backupReport.MetadataOnly {
 		backupSetTables := dataTables
 
-		targetBackupRestorePlan := make([]backup_history.RestorePlanEntry, 0)
+		targetBackupRestorePlan := make([]utils.RestorePlanEntry, 0)
 		if targetBackupTimestamp != "" {
 			gplog.Info("Basing incremental backup off of backup with timestamp = %s", targetBackupTimestamp)
 
 			targetBackupTOC := utils.NewTOC(targetBackupFPInfo.GetTOCFilePath())
-			targetBackupRestorePlan = backup_history.ReadConfigFile(targetBackupFPInfo.GetConfigFilePath()).RestorePlan
+			targetBackupRestorePlan = utils.ReadConfigFile(targetBackupFPInfo.GetConfigFilePath()).RestorePlan
 			backupSetTables = FilterTablesForIncremental(targetBackupTOC, globalTOC, dataTables)
 		}
 
@@ -217,7 +214,7 @@ func DoBackup() {
 		pluginConfig.MustBackupFile(globalFPInfo.GetPluginConfigPath())
 	}
 
-	err := backup_history.WriteBackupHistory(globalFPInfo.GetBackupHistoryFilePath(), &backupReport.BackupConfig)
+	err := utils.WriteBackupHistory(globalFPInfo.GetBackupHistoryFilePath(), &backupReport.BackupConfig)
 	gplog.FatalOnError(err)
 }
 
@@ -450,7 +447,7 @@ func DoTeardown() {
 
 		if backupReport != nil {
 			backupReport.ConstructBackupParamsString()
-			backup_history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
+			utils.WriteConfigFile(&backupReport.BackupConfig, configFilename)
 			endtime, _ := time.ParseInLocation("20060102150405", backupReport.BackupConfig.EndTime, operating.System.Local)
 			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, endtime, objectCounts, errMsg)
 			utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup")

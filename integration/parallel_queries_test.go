@@ -139,7 +139,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			})
 			Context("on-error-continue is set", func() {
 				BeforeEach(func() {
-					restoreCmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
+					_ = restoreCmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
 				})
 				It("does not panic, but logs errors when running serially", func() {
 					restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, false)

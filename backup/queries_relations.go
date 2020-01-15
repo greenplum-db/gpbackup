@@ -12,7 +12,6 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -28,7 +27,7 @@ func relationAndSchemaFilterClause() string {
 		}
 	}
 	if len(MustGetFlagStringArray(utils.INCLUDE_RELATION)) > 0 {
-		quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(utils.INCLUDE_RELATION))
+		quotedIncludeRelations, err := utils.QuoteTableNames(connectionPool, MustGetFlagStringArray(utils.INCLUDE_RELATION))
 		gplog.FatalOnError(err)
 
 		includeOids := GetOidsFromRelationList(connectionPool, quotedIncludeRelations)

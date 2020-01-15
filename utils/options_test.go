@@ -1,4 +1,4 @@
-package options_test
+package utils_test
 
 import (
 	"io/ioutil"
@@ -8,7 +8,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/pflag"
 
@@ -26,7 +25,7 @@ var _ = Describe("options", func() {
 	})
 	Describe("Options initialization", func() {
 		It("returns no included tables when none specified", func() {
-			subject, err := options.NewOptions(myflags)
+			subject, err := utils.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
@@ -38,7 +37,7 @@ var _ = Describe("options", func() {
 			err := myflags.Set(utils.INCLUDE_RELATION, "foo.bar")
 			Expect(err).ToNot(HaveOccurred())
 
-			subject, err := options.NewOptions(myflags)
+			subject, err := utils.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
@@ -50,7 +49,7 @@ var _ = Describe("options", func() {
 		It("returns an include with special characters besides quote, dot and comma", func() {
 			err := myflags.Set(utils.INCLUDE_RELATION, `foo '~#$%^&*()_-+[]{}><\|;:/?!\t\n.bar`)
 			Expect(err).ToNot(HaveOccurred())
-			subject, err := options.NewOptions(myflags)
+			subject, err := utils.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
@@ -63,7 +62,7 @@ var _ = Describe("options", func() {
 			err = myflags.Set(utils.INCLUDE_RELATION, "bar.baz")
 			Expect(err).ToNot(HaveOccurred())
 
-			subject, err := options.NewOptions(myflags)
+			subject, err := utils.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
@@ -86,7 +85,7 @@ var _ = Describe("options", func() {
 
 			err = myflags.Set(utils.INCLUDE_RELATION_FILE, file.Name())
 			Expect(err).ToNot(HaveOccurred())
-			subject, err := options.NewOptions(myflags)
+			subject, err := utils.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
@@ -109,7 +108,7 @@ var _ = Describe("options", func() {
 
 			err = myflags.Set(utils.INCLUDE_RELATION_FILE, file.Name())
 			Expect(err).ToNot(HaveOccurred())
-			_, err = options.NewOptions(myflags)
+			_, err = utils.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables, err := myflags.GetStringArray(utils.INCLUDE_RELATION)
@@ -126,7 +125,7 @@ var _ = Describe("options", func() {
 			err = myflags.Set(utils.LEAF_PARTITION_DATA, "true")
 			Expect(err).ToNot(HaveOccurred())
 
-			subject, err := options.NewOptions(myflags)
+			subject, err := utils.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			Expect(subject.GetIncludedSchemas()[0]).To(Equal("my include schema"))
@@ -136,12 +135,12 @@ var _ = Describe("options", func() {
 		It("returns an error upon invalid inclusions", func() {
 			err := myflags.Set(utils.INCLUDE_RELATION, "foo")
 			Expect(err).ToNot(HaveOccurred())
-			_, err = options.NewOptions(myflags)
+			_, err = utils.NewOptions(myflags)
 			Expect(err).To(HaveOccurred())
 		})
 		Describe("AddIncludeRelation", func() {
 			It("it adds a relation", func() {
-				subject, err := options.NewOptions(myflags)
+				subject, err := utils.NewOptions(myflags)
 				Expect(err).To(Not(HaveOccurred()))
 				subject.AddIncludedRelation("public.foobar")
 				Expect(subject.GetIncludedTables()).To(Equal([]string{"public.foobar"}))
@@ -152,28 +151,28 @@ var _ = Describe("options", func() {
 	Describe("character validation", func() {
 		It("succeeds if characters are valid", func() {
 			tableList := []string{"foo.bar", "foo.Bar", "FOO.Bar", "FO!@#.BAR"}
-			err := options.ValidateCharacters(tableList)
+			err := utils.ValidateCharacters(tableList)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("fails if schema and table are not separated by a dot", func() {
 			tableList := []string{"foobar"}
-			err := options.ValidateCharacters(tableList)
+			err := utils.ValidateCharacters(tableList)
 			Expect(err).To(HaveOccurred())
 		})
 		It("fails if at least one schema and table are not separated by a dot", func() {
 			tableList := []string{"foobar", "foo.bar"}
-			err := options.ValidateCharacters(tableList)
+			err := utils.ValidateCharacters(tableList)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("foobar"))
 		})
 		It("fails if either table or schema is not specified", func() {
 			schemaOnlyList := []string{"foo."}
-			err := options.ValidateCharacters(schemaOnlyList)
+			err := utils.ValidateCharacters(schemaOnlyList)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("foo."))
 
 			tableOnlyList := []string{".bar"}
-			err = options.ValidateCharacters(tableOnlyList)
+			err = utils.ValidateCharacters(tableOnlyList)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(".bar"))
 		})
@@ -181,34 +180,37 @@ var _ = Describe("options", func() {
 	Describe("SeparateSchemaAndTable", func() {
 		It("properly splits the strings", func() {
 			tableList := []string{"foo.Bar", "FOO.Bar", "FO!@#.BAR"}
-			expectedFqn := []options.FqnStruct{
+			expectedFqn := []utils.FqnStruct{
 				{SchemaName: `foo`, TableName: `Bar`},
 				{SchemaName: `FOO`, TableName: `Bar`},
 				{SchemaName: `FO!@#`, TableName: `BAR`},
 			}
-			resultFqn, err := options.SeparateSchemaAndTable(tableList)
+			resultFqn, err := utils.SeparateSchemaAndTable(tableList)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resultFqn).To(Equal(expectedFqn))
 		})
 		It("fails to split TableName", func() {
 			tableList := []string{"foo."}
-			_, err := options.SeparateSchemaAndTable(tableList)
+			_, err := utils.SeparateSchemaAndTable(tableList)
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("foo."))
 		})
 		It("fails to split SchemaName", func() {
 			tableList := []string{".bar"}
-			_, err := options.SeparateSchemaAndTable(tableList)
+			_, err := utils.SeparateSchemaAndTable(tableList)
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(".bar"))
 		})
 		It("fails to split SchemaName or tableName (no '.')", func() {
 			tableList := []string{"foobar"}
-			_, err := options.SeparateSchemaAndTable(tableList)
+			_, err := utils.SeparateSchemaAndTable(tableList)
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("foobar"))
 		})
 		It("fails when there are more than one dots", func() {
 			// todo in a future story, establish a way for users to escape dots to show us which one is *in* the name versus the dot that divides schemaname from tablename
 			tableList := []string{"foobar.baz.bam"}
-			_, err := options.SeparateSchemaAndTable(tableList)
+			_, err := utils.SeparateSchemaAndTable(tableList)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("foobar.baz.bam"))
 		})
@@ -224,7 +226,7 @@ var _ = Describe("options", func() {
 
 		It("returns empty result if given empty list", func() {
 			tablenames := make([]string, 0)
-			quotedTableNames, err := options.QuoteTableNames(conn, tablenames)
+			quotedTableNames, err := utils.QuoteTableNames(conn, tablenames)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(tablenames).To(Equal(quotedTableNames))
 		})
@@ -236,7 +238,7 @@ var _ = Describe("options", func() {
 
 			queryMock.WillReturnRows(resultRows)
 
-			quotedTableNames, err := options.QuoteTableNames(conn, tablenames)
+			quotedTableNames, err := utils.QuoteTableNames(conn, tablenames)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(tablenames).To(Equal(quotedTableNames))
 		})
@@ -258,7 +260,7 @@ var _ = Describe("options", func() {
 				AddRow("public", "three")
 			queryMock.WillReturnRows(resultRows)
 
-			quotedTableNames, err := options.QuoteTableNames(conn, tablenames)
+			quotedTableNames, err := utils.QuoteTableNames(conn, tablenames)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(tablenames).To(Equal(quotedTableNames))
 		})

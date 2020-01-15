@@ -3,7 +3,6 @@ package backup
 import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -38,11 +37,11 @@ func GetTargetBackupTimestamp() string {
 }
 
 func GetLatestMatchingBackupTimestamp() string {
-	var history *backup_history.History
-	var latestMatchingBackupHistoryEntry *backup_history.BackupConfig
+	var history *utils.History
+	var latestMatchingBackupHistoryEntry *utils.BackupConfig
 	var err error
 	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		history, err = backup_history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+		history, err = utils.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
 		gplog.FatalOnError(err)
 		latestMatchingBackupHistoryEntry = GetLatestMatchingBackupConfig(history, &backupReport.BackupConfig)
 	}
@@ -55,7 +54,7 @@ func GetLatestMatchingBackupTimestamp() string {
 	return latestMatchingBackupHistoryEntry.Timestamp
 }
 
-func GetLatestMatchingBackupConfig(history *backup_history.History, currentBackupConfig *backup_history.BackupConfig) *backup_history.BackupConfig {
+func GetLatestMatchingBackupConfig(history *utils.History, currentBackupConfig *utils.BackupConfig) *utils.BackupConfig {
 	for _, backupConfig := range history.BackupConfigs {
 		if MatchesIncrementalFlags(&backupConfig, currentBackupConfig) {
 			return &backupConfig
@@ -65,7 +64,7 @@ func GetLatestMatchingBackupConfig(history *backup_history.History, currentBacku
 	return nil
 }
 
-func MatchesIncrementalFlags(backupConfig *backup_history.BackupConfig, currentBackupConfig *backup_history.BackupConfig) bool {
+func MatchesIncrementalFlags(backupConfig *utils.BackupConfig, currentBackupConfig *utils.BackupConfig) bool {
 	return backupConfig.BackupDir == MustGetFlagString(utils.BACKUP_DIR) &&
 		backupConfig.DatabaseName == currentBackupConfig.DatabaseName &&
 		backupConfig.LeafPartitionData == MustGetFlagBool(utils.LEAF_PARTITION_DATA) &&
@@ -80,8 +79,8 @@ func MatchesIncrementalFlags(backupConfig *backup_history.BackupConfig, currentB
 }
 
 func PopulateRestorePlan(changedTables []Table,
-	restorePlan []backup_history.RestorePlanEntry, allTables []Table) []backup_history.RestorePlanEntry {
-	currBackupRestorePlanEntry := backup_history.RestorePlanEntry{
+	restorePlan []utils.RestorePlanEntry, allTables []Table) []utils.RestorePlanEntry {
+	currBackupRestorePlanEntry := utils.RestorePlanEntry{
 		Timestamp: globalFPInfo.Timestamp,
 		TableFQNs: make([]string, 0, len(changedTables)),
 	}

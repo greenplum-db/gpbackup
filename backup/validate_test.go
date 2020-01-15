@@ -153,7 +153,7 @@ var _ = Describe("backup/validate tests", func() {
 				schemaAndTable.AddRow("public", "table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(schemaAndTable)
 				//
-				cmdFlags.Set(utils.LEAF_PARTITION_DATA, "true")
+				_ = cmdFlags.Set(utils.LEAF_PARTITION_DATA, "true")
 				tableRows.AddRow("1", "public.table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(tableRows)
 				partitionTables.AddRow("1", "i", "root")

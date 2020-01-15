@@ -5,9 +5,6 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
@@ -58,7 +55,7 @@ func DBValidate(conn *dbconn.DBConn, tableList []string, excludeSet bool) {
 		return
 	}
 	gplog.Verbose("Validating tables")
-	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, tableList)
+	quotedIncludeRelations, err := utils.QuoteTableNames(connectionPool, tableList)
 	gplog.FatalOnError(err)
 	// todo perhaps store quoted list in options??
 
@@ -122,7 +119,7 @@ func ValidateFlagValues() {
 	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
 	ValidateCompressionLevel(MustGetFlagInt(utils.COMPRESSION_LEVEL))
-	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !backup_filepath.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
+	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !utils.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.",
 			MustGetFlagString(utils.FROM_TIMESTAMP)), "")
 	}
@@ -135,13 +132,13 @@ func ValidateCompressionLevel(compressionLevel int) {
 }
 
 func ValidateFromTimestamp(fromTimestamp string) {
-	fromTimestampFPInfo := backup_filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
+	fromTimestampFPInfo := utils.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
 	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
 		// The config file needs to be downloaded from the remote system into the local filesystem
 		pluginConfig.MustRestoreFile(fromTimestampFPInfo.GetConfigFilePath())
 	}
-	fromBackupConfig := backup_history.ReadConfigFile(fromTimestampFPInfo.GetConfigFilePath())
+	fromBackupConfig := utils.ReadConfigFile(fromTimestampFPInfo.GetConfigFilePath())
 
 	if !MatchesIncrementalFlags(fromBackupConfig, &backupReport.BackupConfig) {
 		gplog.Fatal(errors.Errorf("The flags of the backup with timestamp = %s does not match "+

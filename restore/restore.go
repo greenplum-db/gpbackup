@@ -11,8 +11,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -75,7 +73,7 @@ func DoValidation(cmd *cobra.Command) {
 	gplog.FatalOnError(err)
 	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
-	if !backup_filepath.IsValidTimestamp(MustGetFlagString(utils.TIMESTAMP)) {
+	if !utils.IsValidTimestamp(MustGetFlagString(utils.TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", MustGetFlagString(utils.TIMESTAMP)), "")
 	}
 }
@@ -86,14 +84,14 @@ func DoSetup() {
 	gplog.Verbose("Restore Command: %s", os.Args)
 
 	utils.CheckGpexpandRunning(utils.RestorePreventedByGpexpandMessage)
-	restoreStartTime = backup_history.CurrentTimestamp()
+	restoreStartTime = utils.CurrentTimestamp()
 	gplog.Info("Restore Key = %s", MustGetFlagString(utils.TIMESTAMP))
 
 	CreateConnectionPool("postgres")
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := backup_filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
-	globalFPInfo = backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP), segPrefix)
+	segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
+	globalFPInfo = utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP), segPrefix)
 
 	// Get restore metadata from plugin
 	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
@@ -286,7 +284,7 @@ func restoreData() {
 		return
 	}
 	restorePlan := backupConfig.RestorePlan
-	restorePlanEntries := make([]backup_history.RestorePlanEntry, 0)
+	restorePlanEntries := make([]utils.RestorePlanEntry, 0)
 	if MustGetFlagBool(utils.INCREMENTAL) {
 		restorePlanEntries = append(restorePlanEntries, restorePlan[len(backupConfig.RestorePlan)-1])
 

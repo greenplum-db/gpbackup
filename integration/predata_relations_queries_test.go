@@ -7,7 +7,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 
@@ -23,7 +22,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.testtable(t text)")
-			includeRelationsQuoted, err := options.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(utils.INCLUDE_RELATION))
+			includeRelationsQuoted, err := utils.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(utils.INCLUDE_RELATION))
 			Expect(err).NotTo(HaveOccurred())
 
 			tables := backup.GetIncludedUserTableRelations(connectionPool, includeRelationsQuoted)
@@ -105,7 +104,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 
 			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo")
-			includeRelationsQuoted, err := options.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(utils.INCLUDE_RELATION))
+			includeRelationsQuoted, err := utils.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(utils.INCLUDE_RELATION))
 			Expect(err).NotTo(HaveOccurred())
 			tables := backup.GetIncludedUserTableRelations(connectionPool, includeRelationsQuoted)
 

@@ -206,12 +206,12 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			f, _ := os.Create(dataFile + ".gz")
 			gzipf := gzip.NewWriter(f)
 			// Named pipes can buffer, so we need to write more than the buffer size to trigger flush error
-			custom_data := "here is some data\n"
+			customData := "here is some data\n"
 			dataLength := 128*1024 + 1
-			custom_data += strings.Repeat("a", dataLength)
-			custom_data += "here is some data\n"
+			customData += strings.Repeat("a", dataLength)
+			customData += "here is some data\n"
 
-			_, _ = gzipf.Write([]byte(custom_data))
+			_, _ = gzipf.Write([]byte(customData))
 			_ = gzipf.Close()
 
 			// Write oid file

@@ -21,7 +21,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/onsi/gomega/gexec"
@@ -143,7 +142,7 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 	output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
 	Eventually(func() string { return strings.TrimSpace(string(output)) }, 5*time.Second, 100*time.Millisecond).Should(Equal(""))
 
-	fpInfo := backup_filepath.NewFilePathInfo(backupCluster, "", timestamp, backup_filepath.GetSegPrefix(conn))
+	fpInfo := utils.NewFilePathInfo(backupCluster, "", timestamp, utils.GetSegPrefix(conn))
 	description := "Checking if helper files are cleaned up properly"
 	cleanupFunc := func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
@@ -181,7 +180,7 @@ func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {
 }
 
 func forceMetadataFileDownloadFromPlugin(conn *dbconn.DBConn, timestamp string) {
-	fpInfo := backup_filepath.NewFilePathInfo(backupCluster, "", timestamp, backup_filepath.GetSegPrefix(conn))
+	fpInfo := utils.NewFilePathInfo(backupCluster, "", timestamp, utils.GetSegPrefix(conn))
 	remoteOutput := backupCluster.GenerateAndExecuteCommand(fmt.Sprintf("Removing backups on all segments for "+
 		"timestamp %s", timestamp), func(contentID int) string {
 		return fmt.Sprintf("rm -rf %s", fpInfo.GetDirForContent(contentID))
@@ -1564,7 +1563,7 @@ PARTITION BY LIST (gender)
 			expectedErrorTablesData := []string{"public.corrupt_table"}
 			expectedErrorTablesMetadata := []string{"public.corrupt_table", "public.good_table1", "public.good_table2"}
 			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--on-error-continue")
-			gprestoreCmd.CombinedOutput()
+			_, _ = gprestoreCmd.CombinedOutput()
 
 			files, _ := filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
 			Expect(files).To(HaveLen(2))
@@ -1574,7 +1573,7 @@ PARTITION BY LIST (gender)
 			Expect(err).ToNot(HaveOccurred())
 			tables := strings.Split(string(contents), "\n")
 			Expect(tables).To(Equal(expectedErrorTablesData))
-			os.Remove(files[0])
+			_ = os.Remove(files[0])
 
 			Expect(files).To(HaveLen(2))
 			Expect(files[1]).To(HaveSuffix("_metadata"))
@@ -1583,12 +1582,12 @@ PARTITION BY LIST (gender)
 			tables = strings.Split(string(contents), "\n")
 			sort.Strings(tables)
 			Expect(tables).To(Equal(expectedErrorTablesMetadata))
-			os.Remove(files[1])
+			_ = os.Remove(files[1])
 
 			// Restore command with tables containing multiple metadata errors
 			// This test is to ensure we don't have tables with multiple errors show up twice
 			gprestoreCmd = exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--metadata-only", "--on-error-continue")
-			gprestoreCmd.CombinedOutput()
+			_, _ = gprestoreCmd.CombinedOutput()
 			expectedErrorTablesMetadata = []string{"public.corrupt_table", "public.good_table1", "public.good_table2"}
 			files, _ = filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
 			Expect(files).To(HaveLen(1))
@@ -1598,7 +1597,7 @@ PARTITION BY LIST (gender)
 			tables = strings.Split(string(contents), "\n")
 			sort.Strings(tables)
 			Expect(tables).To(HaveLen(len(expectedErrorTablesMetadata)))
-			os.Remove(files[0])
+			_ = os.Remove(files[0])
 		})
 
 		It(`ensure successful gprestore with --on-error-continue does not log error tables`, func() {

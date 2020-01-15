@@ -1,4 +1,4 @@
-package backup_history
+package utils
 
 //TODO: change package name to conform to Go standards
 

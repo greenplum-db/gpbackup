@@ -8,7 +8,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -76,8 +75,10 @@ var _ = Describe("wrapper tests", func() {
 			testhelper.ExpectRegexp(logfile, "[WARNING]:-Schema foo already exists")
 		})
 		It("logs error if --on-error-continue is set", func() {
-			cmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
-			defer cmdFlags.Set(utils.ON_ERROR_CONTINUE, "false")
+			_ = cmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
+			defer func() {
+				_ = cmdFlags.Set(utils.ON_ERROR_CONTINUE, "false")
+			}()
 			expectedErr := errors.New("some other schema error")
 			mock.ExpectExec("create schema foo").WillReturnError(expectedErr)
 
@@ -98,7 +99,7 @@ var _ = Describe("wrapper tests", func() {
 		})
 	})
 	Describe("SetRestorePlanForLegacyBackup", func() {
-		legacyBackupConfig := backup_history.BackupConfig{}
+		legacyBackupConfig := utils.BackupConfig{}
 		legacyBackupConfig.RestorePlan = nil
 		legacyBackupTOC := utils.TOC{
 			DataEntries: []utils.MasterDataEntry{

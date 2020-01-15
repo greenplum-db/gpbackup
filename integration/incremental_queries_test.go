@@ -242,7 +242,7 @@ var _ = Describe("backup integration tests", func() {
 			var aoIncrementalMetadata map[string]utils.AOEntry
 			Context("During a table-filtered backup", func() {
 				It("only retrieves ao metadata for specific tables", func() {
-					backupCmdFlags.Set(utils.INCLUDE_RELATION, aoTableFQN)
+					_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, aoTableFQN)
 
 					aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
 					Expect(aoIncrementalMetadata).To(HaveLen(1))
@@ -254,7 +254,7 @@ var _ = Describe("backup integration tests", func() {
 					defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE")
 					testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.ao_foo (i int) WITH (appendonly=true)")
 
-					backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+					_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
 
 					aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
 					Expect(aoIncrementalMetadata).To(HaveLen(1))

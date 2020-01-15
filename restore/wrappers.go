@@ -9,8 +9,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -126,7 +124,7 @@ func SetMaxCsvLineLengthQuery(connectionPool *dbconn.DBConn) string {
 }
 
 func InitializeBackupConfig() {
-	backupConfig = backup_history.ReadConfigFile(globalFPInfo.GetConfigFilePath())
+	backupConfig = utils.ReadConfigFile(globalFPInfo.GetConfigFilePath())
 	utils.InitializePipeThroughParameters(backupConfig.Compressed, 0)
 	utils.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
 	utils.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
@@ -169,13 +167,13 @@ func BackupConfigurationValidation() {
 	validateFilterListsInBackupSet()
 }
 
-func SetRestorePlanForLegacyBackup(toc *utils.TOC, backupTimestamp string, backupConfig *backup_history.BackupConfig) {
+func SetRestorePlanForLegacyBackup(toc *utils.TOC, backupTimestamp string, backupConfig *utils.BackupConfig) {
 	tableFQNs := make([]string, 0, len(toc.DataEntries))
 	for _, entry := range toc.DataEntries {
 		entryFQN := utils.MakeFQN(entry.Schema, entry.Name)
 		tableFQNs = append(tableFQNs, entryFQN)
 	}
-	backupConfig.RestorePlan = []backup_history.RestorePlanEntry{
+	backupConfig.RestorePlan = []utils.RestorePlanEntry{
 		{Timestamp: backupTimestamp, TableFQNs: tableFQNs},
 	}
 }
@@ -186,7 +184,7 @@ func RecoverMetadataFilesUsingPlugin() {
 	gplog.FatalOnError(err)
 	configFilename := filepath.Base(pluginConfig.ConfigPath)
 	configDirname := filepath.Dir(pluginConfig.ConfigPath)
-	pluginConfig.ConfigPath = filepath.Join(configDirname, backup_history.CurrentTimestamp()+"_"+configFilename)
+	pluginConfig.ConfigPath = filepath.Join(configDirname, utils.CurrentTimestamp()+"_"+configFilename)
 	_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 	gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 
@@ -210,9 +208,9 @@ func RecoverMetadataFilesUsingPlugin() {
 
 	InitializeBackupConfig()
 
-	var fpInfoList []backup_filepath.FilePathInfo
+	var fpInfoList []utils.FilePathInfo
 	if backupConfig.MetadataOnly {
-		fpInfoList = []backup_filepath.FilePathInfo{globalFPInfo}
+		fpInfoList = []utils.FilePathInfo{globalFPInfo}
 	} else {
 		fpInfoList = GetBackupFPInfoListFromRestorePlan()
 	}
@@ -233,7 +231,7 @@ func FindHistoricalPluginVersion(timestamp string) string {
 	// adapted from incremental GetLatestMatchingBackupTimestamp
 	var historicalPluginVersion string
 	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		history, err := backup_history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+		history, err := utils.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
 		gplog.FatalOnError(err)
 		foundBackupConfig := history.FindBackupConfig(timestamp)
 		if foundBackupConfig != nil {
@@ -293,21 +291,21 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 	}
 }
 
-func GetBackupFPInfoListFromRestorePlan() []backup_filepath.FilePathInfo {
-	fpInfoList := make([]backup_filepath.FilePathInfo, 0)
+func GetBackupFPInfoListFromRestorePlan() []utils.FilePathInfo {
+	fpInfoList := make([]utils.FilePathInfo, 0)
 	for _, entry := range backupConfig.RestorePlan {
-		segPrefix := backup_filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp)
+		segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp)
 
-		fpInfo := backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp, segPrefix)
+		fpInfo := utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp, segPrefix)
 		fpInfoList = append(fpInfoList, fpInfo)
 	}
 
 	return fpInfoList
 }
 
-func GetBackupFPInfoForTimestamp(timestamp string) backup_filepath.FilePathInfo {
-	segPrefix := backup_filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), timestamp)
-	fpInfo := backup_filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
+func GetBackupFPInfoForTimestamp(timestamp string) utils.FilePathInfo {
+	segPrefix := utils.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), timestamp)
+	fpInfo := utils.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
 	return fpInfo
 }
 

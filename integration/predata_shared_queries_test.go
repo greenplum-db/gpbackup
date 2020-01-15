@@ -238,7 +238,9 @@ PARTITION BY RANGE (date)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.other_table")
 
 				_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.other_table")
-				defer backupCmdFlags.Set(utils.EXCLUDE_RELATION, "")
+				defer func() {
+					_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "")
+				}()
 				constraints := backup.GetConstraints(connectionPool)
 				Expect(constraints).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &uniqueConstraint, "Oid")

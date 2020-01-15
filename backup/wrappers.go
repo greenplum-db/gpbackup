@@ -9,8 +9,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-	"github.com/greenplum-db/gpbackup/backup_history"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/nightlyone/lockfile"
 	"github.com/pkg/errors"
@@ -74,8 +72,8 @@ func SetSessionGUCs(connNum int) {
 	}
 }
 
-func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts options.Options) *backup_history.BackupConfig {
-	backupConfig := backup_history.BackupConfig{
+func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts utils.Options) *utils.BackupConfig {
+	backupConfig := utils.BackupConfig{
 		BackupDir:             MustGetFlagString(utils.BACKUP_DIR),
 		BackupVersion:         backupVersion,
 		Compressed:            !MustGetFlagBool(utils.NO_COMPRESSION),
@@ -102,7 +100,7 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 	return &backupConfig
 }
 
-func InitializeBackupReport(opts options.Options) {
+func InitializeBackupReport(opts utils.Options) {
 	escapedDBName := dbconn.MustSelectString(connectionPool, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", utils.EscapeSingleQuotes(connectionPool.DBName)))
 	plugin := ""
 	if pluginConfig != nil {
@@ -161,7 +159,7 @@ func CreateBackupDirectoriesOnAllHosts() {
  */
 
 func RetrieveAndProcessTables() ([]Table, []Table) {
-	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(utils.INCLUDE_RELATION))
+	quotedIncludeRelations, err := utils.QuoteTableNames(connectionPool, MustGetFlagStringArray(utils.INCLUDE_RELATION))
 	gplog.FatalOnError(err)
 
 	tableRelations := GetIncludedUserTableRelations(connectionPool, quotedIncludeRelations)

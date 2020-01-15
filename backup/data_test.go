@@ -6,7 +6,6 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"gopkg.in/cheggaaa/pb.v1"
 
@@ -190,7 +189,7 @@ var _ = Describe("backup/data tests", func() {
 		})
 	})
 	Describe("CheckDBContainsData", func() {
-		config := backup_history.BackupConfig{}
+		config := utils.BackupConfig{}
 		var testTable backup.Table
 		BeforeEach(func() {
 			config.MetadataOnly = false
