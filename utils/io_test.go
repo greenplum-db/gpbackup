@@ -86,6 +86,7 @@ var _ = Describe("utils/io tests", func() {
 			file.MustPrintf("message")
 		})
 		It("closes the FileWithByteCount and makes it read-only if it has a filename", func() {
+			_ = os.Remove("testfile")
 			file = utils.NewFileWithByteCountFromFile("testfile")
 			file.Close()
 			defer testhelper.ShouldPanicWithMessage("write testfile: file already closed: Unable to write to file")
