@@ -1,4 +1,4 @@
-package backup_history_test
+package history_test
 
 import (
 	"testing"
@@ -18,7 +18,7 @@ var (
 
 func TestBackupHistory(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "BackupHistory Suite")
+	RunSpecs(t, "History Suite")
 }
 
 var _ = BeforeSuite(func() {

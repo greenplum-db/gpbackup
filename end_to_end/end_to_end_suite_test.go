@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
-	"path/filepath"
+	path "path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -21,7 +21,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/onsi/gomega/gexec"
@@ -143,7 +143,7 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 	output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
 	Eventually(func() string { return strings.TrimSpace(string(output)) }, 5*time.Second, 100*time.Millisecond).Should(Equal(""))
 
-	fpInfo := backup_filepath.NewFilePathInfo(backupCluster, "", timestamp, backup_filepath.GetSegPrefix(conn))
+	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, filepath.GetSegPrefix(conn))
 	description := "Checking if helper files are cleaned up properly"
 	cleanupFunc := func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
@@ -172,7 +172,7 @@ func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {
 	hostnameQuery := `SELECT DISTINCT hostname AS string FROM gp_segment_configuration WHERE content != -1`
 	hostnames := dbconn.MustSelectStringSlice(conn, hostnameQuery)
 	for _, hostname := range hostnames {
-		pluginDir, _ := filepath.Split(pluginPath)
+		pluginDir, _ := path.Split(pluginPath)
 		command := exec.Command("ssh", hostname, fmt.Sprintf("mkdir -p %s", pluginDir))
 		mustRunCommand(command)
 		command = exec.Command("scp", pluginPath, fmt.Sprintf("%s:%s", hostname, pluginPath))
@@ -181,7 +181,7 @@ func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {
 }
 
 func forceMetadataFileDownloadFromPlugin(conn *dbconn.DBConn, timestamp string) {
-	fpInfo := backup_filepath.NewFilePathInfo(backupCluster, "", timestamp, backup_filepath.GetSegPrefix(conn))
+	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, filepath.GetSegPrefix(conn))
 	remoteOutput := backupCluster.GenerateAndExecuteCommand(fmt.Sprintf("Removing backups on all segments for "+
 		"timestamp %s", timestamp), func(contentID int) string {
 		return fmt.Sprintf("rm -rf %s", fpInfo.GetDirForContent(contentID))
@@ -277,8 +277,8 @@ var _ = Describe("backup end to end integration tests", func() {
 
 			// Precompiled binaries will exist when running the ci job, `backward-compatibility`
 			if _, err := os.Stat(fmt.Sprintf("/tmp/%s", oldBackupVersionStr)); err == nil {
-				gpbackupPath = filepath.Join("/tmp", oldBackupVersionStr, "gpbackup")
-				backupHelperPath = filepath.Join("/tmp", oldBackupVersionStr, "gpbackup_helper")
+				gpbackupPath = path.Join("/tmp", oldBackupVersionStr, "gpbackup")
+				backupHelperPath = path.Join("/tmp", oldBackupVersionStr, "gpbackup_helper")
 			} else {
 				gpbackupPath, backupHelperPath = buildOldBinaries(oldBackupVersionStr)
 			}
@@ -1223,7 +1223,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		It("runs gpbackup and gprestore with no-compression flag", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupDir)
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
-			configFile, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "*config.yaml"))
+			configFile, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "*config.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(configFile).To(HaveLen(1))
 
@@ -1238,7 +1238,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		})
 		It("runs gpbackup and gprestore with with-stats flag", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats", "--backup-dir", backupDir)
-			files, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "*statistics.sql"))
+			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "*statistics.sql"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(1))
 
@@ -1268,7 +1268,7 @@ var _ = Describe("backup end to end integration tests", func() {
 			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE public.table_to_include_with_stats(i int)")
 			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.table_to_include_with_stats")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats", "--backup-dir", backupDir)
-			statFiles, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "*statistics.sql"))
+			statFiles, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "*statistics.sql"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statFiles).To(HaveLen(1))
 
@@ -1519,7 +1519,7 @@ PARTITION BY LIST (gender)
 			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
 			mustRunCommand(command)
 
-			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--on-error-continue")
+			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", path.Join(backupDir, "corrupt-db"), "--on-error-continue")
 			_, err := gprestoreCmd.CombinedOutput()
 			Expect(err).To(HaveOccurred())
 
@@ -1563,10 +1563,10 @@ PARTITION BY LIST (gender)
 			// Metadata errors due to invalid alter ownership
 			expectedErrorTablesData := []string{"public.corrupt_table"}
 			expectedErrorTablesMetadata := []string{"public.corrupt_table", "public.good_table1", "public.good_table2"}
-			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--on-error-continue")
+			gprestoreCmd := exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", path.Join(backupDir, "corrupt-db"), "--on-error-continue")
 			gprestoreCmd.CombinedOutput()
 
-			files, _ := filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
+			files, _ := path.Glob(path.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
 			Expect(files).To(HaveLen(2))
 
 			Expect(files[0]).To(HaveSuffix("_data"))
@@ -1587,10 +1587,10 @@ PARTITION BY LIST (gender)
 
 			// Restore command with tables containing multiple metadata errors
 			// This test is to ensure we don't have tables with multiple errors show up twice
-			gprestoreCmd = exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", filepath.Join(backupDir, "corrupt-db"), "--metadata-only", "--on-error-continue")
+			gprestoreCmd = exec.Command(gprestorePath, "--timestamp", "20190809230424", "--redirect-db", "restoredb", "--backup-dir", path.Join(backupDir, "corrupt-db"), "--metadata-only", "--on-error-continue")
 			gprestoreCmd.CombinedOutput()
 			expectedErrorTablesMetadata = []string{"public.corrupt_table", "public.good_table1", "public.good_table2"}
-			files, _ = filepath.Glob(filepath.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
+			files, _ = path.Glob(path.Join(backupDir, "/corrupt-db/", "*-1/backups/*", "20190809230424", "*error_tables*"))
 			Expect(files).To(HaveLen(1))
 			Expect(files[0]).To(HaveSuffix("_metadata"))
 			contents, err = ioutil.ReadFile(files[0])
@@ -1605,7 +1605,7 @@ PARTITION BY LIST (gender)
 			// Ensure no error tables with successful restore
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--no-compression", "--backup-dir", backupDir)
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
-			files, err := filepath.Glob(filepath.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
+			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(0))
 		})
@@ -1616,6 +1616,6 @@ func saveHistory(myCluster *cluster.Cluster) {
 	// move history file out of the way, and replace in "after". This is because the history file might have newer backups, with more attributes, and thus the newer history could be a longer file than when read and rewritten by the old history code (the history code reads in history, inserts a new config at top, and writes the entire file). We have known bugs in the underlying common library about closing a file after reading, and also a bug with not using OS_TRUNC when opening a file for writing.
 
 	mdd := myCluster.GetDirForContent(-1)
-	historyFilePath = filepath.Join(mdd, "gpbackup_history.yaml")
+	historyFilePath = path.Join(mdd, "gpbackup_history.yaml")
 	_ = utils.CopyFile(historyFilePath, saveHistoryFilePath)
 }

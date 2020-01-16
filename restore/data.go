@@ -11,7 +11,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgx"
 	"github.com/pkg/errors"
@@ -53,7 +53,7 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	return numRows, err
 }
 
-func restoreSingleTableData(fpInfo *backup_filepath.FilePathInfo, entry utils.MasterDataEntry, tableName string, whichConn int) error {
+func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry utils.MasterDataEntry, tableName string, whichConn int) error {
 	destinationToRead := ""
 	if backupConfig.SingleDataFile {
 		destinationToRead = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
@@ -80,7 +80,7 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 	return nil
 }
 
-func restoreDataFromTimestamp(fpInfo backup_filepath.FilePathInfo, dataEntries []utils.MasterDataEntry,
+func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []utils.MasterDataEntry,
 	gucStatements []utils.StatementWithType, dataProgressBar utils.ProgressBar) {
 	totalTables := len(dataEntries)
 	if totalTables == 0 {

@@ -12,7 +12,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/onsi/gomega/gbytes"
@@ -37,7 +37,7 @@ func SetupTestCluster() *cluster.Cluster {
 	testCluster := SetDefaultSegmentConfiguration()
 	backup.SetCluster(testCluster)
 	restore.SetCluster(testCluster)
-	testFPInfo := backup_filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
+	testFPInfo := filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 	backup.SetFPInfo(testFPInfo)
 	restore.SetFPInfo(testFPInfo)
 	return testCluster

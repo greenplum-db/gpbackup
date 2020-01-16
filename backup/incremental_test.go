@@ -5,8 +5,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/filepath"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -79,31 +79,31 @@ var _ = Describe("backup/incremental tests", func() {
 	})
 
 	Describe("GetLatestMatchingBackupConfig", func() {
-		history := backup_history.History{BackupConfigs: []backup_history.BackupConfig{
+		contents := history.History{BackupConfigs: []history.BackupConfig{
 			{DatabaseName: "test2", Timestamp: "timestamp4"},
 			{DatabaseName: "test1", Timestamp: "timestamp3"},
 			{DatabaseName: "test2", Timestamp: "timestamp2"},
 			{DatabaseName: "test1", Timestamp: "timestamp1"},
 		}}
 		It("Should return the latest backup's timestamp with matching Dbname", func() {
-			currentBackupConfig := backup_history.BackupConfig{DatabaseName: "test1"}
+			currentBackupConfig := history.BackupConfig{DatabaseName: "test1"}
 
-			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&history, &currentBackupConfig)
+			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&contents, &currentBackupConfig)
 
-			structmatcher.ExpectStructsToMatch(history.BackupConfigs[1], latestBackupHistoryEntry)
+			structmatcher.ExpectStructsToMatch(contents.BackupConfigs[1], latestBackupHistoryEntry)
 		})
 		It("should return nil with no matching Dbname", func() {
-			currentBackupConfig := backup_history.BackupConfig{DatabaseName: "test3"}
+			currentBackupConfig := history.BackupConfig{DatabaseName: "test3"}
 
-			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&history, &currentBackupConfig)
+			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&contents, &currentBackupConfig)
 
 			Expect(latestBackupHistoryEntry).To(BeNil())
 		})
 		It("should return nil with an empty history", func() {
-			currentBackupConfig := backup_history.BackupConfig{}
+			currentBackupConfig := history.BackupConfig{}
 
 			latestBackupHistoryEntry := backup.
-				GetLatestMatchingBackupConfig(&backup_history.History{BackupConfigs: []backup_history.BackupConfig{}}, &currentBackupConfig)
+				GetLatestMatchingBackupConfig(&history.History{BackupConfigs: []history.BackupConfig{}}, &currentBackupConfig)
 
 			Expect(latestBackupHistoryEntry).To(BeNil())
 		})
@@ -111,12 +111,12 @@ var _ = Describe("backup/incremental tests", func() {
 
 	Describe("PopulateRestorePlan", func() {
 		testCluster := testutils.SetDefaultSegmentConfiguration()
-		testFPInfo := backup_filepath.NewFilePathInfo(testCluster, "", "ts0",
+		testFPInfo := filepath.NewFilePathInfo(testCluster, "", "ts0",
 			"gpseg")
 		backup.SetFPInfo(testFPInfo)
 
 		Context("Full backup", func() {
-			restorePlan := make([]backup_history.RestorePlanEntry, 0)
+			restorePlan := make([]history.RestorePlanEntry, 0)
 			backupSetTables := []backup.Table{
 				{Relation: backup.Relation{Schema: "public", Name: "ao1"}},
 				{Relation: backup.Relation{Schema: "public", Name: "heap1"}},
@@ -141,7 +141,7 @@ var _ = Describe("backup/incremental tests", func() {
 		})
 
 		Context("Incremental backup", func() {
-			previousRestorePlan := []backup_history.RestorePlanEntry{
+			previousRestorePlan := []history.RestorePlanEntry{
 				{Timestamp: "ts0", TableFQNs: []string{"public.ao1", "public.ao2"}},
 				{Timestamp: "ts1", TableFQNs: []string{"public.heap1"}},
 			}
@@ -206,7 +206,7 @@ var _ = Describe("backup/incremental tests", func() {
 			operating.InitializeSystemFunctions()
 		})
 		It("fatals when trying to take an incremental backup without a full backup", func() {
-			backup.SetFPInfo(backup_filepath.FilePathInfo{UserSpecifiedBackupDir: "/tmp", UserSpecifiedSegPrefix: "/test-prefix"})
+			backup.SetFPInfo(filepath.FilePathInfo{UserSpecifiedBackupDir: "/tmp", UserSpecifiedSegPrefix: "/test-prefix"})
 			backup.SetReport(&report.Report{})
 
 			Expect(func() { backup.GetLatestMatchingBackupTimestamp() }).Should(Panic())

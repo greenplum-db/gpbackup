@@ -1,6 +1,4 @@
-package backup_history
-
-//TODO: change package name to conform to Go standards
+package history
 
 import (
 	"sort"

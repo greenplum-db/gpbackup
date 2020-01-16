@@ -2,9 +2,9 @@ package integration
 
 import (
 	"fmt"
+	"github.com/greenplum-db/gpbackup/filepath"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -14,14 +14,14 @@ import (
 var _ = Describe("agent remote", func() {
 	var (
 		oidList     []string
-		filePath    backup_filepath.FilePathInfo
+		filePath    filepath.FilePathInfo
 		testCluster *cluster.Cluster
 	)
 	BeforeEach(func() {
 		oidList = []string{"1", "2", "3"}
 		segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 		testCluster = cluster.NewCluster(segConfig)
-		filePath = backup_filepath.NewFilePathInfo(testCluster, "my_dir", "20190102030405", backup_filepath.GetSegPrefix(connectionPool))
+		filePath = filepath.NewFilePathInfo(testCluster, "my_dir", "20190102030405", filepath.GetSegPrefix(connectionPool))
 	})
 	Describe("WriteOidListToSegments()", func() {
 		It("writes oids to a temp file and copies it to all segments", func() {

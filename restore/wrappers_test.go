@@ -8,7 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -98,7 +98,7 @@ var _ = Describe("wrapper tests", func() {
 		})
 	})
 	Describe("SetRestorePlanForLegacyBackup", func() {
-		legacyBackupConfig := backup_history.BackupConfig{}
+		legacyBackupConfig := history.BackupConfig{}
 		legacyBackupConfig.RestorePlan = nil
 		legacyBackupTOC := utils.TOC{
 			DataEntries: []utils.MasterDataEntry{

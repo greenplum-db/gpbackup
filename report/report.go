@@ -15,7 +15,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	history "github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"

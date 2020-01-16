@@ -6,7 +6,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/nightlyone/lockfile"
@@ -27,7 +27,7 @@ var (
 	queryContext         context.Context
 	queryCancelFunc      context.CancelFunc
 	globalCluster        *cluster.Cluster
-	globalFPInfo         backup_filepath.FilePathInfo
+	globalFPInfo         filepath.FilePathInfo
 	globalTOC            *utils.TOC
 	objectCounts         map[string]int
 	pluginConfig         *utils.PluginConfig
@@ -65,7 +65,7 @@ func SetCluster(cluster *cluster.Cluster) {
 	globalCluster = cluster
 }
 
-func SetFPInfo(fpInfo backup_filepath.FilePathInfo) {
+func SetFPInfo(fpInfo filepath.FilePathInfo) {
 	globalFPInfo = fpInfo
 }
 

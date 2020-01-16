@@ -3,14 +3,14 @@ package utils
 import (
 	"fmt"
 	"io"
-	"path/filepath"
+	path "path/filepath"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/pkg/errors"
 )
 
@@ -25,7 +25,7 @@ import (
  * possibility that the COPY FROM commands start before gpbackup_helper is done
  * starting up and setting up the first pipe.
  */
-func CreateFirstSegmentPipeOnAllHosts(oid string, c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
+func CreateFirstSegmentPipeOnAllHosts(oid string, c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Creating segment data pipes", func(contentID int) string {
 		pipeName := fpInfo.GetSegmentPipeFilePath(contentID)
 		pipeName = fmt.Sprintf("%s_%s", pipeName, oid)
@@ -36,7 +36,7 @@ func CreateFirstSegmentPipeOnAllHosts(oid string, c *cluster.Cluster, fpInfo bac
 	})
 }
 
-func WriteOidListToSegments(oidList []string, c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
+func WriteOidListToSegments(oidList []string, c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
 	localOidFile, err := operating.System.TempFile("", "gpbackup-oids")
 	gplog.FatalOnError(err, "Cannot open temporary file to write oids")
 	defer func() {
@@ -111,11 +111,11 @@ func VerifyHelperVersionOnSegments(version string, c *cluster.Cluster) {
 	}
 }
 
-func StartGpbackupHelpers(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo, operation string, pluginConfigFile string, compressStr string, onErrorContinue bool) {
+func StartGpbackupHelpers(c *cluster.Cluster, fpInfo filepath.FilePathInfo, operation string, pluginConfigFile string, compressStr string, onErrorContinue bool) {
 	gphomePath := operating.System.Getenv("GPHOME")
 	pluginStr := ""
 	if pluginConfigFile != "" {
-		_, configFilename := filepath.Split(pluginConfigFile)
+		_, configFilename := path.Split(pluginConfigFile)
 		pluginStr = fmt.Sprintf(" --plugin-config /tmp/%s", configFilename)
 	}
 	onErrorContinueStr := ""
@@ -144,7 +144,7 @@ HEREDOC
 	})
 }
 
-func CleanUpHelperFilesOnAllHosts(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) {
+func CleanUpHelperFilesOnAllHosts(c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
 		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
@@ -159,7 +159,7 @@ func CleanUpHelperFilesOnAllHosts(c *cluster.Cluster, fpInfo backup_filepath.Fil
 	}, true)
 }
 
-func CleanUpSegmentHelperProcesses(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo, operation string) {
+func CleanUpSegmentHelperProcesses(c *cluster.Cluster, fpInfo filepath.FilePathInfo, operation string) {
 	remoteOutput := c.GenerateAndExecuteCommand("Cleaning up segment agent processes", func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
 		procPattern := fmt.Sprintf("gpbackup_helper --%s-agent --toc-file %s", operation, tocFile)
@@ -175,7 +175,7 @@ func CleanUpSegmentHelperProcesses(c *cluster.Cluster, fpInfo backup_filepath.Fi
 	})
 }
 
-func CheckAgentErrorsOnSegments(c *cluster.Cluster, fpInfo backup_filepath.FilePathInfo) error {
+func CheckAgentErrorsOnSegments(c *cluster.Cluster, fpInfo filepath.FilePathInfo) error {
 	remoteOutput := c.GenerateAndExecuteCommand("Checking whether segment agents had errors", func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
 		/*

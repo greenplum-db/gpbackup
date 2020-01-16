@@ -3,7 +3,7 @@ package backup
 import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -38,13 +38,13 @@ func GetTargetBackupTimestamp() string {
 }
 
 func GetLatestMatchingBackupTimestamp() string {
-	var history *backup_history.History
-	var latestMatchingBackupHistoryEntry *backup_history.BackupConfig
+	var contents *history.History
+	var latestMatchingBackupHistoryEntry *history.BackupConfig
 	var err error
 	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		history, err = backup_history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+		contents, err = history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
 		gplog.FatalOnError(err)
-		latestMatchingBackupHistoryEntry = GetLatestMatchingBackupConfig(history, &backupReport.BackupConfig)
+		latestMatchingBackupHistoryEntry = GetLatestMatchingBackupConfig(contents, &backupReport.BackupConfig)
 	}
 
 	if latestMatchingBackupHistoryEntry == nil {
@@ -55,7 +55,7 @@ func GetLatestMatchingBackupTimestamp() string {
 	return latestMatchingBackupHistoryEntry.Timestamp
 }
 
-func GetLatestMatchingBackupConfig(history *backup_history.History, currentBackupConfig *backup_history.BackupConfig) *backup_history.BackupConfig {
+func GetLatestMatchingBackupConfig(history *history.History, currentBackupConfig *history.BackupConfig) *history.BackupConfig {
 	for _, backupConfig := range history.BackupConfigs {
 		if MatchesIncrementalFlags(&backupConfig, currentBackupConfig) {
 			return &backupConfig
@@ -65,7 +65,7 @@ func GetLatestMatchingBackupConfig(history *backup_history.History, currentBacku
 	return nil
 }
 
-func MatchesIncrementalFlags(backupConfig *backup_history.BackupConfig, currentBackupConfig *backup_history.BackupConfig) bool {
+func MatchesIncrementalFlags(backupConfig *history.BackupConfig, currentBackupConfig *history.BackupConfig) bool {
 	return backupConfig.BackupDir == MustGetFlagString(utils.BACKUP_DIR) &&
 		backupConfig.DatabaseName == currentBackupConfig.DatabaseName &&
 		backupConfig.LeafPartitionData == MustGetFlagBool(utils.LEAF_PARTITION_DATA) &&
@@ -80,8 +80,8 @@ func MatchesIncrementalFlags(backupConfig *backup_history.BackupConfig, currentB
 }
 
 func PopulateRestorePlan(changedTables []Table,
-	restorePlan []backup_history.RestorePlanEntry, allTables []Table) []backup_history.RestorePlanEntry {
-	currBackupRestorePlanEntry := backup_history.RestorePlanEntry{
+	restorePlan []history.RestorePlanEntry, allTables []Table) []history.RestorePlanEntry {
+	currBackupRestorePlanEntry := history.RestorePlanEntry{
 		Timestamp: globalFPInfo.Timestamp,
 		TableFQNs: make([]string, 0, len(changedTables)),
 	}

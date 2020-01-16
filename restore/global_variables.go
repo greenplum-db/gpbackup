@@ -5,8 +5,8 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/filepath"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/pflag"
 )
@@ -26,10 +26,10 @@ type Empty struct{}
  */
 
 var (
-	backupConfig        *backup_history.BackupConfig
+	backupConfig        *history.BackupConfig
 	connectionPool      *dbconn.DBConn
 	globalCluster       *cluster.Cluster
-	globalFPInfo        backup_filepath.FilePathInfo
+	globalFPInfo        filepath.FilePathInfo
 	globalTOC           *utils.TOC
 	pluginConfig        *utils.PluginConfig
 	restoreStartTime    string
@@ -64,7 +64,7 @@ func SetCmdFlags(flagSet *pflag.FlagSet) {
 	cmdFlags = flagSet
 }
 
-func SetBackupConfig(config *backup_history.BackupConfig) {
+func SetBackupConfig(config *history.BackupConfig) {
 	backupConfig = config
 }
 
@@ -76,7 +76,7 @@ func SetCluster(cluster *cluster.Cluster) {
 	globalCluster = cluster
 }
 
-func SetFPInfo(fpInfo backup_filepath.FilePathInfo) {
+func SetFPInfo(fpInfo filepath.FilePathInfo) {
 	globalFPInfo = fpInfo
 }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -75,8 +75,8 @@ func SetSessionGUCs(connNum int) {
 	}
 }
 
-func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts options.Options) *backup_history.BackupConfig {
-	backupConfig := backup_history.BackupConfig{
+func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts options.Options) *history.BackupConfig {
+	backupConfig := history.BackupConfig{
 		BackupDir:             MustGetFlagString(utils.BACKUP_DIR),
 		BackupVersion:         backupVersion,
 		Compressed:            !MustGetFlagBool(utils.NO_COMPRESSION),

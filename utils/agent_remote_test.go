@@ -8,7 +8,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 
@@ -19,7 +19,7 @@ import (
 var _ = Describe("agent remote", func() {
 	var (
 		oidList      []string
-		fpInfo       backup_filepath.FilePathInfo
+		fpInfo       filepath.FilePathInfo
 		testCluster  *cluster.Cluster
 		testExecutor *testhelper.TestExecutor
 		remoteOutput *cluster.RemoteOutput
@@ -42,7 +42,7 @@ var _ = Describe("agent remote", func() {
 		testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
 		testCluster.Executor = testExecutor
 
-		fpInfo = backup_filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
+		fpInfo = filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
 	})
 	// note: technically the file system is written to during the call `operating.System.TempFile`
 	//			this file is not used throughout the unit tests below, and it is cleaned up with the method: `operating.System.Remove`

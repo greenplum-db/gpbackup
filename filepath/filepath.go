@@ -1,4 +1,4 @@
-package backup_filepath
+package filepath
 
 /*
  * This file contains structs and functions used in both backup and restore

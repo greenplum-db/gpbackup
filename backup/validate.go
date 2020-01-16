@@ -5,8 +5,8 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/filepath"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
@@ -122,7 +122,7 @@ func ValidateFlagValues() {
 	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
 	ValidateCompressionLevel(MustGetFlagInt(utils.COMPRESSION_LEVEL))
-	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !backup_filepath.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
+	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !filepath.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.",
 			MustGetFlagString(utils.FROM_TIMESTAMP)), "")
 	}
@@ -135,13 +135,13 @@ func ValidateCompressionLevel(compressionLevel int) {
 }
 
 func ValidateFromTimestamp(fromTimestamp string) {
-	fromTimestampFPInfo := backup_filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
+	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
 	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
 		// The config file needs to be downloaded from the remote system into the local filesystem
 		pluginConfig.MustRestoreFile(fromTimestampFPInfo.GetConfigFilePath())
 	}
-	fromBackupConfig := backup_history.ReadConfigFile(fromTimestampFPInfo.GetConfigFilePath())
+	fromBackupConfig := history.ReadConfigFile(fromTimestampFPInfo.GetConfigFilePath())
 
 	if !MatchesIncrementalFlags(fromBackupConfig, &backupReport.BackupConfig) {
 		gplog.Fatal(errors.Errorf("The flags of the backup with timestamp = %s does not match "+

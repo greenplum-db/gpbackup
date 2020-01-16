@@ -16,8 +16,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/filepath"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -46,7 +46,7 @@ var _ = Describe("utils/report tests", func() {
 	Describe("WriteBackupReportFile", func() {
 		timestamp := "20170101010101"
 		endtime := time.Date(2017, 1, 1, 5, 4, 3, 2, time.Local)
-		config := backup_history.BackupConfig{
+		config := history.BackupConfig{
 			BackupVersion:   "0.1.0",
 			DatabaseName:    "testdb",
 			DatabaseVersion: "5.0.0 build test",
@@ -297,7 +297,7 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 			backupConfig := backup.NewBackupConfig("testdb",
 				"5.0.0 build test", "0.1.0",
 				"/tmp/plugin.sh", "timestamp1", *opts)
-			structmatcher.ExpectStructsToMatch(backup_history.BackupConfig{
+			structmatcher.ExpectStructsToMatch(history.BackupConfig{
 				BackupVersion:        "0.1.0",
 				Compressed:           true,
 				DatabaseName:         "testdb",
@@ -432,14 +432,14 @@ Timestamp Key: 20170101010101`)
 		var (
 			testExecutor *testhelper.TestExecutor
 			testCluster  *cluster.Cluster
-			testFPInfo   backup_filepath.FilePathInfo
+			testFPInfo   filepath.FilePathInfo
 			w            *os.File
 			r            *os.File
 		)
 		BeforeEach(func() {
 			r, w, _ = os.Pipe()
 			testCluster = testutils.SetDefaultSegmentConfiguration()
-			testFPInfo = backup_filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
+			testFPInfo = filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 			operating.System.OpenFileRead = func(name string, flag int, perm os.FileMode) (operating.ReadCloserAt, error) { return r, nil }
 			operating.System.ReadFile = func(filename string) ([]byte, error) { return ioutil.ReadAll(r) }
 			operating.System.Hostname = func() (string, error) { return "localhost", nil }

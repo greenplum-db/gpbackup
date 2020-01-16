@@ -1,4 +1,4 @@
-package backup_filepath_test
+package filepath_test
 
 import (
 	"testing"
@@ -25,7 +25,7 @@ var (
 
 func TestBackupFilepath(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "BackupFilepath Suite")
+	RunSpecs(t, "Filepath Suite")
 }
 
 var _ = BeforeSuite(func() {

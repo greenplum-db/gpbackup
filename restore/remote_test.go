@@ -6,7 +6,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/pkg/errors"
 
@@ -21,7 +21,7 @@ var _ = Describe("restore/remote tests", func() {
 	var (
 		testCluster  *cluster.Cluster
 		testExecutor *testhelper.TestExecutor
-		testFPInfo   backup_filepath.FilePathInfo
+		testFPInfo   filepath.FilePathInfo
 	)
 
 	BeforeEach(func() {
@@ -30,7 +30,7 @@ var _ = Describe("restore/remote tests", func() {
 		testExecutor = &testhelper.TestExecutor{}
 		testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
 		testCluster.Executor = testExecutor
-		testFPInfo = backup_filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
+		testFPInfo = filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 		restore.SetFPInfo(testFPInfo)
 	})
 	Describe("VerifyBackupFileCountOnSegments", func() {
