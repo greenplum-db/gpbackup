@@ -15,6 +15,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -432,7 +433,7 @@ func DoTeardown() {
 	if errStr != "" {
 		fmt.Println(errStr)
 	}
-	errMsg := utils.ParseErrorMessage(errStr)
+	errMsg := report.ParseErrorMessage(errStr)
 
 	/*
 	 * Only create a report file if we fail after the cluster is initialized
@@ -453,7 +454,7 @@ func DoTeardown() {
 			backup_history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
 			endtime, _ := time.ParseInLocation("20060102150405", backupReport.BackupConfig.EndTime, operating.System.Local)
 			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, endtime, objectCounts, errMsg)
-			utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup")
+			report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup")
 			if pluginConfig != nil {
 				err := pluginConfig.BackupFile(configFilename)
 				if err != nil {

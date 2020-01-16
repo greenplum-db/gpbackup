@@ -7,6 +7,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"gopkg.in/cheggaaa/pb.v1"
 
@@ -194,7 +195,7 @@ var _ = Describe("backup/data tests", func() {
 		var testTable backup.Table
 		BeforeEach(func() {
 			config.MetadataOnly = false
-			backup.SetReport(&utils.Report{BackupConfig: config})
+			backup.SetReport(&report.Report{BackupConfig: config})
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
 				TableDefinition: backup.TableDefinition{},
@@ -211,7 +212,7 @@ var _ = Describe("backup/data tests", func() {
 		})
 		It("does not change backup type if metadata-only backup", func() {
 			config.MetadataOnly = true
-			backup.SetReport(&utils.Report{BackupConfig: config})
+			backup.SetReport(&report.Report{BackupConfig: config})
 			backup.CheckTablesContainData([]backup.Table{})
 			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
 		})

@@ -1,4 +1,4 @@
-package utils_test
+package report_test
 
 import (
 	"fmt"
@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
 
+	. "github.com/greenplum-db/gpbackup/report"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,11 +35,11 @@ var _ = Describe("utils/report tests", func() {
 	Describe("ParseErrorMessage", func() {
 		It("Parses a CRITICAL error message and returns error code 1", func() {
 			errStr := "testProgram:testUser:testHost:000000-[CRITICAL]:-Error Message"
-			errMsg := utils.ParseErrorMessage(errStr)
+			errMsg := ParseErrorMessage(errStr)
 			Expect(errMsg).To(Equal("Error Message"))
 		})
 		It("Returns error code 0 for an empty error message", func() {
-			errMsg := utils.ParseErrorMessage("")
+			errMsg := ParseErrorMessage("")
 			Expect(errMsg).To(Equal(""))
 		})
 	})
@@ -50,10 +51,10 @@ var _ = Describe("utils/report tests", func() {
 			DatabaseName:    "testdb",
 			DatabaseVersion: "5.0.0 build test",
 		}
-		backupReport := &utils.Report{}
+		backupReport := &Report{}
 		objectCounts := map[string]int{"tables": 42, "sequences": 1, "types": 1000}
 		BeforeEach(func() {
-			backupReport = &utils.Report{
+			backupReport = &Report{
 				BackupParamsString: `compression: gzip
 backup section: All Sections
 object filtering: None
@@ -167,9 +168,9 @@ types       1000`))
 			testParamsStr := `compression: exampleStr
 data file format: exampleStr
 `
-			lineInfoTest := make([]utils.LineInfo, 0)
+			lineInfoTest := make([]LineInfo, 0)
 
-			utils.AppendBackupParams(&lineInfoTest, testParamsStr)
+			AppendBackupParams(&lineInfoTest, testParamsStr)
 			Expect(lineInfoTest[0].Key).To(Equal("compression:"))
 			Expect(lineInfoTest[0].Value).To(Equal("exampleStr"))
 			Expect(lineInfoTest[1].Key).To(Equal("data file format:"))
@@ -180,9 +181,9 @@ data file format: exampleStr
 			testParamsStr := fmt.Sprintf(`incremental: True
 incremental backup set:
 %s`, strings.Join(backupTimestamps, "\n"))
-			lineInfoTest := make([]utils.LineInfo, 0)
+			lineInfoTest := make([]LineInfo, 0)
 
-			utils.AppendBackupParams(&lineInfoTest, testParamsStr)
+			AppendBackupParams(&lineInfoTest, testParamsStr)
 			Expect(lineInfoTest[0].Key).To(Equal("incremental:"))
 			Expect(lineInfoTest[0].Value).To(Equal("True"))
 			Expect(lineInfoTest[1].Key).To(Equal("incremental backup set:"))
@@ -222,7 +223,7 @@ incremental backup set:
 
 		It("writes a report for a failed restore", func() {
 			gplog.SetErrorCode(2)
-			utils.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "Cannot access /tmp/backups: Permission denied")
+			WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "Cannot access /tmp/backups: Permission denied")
 			Expect(buffer).To(gbytes.Say(`Greenplum Database Restore Report
 
 timestamp key:       20170101010101
@@ -241,7 +242,7 @@ restore error:       Cannot access /tmp/backups: Permission denied`))
 		})
 		It("writes a report for a successful restore", func() {
 			gplog.SetErrorCode(0)
-			utils.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
+			WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
 			Expect(buffer).To(gbytes.Say(`Greenplum Database Restore Report
 
 timestamp key:       20170101010101
@@ -259,7 +260,7 @@ restore status:      Success`))
 		})
 		It("writes a report for a successful restore with errors", func() {
 			gplog.SetErrorCode(1)
-			utils.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
+			WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
 			Expect(buffer).To(gbytes.Say(`Greenplum Database Restore Report
 
 timestamp key:       20170101010101
@@ -318,28 +319,28 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 		})
 		It("prints times and duration for a sub-minute backup", func() {
 			endTime := time.Date(2017, 1, 1, 1, 1, 3, 2, operating.System.Local)
-			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
+			start, end, duration := GetDurationInfo(timestamp, endTime)
 			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
 			Expect(end).To(Equal("Sun Jan 01 2017 01:01:03"))
 			Expect(duration).To(Equal("0:00:02"))
 		})
 		It("prints times and duration for a sub-hour backup", func() {
 			endTime := time.Date(2017, 1, 1, 1, 4, 3, 2, operating.System.Local)
-			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
+			start, end, duration := GetDurationInfo(timestamp, endTime)
 			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
 			Expect(end).To(Equal("Sun Jan 01 2017 01:04:03"))
 			Expect(duration).To(Equal("0:03:02"))
 		})
 		It("prints times and duration for a multiple-hour backup", func() {
 			endTime := time.Date(2017, 1, 1, 5, 4, 3, 2, operating.System.Local)
-			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
+			start, end, duration := GetDurationInfo(timestamp, endTime)
 			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
 			Expect(end).To(Equal("Sun Jan 01 2017 05:04:03"))
 			Expect(duration).To(Equal("4:03:02"))
 		})
 		It("prints times and duration for a backup going past midnight", func() {
 			endTime := time.Date(2017, 1, 2, 1, 4, 3, 2, operating.System.Local)
-			start, end, duration := utils.GetDurationInfo(timestamp, endTime)
+			start, end, duration := GetDurationInfo(timestamp, endTime)
 			Expect(start).To(Equal("Sun Jan 01 2017 01:01:01"))
 			Expect(end).To(Equal("Mon Jan 02 2017 01:04:03"))
 			Expect(duration).To(Equal("24:03:02"))
@@ -348,7 +349,7 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 			operating.System.Local, _ = time.LoadLocation("America/Los_Angeles") // Ensure test works regardless of time zone of test machine
 			dst := "20170312010000"
 			endTime := time.Date(2017, 3, 12, 3, 0, 0, 0, operating.System.Local)
-			start, end, duration := utils.GetDurationInfo(dst, endTime)
+			start, end, duration := GetDurationInfo(dst, endTime)
 			Expect(start).To(Equal("Sun Mar 12 2017 01:00:00"))
 			Expect(end).To(Equal("Sun Mar 12 2017 03:00:00"))
 			Expect(duration).To(Equal("1:00:00"))
@@ -357,7 +358,7 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 			operating.System.Local, _ = time.LoadLocation("America/Los_Angeles") // Ensure test works regardless of time zone of test machine
 			dst := "20171105010000"
 			endTime := time.Date(2017, 11, 5, 3, 0, 0, 0, operating.System.Local)
-			start, end, duration := utils.GetDurationInfo(dst, endTime)
+			start, end, duration := GetDurationInfo(dst, endTime)
 			Expect(start).To(Equal("Sun Nov 05 2017 01:00:00"))
 			Expect(end).To(Equal("Sun Nov 05 2017 03:00:00"))
 			Expect(duration).To(Equal("3:00:00"))
@@ -366,13 +367,13 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 	Describe("EnsureBackupVersionCompatibility", func() {
 		It("Panics if gpbackup version is greater than gprestore version", func() {
 			defer testhelper.ShouldPanicWithMessage("gprestore 0.1.0 cannot restore a backup taken with gpbackup 0.2.0; please use gprestore 0.2.0 or later.")
-			utils.EnsureBackupVersionCompatibility("0.2.0", "0.1.0")
+			EnsureBackupVersionCompatibility("0.2.0", "0.1.0")
 		})
 		It("Does not panic if gpbackup version is less than gprestore version", func() {
-			utils.EnsureBackupVersionCompatibility("0.1.0", "0.1.3")
+			EnsureBackupVersionCompatibility("0.1.0", "0.1.3")
 		})
 		It("Does not panic if gpbackup version equals gprestore version", func() {
-			utils.EnsureBackupVersionCompatibility("0.1.0", "0.1.0")
+			EnsureBackupVersionCompatibility("0.1.0", "0.1.0")
 		})
 	})
 	Describe("EnsureDatabaseVersionCompatibility", func() {
@@ -386,13 +387,13 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 		})
 		It("Panics if backup database major version is greater than restore major version", func() {
 			defer testhelper.ShouldPanicWithMessage("Cannot restore from GPDB version 6.0.0-beta.9+dev.129.g4bd4e41 build dev to 5.0.0-beta.9+dev.129.g4bd4e41 build dev due to catalog incompatibilities.")
-			utils.EnsureDatabaseVersionCompatibility("6.0.0-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
+			EnsureDatabaseVersionCompatibility("6.0.0-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
 		})
 		It("Does not panic if backup database major version is greater than restore major version", func() {
-			utils.EnsureDatabaseVersionCompatibility("4.3.16-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
+			EnsureDatabaseVersionCompatibility("4.3.16-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
 		})
 		It("Does not panic if backup database major version is equal to restore major version", func() {
-			utils.EnsureDatabaseVersionCompatibility("5.0.6-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
+			EnsureDatabaseVersionCompatibility("5.0.6-beta.9+dev.129.g4bd4e41 build dev", restoreVersion)
 		})
 	})
 
@@ -400,8 +401,8 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 		reportFileContents := []byte(`Greenplum Database Backup Report
 
 Timestamp Key: 20170101010101`)
-		contactsFileContents, _ := yaml.Marshal(utils.ContactFile{
-			Contacts: map[string][]utils.EmailContact{
+		contactsFileContents, _ := yaml.Marshal(ContactFile{
+			Contacts: map[string][]EmailContact{
 				"gpbackup": {
 					{Address: "contact1@example.com",
 						Status: map[string]bool{
@@ -464,7 +465,7 @@ Timestamp Key: 20170101010101`)
 				_, _ = w.Write(contactsFileContents)
 				_ = w.Close()
 
-				contacts := utils.GetContacts(contactsFilename, "gpbackup")
+				contacts := GetContacts(contactsFilename, "gpbackup")
 				Expect(contacts).To(Equal("contact1@example.com"))
 			})
 			It("Gets a list of gpbackup contacts on success with errors", func() {
@@ -472,7 +473,7 @@ Timestamp Key: 20170101010101`)
 				_, _ = w.Write(contactsFileContents)
 				_ = w.Close()
 
-				contacts := utils.GetContacts(contactsFilename, "gpbackup")
+				contacts := GetContacts(contactsFilename, "gpbackup")
 				Expect(contacts).To(Equal("contact1@example.com contact2@example.org"))
 			})
 			It("Gets a list of gpbackup contacts on failure", func() {
@@ -480,7 +481,7 @@ Timestamp Key: 20170101010101`)
 				_, _ = w.Write(contactsFileContents)
 				_ = w.Close()
 
-				contacts := utils.GetContacts(contactsFilename, "gpbackup")
+				contacts := GetContacts(contactsFilename, "gpbackup")
 				Expect(contacts).To(Equal("contact2@example.org"))
 			})
 			It("Gets a list of gprestore contacts and doesn't fail when no status specified", func() {
@@ -488,7 +489,7 @@ Timestamp Key: 20170101010101`)
 				_, _ = w.Write(contactsFileContents)
 				_ = w.Close()
 
-				contacts := utils.GetContacts(contactsFilename, "gprestore")
+				contacts := GetContacts(contactsFilename, "gprestore")
 				Expect(contacts).To(Equal("contact4@example.org"))
 			})
 		})
@@ -497,7 +498,7 @@ Timestamp Key: 20170101010101`)
 				_, _ = w.Write(reportFileContents)
 				_ = w.Close()
 
-				message := utils.ConstructEmailMessage(testFPInfo.Timestamp, contactsList, "report_file", "gpbackup")
+				message := ConstructEmailMessage(testFPInfo.Timestamp, contactsList, "report_file", "gpbackup")
 				expectedMessage := `To: contact1@example.com contact2@example.org
 Subject: gpbackup 20170101010101 on localhost completed
 Content-Type: text/html
@@ -536,7 +537,7 @@ Content-Disposition: inline
 
 				testExecutor.LocalError = errors.Errorf("exit status 2")
 
-				utils.EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
+				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedGpHomeCmd}))
 				Expect(stdout).To(gbytes.Say("Found neither gphome/bin/gp_email_contacts.yaml nor home/gp_email_contacts.yaml"))
@@ -548,7 +549,7 @@ Content-Disposition: inline
 				testExecutor.ErrorOnExecNum = 2 // Shouldn't hit this case, as it shouldn't be executed a second time
 				testExecutor.LocalError = errors.Errorf("exit status 2")
 
-				utils.EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
+				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedMessage}))
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))
@@ -560,7 +561,7 @@ Content-Disposition: inline
 				testExecutor.ErrorOnExecNum = 1
 				testExecutor.LocalError = errors.Errorf("exit status 2")
 
-				utils.EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
+				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(3))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedGpHomeCmd, expectedMessage}))
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))
@@ -569,7 +570,7 @@ Content-Disposition: inline
 				_, _ = w.Write(contactsFileContents)
 				_ = w.Close()
 
-				utils.EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
+				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedMessage}))
 				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))

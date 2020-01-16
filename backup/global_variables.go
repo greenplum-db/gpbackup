@@ -7,6 +7,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/nightlyone/lockfile"
 	"github.com/spf13/pflag"
@@ -21,7 +22,7 @@ import (
  * Non-flag variables
  */
 var (
-	backupReport         *utils.Report
+	backupReport         *report.Report
 	connectionPool       *dbconn.DBConn
 	queryContext         context.Context
 	queryCancelFunc      context.CancelFunc
@@ -72,11 +73,11 @@ func SetPluginConfig(config *utils.PluginConfig) {
 	pluginConfig = config
 }
 
-func SetReport(report *utils.Report) {
+func SetReport(report *report.Report) {
 	backupReport = report
 }
 
-func GetReport() *utils.Report {
+func GetReport() *report.Report {
 	return backupReport
 }
 

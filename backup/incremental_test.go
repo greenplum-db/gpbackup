@@ -7,6 +7,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/onsi/gomega/gbytes"
@@ -206,7 +207,7 @@ var _ = Describe("backup/incremental tests", func() {
 		})
 		It("fatals when trying to take an incremental backup without a full backup", func() {
 			backup.SetFPInfo(backup_filepath.FilePathInfo{UserSpecifiedBackupDir: "/tmp", UserSpecifiedSegPrefix: "/test-prefix"})
-			backup.SetReport(&utils.Report{})
+			backup.SetReport(&report.Report{})
 
 			Expect(func() { backup.GetLatestMatchingBackupTimestamp() }).Should(Panic())
 			Expect(log.Contents()).To(ContainSubstring("There was no matching previous backup found with the flags provided. Please take a full backup."))

@@ -12,7 +12,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/onsi/gomega/gbytes"
 	"gopkg.in/yaml.v2"
 
@@ -154,7 +154,7 @@ var _ = Describe("backup/history tests", func() {
 			})
 			It("NewHistory returns an empty History", func() {
 				backup.SetFPInfo(backup_filepath.FilePathInfo{UserSpecifiedBackupDir: "/tmp", UserSpecifiedSegPrefix: "/test-prefix"})
-				backup.SetReport(&utils.Report{})
+				backup.SetReport(&report.Report{})
 				operating.System.ReadFile = func(string) ([]byte, error) { return []byte(""), nil }
 
 				history, err := backup_history.NewHistory("/tempfile")

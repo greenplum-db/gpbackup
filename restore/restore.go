@@ -13,6 +13,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -410,7 +411,7 @@ func DoTeardown() {
 	if errStr != "" {
 		fmt.Println(errStr)
 	}
-	errMsg := utils.ParseErrorMessage(errStr)
+	errMsg := report.ParseErrorMessage(errStr)
 
 	if globalFPInfo.Timestamp != "" {
 		_, statErr := os.Stat(globalFPInfo.GetDirForContent(-1))
@@ -418,8 +419,8 @@ func DoTeardown() {
 			return
 		}
 		reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
-		utils.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, errMsg)
-		utils.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore")
+		report.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, errMsg)
+		report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore")
 		if pluginConfig != nil {
 			pluginConfig.CleanupPluginForRestore(globalCluster, globalFPInfo)
 			pluginConfig.DeletePluginConfigWhenEncrypting(globalCluster)

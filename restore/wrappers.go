@@ -11,6 +11,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/backup_filepath"
 	"github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -128,8 +129,8 @@ func SetMaxCsvLineLengthQuery(connectionPool *dbconn.DBConn) string {
 func InitializeBackupConfig() {
 	backupConfig = backup_history.ReadConfigFile(globalFPInfo.GetConfigFilePath())
 	utils.InitializePipeThroughParameters(backupConfig.Compressed, 0)
-	utils.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
-	utils.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
+	report.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
+	report.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
 }
 
 func InitializeFilterLists() {

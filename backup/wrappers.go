@@ -11,6 +11,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/backup_history"
 	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/nightlyone/lockfile"
 	"github.com/pkg/errors"
@@ -120,7 +121,7 @@ func InitializeBackupReport(opts options.Options) {
 		dbSize = GetDBSize(connectionPool)
 	}
 
-	backupReport = &utils.Report{
+	backupReport = &report.Report{
 		DatabaseSize: dbSize,
 		BackupConfig: *config,
 	}

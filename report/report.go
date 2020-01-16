@@ -1,4 +1,4 @@
-package utils
+package report
 
 import (
 	"fmt"
@@ -15,7 +15,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/backup_history"
+	history "github.com/greenplum-db/gpbackup/backup_history"
+	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -28,7 +29,7 @@ import (
 type Report struct {
 	BackupParamsString string
 	DatabaseSize       string
-	backup_history.BackupConfig
+	history.BackupConfig
 }
 
 type LineInfo struct {
@@ -64,7 +65,7 @@ func (report *Report) ConstructBackupParamsString() {
 		filterStr = "None"
 	}
 	compressStr := "None"
-	program := GetPipeThroughProgram()
+	program := utils.GetPipeThroughProgram()
 	if report.Compressed {
 		compressStr = program.Name
 	}
@@ -181,7 +182,7 @@ func WriteRestoreReportFile(reportFilename string, backupTimestamp string, start
 	gprestoreCommandLine := strings.Join(os.Args, " ")
 	start, end, duration := GetDurationInfo(startTimestamp, operating.System.Now())
 
-	MustPrintf(reportFile, "Greenplum Database Restore Report\n\n")
+	utils.MustPrintf(reportFile, "Greenplum Database Restore Report\n\n")
 
 	reportInfo := make([]LineInfo, 0)
 	reportInfo = append(reportInfo,
@@ -231,9 +232,9 @@ func logOutputReport(reportFile io.WriteCloser, reportInfo []LineInfo) {
 
 	for _, lineInfo := range reportInfo {
 		if lineInfo.Key == "" {
-			MustPrintf(reportFile, fmt.Sprintf("\n"))
+			utils.MustPrintf(reportFile, fmt.Sprintf("\n"))
 		} else {
-			MustPrintf(reportFile, fmt.Sprintf("%-*s%s\n", maxSize+3, lineInfo.Key, lineInfo.Value))
+			utils.MustPrintf(reportFile, fmt.Sprintf("%-*s%s\n", maxSize+3, lineInfo.Key, lineInfo.Value))
 		}
 	}
 }
@@ -274,7 +275,7 @@ func PrintObjectCounts(reportFile io.WriteCloser, objectCounts map[string]int) {
 			objectStr += fmt.Sprintf("%-*s%d\n", maxSize+3, strings.ToLower(object), objectCounts[object])
 		}
 	}
-	MustPrintf(reportFile, objectStr)
+	utils.MustPrintf(reportFile, objectStr)
 }
 
 /*
