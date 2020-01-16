@@ -32,7 +32,7 @@ func OpenFileForWrite(filename string) (*os.File, error) {
 }
 
 func WriteToFileAndMakeReadOnly(filename string, contents []byte) error {
-	file, err := OpenFileForWrite(filename)
+	file, err := os.OpenFile(filename, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
