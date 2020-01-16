@@ -76,10 +76,6 @@ var _ = Describe("restore/validate tests", func() {
 			toc.AddMasterDataEntry("s2", "table1", 3, "(j)", 0, "")
 			toc.AddMasterDataEntry("s2", "table2", 4, "(j)", 0, "")
 			restore.SetTOC(toc)
-			cmdFlags.Set(utils.INCLUDE_RELATION, "")
-			cmdFlags.Set(utils.EXCLUDE_RELATION, "")
-			cmdFlags.Set(utils.INCLUDE_SCHEMA, "")
-			cmdFlags.Set(utils.EXCLUDE_SCHEMA, "")
 		})
 		It("returns all tables if no filtering is used", func() {
 			expectedRelations := []string{"s1.table1", "s1.table2", "s2.table1", "s2.table2"}
@@ -89,16 +85,18 @@ var _ = Describe("restore/validate tests", func() {
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 		It("filters on include relations", func() {
-			cmdFlags.Set(utils.INCLUDE_RELATION, "s1.table1,s2.table2")
-			expectedRelations := []string{"s1.table1", "s2.table2"}
+			cmdFlags.Set(utils.INCLUDE_RELATION, "s1.table1")
+			cmdFlags.Set(utils.INCLUDE_RELATION, "s1.table2")
+			expectedRelations := []string{"s1.table1","s1.table2"}
 
 			resultRelations := restore.GenerateRestoreRelationList()
 
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 		It("filters on exclude relations", func() {
-			cmdFlags.Set(utils.EXCLUDE_RELATION, "s1.table2,s2.table1")
-			expectedRelations := []string{"s1.table1", "s2.table2"}
+			cmdFlags.Set(utils.EXCLUDE_RELATION, "s1.table2")
+			cmdFlags.Set(utils.EXCLUDE_RELATION, "s2.table1")
+			expectedRelations := []string{"s1.table1","s2.table2"}
 
 			resultRelations := restore.GenerateRestoreRelationList()
 

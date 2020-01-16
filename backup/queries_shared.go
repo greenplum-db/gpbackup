@@ -177,11 +177,11 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 // A list of schemas we don't want to back up, formatted for use in a WHERE clause
 func SchemaFilterClause(namespace string) string {
 	schemaFilterClauseStr := ""
-	if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)))
+	if len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) > 0 {
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)))
 	}
-	if len(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)))
+	if len(MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)) > 0 {
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)))
 	}
 	return fmt.Sprintf(`%s.nspname NOT LIKE 'pg_temp_%%' AND %s.nspname NOT LIKE 'pg_toast%%' AND %s.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog') %s`, namespace, namespace, namespace, schemaFilterClauseStr)
 }

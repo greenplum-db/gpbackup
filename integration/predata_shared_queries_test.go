@@ -43,7 +43,8 @@ var _ = Describe("backup integration tests", func() {
 		It("returns schema information for multiple specific schemas", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA bar")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA bar")
-			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "bar,public")
+			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "bar")
+			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "public")
 			schemas := backup.GetAllUserSchemas(connectionPool)
 
 			schemaBar := backup.Schema{Oid: 0, Name: "bar"}

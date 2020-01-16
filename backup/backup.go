@@ -40,12 +40,14 @@ func SetFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(utils.DATA_ONLY, false, "Only back up data, do not back up metadata")
 	flagSet.String(utils.DBNAME, "", "The database to be backed up")
 	flagSet.Bool(utils.DEBUG, false, "Print verbose and debug log messages")
-	flagSet.StringSlice(utils.EXCLUDE_SCHEMA, []string{}, "Back up all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	flagSet.StringSlice(utils.EXCLUDE_RELATION, []string{}, "Back up all metadata except the specified table(s). --exclude-table can be specified multiple times.")
+	flagSet.StringArray(utils.EXCLUDE_SCHEMA, []string{}, "Back up all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
+	flagSet.String(utils.EXCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas to be excluded from the backup")
+	flagSet.StringArray(utils.EXCLUDE_RELATION, []string{}, "Back up all metadata except the specified table(s). --exclude-table can be specified multiple times.")
 	flagSet.String(utils.EXCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified tables to be excluded from the backup")
 	flagSet.String(utils.FROM_TIMESTAMP, "", "A timestamp to use to base the current incremental backup off")
 	flagSet.Bool("help", false, "Help for gpbackup")
-	flagSet.StringSlice(utils.INCLUDE_SCHEMA, []string{}, "Back up only the specified schema(s). --include-schema can be specified multiple times.")
+	flagSet.StringArray(utils.INCLUDE_SCHEMA, []string{}, "Back up only the specified schema(s). --include-schema can be specified multiple times.")
+	flagSet.String(utils.INCLUDE_SCHEMA_FILE, "", "A file containing a list of schema(s) to be included in the backup")
 	flagSet.StringArray(utils.INCLUDE_RELATION, []string{}, "Back up only the specified table(s). --include-table can be specified multiple times.")
 	flagSet.String(utils.INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified tables to be included in the backup")
 	flagSet.Bool(utils.INCREMENTAL, false, "Only back up data for AO tables that have been modified since the last backup")
@@ -90,11 +92,7 @@ func DoSetup() {
 	opts, err := options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
-	DBValidate(connectionPool, opts.GetIncludedTables(), false)
-
-	// todo remove these when EXCLUDE_RELATION* flags are handled by options object
-	InitializeFilterLists()
-	validateFilterLists()
+	validateFilterLists(opts)
 
 	err = opts.ExpandIncludesForPartitions(connectionPool, cmdFlags)
 	gplog.FatalOnError(err)
@@ -260,7 +258,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 
 	if !tableOnly {
 		BackupSchemas(metadataFile)
-		if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 && connectionPool.Version.AtLeast("5") {
+		if len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) == 0 && connectionPool.Version.AtLeast("5") {
 			BackupExtensions(metadataFile)
 		}
 
@@ -271,12 +269,12 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 		procLangs := GetProceduralLanguages(connectionPool)
 		langFuncs, functionMetadata := RetrieveFunctions(&sortables, metadataMap, procLangs)
 
-		if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
+		if len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) == 0 {
 			BackupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
 		}
 		RetrieveAndBackupTypes(metadataFile, &sortables, metadataMap)
 
-		if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 &&
+		if len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) == 0 &&
 			connectionPool.Version.AtLeast("6") {
 			RetrieveForeignDataWrappers(&sortables, metadataMap)
 			RetrieveForeignServers(&sortables, metadataMap)
@@ -369,7 +367,7 @@ func backupPostdata(metadataFile *utils.FileWithByteCount) {
 	BackupTriggers(metadataFile)
 	if connectionPool.Version.AtLeast("6") {
 		BackupDefaultPrivileges(metadataFile)
-		if len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) == 0 {
+		if len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) == 0 {
 			BackupEventTriggers(metadataFile)
 		}
 	}

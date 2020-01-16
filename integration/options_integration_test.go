@@ -41,7 +41,7 @@ var _ = Describe("Options Integration", func() {
 				`FOO.BAR`,
 				`bim.2`,
 				`public.foo_bar`,
-				`foo ~#$%^&*()_-+[]{}><\|;:/?!.bar`,
+				`foo ~#$%^&*()_-+[]{}><\|;:/?!,.bar`,
 				"tab\t.bar", // important to use double quotes to allow \t to become tab
 				"tab\n.bar", // important to use double quotes to allow \t to become tab
 			}
@@ -50,7 +50,7 @@ var _ = Describe("Options Integration", func() {
 				`"FOO"."BAR"`,
 				`bim."2"`,
 				`public.foo_bar`, // underscore is NOT special
-				`"foo ~#$%^&*()_-+[]{}><\|;:/?!".bar`,
+				`"foo ~#$%^&*()_-+[]{}><\|;:/?!,".bar`,
 				"\"tab\t\".bar",
 				"\"tab\n\".bar",
 			}

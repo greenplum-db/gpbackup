@@ -2,19 +2,16 @@ package backup
 
 import (
 	"fmt"
-	"reflect"
-	"strings"
-
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/nightlyone/lockfile"
 	"github.com/pkg/errors"
+	"reflect"
 )
 
 /*
@@ -83,14 +80,14 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		DatabaseName:          dbName,
 		DatabaseVersion:       dbVersion,
 		DataOnly:              MustGetFlagBool(utils.DATA_ONLY),
-		ExcludeRelations:      MustGetFlagStringSlice(utils.EXCLUDE_RELATION),
-		ExcludeSchemaFiltered: len(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)) > 0,
-		ExcludeSchemas:        MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA),
-		ExcludeTableFiltered:  len(MustGetFlagStringSlice(utils.EXCLUDE_RELATION)) > 0,
+		ExcludeRelations:      MustGetFlagStringArray(utils.EXCLUDE_RELATION),
+		ExcludeSchemaFiltered: len(MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)) > 0,
+		ExcludeSchemas:        MustGetFlagStringArray(utils.EXCLUDE_SCHEMA),
+		ExcludeTableFiltered:  len(MustGetFlagStringArray(utils.EXCLUDE_RELATION)) > 0,
 		IncludeRelations:      opts.GetOriginalIncludedTables(),
-		IncludeSchemaFiltered: len(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)) > 0,
-		IncludeSchemas:        MustGetFlagStringSlice(utils.INCLUDE_SCHEMA),
-		IncludeTableFiltered:  len(MustGetFlagStringArray(utils.INCLUDE_RELATION)) > 0,
+		IncludeSchemaFiltered: len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) > 0,
+		IncludeSchemas:        MustGetFlagStringArray(utils.INCLUDE_SCHEMA),
+		IncludeTableFiltered:  len(opts.GetOriginalIncludedTables()) > 0,
 		Incremental:           MustGetFlagBool(utils.INCREMENTAL),
 		LeafPartitionData:     MustGetFlagBool(utils.LEAF_PARTITION_DATA),
 		MetadataOnly:          MustGetFlagBool(utils.METADATA_ONLY),
@@ -126,14 +123,6 @@ func InitializeBackupReport(opts options.Options) {
 		BackupConfig: *config,
 	}
 	backupReport.ConstructBackupParamsString()
-}
-
-func InitializeFilterLists() {
-	if MustGetFlagString(utils.EXCLUDE_RELATION_FILE) != "" {
-		excludeRelations := iohelper.MustReadLinesFromFile(MustGetFlagString(utils.EXCLUDE_RELATION_FILE))
-		err := cmdFlags.Set(utils.EXCLUDE_RELATION, strings.Join(excludeRelations, ","))
-		gplog.FatalOnError(err)
-	}
 }
 
 func CreateBackupLockFile(timestamp string) {

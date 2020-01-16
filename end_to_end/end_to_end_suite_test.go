@@ -395,8 +395,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{"public.foo": 40000})
-
-				_ = os.Remove("/tmp/include-tables.txt")
 			})
 			It("runs gpbackup and gprestore with include-table-file backup flag", func() {
 				skipIfOldBackupVersionBefore("1.4.0")
@@ -410,6 +408,17 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				_ = os.Remove("/tmp/include-tables.txt")
 			})
+			It("runs gpbackup and gprestore with include-schema-file backup flag", func() {
+				skipIfOldBackupVersionBefore("1.17.0")
+				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-schema.txt")
+				utils.MustPrintln(includeFile, "public")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-schema-file", "/tmp/include-schema.txt")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
+
+				assertRelationsCreated(restoreConn, 20)
+
+				_ = os.Remove("/tmp/include-schema.txt")
+			})
 
 		})
 		Describe("Restore include filtering", func() {
@@ -418,6 +427,17 @@ var _ = Describe("backup end to end integration tests", func() {
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir, "--include-schema", "schema2")
 
 				assertRelationsCreated(restoreConn, 17)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+
+			})
+			It("runs gpbackup and gprestore with include-schema-file restore flag", func() {
+				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-schema.txt")
+				utils.MustPrintln(includeFile, "schema2")
+				utils.MustPrintln(includeFile, "public")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir, "--include-schema-file", "/tmp/include-schema.txt")
+
+				assertRelationsCreated(restoreConn, 37)
 				assertDataRestored(restoreConn, schema2TupleCounts)
 
 			})
@@ -462,6 +482,18 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
 			})
+			It("runs gpbackup and gprestore with exclude-schema-file backup flag", func() {
+				skipIfOldBackupVersionBefore("1.17.0")
+				excludeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-schema.txt")
+				utils.MustPrintln(excludeFile, "public")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-schema-file", "/tmp/exclude-schema.txt")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
+
+				assertRelationsCreated(restoreConn, 17)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+
+				_ = os.Remove("/tmp/exclude-schema.txt")
+			})
 			It("runs gpbackup and gprestore with exclude-table backup flag", func() {
 				skipIfOldBackupVersionBefore("1.4.0")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq2", "--exclude-table", "public.myview2")
@@ -469,8 +501,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS_AFTER_EXCLUDE)
 				assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000, "public.sales": 13})
-
-				_ = os.Remove("/tmp/exclude-tables.txt")
 			})
 			It("runs gpbackup and gprestore with exclude-table-file backup flag", func() {
 				skipIfOldBackupVersionBefore("1.4.0")
@@ -493,14 +523,23 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
 			})
+			It("runs gpbackup and gprestore with exclude-schema-file restore flag", func() {
+				includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-schema.txt")
+				utils.MustPrintln(includeFile, "public")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--backup-dir", backupDir, "--redirect-db", "restoredb", "--exclude-schema-file", "/tmp/exclude-schema.txt")
+
+				assertRelationsCreated(restoreConn, 17)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+
+				_ = os.Remove("/tmp/exclude-schema.txt")
+			})
 			It("runs gpbackup and gprestore with exclude-table restore flag", func() {
 				timestamp := gpbackup(gpbackupPath, backupHelperPath)
 				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--exclude-table", "schema2.foo2", "--exclude-table", "schema2.returns", "--exclude-table", "public.myseq2", "--exclude-table", "public.myview2")
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS_AFTER_EXCLUDE)
 				assertDataRestored(restoreConn, map[string]int{"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000, "public.sales": 13})
-
-				_ = os.Remove("/tmp/exclude-tables.txt")
 			})
 			It("runs gpbackup and gprestore with exclude-table-file restore flag", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
@@ -1486,11 +1525,9 @@ PARTITION BY LIST (gender)
 				tableName := fmt.Sprintf(`foo%sbar`, string(char))
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE public."%s" ();`, tableName))
 				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE public."%s";`, tableName))
-
 				includeTableArgs = append(includeTableArgs, "--include-table")
 				includeTableArgs = append(includeTableArgs, fmt.Sprintf(`public.%s`, tableName))
 			}
-
 			cmd := exec.Command("gpbackup", includeTableArgs...)
 			_, err = cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred())

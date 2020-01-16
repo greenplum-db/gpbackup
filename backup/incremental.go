@@ -74,9 +74,9 @@ func MatchesIncrementalFlags(backupConfig *history.BackupConfig, currentBackupCo
 		backupConfig.Compressed == currentBackupConfig.Compressed &&
 		// Expanding of the include list happens before this now so we must compare again current backup config
 		utils.NewIncludeSet(backupConfig.IncludeRelations).Equals(utils.NewIncludeSet(currentBackupConfig.IncludeRelations)) &&
-		utils.NewIncludeSet(backupConfig.IncludeSchemas).Equals(utils.NewIncludeSet(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA))) &&
-		utils.NewIncludeSet(backupConfig.ExcludeRelations).Equals(utils.NewIncludeSet(MustGetFlagStringSlice(utils.EXCLUDE_RELATION))) &&
-		utils.NewIncludeSet(backupConfig.ExcludeSchemas).Equals(utils.NewIncludeSet(MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)))
+		utils.NewIncludeSet(backupConfig.IncludeSchemas).Equals(utils.NewIncludeSet(MustGetFlagStringArray(utils.INCLUDE_SCHEMA))) &&
+		utils.NewIncludeSet(backupConfig.ExcludeRelations).Equals(utils.NewIncludeSet(MustGetFlagStringArray(utils.EXCLUDE_RELATION))) &&
+		utils.NewIncludeSet(backupConfig.ExcludeSchemas).Equals(utils.NewIncludeSet(MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)))
 }
 
 func PopulateRestorePlan(changedTables []Table,

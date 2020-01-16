@@ -1,9 +1,6 @@
 package options_test
 
 import (
-	"io/ioutil"
-	"os"
-
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -11,6 +8,8 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/pflag"
+	"io/ioutil"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -47,29 +46,32 @@ var _ = Describe("options", func() {
 			originalIncludedTables := subject.GetOriginalIncludedTables()
 			Expect(originalIncludedTables[0]).To(Equal("foo.bar"))
 		})
-		It("returns an include with special characters besides quote, dot and comma", func() {
-			err := myflags.Set(utils.INCLUDE_RELATION, `foo '~#$%^&*()_-+[]{}><\|;:/?!\t\n.bar`)
+		It("returns an include with special characters besides quote and dot", func() {
+			err := myflags.Set(utils.INCLUDE_RELATION, `foo '~#$%^&*()_-+[]{}><\|;:/?!\t\n,.bar`)
 			Expect(err).ToNot(HaveOccurred())
 			subject, err := options.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
 			Expect(includedTables).To(HaveLen(1))
-			Expect(includedTables[0]).To(Equal(`foo '~#$%^&*()_-+[]{}><\|;:/?!\t\n.bar`))
+			Expect(includedTables[0]).To(Equal(`foo '~#$%^&*()_-+[]{}><\|;:/?!\t\n,.bar`))
 		})
 		It("returns all included tables when multiple individual flags provided", func() {
 			err := myflags.Set(utils.INCLUDE_RELATION, "foo.bar")
 			Expect(err).ToNot(HaveOccurred())
 			err = myflags.Set(utils.INCLUDE_RELATION, "bar.baz")
 			Expect(err).ToNot(HaveOccurred())
+			err = myflags.Set(utils.INCLUDE_RELATION, "abc.com,xyz.com")
+			Expect(err).ToNot(HaveOccurred())
 
 			subject, err := options.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
-			Expect(includedTables).To(HaveLen(2))
+			Expect(includedTables).To(HaveLen(3))
 			Expect(includedTables[0]).To(Equal("foo.bar"))
 			Expect(includedTables[1]).To(Equal("bar.baz"))
+			Expect(includedTables[2]).To(Equal("abc.com,xyz.com"))
 		})
 		It("returns the text-file tables when specified", func() {
 			file, err := ioutil.TempFile("/tmp", "gpbackup_test_options*.txt")
@@ -130,7 +132,6 @@ var _ = Describe("options", func() {
 			Expect(err).To(Not(HaveOccurred()))
 
 			Expect(subject.GetIncludedSchemas()[0]).To(Equal("my include schema"))
-			Expect(subject.GetExcludedSchemas()[0]).To(Equal("my exclude schema"))
 			Expect(subject.GetExcludedSchemas()[0]).To(Equal("my exclude schema"))
 		})
 		It("returns an error upon invalid inclusions", func() {

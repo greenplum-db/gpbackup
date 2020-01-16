@@ -14,6 +14,7 @@ import (
 
 type Options struct {
 	includedRelations         []string
+	excludedRelations         []string
 	isLeafPartitionData       bool
 	excludedSchemas           []string
 	includedSchemas           []string
@@ -21,35 +22,30 @@ type Options struct {
 }
 
 func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
-	includes, err := initialFlags.GetStringArray(utils.INCLUDE_RELATION)
+	includedRelations, err := setFiltersFromFile(initialFlags, utils.INCLUDE_RELATION, utils.INCLUDE_RELATION_FILE)
+	if err != nil {
+		return nil, err
+	}
+	err = ValidateCharacters(includedRelations)
 	if err != nil {
 		return nil, err
 	}
 
-	includedSchemas, err := initialFlags.GetStringSlice(utils.INCLUDE_SCHEMA)
+	excludedRelations, err := setFiltersFromFile(initialFlags, utils.EXCLUDE_RELATION, utils.EXCLUDE_RELATION_FILE)
+	if err != nil {
+		return nil, err
+	}
+	err = ValidateCharacters(excludedRelations)
 	if err != nil {
 		return nil, err
 	}
 
-	excludedSchemas, err := initialFlags.GetStringSlice(utils.EXCLUDE_SCHEMA)
+	includedSchemas, err := setFiltersFromFile(initialFlags, utils.INCLUDE_SCHEMA, utils.INCLUDE_SCHEMA_FILE)
 	if err != nil {
 		return nil, err
 	}
 
-	// flag for INCLUDE_RELATION_FILE is mutually exclusive with INCLUDE_RELATION flag
-	// so this is not an overwrite, it is a "fresh" setting
-	filename, err := initialFlags.GetString(utils.INCLUDE_RELATION_FILE)
-	if err != nil {
-		return nil, err
-	}
-	if filename != "" {
-		includes, err = setIncludesFromFile(filename, initialFlags)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = ValidateCharacters(includes)
+	excludedSchemas, err := setFiltersFromFile(initialFlags, utils.EXCLUDE_SCHEMA, utils.EXCLUDE_SCHEMA_FILE)
 	if err != nil {
 		return nil, err
 	}
@@ -60,28 +56,43 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 	}
 
 	return &Options{
-		includedRelations:         includes,
+		includedRelations:         includedRelations,
+		excludedRelations:		   excludedRelations,
 		includedSchemas:           includedSchemas,
 		excludedSchemas:           excludedSchemas,
 		isLeafPartitionData:       leafPartitionData,
-		originalIncludedRelations: includes,
+		originalIncludedRelations: includedRelations,
 	}, nil
 }
 
-func setIncludesFromFile(filename string, initialFlags *pflag.FlagSet) ([]string, error) {
-	includes, err := iohelper.ReadLinesFromFile(filename)
+func setFiltersFromFile(initialFlags *pflag.FlagSet, filterFlag string, filterFileFlag string) ([]string, error) {
+	filters, err := initialFlags.GetStringArray(filterFlag)
 	if err != nil {
 		return nil, err
 	}
-
-	// copy any values for flag INCLUDE_RELATION_FILE into global flag for INCLUDE_RELATION
-	for _, fqn := range includes {
-		err = initialFlags.Set(utils.INCLUDE_RELATION, fqn) //This appends to the slice underlying the flag.
+	// values obtained from file filterFileFlag are copied to values in filterFlag
+	// values are mutually exclusive so this is not an overwrite, it is a "fresh" setting
+	filename, err := initialFlags.GetString(filterFileFlag)
+	if err != nil {
+		return nil, err
+	}
+	if filename != "" {
+		filters, err = iohelper.ReadLinesFromFile(filename)
+		if err != nil {
+			return nil, err
+		}
+		// copy any values for flag filterFileFlag into global flag for filterFlag
+		for _, fqn := range filters {
+			err = initialFlags.Set(filterFlag, fqn) //This appends to the slice underlying the flag.
+			if err != nil {
+				return nil, err
+			}
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
-	return includes, nil
+	return filters, nil
 }
 
 func (o Options) GetIncludedTables() []string {
@@ -90,6 +101,10 @@ func (o Options) GetIncludedTables() []string {
 
 func (o Options) GetOriginalIncludedTables() []string {
 	return o.originalIncludedRelations
+}
+
+func (o Options) GetExcludedTables() []string {
+	return o.excludedRelations
 }
 
 func (o Options) IsLeafPartitionData() bool {

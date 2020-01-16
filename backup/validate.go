@@ -2,7 +2,6 @@ package backup
 
 import (
 	"fmt"
-
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/filepath"
@@ -17,11 +16,12 @@ import (
  * This file contains functions related to validating user input.
  */
 
-func validateFilterLists() {
+func validateFilterLists(opts *options.Options) {
 	gplog.Verbose("Validating filters")
-	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(utils.INCLUDE_SCHEMA), false)
-	ValidateFilterSchemas(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA), true)
-	ValidateFilterTables(connectionPool, MustGetFlagStringSlice(utils.EXCLUDE_RELATION), true)
+	DBValidate(connectionPool, opts.GetIncludedTables(), false)
+	DBValidate(connectionPool, opts.GetExcludedTables(), true)
+	ValidateFilterSchemas(connectionPool, opts.GetIncludedSchemas(), false)
+	ValidateFilterSchemas(connectionPool, opts.GetExcludedSchemas(), true)
 }
 
 func ValidateFilterSchemas(connectionPool *dbconn.DBConn, schemaList []string, excludeSet bool) {
@@ -100,9 +100,9 @@ func DBValidate(conn *dbconn.DBConn, tableList []string, excludeSet bool) {
 func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	utils.CheckExclusiveFlags(flags, utils.DEBUG, utils.QUIET, utils.VERBOSE)
 	utils.CheckExclusiveFlags(flags, utils.DATA_ONLY, utils.METADATA_ONLY, utils.INCREMENTAL)
-	utils.CheckExclusiveFlags(flags, utils.INCLUDE_SCHEMA, utils.INCLUDE_RELATION, utils.INCLUDE_RELATION_FILE)
-	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_SCHEMA, utils.INCLUDE_SCHEMA)
-	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_SCHEMA, utils.EXCLUDE_RELATION, utils.INCLUDE_RELATION, utils.EXCLUDE_RELATION_FILE, utils.INCLUDE_RELATION_FILE)
+	utils.CheckExclusiveFlags(flags, utils.INCLUDE_SCHEMA, utils.INCLUDE_SCHEMA_FILE, utils.INCLUDE_RELATION, utils.INCLUDE_RELATION_FILE)
+	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_SCHEMA, utils.EXCLUDE_SCHEMA_FILE, utils.INCLUDE_SCHEMA, utils.INCLUDE_SCHEMA_FILE)
+	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_SCHEMA, utils.EXCLUDE_SCHEMA_FILE, utils.EXCLUDE_RELATION, utils.INCLUDE_RELATION, utils.EXCLUDE_RELATION_FILE, utils.INCLUDE_RELATION_FILE)
 	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_RELATION, utils.EXCLUDE_RELATION_FILE, utils.LEAF_PARTITION_DATA)
 	utils.CheckExclusiveFlags(flags, utils.JOBS, utils.METADATA_ONLY, utils.SINGLE_DATA_FILE)
 	utils.CheckExclusiveFlags(flags, utils.METADATA_ONLY, utils.LEAF_PARTITION_DATA)

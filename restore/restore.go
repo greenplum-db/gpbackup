@@ -13,6 +13,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
@@ -36,12 +37,14 @@ func SetFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(utils.CREATE_DB, false, "Create the database before metadata restore")
 	flagSet.Bool(utils.DATA_ONLY, false, "Only restore data, do not restore metadata")
 	flagSet.Bool(utils.DEBUG, false, "Print verbose and debug log messages")
-	flagSet.StringSlice(utils.EXCLUDE_SCHEMA, []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	flagSet.StringSlice(utils.EXCLUDE_RELATION, []string{}, "Restore all metadata except the specified relation(s). --exclude-table can be specified multiple times.")
+	flagSet.StringArray(utils.EXCLUDE_SCHEMA, []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
+	flagSet.String(utils.EXCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will not be restored")
+	flagSet.StringArray(utils.EXCLUDE_RELATION, []string{}, "Restore all metadata except the specified relation(s). --exclude-table can be specified multiple times.")
 	flagSet.String(utils.EXCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will not be restored")
 	flagSet.Bool("help", false, "Help for gprestore")
-	flagSet.StringSlice(utils.INCLUDE_SCHEMA, []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
-	flagSet.StringSlice(utils.INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
+	flagSet.StringArray(utils.INCLUDE_SCHEMA, []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
+	flagSet.String(utils.INCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will be restored")
+	flagSet.StringArray(utils.INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
 	flagSet.String(utils.INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will be restored")
 	flagSet.Bool(utils.INCREMENTAL, false, "Only restore data for all heap tables and only AO tables that have been modified since the last backup")
 	flagSet.Bool(utils.METADATA_ONLY, false, "Only restore metadata, do not restore data")
@@ -55,6 +58,8 @@ func SetFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.String(utils.TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
 	flagSet.Bool(utils.VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(utils.WITH_STATS, false, "Restore query plan statistics")
+	flagSet.Bool(utils.LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
+	flagSet.MarkHidden(utils.LEAF_PARTITION_DATA)
 }
 
 // This function handles setup that can be done before parsing flags.
@@ -91,6 +96,10 @@ func DoSetup() {
 	gplog.Info("Restore Key = %s", MustGetFlagString(utils.TIMESTAMP))
 
 	CreateConnectionPool("postgres")
+
+	_, err := options.NewOptions(cmdFlags)
+	gplog.FatalOnError(err)
+
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
@@ -201,10 +210,10 @@ func restorePredata(metadataFilename string) {
 	gplog.Info("Restoring pre-data metadata")
 
 	var inSchemas, exSchemas, inRelations, exRelations []string
-	inSchemasUserInput := MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)
-	exSchemasUserInput := MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)
-	inRelationsUserInput := MustGetFlagStringSlice(utils.INCLUDE_RELATION)
-	exRelationsUserInput := MustGetFlagStringSlice(utils.EXCLUDE_RELATION)
+	inSchemasUserInput := MustGetFlagStringArray(utils.INCLUDE_SCHEMA)
+	exSchemasUserInput := MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)
+	inRelationsUserInput := MustGetFlagStringArray(utils.INCLUDE_RELATION)
+	exRelationsUserInput := MustGetFlagStringArray(utils.EXCLUDE_RELATION)
 
 	if MustGetFlagBool(utils.INCREMENTAL) {
 		lastRestorePlanEntry := backupConfig.RestorePlan[len(backupConfig.RestorePlan)-1]
@@ -303,9 +312,9 @@ func restoreData() {
 		fpInfo := GetBackupFPInfoForTimestamp(entry.Timestamp)
 		toc := utils.NewTOC(fpInfo.GetTOCFilePath())
 		restorePlanTableFQNs := entry.TableFQNs
-		filteredDataEntriesForTimestamp := toc.GetDataEntriesMatching(MustGetFlagStringSlice(utils.INCLUDE_SCHEMA),
-			MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA), utils.MustGetFlagStringSlice(cmdFlags, utils.INCLUDE_RELATION),
-			MustGetFlagStringSlice(utils.EXCLUDE_RELATION), restorePlanTableFQNs)
+		filteredDataEntriesForTimestamp := toc.GetDataEntriesMatching(MustGetFlagStringArray(utils.INCLUDE_SCHEMA),
+			MustGetFlagStringArray(utils.EXCLUDE_SCHEMA), utils.MustGetFlagStringArray(cmdFlags, utils.INCLUDE_RELATION),
+			MustGetFlagStringArray(utils.EXCLUDE_RELATION), restorePlanTableFQNs)
 		filteredDataEntries[entry.Timestamp] = filteredDataEntriesForTimestamp
 		totalTables += len(filteredDataEntriesForTimestamp)
 	}
@@ -335,10 +344,10 @@ func restorePostdata(metadataFilename string) {
 	}
 	gplog.Info("Restoring post-data metadata")
 
-	inSchemas := MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)
-	exSchemas := MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)
-	inRelations := MustGetFlagStringSlice(utils.INCLUDE_RELATION)
-	exRelations := MustGetFlagStringSlice(utils.EXCLUDE_RELATION)
+	inSchemas := MustGetFlagStringArray(utils.INCLUDE_SCHEMA)
+	exSchemas := MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)
+	inRelations := MustGetFlagStringArray(utils.INCLUDE_RELATION)
+	exRelations := MustGetFlagStringArray(utils.EXCLUDE_RELATION)
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("postdata", metadataFilename, []string{}, []string{}, filters)
@@ -362,10 +371,10 @@ func restoreStatistics() {
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
 
-	inSchemas := MustGetFlagStringSlice(utils.INCLUDE_SCHEMA)
-	exSchemas := MustGetFlagStringSlice(utils.EXCLUDE_SCHEMA)
-	inRelations := MustGetFlagStringSlice(utils.INCLUDE_RELATION)
-	exRelations := MustGetFlagStringSlice(utils.EXCLUDE_RELATION)
+	inSchemas := MustGetFlagStringArray(utils.INCLUDE_SCHEMA)
+	exSchemas := MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)
+	inRelations := MustGetFlagStringArray(utils.INCLUDE_RELATION)
+	exRelations := MustGetFlagStringArray(utils.EXCLUDE_RELATION)
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("statistics", statisticsFilename, []string{}, []string{}, filters)

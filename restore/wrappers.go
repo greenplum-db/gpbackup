@@ -133,22 +133,7 @@ func InitializeBackupConfig() {
 	report.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
 }
 
-func InitializeFilterLists() {
-	if MustGetFlagString(utils.INCLUDE_RELATION_FILE) != "" {
-		includeRelations := strings.Join(iohelper.MustReadLinesFromFile(MustGetFlagString(utils.INCLUDE_RELATION_FILE)), ",")
-		err := cmdFlags.Set(utils.INCLUDE_RELATION, includeRelations)
-		gplog.FatalOnError(err)
-	}
-	if MustGetFlagString(utils.EXCLUDE_RELATION_FILE) != "" {
-		excludeRelations := strings.Join(iohelper.MustReadLinesFromFile(MustGetFlagString(utils.EXCLUDE_RELATION_FILE)), ",")
-		err := cmdFlags.Set(utils.EXCLUDE_RELATION, excludeRelations)
-		gplog.FatalOnError(err)
-	}
-}
-
 func BackupConfigurationValidation() {
-	InitializeFilterLists()
-
 	if !backupConfig.MetadataOnly {
 		gplog.Verbose("Gathering information on backup directories")
 		VerifyBackupDirectoriesExistOnAllHosts()
