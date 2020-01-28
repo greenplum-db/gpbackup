@@ -15,7 +15,9 @@ import (
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/report"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -28,38 +30,38 @@ import (
 func initializeFlags(cmd *cobra.Command) {
 	SetFlagDefaults(cmd.Flags())
 
-	_ = cmd.MarkFlagRequired(utils.TIMESTAMP)
+	_ = cmd.MarkFlagRequired(options.TIMESTAMP)
 
 	cmdFlags = cmd.Flags()
 }
 func SetFlagDefaults(flagSet *pflag.FlagSet) {
-	flagSet.String(utils.BACKUP_DIR, "", "The absolute path of the directory in which the backup files to be restored are located")
-	flagSet.Bool(utils.CREATE_DB, false, "Create the database before metadata restore")
-	flagSet.Bool(utils.DATA_ONLY, false, "Only restore data, do not restore metadata")
-	flagSet.Bool(utils.DEBUG, false, "Print verbose and debug log messages")
-	flagSet.StringArray(utils.EXCLUDE_SCHEMA, []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	flagSet.String(utils.EXCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will not be restored")
-	flagSet.StringArray(utils.EXCLUDE_RELATION, []string{}, "Restore all metadata except the specified relation(s). --exclude-table can be specified multiple times.")
-	flagSet.String(utils.EXCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will not be restored")
+	flagSet.String(options.BACKUP_DIR, "", "The absolute path of the directory in which the backup files to be restored are located")
+	flagSet.Bool(options.CREATE_DB, false, "Create the database before metadata restore")
+	flagSet.Bool(options.DATA_ONLY, false, "Only restore data, do not restore metadata")
+	flagSet.Bool(options.DEBUG, false, "Print verbose and debug log messages")
+	flagSet.StringArray(options.EXCLUDE_SCHEMA, []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
+	flagSet.String(options.EXCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will not be restored")
+	flagSet.StringArray(options.EXCLUDE_RELATION, []string{}, "Restore all metadata except the specified relation(s). --exclude-table can be specified multiple times.")
+	flagSet.String(options.EXCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will not be restored")
 	flagSet.Bool("help", false, "Help for gprestore")
-	flagSet.StringArray(utils.INCLUDE_SCHEMA, []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
-	flagSet.String(utils.INCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will be restored")
-	flagSet.StringArray(utils.INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
-	flagSet.String(utils.INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will be restored")
-	flagSet.Bool(utils.INCREMENTAL, false, "Only restore data for all heap tables and only AO tables that have been modified since the last backup")
-	flagSet.Bool(utils.METADATA_ONLY, false, "Only restore metadata, do not restore data")
-	flagSet.Int(utils.JOBS, 1, "Number of parallel connections to use when restoring table data and post-data")
-	flagSet.Bool(utils.ON_ERROR_CONTINUE, false, "Log errors and continue restore, instead of exiting on first error")
-	flagSet.String(utils.PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
+	flagSet.StringArray(options.INCLUDE_SCHEMA, []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
+	flagSet.String(options.INCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will be restored")
+	flagSet.StringArray(options.INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
+	flagSet.String(options.INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will be restored")
+	flagSet.Bool(options.INCREMENTAL, false, "Only restore data for all heap tables and only AO tables that have been modified since the last backup")
+	flagSet.Bool(options.METADATA_ONLY, false, "Only restore metadata, do not restore data")
+	flagSet.Int(options.JOBS, 1, "Number of parallel connections to use when restoring table data and post-data")
+	flagSet.Bool(options.ON_ERROR_CONTINUE, false, "Log errors and continue restore, instead of exiting on first error")
+	flagSet.String(options.PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
 	flagSet.Bool("version", false, "Print version number and exit")
-	flagSet.Bool(utils.QUIET, false, "Suppress non-warning, non-error log messages")
-	flagSet.String(utils.REDIRECT_DB, "", "Restore to the specified database instead of the database that was backed up")
-	flagSet.Bool(utils.WITH_GLOBALS, false, "Restore global metadata")
-	flagSet.String(utils.TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
-	flagSet.Bool(utils.VERBOSE, false, "Print verbose log messages")
-	flagSet.Bool(utils.WITH_STATS, false, "Restore query plan statistics")
-	flagSet.Bool(utils.LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
-	flagSet.MarkHidden(utils.LEAF_PARTITION_DATA)
+	flagSet.Bool(options.QUIET, false, "Suppress non-warning, non-error log messages")
+	flagSet.String(options.REDIRECT_DB, "", "Restore to the specified database instead of the database that was backed up")
+	flagSet.Bool(options.WITH_GLOBALS, false, "Restore global metadata")
+	flagSet.String(options.TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
+	flagSet.Bool(options.VERBOSE, false, "Print verbose log messages")
+	flagSet.Bool(options.WITH_STATS, false, "Restore query plan statistics")
+	flagSet.Bool(options.LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
+	_ = flagSet.MarkHidden(options.LEAF_PARTITION_DATA)
 }
 
 // This function handles setup that can be done before parsing flags.
@@ -77,12 +79,12 @@ func DoInit(cmd *cobra.Command) {
  */
 func DoValidation(cmd *cobra.Command) {
 	ValidateFlagCombinations(cmd.Flags())
-	err := utils.ValidateFullPath(MustGetFlagString(utils.BACKUP_DIR))
+	err := utils.ValidateFullPath(MustGetFlagString(options.BACKUP_DIR))
 	gplog.FatalOnError(err)
-	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
+	err = utils.ValidateFullPath(MustGetFlagString(options.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
-	if !filepath.IsValidTimestamp(MustGetFlagString(utils.TIMESTAMP)) {
-		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", MustGetFlagString(utils.TIMESTAMP)), "")
+	if !filepath.IsValidTimestamp(MustGetFlagString(options.TIMESTAMP)) {
+		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", MustGetFlagString(options.TIMESTAMP)), "")
 	}
 }
 
@@ -93,7 +95,7 @@ func DoSetup() {
 
 	utils.CheckGpexpandRunning(utils.RestorePreventedByGpexpandMessage)
 	restoreStartTime = history.CurrentTimestamp()
-	gplog.Info("Restore Key = %s", MustGetFlagString(utils.TIMESTAMP))
+	gplog.Info("Restore Key = %s", MustGetFlagString(options.TIMESTAMP))
 
 	CreateConnectionPool("postgres")
 
@@ -102,11 +104,11 @@ func DoSetup() {
 
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP))
-	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), MustGetFlagString(utils.TIMESTAMP), segPrefix)
+	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), MustGetFlagString(options.TIMESTAMP))
+	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), MustGetFlagString(options.TIMESTAMP), segPrefix)
 
 	// Get restore metadata from plugin
-	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
+	if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		RecoverMetadataFilesUsingPlugin()
 	} else {
 		InitializeBackupConfig()
@@ -118,13 +120,13 @@ func DoSetup() {
 		gplog.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
 	unquotedRestoreDatabase := utils.UnquoteIdent(backupConfig.DatabaseName)
-	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		unquotedRestoreDatabase = MustGetFlagString(utils.REDIRECT_DB)
+	if MustGetFlagString(options.REDIRECT_DB) != "" {
+		unquotedRestoreDatabase = MustGetFlagString(options.REDIRECT_DB)
 	}
-	ValidateDatabaseExistence(unquotedRestoreDatabase, MustGetFlagBool(utils.CREATE_DB), backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
-	if MustGetFlagBool(utils.WITH_GLOBALS) {
+	ValidateDatabaseExistence(unquotedRestoreDatabase, MustGetFlagBool(options.CREATE_DB), backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
+	if MustGetFlagBool(options.WITH_GLOBALS) {
 		restoreGlobal(metadataFilename)
-	} else if MustGetFlagBool(utils.CREATE_DB) {
+	} else if MustGetFlagBool(options.CREATE_DB) {
 		createDatabase(metadataFilename)
 	}
 	if connectionPool != nil {
@@ -138,7 +140,7 @@ func DoSetup() {
 	 * For on-error-continue, we will see the same errors later when we try to run SQL,
 	 * but since they will not stop the restore, it is not necessary to log them twice.
 	 */
-	if !MustGetFlagBool(utils.CREATE_DB) && !MustGetFlagBool(utils.ON_ERROR_CONTINUE) && !MustGetFlagBool(utils.INCREMENTAL) {
+	if !MustGetFlagBool(options.CREATE_DB) && !MustGetFlagBool(options.ON_ERROR_CONTINUE) && !MustGetFlagBool(options.INCREMENTAL) {
 		relationsToRestore := GenerateRestoreRelationList()
 		ValidateRelationsInRestoreDatabase(connectionPool, relationsToRestore)
 	}
@@ -146,15 +148,15 @@ func DoSetup() {
 
 func DoRestore() {
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
-	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(utils.DATA_ONLY)
-	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(utils.METADATA_ONLY)
+	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY)
+	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(options.METADATA_ONLY)
 
 	if !isDataOnly {
 		restorePredata(metadataFilename)
 	}
 
 	if !isMetadataOnly {
-		if MustGetFlagString(utils.PLUGIN_CONFIG) == "" {
+		if MustGetFlagString(options.PLUGIN_CONFIG) == "" {
 			backupFileCount := 2 // 1 for the actual data file, 1 for the segment TOC file
 			if !backupConfig.SingleDataFile {
 				backupFileCount = len(globalTOC.DataEntries)
@@ -168,7 +170,7 @@ func DoRestore() {
 		restorePostdata(metadataFilename)
 	}
 
-	if MustGetFlagBool(utils.WITH_STATS) && backupConfig.WithStatistics {
+	if MustGetFlagBool(options.WITH_STATS) && backupConfig.WithStatistics {
 		restoreStatistics()
 	}
 }
@@ -178,10 +180,10 @@ func createDatabase(metadataFilename string) {
 	dbName := backupConfig.DatabaseName
 	gplog.Info("Creating database")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{})
-	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		quotedDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
+	if MustGetFlagString(options.REDIRECT_DB) != "" {
+		quotedDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(options.REDIRECT_DB))
 		dbName = quotedDBName
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
+		statements = toc.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
 	ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
 	gplog.Info("Database creation complete for: %s", dbName)
@@ -189,16 +191,16 @@ func createDatabase(metadataFilename string) {
 
 func restoreGlobal(metadataFilename string) {
 	objectTypes := []string{"SESSION GUCS", "DATABASE GUC", "DATABASE METADATA", "RESOURCE QUEUE", "RESOURCE GROUP", "ROLE", "ROLE GUCS", "ROLE GRANT", "TABLESPACE"}
-	if MustGetFlagBool(utils.CREATE_DB) {
+	if MustGetFlagBool(options.CREATE_DB) {
 		objectTypes = append(objectTypes, "DATABASE")
 	}
 	gplog.Info("Restoring global metadata")
 	statements := GetRestoreMetadataStatements("global", metadataFilename, objectTypes, []string{})
-	if MustGetFlagString(utils.REDIRECT_DB) != "" {
-		quotedDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(utils.REDIRECT_DB))
-		statements = utils.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
+	if MustGetFlagString(options.REDIRECT_DB) != "" {
+		quotedDBName := utils.QuoteIdent(connectionPool, MustGetFlagString(options.REDIRECT_DB))
+		statements = toc.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
-	statements = utils.RemoveActiveRole(connectionPool.User, statements)
+	statements = toc.RemoveActiveRole(connectionPool.User, statements)
 	ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
 	gplog.Info("Global database metadata restore complete")
 }
@@ -210,12 +212,12 @@ func restorePredata(metadataFilename string) {
 	gplog.Info("Restoring pre-data metadata")
 
 	var inSchemas, exSchemas, inRelations, exRelations []string
-	inSchemasUserInput := MustGetFlagStringArray(utils.INCLUDE_SCHEMA)
-	exSchemasUserInput := MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)
-	inRelationsUserInput := MustGetFlagStringArray(utils.INCLUDE_RELATION)
-	exRelationsUserInput := MustGetFlagStringArray(utils.EXCLUDE_RELATION)
+	inSchemasUserInput := MustGetFlagStringArray(options.INCLUDE_SCHEMA)
+	exSchemasUserInput := MustGetFlagStringArray(options.EXCLUDE_SCHEMA)
+	inRelationsUserInput := MustGetFlagStringArray(options.INCLUDE_RELATION)
+	exRelationsUserInput := MustGetFlagStringArray(options.EXCLUDE_RELATION)
 
-	if MustGetFlagBool(utils.INCREMENTAL) {
+	if MustGetFlagBool(options.INCREMENTAL) {
 		lastRestorePlanEntry := backupConfig.RestorePlan[len(backupConfig.RestorePlan)-1]
 		tableFQNsToRestore := lastRestorePlanEntry.TableFQNs
 
@@ -297,7 +299,7 @@ func restoreData() {
 	}
 	restorePlan := backupConfig.RestorePlan
 	restorePlanEntries := make([]history.RestorePlanEntry, 0)
-	if MustGetFlagBool(utils.INCREMENTAL) {
+	if MustGetFlagBool(options.INCREMENTAL) {
 		restorePlanEntries = append(restorePlanEntries, restorePlan[len(backupConfig.RestorePlan)-1])
 
 	} else {
@@ -307,14 +309,14 @@ func restoreData() {
 	}
 
 	totalTables := 0
-	filteredDataEntries := make(map[string][]utils.MasterDataEntry)
+	filteredDataEntries := make(map[string][]toc.MasterDataEntry)
 	for _, entry := range restorePlanEntries {
 		fpInfo := GetBackupFPInfoForTimestamp(entry.Timestamp)
-		toc := utils.NewTOC(fpInfo.GetTOCFilePath())
+		tocfile := toc.NewTOC(fpInfo.GetTOCFilePath())
 		restorePlanTableFQNs := entry.TableFQNs
-		filteredDataEntriesForTimestamp := toc.GetDataEntriesMatching(MustGetFlagStringArray(utils.INCLUDE_SCHEMA),
-			MustGetFlagStringArray(utils.EXCLUDE_SCHEMA), utils.MustGetFlagStringArray(cmdFlags, utils.INCLUDE_RELATION),
-			MustGetFlagStringArray(utils.EXCLUDE_RELATION), restorePlanTableFQNs)
+		filteredDataEntriesForTimestamp := tocfile.GetDataEntriesMatching(MustGetFlagStringArray(options.INCLUDE_SCHEMA),
+			MustGetFlagStringArray(options.EXCLUDE_SCHEMA), options.MustGetFlagStringArray(cmdFlags, options.INCLUDE_RELATION),
+			MustGetFlagStringArray(options.EXCLUDE_RELATION), restorePlanTableFQNs)
 		filteredDataEntries[entry.Timestamp] = filteredDataEntriesForTimestamp
 		totalTables += len(filteredDataEntriesForTimestamp)
 	}
@@ -324,8 +326,8 @@ func restoreData() {
 	gucStatements := setGUCsForConnection(nil, 0)
 	for timestamp, entries := range filteredDataEntries {
 		gplog.Verbose("Restoring data from backup with timestamp: %s", timestamp)
-		if MustGetFlagBool(utils.INCREMENTAL) {
-			TruncateTablesBeforeRestore(entries)
+		if MustGetFlagBool(options.INCREMENTAL) {
+			_ = TruncateTablesBeforeRestore(entries)
 		}
 		restoreDataFromTimestamp(GetBackupFPInfoForTimestamp(timestamp), entries, gucStatements, dataProgressBar)
 	}
@@ -344,10 +346,10 @@ func restorePostdata(metadataFilename string) {
 	}
 	gplog.Info("Restoring post-data metadata")
 
-	inSchemas := MustGetFlagStringArray(utils.INCLUDE_SCHEMA)
-	exSchemas := MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)
-	inRelations := MustGetFlagStringArray(utils.INCLUDE_RELATION)
-	exRelations := MustGetFlagStringArray(utils.EXCLUDE_RELATION)
+	inSchemas := MustGetFlagStringArray(options.INCLUDE_SCHEMA)
+	exSchemas := MustGetFlagStringArray(options.EXCLUDE_SCHEMA)
+	inRelations := MustGetFlagStringArray(options.INCLUDE_RELATION)
+	exRelations := MustGetFlagStringArray(options.EXCLUDE_RELATION)
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("postdata", metadataFilename, []string{}, []string{}, filters)
@@ -371,10 +373,10 @@ func restoreStatistics() {
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
 
-	inSchemas := MustGetFlagStringArray(utils.INCLUDE_SCHEMA)
-	exSchemas := MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)
-	inRelations := MustGetFlagStringArray(utils.INCLUDE_RELATION)
-	exRelations := MustGetFlagStringArray(utils.EXCLUDE_RELATION)
+	inSchemas := MustGetFlagStringArray(options.INCLUDE_SCHEMA)
+	exSchemas := MustGetFlagStringArray(options.EXCLUDE_SCHEMA)
+	inRelations := MustGetFlagStringArray(options.INCLUDE_RELATION)
+	exRelations := MustGetFlagStringArray(options.EXCLUDE_RELATION)
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("statistics", statisticsFilename, []string{}, []string{}, filters)
@@ -463,13 +465,13 @@ func writeErrorTables(isMetadata bool) {
 	gplog.FatalOnError(err)
 	errorWriter := bufio.NewWriter(errorFile)
 	start := true
-	for table, _ := range *errorTables {
+	for table := range *errorTables {
 		if start == false {
-			errorWriter.WriteString("\n")
+			_, _ = errorWriter.WriteString("\n")
 		} else {
 			start = false
 		}
-		errorWriter.WriteString(table)
+		_, _ = errorWriter.WriteString(table)
 	}
 	err = errorWriter.Flush()
 	err = errorFile.Close()

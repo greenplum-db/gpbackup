@@ -14,19 +14,20 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/restore"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/sergi/go-diff/diffmatchpatch"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
 
 /*
  * Functions for setting up the test environment and mocking out variables
  */
 
-func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *gbytes.Buffer, *gbytes.Buffer, *gbytes.Buffer) {
+func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *Buffer, *Buffer, *Buffer) {
 	connectionPool, mock, testStdout, testStderr, testLogfile := testhelper.SetupTestEnvironment()
 	SetupTestCluster()
 	backup.SetVersion("0.1.0")
@@ -280,7 +281,7 @@ func DefaultACLWithGrantWithout(grantee string, objType string, revoke ...string
  * Wrapper functions around gomega operators for ease of use in tests
  */
 
-func SliceBufferByEntries(entries []utils.MetadataEntry, buffer *gbytes.Buffer) ([]string, string) {
+func SliceBufferByEntries(entries []toc.MetadataEntry, buffer *Buffer) ([]string, string) {
 	contents := buffer.Contents()
 	hunks := make([]string, 0)
 	length := uint64(len(contents))
@@ -311,7 +312,7 @@ func CompareSlicesIgnoringWhitespace(actual []string, expected []string) bool {
 	return true
 }
 
-func formatEntries(entries []utils.MetadataEntry, slice []string) string {
+func formatEntries(entries []toc.MetadataEntry, slice []string) string {
 	formatted := ""
 	for i, item := range slice {
 		formatted += fmt.Sprintf("%v -> %q\n", entries[i], item)
@@ -336,7 +337,7 @@ func formatDiffs(actual []string, expected []string) string {
 	return diffs
 }
 
-func AssertBufferContents(entries []utils.MetadataEntry, buffer *gbytes.Buffer, expected ...string) {
+func AssertBufferContents(entries []toc.MetadataEntry, buffer *Buffer, expected ...string) {
 	if len(entries) == 0 {
 		Fail("TOC is empty")
 	}
@@ -350,9 +351,9 @@ func AssertBufferContents(entries []utils.MetadataEntry, buffer *gbytes.Buffer, 
 	}
 }
 
-func ExpectEntry(entries []utils.MetadataEntry, index int, schema, referenceObject, name, objectType string) {
+func ExpectEntry(entries []toc.MetadataEntry, index int, schema, referenceObject, name, objectType string) {
 	Expect(len(entries)).To(BeNumerically(">", index))
-	structmatcher.ExpectStructsToMatchExcluding(entries[index], utils.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
+	structmatcher.ExpectStructsToMatchExcluding(entries[index], toc.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
 }
 
 func ExecuteSQLFile(connectionPool *dbconn.DBConn, filename string) {
@@ -371,7 +372,7 @@ func ExecuteSQLFile(connectionPool *dbconn.DBConn, filename string) {
 	}
 }
 
-func BufferLength(buffer *gbytes.Buffer) uint64 {
+func BufferLength(buffer *Buffer) uint64 {
 	return uint64(len(buffer.Contents()))
 }
 
@@ -454,12 +455,12 @@ func SkipIfBefore7(connectionPool *dbconn.DBConn) {
 	}
 }
 
-func InitializeTestTOC(buffer io.Writer, which string) (*utils.TOC, *utils.FileWithByteCount) {
-	toc := &utils.TOC{}
-	toc.InitializeMetadataEntryMap()
+func InitializeTestTOC(buffer io.Writer, which string) (*toc.TOC, *utils.FileWithByteCount) {
+	tocfile := &toc.TOC{}
+	tocfile.InitializeMetadataEntryMap()
 	backupfile := utils.NewFileWithByteCount(buffer)
 	backupfile.Filename = which
-	return toc, backupfile
+	return tocfile, backupfile
 }
 
 type TestExecutorMultiple struct {

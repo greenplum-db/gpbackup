@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 		testutils.SkipIfBefore6(connectionPool)
 	})
 	Describe("PrintDefaultPrivilegesStatements", func() {
@@ -20,7 +20,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			privs := []backup.ACL{{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", "TABLE")}
 			defaultPrivileges := []backup.DefaultPrivileges{{Schema: "", Privileges: privs, ObjectType: "r", Owner: "testrole"}}
 
-			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			backup.PrintDefaultPrivilegesStatements(backupfile, tocfile, defaultPrivileges)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DEFAULT PRIVILEGES FOR ROLE testrole REVOKE ALL ON TABLES FROM PUBLIC;")
@@ -34,7 +34,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			privs := []backup.ACL{{Grantee: "testrole", SelectWithGrant: true}}
 			defaultPrivileges := []backup.DefaultPrivileges{{Schema: "", Privileges: privs, ObjectType: "S", Owner: "testrole"}}
 
-			backup.PrintDefaultPrivilegesStatements(backupfile, toc, defaultPrivileges)
+			backup.PrintDefaultPrivilegesStatements(backupfile, tocfile, defaultPrivileges)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			// Both of these statements are required to remove the entry from the pg_default_acl catalog table, otherwise it will pollute other tests

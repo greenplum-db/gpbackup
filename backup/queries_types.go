@@ -10,12 +10,13 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func GetTypeMetadataEntry(schema string, name string) (string, utils.MetadataEntry) {
+func GetTypeMetadataEntry(schema string, name string) (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          schema,
 			Name:            name,
 			ObjectType:      "TYPE",
@@ -49,7 +50,7 @@ type BaseType struct {
 	Collation       string
 }
 
-func (t BaseType) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t BaseType) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return GetTypeMetadataEntry(t.Schema, t.Name)
 }
 
@@ -199,7 +200,7 @@ type CompositeType struct {
 	Attributes []Attribute
 }
 
-func (t CompositeType) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t CompositeType) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return GetTypeMetadataEntry(t.Schema, t.Name)
 }
 
@@ -309,9 +310,9 @@ type Domain struct {
 	NotNull    bool
 }
 
-func (t Domain) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t Domain) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          t.Schema,
 			Name:            t.Name,
 			ObjectType:      "DOMAIN",
@@ -386,7 +387,7 @@ type EnumType struct {
 	EnumLabels string
 }
 
-func (t EnumType) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t EnumType) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return GetTypeMetadataEntry(t.Schema, t.Name)
 }
 
@@ -434,7 +435,7 @@ type RangeType struct {
 	SubTypeDiff    string
 }
 
-func (t RangeType) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t RangeType) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return GetTypeMetadataEntry(t.Schema, t.Name)
 }
 
@@ -493,7 +494,7 @@ type ShellType struct {
 	Name   string
 }
 
-func (t ShellType) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t ShellType) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return GetTypeMetadataEntry(t.Schema, t.Name)
 }
 
@@ -532,9 +533,9 @@ type Collation struct {
 	Ctype   string
 }
 
-func (c Collation) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (c Collation) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
 			ObjectType:      "COLLATION",

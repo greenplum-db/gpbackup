@@ -13,23 +13,24 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/onsi/gomega/gbytes"
-	"github.com/onsi/gomega/gexec"
 	"github.com/spf13/pflag"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
+	. "github.com/onsi/gomega/gexec"
 )
 
 var (
 	buffer                  *bytes.Buffer
 	connectionPool          *dbconn.DBConn
-	toc                     *utils.TOC
+	tocfile                 *toc.TOC
 	backupfile              *utils.FileWithByteCount
 	testCluster             *cluster.Cluster
 	gpbackupHelperPath      string
-	stdout, stderr, logFile *gbytes.Buffer
+	stderr, logFile         *Buffer
 
 	// GUC defaults. Initially set to GPDB4 values
 	concurrencyDefault    = "20"
@@ -52,7 +53,7 @@ var _ = BeforeSuite(func() {
 		Fail("Cannot create database testdb; is GPDB running?")
 	}
 	Expect(err).To(BeNil())
-	stdout, stderr, logFile = testhelper.SetupTestLogger()
+	_, stderr, logFile = testhelper.SetupTestLogger()
 	connectionPool = testutils.SetupTestDbConn("testdb")
 	// We can't use AssertQueryRuns since if a role already exists it will error
 	_, _ = connectionPool.Exec("CREATE ROLE testrole SUPERUSER")
@@ -114,7 +115,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterSuite(func() {
-	gexec.CleanupBuildArtifacts()
+	CleanupBuildArtifacts()
 	if connectionPool.Version.Before("6") {
 		testutils.DestroyTestFilespace(connectionPool)
 	} else {

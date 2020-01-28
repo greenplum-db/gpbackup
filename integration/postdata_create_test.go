@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateIndexStatements", func() {
 		var (
@@ -31,7 +31,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic index", func() {
 			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
-			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -45,7 +45,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates an index used for clustering", func() {
 			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)", IsClustered: true}}
-			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -61,7 +61,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
 			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true, false)
 			indexMetadata := indexMetadataMap[indexes[0].GetUniqueID()]
-			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -84,7 +84,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
 			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "test_tablespace", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
-			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -101,7 +101,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			index.Def = "CREATE UNIQUE INDEX index1 ON public.testtable USING btree (i)"
 			index.IsReplicaIdentity = true
 			indexes := []backup.IndexDefinition{index}
-			backup.PrintCreateIndexStatements(backupfile, toc, indexes, indexMetadataMap)
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int NOT NULL)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
@@ -129,7 +129,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic rule", func() {
 			rules := []backup.RuleDefinition{{Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
-			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
+			backup.PrintCreateRuleStatements(backupfile, tocfile, rules, ruleMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
@@ -144,7 +144,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			rules := []backup.RuleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
 			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			ruleMetadata := ruleMetadataMap[rules[0].GetUniqueID()]
-			backup.PrintCreateRuleStatements(backupfile, toc, rules, ruleMetadataMap)
+			backup.PrintCreateRuleStatements(backupfile, tocfile, rules, ruleMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
@@ -169,7 +169,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic trigger", func() {
 			triggers := []backup.TriggerDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
-			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
+			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
@@ -184,7 +184,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggers := []backup.TriggerDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
 			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			triggerMetadata := triggerMetadataMap[triggers[0].GetUniqueID()]
-			backup.PrintCreateTriggerStatements(backupfile, toc, triggers, triggerMetadataMap)
+			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
@@ -213,7 +213,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 		It("creates a basic event trigger", func() {
 			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}}
 			eventTriggerMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, eventTriggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
@@ -226,7 +226,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 		It("creates an event trigger with multiple filter tags", func() {
 			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O", EventTags: `'DROP FUNCTION', 'DROP TABLE'`}}
 			eventTriggerMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, eventTriggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
@@ -239,7 +239,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 		It("creates an event trigger with a single filter tag and enable option", func() {
 			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "testeventtrigger1", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "R", EventTags: `'DROP FUNCTION'`}}
 			eventTriggerMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateEventTriggerStatements(backupfile, toc, eventTriggers, eventTriggerMetadataMap)
+			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, eventTriggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER testeventtrigger1")
@@ -254,7 +254,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, true, true, includeSecurityLabels)
 			eventTriggerMetadata := eventTriggerMetadataMap[eventTriggers[0].GetUniqueID()]
 
-			backup.PrintCreateEventTriggerStatements(backupfile, toc, []backup.EventTrigger{eventTriggers[0]}, eventTriggerMetadataMap)
+			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, []backup.EventTrigger{eventTriggers[0]}, eventTriggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER test_event_trigger")

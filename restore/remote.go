@@ -8,7 +8,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/pkg/errors"
 )
 
@@ -19,7 +19,7 @@ import (
 func VerifyBackupDirectoriesExistOnAllHosts() {
 	_, err := globalCluster.ExecuteLocalCommand(fmt.Sprintf("test -d %s", globalFPInfo.GetDirForContent(-1)))
 	gplog.FatalOnError(err, "Backup directory %s missing or inaccessible", globalFPInfo.GetDirForContent(-1))
-	if MustGetFlagString(utils.PLUGIN_CONFIG) == "" || backupConfig.SingleDataFile {
+	if MustGetFlagString(options.PLUGIN_CONFIG) == "" || backupConfig.SingleDataFile {
 		remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup directories exist", func(contentID int) string {
 			return fmt.Sprintf("test -d %s", globalFPInfo.GetDirForContent(contentID))
 		}, cluster.ON_SEGMENTS)

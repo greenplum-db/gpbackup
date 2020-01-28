@@ -12,7 +12,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/toc"
 )
 
 /*
@@ -245,9 +245,9 @@ type DefaultPrivileges struct {
 	ObjectType string
 }
 
-func (dp DefaultPrivileges) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (dp DefaultPrivileges) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "postdata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          dp.Schema,
 			Name:            "",
 			ObjectType:      "DEFAULT PRIVILEGES",

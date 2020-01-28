@@ -21,15 +21,15 @@ var _ = Describe("backup/statistics tests", func() {
 		BeforeEach(func() {
 			attStats = []backup.AttributeStatistic{}
 			tupleStats = backup.TupleStatistic{}
-			toc, backupfile = testutils.InitializeTestTOC(buffer, "statistics")
+			tocfile, backupfile = testutils.InitializeTestTOC(buffer, "statistics")
 			tableTestTable = backup.Table{Relation: backup.Relation{Schema: "testschema", Name: "testtable"}}
 		})
 		It("prints tuple and attribute stats for single table with no stats", func() {
 			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
 			attStats = []backup.AttributeStatistic{}
-			backup.PrintStatisticsStatementsForTable(backupfile, toc, tableTestTable, attStats, tupleStats)
-			testutils.ExpectEntry(toc.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
-			testutils.AssertBufferContents(toc.StatisticsEntries, buffer, `UPDATE pg_class
+			backup.PrintStatisticsStatementsForTable(backupfile, tocfile, tableTestTable, attStats, tupleStats)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
+			testutils.AssertBufferContents(tocfile.StatisticsEntries, buffer, `UPDATE pg_class
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real
@@ -43,9 +43,9 @@ AND relnamespace = 0;`)
 				{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "_array", Relid: 2, AttNumber: 3, NullFraction: .4,
 					Width: 10, Distinct: .5, Kind1: 20, Operator1: 10, Numbers1: []string{"1", "2", "3"}, Values1: []string{"4", "5", "6"}},
 			}
-			backup.PrintStatisticsStatementsForTable(backupfile, toc, tableTestTable, attStats, tupleStats)
-			testutils.ExpectEntry(toc.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
-			testutils.AssertBufferContents(toc.StatisticsEntries, buffer, `UPDATE pg_class
+			backup.PrintStatisticsStatementsForTable(backupfile, tocfile, tableTestTable, attStats, tupleStats)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
+			testutils.AssertBufferContents(tocfile.StatisticsEntries, buffer, `UPDATE pg_class
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real

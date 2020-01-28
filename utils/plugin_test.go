@@ -329,6 +329,7 @@ options:
 			pluginName, err := subject.GetPluginName(testCluster)
 
 			Expect(pluginName).To(Equal(""))
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("Failed to get plugin name. Failed with error: error executing plugin"))
 		})
 		It("did not recieve expected information from plugin", func() {
@@ -336,6 +337,7 @@ options:
 			pluginName, err := subject.GetPluginName(testCluster)
 
 			Expect(pluginName).To(Equal(""))
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("Unexpected plugin version format: \"bad output\"\nExpected: \"[plugin_name] version [git_version]\""))
 		})
 	})
@@ -344,6 +346,7 @@ options:
 			operating.System.ReadFile = func(string) ([]byte, error) { return []byte{}, nil }
 
 			_, err := utils.ReadPluginConfig("myconfigpath")
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("executablepath is required in config file"))
 		})
 	})

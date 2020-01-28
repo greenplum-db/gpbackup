@@ -5,7 +5,8 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,7 +45,7 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetAOIncrementalMetadata", func() {
 		Context("AO, AO_CO and AO partition tables are only just created", func() {
-			var aoIncrementalMetadata map[string]utils.AOEntry
+			var aoIncrementalMetadata map[string]toc.AOEntry
 			BeforeEach(func() {
 				aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
 			})
@@ -63,8 +64,8 @@ var _ = Describe("backup integration tests", func() {
 		})
 		Context("AO, AO_CO and AO partition tables have DML changes", func() {
 			Context("After an insert(s)", func() {
-				var initialAOIncrementalMetadata map[string]utils.AOEntry
-				var aoIncrementalMetadata map[string]utils.AOEntry
+				var initialAOIncrementalMetadata map[string]toc.AOEntry
+				var aoIncrementalMetadata map[string]toc.AOEntry
 				BeforeEach(func() {
 					initialAOIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
 
@@ -101,8 +102,8 @@ var _ = Describe("backup integration tests", func() {
 				})
 			})
 			Context("After a delete operation", func() {
-				var initialAOIncrementalMetadata map[string]utils.AOEntry
-				var aoIncrementalMetadata map[string]utils.AOEntry
+				var initialAOIncrementalMetadata map[string]toc.AOEntry
+				var aoIncrementalMetadata map[string]toc.AOEntry
 				BeforeEach(func() {
 					testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf(insertSQL, aoTableFQN))
 					testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf(insertSQL, aoCOTableFQN))
@@ -139,8 +140,8 @@ var _ = Describe("backup integration tests", func() {
 			})
 		})
 		Context("AO, AO_CO and AO partition tables have DDL changes", func() {
-			var initialAOIncrementalMetadata map[string]utils.AOEntry
-			var aoIncrementalMetadata map[string]utils.AOEntry
+			var initialAOIncrementalMetadata map[string]toc.AOEntry
+			var aoIncrementalMetadata map[string]toc.AOEntry
 			Context("After a column add", func() {
 				BeforeEach(func() {
 					initialAOIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
@@ -208,8 +209,8 @@ var _ = Describe("backup integration tests", func() {
 			})
 		})
 		Context("AO, AO_CO and AO partition tables have DML and DDL changes", func() {
-			var initialAOIncrementalMetadata map[string]utils.AOEntry
-			var aoIncrementalMetadata map[string]utils.AOEntry
+			var initialAOIncrementalMetadata map[string]toc.AOEntry
+			var aoIncrementalMetadata map[string]toc.AOEntry
 			Context("After an insert followed by an ALTER table", func() {
 				BeforeEach(func() {
 					initialAOIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
@@ -239,10 +240,10 @@ var _ = Describe("backup integration tests", func() {
 			})
 		})
 		Context("Filtered backup", func() {
-			var aoIncrementalMetadata map[string]utils.AOEntry
+			var aoIncrementalMetadata map[string]toc.AOEntry
 			Context("During a table-filtered backup", func() {
 				It("only retrieves ao metadata for specific tables", func() {
-					backupCmdFlags.Set(utils.INCLUDE_RELATION, aoTableFQN)
+					_ = backupCmdFlags.Set(options.INCLUDE_RELATION, aoTableFQN)
 
 					aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
 					Expect(aoIncrementalMetadata).To(HaveLen(1))
@@ -254,7 +255,7 @@ var _ = Describe("backup integration tests", func() {
 					defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE")
 					testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.ao_foo (i int) WITH (appendonly=true)")
 
-					backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+					_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 					aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
 					Expect(aoIncrementalMetadata).To(HaveLen(1))

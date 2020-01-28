@@ -14,7 +14,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 	extTableEmpty := backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, ExecLocation: "ALL_SEGMENTS", FormatType: "t", RejectLimit: 0, Encoding: "UTF-8", Writable: false, URIs: nil}
 
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("DetermineExternalTableCharacteristics", func() {
 		var extTableDef backup.ExternalTableDefinition
@@ -92,9 +92,9 @@ var _ = Describe("backup/predata_externals tests", func() {
 			extTableDef.Location = "file://host:port/path/file"
 			extTableDef.URIs = []string{"file://host:port/path/file"}
 			testTable.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "public", "", "tablename", "TABLE")
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL TABLE public.tablename (
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "tablename", "TABLE")
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE READABLE EXTERNAL TABLE public.tablename (
 ) LOCATION (
 	'file://host:port/path/file'
 )
@@ -106,8 +106,8 @@ ENCODING 'UTF-8';`)
 			extTableDef.URIs = []string{"file://host:port/path/file"}
 			extTableDef.Writable = true
 			testTable.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE WRITABLE EXTERNAL TABLE public.tablename (
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE WRITABLE EXTERNAL TABLE public.tablename (
 ) LOCATION (
 	'file://host:port/path/file'
 )
@@ -119,8 +119,8 @@ DISTRIBUTED RANDOMLY;`)
 			extTableDef.Location = "http://webhost:port/path/file"
 			extTableDef.URIs = []string{"http://webhost:port/path/file"}
 			testTable.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
 ) LOCATION (
 	'http://webhost:port/path/file'
 )
@@ -130,8 +130,8 @@ ENCODING 'UTF-8';`)
 		It("prints a CREATE block for a READABLE EXTERNAL WEB table with an EXECUTE", func() {
 			extTableDef.Command = "hostname"
 			testTable.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE READABLE EXTERNAL WEB TABLE public.tablename (
 ) EXECUTE 'hostname'
 FORMAT 'TEXT'
 ENCODING 'UTF-8';`)
@@ -140,8 +140,8 @@ ENCODING 'UTF-8';`)
 			extTableDef.Command = "hostname"
 			extTableDef.Writable = true
 			testTable.ExtTableDef = extTableDef
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE WRITABLE EXTERNAL WEB TABLE public.tablename (
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE WRITABLE EXTERNAL WEB TABLE public.tablename (
 ) EXECUTE 'hostname'
 FORMAT 'TEXT'
 ENCODING 'UTF-8'
@@ -449,33 +449,33 @@ ENCODING 'UTF-8'`)
 		}
 
 		It("prints untrusted protocol with read and write function", func() {
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolUntrustedReadWrite, funcInfoMap, emptyMetadata)
-			testutils.ExpectEntry(toc.PredataEntries, 0, "", "", "s3", "PROTOCOL")
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);`)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolUntrustedReadWrite, funcInfoMap, emptyMetadata)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "", "s3", "PROTOCOL")
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);`)
 		})
 		It("prints untrusted protocol with read and validator", func() {
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolUntrustedReadValidator, funcInfoMap, emptyMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, validatorfunc = public.validator);`)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolUntrustedReadValidator, funcInfoMap, emptyMetadata)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, validatorfunc = public.validator);`)
 		})
 		It("prints untrusted protocol with write function only", func() {
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolUntrustedWriteOnly, funcInfoMap, emptyMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE PROTOCOL s3 (writefunc = public.write_fn_s3);`)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolUntrustedWriteOnly, funcInfoMap, emptyMetadata)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROTOCOL s3 (writefunc = public.write_fn_s3);`)
 		})
 		It("prints trusted protocol with read, write, and validator", func() {
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolTrustedReadWriteValidator, funcInfoMap, emptyMetadata)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `CREATE TRUSTED PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3, validatorfunc = public.validator);`)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolTrustedReadWriteValidator, funcInfoMap, emptyMetadata)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TRUSTED PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3, validatorfunc = public.validator);`)
 		})
 		It("prints a protocol with privileges and an owner", func() {
 			protoMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true, Insert: true}}, Owner: "testrole"}
 
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolUntrustedReadWrite, funcInfoMap, protoMetadata)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolUntrustedReadWrite, funcInfoMap, protoMetadata)
 			expectedStatements := []string{
 				"CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);",
 				"ALTER PROTOCOL s3 OWNER TO testrole;",
 				`REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;
 REVOKE ALL ON PROTOCOL s3 FROM testrole;
 GRANT ALL ON PROTOCOL s3 TO testrole;`}
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, expectedStatements...)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {
@@ -497,8 +497,8 @@ GRANT ALL ON PROTOCOL s3 TO testrole;`}
 				IsExternal:             true,
 			}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, emptyPartInfoMap, tables)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table EXCHANGE PARTITION partition_name WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, emptyPartInfoMap, tables)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `ALTER TABLE public.partition_table EXCHANGE PARTITION partition_name WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
 DROP TABLE public.partition_table_ext_part_;`)
 		})
@@ -515,8 +515,8 @@ DROP TABLE public.partition_table_ext_part_;`)
 				IsExternal:             true,
 			}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, emptyPartInfoMap, tables)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, emptyPartInfoMap, tables)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `ALTER TABLE public.partition_table EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
 DROP TABLE public.partition_table_ext_part_;`)
 		})
@@ -545,8 +545,8 @@ DROP TABLE public.partition_table_ext_part_;`)
 			}
 			partInfoMap := map[uint32]backup.PartitionInfo{externalPartitionParent.PartitionRuleOid: externalPartitionParent}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, partInfoMap, tables)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION FOR (RANK(3)) EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, partInfoMap, tables)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION FOR (RANK(3)) EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
 DROP TABLE public.partition_table_ext_part_;`)
 		})
@@ -575,8 +575,8 @@ DROP TABLE public.partition_table_ext_part_;`)
 			}
 			partInfoMap := map[uint32]backup.PartitionInfo{externalPartitionParent.PartitionRuleOid: externalPartitionParent}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, partInfoMap, tables)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION partition_name EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, partInfoMap, tables)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION partition_name EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
 DROP TABLE public.partition_table_ext_part_;`)
 		})
@@ -616,8 +616,8 @@ DROP TABLE public.partition_table_ext_part_;`)
 			}
 			partInfoMap := map[uint32]backup.PartitionInfo{externalPartitionParent1.PartitionRuleOid: externalPartitionParent1, externalPartitionParent2.PartitionRuleOid: externalPartitionParent2}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, partInfoMap, tables)
-			testutils.AssertBufferContents(toc.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION FOR (RANK(3)) ALTER PARTITION partition_name EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, partInfoMap, tables)
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `ALTER TABLE public.partition_table ALTER PARTITION FOR (RANK(3)) ALTER PARTITION partition_name EXCHANGE PARTITION FOR (RANK(1)) WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;
 
 DROP TABLE public.partition_table_ext_part_;`)
 		})

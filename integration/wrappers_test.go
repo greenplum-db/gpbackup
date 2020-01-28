@@ -4,7 +4,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/spf13/cobra"
 
 	. "github.com/onsi/ginkgo"
@@ -20,8 +20,8 @@ var _ = Describe("Wrappers Integration", func() {
 			backup.SetCmdFlags(backupCmdFlags)
 		})
 		It("returns the data tables that have names with special characters", func() {
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.foo")
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.BAR")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.foo")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.BAR")
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int); INSERT INTO public.foo VALUES (1);")
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public."BAR"(i int); INSERT INTO public."BAR" VALUES (1);`)

@@ -26,18 +26,18 @@ import (
  */
 
 func SetLoggerVerbosity() {
-	if MustGetFlagBool(utils.QUIET) {
+	if MustGetFlagBool(options.QUIET) {
 		gplog.SetVerbosity(gplog.LOGERROR)
-	} else if MustGetFlagBool(utils.DEBUG) {
+	} else if MustGetFlagBool(options.DEBUG) {
 		gplog.SetVerbosity(gplog.LOGDEBUG)
-	} else if MustGetFlagBool(utils.VERBOSE) {
+	} else if MustGetFlagBool(options.VERBOSE) {
 		gplog.SetVerbosity(gplog.LOGVERBOSE)
 	}
 }
 
 func InitializeConnectionPool() {
-	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(utils.DBNAME))
-	connectionPool.MustConnect(MustGetFlagInt(utils.JOBS))
+	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
+	connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 	InitializeMetadataParams(connectionPool)
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
@@ -74,27 +74,27 @@ func SetSessionGUCs(connNum int) {
 
 func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts options.Options) *history.BackupConfig {
 	backupConfig := history.BackupConfig{
-		BackupDir:             MustGetFlagString(utils.BACKUP_DIR),
+		BackupDir:             MustGetFlagString(options.BACKUP_DIR),
 		BackupVersion:         backupVersion,
-		Compressed:            !MustGetFlagBool(utils.NO_COMPRESSION),
+		Compressed:            !MustGetFlagBool(options.NO_COMPRESSION),
 		DatabaseName:          dbName,
 		DatabaseVersion:       dbVersion,
-		DataOnly:              MustGetFlagBool(utils.DATA_ONLY),
-		ExcludeRelations:      MustGetFlagStringArray(utils.EXCLUDE_RELATION),
-		ExcludeSchemaFiltered: len(MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)) > 0,
-		ExcludeSchemas:        MustGetFlagStringArray(utils.EXCLUDE_SCHEMA),
-		ExcludeTableFiltered:  len(MustGetFlagStringArray(utils.EXCLUDE_RELATION)) > 0,
+		DataOnly:              MustGetFlagBool(options.DATA_ONLY),
+		ExcludeRelations:      MustGetFlagStringArray(options.EXCLUDE_RELATION),
+		ExcludeSchemaFiltered: len(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)) > 0,
+		ExcludeSchemas:        MustGetFlagStringArray(options.EXCLUDE_SCHEMA),
+		ExcludeTableFiltered:  len(MustGetFlagStringArray(options.EXCLUDE_RELATION)) > 0,
 		IncludeRelations:      opts.GetOriginalIncludedTables(),
-		IncludeSchemaFiltered: len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) > 0,
-		IncludeSchemas:        MustGetFlagStringArray(utils.INCLUDE_SCHEMA),
+		IncludeSchemaFiltered: len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) > 0,
+		IncludeSchemas:        MustGetFlagStringArray(options.INCLUDE_SCHEMA),
 		IncludeTableFiltered:  len(opts.GetOriginalIncludedTables()) > 0,
-		Incremental:           MustGetFlagBool(utils.INCREMENTAL),
-		LeafPartitionData:     MustGetFlagBool(utils.LEAF_PARTITION_DATA),
-		MetadataOnly:          MustGetFlagBool(utils.METADATA_ONLY),
+		Incremental:           MustGetFlagBool(options.INCREMENTAL),
+		LeafPartitionData:     MustGetFlagBool(options.LEAF_PARTITION_DATA),
+		MetadataOnly:          MustGetFlagBool(options.METADATA_ONLY),
 		Plugin:                plugin,
-		SingleDataFile:        MustGetFlagBool(utils.SINGLE_DATA_FILE),
+		SingleDataFile:        MustGetFlagBool(options.SINGLE_DATA_FILE),
 		Timestamp:             timestamp,
-		WithStatistics:        MustGetFlagBool(utils.WITH_STATS),
+		WithStatistics:        MustGetFlagBool(options.WITH_STATS),
 	}
 
 	return &backupConfig
@@ -112,7 +112,7 @@ func InitializeBackupReport(opts options.Options) {
 	isFilteredBackup := config.IncludeTableFiltered || config.IncludeSchemaFiltered ||
 		config.ExcludeTableFiltered || config.ExcludeSchemaFiltered
 	dbSize := ""
-	if !MustGetFlagBool(utils.METADATA_ONLY) && !isFilteredBackup {
+	if !MustGetFlagBool(options.METADATA_ONLY) && !isFilteredBackup {
 		gplog.Verbose("Getting database size")
 		//Potentially expensive query
 		dbSize = GetDBSize(connectionPool)
@@ -151,7 +151,7 @@ func CreateBackupDirectoriesOnAllHosts() {
  */
 
 func RetrieveAndProcessTables() ([]Table, []Table) {
-	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(utils.INCLUDE_RELATION))
+	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.INCLUDE_RELATION))
 	gplog.FatalOnError(err)
 
 	tableRelations := GetIncludedUserTableRelations(connectionPool, quotedIncludeRelations)

@@ -153,6 +153,7 @@ type testWriter struct {
 }
 
 func (f testWriter) Write(p []byte) (n int, err error) {
+	_ = p
 	return 0, f.WriteErr
 }
 func (f testWriter) Close() error {

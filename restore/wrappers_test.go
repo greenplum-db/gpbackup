@@ -9,8 +9,10 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/history"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 
@@ -49,7 +51,7 @@ var _ = Describe("wrapper tests", func() {
 	Describe("RestoreSchemas", func() {
 		var (
 			ignoredProgressBar utils.ProgressBar
-			schemaArray        = []utils.StatementWithType{{Name: "foo", Statement: "create schema foo"}}
+			schemaArray        = []toc.StatementWithType{{Name: "foo", Statement: "create schema foo"}}
 		)
 		BeforeEach(func() {
 			ignoredProgressBar = utils.NewProgressBar(1, "", utils.PB_NONE)
@@ -76,8 +78,8 @@ var _ = Describe("wrapper tests", func() {
 			testhelper.ExpectRegexp(logfile, "[WARNING]:-Schema foo already exists")
 		})
 		It("logs error if --on-error-continue is set", func() {
-			cmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
-			defer cmdFlags.Set(utils.ON_ERROR_CONTINUE, "false")
+			_ = cmdFlags.Set(options.ON_ERROR_CONTINUE, "true")
+			defer cmdFlags.Set(options.ON_ERROR_CONTINUE, "false")
 			expectedErr := errors.New("some other schema error")
 			mock.ExpectExec("create schema foo").WillReturnError(expectedErr)
 
@@ -100,8 +102,8 @@ var _ = Describe("wrapper tests", func() {
 	Describe("SetRestorePlanForLegacyBackup", func() {
 		legacyBackupConfig := history.BackupConfig{}
 		legacyBackupConfig.RestorePlan = nil
-		legacyBackupTOC := utils.TOC{
-			DataEntries: []utils.MasterDataEntry{
+		legacyBackupTOC := toc.TOC{
+			DataEntries: []toc.MasterDataEntry{
 				{Schema: "schema1", Name: "table1"},
 				{Schema: "schema2", Name: "table2"},
 			},
@@ -240,7 +242,7 @@ withstatistics: false
 
 			err := ioutil.WriteFile(testConfigPath, []byte(sampleConfigContents), 0777)
 			Expect(err).ToNot(HaveOccurred())
-			err = cmdFlags.Set(utils.PLUGIN_CONFIG, testConfigPath)
+			err = cmdFlags.Set(options.PLUGIN_CONFIG, testConfigPath)
 			Expect(err).ToNot(HaveOccurred())
 
 			executor = testutils.TestExecutorMultiple{
@@ -297,12 +299,12 @@ withstatistics: false
 		})
 		Describe("RecoverMetadataFilesUsingPlugin", func() {
 			It("proceed without warning when plugin version is found", func() {
-				_ = cmdFlags.Set(utils.TIMESTAMP, "20180415154238")
+				_ = cmdFlags.Set(options.TIMESTAMP, "20180415154238")
 				restore.RecoverMetadataFilesUsingPlugin()
 				Expect(string(logfile.Contents())).ToNot(ContainSubstring("cannot recover plugin version"))
 			})
 			It("logs warning when plugin version not found", func() {
-				_ = cmdFlags.Set(utils.TIMESTAMP, "20170415154408")
+				_ = cmdFlags.Set(options.TIMESTAMP, "20170415154408")
 				restore.RecoverMetadataFilesUsingPlugin()
 				Expect(string(logfile.Contents())).To(ContainSubstring("cannot recover plugin version"))
 			})

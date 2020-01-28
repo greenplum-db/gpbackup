@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("backup integration tests", func() {
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintStatisticsStatementsForTable", func() {
 		It("prints attribute and tuple statistics for a table", func() {
@@ -39,7 +39,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int, j text, k bool)")
 
 			// Reload the retrieved statistics into the new table
-			backup.PrintStatisticsStatements(backupfile, toc, tables, beforeAttStats, beforeTupleStats)
+			backup.PrintStatisticsStatements(backupfile, tocfile, tables, beforeAttStats, beforeTupleStats)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
 			newTableOid := testutils.OidFromObjectName(connectionPool, "public", "foo", backup.TYPE_RELATION)

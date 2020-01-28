@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintExternalTableCreateStatement", func() {
 		var (
@@ -47,7 +47,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.RejectLimitType = "r"
 			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -67,7 +67,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Command = `bash % someone's \.custom_script.sh`
 			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -85,7 +85,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.FormatOpts = `delimiter '|' null '' escape ''' quote ''' force not null i`
 			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -103,7 +103,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.FormatOpts = "formatter 'fixedwidth_out' i '20' "
 			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -124,7 +124,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.RejectLimitType = "r"
 			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -142,7 +142,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.FormatType = "t"
 			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -161,7 +161,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Protocol = backup.GPFDIST
 			testTable.ExtTableDef = extTable
 
-			backup.PrintExternalTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -186,7 +186,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a trusted protocol with a read function, privileges, and an owner", func() {
 			protoMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true, Insert: true}}, Owner: "testrole"}
 
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolReadOnly, funcInfoMap, protoMetadata)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolReadOnly, funcInfoMap, protoMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION public.read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.read_from_s3()")
@@ -200,7 +200,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&protocolReadOnly, &resultExternalProtocols[0], "Oid", "ReadFunction", "FuncMap")
 		})
 		It("creates a protocol with a write function", func() {
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolWriteOnly, funcInfoMap, emptyMetadata)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolWriteOnly, funcInfoMap, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION public.write_to_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_export' LANGUAGE C STABLE;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.write_to_s3()")
@@ -214,7 +214,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&protocolWriteOnly, &resultExternalProtocols[0], "Oid", "WriteFunction", "FuncMap")
 		})
 		It("creates a protocol with a read and write function", func() {
-			backup.PrintCreateExternalProtocolStatement(backupfile, toc, protocolReadWrite, funcInfoMap, emptyMetadata)
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolReadWrite, funcInfoMap, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION public.read_from_s3() RETURNS integer AS '$libdir/gps3ext.so', 's3_import' LANGUAGE C STABLE;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.read_from_s3()")
@@ -265,7 +265,7 @@ EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
 			externalPartitions := []backup.PartitionInfo{externalPartition}
 
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, emptyPartInfoMap, tables)
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, emptyPartInfoMap, tables)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connectionPool)
@@ -296,7 +296,7 @@ EXECUTE 'echo -e "2\n1"' on host
 FORMAT 'csv';`)
 			externalPartitions := []backup.PartitionInfo{externalPartition}
 
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, emptyPartInfoMap, tables)
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, emptyPartInfoMap, tables)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
 			resultExtPartitions, resultPartInfoMap := backup.GetExternalPartitionInfo(connectionPool)
@@ -348,7 +348,7 @@ SUBPARTITION eur values ('eur'))
 			partInfoMap := map[uint32]backup.PartitionInfo{externalPartitionParent.PartitionRuleOid: externalPartitionParent}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
 
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, partInfoMap, tables)
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, partInfoMap, tables)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connectionPool)
@@ -411,7 +411,7 @@ PARTITION BY RANGE (year)
 			partInfoMap := map[uint32]backup.PartitionInfo{externalPartitionParent1.PartitionRuleOid: externalPartitionParent1, externalPartitionParent2.PartitionRuleOid: externalPartitionParent2}
 			externalPartitions := []backup.PartitionInfo{externalPartition}
 
-			backup.PrintExchangeExternalPartitionStatements(backupfile, toc, externalPartitions, partInfoMap, tables)
+			backup.PrintExchangeExternalPartitionStatements(backupfile, tocfile, externalPartitions, partInfoMap, tables)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
 			resultExtPartitions, _ := backup.GetExternalPartitionInfo(connectionPool)

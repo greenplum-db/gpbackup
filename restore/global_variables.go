@@ -7,6 +7,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
+	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/pflag"
 )
@@ -30,7 +32,7 @@ var (
 	connectionPool      *dbconn.DBConn
 	globalCluster       *cluster.Cluster
 	globalFPInfo        filepath.FilePathInfo
-	globalTOC           *utils.TOC
+	globalTOC           *toc.TOC
 	pluginConfig        *utils.PluginConfig
 	restoreStartTime    string
 	version             string
@@ -84,30 +86,30 @@ func SetPluginConfig(config *utils.PluginConfig) {
 	pluginConfig = config
 }
 
-func SetTOC(toc *utils.TOC) {
+func SetTOC(toc *toc.TOC) {
 	globalTOC = toc
 }
 
 // Util functions to enable ease of access to global flag values
 
 func MustGetFlagString(flagName string) string {
-	return utils.MustGetFlagString(cmdFlags, flagName)
+	return options.MustGetFlagString(cmdFlags, flagName)
 }
 
 func MustGetFlagInt(flagName string) int {
-	return utils.MustGetFlagInt(cmdFlags, flagName)
+	return options.MustGetFlagInt(cmdFlags, flagName)
 }
 
 func MustGetFlagBool(flagName string) bool {
-	return utils.MustGetFlagBool(cmdFlags, flagName)
+	return options.MustGetFlagBool(cmdFlags, flagName)
 }
 
 func MustGetFlagStringSlice(flagName string) []string {
-	return utils.MustGetFlagStringSlice(cmdFlags, flagName)
+	return options.MustGetFlagStringSlice(cmdFlags, flagName)
 }
 
 func MustGetFlagStringArray(flagName string) []string {
-	return utils.MustGetFlagStringArray(cmdFlags, flagName)
+	return options.MustGetFlagStringArray(cmdFlags, flagName)
 }
 
 func GetVersion() string {

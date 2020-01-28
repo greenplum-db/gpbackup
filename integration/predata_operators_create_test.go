@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateOperatorStatement", func() {
 		It("creates operator", func() {
@@ -24,7 +24,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			operator := backup.Operator{Oid: 0, Schema: "testschema", Name: "##", Procedure: "testschema.\"testFunc\"", LeftArgType: "path", RightArgType: "path", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 
-			backup.PrintCreateOperatorStatement(backupfile, toc, operator, backup.ObjectMetadata{})
+			backup.PrintCreateOperatorStatement(backupfile, tocfile, operator, backup.ObjectMetadata{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR testschema.##(path, path)")
@@ -43,7 +43,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			operatorMetadata := testutils.DefaultMetadata("OPERATOR", false, false, true, false)
 			operator := backup.Operator{Oid: 1, Schema: "testschema", Name: "##", Procedure: "testschema.\"testFunc\"", LeftArgType: "path", RightArgType: "path", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 
-			backup.PrintCreateOperatorStatement(backupfile, toc, operator, operatorMetadata)
+			backup.PrintCreateOperatorStatement(backupfile, tocfile, operator, operatorMetadata)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR testschema.##(path, path)")
 
@@ -63,7 +63,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 			operatorFamilies := []backup.OperatorFamily{operatorFamily}
 
-			backup.PrintCreateOperatorFamilyStatements(backupfile, toc, operatorFamilies, backup.MetadataMap{})
+			backup.PrintCreateOperatorFamilyStatements(backupfile, tocfile, operatorFamilies, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testfam USING hash")
@@ -78,7 +78,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			operatorFamilyMetadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true, false)
 			operatorFamilyMetadata := operatorFamilyMetadataMap[operatorFamily.GetUniqueID()]
 
-			backup.PrintCreateOperatorFamilyStatements(backupfile, toc, operatorFamilies, operatorFamilyMetadataMap)
+			backup.PrintCreateOperatorFamilyStatements(backupfile, tocfile, operatorFamilies, operatorFamilyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testfam USING hash")
@@ -100,7 +100,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				operatorClass.FamilyName = ""
 			}
 
-			backup.PrintCreateOperatorClassStatement(backupfile, toc, operatorClass, emptyMetadata)
+			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			if connectionPool.Version.Before("5") {
@@ -132,7 +132,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR FAMILY public.testfam USING gist")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testfam USING gist CASCADE")
-			backup.PrintCreateOperatorClassStatement(backupfile, toc, operatorClass, emptyMetadata)
+			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -148,7 +148,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR FAMILY public.sort_family_name USING btree")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.sort_family_name USING btree")
 
-			backup.PrintCreateOperatorClassStatement(backupfile, toc, operatorClass, emptyMetadata)
+			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING gist CASCADE")
@@ -165,7 +165,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				operatorClass.FamilyName = ""
 			}
 
-			backup.PrintCreateOperatorClassStatement(backupfile, toc, operatorClass, operatorClassMetadata)
+			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, operatorClassMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			if connectionPool.Version.Before("5") {

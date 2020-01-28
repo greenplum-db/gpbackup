@@ -9,7 +9,6 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,7 +22,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.testtable(t text)")
-			includeRelationsQuoted, err := options.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(utils.INCLUDE_RELATION))
+			includeRelationsQuoted, err := options.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(options.INCLUDE_RELATION))
 			Expect(err).NotTo(HaveOccurred())
 
 			tables := backup.GetIncludedUserTableRelations(connectionPool, includeRelationsQuoted)
@@ -56,7 +55,7 @@ PARTITION BY LIST (gender)
 				structmatcher.ExpectStructsToMatchExcluding(&tableRank, &tables[0], "SchemaOid", "Oid")
 			})
 			It("returns both parent and leaf partition tables if the leaf-partition-data flag is set and there are no include tables", func() {
-				_ = backupCmdFlags.Set(utils.LEAF_PARTITION_DATA, "true")
+				_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 				createStmt := `CREATE TABLE public.rank (id int, rank int, year int, gender
 char(1), count int )
 DISTRIBUTED BY (id)
@@ -88,7 +87,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foo(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			tables := backup.GetIncludedUserTableRelations(connectionPool, []string{})
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "foo"}
@@ -104,8 +103,8 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foo(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "testschema.foo")
-			includeRelationsQuoted, err := options.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(utils.INCLUDE_RELATION))
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.foo")
+			includeRelationsQuoted, err := options.QuoteTableNames(connectionPool, backup.MustGetFlagStringArray(options.INCLUDE_RELATION))
 			Expect(err).NotTo(HaveOccurred())
 			tables := backup.GetIncludedUserTableRelations(connectionPool, includeRelationsQuoted)
 
@@ -122,7 +121,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foo(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 
-			_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "testschema.foo")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "testschema.foo")
 			tables := backup.GetIncludedUserTableRelations(connectionPool, []string{})
 
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
@@ -140,8 +139,8 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.bar(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.bar")
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
-			_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "testschema.foo")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "testschema.foo")
 			tables := backup.GetIncludedUserTableRelations(connectionPool, []string{})
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "bar"}
@@ -152,7 +151,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foo")
 
-			_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "testschema.nonexistant")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "testschema.nonexistant")
 			tables := backup.GetIncludedUserTableRelations(connectionPool, []string{})
 
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
@@ -189,7 +188,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE testschema.my_sequence")
 			mySequence := backup.Relation{Schema: "testschema", Name: "my_sequence"}
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			sequences := backup.GetAllSequenceRelations(connectionPool)
 
 			Expect(sequences).To(HaveLen(1))
@@ -201,7 +200,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.seq_table(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.seq_table")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER SEQUENCE public.my_sequence OWNED BY public.seq_table.i")
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.seq_table")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.seq_table")
 
 			sequences := backup.GetAllSequenceRelations(connectionPool)
 
@@ -215,7 +214,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "ALTER SEQUENCE public.my_sequence OWNED BY public.seq_table.i")
 			mySequence := backup.Relation{Schema: "public", Name: "my_sequence"}
 
-			_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.seq_table")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "public.seq_table")
 			sequences := backup.GetAllSequenceRelations(connectionPool)
 
 			Expect(sequences).To(HaveLen(1))
@@ -229,7 +228,7 @@ PARTITION BY LIST (gender)
 
 			sequence2 := backup.Relation{Schema: "public", Name: "sequence2"}
 
-			_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.sequence1")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "public.sequence1")
 			sequences := backup.GetAllSequenceRelations(connectionPool)
 
 			Expect(sequences).To(HaveLen(1))
@@ -242,7 +241,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.sequence2")
 
 			sequence1 := backup.Relation{Schema: "public", Name: "sequence1"}
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.sequence1")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.sequence1")
 
 			sequences := backup.GetAllSequenceRelations(connectionPool)
 
@@ -313,7 +312,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence OWNED BY public.my_table.a;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			_ = backupCmdFlags.Set(utils.EXCLUDE_RELATION, "public.my_table")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "public.my_table")
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
 
 			Expect(sequenceOwnerTables).To(BeEmpty())
@@ -326,8 +325,8 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence OWNED BY public.my_table.a;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.my_sequence")
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.my_table")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.my_sequence")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.my_table")
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
 			Expect(sequenceOwnerTables).To(HaveLen(1))
 			Expect(sequenceOwnerColumns).To(HaveLen(1))
@@ -338,7 +337,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence OWNED BY public.my_table.a;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.my_table")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.my_table")
 			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
 			Expect(sequenceOwnerTables).To(HaveLen(1))
 			Expect(sequenceOwnerColumns).To(HaveLen(1))
@@ -404,7 +403,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW testschema.simpleview AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW testschema.simpleview")
-			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			results, _ := backup.GetAllViews(connectionPool)
 

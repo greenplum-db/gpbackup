@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -15,7 +16,7 @@ import (
  * such as roles and database configuration.
  */
 
-func PrintSessionGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gucs SessionGUCs) {
+func PrintSessionGUCs(metadataFile *utils.FileWithByteCount, toc *toc.TOC, gucs SessionGUCs) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf(`
 SET client_encoding = '%s';
@@ -25,7 +26,7 @@ SET client_encoding = '%s';
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 }
 
-func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, defaultDB Database, db Database, dbMetadata MetadataMap) {
+func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, defaultDB Database, db Database, dbMetadata MetadataMap) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE DATABASE %s TEMPLATE template0", db.Name)
 	if db.Tablespace != "pg_default" {
@@ -42,22 +43,22 @@ func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, toc *ut
 	}
 	metadataFile.MustPrintf(";")
 
-	entry := utils.MetadataEntry{Name: db.Name, ObjectType: "DATABASE"}
-	toc.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, dbMetadata[db.GetUniqueID()], db, "")
+	entry := toc.MetadataEntry{Name: db.Name, ObjectType: "DATABASE"}
+	tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
+	PrintObjectMetadata(metadataFile, tocfile, dbMetadata[db.GetUniqueID()], db, "")
 }
 
-func PrintDatabaseGUCs(metadataFile *utils.FileWithByteCount, toc *utils.TOC, gucs []string, dbname string) {
+func PrintDatabaseGUCs(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, gucs []string, dbname string) {
 	for _, guc := range gucs {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nALTER DATABASE %s %s;", dbname, guc)
 
-		entry := utils.MetadataEntry{Name: dbname, ObjectType: "DATABASE GUC"}
-		toc.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
+		entry := toc.MetadataEntry{Name: dbname, ObjectType: "DATABASE GUC"}
+		tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
 	}
 }
 
-func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resQueues []ResourceQueue, resQueueMetadata MetadataMap) {
+func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, resQueues []ResourceQueue, resQueueMetadata MetadataMap) {
 	for _, resQueue := range resQueues {
 		start := metadataFile.ByteCount
 		attributes := make([]string, 0)
@@ -90,12 +91,12 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 		metadataFile.MustPrintf("\n\n%s RESOURCE QUEUE %s WITH (%s);", action, resQueue.Name, strings.Join(attributes, ", "))
 
 		section, entry := resQueue.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, resQueueMetadata[resQueue.GetUniqueID()], resQueue, "")
+		tocfile.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, tocfile, resQueueMetadata[resQueue.GetUniqueID()], resQueue, "")
 	}
 }
 
-func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC) {
+func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC) {
 	/*
 	 * total cpu_rate_limit and memory_limit should less than 100, so clean
 	 * them before we seting new memory_limit and cpu_rate_limit.
@@ -119,12 +120,12 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s %s;", prepare.name, prepare.setting)
 
-		entry := utils.MetadataEntry{Name: prepare.name, ObjectType: "RESOURCE GROUP"}
-		toc.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
+		entry := toc.MetadataEntry{Name: prepare.name, ObjectType: "RESOURCE GROUP"}
+		tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
 	}
 }
 
-func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, resGroups []ResourceGroup, resGroupMetadata MetadataMap) {
+func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, resGroups []ResourceGroup, resGroupMetadata MetadataMap) {
 	for _, resGroup := range resGroups {
 
 		// temporarily special case for 5x resource groups #temp5xResGroup
@@ -212,7 +213,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 	}
 }
 
-func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roles []Role, roleMetadata MetadataMap) {
+func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, roles []Role, roleMetadata MetadataMap) {
 	for _, role := range roles {
 		start := metadataFile.ByteCount
 		attrs := make([]string, 0)
@@ -312,7 +313,7 @@ ALTER ROLE %s WITH %s;`, role.Name, role.Name, strings.Join(attrs, " "))
 	}
 }
 
-func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roleGUCs map[string][]RoleGUC) {
+func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, roleGUCs map[string][]RoleGUC) {
 	for roleName := range roleGUCs {
 		for _, roleGUC := range roleGUCs[roleName] {
 			start := metadataFile.ByteCount
@@ -328,7 +329,7 @@ func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, toc *utils.TO
 	}
 }
 
-func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, roleMembers []RoleMember) {
+func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, roleMembers []RoleMember) {
 	metadataFile.MustPrintf("\n\n")
 	for _, roleMember := range roleMembers {
 		start := metadataFile.ByteCount
@@ -346,7 +347,7 @@ func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *u
 	}
 }
 
-func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, tablespaces []Tablespace, tablespaceMetadata MetadataMap) {
+func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, tablespaces []Tablespace, tablespaceMetadata MetadataMap) {
 	for _, tablespace := range tablespaces {
 		start := metadataFile.ByteCount
 		locationStr := ""

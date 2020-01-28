@@ -22,7 +22,7 @@ var _ = Describe("backup/dependencies tests", func() {
 		relation2 = backup.Relation{Schema: "public", Name: "relation2", Oid: 2}
 		relation3 = backup.Relation{Schema: "public", Name: "relation3", Oid: 3}
 		depMap = make(map[backup.UniqueID]map[backup.UniqueID]bool)
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("TopologicalSort", func() {
 		It("returns the original slice if there are no dependencies among objects", func() {
@@ -156,7 +156,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			constraints := []backup.Constraint{
 				{Name: "check_constraint", ConDef: "CHECK (VALUE > 2)", OwningObject: "public.domain"},
 			}
-			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, constraints, funcInfoMap)
+			backup.PrintDependentObjectStatements(backupfile, tocfile, objects, metadataMap, constraints, funcInfoMap)
 			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
@@ -203,7 +203,7 @@ COMMENT ON PROTOCOL ext_protocol IS 'protocol';
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (no domain constraint)", func() {
 			constraints := make([]backup.Constraint, 0)
-			backup.PrintDependentObjectStatements(backupfile, toc, objects, metadataMap, constraints, funcInfoMap)
+			backup.PrintDependentObjectStatements(backupfile, tocfile, objects, metadataMap, constraints, funcInfoMap)
 			testhelper.ExpectRegexp(buffer, `
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$

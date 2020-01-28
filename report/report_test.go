@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/blang/semver"
@@ -21,7 +22,6 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
@@ -29,7 +29,23 @@ import (
 	. "github.com/greenplum-db/gpbackup/report"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
+
+var (
+	stdout       *Buffer
+	logfile      *Buffer
+	buffer       *Buffer
+)
+
+func TestReport(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Report Suite")
+}
+
+var _ = BeforeEach(func() {
+	stdout, buffer, logfile = testhelper.SetupTestLogger()
+})
 
 var _ = Describe("utils/report tests", func() {
 	Describe("ParseErrorMessage", func() {
@@ -77,7 +93,7 @@ data file format: Single Data File Per Segment`,
 
 		It("writes a report for a successful backup", func() {
 			backupReport.WriteBackupReportFile("filename", timestamp, endtime, objectCounts, "")
-			Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
+			Expect(buffer).To(Say(`Greenplum Database Backup Report
 
 timestamp key:         20170101010101
 gpdb version:          5\.0\.0 build test
@@ -106,7 +122,7 @@ types       1000`))
 		})
 		It("writes a report for a failed backup", func() {
 			backupReport.WriteBackupReportFile("filename", timestamp, endtime, objectCounts, "Cannot access /tmp/backups: Permission denied")
-			Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
+			Expect(buffer).To(Say(`Greenplum Database Backup Report
 
 timestamp key:         20170101010101
 gpdb version:          5\.0\.0 build test
@@ -137,7 +153,7 @@ types       1000`))
 		It("writes a report without database size information", func() {
 			backupReport.DatabaseSize = ""
 			backupReport.WriteBackupReportFile("filename", timestamp, endtime, objectCounts, "")
-			Expect(buffer).To(gbytes.Say(`Greenplum Database Backup Report
+			Expect(buffer).To(Say(`Greenplum Database Backup Report
 
 timestamp key:         20170101010101
 gpdb version:          5\.0\.0 build test
@@ -224,7 +240,7 @@ incremental backup set:
 		It("writes a report for a failed restore", func() {
 			gplog.SetErrorCode(2)
 			WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "Cannot access /tmp/backups: Permission denied")
-			Expect(buffer).To(gbytes.Say(`Greenplum Database Restore Report
+			Expect(buffer).To(Say(`Greenplum Database Restore Report
 
 timestamp key:       20170101010101
 gpdb version:        5\.0\.0 build test
@@ -243,7 +259,7 @@ restore error:       Cannot access /tmp/backups: Permission denied`))
 		It("writes a report for a successful restore", func() {
 			gplog.SetErrorCode(0)
 			WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
-			Expect(buffer).To(gbytes.Say(`Greenplum Database Restore Report
+			Expect(buffer).To(Say(`Greenplum Database Restore Report
 
 timestamp key:       20170101010101
 gpdb version:        5\.0\.0 build test
@@ -261,7 +277,7 @@ restore status:      Success`))
 		It("writes a report for a successful restore with errors", func() {
 			gplog.SetErrorCode(1)
 			WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
-			Expect(buffer).To(gbytes.Say(`Greenplum Database Restore Report
+			Expect(buffer).To(Say(`Greenplum Database Restore Report
 
 timestamp key:       20170101010101
 gpdb version:        5\.0\.0 build test
@@ -286,12 +302,12 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 			backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
 			backup.SetFlagDefaults(backupCmdFlags)
 			backup.SetCmdFlags(backupCmdFlags)
-			err := backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.foobar")
+			err := backupCmdFlags.Set(options.INCLUDE_RELATION, "public.foobar")
 			Expect(err).ToNot(HaveOccurred())
 			opts, err := options.NewOptions(backupCmdFlags)
 			Expect(err).ToNot(HaveOccurred())
 			opts.AddIncludedRelation("public.baz")
-			err = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.baz")
+			err = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.baz")
 			Expect(err).ToNot(HaveOccurred())
 
 			backupConfig := backup.NewBackupConfig("testdb",
@@ -540,7 +556,7 @@ Content-Disposition: inline
 				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedGpHomeCmd}))
-				Expect(stdout).To(gbytes.Say("Found neither gphome/bin/gp_email_contacts.yaml nor home/gp_email_contacts.yaml"))
+				Expect(stdout).To(Say("Found neither gphome/bin/gp_email_contacts.yaml nor home/gp_email_contacts.yaml"))
 			})
 			It("sends an email to contacts in $HOME/gp_email_contacts.yaml if only that file is found", func() {
 				_, _ = w.Write(contactsFileContents)
@@ -552,7 +568,7 @@ Content-Disposition: inline
 				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedMessage}))
-				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))
+				Expect(logfile).To(Say("Sending email report to the following addresses: contact1@example.com"))
 			})
 			It("sends an email to contacts in $GPHOME/bin/gp_email_contacts.yaml if only that file is found", func() {
 				_, _ = w.Write(contactsFileContents)
@@ -564,7 +580,7 @@ Content-Disposition: inline
 				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(3))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedGpHomeCmd, expectedMessage}))
-				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))
+				Expect(logfile).To(Say("Sending email report to the following addresses: contact1@example.com"))
 			})
 			It("sends an email to contacts in $HOME/gp_email_contacts.yaml if a file exists in both $HOME and $GPHOME/bin", func() {
 				_, _ = w.Write(contactsFileContents)
@@ -573,7 +589,7 @@ Content-Disposition: inline
 				EmailReport(testCluster, testFPInfo.Timestamp, "report_file", "gpbackup")
 				Expect(testExecutor.NumExecutions).To(Equal(2))
 				Expect(testExecutor.LocalCommands).To(Equal([]string{expectedHomeCmd, expectedMessage}))
-				Expect(logfile).To(gbytes.Say("Sending email report to the following addresses: contact1@example.com"))
+				Expect(logfile).To(Say("Sending email report to the following addresses: contact1@example.com"))
 			})
 		})
 	})

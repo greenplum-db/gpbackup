@@ -5,17 +5,17 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/toc"
 )
 
-func GetAOIncrementalMetadata(connectionPool *dbconn.DBConn) map[string]utils.AOEntry {
+func GetAOIncrementalMetadata(connectionPool *dbconn.DBConn) map[string]toc.AOEntry {
 	gplog.Verbose("Querying table row mod counts")
 	var modCounts = getAllModCounts(connectionPool)
 	gplog.Verbose("Querying last DDL modification timestamp for tables")
 	var lastDDLTimestamps = getLastDDLTimestamps(connectionPool)
-	aoTableEntries := make(map[string]utils.AOEntry)
+	aoTableEntries := make(map[string]toc.AOEntry)
 	for aoTableFQN := range modCounts {
-		aoTableEntries[aoTableFQN] = utils.AOEntry{
+		aoTableEntries[aoTableFQN] = toc.AOEntry{
 			Modcount:         modCounts[aoTableFQN],
 			LastDDLTimestamp: lastDDLTimestamps[aoTableFQN],
 		}

@@ -98,33 +98,33 @@ func DBValidate(conn *dbconn.DBConn, tableList []string, excludeSet bool) {
 }
 
 func ValidateFlagCombinations(flags *pflag.FlagSet) {
-	utils.CheckExclusiveFlags(flags, utils.DEBUG, utils.QUIET, utils.VERBOSE)
-	utils.CheckExclusiveFlags(flags, utils.DATA_ONLY, utils.METADATA_ONLY, utils.INCREMENTAL)
-	utils.CheckExclusiveFlags(flags, utils.INCLUDE_SCHEMA, utils.INCLUDE_SCHEMA_FILE, utils.INCLUDE_RELATION, utils.INCLUDE_RELATION_FILE)
-	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_SCHEMA, utils.EXCLUDE_SCHEMA_FILE, utils.INCLUDE_SCHEMA, utils.INCLUDE_SCHEMA_FILE)
-	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_SCHEMA, utils.EXCLUDE_SCHEMA_FILE, utils.EXCLUDE_RELATION, utils.INCLUDE_RELATION, utils.EXCLUDE_RELATION_FILE, utils.INCLUDE_RELATION_FILE)
-	utils.CheckExclusiveFlags(flags, utils.EXCLUDE_RELATION, utils.EXCLUDE_RELATION_FILE, utils.LEAF_PARTITION_DATA)
-	utils.CheckExclusiveFlags(flags, utils.JOBS, utils.METADATA_ONLY, utils.SINGLE_DATA_FILE)
-	utils.CheckExclusiveFlags(flags, utils.METADATA_ONLY, utils.LEAF_PARTITION_DATA)
-	utils.CheckExclusiveFlags(flags, utils.NO_COMPRESSION, utils.COMPRESSION_LEVEL)
-	utils.CheckExclusiveFlags(flags, utils.PLUGIN_CONFIG, utils.BACKUP_DIR)
-	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !MustGetFlagBool(utils.INCREMENTAL) {
+	options.CheckExclusiveFlags(flags, options.DEBUG, options.QUIET, options.VERBOSE)
+	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.METADATA_ONLY, options.INCREMENTAL)
+	options.CheckExclusiveFlags(flags, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE, options.INCLUDE_RELATION, options.INCLUDE_RELATION_FILE)
+	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE)
+	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE, options.EXCLUDE_RELATION, options.INCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.INCLUDE_RELATION_FILE)
+	options.CheckExclusiveFlags(flags, options.EXCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.LEAF_PARTITION_DATA)
+	options.CheckExclusiveFlags(flags, options.JOBS, options.METADATA_ONLY, options.SINGLE_DATA_FILE)
+	options.CheckExclusiveFlags(flags, options.METADATA_ONLY, options.LEAF_PARTITION_DATA)
+	options.CheckExclusiveFlags(flags, options.NO_COMPRESSION, options.COMPRESSION_LEVEL)
+	options.CheckExclusiveFlags(flags, options.PLUGIN_CONFIG, options.BACKUP_DIR)
+	if MustGetFlagString(options.FROM_TIMESTAMP) != "" && !MustGetFlagBool(options.INCREMENTAL) {
 		gplog.Fatal(errors.Errorf("--from-timestamp must be specified with --incremental"), "")
 	}
-	if MustGetFlagBool(utils.INCREMENTAL) && !MustGetFlagBool(utils.LEAF_PARTITION_DATA) {
+	if MustGetFlagBool(options.INCREMENTAL) && !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		gplog.Fatal(errors.Errorf("--leaf-partition-data must be specified with --incremental"), "")
 	}
 }
 
 func ValidateFlagValues() {
-	err := utils.ValidateFullPath(MustGetFlagString(utils.BACKUP_DIR))
+	err := utils.ValidateFullPath(MustGetFlagString(options.BACKUP_DIR))
 	gplog.FatalOnError(err)
-	err = utils.ValidateFullPath(MustGetFlagString(utils.PLUGIN_CONFIG))
+	err = utils.ValidateFullPath(MustGetFlagString(options.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
-	ValidateCompressionLevel(MustGetFlagInt(utils.COMPRESSION_LEVEL))
-	if MustGetFlagString(utils.FROM_TIMESTAMP) != "" && !filepath.IsValidTimestamp(MustGetFlagString(utils.FROM_TIMESTAMP)) {
+	ValidateCompressionLevel(MustGetFlagInt(options.COMPRESSION_LEVEL))
+	if MustGetFlagString(options.FROM_TIMESTAMP) != "" && !filepath.IsValidTimestamp(MustGetFlagString(options.FROM_TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.",
-			MustGetFlagString(utils.FROM_TIMESTAMP)), "")
+			MustGetFlagString(options.FROM_TIMESTAMP)), "")
 	}
 }
 
@@ -137,7 +137,7 @@ func ValidateCompressionLevel(compressionLevel int) {
 func ValidateFromTimestamp(fromTimestamp string) {
 	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
-	if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
+	if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		// The config file needs to be downloaded from the remote system into the local filesystem
 		pluginConfig.MustRestoreFile(fromTimestampFPInfo.GetConfigFilePath())
 	}

@@ -3,6 +3,7 @@ package integration
 import (
 	"database/sql"
 	"fmt"
+	"math"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -11,13 +12,11 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"math"
 )
 
 var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintRegularTableCreateStatement", func() {
 		var (
@@ -40,7 +39,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE IF EXISTS public.testtable")
 		})
 		It("creates a table with no attributes", func() {
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -57,7 +56,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 
 			testTable.TableType = "public.some_type"
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -71,7 +70,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: false, HasDefault: false, Type: "character varying(20)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -90,7 +89,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testTable.DistPolicy = "DISTRIBUTED BY (i, j)"
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOneDefault, rowNotNullDefault, rowNonDefaultStorageAndStats}
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -103,7 +102,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testTable.StorageOpts = "appendonly=true, orientation=column, fillfactor=42, compresstype=zlib, blocksize=32768, compresslevel=1"
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -123,7 +122,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 			testTable.PartitionLevelInfo.Level = "p"
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.PartitionLevelInfo.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -216,7 +215,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 			testTable.PartitionLevelInfo.Level = "p"
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.PartitionLevelInfo.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -234,7 +233,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
 			testTable.TablespaceName = "test_tablespace"
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -249,7 +248,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testTable.ColumnDefs = []backup.ColumnDefinition{}
 			testTable.Inherits = []string{"public.parent"}
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
@@ -267,7 +266,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testTable.ColumnDefs = []backup.ColumnDefinition{}
 			testTable.Inherits = []string{"public.parent_one", "public.parent_two"}
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
@@ -284,7 +283,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 			testTable.IsUnlogged = true
 
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -304,10 +303,10 @@ SET SUBPARTITION TEMPLATE ` + `
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne}
 			testTable.ForeignDef = backup.ForeignTableDefinition{Oid: 0, Options: "", Server: "sc"}
 			testTable.ReplicaIdentity = "n"
-			backup.PrintRegularTableCreateStatement(backupfile, toc, testTable)
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
 			metadata := testutils.DefaultMetadata("TABLE", true, true, true, true)
-			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, metadata)
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, metadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FOREIGN TABLE public.testtable")
@@ -341,7 +340,7 @@ SET SUBPARTITION TEMPLATE ` + `
 		})
 		It("prints only owner for a table with no comment or column comments", func() {
 			tableMetadata.Owner = "testrole"
-			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTableUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
@@ -357,7 +356,7 @@ SET SUBPARTITION TEMPLATE ` + `
 		It("prints table comment, table privileges, table owner, table security label, and column comments for a table", func() {
 			tableMetadata = testutils.DefaultMetadata("TABLE", true, true, true, includeSecurityLabels)
 			testTable.ColumnDefs[0].Comment = "This is a column comment."
-			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -375,7 +374,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			privilegesColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, Privileges: sql.NullString{String: "testrole=r/testrole", Valid: true}}
 			tableMetadata.Owner = "testrole"
 			testTable.ColumnDefs = []backup.ColumnDefinition{privilegesColumnOne}
-			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -388,7 +387,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testutils.SkipIfBefore6(connectionPool)
 			securityLabelColumnOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, SecurityLabelProvider: "dummy", SecurityLabel: "unclassified"}
 			testTable.ColumnDefs = []backup.ColumnDefinition{securityLabelColumnOne}
-			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, tableMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -401,7 +400,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testutils.SkipIfBefore6(connectionPool)
 
 			testTable.ReplicaIdentity = "f"
-			backup.PrintPostCreateTableStatements(backupfile, toc, testTable, tableMetadata)
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, tableMetadata)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
@@ -421,7 +420,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef}
 			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, includeSecurityLabels)
 
-			backup.PrintCreateViewStatement(backupfile, toc, view, viewMetadata)
+			backup.PrintCreateViewStatement(backupfile, tocfile, view, viewMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
@@ -439,7 +438,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testutils.SkipIfBefore6(connectionPool)
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Options: " WITH (security_barrier=true)", Definition: viewDef}
 
-			backup.PrintCreateViewStatement(backupfile, toc, view, backup.ObjectMetadata{})
+			backup.PrintCreateViewStatement(backupfile, tocfile, view, backup.ObjectMetadata{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
@@ -461,7 +460,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			view := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplemview", Definition: " SELECT 1;"}
 			viewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, includeSecurityLabels)
 
-			backup.PrintCreateMaterializedViewStatement(backupfile, toc, view, viewMetadata)
+			backup.PrintCreateMaterializedViewStatement(backupfile, tocfile, view, viewMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplemview")
@@ -478,7 +477,7 @@ SET SUBPARTITION TEMPLATE ` + `
 		It("creates a materialized view with options", func() {
 			view := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: " SELECT 1;"}
 
-			backup.PrintCreateMaterializedViewStatement(backupfile, toc, view, backup.ObjectMetadata{})
+			backup.PrintCreateMaterializedViewStatement(backupfile, tocfile, view, backup.ObjectMetadata{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplemview")
@@ -507,7 +506,7 @@ SET SUBPARTITION TEMPLATE ` + `
 				startValue = 1
 			}
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
-			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {
 				sequenceDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
 			}
@@ -527,7 +526,7 @@ SET SUBPARTITION TEMPLATE ` + `
 				startValue = 105
 			}
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, LogCnt: 0, IsCycled: false, IsCalled: true, StartVal: startValue}
-			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
@@ -546,7 +545,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			sequenceMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true, includeSecurityLabels)
 			sequenceMetadataMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
-			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {
 				sequenceDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
 			}
@@ -575,8 +574,8 @@ SET SUBPARTITION TEMPLATE ` + `
 			columnOwnerMap := map[string]string{"public.my_sequence": "public.sequence_table.a"}
 
 			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
-			backup.PrintCreateSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, backup.MetadataMap{})
-			backup.PrintAlterSequenceStatements(backupfile, toc, []backup.Sequence{sequenceDef}, columnOwnerMap)
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, backup.MetadataMap{})
+			backup.PrintAlterSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, columnOwnerMap)
 
 			//Create table that sequence can be owned by
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.sequence_table(a int)")

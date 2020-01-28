@@ -4,21 +4,36 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/report"
-	"github.com/onsi/gomega/gbytes"
 	"gopkg.in/yaml.v2"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
+
+var (
+	testLogfile *Buffer
+)
+
+func TestBackupHistory(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "History Suite")
+}
+
+var _ = BeforeSuite(func() {
+	_, _, testLogfile = testhelper.SetupTestLogger()
+})
 
 var _ = Describe("backup/history tests", func() {
 	var testConfig1, testConfig2, testConfig3 history.BackupConfig
@@ -216,7 +231,7 @@ var _ = Describe("backup/history tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			expectedHistory := history.History{BackupConfigs: []history.BackupConfig{testConfig3}}
 			structmatcher.ExpectStructsToMatch(&expectedHistory, resultHistory)
-			Expect(testLogfile).To(gbytes.Say("No existing backups found. Creating new backup history file."))
+			Expect(testLogfile).To(Say("No existing backups found. Creating new backup history file."))
 			Expect(testConfig3.EndTime).To(Equal(simulatedEndTime.Format("20060102150405")))
 		})
 	})

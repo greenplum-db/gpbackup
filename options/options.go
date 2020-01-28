@@ -22,7 +22,7 @@ type Options struct {
 }
 
 func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
-	includedRelations, err := setFiltersFromFile(initialFlags, utils.INCLUDE_RELATION, utils.INCLUDE_RELATION_FILE)
+	includedRelations, err := setFiltersFromFile(initialFlags, INCLUDE_RELATION, INCLUDE_RELATION_FILE)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 		return nil, err
 	}
 
-	excludedRelations, err := setFiltersFromFile(initialFlags, utils.EXCLUDE_RELATION, utils.EXCLUDE_RELATION_FILE)
+	excludedRelations, err := setFiltersFromFile(initialFlags, EXCLUDE_RELATION, EXCLUDE_RELATION_FILE)
 	if err != nil {
 		return nil, err
 	}
@@ -40,17 +40,17 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 		return nil, err
 	}
 
-	includedSchemas, err := setFiltersFromFile(initialFlags, utils.INCLUDE_SCHEMA, utils.INCLUDE_SCHEMA_FILE)
+	includedSchemas, err := setFiltersFromFile(initialFlags, INCLUDE_SCHEMA, INCLUDE_SCHEMA_FILE)
 	if err != nil {
 		return nil, err
 	}
 
-	excludedSchemas, err := setFiltersFromFile(initialFlags, utils.EXCLUDE_SCHEMA, utils.EXCLUDE_SCHEMA_FILE)
+	excludedSchemas, err := setFiltersFromFile(initialFlags, EXCLUDE_SCHEMA, EXCLUDE_SCHEMA_FILE)
 	if err != nil {
 		return nil, err
 	}
 
-	leafPartitionData, err := initialFlags.GetBool(utils.LEAF_PARTITION_DATA)
+	leafPartitionData, err := initialFlags.GetBool(LEAF_PARTITION_DATA)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.
 	}
 
 	for _, fqn := range diff {
-		err = flags.Set(utils.INCLUDE_RELATION, fqn)
+		err = flags.Set(INCLUDE_RELATION, fqn)
 		if err != nil {
 			return err
 		}

@@ -11,10 +11,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateOperatorStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, operator Operator, operatorMetadata ObjectMetadata) {
+func PrintCreateOperatorStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, operator Operator, operatorMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	optionalFields := make([]string, 0)
 	var leftArg string
@@ -61,7 +62,7 @@ CREATE OPERATOR %s.%s (
  * Operator families are not supported in GPDB 4.3, so this function
  * is not used in a 4.3 backup.
  */
-func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, operatorFamilies []OperatorFamily, operatorFamilyMetadata MetadataMap) {
+func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, operatorFamilies []OperatorFamily, operatorFamilyMetadata MetadataMap) {
 	for _, operatorFamily := range operatorFamilies {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nCREATE OPERATOR FAMILY %s;", operatorFamily.FQN())
@@ -72,7 +73,7 @@ func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, 
 	}
 }
 
-func PrintCreateOperatorClassStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, operatorClass OperatorClass, operatorClassMetadata ObjectMetadata) {
+func PrintCreateOperatorClassStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, operatorClass OperatorClass, operatorClassMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE OPERATOR CLASS %s.%s", operatorClass.Schema, operatorClass.Name)
 	forTypeStr := ""

@@ -7,12 +7,14 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/restore"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/onsi/gomega/gbytes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("backup, utils, and restore integration tests related to parallelism", func() {
@@ -77,7 +79,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			second := "SELECT pg_sleep(1.5); INSERT INTO public.timestamps VALUES (2, now() + '1.5 seconds'::interval);"
 			third := "INSERT INTO public.timestamps VALUES (3, now());"
 			fourth := "SELECT pg_sleep(1); INSERT INTO public.timestamps VALUES (4, now() + '1 second'::interval);"
-			statements := []utils.StatementWithType{
+			statements := []toc.StatementWithType{
 				{ObjectType: "TABLE", Statement: first},
 				{ObjectType: "DATABASE", Statement: second},
 				{ObjectType: "SEQUENCE", Statement: third},
@@ -107,7 +109,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 		Context("error conditions", func() {
 			goodStmt := "SELECT * FROM pg_class LIMIT 1;"
 			syntaxError := "BAD SYNTAX;"
-			statements := []utils.StatementWithType{
+			statements := []toc.StatementWithType{
 				{ObjectType: "TABLE", Statement: goodStmt},
 				{ObjectType: "INDEX", Statement: syntaxError},
 			}
@@ -117,7 +119,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 					defer func() {
 						if r := recover(); r != nil {
 							errorMessage = strings.TrimSpace(fmt.Sprintf("%v", r))
-							Expect(logFile).To(gbytes.Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
+							Expect(logFile).To(Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
 							Expect(errorMessage).To(ContainSubstring(`[CRITICAL]:-ERROR: syntax error at or near "BAD"`))
 							Expect(errorMessage).To(Not(ContainSubstring("goroutine")))
 						}
@@ -129,7 +131,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 					defer func() {
 						if r := recover(); r != nil {
 							errorMessage = strings.TrimSpace(fmt.Sprintf("%v", r))
-							Expect(logFile).To(gbytes.Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
+							Expect(logFile).To(Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
 							Expect(errorMessage).To(ContainSubstring(`[CRITICAL]:-ERROR: syntax error at or near "BAD"`))
 							Expect(errorMessage).To(Not(ContainSubstring("goroutine")))
 						}
@@ -139,19 +141,19 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			})
 			Context("on-error-continue is set", func() {
 				BeforeEach(func() {
-					restoreCmdFlags.Set(utils.ON_ERROR_CONTINUE, "true")
+					_ = restoreCmdFlags.Set(options.ON_ERROR_CONTINUE, "true")
 				})
 				It("does not panic, but logs errors when running serially", func() {
 					restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, false)
-					Expect(logFile).To(gbytes.Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
-					Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Encountered 1 errors during metadata restore; see log file gbytes.Buffer for a list of failed statements.")))
-					Expect(stderr).To(Not(gbytes.Say(regexp.QuoteMeta("goroutine"))))
+					Expect(logFile).To(Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
+					Expect(stderr).To(Say(regexp.QuoteMeta("[ERROR]:-Encountered 1 errors during metadata restore; see log file gbytes.Buffer for a list of failed statements.")))
+					Expect(stderr).To(Not(Say(regexp.QuoteMeta("goroutine"))))
 				})
 				It("does not panic, but logs errors when running in parallel", func() {
 					restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, true)
-					Expect(logFile).To(gbytes.Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
-					Expect(stderr).To(gbytes.Say(regexp.QuoteMeta("[ERROR]:-Encountered 1 errors during metadata restore; see log file gbytes.Buffer for a list of failed statements.")))
-					Expect(stderr).To(Not(gbytes.Say(regexp.QuoteMeta("goroutine"))))
+					Expect(logFile).To(Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
+					Expect(stderr).To(Say(regexp.QuoteMeta("[ERROR]:-Encountered 1 errors during metadata restore; see log file gbytes.Buffer for a list of failed statements.")))
+					Expect(stderr).To(Not(Say(regexp.QuoteMeta("goroutine"))))
 				})
 			})
 

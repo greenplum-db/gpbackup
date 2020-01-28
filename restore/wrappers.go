@@ -11,7 +11,9 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/report"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -50,18 +52,18 @@ func filtersEmpty(filters Filters) bool {
 }
 
 func SetLoggerVerbosity() {
-	if MustGetFlagBool(utils.QUIET) {
+	if MustGetFlagBool(options.QUIET) {
 		gplog.SetVerbosity(gplog.LOGERROR)
-	} else if MustGetFlagBool(utils.DEBUG) {
+	} else if MustGetFlagBool(options.DEBUG) {
 		gplog.SetVerbosity(gplog.LOGDEBUG)
-	} else if MustGetFlagBool(utils.VERBOSE) {
+	} else if MustGetFlagBool(options.VERBOSE) {
 		gplog.SetVerbosity(gplog.LOGVERBOSE)
 	}
 }
 
 func CreateConnectionPool(unquotedDBName string) {
 	connectionPool = dbconn.NewDBConnFromEnvironment(unquotedDBName)
-	connectionPool.MustConnect(MustGetFlagInt(utils.JOBS))
+	connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 }
 
@@ -139,10 +141,10 @@ func BackupConfigurationValidation() {
 		VerifyBackupDirectoriesExistOnAllHosts()
 	}
 
-	VerifyMetadataFilePaths(MustGetFlagBool(utils.WITH_STATS))
+	VerifyMetadataFilePaths(MustGetFlagBool(options.WITH_STATS))
 
 	tocFilename := globalFPInfo.GetTOCFilePath()
-	globalTOC = utils.NewTOC(tocFilename)
+	globalTOC = toc.NewTOC(tocFilename)
 	globalTOC.InitializeMetadataEntryMap()
 
 	// Legacy backups prior to the incremental feature would have no restoreplan yaml element
@@ -155,7 +157,7 @@ func BackupConfigurationValidation() {
 	validateFilterListsInBackupSet()
 }
 
-func SetRestorePlanForLegacyBackup(toc *utils.TOC, backupTimestamp string, backupConfig *history.BackupConfig) {
+func SetRestorePlanForLegacyBackup(toc *toc.TOC, backupTimestamp string, backupConfig *history.BackupConfig) {
 	tableFQNs := make([]string, 0, len(toc.DataEntries))
 	for _, entry := range toc.DataEntries {
 		entryFQN := utils.MakeFQN(entry.Schema, entry.Name)
@@ -168,17 +170,17 @@ func SetRestorePlanForLegacyBackup(toc *utils.TOC, backupTimestamp string, backu
 
 func RecoverMetadataFilesUsingPlugin() {
 	var err error
-	pluginConfig, err = utils.ReadPluginConfig(MustGetFlagString(utils.PLUGIN_CONFIG))
+	pluginConfig, err = utils.ReadPluginConfig(MustGetFlagString(options.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
 	configFilename := path.Base(pluginConfig.ConfigPath)
 	configDirname := path.Dir(pluginConfig.ConfigPath)
 	pluginConfig.ConfigPath = path.Join(configDirname, history.CurrentTimestamp()+"_"+configFilename)
-	_ = cmdFlags.Set(utils.PLUGIN_CONFIG, pluginConfig.ConfigPath)
+	_ = cmdFlags.Set(options.PLUGIN_CONFIG, pluginConfig.ConfigPath)
 	gplog.Info("plugin config path: %s", pluginConfig.ConfigPath)
 
 	pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
 
-	timestamp := MustGetFlagString(utils.TIMESTAMP)
+	timestamp := MustGetFlagString(options.TIMESTAMP)
 	historicalPluginVersion := FindHistoricalPluginVersion(timestamp)
 	pluginConfig.SetBackupPluginVersion(timestamp, historicalPluginVersion)
 
@@ -187,7 +189,7 @@ func RecoverMetadataFilesUsingPlugin() {
 
 	metadataFiles := []string{globalFPInfo.GetConfigFilePath(), globalFPInfo.GetMetadataFilePath(),
 		globalFPInfo.GetBackupReportFilePath()}
-	if MustGetFlagBool(utils.WITH_STATS) {
+	if MustGetFlagBool(options.WITH_STATS) {
 		metadataFiles = append(metadataFiles, globalFPInfo.GetStatisticsFilePath())
 	}
 	for _, filename := range metadataFiles {
@@ -219,9 +221,9 @@ func FindHistoricalPluginVersion(timestamp string) string {
 	// adapted from incremental GetLatestMatchingBackupTimestamp
 	var historicalPluginVersion string
 	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		history, err := history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+		hist, err := history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
 		gplog.FatalOnError(err)
-		foundBackupConfig := history.FindBackupConfig(timestamp)
+		foundBackupConfig := hist.FindBackupConfig(timestamp)
 		if foundBackupConfig != nil {
 			historicalPluginVersion = foundBackupConfig.PluginVersion
 		}
@@ -233,15 +235,15 @@ func FindHistoricalPluginVersion(timestamp string) string {
  * Metadata and/or data restore wrapper functions
  */
 
-func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string) []utils.StatementWithType {
-	var statements []utils.StatementWithType
+func GetRestoreMetadataStatements(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string) []toc.StatementWithType {
+	var statements []toc.StatementWithType
 	statements = GetRestoreMetadataStatementsFiltered(section, filename, includeObjectTypes, excludeObjectTypes, Filters{})
 	return statements
 }
 
-func GetRestoreMetadataStatementsFiltered(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, filters Filters) []utils.StatementWithType {
+func GetRestoreMetadataStatementsFiltered(section string, filename string, includeObjectTypes []string, excludeObjectTypes []string, filters Filters) []toc.StatementWithType {
 	metadataFile := iohelper.MustOpenFileForReading(filename)
-	var statements []utils.StatementWithType
+	var statements []toc.StatementWithType
 	var inSchemas, exSchemas, inRelations, exRelations []string
 	if !filtersEmpty(filters)  {
 		inSchemas = filters.includeSchemas
@@ -251,8 +253,8 @@ func GetRestoreMetadataStatementsFiltered(section string, filename string, inclu
 		fpInfoList := GetBackupFPInfoListFromRestorePlan()
 		for _, fpInfo := range fpInfoList {
 			tocFilename := fpInfo.GetTOCFilePath()
-			toc := utils.NewTOC(tocFilename)
-			inRelations = append(inRelations, utils.GetIncludedPartitionRoots(toc.DataEntries, inRelations)...)
+			tocfile := toc.NewTOC(tocFilename)
+			inRelations = append(inRelations, toc.GetIncludedPartitionRoots(tocfile.DataEntries, inRelations)...)
 		}
 		// Update include schemas for schema restore if include table is set
 		if utils.Exists(includeObjectTypes, "SCHEMA") {
@@ -271,7 +273,7 @@ func GetRestoreMetadataStatementsFiltered(section string, filename string, inclu
 	return statements
 }
 
-func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) {
+func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) {
 	if progressBar == nil {
 		ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, executeInParallel)
 	} else {
@@ -282,9 +284,9 @@ func ExecuteRestoreMetadataStatements(statements []utils.StatementWithType, obje
 func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 	fpInfoList := make([]filepath.FilePathInfo, 0)
 	for _, entry := range backupConfig.RestorePlan {
-		segPrefix := filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp)
+		segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), entry.Timestamp)
 
-		fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), entry.Timestamp, segPrefix)
+		fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), entry.Timestamp, segPrefix)
 		fpInfoList = append(fpInfoList, fpInfo)
 	}
 
@@ -292,8 +294,8 @@ func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 }
 
 func GetBackupFPInfoForTimestamp(timestamp string) filepath.FilePathInfo {
-	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(utils.BACKUP_DIR), timestamp)
-	fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(utils.BACKUP_DIR), timestamp, segPrefix)
+	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), timestamp)
+	fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, segPrefix)
 	return fpInfo
 }
 
@@ -302,7 +304,7 @@ func GetBackupFPInfoForTimestamp(timestamp string) filepath.FilePathInfo {
  * predata file and processes them appropriately, then it returns them so they
  * can be used in later calls without the file access and processing overhead.
  */
-func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int) []utils.StatementWithType {
+func setGUCsForConnection(gucStatements []toc.StatementWithType, whichConn int) []toc.StatementWithType {
 	if gucStatements == nil {
 		objectTypes := []string{"SESSION GUCS"}
 		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{})
@@ -311,7 +313,7 @@ func setGUCsForConnection(gucStatements []utils.StatementWithType, whichConn int
 	return gucStatements
 }
 
-func RestoreSchemas(schemaStatements []utils.StatementWithType, progressBar utils.ProgressBar) {
+func RestoreSchemas(schemaStatements []toc.StatementWithType, progressBar utils.ProgressBar) {
 	numErrors := 0
 	for _, schema := range schemaStatements {
 		_, err := connectionPool.Exec(schema.Statement, 0)
@@ -320,7 +322,7 @@ func RestoreSchemas(schemaStatements []utils.StatementWithType, progressBar util
 				gplog.Warn("Schema %s already exists", schema.Name)
 			} else {
 				errMsg := fmt.Sprintf("Error encountered while creating schema %s", schema.Name)
-				if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+				if MustGetFlagBool(options.ON_ERROR_CONTINUE) {
 					gplog.Verbose(fmt.Sprintf("%s: %s", errMsg, err.Error()))
 					numErrors++
 				} else {
@@ -364,7 +366,7 @@ func GetExistingSchemas()([]string, error){
 	return existingSchemas, err
 }
 
-func TruncateTablesBeforeRestore(entries []utils.MasterDataEntry) error {
+func TruncateTablesBeforeRestore(entries []toc.MasterDataEntry) error {
 	query := `TRUNCATE `
 	tableFQNs := make([]string, 0)
 	for _, entry := range entries {

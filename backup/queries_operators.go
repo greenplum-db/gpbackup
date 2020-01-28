@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -28,9 +29,9 @@ type Operator struct {
 	CanMerge         bool
 }
 
-func (o Operator) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (o Operator) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          o.Schema,
 			Name:            o.Name,
 			ObjectType:      "OPERATOR",
@@ -114,9 +115,9 @@ type OperatorFamily struct {
 	IndexMethod string
 }
 
-func (opf OperatorFamily) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (opf OperatorFamily) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          opf.Schema,
 			Name:            opf.Name,
 			ObjectType:      "OPERATOR FAMILY",
@@ -165,9 +166,9 @@ type OperatorClass struct {
 	Functions    []OperatorClassFunction
 }
 
-func (opc OperatorClass) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (opc OperatorClass) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          opc.Schema,
 			Name:            opc.Name,
 			ObjectType:      "OPERATOR CLASS",

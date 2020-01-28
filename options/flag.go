@@ -1,4 +1,4 @@
-package utils
+package options
 
 /*
  * This file contains functions and structs relating to flag parsing.

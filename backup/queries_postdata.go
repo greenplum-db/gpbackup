@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -51,10 +52,10 @@ type IndexDefinition struct {
 	IsReplicaIdentity  bool
 }
 
-func (i IndexDefinition) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (i IndexDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
 	tableFQN := utils.MakeFQN(i.OwningSchema, i.OwningTable)
 	return "postdata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          i.OwningSchema,
 			Name:            i.Name,
 			ObjectType:      "INDEX",
@@ -153,10 +154,10 @@ type RuleDefinition struct {
 	Def          string
 }
 
-func (r RuleDefinition) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (r RuleDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
 	tableFQN := utils.MakeFQN(r.OwningSchema, r.OwningTable)
 	return "postdata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          r.OwningSchema,
 			Name:            r.Name,
 			ObjectType:      "RULE",
@@ -204,10 +205,10 @@ func GetRules(connectionPool *dbconn.DBConn) []RuleDefinition {
 
 type TriggerDefinition RuleDefinition
 
-func (t TriggerDefinition) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t TriggerDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
 	tableFQN := utils.MakeFQN(t.OwningSchema, t.OwningTable)
 	return "postdata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          t.OwningSchema,
 			Name:            t.Name,
 			ObjectType:      "TRIGGER",
@@ -261,9 +262,9 @@ type EventTrigger struct {
 	EventTags    string
 }
 
-func (et EventTrigger) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (et EventTrigger) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "postdata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            et.Name,
 			ObjectType:      "EVENT TRIGGER",

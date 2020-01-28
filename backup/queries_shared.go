@@ -11,6 +11,8 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -31,9 +33,9 @@ type Schema struct {
 	Name string
 }
 
-func (s Schema) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (s Schema) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          s.Name,
 			Name:            s.Name,
 			ObjectType:      "SCHEMA",
@@ -80,9 +82,9 @@ type Constraint struct {
 	IsPartitionParent  bool
 }
 
-func (c Constraint) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (c Constraint) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "postdata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
 			ObjectType:      "CONSTRAINT",
@@ -177,11 +179,11 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 // A list of schemas we don't want to back up, formatted for use in a WHERE clause
 func SchemaFilterClause(namespace string) string {
 	schemaFilterClauseStr := ""
-	if len(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringArray(utils.INCLUDE_SCHEMA)))
+	if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) > 0 {
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringArray(options.INCLUDE_SCHEMA)))
 	}
-	if len(MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)) > 0 {
-		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringArray(utils.EXCLUDE_SCHEMA)))
+	if len(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)) > 0 {
+		schemaFilterClauseStr = fmt.Sprintf("\nAND %s.nspname NOT IN (%s)", namespace, utils.SliceToQuotedString(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)))
 	}
 	return fmt.Sprintf(`%s.nspname NOT LIKE 'pg_temp_%%' AND %s.nspname NOT LIKE 'pg_toast%%' AND %s.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog') %s`, namespace, namespace, namespace, schemaFilterClauseStr)
 }

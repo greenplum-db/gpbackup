@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -18,7 +20,7 @@ var (
 	mutex = &sync.Mutex{}
 )
 
-func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr *error, numErrors *int32, progressBar utils.ProgressBar, whichConn int, executeInParallel bool) {
+func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *error, numErrors *int32, progressBar utils.ProgressBar, whichConn int, executeInParallel bool) {
 	for statement := range statements {
 		if wasTerminated || *fatalErr != nil {
 			return
@@ -26,7 +28,7 @@ func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr 
 		_, err := connectionPool.Exec(statement.Statement, whichConn)
 		if err != nil {
 			gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
-			if MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+			if MustGetFlagBool(options.ON_ERROR_CONTINUE) {
 				if executeInParallel {
 					atomic.AddInt32(numErrors, 1)
 					mutex.Lock()
@@ -48,11 +50,11 @@ func executeStatementsForConn(statements chan utils.StatementWithType, fatalErr 
  * This function creates a worker pool of N goroutines to be able to execute up
  * to N statements in parallel.
  */
-func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) {
+func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) {
 	var workerPool sync.WaitGroup
 	var fatalErr error
 	var numErrors int32
-	tasks := make(chan utils.StatementWithType, len(statements))
+	tasks := make(chan toc.StatementWithType, len(statements))
 	for _, statement := range statements {
 		tasks <- statement
 	}
@@ -81,7 +83,7 @@ func ExecuteStatements(statements []utils.StatementWithType, progressBar utils.P
 	}
 }
 
-func ExecuteStatementsAndCreateProgressBar(statements []utils.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) {
+func ExecuteStatementsAndCreateProgressBar(statements []toc.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) {
 	progressBar := utils.NewProgressBar(len(statements), fmt.Sprintf("%s restored: ", objectsTitle), showProgressBar)
 	progressBar.Start()
 	ExecuteStatements(statements, progressBar, executeInParallel, whichConn...)
@@ -99,10 +101,10 @@ func ExecuteStatementsAndCreateProgressBar(statements []utils.StatementWithType,
  *   then the second restores all other postdata objects in parallel. After
  *   each table has at least one index, there is no more risk of deadlock.
  */
-func BatchPostdataStatements(statements []utils.StatementWithType) ([]utils.StatementWithType, []utils.StatementWithType) {
+func BatchPostdataStatements(statements []toc.StatementWithType) ([]toc.StatementWithType, []toc.StatementWithType) {
 	indexMap := make(map[string]bool)
-	firstBatch := make([]utils.StatementWithType, 0)
-	secondBatch := make([]utils.StatementWithType, 0)
+	firstBatch := make([]toc.StatementWithType, 0)
+	secondBatch := make([]toc.StatementWithType, 0)
 	for _, statement := range statements {
 		_, tableIndexPresent := indexMap[statement.ReferenceObject]
 		if statement.ObjectType == "INDEX" && !tableIndexPresent {

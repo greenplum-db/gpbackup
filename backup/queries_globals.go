@@ -10,6 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -17,9 +18,9 @@ type SessionGUCs struct {
 	ClientEncoding string `db:"client_encoding"`
 }
 
-func (sg SessionGUCs) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (sg SessionGUCs) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            "",
 			ObjectType:      "SESSION GUCS",
@@ -46,9 +47,9 @@ type Database struct {
 	Encoding   string
 }
 
-func (db Database) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (db Database) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            db.Name,
 			ObjectType:      "DATABASE METADATA",
@@ -136,9 +137,9 @@ type ResourceQueue struct {
 	MemoryLimit      string
 }
 
-func (rq ResourceQueue) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (rq ResourceQueue) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rq.Name,
 			ObjectType:      "RESOURCE QUEUE",
@@ -193,9 +194,9 @@ type ResourceGroup struct {
 	Cpuset            string
 }
 
-func (rg ResourceGroup) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (rg ResourceGroup) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rg.Name,
 			ObjectType:      "RESOURCE GROUP",
@@ -305,9 +306,9 @@ type Role struct {
 	TimeConstraints []TimeConstraint
 }
 
-func (r Role) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (r Role) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            r.Name,
 			ObjectType:      "ROLE",
@@ -395,9 +396,9 @@ type RoleGUC struct {
 	Config   string
 }
 
-func (rg RoleGUC) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (rg RoleGUC) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rg.RoleName,
 			ObjectType:      "ROLE GUCS",
@@ -486,9 +487,9 @@ type RoleMember struct {
 	IsAdmin bool
 }
 
-func (rm RoleMember) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (rm RoleMember) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rm.Member,
 			ObjectType:      "ROLE GRANT",
@@ -524,9 +525,9 @@ type Tablespace struct {
 	Options          string
 }
 
-func (t Tablespace) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t Tablespace) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "global",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            t.Tablespace,
 			ObjectType:      "TABLESPACE",

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -46,7 +47,7 @@ type ExternalTableDefinition struct {
 	URIs            []string
 }
 
-func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table) {
+func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, table Table) {
 	start := metadataFile.ByteCount
 	tableTypeStrMap := map[int]string{
 		READABLE:     "READABLE EXTERNAL",
@@ -304,7 +305,7 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 	}
 }
 
-func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, protocol ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata ObjectMetadata) {
+func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, protocol ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	funcOidList := []uint32{protocol.ReadFunction, protocol.WriteFunction, protocol.Validator}
 	hasUserDefinedFunc := false
@@ -339,7 +340,7 @@ func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount,
 	PrintObjectMetadata(metadataFile, toc, protoMetadata, protocol, "")
 }
 
-func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Table) {
+func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Table) {
 	tableNameMap := make(map[uint32]string, len(tables))
 	for _, table := range tables {
 		tableNameMap[table.Oid] = table.FQN()

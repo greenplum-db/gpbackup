@@ -5,6 +5,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgx"
@@ -18,7 +19,7 @@ var _ = Describe("restore/data tests", func() {
 		BeforeEach(func() {
 			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "cat", OutputCommand: "cat -", InputCommand: "cat -", Extension: ""})
 			backup.SetPluginConfig(nil)
-			cmdFlags.Set(utils.PLUGIN_CONFIG, "")
+			_ = cmdFlags.Set(options.PLUGIN_CONFIG, "")
 		})
 		It("will restore a table from its own file with compression", func() {
 			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "gzip", OutputCommand: "gzip -c -1", InputCommand: "gzip -d -c", Extension: ".gz"})
@@ -47,7 +48,7 @@ var _ = Describe("restore/data tests", func() {
 		})
 		It("will restore a table from its own file with compression using a plugin", func() {
 			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "gzip", OutputCommand: "gzip -c -1", InputCommand: "gzip -d -c", Extension: ".gz"})
-			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
+			_ = cmdFlags.Set(options.PLUGIN_CONFIG, "/tmp/plugin_config")
 			pluginConfig := utils.PluginConfig{ExecutablePath: "/tmp/fake-plugin.sh", ConfigPath: "/tmp/plugin_config"}
 			restore.SetPluginConfig(&pluginConfig)
 			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM '/tmp/fake-plugin.sh restore_data /tmp/plugin_config <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz | gzip -d -c' WITH CSV DELIMITER ',' ON SEGMENT;")
@@ -59,7 +60,7 @@ var _ = Describe("restore/data tests", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 		It("will restore a table from its own file without compression using a plugin", func() {
-			cmdFlags.Set(utils.PLUGIN_CONFIG, "/tmp/plugin_config")
+			_ = cmdFlags.Set(options.PLUGIN_CONFIG, "/tmp/plugin_config")
 			pluginConfig := utils.PluginConfig{ExecutablePath: "/tmp/fake-plugin.sh", ConfigPath: "/tmp/plugin_config"}
 			restore.SetPluginConfig(&pluginConfig)
 			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM '/tmp/fake-plugin.sh restore_data /tmp/plugin_config <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz | cat -' WITH CSV DELIMITER ',' ON SEGMENT;")
@@ -82,6 +83,7 @@ var _ = Describe("restore/data tests", func() {
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
 			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("Error loading data into table public.foo: " +
 				"COPY foo, line 1: \"5\": " +
 				"ERROR: value of distribution key doesn't belong to segment with ID 0, it belongs to segment with ID 1 (SQLSTATE 22P04)"))
@@ -98,6 +100,7 @@ var _ = Describe("restore/data tests", func() {
 		})
 		It("returns an error if the numbers of rows do not match", func() {
 			err := restore.CheckRowsRestored(5, expectedRows, name)
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("Expected to restore 10 rows to table public.foo, but restored 5 instead"))
 		})
 	})

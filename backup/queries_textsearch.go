@@ -13,6 +13,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -27,9 +28,9 @@ type TextSearchParser struct {
 	HeadlineFunc string
 }
 
-func (tsp TextSearchParser) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (tsp TextSearchParser) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          tsp.Schema,
 			Name:            tsp.Name,
 			ObjectType:      "TEXT SEARCH PARSER",
@@ -80,9 +81,9 @@ type TextSearchTemplate struct {
 	LexizeFunc string
 }
 
-func (tst TextSearchTemplate) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (tst TextSearchTemplate) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          tst.Schema,
 			Name:            tst.Name,
 			ObjectType:      "TEXT SEARCH TEMPLATE",
@@ -131,9 +132,9 @@ type TextSearchDictionary struct {
 	InitOption string
 }
 
-func (tsd TextSearchDictionary) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (tsd TextSearchDictionary) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          tsd.Schema,
 			Name:            tsd.Name,
 			ObjectType:      "TEXT SEARCH DICTIONARY",
@@ -181,9 +182,9 @@ type TextSearchConfiguration struct {
 	TokenToDicts map[string][]string
 }
 
-func (tsc TextSearchConfiguration) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (tsc TextSearchConfiguration) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          tsc.Schema,
 			Name:            tsc.Name,
 			ObjectType:      "TEXT SEARCH CONFIGURATION",

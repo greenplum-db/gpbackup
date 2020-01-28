@@ -1,4 +1,4 @@
-package utils
+package toc
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/utils"
 	"gopkg.in/yaml.v2"
 )
 
@@ -77,7 +78,7 @@ func NewSegmentTOC(filename string) *SegmentTOC {
 func (toc *TOC) WriteToFileAndMakeReadOnly(filename string) {
 	contents, err := yaml.Marshal(toc)
 	gplog.FatalOnError(err)
-	err = WriteToFileAndMakeReadOnly(filename, contents)
+	err = utils.WriteToFileAndMakeReadOnly(filename, contents)
 	gplog.FatalOnError(err)
 }
 
@@ -86,7 +87,7 @@ func (toc *SegmentTOC) WriteToFileAndMakeReadOnly(filename string) error {
 	if err != nil {
 		return err
 	}
-	return WriteToFileAndMakeReadOnly(filename, contents)
+	return utils.WriteToFileAndMakeReadOnly(filename, contents)
 }
 
 type StatementWithType struct {
@@ -106,7 +107,7 @@ func GetIncludedPartitionRoots(tocDataEntries []MasterDataEntry, includeRelation
 	FQNToPartitionRoot := make(map[string]string)
 	for _, entry := range tocDataEntries {
 		if entry.PartitionRoot != "" {
-			FQNToPartitionRoot[MakeFQN(entry.Schema, entry.Name)] = MakeFQN(entry.Schema, entry.PartitionRoot)
+			FQNToPartitionRoot[utils.MakeFQN(entry.Schema, entry.Name)] = utils.MakeFQN(entry.Schema, entry.PartitionRoot)
 		}
 	}
 
@@ -135,30 +136,30 @@ func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.Re
 	return statements
 }
 
-func constructFilterSets(includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, excludeSchemas []string, includeRelations []string, excludeRelations []string) (*FilterSet, *FilterSet, *FilterSet) {
-	var objectSet, schemaSet, relationSet *FilterSet
+func constructFilterSets(includeObjectTypes []string, excludeObjectTypes []string, includeSchemas []string, excludeSchemas []string, includeRelations []string, excludeRelations []string) (*utils.FilterSet, *utils.FilterSet, *utils.FilterSet) {
+	var objectSet, schemaSet, relationSet *utils.FilterSet
 	if len(includeObjectTypes) > 0 {
-		objectSet = NewIncludeSet(includeObjectTypes)
+		objectSet = utils.NewIncludeSet(includeObjectTypes)
 	} else {
-		objectSet = NewExcludeSet(excludeObjectTypes)
+		objectSet = utils.NewExcludeSet(excludeObjectTypes)
 	}
 	if len(includeSchemas) > 0 {
-		schemaSet = NewIncludeSet(includeSchemas)
+		schemaSet = utils.NewIncludeSet(includeSchemas)
 	} else {
-		schemaSet = NewExcludeSet(excludeSchemas)
+		schemaSet = utils.NewExcludeSet(excludeSchemas)
 	}
 	if len(includeRelations) > 0 {
-		relationSet = NewIncludeSet(includeRelations)
+		relationSet = utils.NewIncludeSet(includeRelations)
 	} else {
-		relationSet = NewExcludeSet(excludeRelations)
+		relationSet = utils.NewExcludeSet(excludeRelations)
 	}
 	return objectSet, schemaSet, relationSet
 }
 
-func shouldIncludeStatement(entry MetadataEntry, objectSet *FilterSet, schemaSet *FilterSet, relationSet *FilterSet) bool {
+func shouldIncludeStatement(entry MetadataEntry, objectSet *utils.FilterSet, schemaSet *utils.FilterSet, relationSet *utils.FilterSet) bool {
 	shouldIncludeObject := objectSet.MatchesFilter(entry.ObjectType)
 	shouldIncludeSchema := schemaSet.MatchesFilter(entry.Schema)
-	relationFQN := MakeFQN(entry.Schema, entry.Name)
+	relationFQN := utils.MakeFQN(entry.Schema, entry.Name)
 	shouldIncludeRelation := (relationSet.IsExclude && entry.ObjectType != "TABLE" && entry.ObjectType != "VIEW" && entry.ObjectType != "MATERIALIZED VIEW" && entry.ObjectType != "SEQUENCE" && entry.ReferenceObject == "") ||
 		((entry.ObjectType == "TABLE" || entry.ObjectType == "VIEW" || entry.ObjectType == "MATERIALIZED VIEW" || entry.ObjectType == "SEQUENCE") && relationSet.MatchesFilter(relationFQN) && entry.ReferenceObject == "") || // Relations should match the filter
 		(entry.ObjectType != "SEQUENCE OWNER" && entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) || // Include relations that filtered tables depend on
@@ -168,16 +169,16 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *FilterSet, schemaSet
 }
 
 func getLeafPartitions(tableFQNs []string, tocDataEntries []MasterDataEntry) (leafPartitions []string) {
-	tableSet := NewSet(tableFQNs)
+	tableSet := utils.NewSet(tableFQNs)
 
 	for _, entry := range tocDataEntries {
 		if entry.PartitionRoot == "" {
 			continue
 		}
 
-		parentFQN := MakeFQN(entry.Schema, entry.PartitionRoot)
+		parentFQN := utils.MakeFQN(entry.Schema, entry.PartitionRoot)
 		if tableSet.MatchesFilter(parentFQN) {
-			leafPartitions = append(leafPartitions, MakeFQN(entry.Schema, entry.Name))
+			leafPartitions = append(leafPartitions, utils.MakeFQN(entry.Schema, entry.Name))
 		}
 	}
 
@@ -187,27 +188,27 @@ func getLeafPartitions(tableFQNs []string, tocDataEntries []MasterDataEntry) (le
 func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas []string,
 	includeTableFQNs []string, excludeTableFQNs []string, restorePlanTableFQNs []string) []MasterDataEntry {
 
-	schemaSet := NewIncludeSet([]string{})
+	schemaSet := utils.NewIncludeSet([]string{})
 	if len(includeSchemas) > 0 {
-		schemaSet = NewIncludeSet(includeSchemas)
+		schemaSet = utils.NewIncludeSet(includeSchemas)
 	} else if len(excludeSchemas) > 0 {
-		schemaSet = NewExcludeSet(excludeSchemas)
+		schemaSet = utils.NewExcludeSet(excludeSchemas)
 	}
 
-	tableSet := NewIncludeSet([]string{})
+	tableSet := utils.NewIncludeSet([]string{})
 	if len(includeTableFQNs) > 0 {
 		includeTableFQNs = append(includeTableFQNs, getLeafPartitions(includeTableFQNs, toc.DataEntries)...)
-		tableSet = NewIncludeSet(includeTableFQNs)
+		tableSet = utils.NewIncludeSet(includeTableFQNs)
 	} else if len(excludeTableFQNs) > 0 {
 		excludeTableFQNs = append(excludeTableFQNs, getLeafPartitions(excludeTableFQNs, toc.DataEntries)...)
-		tableSet = NewExcludeSet(excludeTableFQNs)
+		tableSet = utils.NewExcludeSet(excludeTableFQNs)
 	}
 
-	restorePlanTableSet := NewSet(restorePlanTableFQNs)
+	restorePlanTableSet := utils.NewSet(restorePlanTableFQNs)
 
 	matchingEntries := make([]MasterDataEntry, 0)
 	for _, entry := range toc.DataEntries {
-		tableFQN := MakeFQN(entry.Schema, entry.Name)
+		tableFQN := utils.MakeFQN(entry.Schema, entry.Name)
 
 		validSchema := schemaSet.MatchesFilter(entry.Schema)
 		validRestorePlan := restorePlanTableSet.MatchesFilter(tableFQN)

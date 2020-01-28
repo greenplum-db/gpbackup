@@ -9,17 +9,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/lib/pq"
 )
 
-func PrintStatisticsStatements(statisticsFile *utils.FileWithByteCount, toc *utils.TOC, tables []Table, attStats map[uint32][]AttributeStatistic, tupleStats map[uint32]TupleStatistic) {
+func PrintStatisticsStatements(statisticsFile *utils.FileWithByteCount, tocfile *toc.TOC, tables []Table, attStats map[uint32][]AttributeStatistic, tupleStats map[uint32]TupleStatistic) {
 	for _, table := range tables {
-		PrintStatisticsStatementsForTable(statisticsFile, toc, table, attStats[table.Oid], tupleStats[table.Oid])
+		PrintStatisticsStatementsForTable(statisticsFile, tocfile, table, attStats[table.Oid], tupleStats[table.Oid])
 	}
 }
 
-func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, toc *utils.TOC, table Table, attStats []AttributeStatistic, tupleStat TupleStatistic) {
+func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, tocfile *toc.TOC, table Table, attStats []AttributeStatistic, tupleStat TupleStatistic) {
 	start := statisticsFile.ByteCount
 	tupleQuery := GenerateTupleStatisticsQuery(table, tupleStat)
 	statisticsFile.MustPrintf("\n\n%s\n", tupleQuery)
@@ -27,8 +28,8 @@ func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, 
 		attributeQuery := GenerateAttributeStatisticsQuery(table, attStat)
 		statisticsFile.MustPrintf("\n\n%s\n", attributeQuery)
 	}
-	entry := utils.MetadataEntry{Schema: table.Schema, Name: table.Name, ObjectType: "STATISTICS"}
-	toc.AddMetadataEntry("statistics", entry, start, statisticsFile.ByteCount)
+	entry := toc.MetadataEntry{Schema: table.Schema, Name: table.Name, ObjectType: "STATISTICS"}
+	tocfile.AddMetadataEntry("statistics", entry, start, statisticsFile.ByteCount)
 }
 
 func GenerateTupleStatisticsQuery(table Table, tupleStat TupleStatistic) string {

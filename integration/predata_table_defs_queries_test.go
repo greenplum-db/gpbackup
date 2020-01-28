@@ -7,8 +7,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -354,7 +354,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table2")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.part_table")
 
 			results, _ := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -391,7 +391,7 @@ PARTITION BY LIST (gender)
 			`)
 			oid := testutils.OidFromObjectName(connectionPool, "testschema", "part_table", backup.TYPE_RELATION)
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			results, _ := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -493,7 +493,7 @@ SET SUBPARTITION TEMPLATE
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table2")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.part_table")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.part_table")
 
 			_, results := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -558,7 +558,7 @@ SET SUBPARTITION TEMPLATE
     EVERY (INTERVAL '1 month') ) `)
 			oid := testutils.OidFromObjectName(connectionPool, "testschema", "part_table", backup.TYPE_RELATION)
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			_, results := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -779,7 +779,7 @@ SET SUBPARTITION TEMPLATE
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.parent(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent")
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.parent")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.parent")
 			tables := make([]backup.Relation, 0)
 
 			inheritanceMap := backup.GetTableInheritance(connectionPool, tables)
@@ -794,7 +794,7 @@ SET SUBPARTITION TEMPLATE
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.child_two() INHERITS (public.parent)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.child_two")
 
-			_ = backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.child_one")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.child_one")
 			childOne.Oid = testutils.OidFromObjectName(connectionPool, "public", "child_one", backup.TYPE_RELATION)
 			tables := []backup.Relation{childOne}
 

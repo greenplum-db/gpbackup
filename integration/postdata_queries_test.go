@@ -4,8 +4,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -136,7 +136,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.simple_table")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx1 ON testschema.simple_table(i)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX testschema.simple_table_idx1")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "testschema", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx1 ON testschema.simple_table USING btree (i)"}
 
@@ -158,7 +158,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.simple_table")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx1 ON testschema.simple_table(i)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX testschema.simple_table_idx1")
-			backupCmdFlags.Set(utils.INCLUDE_RELATION, "testschema.simple_table")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.simple_table")
 
 			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "testschema", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx1 ON testschema.simple_table USING btree (i)"}
 
@@ -236,7 +236,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.rule_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE RULE double_insert AS ON INSERT TO testschema.rule_table1 DO INSERT INTO testschema.rule_table1 (i) VALUES (1)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "public")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "public")
 
 			results := backup.GetRules(connectionPool)
 
@@ -254,7 +254,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.rule_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE RULE double_insert AS ON INSERT TO testschema.rule_table1 DO INSERT INTO testschema.rule_table1 (i) VALUES (1)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
-			backupCmdFlags.Set(utils.INCLUDE_RELATION, "public.rule_table1")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.rule_table1")
 
 			results := backup.GetRules(connectionPool)
 
@@ -309,7 +309,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
 
@@ -329,7 +329,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
-			backupCmdFlags.Set(utils.INCLUDE_RELATION, "testschema.trigger_table1")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.trigger_table1")
 
 			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
 

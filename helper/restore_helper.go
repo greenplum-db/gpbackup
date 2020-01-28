@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -18,7 +19,7 @@ import (
  */
 
 func doRestoreAgent() error {
-	tocEntries := utils.NewSegmentTOC(*tocFile).DataEntries
+	tocEntries := toc.NewSegmentTOC(*tocFile).DataEntries
 	var lastByte uint64
 	var bytesRead int64
 	var start uint64

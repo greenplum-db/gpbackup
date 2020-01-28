@@ -6,22 +6,18 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/onsi/gomega/gbytes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
 
 var (
 	connectionPool *dbconn.DBConn
 	mock           sqlmock.Sqlmock
-	stdout         *gbytes.Buffer
-	stderr         *gbytes.Buffer
-	logfile        *gbytes.Buffer
-	buffer         *gbytes.Buffer
-	toc            *utils.TOC
-	backupfile     *utils.FileWithByteCount
+	stdout         *Buffer
+	logfile        *Buffer
+	buffer         *Buffer
 )
 
 func TestUtils(t *testing.T) {
@@ -30,6 +26,6 @@ func TestUtils(t *testing.T) {
 }
 
 var _ = BeforeEach(func() {
-	connectionPool, mock, stdout, stderr, logfile = testhelper.SetupTestEnvironment()
-	buffer = gbytes.NewBuffer()
+	connectionPool, mock, stdout, _, logfile = testhelper.SetupTestEnvironment()
+	buffer = NewBuffer()
 })

@@ -10,7 +10,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/toc"
 )
 
 func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]ExternalTableDefinition {
@@ -80,9 +80,9 @@ type ExternalProtocol struct {
 	Validator     uint32 `db:"ptcvalidatorfn"`
 }
 
-func (p ExternalProtocol) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (p ExternalProtocol) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            p.Name,
 			ObjectType:      "PROTOCOL",
@@ -128,9 +128,9 @@ type PartitionInfo struct {
 	IsExternal             bool
 }
 
-func (pi PartitionInfo) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (pi PartitionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          pi.ParentSchema,
 			Name:            pi.ParentRelationName,
 			ObjectType:      "EXCHANGE PARTITION",

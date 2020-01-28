@@ -7,15 +7,15 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/onsi/gomega/gbytes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("backup integration create statement tests", func() {
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateDatabaseStatement", func() {
 		emptyDB := backup.Database{}
@@ -28,7 +28,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic database", func() {
 			db := backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8"}
-			backup.PrintCreateDatabaseStatement(backupfile, toc, emptyDB, db, emptyMetadataMap)
+			backup.PrintCreateDatabaseStatement(backupfile, tocfile, emptyDB, db, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP DATABASE create_test_db")
@@ -41,7 +41,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			var db backup.Database
 			db = backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8", Collate: defaultDB.Collate, CType: defaultDB.Collate}
 
-			backup.PrintCreateDatabaseStatement(backupfile, toc, defaultDB, db, emptyMetadataMap)
+			backup.PrintCreateDatabaseStatement(backupfile, tocfile, defaultDB, db, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP DATABASE create_test_db")
@@ -57,7 +57,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				db = backup.Database{Oid: 1, Name: "create_test_db", Tablespace: "pg_default", Encoding: "UTF8", Collate: "en_US.utf-8", CType: "en_US.utf-8"}
 			}
 
-			backup.PrintCreateDatabaseStatement(backupfile, toc, emptyDB, db, emptyMetadataMap)
+			backup.PrintCreateDatabaseStatement(backupfile, tocfile, emptyDB, db, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP DATABASE create_test_db")
@@ -73,7 +73,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates database GUCs with correct quoting", func() {
 			gucs := []string{defaultOidGUC, searchPathGUC, defaultStorageGUC}
 
-			backup.PrintDatabaseGUCs(backupfile, toc, gucs, "testdb")
+			backup.PrintDatabaseGUCs(backupfile, tocfile, gucs, "testdb")
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET default_with_oids")
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET search_path")
@@ -88,7 +88,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			resQueueMetadataMap := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true, false)
 			resQueueMetadata := resQueueMetadataMap[basicQueue.GetUniqueID()]
 
-			backup.PrintCreateResourceQueueStatements(backupfile, toc, []backup.ResourceQueue{basicQueue}, resQueueMetadataMap)
+			backup.PrintCreateResourceQueueStatements(backupfile, tocfile, []backup.ResourceQueue{basicQueue}, resQueueMetadataMap)
 
 			// CREATE RESOURCE QUEUE statements can not be part of a multi-command statement, so
 			// feed the CREATE RESOURCE QUEUE and COMMENT ON statements separately.
@@ -114,7 +114,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			everythingQueue := backup.ResourceQueue{Oid: 1, Name: `"everythingQueue"`, ActiveStatements: 7, MaxCost: "32.80", CostOvercommit: true, MinCost: "22.80", Priority: "low", MemoryLimit: "2GB"}
 			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
-			backup.PrintCreateResourceQueueStatements(backupfile, toc, []backup.ResourceQueue{everythingQueue}, emptyMetadataMap)
+			backup.PrintCreateResourceQueueStatements(backupfile, tocfile, []backup.ResourceQueue{everythingQueue}, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE QUEUE "everythingQueue"`)
@@ -138,7 +138,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
 			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
-			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{someGroup}, emptyMetadataMap)
+			backup.PrintCreateResourceGroupStatements(backupfile, tocfile, []backup.ResourceGroup{someGroup}, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP some_group`)
@@ -193,7 +193,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			defaultGroup := backup.ResourceGroup{Oid: 1, Name: "default_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
 			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
-			backup.PrintCreateResourceGroupStatements(backupfile, toc, []backup.ResourceGroup{defaultGroup}, emptyMetadataMap)
+			backup.PrintCreateResourceGroupStatements(backupfile, tocfile, []backup.ResourceGroup{defaultGroup}, emptyMetadataMap)
 
 			hunks := regexp.MustCompile(";\n\n").Split(buffer.String(), 5)
 			for i := 0; i < 5; i++ {
@@ -240,7 +240,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				role1.ResGroup = ""
 			}
 
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{role1}, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
@@ -299,7 +299,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			metadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, includeSecurityLabels)
 
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, metadataMap)
+			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{role1}, metadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
@@ -318,7 +318,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
 			role1.Replication = true
-			backup.PrintCreateRoleStatements(backupfile, toc, []backup.Role{role1}, emptyMetadataMap)
+			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{role1}, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP ROLE "role1"`)
@@ -346,7 +346,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("grants a role without ADMIN OPTION", func() {
 			numRoleMembers := len(backup.GetRoleMembers(connectionPool))
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: false}
-			backup.PrintRoleMembershipStatements(backupfile, toc, []backup.RoleMember{expectedRoleMember})
+			backup.PrintRoleMembershipStatements(backupfile, tocfile, []backup.RoleMember{expectedRoleMember})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -363,7 +363,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("grants a role WITH ADMIN OPTION", func() {
 			numRoleMembers := len(backup.GetRoleMembers(connectionPool))
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: true}
-			backup.PrintRoleMembershipStatements(backupfile, toc, []backup.RoleMember{expectedRoleMember})
+			backup.PrintRoleMembershipStatements(backupfile, tocfile, []backup.RoleMember{expectedRoleMember})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -392,7 +392,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					{RoleName: "testuser", Config: "SET search_path TO public"}},
 			}
 
-			backup.PrintRoleGUCStatements(backupfile, toc, roleConfigMap)
+			backup.PrintRoleGUCStatements(backupfile, tocfile, roleConfigMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -408,7 +408,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					{RoleName: "testuser", DbName: "testdb", Config: "SET search_path TO public"}},
 			}
 
-			backup.PrintRoleGUCStatements(backupfile, toc, roleConfigMap)
+			backup.PrintRoleGUCStatements(backupfile, tocfile, roleConfigMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -428,7 +428,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic tablespace", func() {
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
 			emptyMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
+			backup.PrintCreateTablespaceStatements(backupfile, tocfile, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
@@ -453,10 +453,10 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
 			emptyMetadataMap := backup.MetadataMap{}
-			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
+			backup.PrintCreateTablespaceStatements(backupfile, tocfile, []backup.Tablespace{expectedTablespace}, emptyMetadataMap)
 
-			gbuffer := gbytes.BufferWithBytes([]byte(buffer.String()))
-			entries, _ := testutils.SliceBufferByEntries(toc.GlobalEntries, gbuffer)
+			gbuffer := BufferWithBytes([]byte(buffer.String()))
+			entries, _ := testutils.SliceBufferByEntries(tocfile.GlobalEntries, gbuffer)
 			create, setOptions := entries[0], entries[1]
 			testhelper.AssertQueryRuns(connectionPool, create)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
@@ -476,15 +476,15 @@ var _ = Describe("backup integration create statement tests", func() {
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
 			tablespaceMetadataMap := testutils.DefaultMetadataMap("TABLESPACE", true, true, true, includeSecurityLabels)
 			tablespaceMetadata := tablespaceMetadataMap[expectedTablespace.GetUniqueID()]
-			backup.PrintCreateTablespaceStatements(backupfile, toc, []backup.Tablespace{expectedTablespace}, tablespaceMetadataMap)
+			backup.PrintCreateTablespaceStatements(backupfile, tocfile, []backup.Tablespace{expectedTablespace}, tablespaceMetadataMap)
 
 			if connectionPool.Version.AtLeast("6") {
 				/*
 				 * In GPDB 6 and later, a CREATE TABLESPACE statement can't be run in a multi-command string
 				 * with other statements, so we execute it separately from the metadata statements.
 				 */
-				gbuffer := gbytes.BufferWithBytes([]byte(buffer.String()))
-				entries, _ := testutils.SliceBufferByEntries(toc.GlobalEntries, gbuffer)
+				gbuffer := BufferWithBytes([]byte(buffer.String()))
+				entries, _ := testutils.SliceBufferByEntries(tocfile.GlobalEntries, gbuffer)
 				for _, entry := range entries {
 					testhelper.AssertQueryRuns(connectionPool, entry)
 				}

@@ -13,10 +13,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateTextSearchParserStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, parser TextSearchParser, parserMetadata ObjectMetadata) {
+func PrintCreateTextSearchParserStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, parser TextSearchParser, parserMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH PARSER %s (", parser.FQN())
 	metadataFile.MustPrintf("\n\tSTART = %s,", parser.StartFunc)
@@ -33,7 +34,7 @@ func PrintCreateTextSearchParserStatement(metadataFile *utils.FileWithByteCount,
 	PrintObjectMetadata(metadataFile, toc, parserMetadata, parser, "")
 }
 
-func PrintCreateTextSearchTemplateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, template TextSearchTemplate, templateMetadata ObjectMetadata) {
+func PrintCreateTextSearchTemplateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, template TextSearchTemplate, templateMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH TEMPLATE %s (", template.FQN())
 	if template.InitFunc != "" {
@@ -47,7 +48,7 @@ func PrintCreateTextSearchTemplateStatement(metadataFile *utils.FileWithByteCoun
 	PrintObjectMetadata(metadataFile, toc, templateMetadata, template, "")
 }
 
-func PrintCreateTextSearchDictionaryStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, dictionary TextSearchDictionary, dictionaryMetadata ObjectMetadata) {
+func PrintCreateTextSearchDictionaryStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, dictionary TextSearchDictionary, dictionaryMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH DICTIONARY %s (", dictionary.FQN())
 	metadataFile.MustPrintf("\n\tTEMPLATE = %s", dictionary.Template)
@@ -61,7 +62,7 @@ func PrintCreateTextSearchDictionaryStatement(metadataFile *utils.FileWithByteCo
 	PrintObjectMetadata(metadataFile, toc, dictionaryMetadata, dictionary, "")
 }
 
-func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, configuration TextSearchConfiguration, configurationMetadata ObjectMetadata) {
+func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, configuration TextSearchConfiguration, configurationMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH CONFIGURATION %s (", configuration.FQN())
 	metadataFile.MustPrintf("\n\tPARSER = %s", configuration.Parser)

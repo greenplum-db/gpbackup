@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -26,7 +28,7 @@ import (
 func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, []Table) {
 	metadataTables := make([]Table, 0)
 	dataTables := make([]Table, 0)
-	if MustGetFlagBool(utils.LEAF_PARTITION_DATA) || len(includeList) > 0 {
+	if MustGetFlagBool(options.LEAF_PARTITION_DATA) || len(includeList) > 0 {
 		includeSet := utils.NewSet(includeList)
 		for _, table := range tables {
 			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
@@ -37,7 +39,7 @@ func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, 
 			if partType != "l" && partType != "i" {
 				metadataTables = append(metadataTables, table)
 			}
-			if MustGetFlagBool(utils.LEAF_PARTITION_DATA) {
+			if MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 				if partType != "p" && partType != "i" {
 					dataTables = append(dataTables, table)
 				}
@@ -80,7 +82,7 @@ func AppendExtPartSuffix(name string) string {
  * the search_path; this will aid in later filtering to include or exclude certain tables during the
  * backup process, and allows customers to copy just the CREATE TABLE block in order to use it directly.
  */
-func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table, tableMetadata ObjectMetadata) {
+func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, table Table, tableMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	// We use an empty TOC below to keep count of the bytes for testing purposes.
 	if table.IsExternal && table.PartitionLevelInfo.Level != "p" {
@@ -93,7 +95,7 @@ func PrintCreateTableStatement(metadataFile *utils.FileWithByteCount, toc *utils
 	PrintPostCreateTableStatements(metadataFile, toc, table, tableMetadata)
 }
 
-func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table) {
+func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, table Table) {
 	start := metadataFile.ByteCount
 
 	typeStr := ""
@@ -190,7 +192,7 @@ func printAlterColumnStatements(metadataFile *utils.FileWithByteCount, table Tab
  * This function prints additional statements that come after the CREATE TABLE
  * statement for both regular and external tables.
  */
-func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, table Table, tableMetadata ObjectMetadata) {
+func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, table Table, tableMetadata ObjectMetadata) {
 	PrintObjectMetadata(metadataFile, toc, tableMetadata, table, "")
 	statements := make([]string, 0)
 	for _, att := range table.ColumnDefs {
@@ -229,7 +231,7 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
  * This function is largely derived from the dumpSequence() function in pg_dump.c.  The values of
  * minVal and maxVal come from SEQ_MINVALUE and SEQ_MAXVALUE, defined in include/commands/sequence.h.
  */
-func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
+func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
 	maxVal := int64(math.MaxInt64)
 	minVal := int64(math.MinInt64)
 	for _, sequence := range sequences {
@@ -266,7 +268,7 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *u
 	}
 }
 
-func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, sequences []Sequence, sequenceColumnOwners map[string]string) {
+func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, sequences []Sequence, sequenceColumnOwners map[string]string) {
 	gplog.Verbose("Writing ALTER SEQUENCE statements to metadata file")
 	for _, sequence := range sequences {
 		seqFQN := sequence.FQN()
@@ -275,14 +277,14 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, toc *ut
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
 			//TODO: see if the SEQUENCE OWNER type is being utilized in restore or if it could be SEQUENCE. I think we should be using it for filtering, but aren't
-			entry := utils.MetadataEntry{Schema: sequence.Relation.Schema, Name: sequence.Relation.Name, ObjectType: "SEQUENCE OWNER", ReferenceObject: sequence.OwningTable}
-			toc.AddMetadataEntry("predata", entry, start, metadataFile.ByteCount)
+			entry := toc.MetadataEntry{Schema: sequence.Relation.Schema, Name: sequence.Relation.Name, ObjectType: "SEQUENCE OWNER", ReferenceObject: sequence.OwningTable}
+			tocfile.AddMetadataEntry("predata", entry, start, metadataFile.ByteCount)
 		}
 	}
 }
 
 // A view's column names are automatically factored into it's definition.
-func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, view View, viewMetadata ObjectMetadata) {
+func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, view View, viewMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	// Option's keyword WITH is expected to be prepended to its options in the SQL statement
 	metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition)
@@ -293,7 +295,7 @@ func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.
 }
 
 // A materialized view's column names are automatically factored into it's definition.
-func PrintCreateMaterializedViewStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, mview MaterializedView, mviewMetadata ObjectMetadata) {
+func PrintCreateMaterializedViewStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, mview MaterializedView, mviewMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	var tablespaceClause string
 	if mview.Tablespace != "" {

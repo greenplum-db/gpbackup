@@ -12,6 +12,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -38,10 +39,10 @@ type Function struct {
 	ExecLocation      string `db:"proexeclocation"`
 }
 
-func (f Function) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (f Function) GetMetadataEntry() (string, toc.MetadataEntry) {
 	nameWithArgs := fmt.Sprintf("%s(%s)", f.Name, f.IdentArgs)
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          f.Schema,
 			Name:            nameWithArgs,
 			ObjectType:      "FUNCTION",
@@ -345,14 +346,14 @@ type Aggregate struct {
 	MInitValIsNull             bool
 }
 
-func (a Aggregate) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (a Aggregate) GetMetadataEntry() (string, toc.MetadataEntry) {
 	identArgumentsStr := "*"
 	if a.IdentArgs != "" {
 		identArgumentsStr = a.IdentArgs
 	}
 	aggWithArgs := fmt.Sprintf("%s(%s)", a.Name, identArgumentsStr)
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          a.Schema,
 			Name:            aggWithArgs,
 			ObjectType:      "AGGREGATE",
@@ -550,14 +551,14 @@ type Cast struct {
 	CastMethod     string
 }
 
-func (c Cast) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (c Cast) GetMetadataEntry() (string, toc.MetadataEntry) {
 	castStr := fmt.Sprintf("(%s AS %s)", c.SourceTypeFQN, c.TargetTypeFQN)
 	filterSchema := "pg_catalog"
 	if c.CastMethod == "f" {
 		filterSchema = c.FunctionSchema // Use the function's schema to allow restore filtering
 	}
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          filterSchema,
 			Name:            castStr,
 			ObjectType:      "CAST",
@@ -634,9 +635,9 @@ type Extension struct {
 	Schema string
 }
 
-func (e Extension) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (e Extension) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            e.Name,
 			ObjectType:      "EXTENSION",
@@ -679,9 +680,9 @@ type ProceduralLanguage struct {
 	Validator uint32 `db:"lanvalidator"`
 }
 
-func (pl ProceduralLanguage) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (pl ProceduralLanguage) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            pl.Name,
 			ObjectType:      "LANGUAGE",
@@ -747,9 +748,9 @@ type Conversion struct {
 	IsDefault          bool `db:"condefault"`
 }
 
-func (c Conversion) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (c Conversion) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
 			ObjectType:      "CONVERSION",
@@ -798,9 +799,9 @@ type ForeignDataWrapper struct {
 	Options   string
 }
 
-func (fdw ForeignDataWrapper) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (fdw ForeignDataWrapper) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            fdw.Name,
 			ObjectType:      "FOREIGN DATA WRAPPER",
@@ -845,9 +846,9 @@ type ForeignServer struct {
 	Options            string
 }
 
-func (fs ForeignServer) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (fs ForeignServer) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            fs.Name,
 			ObjectType:      "FOREIGN SERVER",
@@ -892,9 +893,9 @@ type UserMapping struct {
 	Options string
 }
 
-func (um UserMapping) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (um UserMapping) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          "",
 			Name:            um.FQN(),
 			ObjectType:      "USER MAPPING",

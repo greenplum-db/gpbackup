@@ -9,10 +9,11 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, funcDef Function, funcMetadata ObjectMetadata) {
+func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	funcFQN := utils.MakeFQN(funcDef.Schema, funcDef.Name)
 	metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS ", funcFQN, funcDef.Arguments)
@@ -94,7 +95,7 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	}
 }
 
-func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, aggDef Aggregate, funcInfoMap map[uint32]FunctionInfo, aggMetadata ObjectMetadata) {
+func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, aggDef Aggregate, funcInfoMap map[uint32]FunctionInfo, aggMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	orderedStr := ""
 	if aggDef.IsOrdered {
@@ -167,7 +168,7 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *u
 	PrintObjectMetadata(metadataFile, toc, aggMetadata, aggDef, "")
 }
 
-func PrintCreateCastStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, castDef Cast, castMetadata ObjectMetadata) {
+func PrintCreateCastStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, castDef Cast, castMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE CAST %s\n", castDef.FQN())
 	switch castDef.CastMethod {
@@ -193,7 +194,7 @@ func PrintCreateCastStatement(metadataFile *utils.FileWithByteCount, toc *utils.
 	PrintObjectMetadata(metadataFile, toc, castMetadata, castDef, "")
 }
 
-func PrintCreateExtensionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, extensionDefs []Extension, extensionMetadata MetadataMap) {
+func PrintCreateExtensionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, extensionDefs []Extension, extensionMetadata MetadataMap) {
 	for _, extensionDef := range extensionDefs {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nSET search_path=%s,pg_catalog;\nCREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;\nSET search_path=pg_catalog;", extensionDef.Schema, extensionDef.Name, extensionDef.Schema)
@@ -232,7 +233,7 @@ func ExtractLanguageFunctions(funcDefs []Function, procLangs []ProceduralLanguag
 	return langFuncs, otherFuncs
 }
 
-func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, procLangs []ProceduralLanguage,
+func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, procLangs []ProceduralLanguage,
 	funcInfoMap map[uint32]FunctionInfo, procLangMetadata MetadataMap) {
 	for _, procLang := range procLangs {
 		start := metadataFile.ByteCount
@@ -279,7 +280,7 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *u
 	}
 }
 
-func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, conversions []Conversion, conversionMetadata MetadataMap) {
+func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, conversions []Conversion, conversionMetadata MetadataMap) {
 	for _, conversion := range conversions {
 		start := metadataFile.ByteCount
 		convFQN := utils.MakeFQN(conversion.Schema, conversion.Name)
@@ -296,7 +297,7 @@ func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc 
 	}
 }
 
-func PrintCreateForeignDataWrapperStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC,
+func PrintCreateForeignDataWrapperStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	fdw ForeignDataWrapper, funcInfoMap map[uint32]FunctionInfo, fdwMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE FOREIGN DATA WRAPPER %s", fdw.Name)
@@ -317,7 +318,7 @@ func PrintCreateForeignDataWrapperStatement(metadataFile *utils.FileWithByteCoun
 	PrintObjectMetadata(metadataFile, toc, fdwMetadata, fdw, "")
 }
 
-func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, server ForeignServer, serverMetadata ObjectMetadata) {
+func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, server ForeignServer, serverMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE SERVER %s", server.Name)
 	if server.Type != "" {
@@ -338,7 +339,7 @@ func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, toc *util
 	PrintObjectMetadata(metadataFile, toc, serverMetadata, server, "")
 }
 
-func PrintCreateUserMappingStatement(metadataFile *utils.FileWithByteCount, toc *utils.TOC, mapping UserMapping) {
+func PrintCreateUserMappingStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, mapping UserMapping) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE USER MAPPING FOR %s\n\tSERVER %s", mapping.User, mapping.Server)
 	if mapping.Options != "" {

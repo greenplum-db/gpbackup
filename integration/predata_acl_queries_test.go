@@ -4,8 +4,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -508,7 +508,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.testtable")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON TABLE testschema.testtable TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TABLE testschema.testtable IS 'This is a table comment.'")
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
@@ -527,7 +527,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.testtable")
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON TABLE testschema.testtable TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TABLE testschema.testtable IS 'This is a table comment.'")
-				backupCmdFlags.Set(utils.EXCLUDE_SCHEMA, "public")
+				_ = backupCmdFlags.Set(options.EXCLUDE_SCHEMA, "public")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
@@ -552,7 +552,7 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON FUNCTION testschema.add(integer, integer) FROM PUBLIC")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON FUNCTION testschema.add(integer, integer) IS 'This is a function comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_FUNCTION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "add", backup.TYPE_FUNCTION)
@@ -571,7 +571,7 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON testschema.testview TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON VIEW testschema.testview IS 'This is a view comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testview", backup.TYPE_RELATION)
@@ -593,7 +593,7 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON testschema.testmview TO testrole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON MATERIALIZED VIEW testschema.testmview IS 'This is a materialized view comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testmview", backup.TYPE_RELATION)
@@ -640,7 +640,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP AGGREGATE testschema.agg_prefunc(numeric, numeric)")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON AGGREGATE testschema.agg_prefunc(numeric, numeric) IS 'This is an aggregate comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_AGGREGATE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "agg_prefunc", backup.TYPE_AGGREGATE)
@@ -658,7 +658,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE testschema.testtype")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TYPE testschema.testtype IS 'This is a type comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TYPE)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testtype", backup.TYPE_TYPE)
@@ -682,7 +682,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR testschema.#### (bigint, NONE)")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON OPERATOR testschema.#### (bigint, NONE) IS 'This is an operator comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATOR)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
@@ -701,7 +701,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY testschema.testfam USING hash")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON OPERATOR FAMILY testschema.testfam USING hash IS 'This is an operator family comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORFAMILY)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
@@ -727,7 +727,7 @@ LANGUAGE SQL`)
 				}
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON OPERATOR CLASS testschema.testclass USING hash IS 'This is an operator class comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORCLASS)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
@@ -746,7 +746,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH DICTIONARY testschema.testdictionary")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TEXT SEARCH DICTIONARY testschema.testdictionary IS 'This is a text search dictionary comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TSDICTIONARY)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
@@ -768,7 +768,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH CONFIGURATION testschema.testconfiguration")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TEXT SEARCH CONFIGURATION testschema.testconfiguration IS 'This is a text search configuration comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap = backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TSCONFIGURATION)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
@@ -786,7 +786,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION testschema.some_coll")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON COLLATION testschema.some_coll IS 'This is a collation comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_COLLATION)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
@@ -1021,7 +1021,7 @@ LANGUAGE SQL`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.testtable")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON INDEX testschema.testindex1 IS 'This is an index comment.'")
 
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_INDEX)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testindex1", backup.TYPE_INDEX)
@@ -1040,7 +1040,7 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE testschema.testtable(i int UNIQUE)`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.testtable")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CONSTRAINT testtable_i_key ON testschema.testtable IS 'This is a constraint comment.'")
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_CONSTRAINT)
 
@@ -1064,7 +1064,7 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TEXT SEARCH PARSER testschema.testparser IS 'This is a text search parser comment.'")
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testparser", backup.TYPE_TSPARSER)
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_TSPARSER)
 
 				Expect(resultMetadataMap).To(HaveLen(1))
@@ -1084,7 +1084,7 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TEXT SEARCH TEMPLATE testschema.testtemplate IS 'This is a text search template comment.'")
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testtemplate", backup.TYPE_TSTEMPLATE)
-				backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_TSTEMPLATE)
 
 				Expect(resultMetadataMap).To(HaveLen(1))

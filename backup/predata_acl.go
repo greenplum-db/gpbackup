@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -53,7 +54,7 @@ type ACL struct {
 
 type MetadataMap map[UniqueID]ObjectMetadata
 
-func PrintStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, obj utils.TOCObject, statements []string) {
+func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, obj toc.TOCObject, statements []string) {
 	for _, statement := range statements {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s\n", statement)
@@ -62,7 +63,7 @@ func PrintStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, obj 
 	}
 }
 
-func PrintObjectMetadata(file *utils.FileWithByteCount, toc *utils.TOC, metadata ObjectMetadata, obj utils.TOCObjectWithMetadata, owningTable string) {
+func PrintObjectMetadata(file *utils.FileWithByteCount, toc *toc.TOC, metadata ObjectMetadata, obj toc.TOCObjectWithMetadata, owningTable string) {
 	_, entry := obj.GetMetadataEntry()
 	if entry.ObjectType == "DATABASE METADATA" {
 		entry.ObjectType = "DATABASE"
@@ -445,7 +446,7 @@ func (obj ObjectMetadata) GetSecurityLabelStatement(objectName string, objectTyp
 	return securityLabelStr
 }
 
-func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, privileges []DefaultPrivileges) {
+func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, privileges []DefaultPrivileges) {
 	for _, priv := range privileges {
 		statements := make([]string, 0)
 		roleStr := ""

@@ -12,6 +12,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/filepath"
+	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgx"
 	"github.com/pkg/errors"
@@ -31,7 +33,7 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	if singleDataFile {
 		//helper.go handles compression, so we don't want to set it here
 		customPipeThroughCommand = "cat -"
-	} else if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
+	} else if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		readFromDestinationCommand = fmt.Sprintf("%s restore_data %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath)
 	}
 
@@ -53,7 +55,7 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	return numRows, err
 }
 
-func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry utils.MasterDataEntry, tableName string, whichConn int) error {
+func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.MasterDataEntry, tableName string, whichConn int) error {
 	destinationToRead := ""
 	if backupConfig.SingleDataFile {
 		destinationToRead = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
@@ -80,8 +82,8 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 	return nil
 }
 
-func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []utils.MasterDataEntry,
-	gucStatements []utils.StatementWithType, dataProgressBar utils.ProgressBar) {
+func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.MasterDataEntry,
+	gucStatements []toc.StatementWithType, dataProgressBar utils.ProgressBar) {
 	totalTables := len(dataEntries)
 	if totalTables == 0 {
 		gplog.Verbose("No data to restore for timestamp = %s", fpInfo.Timestamp)
@@ -101,7 +103,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []utils.
 		if wasTerminated {
 			return
 		}
-		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(utils.PLUGIN_CONFIG), "", MustGetFlagBool(utils.ON_ERROR_CONTINUE))
+		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(options.PLUGIN_CONFIG), "", MustGetFlagBool(options.ON_ERROR_CONTINUE))
 	}
 	/*
 	 * We break when an interrupt is received and rely on
@@ -109,7 +111,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []utils.
 	 * statements in progress if they don't finish on their own.
 	 */
 	var tableNum int64 = 0
-	tasks := make(chan utils.MasterDataEntry, totalTables)
+	tasks := make(chan toc.MasterDataEntry, totalTables)
 	var workerPool sync.WaitGroup
 	var numErrors int32
 	var mutex = &sync.Mutex{}
@@ -138,7 +140,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []utils.
 				if err != nil {
 					gplog.Error(err.Error())
 					atomic.AddInt32(&numErrors, 1)
-					if !MustGetFlagBool(utils.ON_ERROR_CONTINUE) {
+					if !MustGetFlagBool(options.ON_ERROR_CONTINUE) {
 						dataProgressBar.(*pb.ProgressBar).NotPrint = true
 						return
 					}

@@ -4,8 +4,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -65,7 +65,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR testschema.## (LEFTARG = bigint, PROCEDURE = numeric_fac)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR testschema.## (bigint, NONE)")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			expectedOperator := backup.Operator{Oid: 0, Schema: "testschema", Name: "##", Procedure: "numeric_fac", LeftArgType: "bigint", RightArgType: "-", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 
@@ -97,7 +97,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR FAMILY testschema.testfam USING hash;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY testschema.testfam USING hash")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			expectedOperator := backup.OperatorFamily{Oid: 0, Schema: "testschema", Name: "testfam", IndexMethod: "hash"}
 
@@ -212,7 +212,7 @@ var _ = Describe("backup integration tests", func() {
 			} else {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY testschema.testclass USING hash")
 			}
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			version4expected := backup.OperatorClass{Oid: 0, Schema: "testschema", Name: "testclass", FamilySchema: "", FamilyName: "", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
 			expected := backup.OperatorClass{Oid: 0, Schema: "testschema", Name: "testclass", FamilySchema: "testschema", FamilyName: "testclass", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}

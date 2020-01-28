@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -251,7 +252,7 @@ func breakCircularDependencies(depMap DependencyMap) {
 	}
 }
 
-func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, objects []Sortable, metadataMap MetadataMap, constraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
+func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, objects []Sortable, metadataMap MetadataMap, constraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
 	conMap := make(map[string][]Constraint)
 	for _, constraint := range constraints {
 		conMap[constraint.OwningObject] = append(conMap[constraint.OwningObject], constraint)

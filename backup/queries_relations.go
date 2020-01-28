@@ -13,6 +13,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -21,14 +22,14 @@ func relationAndSchemaFilterClause() string {
 		return filterRelationClause
 	}
 	filterRelationClause = SchemaFilterClause("n")
-	if len(MustGetFlagStringArray(utils.EXCLUDE_RELATION)) > 0 {
-		excludeOids := GetOidsFromRelationList(connectionPool, MustGetFlagStringArray(utils.EXCLUDE_RELATION))
+	if len(MustGetFlagStringArray(options.EXCLUDE_RELATION)) > 0 {
+		excludeOids := GetOidsFromRelationList(connectionPool, MustGetFlagStringArray(options.EXCLUDE_RELATION))
 		if len(excludeOids) > 0 {
 			filterRelationClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ", "))
 		}
 	}
-	if len(MustGetFlagStringArray(utils.INCLUDE_RELATION)) > 0 {
-		quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(utils.INCLUDE_RELATION))
+	if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) > 0 {
+		quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.INCLUDE_RELATION))
 		gplog.FatalOnError(err)
 
 		includeOids := GetOidsFromRelationList(connectionPool, quotedIncludeRelations)
@@ -48,7 +49,7 @@ func GetOidsFromRelationList(connectionPool *dbconn.DBConn, quotedIncludeRelatio
 }
 
 func GetIncludedUserTableRelations(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
-	if len(MustGetFlagStringArray(utils.INCLUDE_RELATION)) > 0 {
+	if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) > 0 {
 		return GetUserTableRelationsWithIncludeFiltering(connectionPool, includedRelationsQuoted)
 	}
 	return GetUserTableRelations(connectionPool)
@@ -75,7 +76,7 @@ func (r Relation) GetUniqueID() UniqueID {
  */
 func GetUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 	childPartitionFilter := ""
-	if !MustGetFlagBool(utils.LEAF_PARTITION_DATA) {
+	if !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		//Filter out non-external child partitions
 		childPartitionFilter = `
 	AND c.oid NOT IN (
@@ -151,9 +152,9 @@ type Sequence struct {
 	SequenceDefinition
 }
 
-func (s Sequence) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          s.Schema,
 			Name:            s.Name,
 			ObjectType:      "SEQUENCE",
@@ -276,9 +277,9 @@ type View struct {
 	IsMaterialized bool
 }
 
-func (v View) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (v View) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          v.Schema,
 			Name:            v.Name,
 			ObjectType:      "VIEW",
@@ -349,9 +350,9 @@ type MaterializedView struct {
 	Definition string
 }
 
-func (v MaterializedView) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (v MaterializedView) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          v.Schema,
 			Name:            v.Name,
 			ObjectType:      "MATERIALIZED VIEW",

@@ -7,6 +7,7 @@ package backup
  */
 
 import (
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
@@ -14,7 +15,7 @@ import (
  * There's no built-in function to generate constraint definitions like there is for other types of
  * metadata, so this function constructs them.
  */
-func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, constraints []Constraint, conMetadata MetadataMap) {
+func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, constraints []Constraint, conMetadata MetadataMap) {
 	allConstraints := make([]Constraint, 0)
 	allFkConstraints := make([]Constraint, 0)
 	/*
@@ -50,7 +51,7 @@ func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *utils
 	}
 }
 
-func PrintCreateSchemaStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, schemas []Schema, schemaMetadata MetadataMap) {
+func PrintCreateSchemaStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, schemas []Schema, schemaMetadata MetadataMap) {
 	for _, schema := range schemas {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintln()

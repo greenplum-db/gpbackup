@@ -16,7 +16,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		emptyMetadataMap backup.MetadataMap
 	)
 	BeforeEach(func() {
-		toc, backupfile = testutils.InitializeTestTOC(buffer, "predata")
+		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 		emptyMetadata = backup.ObjectMetadata{}
 		emptyMetadataMap = backup.MetadataMap{}
 	})
@@ -44,7 +44,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		Describe("PrintCreateShellTypeStatements", func() {
 			It("creates shell types for base, shell and range types", func() {
-				backup.PrintCreateShellTypeStatements(backupfile, toc, []backup.ShellType{shellType}, []backup.BaseType{baseType}, []backup.RangeType{rangeType})
+				backup.PrintCreateShellTypeStatements(backupfile, tocfile, []backup.ShellType{shellType}, []backup.BaseType{baseType}, []backup.RangeType{rangeType})
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.shell_type")
@@ -68,7 +68,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				}
 			})
 			It("creates composite types", func() {
-				backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, emptyMetadata)
+				backup.PrintCreateCompositeTypeStatement(backupfile, tocfile, compositeType, emptyMetadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
@@ -83,7 +83,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, `CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
 				compositeType.Attributes[0].Collation = "public.some_coll"
-				backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, emptyMetadata)
+				backup.PrintCreateCompositeTypeStatement(backupfile, tocfile, compositeType, emptyMetadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
@@ -95,7 +95,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			})
 			It("creates composite types with attribute comments", func() {
 				compositeType.Attributes[0].Comment = "'comment for att1'"
-				backup.PrintCreateCompositeTypeStatement(backupfile, toc, compositeType, emptyMetadata)
+				backup.PrintCreateCompositeTypeStatement(backupfile, tocfile, compositeType, emptyMetadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.composite_type")
@@ -114,7 +114,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					baseType.Collatable = true
 				}
 				metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
-				backup.PrintCreateBaseTypeStatement(backupfile, toc, baseType, metadata)
+				backup.PrintCreateBaseTypeStatement(backupfile, tocfile, baseType, metadata)
 
 				//Run queries to set up the database state so we can successfully create base types
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_type")
@@ -135,7 +135,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.SkipIfBefore5(connectionPool)
 				enumType := backup.EnumType{Schema: "public", Name: "enum_type", EnumLabels: "'enum_labels'"}
 				enums := []backup.EnumType{enumType}
-				backup.PrintCreateEnumTypeStatements(backupfile, toc, enums, emptyMetadataMap)
+				backup.PrintCreateEnumTypeStatements(backupfile, tocfile, enums, emptyMetadataMap)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.enum_type")
@@ -157,7 +157,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					domainType.Collation = "public.some_coll"
 				}
 				metadata := testutils.DefaultMetadata("DOMAIN", false, true, true, includeSecurityLabels)
-				backup.PrintCreateDomainStatement(backupfile, toc, domainType, metadata, constraints)
+				backup.PrintCreateDomainStatement(backupfile, tocfile, domainType, metadata, constraints)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.domain_type")
@@ -175,7 +175,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
 
 				metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
-				backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, metadata)
+				backup.PrintCreateRangeTypeStatement(backupfile, tocfile, rangeType, metadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.textrange")
@@ -199,7 +199,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE;")
 				testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION testschema.time_subtype_diff(x time, y time) RETURNS float8 AS 'SELECT EXTRACT(EPOCH FROM (x - y))' LANGUAGE sql STRICT IMMUTABLE;")
 
-				backup.PrintCreateRangeTypeStatement(backupfile, toc, rangeType, emptyMetadata)
+				backup.PrintCreateRangeTypeStatement(backupfile, tocfile, rangeType, emptyMetadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -215,7 +215,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic collation", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
-			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, backup.MetadataMap{})
+			backup.PrintCreateCollationStatements(backupfile, tocfile, []backup.Collation{collation}, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.testcollation")
@@ -230,7 +230,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true, false)
 			collationMetadata := collationMetadataMap[collation.GetUniqueID()]
 
-			backup.PrintCreateCollationStatements(backupfile, toc, []backup.Collation{collation}, collationMetadataMap)
+			backup.PrintCreateCollationStatements(backupfile, tocfile, []backup.Collation{collation}, collationMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.testcollation")

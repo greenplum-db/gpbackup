@@ -12,6 +12,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"gopkg.in/cheggaaa/pb.v1"
 )
@@ -57,7 +58,7 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 	checkPipeExistsCommand := ""
 	customPipeThroughCommand := utils.GetPipeThroughProgram().OutputCommand
 	sendToDestinationCommand := ">"
-	if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
+	if MustGetFlagBool(options.SINGLE_DATA_FILE) {
 		/*
 		 * The segment TOC files are always written to the segment data directory for
 		 * performance reasons, in case the user-specified directory is on a mounted
@@ -66,7 +67,7 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 		 */
 		checkPipeExistsCommand = fmt.Sprintf("(test -p \"%s\" || (echo \"Pipe not found %s\">&2; exit 1)) && ", destinationToWrite, destinationToWrite)
 		customPipeThroughCommand = "cat -"
-	} else if MustGetFlagString(utils.PLUGIN_CONFIG) != "" {
+	} else if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		sendToDestinationCommand = fmt.Sprintf("| %s backup_data %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath)
 	}
 
@@ -97,7 +98,7 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 		}
 
 		destinationToWrite := ""
-		if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
+		if MustGetFlagBool(options.SINGLE_DATA_FILE) {
 			destinationToWrite = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), table.Oid)
 		} else {
 			destinationToWrite = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, utils.GetPipeThroughProgram().Extension, false)
@@ -155,7 +156,7 @@ func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 	workerPool.Wait()
 
 	var agentErr error
-	if MustGetFlagBool(utils.SINGLE_DATA_FILE) {
+	if MustGetFlagBool(options.SINGLE_DATA_FILE) {
 		agentErr = utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
 	}
 

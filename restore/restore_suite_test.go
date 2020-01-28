@@ -12,20 +12,19 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/spf13/pflag"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
 
 var (
 	connectionPool *dbconn.DBConn
 	mock           sqlmock.Sqlmock
-	stdout         *gbytes.Buffer
-	stderr         *gbytes.Buffer
-	logfile        *gbytes.Buffer
-	buffer         *gbytes.Buffer
+	stdout         *Buffer
+	logfile        *Buffer
+	buffer         *Buffer
 )
 
 func TestRestore(t *testing.T) {
@@ -36,9 +35,9 @@ func TestRestore(t *testing.T) {
 var cmdFlags *pflag.FlagSet
 
 var _ = BeforeEach(func() {
-	connectionPool, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
+	connectionPool, mock, stdout, _, logfile = testutils.SetupTestEnvironment()
 	restore.SetConnection(connectionPool)
-	buffer = gbytes.NewBuffer()
+	buffer = NewBuffer()
 
 	cmdFlags = pflag.NewFlagSet("gprestore", pflag.ExitOnError)
 	restore.SetFlagDefaults(cmdFlags)

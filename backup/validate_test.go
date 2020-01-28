@@ -4,7 +4,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/options"
 
 	. "github.com/onsi/ginkgo"
 )
@@ -153,7 +153,7 @@ var _ = Describe("backup/validate tests", func() {
 				schemaAndTable.AddRow("public", "table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(schemaAndTable)
 				//
-				cmdFlags.Set(utils.LEAF_PARTITION_DATA, "true")
+				_ = cmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 				tableRows.AddRow("1", "public.table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(tableRows)
 				partitionTables.AddRow("1", "i", "root")

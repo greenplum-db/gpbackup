@@ -9,22 +9,22 @@ import (
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/onsi/gomega/gbytes"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("backup/incremental tests", func() {
 	Describe("FilterTablesForIncremental", func() {
-		defaultEntry := utils.AOEntry{
+		defaultEntry := toc.AOEntry{
 			Modcount:         0,
 			LastDDLTimestamp: "00000",
 		}
-		prevTOC := utils.TOC{
-			IncrementalMetadata: utils.IncrementalEntries{
-				AO: map[string]utils.AOEntry{
+		prevTOC := toc.TOC{
+			IncrementalMetadata: toc.IncrementalEntries{
+				AO: map[string]toc.AOEntry{
 					"public.ao_changed_modcount":  defaultEntry,
 					"public.ao_changed_timestamp": defaultEntry,
 					"public.ao_unchanged":         defaultEntry,
@@ -32,9 +32,9 @@ var _ = Describe("backup/incremental tests", func() {
 			},
 		}
 
-		currTOC := utils.TOC{
-			IncrementalMetadata: utils.IncrementalEntries{
-				AO: map[string]utils.AOEntry{
+		currTOC := toc.TOC{
+			IncrementalMetadata: toc.IncrementalEntries{
+				AO: map[string]toc.AOEntry{
 					"public.ao_changed_modcount": {
 						Modcount:         2,
 						LastDDLTimestamp: "00000",
@@ -198,7 +198,7 @@ var _ = Describe("backup/incremental tests", func() {
 
 	})
 	Describe("GetLatestMatchingBackupTimestamp", func() {
-		var log *gbytes.Buffer
+		var log *Buffer
 		BeforeEach(func() {
 			_, _, log = testhelper.SetupTestLogger()
 		})

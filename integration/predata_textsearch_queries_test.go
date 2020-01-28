@@ -4,8 +4,8 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
-	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -43,7 +43,7 @@ var _ = Describe("backup integration tests", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER testschema.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH PARSER testschema.testparser")
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			parsers := backup.GetTextSearchParsers(connectionPool)
 
@@ -85,7 +85,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH TEMPLATE testschema.testtemplate(LEXIZE = dsimple_lexize);")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH TEMPLATE testschema.testtemplate")
 
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			templates := backup.GetTextSearchTemplates(connectionPool)
 
 			expectedTemplate := backup.TextSearchTemplate{Oid: 1, Schema: "testschema", Name: "testtemplate", InitFunc: "", LexizeFunc: "dsimple_lexize"}
@@ -124,7 +124,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH DICTIONARY testschema.testdictionary (TEMPLATE = 'simple');")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH DICTIONARY testschema.testdictionary")
 
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			dictionaries := backup.GetTextSearchDictionaries(connectionPool)
 
 			expectedDictionary := backup.TextSearchDictionary{Oid: 1, Schema: "testschema", Name: "testdictionary", Template: "pg_catalog.simple", InitOption: ""}
@@ -179,7 +179,7 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TEXT SEARCH CONFIGURATION testschema.testconfiguration (PARSER = pg_catalog."default");`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH CONFIGURATION testschema.testconfiguration")
 
-			backupCmdFlags.Set(utils.INCLUDE_SCHEMA, "testschema")
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			configurations := backup.GetTextSearchConfigurations(connectionPool)
 
 			expectedConfiguration := backup.TextSearchConfiguration{Oid: 1, Schema: "testschema", Name: "testconfiguration", Parser: `pg_catalog."default"`, TokenToDicts: map[string][]string{}}

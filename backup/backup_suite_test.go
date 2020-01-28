@@ -12,23 +12,24 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/spf13/pflag"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gbytes"
 )
 
 var (
 	connectionPool *dbconn.DBConn
 	defaultConnNum = 0
 	mock           sqlmock.Sqlmock
-	stdout         *gbytes.Buffer
-	stderr         *gbytes.Buffer
-	logfile        *gbytes.Buffer
-	buffer         = gbytes.NewBuffer()
-	toc            *utils.TOC
+	stdout         *Buffer
+	stderr         *Buffer
+	logfile        *Buffer
+	buffer         *Buffer
+	tocfile        *toc.TOC
 	backupfile     *utils.FileWithByteCount
 )
 
@@ -51,5 +52,5 @@ var _ = BeforeEach(func() {
 	connectionPool, mock, stdout, stderr, logfile = testutils.SetupTestEnvironment()
 	backup.SetConnection(connectionPool)
 	backup.InitializeMetadataParams(connectionPool)
-	buffer = gbytes.NewBuffer()
+	buffer = NewBuffer()
 })

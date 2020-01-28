@@ -12,7 +12,8 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gpbackup/options"
+	"github.com/greenplum-db/gpbackup/toc"
 )
 
 type Table struct {
@@ -25,13 +26,13 @@ func (t Table) SkipDataBackup() bool {
 	return def.IsExternal || (def.ForeignDef != ForeignTableDefinition{})
 }
 
-func (t Table) GetMetadataEntry() (string, utils.MetadataEntry) {
+func (t Table) GetMetadataEntry() (string, toc.MetadataEntry) {
 	objectType := "TABLE"
 	if (t.ForeignDef != ForeignTableDefinition{}) {
 		objectType = "FOREIGN TABLE"
 	}
 	return "predata",
-		utils.MetadataEntry{
+		toc.MetadataEntry{
 			Schema:          t.Schema,
 			Name:            t.Name,
 			ObjectType:      objectType,
@@ -399,7 +400,7 @@ type Dependency struct {
 
 func GetTableInheritance(connectionPool *dbconn.DBConn, tables []Relation) map[uint32][]string {
 	tableFilterStr := ""
-	if len(MustGetFlagStringArray(utils.INCLUDE_RELATION)) > 0 {
+	if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) > 0 {
 		tableOidList := make([]string, len(tables))
 		for i, table := range tables {
 			tableOidList[i] = fmt.Sprintf("%d", table.Oid)

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 )
@@ -26,8 +27,8 @@ func doBackupAgent() error {
 		writeHandle io.WriteCloser
 		writeCmd    *exec.Cmd
 	)
-	toc := &utils.SegmentTOC{}
-	toc.DataEntries = make(map[uint]utils.SegmentDataEntry)
+	tocfile := &toc.SegmentTOC{}
+	tocfile.DataEntries = make(map[uint]toc.SegmentDataEntry)
 
 	oidList, err := getOidListFromFile()
 	if err != nil {
@@ -73,7 +74,7 @@ func doBackupAgent() error {
 		log(fmt.Sprintf("Read %d bytes\n", numBytes))
 
 		lastProcessed := lastRead + uint64(numBytes)
-		toc.AddSegmentDataEntry(uint(oid), lastRead, lastProcessed)
+		tocfile.AddSegmentDataEntry(uint(oid), lastRead, lastProcessed)
 		lastRead = lastProcessed
 
 		lastPipe = currentPipe
@@ -108,7 +109,7 @@ func doBackupAgent() error {
 			return errors.Wrap(err, strings.Trim(errBuf.String(), "\x00"))
 		}
 	}
-	err = toc.WriteToFileAndMakeReadOnly(*tocFile)
+	err = tocfile.WriteToFileAndMakeReadOnly(*tocFile)
 	if err != nil {
 		return err
 	}

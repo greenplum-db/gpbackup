@@ -7,10 +7,11 @@ package backup
  */
 
 import (
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
+func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
 	for _, index := range indexes {
 		start := metadataFile.ByteCount
 		if !index.SupportsConstraint {
@@ -41,7 +42,7 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *util
 	}
 }
 
-func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, rules []RuleDefinition, ruleMetadata MetadataMap) {
+func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, rules []RuleDefinition, ruleMetadata MetadataMap) {
 	for _, rule := range rules {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s", rule.Def)
@@ -53,7 +54,7 @@ func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *utils
 	}
 }
 
-func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, triggers []TriggerDefinition, triggerMetadata MetadataMap) {
+func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, triggers []TriggerDefinition, triggerMetadata MetadataMap) {
 	for _, trigger := range triggers {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s;", trigger.Def)
@@ -65,7 +66,7 @@ func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *ut
 	}
 }
 
-func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, toc *utils.TOC, eventTriggers []EventTrigger, eventTriggerMetadata MetadataMap) {
+func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, eventTriggers []EventTrigger, eventTriggerMetadata MetadataMap) {
 	for _, eventTrigger := range eventTriggers {
 		start := metadataFile.ByteCount
 		section, entry := eventTrigger.GetMetadataEntry()
