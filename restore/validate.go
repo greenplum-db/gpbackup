@@ -142,6 +142,15 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	}
 }
 
+func ValidateRedirectSchema(connectionPool *dbconn.DBConn, redirectSchema string) {
+	query := fmt.Sprintf(`SELECT quote_ident(nspname) AS name FROM pg_namespace n WHERE n.nspname = '%s'`, redirectSchema)
+	schemaInDB := dbconn.MustSelectStringSlice(connectionPool, query)
+
+	if len(schemaInDB) == 0 {
+		gplog.Fatal(nil, fmt.Sprintf("Schema %s to redirect into does not exist", redirectSchema))
+	}
+}
+
 func ValidateIncludeRelationsInBackupSet(schemaList []string) {
 	if keys := getFilterRelationsInBackupSet(schemaList); len(keys) != 0 {
 		gplog.Fatal(errors.Errorf("Could not find the following relation(s) in the backup set: %s", strings.Join(keys, ", ")), "")
@@ -244,9 +253,13 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.WITH_GLOBALS)
 	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.CREATE_DB)
 	options.CheckExclusiveFlags(flags, options.DEBUG, options.QUIET, options.VERBOSE)
-	options.CheckExclusiveFlags(flags, options.INCLUDE_SCHEMA, options.INCLUDE_RELATION, options.INCLUDE_RELATION_FILE)
-	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.INCLUDE_SCHEMA)
-	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.EXCLUDE_RELATION, options.INCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.INCLUDE_RELATION_FILE)
+	options.CheckExclusiveFlags(flags,
+		options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE, options.EXCLUDE_RELATION, options.EXCLUDE_RELATION_FILE,
+		options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE, options.INCLUDE_RELATION, options.INCLUDE_RELATION_FILE)
 	options.CheckExclusiveFlags(flags, options.METADATA_ONLY, options.DATA_ONLY)
 	options.CheckExclusiveFlags(flags, options.PLUGIN_CONFIG, options.BACKUP_DIR)
+	options.CheckExclusiveFlags(flags, options.REDIRECT_SCHEMA, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE, options.EXCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE)
+	if flags.Changed(options.REDIRECT_SCHEMA) && !(flags.Changed(options.INCLUDE_RELATION) || flags.Changed(options.INCLUDE_RELATION_FILE)) {
+		gplog.Fatal(errors.Errorf("Cannot use --redirect-schema without --include-table or --include-table-file"), "")
+	}
 }

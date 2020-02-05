@@ -56,6 +56,7 @@ func SetFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool("version", false, "Print version number and exit")
 	flagSet.Bool(options.QUIET, false, "Suppress non-warning, non-error log messages")
 	flagSet.String(options.REDIRECT_DB, "", "Restore to the specified database instead of the database that was backed up")
+	flagSet.String(options.REDIRECT_SCHEMA, "", "Restore to the specified schema instead of the schema that was backed up")
 	flagSet.Bool(options.WITH_GLOBALS, false, "Restore global metadata")
 	flagSet.String(options.TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
 	flagSet.Bool(options.VERBOSE, false, "Print verbose log messages")
@@ -99,7 +100,8 @@ func DoSetup() {
 
 	CreateConnectionPool("postgres")
 
-	_, err := options.NewOptions(cmdFlags)
+	var err error
+	opts, err = options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
@@ -143,6 +145,10 @@ func DoSetup() {
 	if !MustGetFlagBool(options.CREATE_DB) && !MustGetFlagBool(options.ON_ERROR_CONTINUE) && !MustGetFlagBool(options.INCREMENTAL) {
 		relationsToRestore := GenerateRestoreRelationList()
 		ValidateRelationsInRestoreDatabase(connectionPool, relationsToRestore)
+	}
+
+	if opts.RedirectSchema != "" {
+		ValidateRedirectSchema(connectionPool, opts.RedirectSchema)
 	}
 }
 
@@ -274,11 +280,15 @@ func restorePredata(metadataFilename string) {
 		inRelations = inRelationsUserInput
 		exRelations = exRelationsUserInput
 	}
-	
+
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
-	schemaStatements := GetRestoreMetadataStatementsFiltered("predata", metadataFilename, []string{"SCHEMA"}, []string{}, filters)
+	var schemaStatements []toc.StatementWithType
+	if opts.RedirectSchema == "" {
+		schemaStatements = GetRestoreMetadataStatementsFiltered("predata", metadataFilename, []string{"SCHEMA"}, []string{}, filters)
+	}
 	statements := GetRestoreMetadataStatementsFiltered("predata", metadataFilename, []string{}, []string{"SCHEMA"}, filters)
 
+	editStatementsRedirectSchema(statements, opts.RedirectSchema)
 	progressBar := utils.NewProgressBar(len(schemaStatements)+len(statements), "Pre-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
 
@@ -290,6 +300,23 @@ func restorePredata(metadataFilename string) {
 		gplog.Info("Pre-data metadata restore incomplete")
 	} else {
 		gplog.Info("Pre-data metadata restore complete")
+	}
+}
+
+func editStatementsRedirectSchema(statements []toc.StatementWithType, redirectSchema string) {
+	if redirectSchema == "" {
+		return
+	}
+
+	for i, statement := range statements {
+		oldSchema := fmt.Sprintf("%s.", statement.Schema)
+		newSchema := fmt.Sprintf("%s.", redirectSchema)
+		statements[i].Schema = redirectSchema
+		statements[i].Statement = strings.Replace(statement.Statement, oldSchema, newSchema, 1)
+		// only postdata will have a reference object
+		if statement.ReferenceObject != "" {
+			statements[i].ReferenceObject = strings.Replace(statement.ReferenceObject, oldSchema, newSchema, 1)
+		}
 	}
 }
 
@@ -353,6 +380,7 @@ func restorePostdata(metadataFilename string) {
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("postdata", metadataFilename, []string{}, []string{}, filters)
+	editStatementsRedirectSchema(statements, opts.RedirectSchema)
 	firstBatch, secondBatch := BatchPostdataStatements(statements)
 	progressBar := utils.NewProgressBar(len(statements), "Post-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
@@ -380,6 +408,7 @@ func restoreStatistics() {
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("statistics", statisticsFilename, []string{}, []string{}, filters)
+	editStatementsRedirectSchema(statements, opts.RedirectSchema)
 	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
 	gplog.Info("Query planner statistics restore complete")
 }

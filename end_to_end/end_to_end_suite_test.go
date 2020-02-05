@@ -130,6 +130,14 @@ func assertRelationsCreated(conn *dbconn.DBConn, expectedNumTables int) {
 	}
 }
 
+func assertRelationsCreatedInSchema(conn *dbconn.DBConn, schema string, expectedNumTables int) {
+	countQuery := fmt.Sprintf(`SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname = '%s'`, schema)
+	actualTableCount := dbconn.MustSelectString(conn, countQuery)
+	if strconv.Itoa(expectedNumTables) != actualTableCount {
+		Fail(fmt.Sprintf("Expected:\n\t%s relations to have been created\nActual:\n\t%s relations were created", strconv.Itoa(expectedNumTables), actualTableCount))
+	}
+}
+
 func assertRelationsExistForIncremental(conn *dbconn.DBConn, expectedNumTables int) {
 	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname IN ('old_schema', 'new_schema');`
 	actualTableCount := dbconn.MustSelectString(conn, countQuery)
@@ -1641,6 +1649,60 @@ PARTITION BY LIST (gender)
 			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(0))
+		})
+		It("runs gprestore with --redirect-schema", func() {
+			skipIfOldBackupVersionBefore("1.17.0")
+			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA schema3 CASCADE")
+
+			testhelper.AssertQueryRuns(backupConn, "CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP INDEX schema2.foo3_idx1")
+			testhelper.AssertQueryRuns(backupConn, "ANALYZE schema2.foo3")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats")
+
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--include-table", "schema2.foo3", "--redirect-db", "restoredb", "--redirect-schema", "schema3", "--with-stats")
+
+			schema3TupleCounts := map[string]int{
+				"schema3.foo3": 100,
+			}
+			assertDataRestored(restoreConn, schema3TupleCounts)
+			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+
+			actualIndexCount := dbconn.MustSelectString(restoreConn, `SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)
+			Expect(actualIndexCount).To(Equal("1"))
+
+			actualStatisticCount := dbconn.MustSelectString(restoreConn, `SELECT count(*) AS string FROM pg_stats WHERE schemaname='schema3' AND tablename='foo3';`)
+			Expect(actualStatisticCount).To(Equal("1"))
+		})
+		It("runs gprestore with --redirect-schema and multiple included schemas", func() {
+			skipIfOldBackupVersionBefore("1.17.0")
+			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA schema3 CASCADE")
+
+			// Filtered restore with special characters is currently not
+			// functioning as of this commit.  That portion of the test is left
+			// commented out until functionality is implemented.
+
+			// testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA \"FOO\"")
+			// defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA \"FOO\" CASCADE")
+			// testhelper.AssertQueryRuns(backupConn, "CREATE TABLE \"FOO\".bar(i int)")
+
+			tableFile := path.Join(backupDir, "test-schema-file.txt")
+			includeFile := iohelper.MustOpenFileForWriting(tableFile)
+			utils.MustPrintln(includeFile, "public.sales\nschema2.foo2\nschema2.ao1")
+			// utils.MustPrintln(includeFile, "public.sales\nschema2.foo2\nschema2.ao1\n\"FOO\".bar")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--include-table-file", tableFile, "--redirect-db", "restoredb", "--redirect-schema", "schema3")
+
+			schema3TupleCounts := map[string]int{
+				"schema3.foo2":  0,
+				"schema3.ao1":   1000,
+				"schema3.sales": 13,
+				// "schema3.bar":   0,
+			}
+			assertDataRestored(restoreConn, schema3TupleCounts)
+			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
 		})
 	})
 })

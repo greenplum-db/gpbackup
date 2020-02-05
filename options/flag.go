@@ -43,6 +43,7 @@ const (
 	REDIRECT_DB           = "redirect-db"
 	TIMESTAMP             = "timestamp"
 	WITH_GLOBALS          = "with-globals"
+	REDIRECT_SCHEMA       = "redirect-schema"
 )
 
 /*

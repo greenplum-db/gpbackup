@@ -39,6 +39,7 @@ var (
 	wasTerminated       bool
 	errorTablesMetadata map[string]Empty
 	errorTablesData     map[string]Empty
+	opts                *options.Options
 	/*
 	 * Used for synchronizing DoCleanup.  In DoInit() we increment the group
 	 * and then wait for at least one DoCleanup to finish, either in DoTeardown

@@ -127,6 +127,9 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 					return
 				}
 				tableName := utils.MakeFQN(entry.Schema, entry.Name)
+				if opts.RedirectSchema != "" {
+					tableName = utils.MakeFQN(opts.RedirectSchema, entry.Name)
+				}
 				err := restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
 
 				atomic.AddInt64(&tableNum, 1)

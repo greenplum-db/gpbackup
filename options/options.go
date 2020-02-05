@@ -12,6 +12,9 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// This is meant to be a read only package. Values inside should only be
+// modified by setters, it's method functions, or initialization function.
+// This package is meant to make mocking flags easier.
 type Options struct {
 	includedRelations         []string
 	excludedRelations         []string
@@ -19,6 +22,7 @@ type Options struct {
 	excludedSchemas           []string
 	includedSchemas           []string
 	originalIncludedRelations []string
+	RedirectSchema            string
 }
 
 func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
@@ -55,6 +59,14 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 		return nil, err
 	}
 
+	redirectSchema := ""
+	if initialFlags.Lookup(REDIRECT_SCHEMA) != nil {
+		redirectSchema, err = initialFlags.GetString(REDIRECT_SCHEMA)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &Options{
 		includedRelations:         includedRelations,
 		excludedRelations:         excludedRelations,
@@ -62,6 +74,7 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 		excludedSchemas:           excludedSchemas,
 		isLeafPartitionData:       leafPartitionData,
 		originalIncludedRelations: includedRelations,
+		RedirectSchema:            redirectSchema,
 	}, nil
 }
 
