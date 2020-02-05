@@ -223,21 +223,21 @@ func restorePredata(metadataFilename string) {
 
 		existingSchemas, err := GetExistingSchemas()
 		gplog.FatalOnError(err)
-        existingTableFQNs, err := GetExistingTableFQNs()
+		existingTableFQNs, err := GetExistingTableFQNs()
 		gplog.FatalOnError(err)
 
 		existingTablesMap := make(map[string]Empty)
-		for _, table := range existingTableFQNs{
+		for _, table := range existingTableFQNs {
 			existingTablesMap[table] = Empty{}
 		}
 
-		var schemasToCreate [] string
-		var tableFQNsToCreate [] string
-		var schemasExcludedByUserInput [] string
-		var tablesExcludedByUserInput [] string
+		var schemasToCreate []string
+		var tableFQNsToCreate []string
+		var schemasExcludedByUserInput []string
+		var tablesExcludedByUserInput []string
 		for _, table := range tableFQNsToRestore {
-			schemaName := strings.Split(table,".")[0]
-			if utils.SchemaIsExcludedByUser(inSchemasUserInput, exSchemasUserInput,schemaName){
+			schemaName := strings.Split(table, ".")[0]
+			if utils.SchemaIsExcludedByUser(inSchemasUserInput, exSchemasUserInput, schemaName) {
 				if !utils.Exists(schemasExcludedByUserInput, schemaName) {
 					schemasExcludedByUserInput = append(schemasExcludedByUserInput, schemaName)
 				}
@@ -249,7 +249,7 @@ func restorePredata(metadataFilename string) {
 				if utils.RelationIsExcludedByUser(inRelationsUserInput, exRelationsUserInput, table) {
 					tablesExcludedByUserInput = append(tablesExcludedByUserInput, table)
 				} else {
-					if!utils.Exists(schemasToCreate, schemaName){
+					if !utils.Exists(schemasToCreate, schemaName) {
 						schemasToCreate = append(schemasToCreate, schemaName)
 					}
 					tableFQNsToCreate = append(tableFQNsToCreate, table)

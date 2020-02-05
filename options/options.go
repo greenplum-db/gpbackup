@@ -57,7 +57,7 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 
 	return &Options{
 		includedRelations:         includedRelations,
-		excludedRelations:		   excludedRelations,
+		excludedRelations:         excludedRelations,
 		includedSchemas:           includedSchemas,
 		excludedSchemas:           excludedSchemas,
 		isLeafPartitionData:       leafPartitionData,

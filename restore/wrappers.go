@@ -32,8 +32,8 @@ import (
  * Filter structure to filter schemas and relations
  */
 type Filters struct {
-	includeSchemas []string
-	excludeSchemas []string
+	includeSchemas   []string
+	excludeSchemas   []string
 	includeRelations []string
 	excludeRelations []string
 }
@@ -43,7 +43,7 @@ func NewFilters(inSchema []string, exSchemas []string, inRelations []string, exR
 	f.includeSchemas = inSchema
 	f.excludeSchemas = exSchemas
 	f.includeRelations = inRelations
-	f.excludeRelations  = exRelations
+	f.excludeRelations = exRelations
 	return f
 }
 
@@ -245,7 +245,7 @@ func GetRestoreMetadataStatementsFiltered(section string, filename string, inclu
 	metadataFile := iohelper.MustOpenFileForReading(filename)
 	var statements []toc.StatementWithType
 	var inSchemas, exSchemas, inRelations, exRelations []string
-	if !filtersEmpty(filters)  {
+	if !filtersEmpty(filters) {
 		inSchemas = filters.includeSchemas
 		exSchemas = filters.excludeSchemas
 		inRelations = filters.includeRelations
@@ -337,7 +337,7 @@ func RestoreSchemas(schemaStatements []toc.StatementWithType, progressBar utils.
 	}
 }
 
-func GetExistingTableFQNs() ([]string,  error) {
+func GetExistingTableFQNs() ([]string, error) {
 	existingTableFQNs := make([]string, 0)
 
 	query := `SELECT quote_ident(n.nspname) || '.' || quote_ident(c.relname)
@@ -354,7 +354,7 @@ func GetExistingTableFQNs() ([]string,  error) {
 	return existingTableFQNs, err
 }
 
-func GetExistingSchemas()([]string, error){
+func GetExistingSchemas() ([]string, error) {
 	existingSchemas := make([]string, 0)
 
 	query := `SELECT n.nspname AS "Name"
