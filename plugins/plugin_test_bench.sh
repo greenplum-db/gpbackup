@@ -315,9 +315,9 @@ test_backup_and_restore_with_plugin() {
     test_db=plugin_test_db
     log_file="$logdir/plugin_test_log_file"
 
-    psql -d postgres -qc "DROP DATABASE IF EXISTS $test_db" 2>/dev/null
+    psql -X -d postgres -qc "DROP DATABASE IF EXISTS $test_db" 2>/dev/null
     createdb $test_db
-    psql -d $test_db -qc "CREATE TABLE test_table(i int) DISTRIBUTED RANDOMLY; INSERT INTO test_table select generate_series(1,50000)"
+    psql -X -d $test_db -qc "CREATE TABLE test_table(i int) DISTRIBUTED RANDOMLY; INSERT INTO test_table select generate_series(1,50000)"
 
     set +e
     # save the encrypt key file, if it exists
@@ -347,7 +347,7 @@ test_backup_and_restore_with_plugin() {
         echo "gprestore failed. Check gprestore log file in ~/gpAdminLogs for details."
         exit 1
     fi
-    num_rows=`psql -d $test_db -tc "SELECT count(*) FROM test_table" | xargs`
+    num_rows=`psql -X -d $test_db -tc "SELECT count(*) FROM test_table" | xargs`
     if [ "$num_rows" != "50000" ]; then
         echo "Expected to restore 50000 rows, got $num_rows"
         exit 1
@@ -364,7 +364,7 @@ test_backup_and_restore_with_plugin() {
             echo "gprestore from secondary destination failed. Check gprestore log file in ~/gpAdminLogs for details."
             exit 1
         fi
-        num_rows=`psql -d $test_db -tc "SELECT count(*) FROM test_table" | xargs`
+        num_rows=`psql -X -d $test_db -tc "SELECT count(*) FROM test_table" | xargs`
         if [ "$num_rows" != "50000" ]; then
           echo "Expected to restore 50000 rows, got $num_rows"
           exit 1
