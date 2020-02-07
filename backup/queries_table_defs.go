@@ -375,14 +375,15 @@ func GetForeignTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Foreig
 	if connectionPool.Version.Before("6") {
 		return map[uint32]ForeignTableDefinition{}
 	}
-	query := `
+	query := fmt.Sprintf(`
 	SELECT ftrelid, fs.srvname AS ftserver,
 		pg_catalog.array_to_string(array(
 			SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
 			FROM pg_catalog.pg_options_to_table(ftoptions) ORDER BY option_name
 		), e',    ') AS ftoptions
 	FROM pg_foreign_table ft
-		JOIN pg_foreign_server fs ON ft.ftserver = fs.oid`
+		JOIN pg_foreign_server fs ON ft.ftserver = fs.oid
+	WHERE ft.ftrelid >= %d AND fs.oid >= %d`, FIRST_NORMAL_OBJECT_ID, FIRST_NORMAL_OBJECT_ID)
 	results := make([]ForeignTableDefinition, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)

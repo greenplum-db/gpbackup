@@ -72,6 +72,8 @@ var (
 	PG_TS_TEMPLATE_OID          uint32 = 3764
 	PG_TYPE_OID                 uint32 = 1247
 	PG_USER_MAPPING_OID         uint32 = 1418
+
+	FIRST_NORMAL_OBJECT_ID      uint32 = 16384
 )
 
 func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMap, tables MetadataMap, protocols MetadataMap, tsParsers MetadataMap, tsConfigs MetadataMap, tsTemplates MetadataMap, tsDicts MetadataMap) MetadataMap {

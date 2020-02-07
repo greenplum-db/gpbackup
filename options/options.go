@@ -309,7 +309,7 @@ AND (
 	)
 	%s
 )
-AND (relkind = 'r')
+AND (relkind = 'r' OR relkind = 'f')
 AND %s
 ORDER BY c.oid;`, o.schemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter, ExtensionFilterClause("c"))
 
