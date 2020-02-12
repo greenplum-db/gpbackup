@@ -284,7 +284,12 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
 		return map[uint32]string{}
 	}
-	query := `SELECT oid, relreplident AS value FROM pg_class`
+	query := fmt.Sprintf(`
+	SELECT oid,
+		relreplident AS value
+	FROM pg_class
+	WHERE relkind IN ('r', 'm')
+		AND oid >= %d`, FIRST_NORMAL_OBJECT_ID)
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
