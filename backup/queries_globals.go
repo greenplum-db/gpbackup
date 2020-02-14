@@ -225,9 +225,7 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 			t2.value AS cpuratelimit,
 			t3.value AS memorylimit,
 			t4.value AS memorysharedquota,
-			t5.value AS memoryspillratio,
-			t6.value AS memoryauditor,
-			t7.value AS cpuset`
+			t5.value AS memoryspillratio`
 	} else { // GPDB 5.0.0 and 5.1.0
 		selectClause += `
 		SELECT g.oid,
@@ -254,19 +252,28 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 		t4.reslimittype = 4 AND
 		t5.reslimittype = 5`
 
-	// Project additional resource group attributes introduced for following GDPB version
+	// The reslimittype 6 (memoryauditor) was introduced in GPDB
+	// 5.8.0. Default the value to '0' (vmtracker) since there could
+	// be a resource group created before 5.8.0 which will not have
+	// this memoryauditor field defined.
 	if connectionPool.Version.AtLeast("5.8.0") {
 		selectClause += `,
-		t6.value AS memoryauditor,
-		t7.value AS cpuset`
+		coalesce(t6.value, '0') AS memoryauditor`
 
 		fromClause += `
-		LEFT JOIN pg_resgroupcapability t6 ON t6.resgroupid = g.oid
-		LEFT JOIN pg_resgroupcapability t7 ON t7.resgroupid = g.oid`
+		LEFT JOIN pg_resgroupcapability t6 ON t6.resgroupid = g.oid AND t6.reslimittype = 6`
+	}
 
-		whereClause += ` AND 
-		t6.reslimittype = 6 AND
-		t7.reslimittype = 7`
+	// The reslimittype 7 (cpuset) was introduced in GPDB
+	// 5.9.0. Default the value to '-1' since there could be a
+	// resource group created before 5.9.0 which will not have this
+	// cpuset field defined.
+	if connectionPool.Version.AtLeast("5.9.0") {
+		selectClause += `,
+		coalesce(t7.value, '-1') AS cpuset`
+
+		fromClause += `
+		LEFT JOIN pg_resgroupcapability t7 ON t7.resgroupid = g.oid AND t7.reslimittype = 7`
 	}
 
 	results := make([]ResourceGroup, 0)

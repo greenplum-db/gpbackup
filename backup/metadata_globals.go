@@ -168,7 +168,7 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			if !strings.HasPrefix(resGroup.CPURateLimit, "-") {
 				/* cpu rate mode */
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_RATE_LIMIT %s;", resGroup.Name, resGroup.CPURateLimit)
-			} else {
+			} else if connectionPool.Version.AtLeast("5.9.0") {
 				/* cpuset mode */
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
 			}
@@ -183,21 +183,19 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			if !strings.HasPrefix(resGroup.CPURateLimit, "-") {
 				/* cpu rate mode */
 				attributes = append(attributes, fmt.Sprintf("CPU_RATE_LIMIT=%s", resGroup.CPURateLimit))
-			} else {
+			} else if connectionPool.Version.AtLeast("5.9.0") {
 				/* cpuset mode */
 				attributes = append(attributes, fmt.Sprintf("CPUSET='%s'", resGroup.Cpuset))
 			}
 
 			/*
 			 * Possible values of memory_auditor:
-			 * - "1": cgroup;
-			 * - "0": vmtracker;
-			 * - "": not set, e.g. created on an older version which does not
-			 *   support memory_auditor yet, consider it as vmtracker;
+			 * - "1": cgroup
+			 * - "0": vmtracker (default)
 			 */
 			if resGroup.MemoryAuditor == "1" {
 				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=cgroup"))
-			} else {
+			} else if connectionPool.Version.AtLeast("5.8.0"){
 				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=vmtracker"))
 			}
 

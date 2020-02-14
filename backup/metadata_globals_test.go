@@ -139,6 +139,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 	Describe("PrintCreateResourceGroupStatements", func() {
 		var emptyResGroupMetadata = backup.MetadataMap{}
 		It("prints resource groups", func() {
+			testhelper.SetDBVersion(connectionPool, "5.9.0")
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30"}
 			someGroup2 := backup.ResourceGroup{Oid: 2, Name: "some_group2", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "10"}
 			resGroups := []backup.ResourceGroup{someGroup, someGroup2}
@@ -163,6 +164,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				`ALTER RESOURCE GROUP default_group SET CPU_RATE_LIMIT 10;`)
 		})
 		It("prints memory_auditor resource groups", func() {
+			testhelper.SetDBVersion(connectionPool, "5.8.0")
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30"}
 			someGroup2 := backup.ResourceGroup{Oid: 2, Name: "some_group2", CPURateLimit: "10", MemoryLimit: "30", Concurrency: "0", MemorySharedQuota: "35", MemorySpillRatio: "10", MemoryAuditor: "1"}
 			someGroup3 := backup.ResourceGroup{Oid: 3, Name: "some_group3", CPURateLimit: "10", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "10", MemoryAuditor: "0"}
@@ -176,6 +178,7 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				`CREATE RESOURCE GROUP some_group3 WITH (CPU_RATE_LIMIT=10, MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=10, CONCURRENCY=25);`)
 		})
 		It("prints cpuset resource groups", func() {
+			testhelper.SetDBVersion(connectionPool, "5.9.0")
 			someGroup := backup.ResourceGroup{Oid: 1, Name: "some_group", CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30"}
 			someGroup2 := backup.ResourceGroup{Oid: 2, Name: "some_group2", CPURateLimit: "-1", Cpuset: "0-3", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "10"}
 			resGroups := []backup.ResourceGroup{someGroup, someGroup2}
@@ -209,8 +212,35 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				`ALTER RESOURCE GROUP admin_group SET MEMORY_SPILL_RATIO 30;`,
 				`ALTER RESOURCE GROUP admin_group SET CONCURRENCY 15;`,
 				`ALTER RESOURCE GROUP admin_group SET CPU_RATE_LIMIT 10;`,
-				`CREATE RESOURCE GROUP some_group WITH (CPU_RATE_LIMIT=20, MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO='40 MB', CONCURRENCY=25);`,
-				`CREATE RESOURCE GROUP some_group2 WITH (CPU_RATE_LIMIT=20, MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=40, CONCURRENCY=25);`)
+				`CREATE RESOURCE GROUP some_group WITH (CPU_RATE_LIMIT=20, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO='40 MB', CONCURRENCY=25);`,
+				`CREATE RESOURCE GROUP some_group2 WITH (CPU_RATE_LIMIT=20, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=40, CONCURRENCY=25);`)
+		})
+		It("prints correct CREATE RESOURCE GROUP syntax for old resource groups on GPDB 5.8", func() {
+			// Memory Auditor reslimittype was added in GPDB 5.8. Make sure the older resource group object will have the proper default.
+			testhelper.SetDBVersion(connectionPool, "5.8.0")
+			resGroup52 := backup.ResourceGroup{Oid: 3, Name: "resGroup52", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40"}
+			resGroup58 := backup.ResourceGroup{Oid: 4, Name: "resGroup58", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40", MemoryAuditor: "1"}
+			resGroups := []backup.ResourceGroup{resGroup52, resGroup58}
+
+			backup.PrintCreateResourceGroupStatements(backupfile, tocfile, resGroups, emptyResGroupMetadata)
+			testutils.AssertBufferContents(tocfile.GlobalEntries, buffer,
+				`CREATE RESOURCE GROUP resGroup52 WITH (CPU_RATE_LIMIT=20, MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=40, CONCURRENCY=25);`,
+				`CREATE RESOURCE GROUP resGroup58 WITH (CPU_RATE_LIMIT=20, MEMORY_AUDITOR=cgroup, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=40, CONCURRENCY=25);`)
+		})
+		It("prints correct CREATE RESOURCE GROUP syntax for old resource groups on GPDB 5.9", func() {
+			// Cpuset reslimittype was added in GPDB 5.9. Make sure the older resource group objects
+			// will have the proper default. In this case, you either have cpu_rate_limit or cpuset.
+			testhelper.SetDBVersion(connectionPool, "5.9.0")
+			resGroup52 := backup.ResourceGroup{Oid: 3, Name: "resGroup52", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40"}
+			resGroup58 := backup.ResourceGroup{Oid: 4, Name: "resGroup58", CPURateLimit: "20", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40", MemoryAuditor: "1"}
+			resGroup59 := backup.ResourceGroup{Oid: 5, Name: "resGroup59", CPURateLimit: "-1", MemoryLimit: "30", Concurrency: "25", MemorySharedQuota: "35", MemorySpillRatio: "40", MemoryAuditor: "1", Cpuset: "1"}
+			resGroups := []backup.ResourceGroup{resGroup52, resGroup58, resGroup59}
+
+			backup.PrintCreateResourceGroupStatements(backupfile, tocfile, resGroups, emptyResGroupMetadata)
+			testutils.AssertBufferContents(tocfile.GlobalEntries, buffer,
+				`CREATE RESOURCE GROUP resGroup52 WITH (CPU_RATE_LIMIT=20, MEMORY_AUDITOR=vmtracker, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=40, CONCURRENCY=25);`,
+				`CREATE RESOURCE GROUP resGroup58 WITH (CPU_RATE_LIMIT=20, MEMORY_AUDITOR=cgroup, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=40, CONCURRENCY=25);`,
+				`CREATE RESOURCE GROUP resGroup59 WITH (CPUSET='1', MEMORY_AUDITOR=cgroup, MEMORY_LIMIT=30, MEMORY_SHARED_QUOTA=35, MEMORY_SPILL_RATIO=40, CONCURRENCY=25);`)
 		})
 	})
 	Describe("PrintResetResourceGroupStatements", func() {
