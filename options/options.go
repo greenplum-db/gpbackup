@@ -141,18 +141,25 @@ type FqnStruct struct {
 	TableName  string
 }
 
-const QuoteIdent = `SELECT quote_ident('%s') AS schemaname, quote_ident('%s') AS tablename`
-
 func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error) {
 	if len(tableNames) == 0 {
 		return []string{}, nil
 	}
-	fqnSlice, err := SeparateSchemaAndTable(tableNames)
+
+	// Escape single quotes to prevent quote_ident from failing if the FQN
+	// contains single quotes
+	escapedTables := make([]string, 0)
+	for _, v := range tableNames {
+		escapedTables = append(escapedTables, utils.EscapeSingleQuotes(v))
+	}
+
+	fqnSlice, err := SeparateSchemaAndTable(escapedTables)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]string, 0)
 
+	const QuoteIdent = `SELECT quote_ident('%s') AS schemaname, quote_ident('%s') AS tablename`
 	for _, fqn := range fqnSlice {
 		queryResultTable := make([]FqnStruct, 0)
 		query := fmt.Sprintf(QuoteIdent, fqn.SchemaName, fqn.TableName)
