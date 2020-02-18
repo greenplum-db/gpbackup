@@ -16,11 +16,11 @@ import (
 // modified by setters, it's method functions, or initialization function.
 // This package is meant to make mocking flags easier.
 type Options struct {
-	includedRelations         []string
-	excludedRelations         []string
+	IncludedRelations         []string
+	ExcludedRelations         []string
 	isLeafPartitionData       bool
-	excludedSchemas           []string
-	includedSchemas           []string
+	ExcludedSchemas           []string
+	IncludedSchemas           []string
 	originalIncludedRelations []string
 	RedirectSchema            string
 }
@@ -68,10 +68,10 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 	}
 
 	return &Options{
-		includedRelations:         includedRelations,
-		excludedRelations:         excludedRelations,
-		includedSchemas:           includedSchemas,
-		excludedSchemas:           excludedSchemas,
+		IncludedRelations:         includedRelations,
+		ExcludedRelations:         excludedRelations,
+		IncludedSchemas:           includedSchemas,
+		ExcludedSchemas:           excludedSchemas,
 		isLeafPartitionData:       leafPartitionData,
 		originalIncludedRelations: includedRelations,
 		RedirectSchema:            redirectSchema,
@@ -109,7 +109,7 @@ func setFiltersFromFile(initialFlags *pflag.FlagSet, filterFlag string, filterFi
 }
 
 func (o Options) GetIncludedTables() []string {
-	return o.includedRelations
+	return o.IncludedRelations
 }
 
 func (o Options) GetOriginalIncludedTables() []string {
@@ -117,7 +117,7 @@ func (o Options) GetOriginalIncludedTables() []string {
 }
 
 func (o Options) GetExcludedTables() []string {
-	return o.excludedRelations
+	return o.ExcludedRelations
 }
 
 func (o Options) IsLeafPartitionData() bool {
@@ -125,15 +125,15 @@ func (o Options) IsLeafPartitionData() bool {
 }
 
 func (o Options) GetIncludedSchemas() []string {
-	return o.includedSchemas
+	return o.IncludedSchemas
 }
 
 func (o Options) GetExcludedSchemas() []string {
-	return o.excludedSchemas
+	return o.ExcludedSchemas
 }
 
 func (o *Options) AddIncludedRelation(relation string) {
-	o.includedRelations = append(o.includedRelations, relation)
+	o.IncludedRelations = append(o.IncludedRelations, relation)
 }
 
 type FqnStruct struct {
@@ -146,8 +146,8 @@ func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error)
 		return []string{}, nil
 	}
 
-	// Escape single quotes to prevent quote_ident from failing if the FQN
-	// contains single quotes
+	// Properly escape single quote before running quote ident. Postgres
+	// quote_ident escapes single quotes by doubling them
 	escapedTables := make([]string, 0)
 	for _, v := range tableNames {
 		escapedTables = append(escapedTables, utils.EscapeSingleQuotes(v))
@@ -159,10 +159,10 @@ func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error)
 	}
 	result := make([]string, 0)
 
-	const QuoteIdent = `SELECT quote_ident('%s') AS schemaname, quote_ident('%s') AS tablename`
+	quoteIdentTableFQNQuery := `SELECT quote_ident('%s') AS schemaname, quote_ident('%s') AS tablename`
 	for _, fqn := range fqnSlice {
 		queryResultTable := make([]FqnStruct, 0)
-		query := fmt.Sprintf(QuoteIdent, fqn.SchemaName, fqn.TableName)
+		query := fmt.Sprintf(quoteIdentTableFQNQuery, fqn.SchemaName, fqn.TableName)
 		err := conn.Select(&queryResultTable, query)
 		if err != nil {
 			return nil, err
@@ -257,6 +257,16 @@ func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.
 			return err
 		}
 		o.AddIncludedRelation(fqn)
+	}
+
+	return nil
+}
+
+func (o *Options) QuoteIncludeRelations(conn *dbconn.DBConn) error {
+	var err error
+	o.IncludedRelations, err = QuoteTableNames(conn, o.GetIncludedTables())
+	if err != nil {
+		return err
 	}
 
 	return nil

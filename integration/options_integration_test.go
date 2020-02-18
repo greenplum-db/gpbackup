@@ -13,61 +13,30 @@ import (
 
 var _ = Describe("Options Integration", func() {
 	Describe("QuoteTablesNames", func() {
-		It("returns unchanged when fqn has no special characters", func() {
+		It("quotes identifiers as expected", func() {
 			tableList := []string{
-				`foo.bar`,
-			}
-
-			resultFQNs, err := options.QuoteTableNames(connectionPool, tableList)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(tableList).To(Equal(resultFQNs))
-		})
-		It("adds quote to single fqn when fqn has special characters", func() {
-			tableList := []string{
-				`FOO.bar`,
-			}
-			expected := []string{
-				`"FOO".bar`,
-			}
-
-			resultFQNs, err := options.QuoteTableNames(connectionPool, tableList)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(expected).To(Equal(resultFQNs))
-		})
-		It("adds quotes as necessary to multiple entries", func() {
-			tableList := []string{
-				`foo.BAR`,
-				`FOO.BAR`,
-				`bim.2`,
-				`public.foo_bar`,
+				`foo.bar`,  // no special characters
+				`foo.BAR`,  // capital characters
+				`foo.'bar`, // make sure that single quotes are escaped before string is fed to quote_ident
+				`foo.2`,    // numbers
+				`foo._bar`, // underscore
 				`foo ~#$%^&*()_-+[]{}><\|;:/?!,.bar`,
-				"tab\t.bar", // important to use double quotes to allow \t to become tab
-				"tab\n.bar", // important to use double quotes to allow \t to become tab
+				"foo.\tbar", // important to use double quotes to allow \t to become tab
+				"foo.\nbar", // important to use double quotes to allow \n to become a new line
+				`foo.\n`,
+				`foo."bar`, // quote ident should escape double-quote with another double-quote
 			}
 			expected := []string{
+				`foo.bar`,
 				`foo."BAR"`,
-				`"FOO"."BAR"`,
-				`bim."2"`,
-				`public.foo_bar`, // underscore is NOT special
+				`foo."'bar"`,
+				`foo."2"`,
+				`foo._bar`, // underscore is not a special character
 				`"foo ~#$%^&*()_-+[]{}><\|;:/?!,".bar`,
-				"\"tab\t\".bar",
-				"\"tab\n\".bar",
-			}
-
-			resultFQNs, err := options.QuoteTableNames(connectionPool, tableList)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(expected).To(Equal(resultFQNs))
-		})
-		It("add quotes as necessary for embedded single, double quotes", func() {
-			tableList := []string{
-				`single''quote.bar`,    // escape single-quote with another single-quote
-				`double""quote.bar`,    // escape double-quote with another double-quote
-				`doublequote.bar""baz`, // escape double-quote with another double-quote
-			}
-			expected := []string{
-				`"single'quote".bar`,
-				`"double""""quote".bar`,
-				`doublequote."bar""""baz"`,
+				"foo.\"\tbar\"",
+				"foo.\"\nbar\"",
+				`foo."\n"`,
+				`foo."""bar"`,
 			}
 
 			resultFQNs, err := options.QuoteTableNames(connectionPool, tableList)

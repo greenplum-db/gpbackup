@@ -71,6 +71,7 @@ var _ = Describe("restore/validate tests", func() {
 		})
 	})
 	Describe("GenerateRestoreRelationList", func() {
+		var opts *options.Options
 		BeforeEach(func() {
 			tocfile, _ = testutils.InitializeTestTOC(buffer, "metadata")
 			tocfile.AddMasterDataEntry("s1", "table1", 1, "(j)", 0, "")
@@ -78,55 +79,56 @@ var _ = Describe("restore/validate tests", func() {
 			tocfile.AddMasterDataEntry("s2", "table1", 3, "(j)", 0, "")
 			tocfile.AddMasterDataEntry("s2", "table2", 4, "(j)", 0, "")
 			restore.SetTOC(tocfile)
+
+			opts = &options.Options{}
 		})
 		It("returns all tables if no filtering is used", func() {
+			opts.IncludedRelations = []string{"s1.table1", "s1.table2", "s2.table1", "s2.table2"}
+
+			resultRelations := restore.GenerateRestoreRelationList(*opts)
+
 			expectedRelations := []string{"s1.table1", "s1.table2", "s2.table1", "s2.table2"}
-
-			resultRelations := restore.GenerateRestoreRelationList()
-
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 		It("filters on include relations", func() {
-			_ = cmdFlags.Set(options.INCLUDE_RELATION, "s1.table1")
-			_ = cmdFlags.Set(options.INCLUDE_RELATION, "s1.table2")
-			expectedRelations := []string{"s1.table1","s1.table2"}
+			opts.IncludedRelations = []string{"s1.table1", "s1.table2"}
 
-			resultRelations := restore.GenerateRestoreRelationList()
+			resultRelations := restore.GenerateRestoreRelationList(*opts)
 
+			expectedRelations := []string{"s1.table1", "s1.table2"}
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 		It("filters on exclude relations", func() {
-			_ = cmdFlags.Set(options.EXCLUDE_RELATION, "s1.table2")
-			_ = cmdFlags.Set(options.EXCLUDE_RELATION, "s2.table1")
-			expectedRelations := []string{"s1.table1","s2.table2"}
+			opts.ExcludedRelations = []string{"s1.table2", "s2.table1"}
 
-			resultRelations := restore.GenerateRestoreRelationList()
+			resultRelations := restore.GenerateRestoreRelationList(*opts)
 
+			expectedRelations := []string{"s1.table1", "s2.table2"}
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 		It("filters on include schema", func() {
-			_ = cmdFlags.Set(options.INCLUDE_SCHEMA, "s1")
+			opts.IncludedSchemas = []string{"s1"}
+
+			resultRelations := restore.GenerateRestoreRelationList(*opts)
+
 			expectedRelations := []string{"s1.table1", "s1.table2"}
-
-			resultRelations := restore.GenerateRestoreRelationList()
-
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 		It("filters on exclude schema", func() {
-			_ = cmdFlags.Set(options.EXCLUDE_SCHEMA, "s2")
+			opts.ExcludedSchemas = []string{"s2"}
+
+			resultRelations := restore.GenerateRestoreRelationList(*opts)
+
 			expectedRelations := []string{"s1.table1", "s1.table2"}
-
-			resultRelations := restore.GenerateRestoreRelationList()
-
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 		It("filters on include schema with exclude relation", func() {
-			_ = cmdFlags.Set(options.INCLUDE_SCHEMA, "s1")
-			_ = cmdFlags.Set(options.EXCLUDE_RELATION, "s1.table1")
+			opts.IncludedSchemas = []string{"s1"}
+			opts.ExcludedRelations = []string{"s1.table1"}
+
+			resultRelations := restore.GenerateRestoreRelationList(*opts)
+
 			expectedRelations := []string{"s1.table2"}
-
-			resultRelations := restore.GenerateRestoreRelationList()
-
 			Expect(resultRelations).To(ConsistOf(expectedRelations))
 		})
 	})

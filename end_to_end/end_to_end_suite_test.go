@@ -1206,7 +1206,7 @@ var _ = Describe("backup end to end integration tests", func() {
 		It("runs gpbackup and gprestore with redirecting restore to another db containing special capital letters", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--create-db", "--redirect-db", "CAPS")
-			err := exec.Command("dropdb", `CAPS`).Run()
+			err := exec.Command("dropdb", "CAPS").Run()
 			if err != nil {
 				Fail(fmt.Sprintf("%v", err))
 			}
@@ -1455,7 +1455,7 @@ var _ = Describe("backup end to end integration tests", func() {
 
 		It("runs gpbackup with --include-table flag with CAPS special characters", func() {
 			skipIfOldBackupVersionBefore("1.9.1")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", `public.FOObar`)
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", "public.FOObar")
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb", "--backup-dir", backupDir)
 
 			assertRelationsCreated(restoreConn, 1)
@@ -1521,7 +1521,7 @@ PARTITION BY LIST (gender)
 		})
 		It(`gpbackup runs with table name including special chars ~#$%^&*()_-+[]{}><|;:/?!\tC`, func() {
 			var err error
-			allChars := []rune{' ', '`', '~', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '[', ']', '{', '}', '>', '<', '\\', '|', ';', ':', '/', '?', ',', '!', 'C'}
+			allChars := []rune{' ', '`', '~', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '[', ']', '{', '}', '>', '<', '\\', '|', ';', ':', '/', '?', ',', '!', 'C', '\t', '\''}
 			var includeTableArgs []string
 			includeTableArgs = append(includeTableArgs, "--dbname")
 			includeTableArgs = append(includeTableArgs, "testdb")
@@ -1678,18 +1678,14 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
 			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA schema3 CASCADE")
 
-			// Filtered restore with special characters is currently not
-			// functioning as of this commit.  That portion of the test is left
-			// commented out until functionality is implemented.
+			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA \"FOO\"")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA \"FOO\" CASCADE")
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE \"FOO\".bar(i int)")
 
-			// testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA \"FOO\"")
-			// defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA \"FOO\" CASCADE")
-			// testhelper.AssertQueryRuns(backupConn, "CREATE TABLE \"FOO\".bar(i int)")
-
-			tableFile := path.Join(backupDir, "test-schema-file.txt")
+			tableFile := path.Join(backupDir, "test-table-file.txt")
 			includeFile := iohelper.MustOpenFileForWriting(tableFile)
 			utils.MustPrintln(includeFile, "public.sales\nschema2.foo2\nschema2.ao1")
-			// utils.MustPrintln(includeFile, "public.sales\nschema2.foo2\nschema2.ao1\n\"FOO\".bar")
+			utils.MustPrintln(includeFile, "public.sales\nschema2.foo2\nschema2.ao1\nFOO.bar")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
 
 			gprestore(gprestorePath, restoreHelperPath, timestamp, "--include-table-file", tableFile, "--redirect-db", "restoredb", "--redirect-schema", "schema3")
@@ -1698,7 +1694,7 @@ PARTITION BY LIST (gender)
 				"schema3.foo2":  0,
 				"schema3.ao1":   1000,
 				"schema3.sales": 13,
-				// "schema3.bar":   0,
+				"schema3.bar":   0,
 			}
 			assertDataRestored(restoreConn, schema3TupleCounts)
 			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)

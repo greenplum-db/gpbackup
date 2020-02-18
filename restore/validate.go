@@ -18,10 +18,10 @@ import (
  */
 
 func validateFilterListsInBackupSet() {
-	ValidateIncludeSchemasInBackupSet(MustGetFlagStringArray(options.INCLUDE_SCHEMA))
-	ValidateExcludeSchemasInBackupSet(MustGetFlagStringArray(options.EXCLUDE_SCHEMA))
-	ValidateIncludeRelationsInBackupSet(MustGetFlagStringArray(options.INCLUDE_RELATION))
-	ValidateExcludeRelationsInBackupSet(MustGetFlagStringArray(options.EXCLUDE_RELATION))
+	ValidateIncludeSchemasInBackupSet(opts.IncludedSchemas)
+	ValidateExcludeSchemasInBackupSet(opts.ExcludedSchemas)
+	ValidateIncludeRelationsInBackupSet(opts.IncludedRelations)
+	ValidateExcludeRelationsInBackupSet(opts.ExcludedRelations)
 }
 
 func ValidateIncludeSchemasInBackupSet(schemaList []string) {
@@ -77,16 +77,16 @@ func getFilterSchemasInBackupSet(schemaList []string) []string {
 	return keys
 }
 
-func GenerateRestoreRelationList() []string {
-	includeRelations := MustGetFlagStringArray(options.INCLUDE_RELATION)
+func GenerateRestoreRelationList(opts options.Options) []string {
+	includeRelations := opts.IncludedRelations
 	if len(includeRelations) > 0 {
 		return includeRelations
 	}
 
 	relationList := make([]string, 0)
-	includedSchemaSet := utils.NewIncludeSet(MustGetFlagStringArray(options.INCLUDE_SCHEMA))
-	excludedSchemaSet := utils.NewExcludeSet(MustGetFlagStringArray(options.EXCLUDE_SCHEMA))
-	excludedRelationsSet := utils.NewExcludeSet(MustGetFlagStringArray(options.EXCLUDE_RELATION))
+	includedSchemaSet := utils.NewIncludeSet(opts.IncludedSchemas)
+	excludedSchemaSet := utils.NewExcludeSet(opts.ExcludedSchemas)
+	excludedRelationsSet := utils.NewExcludeSet(opts.ExcludedRelations)
 
 	if len(globalTOC.DataEntries) == 0 {
 		return []string{}

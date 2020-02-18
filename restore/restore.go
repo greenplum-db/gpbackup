@@ -104,6 +104,9 @@ func DoSetup() {
 	opts, err = options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
+	err = opts.QuoteIncludeRelations(connectionPool)
+	gplog.FatalOnError(err)
+
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), MustGetFlagString(options.TIMESTAMP))
@@ -143,7 +146,7 @@ func DoSetup() {
 	 * but since they will not stop the restore, it is not necessary to log them twice.
 	 */
 	if !MustGetFlagBool(options.CREATE_DB) && !MustGetFlagBool(options.ON_ERROR_CONTINUE) && !MustGetFlagBool(options.INCREMENTAL) {
-		relationsToRestore := GenerateRestoreRelationList()
+		relationsToRestore := GenerateRestoreRelationList(*opts)
 		if opts.RedirectSchema != "" {
 			fqns, err := options.SeparateSchemaAndTable(relationsToRestore)
 			gplog.FatalOnError(err)
@@ -227,10 +230,10 @@ func restorePredata(metadataFilename string) {
 	gplog.Info("Restoring pre-data metadata")
 
 	var inSchemas, exSchemas, inRelations, exRelations []string
-	inSchemasUserInput := MustGetFlagStringArray(options.INCLUDE_SCHEMA)
-	exSchemasUserInput := MustGetFlagStringArray(options.EXCLUDE_SCHEMA)
-	inRelationsUserInput := MustGetFlagStringArray(options.INCLUDE_RELATION)
-	exRelationsUserInput := MustGetFlagStringArray(options.EXCLUDE_RELATION)
+	inSchemasUserInput := opts.IncludedSchemas
+	exSchemasUserInput := opts.ExcludedSchemas
+	inRelationsUserInput := opts.IncludedRelations
+	exRelationsUserInput := opts.ExcludedRelations
 
 	if MustGetFlagBool(options.INCREMENTAL) {
 		lastRestorePlanEntry := backupConfig.RestorePlan[len(backupConfig.RestorePlan)-1]
@@ -284,10 +287,10 @@ func restorePredata(metadataFilename string) {
 			inRelations = tableFQNsToCreate
 		}
 	} else { // if not incremental restore - assume database is empty and just filter based on user input
-		inSchemas = inSchemasUserInput
-		exSchemas = exSchemasUserInput
-		inRelations = inRelationsUserInput
-		exRelations = exRelationsUserInput
+		inSchemas = opts.IncludedSchemas
+		exSchemas = opts.ExcludedSchemas
+		inRelations = opts.IncludedRelations
+		exRelations = opts.ExcludedRelations
 	}
 
 	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
@@ -350,9 +353,8 @@ func restoreData() {
 		fpInfo := GetBackupFPInfoForTimestamp(entry.Timestamp)
 		tocfile := toc.NewTOC(fpInfo.GetTOCFilePath())
 		restorePlanTableFQNs := entry.TableFQNs
-		filteredDataEntriesForTimestamp := tocfile.GetDataEntriesMatching(MustGetFlagStringArray(options.INCLUDE_SCHEMA),
-			MustGetFlagStringArray(options.EXCLUDE_SCHEMA), options.MustGetFlagStringArray(cmdFlags, options.INCLUDE_RELATION),
-			MustGetFlagStringArray(options.EXCLUDE_RELATION), restorePlanTableFQNs)
+		filteredDataEntriesForTimestamp := tocfile.GetDataEntriesMatching(opts.IncludedSchemas,
+			opts.ExcludedSchemas, opts.IncludedRelations, opts.ExcludedRelations, restorePlanTableFQNs)
 		filteredDataEntries[entry.Timestamp] = filteredDataEntriesForTimestamp
 		totalTables += len(filteredDataEntriesForTimestamp)
 	}
@@ -382,11 +384,7 @@ func restorePostdata(metadataFilename string) {
 	}
 	gplog.Info("Restoring post-data metadata")
 
-	inSchemas := MustGetFlagStringArray(options.INCLUDE_SCHEMA)
-	exSchemas := MustGetFlagStringArray(options.EXCLUDE_SCHEMA)
-	inRelations := MustGetFlagStringArray(options.INCLUDE_RELATION)
-	exRelations := MustGetFlagStringArray(options.EXCLUDE_RELATION)
-	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
+	filters := NewFilters(opts.IncludedSchemas, opts.ExcludedSchemas, opts.IncludedRelations, opts.ExcludedRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("postdata", metadataFilename, []string{}, []string{}, filters)
 	editStatementsRedirectSchema(statements, opts.RedirectSchema)
@@ -410,11 +408,7 @@ func restoreStatistics() {
 	statisticsFilename := globalFPInfo.GetStatisticsFilePath()
 	gplog.Info("Restoring query planner statistics from %s", statisticsFilename)
 
-	inSchemas := MustGetFlagStringArray(options.INCLUDE_SCHEMA)
-	exSchemas := MustGetFlagStringArray(options.EXCLUDE_SCHEMA)
-	inRelations := MustGetFlagStringArray(options.INCLUDE_RELATION)
-	exRelations := MustGetFlagStringArray(options.EXCLUDE_RELATION)
-	filters := NewFilters(inSchemas, exSchemas, inRelations, exRelations)
+	filters := NewFilters(opts.IncludedSchemas, opts.ExcludedSchemas, opts.IncludedRelations, opts.ExcludedRelations)
 
 	statements := GetRestoreMetadataStatementsFiltered("statistics", statisticsFilename, []string{}, []string{}, filters)
 	editStatementsRedirectSchema(statements, opts.RedirectSchema)
