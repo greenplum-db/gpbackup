@@ -122,7 +122,7 @@ func DoSetup() {
 		configDirname := path.Dir(pluginConfig.ConfigPath)
 		pluginConfig.ConfigPath = path.Join(configDirname, timestamp+"_"+configFilename)
 		_ = cmdFlags.Set(options.PLUGIN_CONFIG, pluginConfig.ConfigPath)
-		gplog.Info("Plugin config path: %s", pluginConfig.ConfigPath)
+		gplog.Debug("Plugin config path: %s", pluginConfig.ConfigPath)
 	}
 
 	InitializeBackupReport(*opts)

@@ -37,6 +37,7 @@ const (
 )
 
 func ReadPluginConfig(configFile string) (*PluginConfig, error) {
+	gplog.Info("Reading Plugin Config %s", configFile)
 	config := &PluginConfig{}
 	contents, err := operating.System.ReadFile(configFile)
 	if err != nil {
@@ -61,6 +62,7 @@ func ReadPluginConfig(configFile string) (*PluginConfig, error) {
 
 func (plugin *PluginConfig) BackupFile(filenamePath string) error {
 	command := fmt.Sprintf("%s backup_file %s %s", plugin.ExecutablePath, plugin.ConfigPath, filenamePath)
+	gplog.Debug("%s", command)
 	output, err := exec.Command("bash", "-c", command).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Plugin failed to process %s. %s", filenamePath, string(output))
@@ -79,6 +81,7 @@ func (plugin *PluginConfig) MustRestoreFile(filenamePath string) {
 	err := operating.System.MkdirAll(directory, 0755)
 	gplog.FatalOnError(err)
 	command := fmt.Sprintf("%s restore_file %s %s", plugin.ExecutablePath, plugin.ConfigPath, filenamePath)
+	gplog.Debug("%s", command)
 	output, err := exec.Command("bash", "-c", command).CombinedOutput()
 	gplog.FatalOnError(err, string(output))
 }
@@ -90,13 +93,15 @@ func (plugin *PluginConfig) CheckPluginExistsOnAllHosts(c *cluster.Cluster) stri
 }
 
 func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
+	command := fmt.Sprintf("source %s/greenplum_path.sh && %s plugin_api_version",
+		operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
 	remoteOutput := c.GenerateAndExecuteCommand(
-		"Checking that plugin exists on all hosts",
+		"Checking plugin api version on all hosts",
 		func(contentID int) string {
-			return fmt.Sprintf("source %s/greenplum_path.sh && %s plugin_api_version",
-				operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
+			return command
 		},
 		cluster.ON_HOSTS_AND_MASTER)
+	gplog.Debug("%s", command)
 	c.CheckClusterError(
 		remoteOutput,
 		fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath),
@@ -117,8 +122,11 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 		tempPluginVersion := strings.TrimSpace(remoteOutput.Stdouts[contentID])
 		if pluginVersion != "" && tempPluginVersion != "" {
 			if pluginVersion != tempPluginVersion {
-				gplog.Verbose("Plugin %s on content ID %v with API version %s is not consistent with version on another segment", plugin.ExecutablePath, contentID, version)
-				cluster.LogFatalClusterError("Plugin API version is inconsistent across segments; please reinstall plugin across segments", cluster.ON_HOSTS_AND_MASTER, numIncorrect)
+				gplog.Verbose("Plugin %s on content ID %v with API version %s is not consistent " +
+					"with version on another segment", plugin.ExecutablePath, contentID, version)
+				cluster.LogFatalClusterError("Plugin API version is inconsistent " +
+					"across segments; please reinstall plugin across segments",
+					cluster.ON_HOSTS_AND_MASTER, numIncorrect)
 			}
 		}
 
@@ -128,7 +136,8 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 			gplog.Fatal(fmt.Errorf("Unable to parse plugin API version: %s", err.Error()), "")
 		}
 		if !version.GE(requiredVersion) {
-			gplog.Verbose("Plugin %s API version %s is not compatible with supported API version %s", plugin.ExecutablePath, version, requiredVersion)
+			gplog.Verbose("Plugin %s API version %s is not compatible with supported API " +
+				"version %s", plugin.ExecutablePath, version, requiredVersion)
 			numIncorrect++
 		}
 		index++
@@ -140,13 +149,15 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 }
 
 func (plugin *PluginConfig) getPluginNativeVersion(c *cluster.Cluster) string {
+	command := fmt.Sprintf("source %s/greenplum_path.sh && %s --version",
+		operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
 	remoteOutput := c.GenerateAndExecuteCommand(
-		"Checking that plugin exists on all hosts",
+		"Checking plugin version on all hosts",
 		func(contentID int) string {
-			return fmt.Sprintf("source %s/greenplum_path.sh && %s --version",
-				operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
+			return command
 		},
 		cluster.ON_HOSTS_AND_MASTER)
+	gplog.Debug("%s", command)
 	c.CheckClusterError(
 		remoteOutput,
 		fmt.Sprintf("Unable to execute plugin %s", plugin.ExecutablePath),
@@ -163,8 +174,11 @@ func (plugin *PluginConfig) getPluginNativeVersion(c *cluster.Cluster) string {
 		// check consistency of plugin version across all segments
 		if pluginVersion != "" && tempPluginVersion != "" {
 			if pluginVersion != tempPluginVersion {
-				gplog.Verbose("Plugin %s on content ID %v with --version %s is not consistent with version on another segment", plugin.ExecutablePath, contentID, pluginVersion)
-				cluster.LogFatalClusterError("Plugin --version is inconsistent across segments; please reinstall plugin across segments", cluster.ON_HOSTS_AND_MASTER, numIncorrect)
+				gplog.Verbose("Plugin %s on content ID %v with --version %s is not consistent " +
+					"with version on another segment", plugin.ExecutablePath, contentID, pluginVersion)
+				cluster.LogFatalClusterError("Plugin --version is inconsistent " +
+					"across segments; please reinstall plugin across segments",
+					cluster.ON_HOSTS_AND_MASTER, numIncorrect)
 			}
 		}
 
@@ -212,12 +226,13 @@ func (plugin *PluginConfig) CleanupPluginForRestore(c *cluster.Cluster, fpInfo f
 
 func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg string,
 	command string, fpInfo filepath.FilePathInfo, noFatal bool) {
+
 	// Execute command once on master
 	scope := MASTER
 	_, _ = plugin.buildHookErrorMsgAndFunc(command, scope)
 	masterContentID := -1
-	masterOutput, masterErr := c.ExecuteLocalCommand(plugin.buildHookString(command,
-		fpInfo, scope, masterContentID))
+	masterOutput, masterErr := c.ExecuteLocalCommand(
+		plugin.buildHookString(command, fpInfo, scope, masterContentID))
 	if masterErr != nil {
 		if noFatal {
 			gplog.Error(masterOutput)
@@ -232,6 +247,7 @@ func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg st
 	verboseErrorMsg, errorMsgFunc := plugin.buildHookErrorMsgAndFunc(command, scope)
 	verboseCommandHostMasterMsg := fmt.Sprintf(verboseCommandMsg, "segment hosts")
 	remoteOutput := c.GenerateAndExecuteCommand(verboseCommandHostMasterMsg, hookFunc, cluster.ON_HOSTS)
+	gplog.Debug("Execute Hook: %s", command)
 	c.CheckClusterError(remoteOutput, verboseErrorMsg, errorMsgFunc, noFatal)
 
 	// Execute command once for each segment
@@ -259,8 +275,8 @@ func (plugin *PluginConfig) buildHookString(command string,
 
 	backupDir := fpInfo.GetDirForContent(contentID)
 	return fmt.Sprintf("source %s/greenplum_path.sh && %s %s %s %s %s %s",
-		operating.System.Getenv("GPHOME"), plugin.ExecutablePath, command, plugin.ConfigPath, backupDir, scope,
-		contentIDStr)
+		operating.System.Getenv("GPHOME"), plugin.ExecutablePath, command,
+		plugin.ConfigPath, backupDir, scope, contentIDStr)
 }
 
 func (plugin *PluginConfig) buildHookErrorMsgAndFunc(command string,
@@ -279,21 +295,24 @@ func (plugin *PluginConfig) CopyPluginConfigToAllHosts(c *cluster.Cluster) {
 	// to the plugin.  At some point in the future, the plugin MAY be able to get PGPORT as
 	// an environmental var, at which time the code to write *specific* config files per segment
 	// can be removed
+	var command string
 	remoteOutput := c.GenerateAndExecuteCommand(
 		"Copying plugin config to all hosts",
 		func(contentIDForSegmentOnHost int) string {
 			hostConfigFile := plugin.createHostPluginConfig(contentIDForSegmentOnHost, c)
-
-			return fmt.Sprintf("scp %[1]s %s:%s; rm %[1]s", hostConfigFile, c.GetHostForContent(contentIDForSegmentOnHost), plugin.ConfigPath)
+			command = fmt.Sprintf("scp %[1]s %s:%s; rm %[1]s", hostConfigFile,
+				c.GetHostForContent(contentIDForSegmentOnHost), plugin.ConfigPath)
+			return command
 		},
 		cluster.ON_MASTER_TO_HOSTS_AND_MASTER,
 	)
-
+	gplog.Debug("%s", command)
+	errMsg := "Unable to copy plugin config"
 	c.CheckClusterError(
 		remoteOutput,
-		"Unable to copy plugin config",
+		errMsg,
 		func(contentID int) string {
-			return "Unable to copy plugin config"
+			return errMsg
 		},
 	)
 }
@@ -302,27 +321,29 @@ func (plugin *PluginConfig) DeletePluginConfigWhenEncrypting(c *cluster.Cluster)
 	if !plugin.UsesEncryption() {
 		return
 	}
-
+	command := fmt.Sprintf("rm -f %s", plugin.ConfigPath)
 	remoteOutput := c.GenerateAndExecuteCommand(
 		"Removing plugin config from all hosts",
 		func(contentIDForSegmentOnHost int) string {
 			//hostConfigFile := plugin.createHostPluginConfig(contentIDForSegmentOnHost, c)
-			return fmt.Sprintf("rm -f %s", plugin.ConfigPath)
+			return command
 		},
 		cluster.ON_MASTER_TO_HOSTS_AND_MASTER,
 	)
-
+	gplog.Debug("%s", command)
+	errMsg := "Unable to remove plugin config"
 	c.CheckClusterError(
 		remoteOutput,
-		"Unable to remove plugin config",
+		errMsg,
 		func(contentID int) string {
-			return "Unable to remove plugin config"
+			return errMsg
 		},
 		true,
 	)
 }
 
-func (plugin *PluginConfig) createHostPluginConfig(contentIDForSegmentOnHost int, c *cluster.Cluster) (segmentSpecificConfigFilepath string) {
+func (plugin *PluginConfig) createHostPluginConfig(contentIDForSegmentOnHost int,
+	c *cluster.Cluster) (segmentSpecificConfigFilepath string) {
 	// copy "general" config file to temp, and add segment-specific PGPORT value
 	segmentSpecificConfigFile := plugin.ConfigPath + "_" + strconv.Itoa(contentIDForSegmentOnHost)
 	file := iohelper.MustOpenFileForWriting(segmentSpecificConfigFile)
@@ -344,12 +365,13 @@ func (plugin *PluginConfig) createHostPluginConfig(contentIDForSegmentOnHost int
 		}
 		plugin.Options[pluginName] = secret
 	}
-	bytes, err := yaml.Marshal(plugin)
+	out, err := yaml.Marshal(plugin)
 	gplog.FatalOnError(err)
-	_, err = file.Write(bytes)
+	bytes, err := file.Write(out)
 	gplog.FatalOnError(err)
 	err = file.Close()
 	gplog.FatalOnError(err)
+	gplog.Debug("Wrote %d bytes to plugin config %s", bytes, segmentSpecificConfigFilepath)
 	return segmentSpecificConfigFile
 }
 
@@ -357,7 +379,8 @@ func GetSecretKey(pluginName string, mdd string) (string, error) {
 	secretFilePath := path.Join(mdd, SecretKeyFile)
 	contents, err := operating.System.ReadFile(secretFilePath)
 
-	errMsg := fmt.Sprintf("Cannot find encryption key for plugin %s. Please re-encrypt password(s) so that key becomes available.", pluginName)
+	errMsg := fmt.Sprintf("Cannot find encryption key for plugin %s. " +
+		"Please re-encrypt password(s) so that key becomes available.", pluginName)
 	if err != nil {
 		return "", errors.New(errMsg)
 	}
@@ -372,36 +395,48 @@ func GetSecretKey(pluginName string, mdd string) (string, error) {
 }
 
 func (plugin *PluginConfig) BackupSegmentTOCs(c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
-	remoteOutput := c.GenerateAndExecuteCommand("Waiting for remaining data to be uploaded to plugin destination", func(contentID int) string {
-		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
-		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
-		return fmt.Sprintf(`while [[ ! -f "%s" && ! -f "%s" ]]; do sleep 1; done; ls "%s"`, tocFile, errorFile, tocFile)
-	}, cluster.ON_SEGMENTS)
+	var command string
+	remoteOutput := c.GenerateAndExecuteCommand("Waiting for remaining data to be uploaded to plugin destination",
+		func(contentID int) string {
+			tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
+			errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
+			command = fmt.Sprintf(`while [[ ! -f "%s" && ! -f "%s" ]]; do sleep 1; done; ls "%s"`, tocFile, errorFile, tocFile)
+			return command
+		}, cluster.ON_SEGMENTS)
+	gplog.Debug("%s", command)
 	c.CheckClusterError(remoteOutput, "Error occurred in gpbackup_helper", func(contentID int) string {
 		return "See gpAdminLog for gpbackup_helper on segment host for details: Error occurred with plugin"
 	})
 
-	remoteOutput = c.GenerateAndExecuteCommand("Processing segment TOC files with plugin", func(contentID int) string {
-		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
-		return fmt.Sprintf("source %s/greenplum_path.sh && %s backup_file %s %s && chmod 0755 %s", operating.System.Getenv("GPHOME"), plugin.ExecutablePath, plugin.ConfigPath, tocFile, tocFile)
-	}, cluster.ON_SEGMENTS)
+	remoteOutput = c.GenerateAndExecuteCommand("Processing segment TOC files with plugin",
+		func(contentID int) string {
+			tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
+			return fmt.Sprintf("source %s/greenplum_path.sh && %s backup_file %s %s && " +
+				"chmod 0755 %s", operating.System.Getenv("GPHOME"), plugin.ExecutablePath, plugin.ConfigPath, tocFile, tocFile)
+		}, cluster.ON_SEGMENTS)
 	c.CheckClusterError(remoteOutput, "Unable to process segment TOC files using plugin", func(contentID int) string {
 		return "See gpAdminLog for gpbackup_helper on segment host for details: Error occurred with plugin"
 	})
 }
 
 func (plugin *PluginConfig) RestoreSegmentTOCs(c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
+	var command string
 	remoteOutput := c.GenerateAndExecuteCommand("Processing segment TOC files with plugin", func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
-		return fmt.Sprintf("mkdir -p %s && source %s/greenplum_path.sh && %s restore_file %s %s", fpInfo.GetDirForContent(contentID), operating.System.Getenv("GPHOME"), plugin.ExecutablePath, plugin.ConfigPath, tocFile)
+		command = fmt.Sprintf("mkdir -p %s && source %s/greenplum_path.sh && %s restore_file %s %s",
+			fpInfo.GetDirForContent(contentID), operating.System.Getenv("GPHOME"),
+			plugin.ExecutablePath, plugin.ConfigPath, tocFile)
+		return 	command
 	}, cluster.ON_SEGMENTS)
+	gplog.Debug("%s", command)
 	c.CheckClusterError(remoteOutput, "Unable to process segment TOC files using plugin", func(contentID int) string {
 		return fmt.Sprintf("Unable to process segment TOC files using plugin")
 	})
 }
 
 func (plugin *PluginConfig) UsesEncryption() bool {
-	return plugin.Options["password_encryption"] == "on" || (plugin.Options["replication"] == "on" && plugin.Options["remote_password_encryption"] == "on")
+	return plugin.Options["password_encryption"] == "on" ||
+		(plugin.Options["replication"] == "on" && plugin.Options["remote_password_encryption"] == "on")
 }
 
 func (plugin *PluginConfig) GetPluginName(c *cluster.Cluster) (pluginName string, err error) {
@@ -414,7 +449,8 @@ func (plugin *PluginConfig) GetPluginName(c *cluster.Cluster) (pluginName string
 	// expects the output to be in "[plugin_name] version [git_version]"
 	s := strings.Split(output, " ")
 	if len(s) != 3 {
-		return "", fmt.Errorf("Unexpected plugin version format: \"%s\"\nExpected: \"[plugin_name] version [git_version]\"", strings.Join(s, " "))
+		return "", fmt.Errorf("Unexpected plugin version format: " +
+			"\"%s\"\nExpected: \"[plugin_name] version [git_version]\"", strings.Join(s, " "))
 	}
 
 	return s[0], nil
@@ -426,7 +462,9 @@ func (plugin *PluginConfig) BackupPluginVersion() string {
 
 func (plugin *PluginConfig) SetBackupPluginVersion(timestamp string, historicalPluginVersion string) {
 	if historicalPluginVersion == "" {
-		gplog.Warn("cannot recover plugin version from history using timestamp %s, so using current plugin version. This is fine unless there is a backwards compatibility consideration within the plugin", timestamp)
+		gplog.Warn("cannot recover plugin version from history using timestamp %s, " +
+			"so using current plugin version. This is fine unless there is a backwards " +
+			"compatibility consideration within the plugin", timestamp)
 		plugin.backupPluginVersion = ""
 	} else {
 		plugin.backupPluginVersion = historicalPluginVersion
