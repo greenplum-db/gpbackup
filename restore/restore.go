@@ -48,7 +48,7 @@ func SetFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.String(options.INCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will be restored")
 	flagSet.StringArray(options.INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
 	flagSet.String(options.INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will be restored")
-	flagSet.Bool(options.INCREMENTAL, false, "Only restore data for all heap tables and only AO tables that have been modified since the last backup")
+	flagSet.Bool(options.INCREMENTAL, false, "BETA FEATURE: Only restore data for all heap tables and only AO tables that have been modified since the last backup")
 	flagSet.Bool(options.METADATA_ONLY, false, "Only restore metadata, do not restore data")
 	flagSet.Int(options.JOBS, 1, "Number of parallel connections to use when restoring table data and post-data")
 	flagSet.Bool(options.ON_ERROR_CONTINUE, false, "Log errors and continue restore, instead of exiting on first error")
