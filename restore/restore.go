@@ -144,6 +144,15 @@ func DoSetup() {
 	 */
 	if !MustGetFlagBool(options.CREATE_DB) && !MustGetFlagBool(options.ON_ERROR_CONTINUE) && !MustGetFlagBool(options.INCREMENTAL) {
 		relationsToRestore := GenerateRestoreRelationList()
+		if opts.RedirectSchema != "" {
+			fqns, err := options.SeparateSchemaAndTable(relationsToRestore)
+			gplog.FatalOnError(err)
+			redirectRelationsToRestore := make([]string, 0)
+			for _, fqn := range fqns {
+				redirectRelationsToRestore = append(redirectRelationsToRestore, utils.MakeFQN(opts.RedirectSchema, fqn.TableName))
+			}
+			relationsToRestore = redirectRelationsToRestore
+		}
 		ValidateRelationsInRestoreDatabase(connectionPool, relationsToRestore)
 	}
 

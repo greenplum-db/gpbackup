@@ -1650,28 +1650,27 @@ PARTITION BY LIST (gender)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(0))
 		})
-		It("runs gprestore with --redirect-schema", func() {
+		It("runs gprestore with --redirect-schema to redirect data back to the original database which still contain the original tables", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
-			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
-			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA schema3 CASCADE")
+			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA schema3 CASCADE")
 
 			testhelper.AssertQueryRuns(backupConn, "CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
 			defer testhelper.AssertQueryRuns(backupConn, "DROP INDEX schema2.foo3_idx1")
 			testhelper.AssertQueryRuns(backupConn, "ANALYZE schema2.foo3")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--with-stats")
 
-			gprestore(gprestorePath, restoreHelperPath, timestamp, "--include-table", "schema2.foo3", "--redirect-db", "restoredb", "--redirect-schema", "schema3", "--with-stats")
+			gprestore(gprestorePath, restoreHelperPath, timestamp, "--include-table", "schema2.foo3", "--redirect-schema", "schema3", "--with-stats")
 
 			schema3TupleCounts := map[string]int{
 				"schema3.foo3": 100,
 			}
-			assertDataRestored(restoreConn, schema3TupleCounts)
-			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+			assertDataRestored(backupConn, schema3TupleCounts)
 
-			actualIndexCount := dbconn.MustSelectString(restoreConn, `SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)
+			actualIndexCount := dbconn.MustSelectString(backupConn, `SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)
 			Expect(actualIndexCount).To(Equal("1"))
 
-			actualStatisticCount := dbconn.MustSelectString(restoreConn, `SELECT count(*) AS string FROM pg_stats WHERE schemaname='schema3' AND tablename='foo3';`)
+			actualStatisticCount := dbconn.MustSelectString(backupConn, `SELECT count(*) AS string FROM pg_stats WHERE schemaname='schema3' AND tablename='foo3';`)
 			Expect(actualStatisticCount).To(Equal("1"))
 		})
 		It("runs gprestore with --redirect-schema and multiple included schemas", func() {
