@@ -8,7 +8,7 @@ require (
 	github.com/blang/vfs v1.0.0
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
-	github.com/greenplum-db/gp-common-go-libs v1.0.2
+	github.com/greenplum-db/gp-common-go-libs v0.0.0-20200220000734-974a164cfd33
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-runewidth v0.0.8 // indirect
