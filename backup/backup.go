@@ -451,6 +451,9 @@ func DoTeardown() {
 		if backupReport != nil {
 			backupReport.ConstructBackupParamsString()
 			history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
+			if (backupReport.BackupConfig.EndTime == "") {
+				backupReport.BackupConfig.EndTime = history.CurrentTimestamp()
+			}
 			endtime, _ := time.ParseInLocation("20060102150405", backupReport.BackupConfig.EndTime, operating.System.Local)
 			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, endtime, objectCounts, errMsg)
 			report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup")
