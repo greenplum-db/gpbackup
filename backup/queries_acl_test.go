@@ -22,65 +22,71 @@ var _ = Describe("backup/queries_acl tests", func() {
 			params = backup.MetadataQueryParams{NameField: "name", OwnerField: "owner", CatalogTable: "table"}
 		})
 		It("queries metadata for an object with default params", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`
-	SELECT 'table'::regclass::oid AS classid,
+			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'table'::regclass::oid AS classid,
 		o.oid,
-		'' AS privileges,
+		quote_ident(name) AS name,
 		'' AS kind,
+		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
+		'' AS privileges,
 		coalesce(description,'') AS comment
 	FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
-	AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
+	WHERE 1 = 1
 	ORDER BY o.oid`)).WillReturnRows(emptyRows)
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
 		It("queries metadata for an object with a schema field", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`
-	SELECT 'table'::regclass::oid AS classid,
+			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'table'::regclass::oid AS classid,
 		o.oid,
-		'' AS privileges,
+		quote_ident(name) AS name,
 		'' AS kind,
+		coalesce(quote_ident(n.nspname),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
+		'' AS privileges,
 		coalesce(description,'') AS comment
 	FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
-	JOIN pg_namespace n ON o.schema = n.oid
+		JOIN pg_namespace n ON o.schema = n.oid
 	WHERE n.nspname NOT LIKE 'pg_temp_%' AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog')
-	AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
 	ORDER BY o.oid`)).WillReturnRows(emptyRows)
 			params.SchemaField = "schema"
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
 		It("queries metadata for an object with an ACL field", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`
-	SELECT 'table'::regclass::oid AS classid,
+			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'table'::regclass::oid AS classid,
 		o.oid,
+		quote_ident(name) AS name,
 		CASE
-			WHEN acl IS NULL THEN NULL
-			WHEN array_upper(acl, 1) = 0 THEN acl[0]
-			ELSE unnest(acl)
-			END AS privileges,
-		CASE
-			WHEN acl IS NULL THEN ''
-			WHEN array_upper(acl, 1) = 0 THEN 'Empty'
-			ELSE '' END AS kind,
+		WHEN acl IS NULL THEN ''
+		WHEN array_upper(acl, 1) = 0 THEN 'Empty'
+		ELSE '' END AS kind,
+		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
+		CASE
+		WHEN acl IS NULL THEN NULL
+		WHEN array_upper(acl, 1) = 0 THEN acl[0]
+		ELSE unnest(acl) END AS privileges,
 		coalesce(description,'') AS comment
 	FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
-	AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
+	WHERE 1 = 1
 	ORDER BY o.oid`)).WillReturnRows(emptyRows)
 			params.ACLField = "acl"
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
 		It("queries metadata for a shared object", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`
-	SELECT 'table'::regclass::oid AS classid,
+			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'table'::regclass::oid AS classid,
 		o.oid,
-		'' AS privileges,
+		quote_ident(name) AS name,
 		'' AS kind,
+		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
+		'' AS privileges,
 		coalesce(description,'') AS comment
 	FROM table o LEFT JOIN pg_shdescription d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass)
-	AND o.oid NOT IN (SELECT objid FROM pg_depend WHERE deptype='e')
+	WHERE 1 = 1
 	ORDER BY o.oid`)).WillReturnRows(emptyRows)
 			params.Shared = true
 			backup.GetMetadataForObjectType(connectionPool, params)

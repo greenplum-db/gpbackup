@@ -18,6 +18,9 @@ var ACLRegex = regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
 
 type ObjectMetadata struct {
 	Privileges            []ACL
+	Name                  string
+	ObjectType            string
+	Schema                string
 	Owner                 string
 	Comment               string
 	SecurityLabelProvider string
@@ -54,6 +57,25 @@ type ACL struct {
 
 type MetadataMap map[UniqueID]ObjectMetadata
 
+func (obj ObjectMetadata) GetMetadataEntry() (string, toc.MetadataEntry) {
+	return "predata",
+		toc.MetadataEntry{
+			Schema:          obj.Schema,
+			Name:            obj.Name,
+			ObjectType:      obj.ObjectType,
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (obj ObjectMetadata) FQN() string {
+	if obj.Schema == "" {
+		return obj.Name
+	}
+	return utils.MakeFQN(obj.Schema, obj.Name)
+}
+
 func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	obj toc.TOCObject, statements []string) {
 	for _, statement := range statements {
@@ -89,6 +111,23 @@ func PrintObjectMetadata(file *utils.FileWithByteCount, toc *toc.TOC,
 	PrintStatements(file, toc, obj, statements)
 }
 
+// Only print owner and grant statements
+func printObjectMetadataACLs(file *utils.FileWithByteCount, toc *toc.TOC,
+	obj ObjectMetadata, info FunctionInfo) {
+	_, entry := obj.GetMetadataEntry()
+	if entry.ObjectType == "FUNCTION" || entry.ObjectType == "AGGREGATE" {
+		statements := make([]string, 0)
+		fqn := fmt.Sprintf("%s.%s(%s)", entry.Schema, entry.Name, info.IdentArgs)
+		if owner := obj.GetOwnerStatement(fqn, entry.ObjectType); owner != "" {
+			statements = append(statements, strings.TrimSpace(owner))
+		}
+		if privileges := obj.GetPrivilegesStatements(fqn, "FUNCTION"); privileges != "" {
+			statements = append(statements, strings.TrimSpace(privileges))
+		}
+		PrintStatements(file, toc, obj, statements)
+	}
+}
+
 func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 	metadataMap := make(MetadataMap)
 	if len(results) == 0 {
@@ -113,6 +152,9 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 			metadata = ObjectMetadata{}
 			metadata.Privileges = make([]ACL, 0)
 			metadata.Owner = result.Owner
+			metadata.Name = result.Name
+			metadata.ObjectType = result.ObjectType
+			metadata.Schema = result.Schema
 			metadata.Comment = result.Comment
 			metadata.SecurityLabelProvider = result.SecurityLabelProvider
 			metadata.SecurityLabel = result.SecurityLabel

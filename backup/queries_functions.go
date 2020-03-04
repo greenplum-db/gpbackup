@@ -494,6 +494,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 type FunctionInfo struct {
 	QualifiedName string
 	Arguments     string
+	IdentArgs     string
 	IsInternal    bool
 }
 
@@ -508,7 +509,8 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(p.proname) AS name,
-		pg_catalog.pg_get_function_arguments(p.oid) AS arguments
+		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs
 	FROM pg_proc p
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid`
 
@@ -517,6 +519,7 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 		Schema    string
 		Name      string
 		Arguments string
+		IdentArgs string
 	}, 0)
 	funcMap := make(map[uint32]FunctionInfo)
 	var err error
@@ -537,7 +540,11 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 		if function.Schema == "pg_catalog" {
 			isInternal = true
 		}
-		funcInfo := FunctionInfo{QualifiedName: fqn, Arguments: function.Arguments, IsInternal: isInternal}
+		funcInfo := FunctionInfo{
+			QualifiedName: fqn,
+			Arguments: function.Arguments,
+			IdentArgs: function.IdentArgs,
+			IsInternal: isInternal}
 		funcMap[function.Oid] = funcInfo
 	}
 	return funcMap
