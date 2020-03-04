@@ -93,6 +93,13 @@ func ValidateFullPath(path string) error {
 	return nil
 }
 
+func ValidateCompressionLevel(compressionLevel int) error {
+	if compressionLevel < 1 || compressionLevel > 9 {
+		return errors.Errorf("Compression level must be between 1 and 9")
+	}
+	return nil
+}
+
 func InitializeSignalHandler(cleanupFunc func(bool), procDesc string, termFlag *bool) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)

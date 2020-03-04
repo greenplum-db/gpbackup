@@ -35,7 +35,7 @@ func SetLoggerVerbosity() {
 	}
 }
 
-func InitializeConnectionPool() {
+func initializeConnectionPool() {
 	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
 	connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
@@ -100,7 +100,7 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 	return &backupConfig
 }
 
-func InitializeBackupReport(opts options.Options) {
+func initializeBackupReport(opts options.Options) {
 	escapedDBName := dbconn.MustSelectString(connectionPool, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", utils.EscapeSingleQuotes(connectionPool.DBName)))
 	plugin := ""
 	if pluginConfig != nil {
@@ -125,7 +125,7 @@ func InitializeBackupReport(opts options.Options) {
 	backupReport.ConstructBackupParamsString()
 }
 
-func CreateBackupLockFile(timestamp string) {
+func createBackupLockFile(timestamp string) {
 	var err error
 	timestampLockFile := fmt.Sprintf("/tmp/%s.lck", timestamp)
 	backupLockFile, err = lockfile.New(timestampLockFile)
@@ -137,7 +137,7 @@ func CreateBackupLockFile(timestamp string) {
 	}
 }
 
-func CreateBackupDirectoriesOnAllHosts() {
+func createBackupDirectoriesOnAllHosts() {
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Creating backup directories", func(contentID int) string {
 		return fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(contentID))
 	}, cluster.ON_SEGMENTS_AND_MASTER)
@@ -150,7 +150,7 @@ func CreateBackupDirectoriesOnAllHosts() {
  * Metadata retrieval wrapper functions
  */
 
-func RetrieveAndProcessTables() ([]Table, []Table) {
+func retrieveAndProcessTables() ([]Table, []Table) {
 	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.INCLUDE_RELATION))
 	gplog.FatalOnError(err)
 
@@ -169,7 +169,7 @@ func RetrieveAndProcessTables() ([]Table, []Table) {
 	return metadataTables, dataTables
 }
 
-func RetrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap, procLangs []ProceduralLanguage) ([]Function, MetadataMap) {
+func retrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap, procLangs []ProceduralLanguage) ([]Function, MetadataMap) {
 	gplog.Verbose("Retrieving function information")
 	functions := GetFunctionsAllVersions(connectionPool)
 	objectCounts["Functions"] = len(functions)
@@ -182,7 +182,7 @@ func RetrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap, procLangs
 	return langFuncs, functionMetadata
 }
 
-func RetrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving type information")
 	shells := GetShellTypes(connectionPool)
 	bases := GetBaseTypes(connectionPool)
@@ -194,9 +194,9 @@ func RetrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]
 	}
 	typeMetadata := GetMetadataForObjectType(connectionPool, TYPE_TYPE)
 
-	BackupShellTypes(metadataFile, shells, bases, rangeTypes)
+	backupShellTypes(metadataFile, shells, bases, rangeTypes)
 	if connectionPool.Version.AtLeast("5") {
-		BackupEnumTypes(metadataFile, typeMetadata)
+		backupEnumTypes(metadataFile, typeMetadata)
 	}
 
 	objectCounts["Types"] += len(shells)
@@ -211,21 +211,21 @@ func RetrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]
 	addToMetadataMap(typeMetadata, metadataMap)
 }
 
-func RetrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
+func retrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
 	gplog.Verbose("Retrieving constraints")
 	constraints := GetConstraints(connectionPool, tables...)
 	conMetadata := GetCommentsForObjectType(connectionPool, TYPE_CONSTRAINT)
 	return constraints, conMetadata
 }
 
-func RetrieveSequences() ([]Sequence, map[string]string) {
+func retrieveSequences() ([]Sequence, map[string]string) {
 	gplog.Verbose("Retrieving sequences")
 	sequenceOwnerTables, sequenceOwnerColumns := GetSequenceColumnOwnerMap(connectionPool)
 	sequences := GetAllSequences(connectionPool, sequenceOwnerTables)
 	return sequences, sequenceOwnerColumns
 }
 
-func RetrieveProtocols(sortables *[]Sortable, metadataMap MetadataMap) []ExternalProtocol {
+func retrieveProtocols(sortables *[]Sortable, metadataMap MetadataMap) []ExternalProtocol {
 	gplog.Verbose("Retrieving protocols")
 	protocols := GetExternalProtocols(connectionPool)
 	objectCounts["Protocols"] = len(protocols)
@@ -237,7 +237,7 @@ func RetrieveProtocols(sortables *[]Sortable, metadataMap MetadataMap) []Externa
 	return protocols
 }
 
-func RetrieveViews(sortables *[]Sortable) {
+func retrieveViews(sortables *[]Sortable) {
 	gplog.Verbose("Retrieving views")
 	views, materializedViews := GetAllViews(connectionPool)
 	objectCounts["Views"] = len(views)
@@ -246,7 +246,7 @@ func RetrieveViews(sortables *[]Sortable) {
 	*sortables = append(*sortables, convertToSortableSlice(materializedViews)...)
 }
 
-func RetrieveTSParsers(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveTSParsers(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving Text Search Parsers")
 	parsers := GetTextSearchParsers(connectionPool)
 	objectCounts["Text Search Parsers"] = len(parsers)
@@ -256,7 +256,7 @@ func RetrieveTSParsers(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(parserMetadata, metadataMap)
 }
 
-func RetrieveTSTemplates(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveTSTemplates(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving TEXT SEARCH TEMPLATE information")
 	templates := GetTextSearchTemplates(connectionPool)
 	objectCounts["Text Search Templates"] = len(templates)
@@ -266,7 +266,7 @@ func RetrieveTSTemplates(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(templateMetadata, metadataMap)
 }
 
-func RetrieveTSDictionaries(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveTSDictionaries(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving TEXT SEARCH DICTIONARY information")
 	dictionaries := GetTextSearchDictionaries(connectionPool)
 	objectCounts["Text Search Dictionaries"] = len(dictionaries)
@@ -276,7 +276,7 @@ func RetrieveTSDictionaries(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(dictionaryMetadata, metadataMap)
 }
 
-func RetrieveTSConfigurations(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveTSConfigurations(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving TEXT SEARCH CONFIGURATION information")
 	configurations := GetTextSearchConfigurations(connectionPool)
 	objectCounts["Text Search Configurations"] = len(configurations)
@@ -286,7 +286,7 @@ func RetrieveTSConfigurations(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(configurationMetadata, metadataMap)
 }
 
-func RetrieveOperators(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveOperators(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving OPERATOR information")
 	operators := GetOperators(connectionPool)
 	objectCounts["Operators"] = len(operators)
@@ -296,7 +296,7 @@ func RetrieveOperators(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(operatorMetadata, metadataMap)
 }
 
-func RetrieveOperatorClasses(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveOperatorClasses(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving OPERATOR CLASS information")
 	operatorClasses := GetOperatorClasses(connectionPool)
 	objectCounts["Operator Classes"] = len(operatorClasses)
@@ -306,7 +306,7 @@ func RetrieveOperatorClasses(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(operatorClassMetadata, metadataMap)
 }
 
-func RetrieveAggregates(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveAggregates(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving AGGREGATE information")
 	aggregates := GetAggregates(connectionPool)
 	objectCounts["Aggregates"] = len(aggregates)
@@ -321,7 +321,7 @@ func RetrieveAggregates(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(aggMetadata, metadataMap)
 }
 
-func RetrieveCasts(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveCasts(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving CAST information")
 	casts := GetCasts(connectionPool)
 	objectCounts["Casts"] = len(casts)
@@ -331,7 +331,7 @@ func RetrieveCasts(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(castMetadata, metadataMap)
 }
 
-func RetrieveForeignDataWrappers(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveForeignDataWrappers(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Writing CREATE FOREIGN DATA WRAPPER statements to metadata file")
 	wrappers := GetForeignDataWrappers(connectionPool)
 	objectCounts["Foreign Data Wrappers"] = len(wrappers)
@@ -341,7 +341,7 @@ func RetrieveForeignDataWrappers(sortables *[]Sortable, metadataMap MetadataMap)
 	addToMetadataMap(fdwMetadata, metadataMap)
 }
 
-func RetrieveForeignServers(sortables *[]Sortable, metadataMap MetadataMap) {
+func retrieveForeignServers(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Writing CREATE SERVER statements to metadata file")
 	servers := GetForeignServers(connectionPool)
 	objectCounts["Foreign Servers"] = len(servers)
@@ -351,7 +351,7 @@ func RetrieveForeignServers(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(serverMetadata, metadataMap)
 }
 
-func RetrieveUserMappings(sortables *[]Sortable) {
+func retrieveUserMappings(sortables *[]Sortable) {
 	gplog.Verbose("Writing CREATE USER MAPPING statements to metadata file")
 	mappings := GetUserMappings(connectionPool)
 	objectCounts["User Mappings"] = len(mappings)
@@ -360,7 +360,7 @@ func RetrieveUserMappings(sortables *[]Sortable) {
 	*sortables = append(*sortables, convertToSortableSlice(mappings)...)
 }
 
-func BackupSessionGUCs(metadataFile *utils.FileWithByteCount) {
+func backupSessionGUC(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing Session Configuration Parameters to metadata file")
 	gucs := GetSessionGUCs(connectionPool)
 	PrintSessionGUCs(metadataFile, globalTOC, gucs)
@@ -370,7 +370,7 @@ func BackupSessionGUCs(metadataFile *utils.FileWithByteCount) {
  * Global metadata wrapper functions
  */
 
-func BackupTablespaces(metadataFile *utils.FileWithByteCount) {
+func backupTablespaces(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE TABLESPACE statements to metadata file")
 	tablespaces := GetTablespaces(connectionPool)
 	objectCounts["Tablespaces"] = len(tablespaces)
@@ -378,7 +378,7 @@ func BackupTablespaces(metadataFile *utils.FileWithByteCount) {
 	PrintCreateTablespaceStatements(metadataFile, globalTOC, tablespaces, tablespaceMetadata)
 }
 
-func BackupCreateDatabase(metadataFile *utils.FileWithByteCount) {
+func backupCreateDatabase(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE DATABASE statement to metadata file")
 	defaultDB := GetDefaultDatabaseEncodingInfo(connectionPool)
 	db := GetDatabaseInfo(connectionPool)
@@ -386,14 +386,14 @@ func BackupCreateDatabase(metadataFile *utils.FileWithByteCount) {
 	PrintCreateDatabaseStatement(metadataFile, globalTOC, defaultDB, db, dbMetadata)
 }
 
-func BackupDatabaseGUCs(metadataFile *utils.FileWithByteCount) {
+func backupDatabaseGUCs(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing Database Configuration Parameters to metadata file")
 	databaseGucs := GetDatabaseGUCs(connectionPool)
 	objectCounts["Database GUCs"] = len(databaseGucs)
 	PrintDatabaseGUCs(metadataFile, globalTOC, databaseGucs, connectionPool.DBName)
 }
 
-func BackupResourceQueues(metadataFile *utils.FileWithByteCount) {
+func backupResourceQueues(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE RESOURCE QUEUE statements to metadata file")
 	resQueues := GetResourceQueues(connectionPool)
 	objectCounts["Resource Queues"] = len(resQueues)
@@ -401,7 +401,7 @@ func BackupResourceQueues(metadataFile *utils.FileWithByteCount) {
 	PrintCreateResourceQueueStatements(metadataFile, globalTOC, resQueues, resQueueMetadata)
 }
 
-func BackupResourceGroups(metadataFile *utils.FileWithByteCount) {
+func backupResourceGroups(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE RESOURCE GROUP statements to metadata file")
 	resGroups := GetResourceGroups(connectionPool)
 	objectCounts["Resource Groups"] = len(resGroups)
@@ -410,7 +410,7 @@ func BackupResourceGroups(metadataFile *utils.FileWithByteCount) {
 	PrintCreateResourceGroupStatements(metadataFile, globalTOC, resGroups, resGroupMetadata)
 }
 
-func BackupRoles(metadataFile *utils.FileWithByteCount) {
+func backupRoles(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE ROLE statements to metadata file")
 	roles := GetRoles(connectionPool)
 	objectCounts["Roles"] = len(roles)
@@ -418,13 +418,13 @@ func BackupRoles(metadataFile *utils.FileWithByteCount) {
 	PrintCreateRoleStatements(metadataFile, globalTOC, roles, roleMetadata)
 }
 
-func BackupRoleGUCs(metadataFile *utils.FileWithByteCount) {
+func backupRoleGUCs(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing ROLE Configuration Parameter to meadata file")
 	roleGUCs := GetRoleGUCs(connectionPool)
 	PrintRoleGUCStatements(metadataFile, globalTOC, roleGUCs)
 }
 
-func BackupRoleGrants(metadataFile *utils.FileWithByteCount) {
+func backupRoleGrants(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing GRANT ROLE statements to metadata file")
 	roleMembers := GetRoleMembers(connectionPool)
 	PrintRoleMembershipStatements(metadataFile, globalTOC, roleMembers)
@@ -434,7 +434,7 @@ func BackupRoleGrants(metadataFile *utils.FileWithByteCount) {
  * Predata wrapper functions
  */
 
-func BackupSchemas(metadataFile *utils.FileWithByteCount, partitionAlteredSchemas map[string]bool) {
+func backupSchemas(metadataFile *utils.FileWithByteCount, partitionAlteredSchemas map[string]bool) {
 	gplog.Verbose("Writing CREATE SCHEMA statements to metadata file")
 	schemas := GetAllUserSchemas(connectionPool, partitionAlteredSchemas)
 	objectCounts["Schemas"] = len(schemas)
@@ -442,7 +442,7 @@ func BackupSchemas(metadataFile *utils.FileWithByteCount, partitionAlteredSchema
 	PrintCreateSchemaStatements(metadataFile, globalTOC, schemas, schemaMetadata)
 }
 
-func BackupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs []ProceduralLanguage, langFuncs []Function, functionMetadata MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
+func backupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs []ProceduralLanguage, langFuncs []Function, functionMetadata MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
 	gplog.Verbose("Writing CREATE PROCEDURAL LANGUAGE statements to metadata file")
 	objectCounts["Procedural Languages"] = len(procLangs)
 	for _, langFunc := range langFuncs {
@@ -452,28 +452,29 @@ func BackupProceduralLanguages(metadataFile *utils.FileWithByteCount, procLangs 
 	PrintCreateLanguageStatements(metadataFile, globalTOC, procLangs, funcInfoMap, procLangMetadata)
 }
 
-func BackupShellTypes(metadataFile *utils.FileWithByteCount, shellTypes []ShellType, baseTypes []BaseType, rangeTypes []RangeType) {
+func backupShellTypes(metadataFile *utils.FileWithByteCount, shellTypes []ShellType, baseTypes []BaseType, rangeTypes []RangeType) {
 	gplog.Verbose("Writing CREATE TYPE statements for shell types to metadata file")
 	PrintCreateShellTypeStatements(metadataFile, globalTOC, shellTypes, baseTypes, rangeTypes)
 }
 
-func BackupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata MetadataMap) {
+func backupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata MetadataMap) {
 	gplog.Verbose("Writing CREATE TYPE statements for enum types to metadata file")
 	enums := GetEnumTypes(connectionPool)
 	objectCounts["Types"] += len(enums)
 	PrintCreateEnumTypeStatements(metadataFile, globalTOC, enums, typeMetadata)
 }
 
-func BackupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Sequence, relationMetadata MetadataMap) {
+func backupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Sequence, sequenceOwnerColumns map[string]string, relationMetadata MetadataMap) {
 	gplog.Verbose("Writing CREATE SEQUENCE statements to metadata file")
 	objectCounts["Sequences"] = len(sequences)
 	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
+	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 }
 
-func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]bool) {
-	backupSet = make(map[UniqueID]bool)
+func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]Sortable) {
+	backupSet = make(map[UniqueID]Sortable)
 	for _, obj := range objSlice {
-		backupSet[obj.GetUniqueID()] = true
+		backupSet[obj.GetUniqueID()] = obj
 	}
 
 	return backupSet
@@ -504,10 +505,9 @@ func addToMetadataMap(newMetadata MetadataMap, metadataMap MetadataMap) {
 }
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
-func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Table,
-	protocols []ExternalProtocol, filteredMetadata MetadataMap,
-	constraints []Constraint, sortables []Sortable, funcInfoMap map[uint32]FunctionInfo,
-	tableOnly bool) {
+func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Table,
+	protocols []ExternalProtocol, filteredMetadata MetadataMap, constraints []Constraint,
+	sortables []Sortable, funcInfoMap map[uint32]FunctionInfo, tableOnly bool) {
 
 	gplog.Verbose("Writing CREATE statements for dependent objects to metadata file")
 
@@ -526,7 +526,7 @@ func BackupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 	}
 }
 
-func BackupConversions(metadataFile *utils.FileWithByteCount) {
+func backupConversions(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE CONVERSION statements to metadata file")
 	conversions := GetConversions(connectionPool)
 	objectCounts["Conversions"] = len(conversions)
@@ -534,7 +534,7 @@ func BackupConversions(metadataFile *utils.FileWithByteCount) {
 	PrintCreateConversionStatements(metadataFile, globalTOC, conversions, convMetadata)
 }
 
-func BackupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
+func backupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE OPERATOR FAMILY statements to metadata file")
 	operatorFamilies := GetOperatorFamilies(connectionPool)
 	objectCounts["Operator Families"] = len(operatorFamilies)
@@ -542,7 +542,7 @@ func BackupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
 	PrintCreateOperatorFamilyStatements(metadataFile, globalTOC, operatorFamilies, operatorFamilyMetadata)
 }
 
-func BackupCollations(metadataFile *utils.FileWithByteCount) {
+func backupCollations(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE COLLATION statements to metadata file")
 	collations := GetCollations(connectionPool)
 	objectCounts["Collations"] = len(collations)
@@ -550,7 +550,7 @@ func BackupCollations(metadataFile *utils.FileWithByteCount) {
 	PrintCreateCollationStatements(metadataFile, globalTOC, collations, collationMetadata)
 }
 
-func BackupExtensions(metadataFile *utils.FileWithByteCount) {
+func backupExtensions(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE EXTENSION statements to metadata file")
 	extensions := GetExtensions(connectionPool)
 	objectCounts["Extensions"] = len(extensions)
@@ -558,7 +558,7 @@ func BackupExtensions(metadataFile *utils.FileWithByteCount) {
 	PrintCreateExtensionStatements(metadataFile, globalTOC, extensions, extensionMetadata)
 }
 
-func BackupConstraints(metadataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
+func backupConstraints(metadataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
 	gplog.Verbose("Writing ADD CONSTRAINT statements to metadata file")
 	objectCounts["Constraints"] = len(constraints)
 	PrintConstraintStatements(metadataFile, globalTOC, constraints, conMetadata)
@@ -568,7 +568,7 @@ func BackupConstraints(metadataFile *utils.FileWithByteCount, constraints []Cons
  * Postdata wrapper functions
  */
 
-func BackupIndexes(metadataFile *utils.FileWithByteCount) {
+func backupIndexes(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE INDEX statements to metadata file")
 	indexes := GetIndexes(connectionPool)
 	objectCounts["Indexes"] = len(indexes)
@@ -576,7 +576,7 @@ func BackupIndexes(metadataFile *utils.FileWithByteCount) {
 	PrintCreateIndexStatements(metadataFile, globalTOC, indexes, indexMetadata)
 }
 
-func BackupRules(metadataFile *utils.FileWithByteCount) {
+func backupRules(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE RULE statements to metadata file")
 	rules := GetRules(connectionPool)
 	objectCounts["Rules"] = len(rules)
@@ -584,7 +584,7 @@ func BackupRules(metadataFile *utils.FileWithByteCount) {
 	PrintCreateRuleStatements(metadataFile, globalTOC, rules, ruleMetadata)
 }
 
-func BackupTriggers(metadataFile *utils.FileWithByteCount) {
+func backupTriggers(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE TRIGGER statements to metadata file")
 	triggers := GetTriggers(connectionPool)
 	objectCounts["Triggers"] = len(triggers)
@@ -592,7 +592,7 @@ func BackupTriggers(metadataFile *utils.FileWithByteCount) {
 	PrintCreateTriggerStatements(metadataFile, globalTOC, triggers, triggerMetadata)
 }
 
-func BackupEventTriggers(metadataFile *utils.FileWithByteCount) {
+func backupEventTriggers(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE EVENT TRIGGER statements to metadata file")
 	eventTriggers := GetEventTriggers(connectionPool)
 	objectCounts["Event Triggers"] = len(eventTriggers)
@@ -600,7 +600,7 @@ func BackupEventTriggers(metadataFile *utils.FileWithByteCount) {
 	PrintCreateEventTriggerStatements(metadataFile, globalTOC, eventTriggers, eventTriggerMetadata)
 }
 
-func BackupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
+func backupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing ALTER DEFAULT PRIVILEGES statements to metadata file")
 	defaultPrivileges := GetDefaultPrivileges(connectionPool)
 	objectCounts["DEFAULT PRIVILEGES"] = len(defaultPrivileges)
@@ -611,15 +611,15 @@ func BackupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
  * Data wrapper functions
  */
 
-func BackupStatistics(statisticsFile *utils.FileWithByteCount, tables []Table) {
+func backupTableStatistics(statisticsFile *utils.FileWithByteCount, tables []Table) {
 	attStats := GetAttributeStatistics(connectionPool, tables)
 	tupleStats := GetTupleStatistics(connectionPool, tables)
 
-	BackupSessionGUCs(statisticsFile)
+	backupSessionGUC(statisticsFile)
 	PrintStatisticsStatements(statisticsFile, globalTOC, tables, attStats, tupleStats)
 }
 
-func BackupIncrementalMetadata() {
+func backupIncrementalMetadata() {
 	aoTableEntries := GetAOIncrementalMetadata(connectionPool)
 	globalTOC.IncrementalMetadata.AO = aoTableEntries
 }

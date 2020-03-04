@@ -284,7 +284,7 @@ func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
 	return ConstructDefaultPrivileges(results)
 }
 
-func GetQuotedRoleNames(connectionPool *dbconn.DBConn) map[string]string {
+func getQuotedRoleNames(connectionPool *dbconn.DBConn) map[string]string {
 	results := make([]struct {
 		RoleName       string
 		QuotedRoleName string

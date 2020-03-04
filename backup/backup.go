@@ -75,8 +75,8 @@ func DoInit(cmd *cobra.Command) {
 }
 
 func DoFlagValidation(cmd *cobra.Command) {
-	ValidateFlagCombinations(cmd.Flags())
-	ValidateFlagValues()
+	validateFlagCombinations(cmd.Flags())
+	validateFlagValues()
 }
 
 // This function handles setup that must be done after parsing flags.
@@ -86,8 +86,8 @@ func DoSetup() {
 
 	utils.CheckGpexpandRunning(utils.BackupPreventedByGpexpandMessage)
 	timestamp := history.CurrentTimestamp()
-	CreateBackupLockFile(timestamp)
-	InitializeConnectionPool()
+	createBackupLockFile(timestamp)
+	initializeConnectionPool()
 
 	gplog.Info("Starting backup of database %s", MustGetFlagString(options.DBNAME))
 	opts, err := options.NewOptions(cmdFlags)
@@ -106,12 +106,12 @@ func DoSetup() {
 		_, err = globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(-1)))
 		gplog.FatalOnError(err)
 	} else {
-		CreateBackupDirectoriesOnAllHosts()
+		createBackupDirectoriesOnAllHosts()
 	}
 	globalTOC = &toc.TOC{}
 	globalTOC.InitializeMetadataEntryMap()
 	utils.InitializePipeThroughParameters(!MustGetFlagBool(options.NO_COMPRESSION), MustGetFlagInt(options.COMPRESSION_LEVEL))
-	GetQuotedRoleNames(connectionPool)
+	getQuotedRoleNames(connectionPool)
 
 	pluginConfigFlag := MustGetFlagString(options.PLUGIN_CONFIG)
 
@@ -125,7 +125,7 @@ func DoSetup() {
 		gplog.Debug("Plugin config path: %s", pluginConfig.ConfigPath)
 	}
 
-	InitializeBackupReport(*opts)
+	initializeBackupReport(*opts)
 
 	if pluginConfigFlag != "" {
 		backupReport.PluginVersion = pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
@@ -156,16 +156,16 @@ func DoBackup() {
 	}
 
 	gplog.Info("Gathering table state information")
-	metadataTables, dataTables := RetrieveAndProcessTables()
+	metadataTables, dataTables := retrieveAndProcessTables()
 	if !(MustGetFlagBool(options.METADATA_ONLY) || MustGetFlagBool(options.DATA_ONLY)) {
-		BackupIncrementalMetadata()
+		backupIncrementalMetadata()
 	}
 	CheckTablesContainData(dataTables)
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	gplog.Info("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
 
-	BackupSessionGUCs(metadataFile)
+	backupSessionGUC(metadataFile)
 	if !MustGetFlagBool(options.DATA_ONLY) {
 		tableOnlyBackup := true
 		if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) == 0 {
@@ -194,7 +194,6 @@ func DoBackup() {
 		}
 
 		backupReport.RestorePlan = PopulateRestorePlan(backupSetTables, targetBackupRestorePlan, dataTables)
-
 		backupData(backupSetTables)
 	}
 
@@ -224,16 +223,16 @@ func DoBackup() {
 func backupGlobal(metadataFile *utils.FileWithByteCount) {
 	gplog.Info("Writing global database metadata")
 
-	BackupResourceQueues(metadataFile)
+	backupResourceQueues(metadataFile)
 	if connectionPool.Version.AtLeast("5") {
-		BackupResourceGroups(metadataFile)
+		backupResourceGroups(metadataFile)
 	}
-	BackupRoles(metadataFile)
-	BackupRoleGrants(metadataFile)
-	BackupTablespaces(metadataFile)
-	BackupCreateDatabase(metadataFile)
-	BackupDatabaseGUCs(metadataFile)
-	BackupRoleGUCs(metadataFile)
+	backupRoles(metadataFile)
+	backupRoleGrants(metadataFile)
+	backupTablespaces(metadataFile)
+	backupCreateDatabase(metadataFile)
+	backupDatabaseGUCs(metadataFile)
+	backupRoleGUCs(metadataFile)
 
 	if wasTerminated {
 		gplog.Info("Global database metadata backup incomplete")
@@ -248,9 +247,9 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	}
 	gplog.Info("Writing pre-data metadata")
 
-	sortables := make([]Sortable, 0)
+	objects := make([]Sortable, 0)
 	metadataMap := make(MetadataMap)
-	sortables = append(sortables, convertToSortableSlice(tables)...)
+	objects = append(objects, convertToSortableSlice(tables)...)
 	relationMetadata := GetMetadataForObjectType(connectionPool, TYPE_RELATION)
 	addToMetadataMap(relationMetadata, metadataMap)
 
@@ -258,58 +257,56 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	funcInfoMap := GetFunctionOidToInfoMap(connectionPool)
 
 	if !tableOnly {
-		BackupSchemas(metadataFile, CreateAlteredPartitionSchemaSet(tables))
+		backupSchemas(metadataFile, createAlteredPartitionSchemaSet(tables))
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 && connectionPool.Version.AtLeast("5") {
-			BackupExtensions(metadataFile)
+			backupExtensions(metadataFile)
 		}
 
 		if connectionPool.Version.AtLeast("6") {
-			BackupCollations(metadataFile)
+			backupCollations(metadataFile)
 		}
 
 		procLangs := GetProceduralLanguages(connectionPool)
-		langFuncs, functionMetadata := RetrieveFunctions(&sortables, metadataMap, procLangs)
+		langFuncs, functionMetadata := retrieveFunctions(&objects, metadataMap, procLangs)
 
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 {
-			BackupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
+			backupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
 		}
-		RetrieveAndBackupTypes(metadataFile, &sortables, metadataMap)
+		retrieveAndBackupTypes(metadataFile, &objects, metadataMap)
 
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 &&
 			connectionPool.Version.AtLeast("6") {
-			RetrieveForeignDataWrappers(&sortables, metadataMap)
-			RetrieveForeignServers(&sortables, metadataMap)
-			RetrieveUserMappings(&sortables)
+			retrieveForeignDataWrappers(&objects, metadataMap)
+			retrieveForeignServers(&objects, metadataMap)
+			retrieveUserMappings(&objects)
 		}
 
-		protocols = RetrieveProtocols(&sortables, metadataMap)
+		protocols = retrieveProtocols(&objects, metadataMap)
 
 		if connectionPool.Version.AtLeast("5") {
-			RetrieveTSParsers(&sortables, metadataMap)
-			RetrieveTSConfigurations(&sortables, metadataMap)
-			RetrieveTSTemplates(&sortables, metadataMap)
-			RetrieveTSDictionaries(&sortables, metadataMap)
+			retrieveTSParsers(&objects, metadataMap)
+			retrieveTSConfigurations(&objects, metadataMap)
+			retrieveTSTemplates(&objects, metadataMap)
+			retrieveTSDictionaries(&objects, metadataMap)
 
-			BackupOperatorFamilies(metadataFile)
+			backupOperatorFamilies(metadataFile)
 		}
 
-		RetrieveOperators(&sortables, metadataMap)
-		RetrieveOperatorClasses(&sortables, metadataMap)
-		RetrieveAggregates(&sortables, metadataMap)
-		RetrieveCasts(&sortables, metadataMap)
+		retrieveOperators(&objects, metadataMap)
+		retrieveOperatorClasses(&objects, metadataMap)
+		retrieveAggregates(&objects, metadataMap)
+		retrieveCasts(&objects, metadataMap)
 	}
 
-	RetrieveViews(&sortables)
-	sequences, sequenceOwnerColumns := RetrieveSequences()
-	BackupCreateSequences(metadataFile, sequences, relationMetadata)
-	constraints, conMetadata := RetrieveConstraints()
+	retrieveViews(&objects)
+	sequences, sequenceOwnerColumns := retrieveSequences()
+	backupCreateSequences(metadataFile, sequences, sequenceOwnerColumns, relationMetadata)
+	constraints, conMetadata := retrieveConstraints()
 
-	BackupDependentObjects(metadataFile, tables, protocols, metadataMap, constraints, sortables, funcInfoMap, tableOnly)
+	backupDependentObjects(metadataFile, tables, protocols, metadataMap, constraints, objects, funcInfoMap, tableOnly)
 
-	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
-
-	BackupConversions(metadataFile)
-	BackupConstraints(metadataFile, constraints, conMetadata)
+	backupConversions(metadataFile)
+	backupConstraints(metadataFile, constraints, conMetadata)
 	if wasTerminated {
 		gplog.Info("Pre-data metadata backup incomplete")
 	} else {
@@ -345,7 +342,7 @@ func backupData(tables []Table) {
 			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false)
 	}
 	gplog.Info("Writing data to file")
-	rowsCopiedMaps := BackupDataForAllTables(tables)
+	rowsCopiedMaps := backupDataForAllTables(tables)
 	AddTableDataEntriesToTOC(tables, rowsCopiedMaps)
 	if MustGetFlagBool(options.SINGLE_DATA_FILE) && MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
@@ -363,13 +360,13 @@ func backupPostdata(metadataFile *utils.FileWithByteCount) {
 	}
 	gplog.Info("Writing post-data metadata")
 
-	BackupIndexes(metadataFile)
-	BackupRules(metadataFile)
-	BackupTriggers(metadataFile)
+	backupIndexes(metadataFile)
+	backupRules(metadataFile)
+	backupTriggers(metadataFile)
 	if connectionPool.Version.AtLeast("6") {
-		BackupDefaultPrivileges(metadataFile)
+		backupDefaultPrivileges(metadataFile)
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 {
-			BackupEventTriggers(metadataFile)
+			backupEventTriggers(metadataFile)
 		}
 	}
 	if wasTerminated {
@@ -387,7 +384,7 @@ func backupStatistics(tables []Table) {
 	gplog.Info("Writing query planner statistics to %s", statisticsFilename)
 	statisticsFile := utils.NewFileWithByteCountFromFile(statisticsFilename)
 	defer statisticsFile.Close()
-	BackupStatistics(statisticsFile, tables)
+	backupTableStatistics(statisticsFile, tables)
 	if wasTerminated {
 		gplog.Info("Query planner statistics backup incomplete")
 	} else {

@@ -154,10 +154,10 @@ func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, to
 
 	section, entry := composite.GetMetadataEntry()
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintPostCreateCompositeTypeStatement(metadataFile, toc, composite, typeMetadata)
+	printPostCreateCompositeTypeStatement(metadataFile, toc, composite, typeMetadata)
 }
 
-func PrintPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
+func printPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
 	PrintObjectMetadata(metadataFile, toc, typeMetadata, composite, "")
 	statements := make([]string, 0)
 	for _, att := range composite.Attributes {

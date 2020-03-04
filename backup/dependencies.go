@@ -76,35 +76,6 @@ var (
 	FIRST_NORMAL_OBJECT_ID      uint32 = 16384
 )
 
-func ConstructDependentObjectMetadataMap(functions MetadataMap, types MetadataMap, tables MetadataMap, protocols MetadataMap, tsParsers MetadataMap, tsConfigs MetadataMap, tsTemplates MetadataMap, tsDicts MetadataMap) MetadataMap {
-	metadataMap := make(MetadataMap)
-	for k, v := range functions {
-		metadataMap[k] = v
-	}
-	for k, v := range types {
-		metadataMap[k] = v
-	}
-	for k, v := range tables {
-		metadataMap[k] = v
-	}
-	for k, v := range protocols {
-		metadataMap[k] = v
-	}
-	for k, v := range tsParsers {
-		metadataMap[k] = v
-	}
-	for k, v := range tsConfigs {
-		metadataMap[k] = v
-	}
-	for k, v := range tsTemplates {
-		metadataMap[k] = v
-	}
-	for k, v := range tsDicts {
-		metadataMap[k] = v
-	}
-	return metadataMap
-}
-
 /*
  * Structs and functions for topological sort
  */
@@ -173,7 +144,7 @@ type UniqueID struct {
 }
 
 // This function only returns dependencies that are referenced in the backup set
-func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool) DependencyMap {
+func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]Sortable) DependencyMap {
 	query := fmt.Sprintf(`SELECT
 	coalesce(id1.refclassid, d.classid) AS classid,
 	coalesce(id1.refobjid, d.objid) AS objid,
@@ -222,7 +193,7 @@ AND typelem != 0`)
 		_, objInBackup := backupSet[object]
 		_, referenceInBackup := backupSet[referenceObject]
 
-		if (object == referenceObject) || (!objInBackup || !referenceInBackup) {
+		if object == referenceObject || !objInBackup || !referenceInBackup {
 			continue
 		}
 

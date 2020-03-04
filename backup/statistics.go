@@ -139,11 +139,11 @@ func generateAttributeSlotsQueryMaster(attStat AttributeStatistic) string {
 			attStat.Operator3,
 			attStat.Operator4,
 			attStat.Operator5,
-			RealValues(attStat.Numbers1),
-			RealValues(attStat.Numbers2),
-			RealValues(attStat.Numbers3),
-			RealValues(attStat.Numbers4),
-			RealValues(attStat.Numbers5),
+			realValues(attStat.Numbers1),
+			realValues(attStat.Numbers2),
+			realValues(attStat.Numbers3),
+			realValues(attStat.Numbers4),
+			realValues(attStat.Numbers5),
 			AnyValues(attStat.Values1, attStat.Type),
 			AnyValues(attStat.Values2, attStat.Type),
 			AnyValues(attStat.Values3, attStat.Type),
@@ -196,10 +196,10 @@ func generateAttributeSlotsQuery4(attStat AttributeStatistic) string {
 			attStat.Operator2,
 			attStat.Operator3,
 			attStat.Operator4,
-			RealValues(attStat.Numbers1),
-			RealValues(attStat.Numbers2),
-			RealValues(attStat.Numbers3),
-			RealValues(attStat.Numbers4),
+			realValues(attStat.Numbers1),
+			realValues(attStat.Numbers2),
+			realValues(attStat.Numbers3),
+			realValues(attStat.Numbers4),
 			AnyValues(attStat.Values1, attStat.Type),
 			AnyValues(attStat.Values2, attStat.Type),
 			AnyValues(attStat.Values3, attStat.Type),
@@ -221,7 +221,7 @@ func SliceToPostgresArray(slice []string) string {
 	return fmt.Sprintf(`'{%s}'`, strings.Join(quotedStrings, ","))
 }
 
-func RealValues(reals pq.StringArray) string {
+func realValues(reals pq.StringArray) string {
 	if len(reals) > 0 {
 		return SliceToPostgresArray(reals)
 	}

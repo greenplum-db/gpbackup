@@ -45,7 +45,7 @@ func (t Table) GetMetadataEntry() (string, toc.MetadataEntry) {
 /*
  * Extract all the unique schemas out from a Table array.
  */
-func CreateAlteredPartitionSchemaSet(tables []Table) map[string]bool {
+func createAlteredPartitionSchemaSet(tables []Table) map[string]bool {
 	partitionAlteredSchemas := make(map[string]bool)
 	for _, table := range tables {
 		for _, alteredPartitionRelation := range table.PartitionAlteredSchemas {

@@ -97,7 +97,7 @@ func DBValidate(conn *dbconn.DBConn, tableList []string, excludeSet bool) {
 	}
 }
 
-func ValidateFlagCombinations(flags *pflag.FlagSet) {
+func validateFlagCombinations(flags *pflag.FlagSet) {
 	options.CheckExclusiveFlags(flags, options.DEBUG, options.QUIET, options.VERBOSE)
 	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.METADATA_ONLY, options.INCREMENTAL)
 	options.CheckExclusiveFlags(flags, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE, options.INCLUDE_RELATION, options.INCLUDE_RELATION_FILE)
@@ -116,25 +116,20 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	}
 }
 
-func ValidateFlagValues() {
+func validateFlagValues() {
 	err := utils.ValidateFullPath(MustGetFlagString(options.BACKUP_DIR))
 	gplog.FatalOnError(err)
 	err = utils.ValidateFullPath(MustGetFlagString(options.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
-	ValidateCompressionLevel(MustGetFlagInt(options.COMPRESSION_LEVEL))
+	err = utils.ValidateCompressionLevel(MustGetFlagInt(options.COMPRESSION_LEVEL))
+	gplog.FatalOnError(err)
 	if MustGetFlagString(options.FROM_TIMESTAMP) != "" && !filepath.IsValidTimestamp(MustGetFlagString(options.FROM_TIMESTAMP)) {
 		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.",
 			MustGetFlagString(options.FROM_TIMESTAMP)), "")
 	}
 }
 
-func ValidateCompressionLevel(compressionLevel int) {
-	if compressionLevel < 1 || compressionLevel > 9 {
-		gplog.Fatal(errors.Errorf("Compression level must be between 1 and 9"), "")
-	}
-}
-
-func ValidateFromTimestamp(fromTimestamp string) {
+func validateFromTimestamp(fromTimestamp string) {
 	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
 	if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
@@ -143,7 +138,7 @@ func ValidateFromTimestamp(fromTimestamp string) {
 	}
 	fromBackupConfig := history.ReadConfigFile(fromTimestampFPInfo.GetConfigFilePath())
 
-	if !MatchesIncrementalFlags(fromBackupConfig, &backupReport.BackupConfig) {
+	if !matchesIncrementalFlags(fromBackupConfig, &backupReport.BackupConfig) {
 		gplog.Fatal(errors.Errorf("The flags of the backup with timestamp = %s does not match "+
 			"that of the current one. Please refer to the report to view the flags supplied for the"+
 			"previous backup.", fromTimestampFPInfo.Timestamp), "")

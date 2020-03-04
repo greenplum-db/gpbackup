@@ -23,7 +23,7 @@ func relationAndSchemaFilterClause() string {
 	}
 	filterRelationClause = SchemaFilterClause("n")
 	if len(MustGetFlagStringArray(options.EXCLUDE_RELATION)) > 0 {
-		excludeOids := GetOidsFromRelationList(connectionPool, MustGetFlagStringArray(options.EXCLUDE_RELATION))
+		excludeOids := getOidsFromRelationList(connectionPool, MustGetFlagStringArray(options.EXCLUDE_RELATION))
 		if len(excludeOids) > 0 {
 			filterRelationClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ", "))
 		}
@@ -32,13 +32,13 @@ func relationAndSchemaFilterClause() string {
 		quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.INCLUDE_RELATION))
 		gplog.FatalOnError(err)
 
-		includeOids := GetOidsFromRelationList(connectionPool, quotedIncludeRelations)
+		includeOids := getOidsFromRelationList(connectionPool, quotedIncludeRelations)
 		filterRelationClause += fmt.Sprintf("\nAND c.oid IN (%s)", strings.Join(includeOids, ", "))
 	}
 	return filterRelationClause
 }
 
-func GetOidsFromRelationList(connectionPool *dbconn.DBConn, quotedIncludeRelations []string) []string {
+func getOidsFromRelationList(connectionPool *dbconn.DBConn, quotedIncludeRelations []string) []string {
 	relList := utils.SliceToQuotedString(quotedIncludeRelations)
 	query := fmt.Sprintf(`
 	SELECT c.oid AS string
@@ -50,9 +50,9 @@ func GetOidsFromRelationList(connectionPool *dbconn.DBConn, quotedIncludeRelatio
 
 func GetIncludedUserTableRelations(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
 	if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) > 0 {
-		return GetUserTableRelationsWithIncludeFiltering(connectionPool, includedRelationsQuoted)
+		return getUserTableRelationsWithIncludeFiltering(connectionPool, includedRelationsQuoted)
 	}
-	return GetUserTableRelations(connectionPool)
+	return getUserTableRelations(connectionPool)
 }
 
 type Relation struct {
@@ -74,7 +74,7 @@ func (r Relation) GetUniqueID() UniqueID {
  * This function also handles exclude table filtering since the way we do
  * it is currently much simpler than the include case.
  */
-func GetUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
+func getUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 	childPartitionFilter := ""
 	if !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		//Filter out non-external child partitions
@@ -107,8 +107,8 @@ func GetUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 	return results
 }
 
-func GetUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
-	includeOids := GetOidsFromRelationList(connectionPool, includedRelationsQuoted)
+func getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
+	includeOids := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	oidStr := strings.Join(includeOids, ", ")
 	query := fmt.Sprintf(`
 	SELECT n.oid AS schemaoid,

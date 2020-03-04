@@ -20,7 +20,7 @@ type Function struct {
 	Oid               uint32
 	Schema            string
 	Name              string
-	ReturnsSet        bool `db:"proretset"`
+	ReturnsSet        bool    `db:"proretset"`
 	FunctionBody      string
 	BinaryPath        string
 	Arguments         string
@@ -35,8 +35,8 @@ type Function struct {
 	NumRows           float32 `db:"prorows"`
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
-	IsWindow          bool   `db:"proiswindow"`
-	ExecLocation      string `db:"proexeclocation"`
+	IsWindow          bool    `db:"proiswindow"`
+	ExecLocation      string  `db:"proexeclocation"`
 }
 
 func (f Function) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -124,13 +124,17 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 		procost,
 		prorows,
 		prodataaccess,
-		(SELECT lanname FROM pg_catalog.pg_language WHERE oid = prolang) AS language
+		l.lanname AS language
 	FROM pg_proc p
+		JOIN pg_catalog.pg_language l ON p.prolang = l.oid
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
 	WHERE %s
 		AND proisagg = 'f'
 		AND %s%s
-	ORDER BY nspname, proname, identargs`, masterAtts, SchemaFilterClause("n"), ExtensionFilterClause("p"), excludeImplicitFunctionsClause)
+	ORDER BY nspname, proname, identargs`, masterAtts,
+		SchemaFilterClause("n"),
+		ExtensionFilterClause("p"),
+		excludeImplicitFunctionsClause)
 
 	results := make([]Function, 0)
 	err := connectionPool.Select(&results, query)
@@ -332,7 +336,7 @@ type Aggregate struct {
 	SortOperatorSchema         string
 	Hypothetical               bool
 	TransitionDataType         string
-	TransitionDataSize         int `db:"aggtransspace"`
+	TransitionDataSize         int    `db:"aggtransspace"`
 	InitialValue               string
 	InitValIsNull              bool
 	IsOrdered                  bool   `db:"aggordered"`

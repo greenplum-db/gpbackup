@@ -113,4 +113,22 @@ var _ = Describe("utils/util tests", func() {
 			utils.ValidateGPDBVersionCompatibility(connectionPool)
 		})
 	})
+	Describe("ValidateCompressionLevel", func() {
+		It("validates a compression level between 1 and 9", func() {
+			compressLevel := 5
+			err := utils.ValidateCompressionLevel(compressLevel)
+			Expect(err).To(Not(HaveOccurred()))
+		})
+		It("panics if given a compression level < 1", func() {
+			compressLevel := 0
+			err := utils.ValidateCompressionLevel(compressLevel)
+			Expect(err).To(MatchError("Compression level must be between 1 and 9"))
+		})
+		It("panics if given a compression level > 9", func() {
+			compressLevel := 11
+			err := utils.ValidateCompressionLevel(compressLevel)
+			Expect(err).To(MatchError("Compression level must be between 1 and 9"))
+		})
+	})
+
 })

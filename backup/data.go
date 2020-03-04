@@ -113,7 +113,7 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 	return nil
 }
 
-func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
+func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	var numExtOrForeignTables int64
 	for _, table := range tables {
 		if table.SkipDataBackup() {

@@ -31,7 +31,7 @@ func FilterTablesForIncremental(lastBackupTOC, currentTOC *toc.TOC, tables []Tab
 func GetTargetBackupTimestamp() string {
 	targetTimestamp := ""
 	if fromTimestamp := MustGetFlagString(options.FROM_TIMESTAMP); fromTimestamp != "" {
-		ValidateFromTimestamp(fromTimestamp)
+		validateFromTimestamp(fromTimestamp)
 		targetTimestamp = fromTimestamp
 	} else {
 		targetTimestamp = GetLatestMatchingBackupTimestamp()
@@ -62,7 +62,7 @@ func GetLatestMatchingBackupTimestamp() string {
 
 func GetLatestMatchingBackupConfig(history *history.History, currentBackupConfig *history.BackupConfig) *history.BackupConfig {
 	for _, backupConfig := range history.BackupConfigs {
-		if MatchesIncrementalFlags(&backupConfig, currentBackupConfig) {
+		if matchesIncrementalFlags(&backupConfig, currentBackupConfig) {
 			return &backupConfig
 		}
 	}
@@ -70,7 +70,7 @@ func GetLatestMatchingBackupConfig(history *history.History, currentBackupConfig
 	return nil
 }
 
-func MatchesIncrementalFlags(backupConfig *history.BackupConfig, currentBackupConfig *history.BackupConfig) bool {
+func matchesIncrementalFlags(backupConfig *history.BackupConfig, currentBackupConfig *history.BackupConfig) bool {
 	return backupConfig.BackupDir == MustGetFlagString(options.BACKUP_DIR) &&
 		backupConfig.DatabaseName == currentBackupConfig.DatabaseName &&
 		backupConfig.LeafPartitionData == MustGetFlagBool(options.LEAF_PARTITION_DATA) &&

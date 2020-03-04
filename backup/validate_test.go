@@ -177,20 +177,4 @@ var _ = Describe("backup/validate tests", func() {
 			})
 		})
 	})
-	Describe("ValidateCompressionLevel", func() {
-		It("validates a compression level between 1 and 9", func() {
-			compressLevel := 5
-			backup.ValidateCompressionLevel(compressLevel)
-		})
-		It("panics if given a compression level < 1", func() {
-			compressLevel := 0
-			defer testhelper.ShouldPanicWithMessage("Compression level must be between 1 and 9")
-			backup.ValidateCompressionLevel(compressLevel)
-		})
-		It("panics if given a compression level > 9", func() {
-			compressLevel := 11
-			defer testhelper.ShouldPanicWithMessage("Compression level must be between 1 and 9")
-			backup.ValidateCompressionLevel(compressLevel)
-		})
-	})
 })

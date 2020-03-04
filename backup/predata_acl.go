@@ -54,7 +54,8 @@ type ACL struct {
 
 type MetadataMap map[UniqueID]ObjectMetadata
 
-func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, obj toc.TOCObject, statements []string) {
+func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
+	obj toc.TOCObject, statements []string) {
 	for _, statement := range statements {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s\n", statement)
@@ -63,7 +64,8 @@ func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, obj to
 	}
 }
 
-func PrintObjectMetadata(file *utils.FileWithByteCount, toc *toc.TOC, metadata ObjectMetadata, obj toc.TOCObjectWithMetadata, owningTable string) {
+func PrintObjectMetadata(file *utils.FileWithByteCount, toc *toc.TOC,
+	metadata ObjectMetadata, obj toc.TOCObjectWithMetadata, owningTable string) {
 	_, entry := obj.GetMetadataEntry()
 	if entry.ObjectType == "DATABASE METADATA" {
 		entry.ObjectType = "DATABASE"

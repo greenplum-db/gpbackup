@@ -153,7 +153,7 @@ bar";
 			Expect(subject.GetIncludedTables()).To(ContainElement("public.CAPpart"))
 
 			// ensure that ExpandIncludesForPartitions does not disturb the original value
-			// that the user typed in, which is used by InitializeBackupReport() and
+			// that the user typed in, which is used by initializeBackupReport() and
 			// is important for incremental backups which must exactly match all flag input
 			Expect(subject.GetOriginalIncludedTables()).To(Equal([]string{`public.CAPpart_1_prt_girls`}))
 		})
