@@ -150,7 +150,7 @@ func createBackupDirectoriesOnAllHosts() {
  * Metadata retrieval wrapper functions
  */
 
-func retrieveAndProcessTables() ([]Table, []Table) {
+func RetrieveAndProcessTables() ([]Table, []Table) {
 	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.INCLUDE_RELATION))
 	gplog.FatalOnError(err)
 
@@ -468,13 +468,12 @@ func backupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Se
 	gplog.Verbose("Writing CREATE SEQUENCE statements to metadata file")
 	objectCounts["Sequences"] = len(sequences)
 	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
-	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 }
 
-func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]Sortable) {
-	backupSet = make(map[UniqueID]Sortable)
+func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]bool) {
+	backupSet = make(map[UniqueID]bool)
 	for _, obj := range objSlice {
-		backupSet[obj.GetUniqueID()] = obj
+		backupSet[obj.GetUniqueID()] = true
 	}
 
 	return backupSet

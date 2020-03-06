@@ -144,7 +144,7 @@ type UniqueID struct {
 }
 
 // This function only returns dependencies that are referenced in the backup set
-func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]Sortable) DependencyMap {
+func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool) DependencyMap {
 	query := fmt.Sprintf(`SELECT
 	coalesce(id1.refclassid, d.classid) AS classid,
 	coalesce(id1.refobjid, d.objid) AS objid,

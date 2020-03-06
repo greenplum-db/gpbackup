@@ -42,6 +42,7 @@ var oldBackupSemVer semver.Version
 var backupCluster *cluster.Cluster
 var historyFilePath string
 var saveHistoryFilePath = "/tmp/end_to_end_save_history_file.yaml"
+var testFailure bool
 
 // This function is run automatically by ginkgo before any tests are run.
 func init() {
@@ -170,6 +171,7 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 func mustRunCommand(cmd *exec.Cmd) []byte {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		testFailure = true
 		fmt.Printf("%s", output)
 		Fail(fmt.Sprintf("%v", err))
 	}
@@ -327,6 +329,9 @@ var _ = Describe("backup end to end integration tests", func() {
 
 	})
 	AfterSuite(func() {
+		if testFailure {
+			return
+		}
 		_ = utils.CopyFile(saveHistoryFilePath, historyFilePath)
 
 		if backupConn.Version.Before("6") {

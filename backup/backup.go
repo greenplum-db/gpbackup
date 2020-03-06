@@ -156,7 +156,7 @@ func DoBackup() {
 	}
 
 	gplog.Info("Gathering table state information")
-	metadataTables, dataTables := retrieveAndProcessTables()
+	metadataTables, dataTables := RetrieveAndProcessTables()
 	if !(MustGetFlagBool(options.METADATA_ONLY) || MustGetFlagBool(options.DATA_ONLY)) {
 		backupIncrementalMetadata()
 	}
@@ -304,6 +304,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	constraints, conMetadata := retrieveConstraints()
 
 	backupDependentObjects(metadataFile, tables, protocols, metadataMap, constraints, objects, funcInfoMap, tableOnly)
+	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
 
 	backupConversions(metadataFile)
 	backupConstraints(metadataFile, constraints, conMetadata)
