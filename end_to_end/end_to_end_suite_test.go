@@ -770,8 +770,10 @@ var _ = Describe("backup end to end integration tests", func() {
 				var numRows string
 				if backupConn.Version.Before("6") {
 					numRows = dbconn.MustSelectString(backupConn, "SELECT count(*) FROM gp_toolkit.__gp_aoseg_name('foobar')")
-				} else {
+				} else if backupConn.Version.Before("7") {
 					numRows = dbconn.MustSelectString(backupConn, "SELECT count(*) FROM gp_toolkit.__gp_aoseg('foobar'::regclass)")
+				} else {
+					numRows = dbconn.MustSelectString(backupConn, "SELECT count(distinct(segno)) FROM gp_toolkit.__gp_aoseg('foobar'::regclass)")
 				}
 				Expect(numRows).To(Equal(strconv.Itoa(2)))
 
