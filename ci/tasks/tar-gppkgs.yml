@@ -7,7 +7,9 @@ inputs:
 - name: gpbackup
 - name: rhel-gppkg
 - name: sles-gppkg
+  optional: true
 - name: ubuntu-gppkg
+  optional: true
 - name: gpbackup-tools-versions
 - name: gpbackup-go-components
 

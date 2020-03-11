@@ -6,9 +6,11 @@ groups:
   - build_gppkgs
   - GPDB4.3
   - GPDB5
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   - GPDB5-oracle7
   - GPDB5-sles11
   - GPDB6-ubuntu
+{% endif %}
   - gpbackup-manager-tests
 {% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
@@ -37,8 +39,10 @@ groups:
 - name: GPDB5
   jobs:
   - GPDB5
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   - GPDB5-oracle7
   - GPDB5-sles11
+{% endif %}
 {% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
 {% endif %}
@@ -49,7 +53,9 @@ groups:
 - name: GPDB6
   jobs:
   - GPDB6
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   - GPDB6-ubuntu
+{% endif %}
   - ddboost_plugin_and_boostfs_tests_6x
 
 {% if "gpbackup-release" != pipeline_name %}
@@ -320,6 +326,7 @@ resources:
     repository: pivotaldata/centos-gpdb-dev
     tag: '6-gcc6.2-llvm3.7'
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: sles11-image
   type: docker-image
   source:
@@ -337,6 +344,7 @@ resources:
   source:
     repository: pivotaldata/gpdb6-ubuntu18.04-test
     tag: 'latest'
+{% endif %}
 
 ##### Other Resources #####
 {% if (nightly_trigger and "gpbackup-release" != pipeline_name) %}
@@ -427,6 +435,7 @@ resources:
     tag_filter: 6.*
 {% endif %}
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: bin_gpdb_5x_sles11
   type: s3
   icon: amazon
@@ -444,6 +453,7 @@ resources:
     bucket: ((gcs-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
     regexp: server/published/gpdb6/server-rc-(.*)-ubuntu18.04_x86_64((rc-build-type-gcs)).tar.gz
+{% endif %}
 
 {% if "gpbackup-release" != pipeline_name %}
 - name: gpdb_master_src
@@ -481,6 +491,7 @@ resources:
     access_key_id: {{bucket-access-key-id}}
     secret_access_key: {{bucket-secret-access-key}}
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 # This is specifically for sles11 images because it cannot connect to github due to TLS issues
 - name: libyaml-0.1.7
   type: s3
@@ -491,6 +502,7 @@ resources:
     region_name: us-west-2
     access_key_id: {{bucket-access-key-id}}
     secret_access_key: {{bucket-secret-access-key}}
+{% endif %}
 
 {% if "gpbackup-release" != pipeline_name %}
 # Manual caching to prevent dep flakes when downloading dependencies
@@ -718,6 +730,7 @@ resources:
     release: ((dpm-enable-release))
 {% endif %}
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: terraform_aws
   type: terraform
   source:
@@ -735,6 +748,8 @@ resources:
       # and different teams will place there clusters' tfstate files under different paths
       bucket: gpdb5-pipeline-dynamic-terraform
       bucket_path: clusters-aws/
+{% endif %}
+
 {% if "gpbackup-release" == pipeline_name %}
 - name: pivnet-upload
   type: pivnet
@@ -790,18 +805,20 @@ jobs:
   plan:
   - in_parallel:
     - get: centos6-image
+{% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: sles11-image
+    - get: bin_gpdb_5x_sles11
+    - get: libyaml-0.1.7
     - get: ubuntu-debian-image
     - get: ubuntu-debian-test-image
-    - get: libyaml-0.1.7
+    - get: bin_gpdb_6x_stable_ubuntu
+{% endif %}
     - get: gpdb_src
       resource: gpdb6_src
     - get: gpbackup-go-components
       trigger: true
       passed: [build_binaries]
     - get: bin_gpdb_6x_stable_centos6
-    - get: bin_gpdb_5x_sles11
-    - get: bin_gpdb_6x_stable_ubuntu
     - get: gpbackup
     - get: gpbackup_ddboost_plugin
 {% if "gpbackup-release" != pipeline_name %}
@@ -830,6 +847,7 @@ jobs:
           gppkgs: rhel-gppkg
         params:
           OS: RHEL
+{% if is_prod or "gpbackup-release" == pipeline_name %}
     - do: # SLES
       - task: build-ddboost-SLES
         image: sles11-image
@@ -867,6 +885,7 @@ jobs:
             gppkgs: ubuntu-gppkg
           params:
             OS: ubuntu
+{% endif %}
   - task: tar-gppkgs
     image: centos6-image
     file: gpbackup/ci/tasks/tar-gppkgs.yml
@@ -984,6 +1003,7 @@ jobs:
   - <<: *ddboost_plugin_and_boostfs
   - <<: *ddboost_plugin_and_boostfs_tests
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: GPDB5-sles11
   plan:
   - in_parallel:
@@ -1125,6 +1145,7 @@ jobs:
     *slack_alert
   ensure:
     <<: *set_failed
+{% endif %}
 
 {% if "gpbackup-release" != pipeline_name %}
 - name: master
@@ -1218,15 +1239,17 @@ jobs:
   - in_parallel:
     - get: centos6-image
     - get: centos7-image
+{% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: ubuntu-debian-image
     - get: ubuntu-debian-test-image
+    - get: bin_gpdb_6x_stable_ubuntu
+{% endif %}
     - get: gpbackup
     - get: bin_gpdb_6x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
     - get: bin_gpdb_6x_stable_centos7
-    - get: bin_gpdb_6x_stable_ubuntu
     - get: gpdb_src
       resource: gpdb6_src
     - get: dummy_seclabel
@@ -1249,6 +1272,7 @@ jobs:
         REQUIRES_DUMMY_SEC: true
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_centos7
+{% if is_prod or "gpbackup-release" == pipeline_name %}
     - task: run-tests-locally-ubuntu-debian
       image: ubuntu-debian-test-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
@@ -1257,6 +1281,7 @@ jobs:
         OS: ubuntu
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_ubuntu
+{% endif %}
   on_failure:
     *slack_alert
 
@@ -1633,10 +1658,7 @@ jobs:
         - build_gppkgs
         - GPDB4.3
         - GPDB5
-        - GPDB5-oracle7
-        - GPDB5-sles11
         - GPDB6
-        - GPDB6-ubuntu
         - master
         - s3_plugin_tests
         - backward-compatibility
