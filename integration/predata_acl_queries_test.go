@@ -30,9 +30,9 @@ var _ = Describe("backup integration tests", func() {
 				fooUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "foo", backup.TYPE_RELATION)
 				barUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "bar", backup.TYPE_RELATION)
 				bazUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "baz", backup.TYPE_RELATION)
-				expectedFoo := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLWithout("testrole", "TABLE", "DELETE")}, Owner: "testrole"}
-				expectedBar := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole"}
-				expectedBaz := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLForType("anothertestrole", "TABLE"), testutils.DefaultACLForType("testrole", "TABLE")}, Owner: "testrole"}
+				expectedFoo := backup.ObjectMetadata{ObjectType: "RELATION", Privileges: []backup.ACL{testutils.DefaultACLWithout("testrole", "TABLE", "DELETE")}, Owner: "testrole"}
+				expectedBar := backup.ObjectMetadata{ObjectType: "RELATION", Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole"}
+				expectedBaz := backup.ObjectMetadata{ObjectType: "RELATION", Privileges: []backup.ACL{testutils.DefaultACLForType("anothertestrole", "TABLE"), testutils.DefaultACLForType("testrole", "TABLE")}, Owner: "testrole"}
 				Expect(resultMetadataMap).To(HaveLen(3))
 				resultFoo := resultMetadataMap[fooUniqueID]
 				resultBar := resultMetadataMap[barUniqueID]
@@ -46,10 +46,11 @@ var _ = Describe("backup integration tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON DATABASE testdb FROM anothertestRole")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON DATABASE testdb IS 'This is a database comment.'")
 				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "DATABASE", "testdb")
-				expectedMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{
-					{Grantee: "", Temporary: true, Connect: true},
-					{Grantee: "anothertestrole", Create: true, Temporary: true, Connect: true},
-				}, Owner: "anothertestrole", Comment: "This is a database comment."}
+				expectedMetadata := backup.ObjectMetadata{
+					ObjectType: "DATABASE", Privileges: []backup.ACL{
+						{Grantee: "", Temporary: true, Connect: true},
+						{Grantee: "anothertestrole", Create: true, Temporary: true, Connect: true},
+					}, Owner: "anothertestrole", Comment: "This is a database comment."}
 				if includeSecurityLabels {
 					expectedMetadata.SecurityLabelProvider = "dummy"
 					expectedMetadata.SecurityLabel = "unclassified"
@@ -59,7 +60,7 @@ var _ = Describe("backup integration tests", func() {
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "testdb", backup.TYPE_DATABASE)
 				resultMetadata := resultMetadataMap[uniqueID]
-				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid", "schema")
 			})
 			It("returns a slice of default metadata for a role", func() {
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_ROLE)
@@ -89,7 +90,7 @@ var _ = Describe("backup integration tests", func() {
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
-				expectedMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: `"Role1"`}
+				expectedMetadata := backup.ObjectMetadata{ObjectType: "RELATION", Privileges: []backup.ACL{}, Owner: `"Role1"`}
 				Expect(resultMetadataMap).To(HaveLen(1))
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -135,7 +136,7 @@ var _ = Describe("backup integration tests", func() {
 				var expectedMetadata backup.ObjectMetadata
 				if connectionPool.Version.Before("5") {
 					langOwner := testutils.GetUserByID(connectionPool, 10)
-					expectedMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment."}
+					expectedMetadata = backup.ObjectMetadata{ObjectType: "LANGUAGE", Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment."}
 				} else {
 					expectedMetadata = testutils.DefaultMetadata("LANGUAGE", false, true, true, includeSecurityLabels)
 				}
@@ -169,7 +170,7 @@ LANGUAGE SQL`)
 					slabel = "unclassified"
 					slabelProvider = "dummy"
 				}
-				expectedMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole", SecurityLabel: slabel, SecurityLabelProvider: slabelProvider}
+				expectedMetadata := backup.ObjectMetadata{ObjectType: "FUNCTION", Privileges: []backup.ACL{{Grantee: "GRANTEE"}}, Owner: "testrole", SecurityLabel: slabel, SecurityLabelProvider: slabelProvider}
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns metadata for a function with a grant and revoke", func() {

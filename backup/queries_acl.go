@@ -174,6 +174,7 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	}
 
 	query := fmt.Sprintf(`SELECT
+		'%s' AS objecttype,
 		'%s'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(%s) AS name,
@@ -187,13 +188,10 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 		%s
 	WHERE %s
 	ORDER BY o.oid`,
-		tableName, nameCol, kindCol, schemaCol, ownerCol, aclCols, secCols,
+		params.ObjectType, tableName, nameCol, kindCol, schemaCol, ownerCol, aclCols, secCols,
 		tableName, descTable, tableName, subidFilter, joinClause, filterClause)
 	results := make([]MetadataQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
-	for i := range results {
-		results[i].ObjectType = params.ObjectType
-	}
 	gplog.FatalOnError(err)
 
 	return ConstructMetadataMap(results)
@@ -243,9 +241,7 @@ func GetCommentsForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 		for _, result := range results {
 			metadataMap[result.UniqueID] = ObjectMetadata{
 				[]ACL{},
-				"",
-				"",
-				"",
+				params.ObjectType,
 				"",
 				result.Comment,
 				"",

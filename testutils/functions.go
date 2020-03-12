@@ -122,7 +122,22 @@ func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComme
 		securityLabelProvider = "dummy"
 		securityLabel = "unclassified"
 	}
-	return backup.ObjectMetadata{Privileges: privileges, Owner: owner, Comment: comment, SecurityLabelProvider: securityLabelProvider, SecurityLabel: securityLabel}
+	switch objType {
+	case "DOMAIN": objType = "TYPE"
+	case "FOREIGN SERVER": objType = "SERVER"
+	case "MATERIALIZED VIEW": objType = "RELATION"
+	case "SEQUENCE": objType = "RELATION"
+	case "TABLE": objType = "RELATION"
+	case "VIEW": objType = "RELATION"
+	}
+	return backup.ObjectMetadata{
+		Privileges: privileges,
+		ObjectType: objType,
+		Owner: owner,
+		Comment: comment,
+		SecurityLabelProvider: securityLabelProvider,
+		SecurityLabel: securityLabel,
+	}
 
 }
 

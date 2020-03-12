@@ -19,10 +19,11 @@ var _ = Describe("backup/queries_acl tests", func() {
 		emptyRows := sqlmock.NewRows(header)
 
 		BeforeEach(func() {
-			params = backup.MetadataQueryParams{NameField: "name", OwnerField: "owner", CatalogTable: "table"}
+			params = backup.MetadataQueryParams{ObjectType: "RELATION", NameField: "name", OwnerField: "owner", CatalogTable: "table"}
 		})
 		It("queries metadata for an object with default params", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(name) AS name,
@@ -38,6 +39,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 		})
 		It("queries metadata for an object with a schema field", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(name) AS name,
@@ -55,6 +57,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 		})
 		It("queries metadata for an object with an ACL field", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(name) AS name,
@@ -77,6 +80,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 		})
 		It("queries metadata for a shared object", func() {
 			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+		'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(name) AS name,

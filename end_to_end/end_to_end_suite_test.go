@@ -3,6 +3,9 @@ package end_to_end_test
 import (
 	"flag"
 	"fmt"
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
+	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/spf13/pflag"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -283,8 +286,13 @@ var _ = Describe("backup end to end integration tests", func() {
 		if err != nil {
 			Fail(fmt.Sprintf("Could not create restoredb: %v", err))
 		}
+		backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
+		backup.SetFlagDefaults(backupCmdFlags)
+		backup.SetCmdFlags(backupCmdFlags)
 		backupConn = testutils.SetupTestDbConn("testdb")
 		restoreConn = testutils.SetupTestDbConn("restoredb")
+		backup.InitializeMetadataParams(backupConn)
+		backup.SetFilterRelationClause("")
 		testutils.ExecuteSQLFile(backupConn, "test_tables_ddl.sql")
 		testutils.ExecuteSQLFile(backupConn, "test_tables_data.sql")
 		if useOldBackupVersion {
@@ -878,6 +886,29 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
+			})
+		})
+		Describe("ACLs for extensions", func() {
+			FIt("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
+				testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+				testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP ROLE testrole")
+				testhelper.AssertQueryRuns(backupConn, "CREATE EXTENSION dblink")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP EXTENSION dblink")
+				testhelper.AssertQueryRuns(backupConn, "GRANT EXECUTE ON FUNCTION dblink_get_pkey(text) to testrole WITH GRANT OPTION")
+				testutils.ExecuteSQLFile(backupConn, "gpdb4_objects.sql")
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only")
+				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
+
+				extensionMetadata := testutils.DefaultMetadata("FUNCTION", true, true, false, false)
+				uniqueID := testutils.UniqueIDFromObjectName(restoreConn, "public", "dblink_get_pkey", backup.TYPE_FUNCTION)
+				resultMetadataMap := backup.GetMetadataForObjectType(restoreConn, backup.TYPE_FUNCTION)
+
+				Expect(resultMetadataMap).To(Not(BeEmpty()))
+				resultMetadata := resultMetadataMap[uniqueID]
+				structmatcher.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
+				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 		})
 		Describe("Incremental backup", func() {

@@ -433,7 +433,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			var langMetadata backup.ObjectMetadata
 			if connectionPool.Version.Before("5") {
 				langOwner = testutils.GetUserByID(connectionPool, 10)
-				langMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment"}
+				langMetadata = backup.ObjectMetadata{ObjectType: "LANGUAGE", Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment"}
 			} else {
 				langOwner = "testrole"
 				langMetadata = testutils.DefaultMetadata("LANGUAGE", false, true, true, includeSecurityLabels)

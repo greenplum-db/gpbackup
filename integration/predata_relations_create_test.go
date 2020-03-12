@@ -325,7 +325,7 @@ SET SUBPARTITION TEMPLATE ` + `
 		)
 		BeforeEach(func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
-			tableMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}}
+			tableMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, ObjectType: "RELATION"}
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
 				TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED BY (i)", ColumnDefs: []backup.ColumnDefinition{tableRow}, ExtTableDef: extTableEmpty, Inherits: []string{}},

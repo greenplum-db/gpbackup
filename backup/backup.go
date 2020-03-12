@@ -252,25 +252,20 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	objects = append(objects, convertToSortableSlice(tables)...)
 	relationMetadata := GetMetadataForObjectType(connectionPool, TYPE_RELATION)
 	addToMetadataMap(relationMetadata, metadataMap)
+	functions, funcInfoMap := retrieveFunctions(&objects, metadataMap)
 
 	var protocols []ExternalProtocol
-	funcInfoMap := GetFunctionOidToInfoMap(connectionPool)
 
 	if !tableOnly {
 		backupSchemas(metadataFile, createAlteredPartitionSchemaSet(tables))
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 && connectionPool.Version.AtLeast("5") {
 			backupExtensions(metadataFile)
 		}
-
 		if connectionPool.Version.AtLeast("6") {
 			backupCollations(metadataFile)
 		}
-
-		procLangs := GetProceduralLanguages(connectionPool)
-		langFuncs, functionMetadata := retrieveFunctions(&objects, metadataMap, procLangs)
-
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 {
-			backupProceduralLanguages(metadataFile, procLangs, langFuncs, functionMetadata, funcInfoMap)
+			backupProceduralLanguages(metadataFile, functions, funcInfoMap, metadataMap)
 		}
 		retrieveAndBackupTypes(metadataFile, &objects, metadataMap)
 

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/greenplum-db/gpbackup/toc"
@@ -18,9 +19,7 @@ var ACLRegex = regexp.MustCompile(`^(.*)=([a-zA-Z\*]*)/(.*)$`)
 
 type ObjectMetadata struct {
 	Privileges            []ACL
-	Name                  string
 	ObjectType            string
-	Schema                string
 	Owner                 string
 	Comment               string
 	SecurityLabelProvider string
@@ -86,7 +85,7 @@ func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	}
 }
 
-func PrintObjectMetadata(file *utils.FileWithByteCount, toc *toc.TOC,
+func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	metadata ObjectMetadata, obj toc.TOCObjectWithMetadata, owningTable string) {
 	_, entry := obj.GetMetadataEntry()
 	if entry.ObjectType == "DATABASE METADATA" {
@@ -108,23 +107,31 @@ func PrintObjectMetadata(file *utils.FileWithByteCount, toc *toc.TOC,
 	if securityLabel := metadata.GetSecurityLabelStatement(obj.FQN(), entry.ObjectType); securityLabel != "" {
 		statements = append(statements, strings.TrimSpace(securityLabel))
 	}
-	PrintStatements(file, toc, obj, statements)
+	PrintStatements(metadataFile, toc, obj, statements)
 }
 
-// Only print owner and grant statements
-func printObjectMetadataACLs(file *utils.FileWithByteCount, toc *toc.TOC,
-	obj ObjectMetadata, info FunctionInfo) {
-	_, entry := obj.GetMetadataEntry()
-	if entry.ObjectType == "FUNCTION" || entry.ObjectType == "AGGREGATE" {
-		statements := make([]string, 0)
-		fqn := fmt.Sprintf("%s.%s(%s)", entry.Schema, entry.Name, info.IdentArgs)
-		if owner := obj.GetOwnerStatement(fqn, entry.ObjectType); owner != "" {
-			statements = append(statements, strings.TrimSpace(owner))
+// Only print grant statements for any functions that belong to extensions
+func printFunctionACLs(metadataFile *utils.FileWithByteCount, metadataMap MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
+	type objectInfo struct{
+		FunctionInfo
+		ObjectMetadata
+	}
+	var objects []objectInfo
+	for uniqueId, obj := range metadataMap {
+		// e.g. Grants for any functions that belong to extensions
+		info, ok := funcInfoMap[uniqueId.Oid]
+		if ok {
+			objects = append(objects, objectInfo{info, obj})
 		}
-		if privileges := obj.GetPrivilegesStatements(fqn, "FUNCTION"); privileges != "" {
-			statements = append(statements, strings.TrimSpace(privileges))
+	}
+	// Sort by function signature
+	sort.SliceStable(objects, func(i, j int) bool {
+		return objects[i].fqn() < objects[j].fqn()
+	})
+	for _, obj := range objects {
+		if privileges := obj.GetPrivilegesStatements(obj.fqn(), "FUNCTION"); privileges != "" {
+			metadataFile.MustPrintf("\n\n%s\n", strings.TrimSpace(privileges))
 		}
-		PrintStatements(file, toc, obj, statements)
 	}
 }
 
@@ -152,9 +159,7 @@ func ConstructMetadataMap(results []MetadataQueryStruct) MetadataMap {
 			metadata = ObjectMetadata{}
 			metadata.Privileges = make([]ACL, 0)
 			metadata.Owner = result.Owner
-			metadata.Name = result.Name
 			metadata.ObjectType = result.ObjectType
-			metadata.Schema = result.Schema
 			metadata.Comment = result.Comment
 			metadata.SecurityLabelProvider = result.SecurityLabelProvider
 			metadata.SecurityLabel = result.SecurityLabel

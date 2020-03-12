@@ -498,6 +498,10 @@ type FunctionInfo struct {
 	IsInternal    bool
 }
 
+func (info FunctionInfo) fqn() string {
+	return fmt.Sprintf("%s(%s)", info.QualifiedName, info.IdentArgs)
+}
+
 func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionInfo {
 	version4query := `
 	SELECT p.oid,
