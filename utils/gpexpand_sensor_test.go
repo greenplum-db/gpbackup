@@ -27,9 +27,11 @@ var _ = Describe("gpexpand_sensor", func() {
 		memoryfs = memfs.Create()
 		mddPathRow = sqlmock.NewRows([]string{"datadir"}).AddRow(sampleMasterDataDir)
 		tableExistsRow = sqlmock.NewRows([]string{"relname"}).AddRow("some table name")
-		// simulate that database connection is to postgres database, with Greenplum 6+
 		connectionPool.DBName = "postgres"
-		testhelper.SetDBVersion(connectionPool, "6.0.0")
+
+		if connectionPool.Version.Before("6") {
+			Skip("gpexpand sensor only runs against GPDB 6+")
+		}
 	})
 	Context("IsGpexpandRunning", func() {
 		Describe("happy path", func() {

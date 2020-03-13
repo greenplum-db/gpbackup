@@ -668,12 +668,16 @@ ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
 				"CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;",
 				"ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;",
 				"COMMENT ON LANGUAGE plpythonu IS 'This is a language comment.';",
-				"ALTER LANGUAGE plpythonu OWNER TO testrole;",
-				`REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;
+			}
+			if connectionPool.Version.AtLeast("5") {
+				// Languages have implicit owners in 4.3, but do not support ALTER OWNER
+				expectedStatements = append(expectedStatements, "ALTER LANGUAGE plpythonu OWNER TO testrole;")
+			}
+			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;
 REVOKE ALL ON LANGUAGE plpythonu FROM testrole;
 GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
-				"SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';",
-			}
+				"SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';")
+
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 		It("prints a language using a role with % in its name", func() {
@@ -687,12 +691,16 @@ GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
 				"CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;",
 				"ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO owner%percentage;",
 				`COMMENT ON LANGUAGE plperl IS 'This is a language comment.';`,
-				`ALTER LANGUAGE plperl OWNER TO testrole;`,
-				`REVOKE ALL ON LANGUAGE plperl FROM PUBLIC;
+			}
+			if connectionPool.Version.AtLeast("5") {
+				// Languages have implicit owners in 4.3, but do not support ALTER OWNER
+				expectedStatements = append(expectedStatements, `ALTER LANGUAGE plperl OWNER TO testrole;`)
+			}
+			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plperl FROM PUBLIC;
 REVOKE ALL ON LANGUAGE plperl FROM testrole;
 GRANT ALL ON LANGUAGE plperl TO testrole;`,
-				"SECURITY LABEL FOR dummy ON LANGUAGE plperl IS 'unclassified';",
-			}
+				"SECURITY LABEL FOR dummy ON LANGUAGE plperl IS 'unclassified';")
+
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 	})

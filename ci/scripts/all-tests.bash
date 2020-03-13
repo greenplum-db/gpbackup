@@ -5,7 +5,8 @@ set -ex
 # setup cluster and install gpbackup tools using gppkg
 ccp_src/scripts/setup_ssh_to_cluster.sh
 out=$(ssh -t mdw 'source env.sh && psql postgres -c "select version();"')
-GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
+TEST_GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9].[0-9]\+.[0-9]\+\).*/\1/p')
+GPDB_VERSION=$(echo ${TEST_GPDB_VERSION} | head -c 1)
 mkdir -p /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
 scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg mdw:/home/gpadmin
@@ -26,6 +27,9 @@ cat <<SCRIPT > /tmp/run_tests.bash
 
   cd \${GOPATH}/src/github.com/greenplum-db/gpbackup
   export OLD_BACKUP_VERSION="${GPBACKUP_VERSION}"
+
+  # Set the GPDB version to use for the unit tests
+  export TEST_GPDB_VERSION=${TEST_GPDB_VERSION}
 
   make unit integration
 

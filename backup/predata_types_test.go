@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"fmt"
+
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -113,28 +115,38 @@ var _ = Describe("backup/predata_types tests", func() {
 );`)
 		})
 		It("prints a base type where all optional arguments have default values where possible", func() {
+			expectedArgsReplace := ""
+			if connectionPool.Version.AtLeast("5") {
+				expectedArgsReplace = `
+	TYPMOD_IN = modin_fn,
+	TYPMOD_OUT = modout_fn,`
+			}
+
 			backup.PrintCreateBaseTypeStatement(backupfile, tocfile, basePartial, emptyMetadata)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.base_type (
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE TYPE public.base_type (
 	INPUT = input_fn,
 	OUTPUT = output_fn,
 	RECEIVE = receive_fn,
-	SEND = send_fn,
-	TYPMOD_IN = modin_fn,
-	TYPMOD_OUT = modout_fn,
+	SEND = send_fn,%s
 	DEFAULT = '42',
 	ELEMENT = int4,
 	DELIMITER = ','
-);`)
+);`, expectedArgsReplace))
 		})
 		It("prints a base type with all optional arguments provided", func() {
+			expectedArgsReplace := ""
+			if connectionPool.Version.AtLeast("5") {
+				expectedArgsReplace = `
+	TYPMOD_IN = modin_fn,
+	TYPMOD_OUT = modout_fn,`
+			}
+
 			backup.PrintCreateBaseTypeStatement(backupfile, tocfile, baseFull, emptyMetadata)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.base_type (
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE TYPE public.base_type (
 	INPUT = input_fn,
 	OUTPUT = output_fn,
 	RECEIVE = receive_fn,
-	SEND = send_fn,
-	TYPMOD_IN = modin_fn,
-	TYPMOD_OUT = modout_fn,
+	SEND = send_fn,%s
 	INTERNALLENGTH = 16,
 	PASSEDBYVALUE,
 	ALIGNMENT = int2,
@@ -148,7 +160,7 @@ var _ = Describe("backup/predata_types tests", func() {
 );
 
 ALTER TYPE public.base_type
-	SET DEFAULT ENCODING (compresstype=zlib, compresslevel=1, blocksize=32768);`)
+	SET DEFAULT ENCODING (compresstype=zlib, compresslevel=1, blocksize=32768);`, expectedArgsReplace))
 		})
 		It("prints a base type with double alignment and main storage", func() {
 			backup.PrintCreateBaseTypeStatement(backupfile, tocfile, basePermOne, emptyMetadata)

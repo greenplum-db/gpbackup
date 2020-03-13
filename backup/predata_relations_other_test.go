@@ -1,6 +1,7 @@
 package backup_test
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -30,86 +31,99 @@ var _ = Describe("backup/predata_relations tests", func() {
 		seqStart := backup.Sequence{Relation: baseSequence, SequenceDefinition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: false}}
 		emptySequenceMetadataMap := backup.MetadataMap{}
 
+		getSeqDefReplace := func() (string) {
+			seqDefReplace := ""
+			if connectionPool.Version.AtLeast("6") {
+				seqDefReplace = `
+	START WITH 0`
+			}
+
+			return seqDefReplace
+		}
+
 		It("can print a sequence with all default options", func() {
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
 			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "seq_name", "SEQUENCE")
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print a decreasing sequence", func() {
 			sequences := []backup.Sequence{seqNegIncr}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY -1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print an increasing sequence with a maximum value", func() {
 			sequences := []backup.Sequence{seqMaxPos}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY 1
 	MAXVALUE 100
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print an increasing sequence with a minimum value", func() {
 			sequences := []backup.Sequence{seqMinPos}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY 1
 	NO MAXVALUE
 	MINVALUE 10
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print a decreasing sequence with a maximum value", func() {
 			sequences := []backup.Sequence{seqMaxNeg}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY -1
 	MAXVALUE -10
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print a decreasing sequence with a minimum value", func() {
 			sequences := []backup.Sequence{seqMinNeg}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY -1
 	NO MAXVALUE
 	MINVALUE -100
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print a sequence that cycles", func() {
 			sequences := []backup.Sequence{seqCycle}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5
 	CYCLE;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print a sequence with a start value", func() {
+			if connectionPool.Version.AtLeast("6") {
+				seqStart.SequenceDefinition.StartVal = 7
+			}
 			sequences := []backup.Sequence{seqStart}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
@@ -126,74 +140,53 @@ SELECT pg_catalog.setval('public.seq_name', 7, false);`)
 			seqWithQuote := backup.Sequence{Relation: baseSequenceWithQuote, SequenceDefinition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
 			sequences := []backup.Sequence{seqWithQuote}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_'name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_'name%s
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_''name', 7, true);`)
+SELECT pg_catalog.setval('public.seq_''name', 7, true);`, getSeqDefReplace()))
 		})
-		It("can print a sequence with privileges, an owner, and a comment for version < 6", func() {
-			testhelper.SetDBVersion(connectionPool, "5.0.0")
+		It("can print a sequence with privileges, an owner, and a comment for version", func() {
 			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true, false)
 			sequenceMetadata := sequenceMetadataMap[seqDefault.GetUniqueID()]
 			sequenceMetadata.Privileges[0].Update = false
 			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, sequenceMetadataMap)
-			expectedEntries := []string{`CREATE SEQUENCE public.seq_name
+
+			keywordReplace := "TABLE"
+			if connectionPool.Version.AtLeast("6") {
+				keywordReplace = `SEQUENCE`
+			}
+
+			expectedEntries := []string{ fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`,
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()),
 				"COMMENT ON SEQUENCE public.seq_name IS 'This is a sequence comment.';",
-				"ALTER TABLE public.seq_name OWNER TO testrole;",
+				fmt.Sprintf("ALTER %s public.seq_name OWNER TO testrole;", keywordReplace),
 				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedEntries...)
-			testhelper.SetDBVersion(connectionPool, "5.1.0")
-		})
-		It("can print a sequence with privileges, an owner, security label, and a comment for version >= 6", func() {
-			testhelper.SetDBVersion(connectionPool, "6.0.0")
-			sequenceMetadataMap := testutils.DefaultMetadataMap("SEQUENCE", true, true, true, true)
-			sequenceMetadata := sequenceMetadataMap[seqDefault.GetUniqueID()]
-			sequenceMetadata.Privileges[0].Update = false
-			sequenceMetadataMap[seqDefault.GetUniqueID()] = sequenceMetadata
-			sequences := []backup.Sequence{seqDefault}
-			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, sequenceMetadataMap)
-			expectedEntries := []string{`CREATE SEQUENCE public.seq_name
-	START WITH 0
-	INCREMENT BY 1
-	NO MAXVALUE
-	NO MINVALUE
-	CACHE 5;
-
-SELECT pg_catalog.setval('public.seq_name', 7, true);`,
-				"COMMENT ON SEQUENCE public.seq_name IS 'This is a sequence comment.';",
-				"ALTER SEQUENCE public.seq_name OWNER TO testrole;",
-				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
-REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
-GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`,
-				"SECURITY LABEL FOR dummy ON SEQUENCE public.seq_name IS 'unclassified';"}
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedEntries...)
-			testhelper.SetDBVersion(connectionPool, "5.1.0")
 		})
 		It("can print a sequence with privileges WITH GRANT OPTION", func() {
 			sequenceMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{testutils.DefaultACLWithGrantWithout("testrole", "SEQUENCE", "UPDATE")}}
 			sequenceMetadataMap := backup.MetadataMap{seqDefault.GetUniqueID(): sequenceMetadata}
 			sequences := []backup.Sequence{seqDefault}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, sequenceMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SEQUENCE public.seq_name
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 5;
 
-SELECT pg_catalog.setval('public.seq_name', 7, true);`,
+SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()),
 				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 		})
@@ -213,33 +206,31 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer,
 				`CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;`)
 		})
-		It("can print a view with privileges, an owner, and a comment for version < 6", func() {
-			testhelper.SetDBVersion(connectionPool, "5.0.0")
-			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
+		It("can print a view with privileges, an owner, a comment, and a security label", func() {
+			hasSecurityLabel := false
+			if connectionPool.Version.AtLeast("6") {
+				hasSecurityLabel = true
+			}
 
-			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, false)
+			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, hasSecurityLabel)
 			backup.PrintCreateViewStatement(backupfile, tocfile, view, viewMetadata)
+
+			keywordReplace := "TABLE"
+			if connectionPool.Version.AtLeast("6") {
+				keywordReplace = "VIEW"
+			}
+
 			expectedEntries := []string{"CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;",
 				"COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';",
-				"ALTER TABLE shamwow.shazam OWNER TO testrole;",
+				fmt.Sprintf("ALTER %s shamwow.shazam OWNER TO testrole;", keywordReplace),
 				`REVOKE ALL ON shamwow.shazam FROM PUBLIC;
 REVOKE ALL ON shamwow.shazam FROM testrole;
 GRANT ALL ON shamwow.shazam TO testrole;`}
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedEntries...)
-		})
-		It("can print a view with privileges, an owner, security label, and a comment for version >= 6", func() {
-			testhelper.SetDBVersion(connectionPool, "6.0.0")
-			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
 
-			viewMetadata := testutils.DefaultMetadata("VIEW", true, true, true, true)
-			backup.PrintCreateViewStatement(backupfile, tocfile, view, viewMetadata)
-			expectedEntries := []string{"CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;",
-				"COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';",
-				"ALTER VIEW shamwow.shazam OWNER TO testrole;",
-				`REVOKE ALL ON shamwow.shazam FROM PUBLIC;
-REVOKE ALL ON shamwow.shazam FROM testrole;
-GRANT ALL ON shamwow.shazam TO testrole;`,
-				"SECURITY LABEL FOR dummy ON VIEW shamwow.shazam IS 'unclassified';"}
+			if connectionPool.Version.AtLeast("6") {
+				expectedEntries = append(expectedEntries, "SECURITY LABEL FOR dummy ON VIEW shamwow.shazam IS 'unclassified';")
+			}
+
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedEntries...)
 		})
 		It("can print a view with options", func() {
@@ -483,8 +474,9 @@ GRANT ALL ON shamwow.shazam TO testrole;`,
 			emptyMetadata backup.ObjectMetadata
 		)
 		BeforeEach(func() {
-			testhelper.SetDBVersion(connectionPool, "6.2.0")
-			defer testhelper.SetDBVersion(connectionPool, "5.1.0")
+			if connectionPool.Version.Before("6.2.0") {
+				Skip("Test only applicable to GPDB 6.2.0 and above")
+			}
 			mview = backup.MaterializedView{Oid: 1, Schema: "schema1", Name: "mview1", Definition: "SELECT count(*) FROM pg_tables;"}
 			emptyMetadata = backup.ObjectMetadata{}
 		})

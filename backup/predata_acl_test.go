@@ -2,6 +2,7 @@ package backup_test
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
@@ -151,36 +152,28 @@ GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 			view := backup.View{Schema: "public", Name: "viewname"}
 			sequence := backup.Sequence{Relation: backup.Relation{Schema: "public", Name: "sequencename"}}
 			objectMetadata := backup.ObjectMetadata{Owner: "testrole"}
-			AfterEach(func() {
-				testhelper.SetDBVersion(connectionPool, "5.1.0")
-			})
-			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a sequence if version < 6", func() {
-				testhelper.SetDBVersion(connectionPool, "5.0.0")
+
+			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a sequence", func() {
+				expectedKeyword := `TABLE`
+				if connectionPool.Version.AtLeast("6") {
+					expectedKeyword = `SEQUENCE`
+				}
+
 				backup.PrintObjectMetadata(backupfile, tocfile, objectMetadata, sequence, "public.sequencename")
-				testhelper.ExpectRegexp(buffer, `
+				testhelper.ExpectRegexp(buffer, fmt.Sprintf(`
 
-ALTER TABLE public.sequencename OWNER TO testrole;`)
+ALTER %s public.sequencename OWNER TO testrole;`, expectedKeyword))
 			})
-			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a view if version < 6", func() {
-				testhelper.SetDBVersion(connectionPool, "5.0.0")
+			It("prints an ALTER TABLE ... OWNER TO statement to set the owner for a view", func() {
+				expectedKeyword := `TABLE`
+				if connectionPool.Version.AtLeast("6") {
+					expectedKeyword = `VIEW`
+				}
+
 				backup.PrintObjectMetadata(backupfile, tocfile, objectMetadata, view, "public.viewname")
-				testhelper.ExpectRegexp(buffer, `
+				testhelper.ExpectRegexp(buffer, fmt.Sprintf(`
 
-ALTER TABLE public.viewname OWNER TO testrole;`)
-			})
-			It("prints an ALTER SEQUENCE ... OWNER TO statement to set the owner for a sequence if version >= 6", func() {
-				testhelper.SetDBVersion(connectionPool, "6.0.0")
-				backup.PrintObjectMetadata(backupfile, tocfile, objectMetadata, sequence, "public.sequencename")
-				testhelper.ExpectRegexp(buffer, `
-
-ALTER SEQUENCE public.sequencename OWNER TO testrole;`)
-			})
-			It("prints an ALTER VIEW ... OWNER TO statement to set the owner for a view if version >= 6", func() {
-				testhelper.SetDBVersion(connectionPool, "6.0.0")
-				backup.PrintObjectMetadata(backupfile, tocfile, objectMetadata, view, "public.viewname")
-				testhelper.ExpectRegexp(buffer, `
-
-ALTER VIEW public.viewname OWNER TO testrole;`)
+ALTER %s public.viewname OWNER TO testrole;`, expectedKeyword))
 			})
 		})
 	})

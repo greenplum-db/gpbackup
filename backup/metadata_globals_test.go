@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"fmt"
+
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -15,7 +17,6 @@ var _ = Describe("backup/metadata_globals tests", func() {
 	})
 	Describe("PrintSessionGUCs", func() {
 		It("prints session GUCs", func() {
-			testhelper.SetDBVersion(connectionPool, "4.3.0")
 			gucs := backup.SessionGUCs{ClientEncoding: "UTF8"}
 
 			backup.PrintSessionGUCs(backupfile, tocfile, gucs)
@@ -310,22 +311,35 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				},
 			},
 		}
+
+		getResourceGroupReplace := func() (string, string) {
+			resourceGroupReplace1, resourceGroupReplace2 := "", ""
+			if connectionPool.Version.AtLeast("5") {
+				resourceGroupReplace1 = ` RESOURCE GROUP default_group`
+				resourceGroupReplace2 = `RESOURCE GROUP "testGroup" `
+			}
+
+			return resourceGroupReplace1, resourceGroupReplace2
+		}
+
 		It("prints basic role", func() {
 			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, false)
 			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{testrole1}, roleMetadataMap)
 
+			resourceGroupReplace, _ := getResourceGroupReplace()
 			testutils.ExpectEntry(tocfile.GlobalEntries, 0, "", "", "testrole1", "ROLE")
-			testutils.AssertBufferContents(tocfile.GlobalEntries, buffer, `CREATE ROLE testrole1;
-ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default RESOURCE GROUP default_group;`,
+			testutils.AssertBufferContents(tocfile.GlobalEntries, buffer, fmt.Sprintf(`CREATE ROLE testrole1;
+ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default%s;`, resourceGroupReplace),
 				`COMMENT ON ROLE testrole1 IS 'This is a role comment.';`)
 		})
 		It("prints roles with non-defaults and security label", func() {
 			roleMetadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, true)
 			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{testrole2}, roleMetadataMap)
 
+			_, resourceGroupReplace := getResourceGroupReplace()
 			expectedStatements := []string{
-				`CREATE ROLE "testRole2";
-ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');`,
+				fmt.Sprintf(`CREATE ROLE "testRole2";
+ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" %sCREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');`, resourceGroupReplace),
 				`ALTER ROLE "testRole2" DENY BETWEEN DAY 0 TIME '13:30:00' AND DAY 3 TIME '14:30:00';`,
 				`ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:00';`,
 				`COMMENT ON ROLE "testRole2" IS 'This is a role comment.';`,
@@ -337,11 +351,12 @@ ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICAT
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{testrole1, testrole2}, emptyMetadataMap)
 
+			resourceGroupReplace1, resourceGroupReplace2 := getResourceGroupReplace()
 			expectedStatements := []string{
-				`CREATE ROLE testrole1;
-ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default RESOURCE GROUP default_group;`,
-				`CREATE ROLE "testRole2";
-ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" RESOURCE GROUP "testGroup" CREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');`,
+				fmt.Sprintf(`CREATE ROLE testrole1;
+ALTER ROLE testrole1 WITH NOSUPERUSER NOINHERIT NOCREATEROLE NOCREATEDB NOLOGIN RESOURCE QUEUE pg_default%s;`, resourceGroupReplace1),
+				fmt.Sprintf(`CREATE ROLE "testRole2";
+ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICATION CONNECTION LIMIT 4 PASSWORD 'md5a8b2c77dfeba4705f29c094592eb3369' VALID UNTIL '2099-01-01 00:00:00-08' RESOURCE QUEUE "testQueue" %sCREATEEXTTABLE (protocol='http') CREATEEXTTABLE (protocol='gpfdist', type='readable') CREATEEXTTABLE (protocol='gpfdist', type='writable') CREATEEXTTABLE (protocol='gphdfs', type='readable') CREATEEXTTABLE (protocol='gphdfs', type='writable');`, resourceGroupReplace2),
 				`ALTER ROLE "testRole2" DENY BETWEEN DAY 0 TIME '13:30:00' AND DAY 3 TIME '14:30:00';`,
 				`ALTER ROLE "testRole2" DENY BETWEEN DAY 5 TIME '00:00:00' AND DAY 5 TIME '24:00:00';`}
 			testutils.AssertBufferContents(tocfile.GlobalEntries, buffer, expectedStatements...)

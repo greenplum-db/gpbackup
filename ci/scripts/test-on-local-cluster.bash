@@ -55,6 +55,9 @@ out=\$(psql postgres -c "select version();")
 GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
 gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*${OS}*.gppkg
 
+# Get the GPDB version to use for the unit tests
+export TEST_GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9].[0-9]\+.[0-9]\+\).*/\1/p')
+
 # Test gpbackup
 pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
   make unit integration end_to_end

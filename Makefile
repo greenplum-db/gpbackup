@@ -53,6 +53,12 @@ lint : $(GOLANG_LINTER)
 unit : $(GINKGO)
 		$(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
 
+unit_all_gpdb_versions : $(GINKGO)
+		TEST_GPDB_VERSION=4.3.999 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
+		TEST_GPDB_VERSION=5.999.0 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
+		TEST_GPDB_VERSION=6.999.0 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
+		TEST_GPDB_VERSION=7.0.0 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1 # GPDB master
+
 integration : $(GINKGO)
 		$(GO_ENV) ginkgo $(GINKGO_FLAGS) integration 2>&1
 

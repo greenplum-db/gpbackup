@@ -151,7 +151,7 @@ backupconfigs:
   backupversion: 1.11.0+dev.28.g10571fd
   compressed: false
   databasename: plugin_test_db
-  databaseversion: 5.15.0+dev.18.gb29642fb22 build dev
+  databaseversion: 4.3.99.0+dev.18.gb29642fb22 build dev
   dataonly: false
   deleted: false
   excluderelations: []
@@ -177,7 +177,7 @@ backupconfigs:
   backupversion: 1.11.0+dev.28.g10571fd
   compressed: false
   databasename: plugin_test_db
-  databaseversion: 5.15.0+dev.18.gb29642fb22 build dev
+  databaseversion: 4.3.99.0+dev.18.gb29642fb22 build dev
   dataonly: false
   deleted: false
   excluderelations: []
@@ -207,7 +207,7 @@ backupdir: ""
 backupversion: 1.11.0+dev.28.g10571fd
 compressed: false
 databasename: plugin_test_db
-databaseversion: 5.15.0+dev.18.gb29642fb22 build dev
+databaseversion: 4.3.99.0+dev.18.gb29642fb22 build dev
 dataonly: false
 deleted: false
 excluderelations: []

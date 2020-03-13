@@ -3,6 +3,7 @@ package testutils
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -29,6 +30,13 @@ import (
 
 func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *Buffer, *Buffer, *Buffer) {
 	connectionPool, mock, testStdout, testStderr, testLogfile := testhelper.SetupTestEnvironment()
+
+	// Default if not set is GPDB version `5.1.0`
+	envTestGpdbVersion := os.Getenv("TEST_GPDB_VERSION")
+	if (envTestGpdbVersion != "") {
+		testhelper.SetDBVersion(connectionPool, envTestGpdbVersion)
+	}
+
 	SetupTestCluster()
 	backup.SetVersion("0.1.0")
 	return connectionPool, mock, testStdout, testStderr, testLogfile

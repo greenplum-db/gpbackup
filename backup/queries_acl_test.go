@@ -2,6 +2,7 @@ package backup_test
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"regexp"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -18,11 +19,28 @@ var _ = Describe("backup/queries_acl tests", func() {
 		header := []string{"oid", "privileges", "owner", "comment"}
 		emptyRows := sqlmock.NewRows(header)
 
+		getSecurityLabelReplace := func() (string, string, string) {
+			securityLabelSelectReplace, securityLabelJoinReplace, sharedSecurityLabelJoinReplace := "", "", ""
+			if connectionPool.Version.AtLeast("6") {
+				securityLabelSelectReplace = `
+		coalesce(sec.label,'') AS securitylabel,
+		coalesce(sec.provider, '') AS securitylabelprovider,`
+				securityLabelJoinReplace = `
+		LEFT JOIN pg_seclabel sec ON (sec.objoid = o.oid AND sec.classoid = 'table'::regclass AND sec.objsubid = 0)`
+				sharedSecurityLabelJoinReplace = `
+		LEFT JOIN pg_shseclabel sec ON (sec.objoid = o.oid AND sec.classoid = 'table'::regclass)`
+			}
+
+			return securityLabelSelectReplace, securityLabelJoinReplace, sharedSecurityLabelJoinReplace
+		}
+
 		BeforeEach(func() {
 			params = backup.MetadataQueryParams{ObjectType: "RELATION", NameField: "name", OwnerField: "owner", CatalogTable: "table"}
 		})
 		It("queries metadata for an object with default params", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
+			securityLabelSelectReplace, securityLabelJoinReplace, _ := getSecurityLabelReplace()
+
+			mock.ExpectQuery(regexp.QuoteMeta(fmt.Sprintf(`SELECT
 		'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
@@ -30,68 +48,78 @@ var _ = Describe("backup/queries_acl tests", func() {
 		'' AS kind,
 		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
-		'' AS privileges,
+		'' AS privileges,%s
 		coalesce(description,'') AS comment
-	FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
+	FROM table o
+		LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)%s
 	WHERE 1 = 1
-	ORDER BY o.oid`)).WillReturnRows(emptyRows)
+	ORDER BY o.oid`, securityLabelSelectReplace, securityLabelJoinReplace))).WillReturnRows(emptyRows)
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
 		It("queries metadata for an object with a schema field", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
-		'RELATION' AS objecttype,
+			securityLabelSelectReplace, securityLabelJoinReplace, _ := getSecurityLabelReplace()
+
+			mock.ExpectQuery(regexp.QuoteMeta(fmt.Sprintf(`
+	SELECT 'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(name) AS name,
 		'' AS kind,
 		coalesce(quote_ident(n.nspname),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
-		'' AS privileges,
+		'' AS privileges,%s
 		coalesce(description,'') AS comment
-	FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
-		JOIN pg_namespace n ON o.schema = n.oid
-	WHERE n.nspname NOT LIKE 'pg_temp_%' AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog')
-	ORDER BY o.oid`)).WillReturnRows(emptyRows)
+	FROM table o
+		LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
+		JOIN pg_namespace n ON o.schema = n.oid%s
+	WHERE n.nspname NOT LIKE 'pg_temp_%%' AND n.nspname NOT LIKE 'pg_toast%%' AND n.nspname NOT IN ('gp_toolkit', 'information_schema', 'pg_aoseg', 'pg_bitmapindex', 'pg_catalog')
+	ORDER BY o.oid`, securityLabelSelectReplace, securityLabelJoinReplace))).WillReturnRows(emptyRows)
 			params.SchemaField = "schema"
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
 		It("queries metadata for an object with an ACL field", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
-		'RELATION' AS objecttype,
+			securityLabelSelectReplace, securityLabelJoinReplace, _ := getSecurityLabelReplace()
+
+			mock.ExpectQuery(regexp.QuoteMeta(fmt.Sprintf(`
+	SELECT 'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(name) AS name,
 		CASE
-		WHEN acl IS NULL THEN ''
-		WHEN array_upper(acl, 1) = 0 THEN 'Empty'
-		ELSE '' END AS kind,
+			WHEN acl IS NULL THEN ''
+			WHEN array_upper(acl, 1) = 0 THEN 'Empty'
+			ELSE '' END AS kind,
 		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
 		CASE
-		WHEN acl IS NULL THEN NULL
-		WHEN array_upper(acl, 1) = 0 THEN acl[0]
-		ELSE unnest(acl) END AS privileges,
+			WHEN acl IS NULL THEN NULL
+			WHEN array_upper(acl, 1) = 0 THEN acl[0]
+			ELSE unnest(acl) END AS privileges,%s
 		coalesce(description,'') AS comment
-	FROM table o LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)
+	FROM table o
+		LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)%s
 	WHERE 1 = 1
-	ORDER BY o.oid`)).WillReturnRows(emptyRows)
+	ORDER BY o.oid`, securityLabelSelectReplace, securityLabelJoinReplace))).WillReturnRows(emptyRows)
 			params.ACLField = "acl"
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
 		It("queries metadata for a shared object", func() {
-			mock.ExpectQuery(regexp.QuoteMeta(`SELECT
-		'RELATION' AS objecttype,
+			securityLabelSelectReplace, _, sharedSecurityLabelJoinReplace := getSecurityLabelReplace()
+
+			mock.ExpectQuery(regexp.QuoteMeta(fmt.Sprintf(`
+	SELECT 'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
 		quote_ident(name) AS name,
 		'' AS kind,
 		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
-		'' AS privileges,
+		'' AS privileges,%s
 		coalesce(description,'') AS comment
-	FROM table o LEFT JOIN pg_shdescription d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass)
+	FROM table o
+		LEFT JOIN pg_shdescription d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass)%s
 	WHERE 1 = 1
-	ORDER BY o.oid`)).WillReturnRows(emptyRows)
+	ORDER BY o.oid`, securityLabelSelectReplace, sharedSecurityLabelJoinReplace))).WillReturnRows(emptyRows)
 			params.Shared = true
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})

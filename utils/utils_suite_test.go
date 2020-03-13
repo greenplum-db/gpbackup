@@ -5,7 +5,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/testutils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,6 +26,6 @@ func TestUtils(t *testing.T) {
 }
 
 var _ = BeforeEach(func() {
-	connectionPool, mock, stdout, _, logfile = testhelper.SetupTestEnvironment()
+	connectionPool, mock, stdout, _, logfile = testutils.SetupTestEnvironment()
 	buffer = NewBuffer()
 })
