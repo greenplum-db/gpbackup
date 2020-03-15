@@ -56,25 +56,6 @@ type ACL struct {
 
 type MetadataMap map[UniqueID]ObjectMetadata
 
-func (obj ObjectMetadata) GetMetadataEntry() (string, toc.MetadataEntry) {
-	return "predata",
-		toc.MetadataEntry{
-			Schema:          obj.Schema,
-			Name:            obj.Name,
-			ObjectType:      obj.ObjectType,
-			ReferenceObject: "",
-			StartByte:       0,
-			EndByte:         0,
-		}
-}
-
-func (obj ObjectMetadata) FQN() string {
-	if obj.Schema == "" {
-		return obj.Name
-	}
-	return utils.MakeFQN(obj.Schema, obj.Name)
-}
-
 func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	obj toc.TOCObject, statements []string) {
 	for _, statement := range statements {
@@ -111,7 +92,8 @@ func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 }
 
 // Only print grant statements for any functions that belong to extensions
-func printFunctionACLs(metadataFile *utils.FileWithByteCount, metadataMap MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
+func printExtensionFunctionACLs(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
+	metadataMap MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
 	type objectInfo struct{
 		FunctionInfo
 		ObjectMetadata
@@ -126,11 +108,13 @@ func printFunctionACLs(metadataFile *utils.FileWithByteCount, metadataMap Metada
 	}
 	// Sort by function signature
 	sort.SliceStable(objects, func(i, j int) bool {
-		return objects[i].fqn() < objects[j].fqn()
+		return objects[i].FQN() < objects[j].FQN()
 	})
+	statements := make([]string, 0)
 	for _, obj := range objects {
-		if privileges := obj.GetPrivilegesStatements(obj.fqn(), "FUNCTION"); privileges != "" {
-			metadataFile.MustPrintf("\n\n%s\n", strings.TrimSpace(privileges))
+		if privileges := obj.GetPrivilegesStatements(obj.FQN(), "FUNCTION"); privileges != "" {
+			statements = append(statements, strings.TrimSpace(privileges))
+			PrintStatements(metadataFile, toc, obj, statements)
 		}
 	}
 }

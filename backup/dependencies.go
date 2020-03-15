@@ -278,5 +278,5 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 		delete(metadataMap, object.GetUniqueID())
 	}
 	//  Process ACLs for left over objects in the metadata map
-	printFunctionACLs(metadataFile, metadataMap, funcInfoMap)
+	printExtensionFunctionACLs(metadataFile, toc, metadataMap, funcInfoMap)
 }

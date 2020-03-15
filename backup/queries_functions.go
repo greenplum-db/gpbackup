@@ -492,14 +492,30 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 }
 
 type FunctionInfo struct {
+	Oid           uint32
+	Name          string
+	Schema        string
 	QualifiedName string
 	Arguments     string
 	IdentArgs     string
 	IsInternal    bool
 }
 
-func (info FunctionInfo) fqn() string {
+func (info FunctionInfo) FQN() string {
 	return fmt.Sprintf("%s(%s)", info.QualifiedName, info.IdentArgs)
+}
+
+func (info FunctionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
+	nameWithArgs := fmt.Sprintf("%s(%s)", info.Name, info.IdentArgs)
+	return "predata",
+		toc.MetadataEntry{
+			Schema:          info.Schema,
+			Name:            nameWithArgs,
+			ObjectType:      "FUNCTION",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
 }
 
 func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionInfo {
@@ -518,13 +534,7 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 	FROM pg_proc p
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid`
 
-	results := make([]struct {
-		Oid       uint32
-		Schema    string
-		Name      string
-		Arguments string
-		IdentArgs string
-	}, 0)
+	results := make([]FunctionInfo, 0)
 	funcMap := make(map[uint32]FunctionInfo)
 	var err error
 	if connectionPool.Version.Before("5") {
@@ -532,24 +542,18 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 		arguments, _ := GetFunctionArgsAndIdentArgs(connectionPool)
 		for i := range results {
 			results[i].Arguments = arguments[results[i].Oid]
+			results[i].IdentArgs = arguments[results[i].Oid]
 		}
 	} else {
 		err = connectionPool.Select(&results, query)
 	}
 	gplog.FatalOnError(err)
-	for _, function := range results {
-		fqn := utils.MakeFQN(function.Schema, function.Name)
-
-		isInternal := false
-		if function.Schema == "pg_catalog" {
-			isInternal = true
+	for _, funcInfo := range results {
+		if funcInfo.Schema == "pg_catalog" {
+			funcInfo.IsInternal = true
 		}
-		funcInfo := FunctionInfo{
-			QualifiedName: fqn,
-			Arguments: function.Arguments,
-			IdentArgs: function.IdentArgs,
-			IsInternal: isInternal}
-		funcMap[function.Oid] = funcInfo
+		funcInfo.QualifiedName = utils.MakeFQN(funcInfo.Schema, funcInfo.Name)
+		funcMap[funcInfo.Oid] = funcInfo
 	}
 	return funcMap
 }

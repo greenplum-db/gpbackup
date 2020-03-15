@@ -3,9 +3,6 @@ package end_to_end_test
 import (
 	"flag"
 	"fmt"
-	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
-	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/spf13/pflag"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -23,10 +20,13 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/spf13/pflag"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -286,11 +286,11 @@ var _ = Describe("backup end to end integration tests", func() {
 		if err != nil {
 			Fail(fmt.Sprintf("Could not create restoredb: %v", err))
 		}
+		backupConn = testutils.SetupTestDbConn("testdb")
+		restoreConn = testutils.SetupTestDbConn("restoredb")
 		backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
 		backup.SetFlagDefaults(backupCmdFlags)
 		backup.SetCmdFlags(backupCmdFlags)
-		backupConn = testutils.SetupTestDbConn("testdb")
-		restoreConn = testutils.SetupTestDbConn("restoredb")
 		backup.InitializeMetadataParams(backupConn)
 		backup.SetFilterRelationClause("")
 		testutils.ExecuteSQLFile(backupConn, "test_tables_ddl.sql")
@@ -467,7 +467,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				_ = os.Remove("/tmp/include-schema.txt")
 			})
-
 		})
 		Describe("Restore include filtering", func() {
 			It("runs gpbackup and gprestore with include-schema restore flag", func() {
@@ -480,7 +479,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-
 			})
 			It("runs gpbackup and gprestore with include-schema-file restore flag", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-schema.txt")
@@ -495,7 +493,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 				assertRelationsCreated(restoreConn, 37)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-
 			})
 			It("runs gpbackup and gprestore with include-table restore flag", func() {
 				timestamp := gpbackup(gpbackupPath, backupHelperPath)
@@ -786,7 +783,6 @@ var _ = Describe("backup end to end integration tests", func() {
 					if useOldBackupVersion {
 						Skip("This test is only needed for the most recent backup versions")
 					}
-
 				})
 				It("runs gpbackup and gprestore with plugin, single-data-file, and no-compression", func() {
 					pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
@@ -886,29 +882,6 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-			})
-		})
-		Describe("ACLs for extensions", func() {
-			FIt("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
-				testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
-				testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP ROLE testrole")
-				testhelper.AssertQueryRuns(backupConn, "CREATE EXTENSION dblink")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP EXTENSION dblink")
-				testhelper.AssertQueryRuns(backupConn, "GRANT EXECUTE ON FUNCTION dblink_get_pkey(text) to testrole WITH GRANT OPTION")
-				testutils.ExecuteSQLFile(backupConn, "gpdb4_objects.sql")
-
-				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only")
-				gprestore(gprestorePath, restoreHelperPath, timestamp, "--redirect-db", "restoredb")
-
-				extensionMetadata := testutils.DefaultMetadata("FUNCTION", true, true, false, false)
-				uniqueID := testutils.UniqueIDFromObjectName(restoreConn, "public", "dblink_get_pkey", backup.TYPE_FUNCTION)
-				resultMetadataMap := backup.GetMetadataForObjectType(restoreConn, backup.TYPE_FUNCTION)
-
-				Expect(resultMetadataMap).To(Not(BeEmpty()))
-				resultMetadata := resultMetadataMap[uniqueID]
-				structmatcher.ExpectStructsToMatch(&extensionMetadata, &resultMetadata)
-				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 		})
 		Describe("Incremental backup", func() {
@@ -1608,7 +1581,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
 		})
-
 		It("runs gpbackup and gprestore with the data-only restore flag", func() {
 			testutils.ExecuteSQLFile(restoreConn, "test_tables_ddl.sql")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
@@ -1640,7 +1612,6 @@ var _ = Describe("backup end to end integration tests", func() {
 
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-
 		})
 		It("runs gpbackup and gprestore with no-compression flag", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1661,7 +1632,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-
 		})
 		It("runs gpbackup and gprestore with with-stats flag", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1680,7 +1650,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			Expect(string(output)).To(ContainSubstring("Query planner statistics restore complete"))
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-
 		})
 		It("runs gprestore with --include-table flag to only restore tables specified ", func() {
 			testhelper.AssertQueryRuns(backupConn,
@@ -1743,7 +1712,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, schema2TupleCounts)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
-
 		})
 		It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
@@ -1771,7 +1739,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
 			Expect(stdout).To(ContainSubstring("Cleanup complete"))
 			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-
 		})
 		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
@@ -1805,7 +1772,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			Expect(stdout).To(ContainSubstring("Cleanup complete"))
 			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
 			assertArtifactsCleaned(restoreConn, timestamp)
-
 		})
 		It("runs gpbackup and sends a SIGINT to ensure blocked LOCK TABLE query is canceled", func() {
 			if useOldBackupVersion {
@@ -1878,7 +1844,6 @@ var _ = Describe("backup end to end integration tests", func() {
 			output := mustRunCommand(command)
 			Expect(string(output)).To(MatchRegexp(`gprestore version \w+`))
 		})
-
 		It("runs gpbackup with --include-table flag with CAPS special characters", func() {
 			skipIfOldBackupVersionBefore("1.9.1")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1889,7 +1854,6 @@ var _ = Describe("backup end to end integration tests", func() {
 				"--backup-dir", backupDir)
 
 			assertRelationsCreated(restoreConn, 1)
-
 			localSchemaTupleCounts := map[string]int{
 				`public."FOObar"`: 1,
 			}
@@ -1923,7 +1887,6 @@ PARTITION BY LIST (gender)
 				"--backup-dir", backupDir)
 
 			assertRelationsCreated(restoreConn, 4)
-
 			localSchemaTupleCounts := map[string]int{
 				`public.testparent_1_prt_girls`: 1,
 				`public.testparent`:             1,
@@ -1957,7 +1920,6 @@ PARTITION BY LIST (gender)
 				"--backup-dir", backupDir)
 
 			assertRelationsCreated(restoreConn, 4)
-
 			localSchemaTupleCounts := map[string]int{
 				`public."CAPparent_1_prt_girls"`: 1,
 				`public."CAPparent"`:             1,
@@ -2033,9 +1995,7 @@ PARTITION BY LIST (gender)
 				"public.corrupt_table": 0,
 				"public.good_table1": 10,
 				"public.good_table2": 10})
-
 		})
-
 		It("backup and restore all data when NOT VALID option on constraints is specified", func() {
 			testutils.SkipIfBefore6(backupConn)
 			testhelper.AssertQueryRuns(backupConn,
@@ -2044,7 +2004,6 @@ PARTITION BY LIST (gender)
 				"DROP TABLE legacy_table_violate_constraints")
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO legacy_table_violate_constraints values (0), (1), (2), (3), (4), (5), (6), (7)")
-
 			testhelper.AssertQueryRuns(backupConn,
 				"ALTER TABLE legacy_table_violate_constraints ADD CONSTRAINT new_constraint_not_valid CHECK (a > 4) NOT VALID")
 			defer testhelper.AssertQueryRuns(backupConn,
@@ -2067,10 +2026,8 @@ PARTITION BY LIST (gender)
 
 			_, err := restoreConn.Exec("INSERT INTO legacy_table_violate_constraints VALUES (1)")
 			Expect(err).To(HaveOccurred())
-
 			assertArtifactsCleaned(restoreConn, timestamp)
 		})
-
 		It(`ensure gprestore on corrupt backup with --on-error-continue logs error tables`, func() {
 			command := exec.Command("tar", "-xzf",
 				"resources/corrupt-db.tar.gz", "-C", backupDir)
@@ -2130,7 +2087,6 @@ PARTITION BY LIST (gender)
 			Expect(tables).To(HaveLen(len(expectedErrorTablesMetadata)))
 			_ = os.Remove(files[0])
 		})
-
 		It(`ensure successful gprestore with --on-error-continue does not log error tables`, func() {
 			// Ensure no error tables with successful restore
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -2149,7 +2105,6 @@ PARTITION BY LIST (gender)
 				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
 			defer testhelper.AssertQueryRuns(backupConn,
 				"DROP SCHEMA schema3 CASCADE")
-
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
 			defer testhelper.AssertQueryRuns(backupConn,
@@ -2182,7 +2137,6 @@ PARTITION BY LIST (gender)
 				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
 			defer testhelper.AssertQueryRuns(restoreConn,
 				"DROP SCHEMA schema3 CASCADE")
-
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE SCHEMA \"FOO\"")
 			defer testhelper.AssertQueryRuns(backupConn,
@@ -2211,6 +2165,48 @@ PARTITION BY LIST (gender)
 			}
 			assertDataRestored(restoreConn, schema3TupleCounts)
 			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+		})
+		Describe("ACLs for extensions", func() {
+			It("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
+				testutils.SkipIfBefore5(backupConn)
+				skipIfOldBackupVersionBefore("1.4.0")
+				currentUser := os.Getenv("USER")
+				testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP ROLE testrole")
+				testhelper.AssertQueryRuns(backupConn, "CREATE EXTENSION pgcrypto")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP EXTENSION pgcrypto")
+				// Create a grant on a function that belongs to the extension
+				testhelper.AssertQueryRuns(backupConn,
+					"GRANT EXECUTE ON FUNCTION gen_random_bytes(integer) to testrole WITH GRANT OPTION")
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--metadata-only")
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb")
+
+				extensionMetadata := backup.ObjectMetadata{
+					ObjectType: "FUNCTION", Privileges: []backup.ACL{
+						{Grantee: "", Execute: true},
+						{Grantee: currentUser, Execute: true},
+						{Grantee: "testrole", ExecuteWithGrant: true},
+					}, Owner: currentUser}
+
+				// Check for the corresponding grants in restored database
+				uniqueID := testutils.UniqueIDFromObjectName(restoreConn,
+					"public", "gen_random_bytes", backup.TYPE_FUNCTION)
+				resultMetadataMap := backup.GetMetadataForObjectType(restoreConn, backup.TYPE_FUNCTION)
+
+				Expect(resultMetadataMap).To(Not(BeEmpty()))
+				resultMetadata := resultMetadataMap[uniqueID]
+				match, err := structmatcher.MatchStruct(&extensionMetadata).Match(&resultMetadata)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(match).To(BeTrue())
+				// Following statement is needed in order to drop testrole
+				testhelper.AssertQueryRuns(restoreConn, "DROP EXTENSION pgcrypto")
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
 		})
 	})
 })
