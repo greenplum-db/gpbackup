@@ -2175,7 +2175,7 @@ PARTITION BY LIST (gender)
 		Describe("ACLs for extensions", func() {
 			It("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
 				testutils.SkipIfBefore5(backupConn)
-				skipIfOldBackupVersionBefore("1.4.0")
+				skipIfOldBackupVersionBefore("1.17.0")
 				currentUser := os.Getenv("USER")
 				testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole")
 				defer testhelper.AssertQueryRuns(backupConn,
