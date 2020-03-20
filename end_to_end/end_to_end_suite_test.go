@@ -1515,6 +1515,69 @@ var _ = Describe("backup end to end integration tests", func() {
 					"--create-db")
 			})
 		})
+		Describe("Restore with truncate", func() {
+			It("runs gpbackup and gprestore with truncate and include-table flags", func() {
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+
+				testhelper.AssertQueryRuns(restoreConn,
+					"INSERT into sales values(1, '2017-01-01', 109.99)")
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales",
+					"--truncate", "--data-only")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+			})
+			It("runs gpbackup and gprestore with truncate and include-table-file flags", func() {
+				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
+				utils.MustPrintln(includeFile, "public.sales")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--backup-dir", backupDir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir,
+					"--include-table-file", "/tmp/include-tables.txt")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+
+				testhelper.AssertQueryRuns(restoreConn,
+					"INSERT into sales values(1, '2017-01-01', 99.99)")
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir,
+					"--include-table-file", "/tmp/include-tables.txt",
+					"--truncate", "--data-only")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+
+				_ = os.Remove("/tmp/include-tables.txt")
+			})
+			It("runs gpbackup and gprestore with truncate flag against a leaf partition", func() {
+				skipIfOldBackupVersionBefore("1.7.2")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--leaf-partition-data")
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales_1_prt_jan17")
+
+				testhelper.AssertQueryRuns(restoreConn,
+					"INSERT into public.sales_1_prt_jan17 values(1, '2017-01-01', 99.99)")
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales_1_prt_jan17",
+					"--truncate", "--data-only")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 1, "public.sales_1_prt_jan17": 1})
+			})
+		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
 			err := exec.Command("createdb", "recreateme").Run()
 			if err != nil {

@@ -63,6 +63,7 @@ func SetFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(options.WITH_STATS, false, "Restore query plan statistics")
 	flagSet.Bool(options.LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
 	_ = flagSet.MarkHidden(options.LEAF_PARTITION_DATA)
+	flagSet.Bool(options.TRUNCATE, false, "Removes data of the tables getting restored")
 }
 
 // This function handles setup that can be done before parsing flags.
@@ -363,10 +364,11 @@ func restoreData() {
 
 	gucStatements := setGUCsForConnection(nil, 0)
 	for timestamp, entries := range filteredDataEntries {
-		gplog.Verbose("Restoring data from backup with timestamp: %s", timestamp)
-		if MustGetFlagBool(options.INCREMENTAL) {
+		if MustGetFlagBool(options.INCREMENTAL) || MustGetFlagBool(options.TRUNCATE) {
+			gplog.Verbose("Truncating tables prior to restoring backup with timestamp: %s", timestamp)
 			_ = TruncateTablesBeforeRestore(entries)
 		}
+		gplog.Verbose("Restoring data from backup with timestamp: %s", timestamp)
 		restoreDataFromTimestamp(GetBackupFPInfoForTimestamp(timestamp), entries, gucStatements, dataProgressBar)
 	}
 

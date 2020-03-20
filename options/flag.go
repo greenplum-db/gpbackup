@@ -44,6 +44,7 @@ const (
 	TIMESTAMP             = "timestamp"
 	WITH_GLOBALS          = "with-globals"
 	REDIRECT_SCHEMA       = "redirect-schema"
+	TRUNCATE              = "truncate"
 )
 
 /*
