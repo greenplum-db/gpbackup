@@ -25,12 +25,15 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/pflag"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
+
+	"gopkg.in/yaml.v2"
 )
 
 /* The backup directory must be unique per test. There is test flakiness
@@ -247,6 +250,16 @@ func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
 	if conn.Version.AtLeast("5") {
 		testhelper.AssertQueryRuns(conn, "DROP RESOURCE GROUP test_group;")
 	}
+}
+
+// fileSuffix should be config.yaml, metadata.sql, or toc.yaml, or report
+func getMetdataFileContents(backupDir string, timestamp string, fileSuffix string) []byte {
+	file, err := path.Glob(path.Join(backupDir, "*-1/backups", timestamp[:8], timestamp, fmt.Sprintf("gpbackup_%s_%s", timestamp, fileSuffix)))
+	Expect(err).ToNot(HaveOccurred())
+	fileContentBytes, err := ioutil.ReadFile(file[0])
+	Expect(err).ToNot(HaveOccurred())
+
+	return fileContentBytes
 }
 
 func TestEndToEnd(t *testing.T) {
@@ -1512,6 +1525,44 @@ var _ = Describe("backup end to end integration tests", func() {
 					"--redirect-db", "global_db",
 					"--with-globals",
 					"--create-db")
+			})
+			It("runs gpbackup with --without-globals", func() {
+				skipIfOldBackupVersionBefore("1.18.0")
+				createGlobalObjects(backupConn)
+				defer dropGlobalObjects(backupConn, true)
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--without-globals")
+
+				configFileContents := getMetdataFileContents(backupDir, timestamp, "config.yaml")
+				Expect(string(configFileContents)).To(ContainSubstring("withoutglobals: true"))
+
+				metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+				Expect(string(metadataFileContents)).ToNot(ContainSubstring("CREATE ROLE testrole"))
+
+				tocFileContents := getMetdataFileContents(backupDir, timestamp, "toc.yaml")
+				tocStruct := &toc.TOC{}
+				err := yaml.Unmarshal(tocFileContents, tocStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(tocStruct.GlobalEntries).To(BeEmpty())
+			})
+			It("runs gpbackup with --without-globals and --metadata-only", func() {
+				skipIfOldBackupVersionBefore("1.18.0")
+				createGlobalObjects(backupConn)
+				defer dropGlobalObjects(backupConn, true)
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--without-globals", "--metadata-only")
+
+				configFileContents := getMetdataFileContents(backupDir, timestamp, "config.yaml")
+				Expect(string(configFileContents)).To(ContainSubstring("withoutglobals: true"))
+
+				metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+				Expect(string(metadataFileContents)).ToNot(ContainSubstring("CREATE ROLE testrole"))
+
+				tocFileContents := getMetdataFileContents(backupDir, timestamp, "toc.yaml")
+				tocStruct := &toc.TOC{}
+				err := yaml.Unmarshal(tocFileContents, tocStruct)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(tocStruct.GlobalEntries).To(BeEmpty())
 			})
 		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {

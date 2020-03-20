@@ -94,6 +94,7 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		Plugin:                plugin,
 		SingleDataFile:        MustGetFlagBool(options.SINGLE_DATA_FILE),
 		Timestamp:             timestamp,
+		WithoutGlobals:        MustGetFlagBool(options.WITHOUT_GLOBALS),
 		WithStatistics:        MustGetFlagBool(options.WITH_STATS),
 	}
 

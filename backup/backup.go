@@ -125,12 +125,13 @@ func DoBackup() {
 
 	backupSessionGUC(metadataFile)
 	if !MustGetFlagBool(options.DATA_ONLY) {
-		tableOnlyBackup := true
-		if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) == 0 {
-			tableOnlyBackup = false
-			backupGlobal(metadataFile)
+		isFullBackup := len(MustGetFlagStringArray(options.INCLUDE_RELATION)) == 0
+		if isFullBackup && !MustGetFlagBool(options.WITHOUT_GLOBALS) {
+			backupGlobals(metadataFile)
 		}
-		backupPredata(metadataFile, metadataTables, tableOnlyBackup)
+
+		isFilteredBackup := !isFullBackup
+		backupPredata(metadataFile, metadataTables, isFilteredBackup)
 		backupPostdata(metadataFile)
 	}
 
@@ -178,7 +179,7 @@ func DoBackup() {
 	gplog.FatalOnError(err)
 }
 
-func backupGlobal(metadataFile *utils.FileWithByteCount) {
+func backupGlobals(metadataFile *utils.FileWithByteCount) {
 	gplog.Info("Writing global database metadata")
 
 	backupResourceQueues(metadataFile)
@@ -442,4 +443,3 @@ func logCompletionMessage(msg string) {
 		gplog.Info("%s complete", msg)
 	}
 }
-

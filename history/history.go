@@ -41,6 +41,7 @@ type BackupConfig struct {
 	SingleDataFile        bool
 	Timestamp             string
 	EndTime               string
+	WithoutGlobals        bool
 	WithStatistics        bool
 }
 

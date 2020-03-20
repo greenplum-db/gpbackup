@@ -45,6 +45,7 @@ const (
 	WITH_GLOBALS          = "with-globals"
 	REDIRECT_SCHEMA       = "redirect-schema"
 	TRUNCATE_TABLE        = "truncate-table"
+	WITHOUT_GLOBALS       = "without-globals"
 )
 
 func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
@@ -74,6 +75,7 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(SINGLE_DATA_FILE, false, "Back up all data to a single file instead of one per table")
 	flagSet.Bool(VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(WITH_STATS, false, "Back up query plan statistics")
+	flagSet.Bool(WITHOUT_GLOBALS, false, "Disable backup of global metadata")
 }
 
 func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
