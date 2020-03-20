@@ -985,6 +985,7 @@ var _ = Describe("backup end to end integration tests", func() {
 					"--leaf-partition-data",
 					"--include-table=public.sales")
 
+				gpbackupPathOld, backupHelperPathOld := gpbackupPath, backupHelperPath
 				gpbackupPath, backupHelperPath, _ = buildAndInstallBinaries()
 
 				testhelper.AssertQueryRuns(backupConn,
@@ -995,6 +996,7 @@ var _ = Describe("backup end to end integration tests", func() {
 					"--incremental",
 					"--leaf-partition-data",
 					"--include-table=public.sales")
+				gpbackupPath, backupHelperPath = gpbackupPathOld, backupHelperPathOld
 
 				gprestore(gprestorePath, restoreHelperPath, incremental2Timestamp,
 					"--redirect-db", "restoredb")
