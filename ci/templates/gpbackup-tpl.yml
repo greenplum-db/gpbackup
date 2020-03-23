@@ -10,6 +10,8 @@ groups:
   - GPDB5-oracle7
   - GPDB5-sles11
   - GPDB6-ubuntu
+  - ddboost_plugin_and_boostfs_tests_43
+  - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
   - gpbackup-manager-tests
 {% if "gpbackup-release" != pipeline_name %}
@@ -18,8 +20,6 @@ groups:
   - GPDB6
   - s3_plugin_tests
   - backward-compatibility
-  - ddboost_plugin_and_boostfs_tests_43
-  - ddboost_plugin_and_boostfs_tests_5x
   - ddboost_plugin_and_boostfs_tests_6x
 {% if "gpbackup-release" == pipeline_name %}
   - push-to-github
@@ -34,7 +34,9 @@ groups:
 - name: GPDB4.3
   jobs:
   - GPDB4.3
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   - ddboost_plugin_and_boostfs_tests_43
+{% endif %}
 
 - name: GPDB5
   jobs:
@@ -42,12 +44,12 @@ groups:
 {% if is_prod or "gpbackup-release" == pipeline_name %}
   - GPDB5-oracle7
   - GPDB5-sles11
+  - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
 {% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
 {% endif %}
   - s3_plugin_tests
-  - ddboost_plugin_and_boostfs_tests_5x
   - backward-compatibility
 
 - name: GPDB6
@@ -93,7 +95,7 @@ ccp_default_params_anchor: &ccp_default_params
 
 ccp_vars_anchor: &ccp_default_vars
   instance_type: n1-standard-1
-  PLATFORM: centos6
+  PLATFORM: centos7
 
 ccp_vars_anchor_aws: &ccp_default_vars_aws
   aws_instance-node-instance_type: t2.medium
@@ -106,6 +108,7 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   BUCKET_PATH: clusters-google/
   BUCKET_NAME: {{tf-bucket-name}}
   CLOUD_PROVIDER: google
+  PLATFORM: centos7
 
 ddboost_params_anchor: &ddboost_params
   DD_SOURCE_HOST: {{datadomain_source_host}}
@@ -502,6 +505,16 @@ resources:
     region_name: us-west-2
     access_key_id: {{bucket-access-key-id}}
     secret_access_key: {{bucket-secret-access-key}}
+
+- name: pgcrypto43
+  type: s3
+  icon: amazon
+  source:
+    bucket: pgcrypto43
+    access_key_id: {{bucket-access-key-id}}
+    region_name: {{aws-region}}
+    secret_access_key: {{bucket-secret-access-key}}
+    regexp: pgcrypto-ossv1.1_pv(.*)_gpdb4.3orca-rhel5-x86_64.gppkg
 {% endif %}
 
 {% if "gpbackup-release" != pipeline_name %}
@@ -516,16 +529,6 @@ resources:
     access_key_id: {{bucket-access-key-id}}
     secret_access_key: {{bucket-secret-access-key}}
 {% endif %}
-
-- name: pgcrypto43
-  type: s3
-  icon: amazon
-  source:
-    bucket: pgcrypto43
-    access_key_id: {{bucket-access-key-id}}
-    region_name: {{aws-region}}
-    secret_access_key: {{bucket-secret-access-key}}
-    regexp: pgcrypto-ossv1.1_pv(.*)_gpdb4.3orca-rhel5-x86_64.gppkg
 
 - name: dummy_seclabel_linux_gpdb6
   type: gcs
@@ -961,6 +964,7 @@ jobs:
     image: centos7-image
     file: gpbackup/ci/tasks/test-gpbackup-manager.yml
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: ddboost_plugin_and_boostfs_tests_43
   plan:
   - in_parallel:
@@ -987,6 +991,7 @@ jobs:
 {% endif %}
   - <<: *ddboost_plugin_and_boostfs
   - <<: *ddboost_plugin_and_boostfs_tests
+{% endif %}
 
 - name: ddboost_plugin_and_boostfs_tests_6x
   plan:
@@ -1663,8 +1668,6 @@ jobs:
         - s3_plugin_tests
         - backward-compatibility
         - 5X-head-gpbackup-fixed-test
-        - ddboost_plugin_and_boostfs_tests_43
-        - ddboost_plugin_and_boostfs_tests_5x
         - ddboost_plugin_and_boostfs_tests_6x
         - gpbackup-manager-tests
 {% endif %}
