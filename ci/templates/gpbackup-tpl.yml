@@ -1668,6 +1668,13 @@ jobs:
         - s3_plugin_tests
         - backward-compatibility
         - 5X-head-gpbackup-fixed-test
+{% if is_prod %}
+        - GPDB5-oracle7
+        - GPDB5-sles11
+        - GPDB6-ubuntu
+        - ddboost_plugin_and_boostfs_tests_43
+        - ddboost_plugin_and_boostfs_tests_5x
+{% endif %}
         - ddboost_plugin_and_boostfs_tests_6x
         - gpbackup-manager-tests
 {% endif %}
