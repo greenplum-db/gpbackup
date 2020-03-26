@@ -203,9 +203,9 @@ func forceMetadataFileDownloadFromPlugin(conn *dbconn.DBConn, timestamp string) 
 	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, filepath.GetSegPrefix(conn))
 	remoteOutput := backupCluster.GenerateAndExecuteCommand(
 		fmt.Sprintf("Removing backups on all segments for "+
-		"timestamp %s", timestamp), func(contentID int) string {
-		return fmt.Sprintf("rm -rf %s", fpInfo.GetDirForContent(contentID))
-	}, cluster.ON_SEGMENTS_AND_MASTER)
+			"timestamp %s", timestamp), func(contentID int) string {
+			return fmt.Sprintf("rm -rf %s", fpInfo.GetDirForContent(contentID))
+		}, cluster.ON_SEGMENTS_AND_MASTER)
 	if remoteOutput.NumErrors != 0 {
 		Fail(fmt.Sprintf("Failed to remove backup directory for timestamp %s", timestamp))
 	}
@@ -329,8 +329,8 @@ var _ = Describe("backup end to end integration tests", func() {
 		} else {
 			remoteOutput := backupCluster.GenerateAndExecuteCommand(
 				"Creating filespace test directories on all hosts", func(contentID int) string {
-				return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
-			}, cluster.ON_HOSTS_AND_MASTER)
+					return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
+				}, cluster.ON_HOSTS_AND_MASTER)
 			if remoteOutput.NumErrors != 0 {
 				Fail("Could not create filespace test directory on 1 or more hosts")
 			}
@@ -360,8 +360,8 @@ var _ = Describe("backup end to end integration tests", func() {
 				"-c", "DROP TABLESPACE test_tablespace").Run()
 			remoteOutput := backupCluster.GenerateAndExecuteCommand(
 				"Removing /tmp/test_dir* directories on all hosts", func(contentID int) string {
-				return fmt.Sprintf("rm -rf /tmp/test_dir*")
-			}, cluster.ON_HOSTS_AND_MASTER)
+					return fmt.Sprintf("rm -rf /tmp/test_dir*")
+				}, cluster.ON_HOSTS_AND_MASTER)
 			if remoteOutput.NumErrors != 0 {
 				Fail("Could not remove /tmp/testdir* directories on 1 or more hosts")
 			}
@@ -584,7 +584,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS_AFTER_EXCLUDE)
 				assertDataRestored(restoreConn, map[string]int{
 					"schema2.foo3": 100,
-					"public.foo": 40000,
+					"public.foo":   40000,
 					"public.holds": 50000,
 					"public.sales": 13})
 			})
@@ -601,7 +601,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, 8)
 				assertDataRestored(restoreConn, map[string]int{
 					"schema2.foo3": 100,
-					"public.foo": 40000,
+					"public.foo":   40000,
 					"public.holds": 50000})
 
 				_ = os.Remove("/tmp/exclude-tables.txt")
@@ -659,7 +659,7 @@ var _ = Describe("backup end to end integration tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS_AFTER_EXCLUDE)
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 13,
-					"public.foo": 40000})
+					"public.foo":   40000})
 
 				_ = os.Remove("/tmp/exclude-tables.txt")
 			})
@@ -1515,69 +1515,6 @@ var _ = Describe("backup end to end integration tests", func() {
 					"--create-db")
 			})
 		})
-		Describe("Restore with truncate", func() {
-			It("runs gpbackup and gprestore with truncate and include-table flags", func() {
-				timestamp := gpbackup(gpbackupPath, backupHelperPath)
-				gprestore(gprestorePath, restoreHelperPath, timestamp,
-					"--redirect-db", "restoredb",
-					"--include-table", "public.sales")
-				assertDataRestored(restoreConn, map[string]int{
-					"public.sales": 13})
-
-				testhelper.AssertQueryRuns(restoreConn,
-					"INSERT into sales values(1, '2017-01-01', 109.99)")
-
-				gprestore(gprestorePath, restoreHelperPath, timestamp,
-					"--redirect-db", "restoredb",
-					"--include-table", "public.sales",
-					"--truncate", "--data-only")
-				assertDataRestored(restoreConn, map[string]int{
-					"public.sales": 13})
-			})
-			It("runs gpbackup and gprestore with truncate and include-table-file flags", func() {
-				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
-				utils.MustPrintln(includeFile, "public.sales")
-				timestamp := gpbackup(gpbackupPath, backupHelperPath,
-					"--backup-dir", backupDir)
-				gprestore(gprestorePath, restoreHelperPath, timestamp,
-					"--redirect-db", "restoredb",
-					"--backup-dir", backupDir,
-					"--include-table-file", "/tmp/include-tables.txt")
-				assertDataRestored(restoreConn, map[string]int{
-					"public.sales": 13})
-
-				testhelper.AssertQueryRuns(restoreConn,
-					"INSERT into sales values(1, '2017-01-01', 99.99)")
-
-				gprestore(gprestorePath, restoreHelperPath, timestamp,
-					"--redirect-db", "restoredb",
-					"--backup-dir", backupDir,
-					"--include-table-file", "/tmp/include-tables.txt",
-					"--truncate", "--data-only")
-				assertDataRestored(restoreConn, map[string]int{
-					"public.sales": 13})
-
-				_ = os.Remove("/tmp/include-tables.txt")
-			})
-			It("runs gpbackup and gprestore with truncate flag against a leaf partition", func() {
-				skipIfOldBackupVersionBefore("1.7.2")
-				timestamp := gpbackup(gpbackupPath, backupHelperPath,
-					"--leaf-partition-data")
-				gprestore(gprestorePath, restoreHelperPath, timestamp,
-					"--redirect-db", "restoredb",
-					"--include-table", "public.sales_1_prt_jan17")
-
-				testhelper.AssertQueryRuns(restoreConn,
-					"INSERT into public.sales_1_prt_jan17 values(1, '2017-01-01', 99.99)")
-
-				gprestore(gprestorePath, restoreHelperPath, timestamp,
-					"--redirect-db", "restoredb",
-					"--include-table", "public.sales_1_prt_jan17",
-					"--truncate", "--data-only")
-				assertDataRestored(restoreConn, map[string]int{
-					"public.sales": 1, "public.sales_1_prt_jan17": 1})
-			})
-		})
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
 			err := exec.Command("createdb", "recreateme").Run()
 			if err != nil {
@@ -2062,8 +1999,8 @@ PARTITION BY LIST (gender)
 			// Expect corrupt_table to have 0 tuples because data load should have failed due violation of distribution key constraint.
 			assertDataRestored(restoreConn, map[string]int{
 				"public.corrupt_table": 0,
-				"public.good_table1": 10,
-				"public.good_table2": 10})
+				"public.good_table1":   10,
+				"public.good_table2":   10})
 		})
 		It("backup and restore all data when NOT VALID option on constraints is specified", func() {
 			testutils.SkipIfBefore6(backupConn)
@@ -2168,72 +2105,74 @@ PARTITION BY LIST (gender)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(0))
 		})
-		It("runs gprestore with --redirect-schema to redirect data back to the original database which still contain the original tables", func() {
-			skipIfOldBackupVersionBefore("1.17.0")
-			testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA schema3 CASCADE")
-			testhelper.AssertQueryRuns(backupConn,
-				"CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP INDEX schema2.foo3_idx1")
-			testhelper.AssertQueryRuns(backupConn,
-				"ANALYZE schema2.foo3")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
-				"--with-stats")
-			gprestore(gprestorePath, restoreHelperPath, timestamp,
-				"--include-table", "schema2.foo3",
-				"--redirect-schema", "schema3",
-				"--with-stats")
+		Describe("Redirect Schema", func() {
+			It("runs gprestore with --redirect-schema to redirect data back to the original database which still contain the original tables", func() {
+				skipIfOldBackupVersionBefore("1.17.0")
+				testhelper.AssertQueryRuns(backupConn,
+					"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP SCHEMA schema3 CASCADE")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP INDEX schema2.foo3_idx1")
+				testhelper.AssertQueryRuns(backupConn,
+					"ANALYZE schema2.foo3")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--with-stats")
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--include-table", "schema2.foo3",
+					"--redirect-schema", "schema3",
+					"--with-stats")
 
-			schema3TupleCounts := map[string]int{
-				"schema3.foo3": 100,
-			}
-			assertDataRestored(backupConn, schema3TupleCounts)
+				schema3TupleCounts := map[string]int{
+					"schema3.foo3": 100,
+				}
+				assertDataRestored(backupConn, schema3TupleCounts)
 
-			actualIndexCount := dbconn.MustSelectString(backupConn,
-				`SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)
-			Expect(actualIndexCount).To(Equal("1"))
+				actualIndexCount := dbconn.MustSelectString(backupConn,
+					`SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)
+				Expect(actualIndexCount).To(Equal("1"))
 
-			actualStatisticCount := dbconn.MustSelectString(backupConn,
-				`SELECT count(*) AS string FROM pg_stats WHERE schemaname='schema3' AND tablename='foo3';`)
-			Expect(actualStatisticCount).To(Equal("1"))
-		})
-		It("runs gprestore with --redirect-schema and multiple included schemas", func() {
-			skipIfOldBackupVersionBefore("1.17.0")
-			testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA schema3 CASCADE")
-			testhelper.AssertQueryRuns(backupConn,
-				"CREATE SCHEMA \"FOO\"")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA \"FOO\" CASCADE")
-			testhelper.AssertQueryRuns(backupConn,
-				"CREATE TABLE \"FOO\".bar(i int)")
+				actualStatisticCount := dbconn.MustSelectString(backupConn,
+					`SELECT count(*) AS string FROM pg_stats WHERE schemaname='schema3' AND tablename='foo3';`)
+				Expect(actualStatisticCount).To(Equal("1"))
+			})
+			It("runs gprestore with --redirect-schema and multiple included schemas", func() {
+				skipIfOldBackupVersionBefore("1.17.0")
+				testhelper.AssertQueryRuns(restoreConn,
+					"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+				defer testhelper.AssertQueryRuns(restoreConn,
+					"DROP SCHEMA schema3 CASCADE")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE SCHEMA \"FOO\"")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP SCHEMA \"FOO\" CASCADE")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE \"FOO\".bar(i int)")
 
-			tableFile := path.Join(backupDir, "test-table-file.txt")
-			includeFile := iohelper.MustOpenFileForWriting(tableFile)
-			utils.MustPrintln(includeFile,
-				"public.sales\nschema2.foo2\nschema2.ao1")
-			utils.MustPrintln(includeFile,
-				"public.sales\nschema2.foo2\nschema2.ao1\nFOO.bar")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				tableFile := path.Join(backupDir, "test-table-file.txt")
+				includeFile := iohelper.MustOpenFileForWriting(tableFile)
+				utils.MustPrintln(includeFile,
+					"public.sales\nschema2.foo2\nschema2.ao1")
+				utils.MustPrintln(includeFile,
+					"public.sales\nschema2.foo2\nschema2.ao1\nFOO.bar")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
 
-			gprestore(gprestorePath, restoreHelperPath, timestamp,
-				"--include-table-file", tableFile,
-				"--redirect-db", "restoredb",
-				"--redirect-schema", "schema3")
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--include-table-file", tableFile,
+					"--redirect-db", "restoredb",
+					"--redirect-schema", "schema3")
 
-			schema3TupleCounts := map[string]int{
-				"schema3.foo2":  0,
-				"schema3.ao1":   1000,
-				"schema3.sales": 13,
-				"schema3.bar":   0,
-			}
-			assertDataRestored(restoreConn, schema3TupleCounts)
-			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+				schema3TupleCounts := map[string]int{
+					"schema3.foo2":  0,
+					"schema3.ao1":   1000,
+					"schema3.sales": 13,
+					"schema3.bar":   0,
+				}
+				assertDataRestored(restoreConn, schema3TupleCounts)
+				assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+			})
 		})
 		Describe("ACLs for extensions", func() {
 			It("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
@@ -2275,6 +2214,72 @@ PARTITION BY LIST (gender)
 				// Following statement is needed in order to drop testrole
 				testhelper.AssertQueryRuns(restoreConn, "DROP EXTENSION pgcrypto")
 				assertArtifactsCleaned(restoreConn, timestamp)
+			})
+		})
+		Describe("Restore with truncate", func() {
+			It("runs gpbackup and gprestore with truncate and include-table flags", func() {
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+
+				testhelper.AssertQueryRuns(restoreConn,
+					"INSERT into sales values(1, '2017-01-01', 109.99)")
+				time.Sleep(1 * time.Second)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales",
+					"--truncate", "--data-only")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+			})
+			It("runs gpbackup and gprestore with truncate and include-table-file flags", func() {
+				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
+				utils.MustPrintln(includeFile, "public.sales")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--backup-dir", backupDir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir,
+					"--include-table-file", "/tmp/include-tables.txt")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+
+				testhelper.AssertQueryRuns(restoreConn,
+					"INSERT into sales values(1, '2017-01-01', 99.99)")
+				time.Sleep(1 * time.Second)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir,
+					"--include-table-file", "/tmp/include-tables.txt",
+					"--truncate", "--data-only")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13})
+
+				_ = os.Remove("/tmp/include-tables.txt")
+			})
+			It("runs gpbackup and gprestore with truncate flag against a leaf partition", func() {
+				skipIfOldBackupVersionBefore("1.7.2")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--leaf-partition-data")
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales_1_prt_jan17")
+
+				testhelper.AssertQueryRuns(restoreConn,
+					"INSERT into public.sales_1_prt_jan17 values(1, '2017-01-01', 99.99)")
+				time.Sleep(1 * time.Second)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--include-table", "public.sales_1_prt_jan17",
+					"--truncate", "--data-only")
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 1, "public.sales_1_prt_jan17": 1})
 			})
 		})
 	})
