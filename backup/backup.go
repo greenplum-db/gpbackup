@@ -19,57 +19,15 @@ import (
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
-
-/*
- * We define and initialize flags separately to avoid import conflicts in tests.
- * The flag variables, and setter functions for them, are in global_variables.go.
- */
-
-func initializeFlags(cmd *cobra.Command) {
-	SetFlagDefaults(cmd.Flags())
-
-	_ = cmd.MarkFlagRequired(options.DBNAME)
-
-	cmdFlags = cmd.Flags()
-}
-
-func SetFlagDefaults(flagSet *pflag.FlagSet) {
-	flagSet.String(options.BACKUP_DIR, "", "The absolute path of the directory to which all backup files will be written")
-	flagSet.Int(options.COMPRESSION_LEVEL, 1, "Level of compression to use during data backup. Valid values are between 1 and 9.")
-	flagSet.Bool(options.DATA_ONLY, false, "Only back up data, do not back up metadata")
-	flagSet.String(options.DBNAME, "", "The database to be backed up")
-	flagSet.Bool(options.DEBUG, false, "Print verbose and debug log messages")
-	flagSet.StringArray(options.EXCLUDE_SCHEMA, []string{}, "Back up all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	flagSet.String(options.EXCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas to be excluded from the backup")
-	flagSet.StringArray(options.EXCLUDE_RELATION, []string{}, "Back up all metadata except the specified table(s). --exclude-table can be specified multiple times.")
-	flagSet.String(options.EXCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified tables to be excluded from the backup")
-	flagSet.String(options.FROM_TIMESTAMP, "", "A timestamp to use to base the current incremental backup off")
-	flagSet.Bool("help", false, "Help for gpbackup")
-	flagSet.StringArray(options.INCLUDE_SCHEMA, []string{}, "Back up only the specified schema(s). --include-schema can be specified multiple times.")
-	flagSet.String(options.INCLUDE_SCHEMA_FILE, "", "A file containing a list of schema(s) to be included in the backup")
-	flagSet.StringArray(options.INCLUDE_RELATION, []string{}, "Back up only the specified table(s). --include-table can be specified multiple times.")
-	flagSet.String(options.INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified tables to be included in the backup")
-	flagSet.Bool(options.INCREMENTAL, false, "Only back up data for AO tables that have been modified since the last backup")
-	flagSet.Int(options.JOBS, 1, "The number of parallel connections to use when backing up data")
-	flagSet.Bool(options.LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
-	flagSet.Bool(options.METADATA_ONLY, false, "Only back up metadata, do not back up data")
-	flagSet.Bool(options.NO_COMPRESSION, false, "Disable compression of data files")
-	flagSet.String(options.PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
-	flagSet.Bool("version", false, "Print version number and exit")
-	flagSet.Bool(options.QUIET, false, "Suppress non-warning, non-error log messages")
-	flagSet.Bool(options.SINGLE_DATA_FILE, false, "Back up all data to a single file instead of one per table")
-	flagSet.Bool(options.VERBOSE, false, "Print verbose log messages")
-	flagSet.Bool(options.WITH_STATS, false, "Back up query plan statistics")
-}
 
 // This function handles setup that can be done before parsing flags.
 func DoInit(cmd *cobra.Command) {
 	CleanupGroup = &sync.WaitGroup{}
 	CleanupGroup.Add(1)
 	gplog.InitializeLogging("gpbackup", "")
-	initializeFlags(cmd)
+	SetCmdFlags(cmd.Flags())
+	_ = cmd.MarkFlagRequired(options.DBNAME)
 	utils.InitializeSignalHandler(DoCleanup, "backup process", &wasTerminated)
 	objectCounts = make(map[string]int)
 }

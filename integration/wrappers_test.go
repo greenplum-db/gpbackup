@@ -17,7 +17,6 @@ var _ = Describe("Wrappers Integration", func() {
 			gplog.SetVerbosity(gplog.LOGERROR) // turn off progress bar in the lock-table routine
 			var rootCmd = &cobra.Command{}
 			backup.DoInit(rootCmd) // initialize the ObjectCount
-			backup.SetCmdFlags(backupCmdFlags)
 		})
 		It("returns the data tables that have names with special characters", func() {
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.foo")

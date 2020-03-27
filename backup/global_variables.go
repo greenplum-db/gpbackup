@@ -57,6 +57,7 @@ var cmdFlags *pflag.FlagSet
 
 func SetCmdFlags(flagSet *pflag.FlagSet) {
 	cmdFlags = flagSet
+	options.SetBackupFlagDefaults(cmdFlags)
 }
 
 func SetConnection(conn *dbconn.DBConn) {

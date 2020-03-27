@@ -289,7 +289,6 @@ var _ = Describe("backup end to end integration tests", func() {
 		backupConn = testutils.SetupTestDbConn("testdb")
 		restoreConn = testutils.SetupTestDbConn("restoredb")
 		backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
-		backup.SetFlagDefaults(backupCmdFlags)
 		backup.SetCmdFlags(backupCmdFlags)
 		backup.InitializeMetadataParams(backupConn)
 		backup.SetFilterRelationClause("")

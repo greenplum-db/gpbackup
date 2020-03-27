@@ -103,14 +103,10 @@ var _ = BeforeEach(func() {
 	buffer = bytes.NewBuffer([]byte(""))
 
 	backupCmdFlags = pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
-
-	backup.SetFlagDefaults(backupCmdFlags)
 	backup.SetCmdFlags(backupCmdFlags)
 	backup.SetFilterRelationClause("")
 
 	restoreCmdFlags = pflag.NewFlagSet("gprestore", pflag.ExitOnError)
-
-	restore.SetFlagDefaults(restoreCmdFlags)
 	restore.SetCmdFlags(restoreCmdFlags)
 })
 

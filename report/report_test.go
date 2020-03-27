@@ -300,7 +300,6 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 		It("configures the Report struct correctly", func() {
 			utils.InitializePipeThroughParameters(true, 0)
 			backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
-			backup.SetFlagDefaults(backupCmdFlags)
 			backup.SetCmdFlags(backupCmdFlags)
 			err := backupCmdFlags.Set(options.INCLUDE_RELATION, "public.foobar")
 			Expect(err).ToNot(HaveOccurred())

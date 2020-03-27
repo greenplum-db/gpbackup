@@ -43,8 +43,6 @@ var cmdFlags *pflag.FlagSet
 var _ = BeforeEach(func() {
 	cmdFlags = pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
 
-	backup.SetFlagDefaults(cmdFlags)
-
 	backup.SetCmdFlags(cmdFlags)
 
 	utils.SetPipeThroughProgram(utils.PipeThroughProgram{})

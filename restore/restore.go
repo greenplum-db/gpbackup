@@ -20,58 +20,15 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
-
-/*
- * We define and initialize flags separately to avoid import conflicts in tests.
- * The flag variables, and setter functions for them, are in global_variables.go.
- */
-func initializeFlags(cmd *cobra.Command) {
-	SetFlagDefaults(cmd.Flags())
-
-	_ = cmd.MarkFlagRequired(options.TIMESTAMP)
-
-	cmdFlags = cmd.Flags()
-}
-func SetFlagDefaults(flagSet *pflag.FlagSet) {
-	flagSet.String(options.BACKUP_DIR, "", "The absolute path of the directory in which the backup files to be restored are located")
-	flagSet.Bool(options.CREATE_DB, false, "Create the database before metadata restore")
-	flagSet.Bool(options.DATA_ONLY, false, "Only restore data, do not restore metadata")
-	flagSet.Bool(options.DEBUG, false, "Print verbose and debug log messages")
-	flagSet.StringArray(options.EXCLUDE_SCHEMA, []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
-	flagSet.String(options.EXCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will not be restored")
-	flagSet.StringArray(options.EXCLUDE_RELATION, []string{}, "Restore all metadata except the specified relation(s). --exclude-table can be specified multiple times.")
-	flagSet.String(options.EXCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will not be restored")
-	flagSet.Bool("help", false, "Help for gprestore")
-	flagSet.StringArray(options.INCLUDE_SCHEMA, []string{}, "Restore only the specified schema(s). --include-schema can be specified multiple times.")
-	flagSet.String(options.INCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will be restored")
-	flagSet.StringArray(options.INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
-	flagSet.String(options.INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will be restored")
-	flagSet.Bool(options.INCREMENTAL, false, "BETA FEATURE: Only restore data for all heap tables and only AO tables that have been modified since the last backup")
-	flagSet.Bool(options.METADATA_ONLY, false, "Only restore metadata, do not restore data")
-	flagSet.Int(options.JOBS, 1, "Number of parallel connections to use when restoring table data and post-data")
-	flagSet.Bool(options.ON_ERROR_CONTINUE, false, "Log errors and continue restore, instead of exiting on first error")
-	flagSet.String(options.PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
-	flagSet.Bool("version", false, "Print version number and exit")
-	flagSet.Bool(options.QUIET, false, "Suppress non-warning, non-error log messages")
-	flagSet.String(options.REDIRECT_DB, "", "Restore to the specified database instead of the database that was backed up")
-	flagSet.String(options.REDIRECT_SCHEMA, "", "Restore to the specified schema instead of the schema that was backed up")
-	flagSet.Bool(options.WITH_GLOBALS, false, "Restore global metadata")
-	flagSet.String(options.TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
-	flagSet.Bool(options.VERBOSE, false, "Print verbose log messages")
-	flagSet.Bool(options.WITH_STATS, false, "Restore query plan statistics")
-	flagSet.Bool(options.LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
-	_ = flagSet.MarkHidden(options.LEAF_PARTITION_DATA)
-	flagSet.Bool(options.TRUNCATE, false, "Removes data of the tables getting restored")
-}
 
 // This function handles setup that can be done before parsing flags.
 func DoInit(cmd *cobra.Command) {
 	CleanupGroup = &sync.WaitGroup{}
 	CleanupGroup.Add(1)
 	gplog.InitializeLogging("gprestore", "")
-	initializeFlags(cmd)
+	SetCmdFlags(cmd.Flags())
+	_ = cmd.MarkFlagRequired(options.TIMESTAMP)
 	utils.InitializeSignalHandler(DoCleanup, "restore process", &wasTerminated)
 }
 

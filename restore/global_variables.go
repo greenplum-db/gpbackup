@@ -65,6 +65,7 @@ var cmdFlags *pflag.FlagSet
 
 func SetCmdFlags(flagSet *pflag.FlagSet) {
 	cmdFlags = flagSet
+	options.SetRestoreFlagDefaults(cmdFlags)
 }
 
 func SetBackupConfig(config *history.BackupConfig) {

@@ -1,14 +1,14 @@
 package options_test
 
 import (
+	"io/ioutil"
+	"os"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/spf13/pflag"
-	"io/ioutil"
-	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,7 +20,7 @@ var _ = Describe("options", func() {
 	)
 	BeforeEach(func() {
 		myflags = &pflag.FlagSet{}
-		backup.SetFlagDefaults(myflags)
+		options.SetBackupFlagDefaults(myflags)
 	})
 	Describe("Options initialization", func() {
 		It("returns no included tables when none specified", func() {

@@ -40,6 +40,5 @@ var _ = BeforeEach(func() {
 	buffer = NewBuffer()
 
 	cmdFlags = pflag.NewFlagSet("gprestore", pflag.ExitOnError)
-	restore.SetFlagDefaults(cmdFlags)
 	restore.SetCmdFlags(cmdFlags)
 })
