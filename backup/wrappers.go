@@ -245,6 +245,17 @@ func retrieveViews(sortables *[]Sortable) {
 	*sortables = append(*sortables, convertToSortableSlice(materializedViews)...)
 }
 
+func retrieveTSObjects(sortables *[]Sortable, metadataMap MetadataMap) {
+	if !connectionPool.Version.AtLeast("5") {
+		return
+	}
+	gplog.Verbose("Retrieving Text Search Parsers")
+	retrieveTSParsers(sortables, metadataMap)
+	retrieveTSConfigurations(sortables, metadataMap)
+	retrieveTSTemplates(sortables, metadataMap)
+	retrieveTSDictionaries(sortables, metadataMap)
+}
+
 func retrieveTSParsers(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving Text Search Parsers")
 	parsers := GetTextSearchParsers(connectionPool)
@@ -285,6 +296,11 @@ func retrieveTSConfigurations(sortables *[]Sortable, metadataMap MetadataMap) {
 	addToMetadataMap(configurationMetadata, metadataMap)
 }
 
+func retrieveOperatorObjects(sortables *[]Sortable, metadataMap MetadataMap) {
+	retrieveOperators(sortables, metadataMap)
+	retrieveOperatorClasses(sortables, metadataMap)
+}
+
 func retrieveOperators(sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving OPERATOR information")
 	operators := GetOperators(connectionPool)
@@ -323,6 +339,15 @@ func retrieveCasts(sortables *[]Sortable, metadataMap MetadataMap) {
 
 	*sortables = append(*sortables, convertToSortableSlice(casts)...)
 	addToMetadataMap(castMetadata, metadataMap)
+}
+
+func retrieveFDWObjects(sortables *[]Sortable, metadataMap MetadataMap) {
+	if !connectionPool.Version.AtLeast("6") {
+		return
+	}
+	retrieveForeignDataWrappers(sortables, metadataMap)
+	retrieveForeignServers(sortables, metadataMap)
+	retrieveUserMappings(sortables)
 }
 
 func retrieveForeignDataWrappers(sortables *[]Sortable, metadataMap MetadataMap) {
@@ -396,6 +421,9 @@ func backupResourceQueues(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupResourceGroups(metadataFile *utils.FileWithByteCount) {
+	if !connectionPool.Version.AtLeast("5") {
+		return
+	}
 	gplog.Verbose("Writing CREATE RESOURCE GROUP statements to metadata file")
 	resGroups := GetResourceGroups(connectionPool)
 	objectCounts["Resource Groups"] = len(resGroups)
@@ -531,6 +559,9 @@ func backupConversions(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
+	if !connectionPool.Version.AtLeast("5") {
+		return
+	}
 	gplog.Verbose("Writing CREATE OPERATOR FAMILY statements to metadata file")
 	operatorFamilies := GetOperatorFamilies(connectionPool)
 	objectCounts["Operator Families"] = len(operatorFamilies)
@@ -539,6 +570,9 @@ func backupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupCollations(metadataFile *utils.FileWithByteCount) {
+	if !connectionPool.Version.AtLeast("6") {
+		return
+	}
 	gplog.Verbose("Writing CREATE COLLATION statements to metadata file")
 	collations := GetCollations(connectionPool)
 	objectCounts["Collations"] = len(collations)
@@ -547,6 +581,10 @@ func backupCollations(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupExtensions(metadataFile *utils.FileWithByteCount) {
+	if !(len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 &&
+		connectionPool.Version.AtLeast("5")) {
+		return
+	}
 	gplog.Verbose("Writing CREATE EXTENSION statements to metadata file")
 	extensions := GetExtensions(connectionPool)
 	objectCounts["Extensions"] = len(extensions)
