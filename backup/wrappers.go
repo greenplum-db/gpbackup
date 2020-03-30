@@ -217,11 +217,13 @@ func retrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
 	return constraints, conMetadata
 }
 
-func retrieveSequences() ([]Sequence, map[string]string) {
-	gplog.Verbose("Retrieving sequences")
-	sequenceOwnerTables, sequenceOwnerColumns := GetSequenceColumnOwnerMap(connectionPool)
-	sequences := GetAllSequences(connectionPool, sequenceOwnerTables)
-	return sequences, sequenceOwnerColumns
+func retrieveAndBackupSequences(metadataFile *utils.FileWithByteCount,
+	relationMetadata MetadataMap) []Sequence {
+	gplog.Verbose("Writing CREATE SEQUENCE statements to metadata file")
+	sequences := GetAllSequences(connectionPool)
+	objectCounts["Sequences"] = len(sequences)
+	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
+	return sequences
 }
 
 func retrieveProtocols(sortables *[]Sortable, metadataMap MetadataMap) []ExternalProtocol {
@@ -489,12 +491,6 @@ func backupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata Metadat
 	PrintCreateEnumTypeStatements(metadataFile, globalTOC, enums, typeMetadata)
 }
 
-func backupCreateSequences(metadataFile *utils.FileWithByteCount, sequences []Sequence, relationMetadata MetadataMap) {
-	gplog.Verbose("Writing CREATE SEQUENCE statements to metadata file")
-	objectCounts["Sequences"] = len(sequences)
-	PrintCreateSequenceStatements(metadataFile, globalTOC, sequences, relationMetadata)
-}
-
 func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]bool) {
 	backupSet = make(map[UniqueID]bool)
 	for _, obj := range objSlice {
@@ -531,7 +527,7 @@ func addToMetadataMap(newMetadata MetadataMap, metadataMap MetadataMap) {
 // This function is fairly unwieldy, but there's not really a good way to break it down
 func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Table,
 	protocols []ExternalProtocol, filteredMetadata MetadataMap, constraints []Constraint,
-	sortables []Sortable, funcInfoMap map[uint32]FunctionInfo, tableOnly bool) {
+	sortables []Sortable, sequences []Sequence, funcInfoMap map[uint32]FunctionInfo, tableOnly bool) {
 
 	gplog.Verbose("Writing CREATE statements for dependent objects to metadata file")
 
@@ -543,6 +539,7 @@ func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, constraints, funcInfoMap)
+	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")

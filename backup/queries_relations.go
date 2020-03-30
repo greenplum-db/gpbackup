@@ -149,7 +149,11 @@ func GetForeignTableRelations(connectionPool *dbconn.DBConn) []Relation {
 
 type Sequence struct {
 	Relation
-	SequenceDefinition
+	OwningTableOid    string
+	OwningTableSchema string
+	OwningTable       string
+	OwningColumn      string
+	Definition SequenceDefinition
 }
 
 func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -177,37 +181,55 @@ type SequenceDefinition struct {
 	OwningTable string
 }
 
-func GetAllSequences(connectionPool *dbconn.DBConn, sequenceOwnerTables map[string]string) []Sequence {
-	sequenceRelations := GetAllSequenceRelations(connectionPool)
-	sequences := make([]Sequence, 0)
-	for _, seqRelation := range sequenceRelations {
-		seqDef := GetSequenceDefinition(connectionPool, seqRelation.FQN())
-		seqDef.OwningTable = sequenceOwnerTables[seqRelation.FQN()]
-		sequence := Sequence{seqRelation, seqDef}
-		sequences = append(sequences, sequence)
-	}
-	return sequences
-}
-
-func GetAllSequenceRelations(connectionPool *dbconn.DBConn) []Relation {
+func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 	query := fmt.Sprintf(`
 	SELECT n.oid AS schemaoid,
 		c.oid AS oid,
 		quote_ident(n.nspname) AS schema,
-		quote_ident(c.relname) AS name
-	FROM pg_class c
-		LEFT JOIN pg_namespace n
-		ON c.relnamespace = n.oid
-	WHERE relkind = 'S'
+		quote_ident(c.relname) AS name,
+        coalesce(d.refobjid::text, '') AS owningtableoid,
+		coalesce(quote_ident(m.nspname), '') AS owningtableschema,
+		coalesce(quote_ident(t.relname), '') AS owningtable,
+		coalesce(quote_ident(a.attname), '') AS owningcolumn
+	FROM pg_class c 
+		JOIN pg_namespace n ON n.oid = c.relnamespace
+		LEFT JOIN pg_depend d ON c.oid = d.objid AND d.deptype = 'a'
+		LEFT JOIN pg_class t ON t.oid = d.refobjid
+		LEFT JOIN pg_namespace m ON m.oid = t.relnamespace
+		LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+	WHERE c.relkind = 'S'
 		AND %s
 		AND %s
 	ORDER BY n.nspname, c.relname`,
 		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
-	results := make([]Relation, 0)
+	results := make([]Sequence, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
+	// Exclude owning table and owning column info for sequences
+	// where owning table is excluded from backup
+	excludeOids := make([]string, 0)
+	if len(MustGetFlagStringArray(options.EXCLUDE_RELATION)) > 0 {
+		excludeOids = getOidsFromRelationList(connectionPool,
+			MustGetFlagStringArray(options.EXCLUDE_RELATION))
+	}
+	for i := range results {
+		found := utils.Exists(excludeOids, results[i].OwningTableOid)
+		if results[i].OwningTable != "" {
+			results[i].OwningTable = fmt.Sprintf("%s.%s",
+				results[i].OwningTableSchema, results[i].OwningTable)
+		}
+		if results[i].OwningColumn != "" {
+			results[i].OwningColumn = fmt.Sprintf("%s.%s",
+				results[i].OwningTable, results[i].OwningColumn)
+		}
+		if found {
+			results[i].OwningTable = ""
+			results[i].OwningColumn = ""
+		}
+		results[i].Definition = GetSequenceDefinition(connectionPool, results[i].FQN())
+	}
 	return results
 }
 
@@ -231,40 +253,6 @@ func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) Sequen
 	err := connectionPool.Get(&result, query)
 	gplog.FatalOnError(err)
 	return result
-}
-
-func GetSequenceColumnOwnerMap(connectionPool *dbconn.DBConn) (map[string]string, map[string]string) {
-	query := fmt.Sprintf(`
-	SELECT quote_ident(n.nspname) AS schema,
-		quote_ident(s.relname) AS name,
-		quote_ident(c.relname) AS tablename,
-		quote_ident(a.attname) AS columnname
-	FROM pg_depend d
-		JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
-		JOIN pg_class s ON s.oid = d.objid
-		JOIN pg_class c ON c.oid = d.refobjid
-		JOIN pg_namespace n ON n.oid = s.relnamespace
-	WHERE s.relkind = 'S'
-		AND %s`, relationAndSchemaFilterClause())
-
-	results := make([]struct {
-		Schema     string
-		Name       string
-		TableName  string
-		ColumnName string
-	}, 0)
-	sequenceOwnerTables := make(map[string]string)
-	sequenceOwnerColumns := make(map[string]string)
-	err := connectionPool.Select(&results, query)
-	gplog.FatalOnError(err, fmt.Sprintf("Failed on query: %s", query))
-	for _, seqOwner := range results {
-		seqFQN := utils.MakeFQN(seqOwner.Schema, seqOwner.Name)
-		tableFQN := fmt.Sprintf("%s.%s", seqOwner.Schema, seqOwner.TableName)
-		columnFQN := fmt.Sprintf("%s.%s.%s", seqOwner.Schema, seqOwner.TableName, seqOwner.ColumnName)
-		sequenceOwnerTables[seqFQN] = tableFQN
-		sequenceOwnerColumns[seqFQN] = columnFQN
-	}
-	return sequenceOwnerTables, sequenceOwnerColumns
 }
 
 type View struct {

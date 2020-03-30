@@ -237,36 +237,41 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
  * This function is largely derived from the dumpSequence() function in pg_dump.c.  The values of
  * minVal and maxVal come from SEQ_MINVALUE and SEQ_MAXVALUE, defined in include/commands/sequence.h.
  */
-func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
+func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount,
+	toc *toc.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
 	maxVal := int64(math.MaxInt64)
 	minVal := int64(math.MinInt64)
 	for _, sequence := range sequences {
 		start := metadataFile.ByteCount
+		definition := sequence.Definition
 		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", sequence.FQN())
 		if connectionPool.Version.AtLeast("6") {
-			metadataFile.MustPrintln("\tSTART WITH", sequence.StartVal)
-		} else if !sequence.IsCalled {
-			metadataFile.MustPrintln("\tSTART WITH", sequence.LastVal)
+			metadataFile.MustPrintln("\tSTART WITH", definition.StartVal)
+		} else if !definition.IsCalled {
+			metadataFile.MustPrintln("\tSTART WITH", definition.LastVal)
 		}
-		metadataFile.MustPrintln("\tINCREMENT BY", sequence.Increment)
+		metadataFile.MustPrintln("\tINCREMENT BY", definition.Increment)
 
-		if !((sequence.MaxVal == maxVal && sequence.Increment > 0) || (sequence.MaxVal == -1 && sequence.Increment < 0)) {
-			metadataFile.MustPrintln("\tMAXVALUE", sequence.MaxVal)
+		if !((definition.MaxVal == maxVal && definition.Increment > 0) ||
+			(definition.MaxVal == -1 && definition.Increment < 0)) {
+			metadataFile.MustPrintln("\tMAXVALUE", definition.MaxVal)
 		} else {
 			metadataFile.MustPrintln("\tNO MAXVALUE")
 		}
-		if !((sequence.MinVal == minVal && sequence.Increment < 0) || (sequence.MinVal == 1 && sequence.Increment > 0)) {
-			metadataFile.MustPrintln("\tMINVALUE", sequence.MinVal)
+		if !((definition.MinVal == minVal && definition.Increment < 0) ||
+			(definition.MinVal == 1 && definition.Increment > 0)) {
+			metadataFile.MustPrintln("\tMINVALUE", definition.MinVal)
 		} else {
 			metadataFile.MustPrintln("\tNO MINVALUE")
 		}
 		cycleStr := ""
-		if sequence.IsCycled {
+		if definition.IsCycled {
 			cycleStr = "\n\tCYCLE"
 		}
-		metadataFile.MustPrintf("\tCACHE %d%s;", sequence.CacheVal, cycleStr)
+		metadataFile.MustPrintf("\tCACHE %d%s;", definition.CacheVal, cycleStr)
 
-		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n", utils.EscapeSingleQuotes(sequence.FQN()), sequence.LastVal, sequence.IsCalled)
+		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n",
+			utils.EscapeSingleQuotes(sequence.FQN()), definition.LastVal, definition.IsCalled)
 
 		section, entry := sequence.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
@@ -274,16 +279,21 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount, toc *t
 	}
 }
 
-func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, sequences []Sequence, sequenceColumnOwners map[string]string) {
+func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount,
+	tocfile *toc.TOC, sequences []Sequence) {
 	gplog.Verbose("Writing ALTER SEQUENCE statements to metadata file")
 	for _, sequence := range sequences {
 		seqFQN := sequence.FQN()
-		// owningColumn is quoted when the map is constructed in GetSequenceColumnOwnerMap() and doesn't need to be quoted again
-		if owningColumn, hasColumnOwner := sequenceColumnOwners[seqFQN]; hasColumnOwner {
+		// owningColumn is quoted and doesn't need to be quoted again
+		if sequence.OwningColumn != "" {
 			start := metadataFile.ByteCount
-			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, owningColumn)
-			//TODO: see if the SEQUENCE OWNER type is being utilized in restore or if it could be SEQUENCE. I think we should be using it for filtering, but aren't
-			entry := toc.MetadataEntry{Schema: sequence.Relation.Schema, Name: sequence.Relation.Name, ObjectType: "SEQUENCE OWNER", ReferenceObject: sequence.OwningTable}
+			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, sequence.OwningColumn)
+			entry := toc.MetadataEntry{
+				Schema: sequence.Relation.Schema,
+				Name: sequence.Relation.Name,
+				ObjectType: "SEQUENCE OWNER",
+				ReferenceObject: sequence.OwningTable,
+			}
 			tocfile.AddMetadataEntry("predata", entry, start, metadataFile.ByteCount)
 		}
 	}

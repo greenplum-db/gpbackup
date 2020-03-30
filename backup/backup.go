@@ -226,12 +226,10 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	}
 
 	retrieveViews(&objects)
-	sequences, sequenceOwnerColumns := retrieveSequences()
-	backupCreateSequences(metadataFile, sequences, relationMetadata)
+	sequences := retrieveAndBackupSequences(metadataFile, relationMetadata)
 	constraints, conMetadata := retrieveConstraints()
 
-	backupDependentObjects(metadataFile, tables, protocols, metadataMap, constraints, objects, funcInfoMap, tableOnly)
-	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences, sequenceOwnerColumns)
+	backupDependentObjects(metadataFile, tables, protocols, metadataMap, constraints, objects, sequences, funcInfoMap, tableOnly)
 
 	backupConversions(metadataFile)
 	backupConstraints(metadataFile, constraints, conMetadata)

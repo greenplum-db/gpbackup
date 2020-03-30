@@ -490,13 +490,13 @@ SET SUBPARTITION TEMPLATE ` + `
 	})
 	Describe("PrintCreateSequenceStatements", func() {
 		var (
-			sequence            backup.Relation
-			sequenceDef         backup.Sequence
+			sequenceRel         backup.Relation
+			sequence            backup.Sequence
 			sequenceMetadataMap backup.MetadataMap
 		)
 		BeforeEach(func() {
-			sequence = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}
-			sequenceDef = backup.Sequence{Relation: sequence}
+			sequenceRel = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}
+			sequence = backup.Sequence{Relation: sequenceRel}
 			sequenceMetadataMap = backup.MetadataMap{}
 		})
 		It("creates a basic sequence", func() {
@@ -504,62 +504,62 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
-			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {
-				sequenceDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
+				sequence.Definition.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
 			}
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			resultSequences := backup.GetAllSequences(connectionPool, map[string]string{})
+			resultSequences := backup.GetAllSequences(connectionPool)
 
 			Expect(resultSequences).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
-			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&sequenceRel, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequence.Definition, &resultSequences[0].Definition)
 		})
 		It("creates a complex sequence", func() {
 			startValue := int64(0)
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 105
 			}
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, LogCnt: 0, IsCycled: false, IsCalled: true, StartVal: startValue}
-			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
+			sequence.Definition = backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, LogCnt: 0, IsCycled: false, IsCalled: true, StartVal: startValue}
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			resultSequences := backup.GetAllSequences(connectionPool, map[string]string{})
+			resultSequences := backup.GetAllSequences(connectionPool)
 
 			Expect(resultSequences).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
-			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&sequenceRel, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequence.Definition, &resultSequences[0].Definition)
 		})
 		It("creates a sequence with privileges, owner, and comment", func() {
 			startValue := int64(0)
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			sequenceMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true, includeSecurityLabels)
 			sequenceMetadataMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
-			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, sequenceMetadataMap)
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
 			if connectionPool.Version.Before("5") {
-				sequenceDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
+				sequence.Definition.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
 			}
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			resultSequences := backup.GetAllSequences(connectionPool, map[string]string{})
+			resultSequences := backup.GetAllSequences(connectionPool)
 
 			Expect(resultSequences).To(HaveLen(1))
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "my_sequence", backup.TYPE_RELATION)
 			resultMetadata := resultMetadataMap[uniqueID]
-			structmatcher.ExpectStructsToMatchExcluding(&sequence, &resultSequences[0].Relation, "SchemaOid", "Oid")
-			structmatcher.ExpectStructsToMatch(&sequenceDef.SequenceDefinition, &resultSequences[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&sequenceRel, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequence.Definition, &resultSequences[0].Definition)
 			structmatcher.ExpectStructsToMatch(&sequenceMetadata, &resultMetadata)
 		})
 	})
@@ -569,12 +569,12 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequenceDef := backup.Sequence{Relation: backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}}
-			columnOwnerMap := map[string]string{"public.my_sequence": "public.sequence_table.a"}
+			sequence := backup.Sequence{Relation: backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}}
+			sequence.OwningColumn = "public.sequence_table.a"
 
-			sequenceDef.SequenceDefinition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
-			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, backup.MetadataMap{})
-			backup.PrintAlterSequenceStatements(backupfile, tocfile, []backup.Sequence{sequenceDef}, columnOwnerMap)
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, backup.MetadataMap{})
+			backup.PrintAlterSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence})
 
 			//Create table that sequence can be owned by
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.sequence_table(a int)")
@@ -583,11 +583,10 @@ SET SUBPARTITION TEMPLATE ` + `
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
-			Expect(sequenceOwnerTables).To(HaveLen(1))
-			Expect(sequenceOwnerColumns).To(HaveLen(1))
-			Expect(sequenceOwnerTables["public.my_sequence"]).To(Equal("public.sequence_table"))
-			Expect(sequenceOwnerColumns["public.my_sequence"]).To(Equal("public.sequence_table.a"))
+			sequences := backup.GetAllSequences(connectionPool)
+			Expect(sequences).To(HaveLen(1))
+			Expect(sequences[0].OwningTable).To(Equal("public.sequence_table"))
+			Expect(sequences[0].OwningColumn).To(Equal("public.sequence_table.a"))
 		})
 	})
 })

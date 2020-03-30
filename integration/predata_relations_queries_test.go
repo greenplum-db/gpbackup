@@ -93,7 +93,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.Relation{Schema: "testschema", Name: "foo"}
 
 			Expect(tables).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&tableFoo, &tables[0], "Name", "Schema")
 		})
 		It("returns user table information for tables in includeTables", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
@@ -111,7 +111,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.Relation{Schema: "testschema", Name: "foo"}
 
 			Expect(tables).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&tableFoo, &tables[0], "Name", "Schema")
 		})
 		It("returns user table information for tables not in excludeTables", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
@@ -127,7 +127,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
 
 			Expect(tables).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&tableFoo, &tables[0], "Name", "Schema")
 		})
 		It("returns user table information for tables in includeSchema but not in excludeTables", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
@@ -145,7 +145,7 @@ PARTITION BY LIST (gender)
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "bar"}
 			Expect(tables).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&tableFoo, &tables[0], "Name", "Schema")
 		})
 		It("returns user table information for tables even with an non existent excludeTable", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foo(i int)")
@@ -157,7 +157,7 @@ PARTITION BY LIST (gender)
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
 
 			Expect(tables).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&tableFoo, &tables[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&tableFoo, &tables[0], "Name", "Schema")
 		})
 	})
 	Describe("GetAllSequenceRelations", func() {
@@ -170,14 +170,14 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema CASCADE")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE testschema.my_sequence2")
 
-			sequences := backup.GetAllSequenceRelations(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
 			mySequence := backup.Relation{Schema: "public", Name: "my_sequence"}
 			mySequence2 := backup.Relation{Schema: "testschema", Name: "my_sequence2"}
 
 			Expect(sequences).To(HaveLen(2))
-			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
-			structmatcher.ExpectStructsToMatchExcluding(&mySequence2, &sequences[1], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&mySequence, &sequences[0], "Name", "Schema")
+			structmatcher.ExpectStructsToMatchIncluding(&mySequence2, &sequences[1], "Name", "Schema")
 		})
 		It("returns a slice of all sequences in a specific schema", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence START 10")
@@ -189,10 +189,10 @@ PARTITION BY LIST (gender)
 			mySequence := backup.Relation{Schema: "testschema", Name: "my_sequence"}
 
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
-			sequences := backup.GetAllSequenceRelations(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
 			Expect(sequences).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&mySequence, &sequences[0], "Name", "Schema")
 		})
 		It("does not return sequences owned by included tables", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence START 10")
@@ -202,7 +202,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "ALTER SEQUENCE public.my_sequence OWNED BY public.seq_table.i")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.seq_table")
 
-			sequences := backup.GetAllSequenceRelations(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
 			Expect(sequences).To(BeEmpty())
 		})
@@ -215,10 +215,10 @@ PARTITION BY LIST (gender)
 			mySequence := backup.Relation{Schema: "public", Name: "my_sequence"}
 
 			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "public.seq_table")
-			sequences := backup.GetAllSequenceRelations(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
 			Expect(sequences).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&mySequence, &sequences[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&mySequence, &sequences[0], "Name", "Schema")
 		})
 		It("does not return an excluded sequence", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.sequence1 START 10")
@@ -229,10 +229,10 @@ PARTITION BY LIST (gender)
 			sequence2 := backup.Relation{Schema: "public", Name: "sequence2"}
 
 			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "public.sequence1")
-			sequences := backup.GetAllSequenceRelations(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
 			Expect(sequences).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&sequence2, &sequences[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&sequence2, &sequences[0], "Name", "Schema")
 		})
 		It("returns only the included sequence", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.sequence1 START 10")
@@ -243,10 +243,10 @@ PARTITION BY LIST (gender)
 			sequence1 := backup.Relation{Schema: "public", Name: "sequence1"}
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.sequence1")
 
-			sequences := backup.GetAllSequenceRelations(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
 			Expect(sequences).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&sequence1, &sequences[0], "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatchIncluding(&sequence1, &sequences[0], "Name", "Schema")
 		})
 	})
 	Describe("GetSequenceDefinition", func() {
@@ -290,7 +290,7 @@ PARTITION BY LIST (gender)
 			structmatcher.ExpectStructsToMatch(&expectedSequence, &resultSequenceDef)
 		})
 	})
-	Describe("GetSequenceOwnerMap", func() {
+	Describe("Get sequence owner information", func() {
 		It("returns sequence information for sequences owned by columns", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.without_sequence(a int, b char(20));")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.without_sequence")
@@ -299,12 +299,11 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence OWNED BY public.with_sequence.a;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
-			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
-			Expect(sequenceOwnerTables).To(HaveLen(1))
-			Expect(sequenceOwnerColumns).To(HaveLen(1))
-			Expect(sequenceOwnerTables["public.my_sequence"]).To(Equal("public.with_sequence"))
-			Expect(sequenceOwnerColumns["public.my_sequence"]).To(Equal("public.with_sequence.a"))
+			Expect(sequences).To(HaveLen(1))
+			Expect(sequences[0].OwningTable).To(Equal("public.with_sequence"))
+			Expect(sequences[0].OwningColumn).To(Equal("public.with_sequence.a"))
 		})
 		It("does not return sequence owner columns if the owning table is not backed up", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.my_table(a int, b char(20));")
@@ -313,11 +312,11 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
 			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "public.my_table")
-			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
+			sequences := backup.GetAllSequences(connectionPool)
 
-			Expect(sequenceOwnerTables).To(BeEmpty())
-			Expect(sequenceOwnerColumns).To(BeEmpty())
-
+			Expect(sequences).To(HaveLen(1))
+			Expect(sequences[0].OwningTable).To(Equal(""))
+			Expect(sequences[0].OwningColumn).To(Equal(""))
 		})
 		It("returns sequence owner if both table and sequence are backed up", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.my_table(a int, b char(20));")
@@ -327,9 +326,11 @@ PARTITION BY LIST (gender)
 
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.my_sequence")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.my_table")
-			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
-			Expect(sequenceOwnerTables).To(HaveLen(1))
-			Expect(sequenceOwnerColumns).To(HaveLen(1))
+			sequences := backup.GetAllSequences(connectionPool)
+
+			Expect(sequences).To(HaveLen(1))
+			Expect(sequences[0].OwningTable).To(Equal("public.my_table"))
+			Expect(sequences[0].OwningColumn).To(Equal("public.my_table.a"))
 		})
 		It("returns sequence owner if only the table is backed up", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.my_table(a int, b char(20));")
@@ -338,9 +339,8 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.my_table")
-			sequenceOwnerTables, sequenceOwnerColumns := backup.GetSequenceColumnOwnerMap(connectionPool)
-			Expect(sequenceOwnerTables).To(HaveLen(1))
-			Expect(sequenceOwnerColumns).To(HaveLen(1))
+			sequences := backup.GetAllSequences(connectionPool)
+			Expect(sequences).To(HaveLen(0))
 		})
 	})
 	Describe("GetAllSequences", func() {
@@ -368,12 +368,12 @@ PARTITION BY LIST (gender)
 				seqTwoDef.LogCnt = 1
 			}
 
-			results := backup.GetAllSequences(connectionPool, map[string]string{})
+			results := backup.GetAllSequences(connectionPool)
 
 			structmatcher.ExpectStructsToMatchExcluding(&seqOneRelation, &results[0].Relation, "SchemaOid", "Oid")
-			structmatcher.ExpectStructsToMatchExcluding(&seqOneDef, &results[0].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&seqOneDef, &results[0].Definition)
 			structmatcher.ExpectStructsToMatchExcluding(&seqTwoRelation, &results[1].Relation, "SchemaOid", "Oid")
-			structmatcher.ExpectStructsToMatchExcluding(&seqTwoDef, &results[1].SequenceDefinition)
+			structmatcher.ExpectStructsToMatchExcluding(&seqTwoDef, &results[1].Definition)
 		})
 	})
 	Describe("GetAllViews", func() {
