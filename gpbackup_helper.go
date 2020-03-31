@@ -1,5 +1,3 @@
-// +build gpbackup_helper
-
 package main
 
 import (

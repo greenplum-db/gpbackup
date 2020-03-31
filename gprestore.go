@@ -1,5 +1,3 @@
-// +build gprestore
-
 package main
 
 import (

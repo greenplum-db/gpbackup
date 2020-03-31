@@ -1,5 +1,3 @@
-// +build gpbackup
-
 package main
 
 import (
