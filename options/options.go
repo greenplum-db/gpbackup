@@ -2,7 +2,6 @@ package options
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -30,7 +29,7 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = ValidateCharacters(includedRelations)
+	err = utils.ValidateFQNs(includedRelations)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +38,7 @@ func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = ValidateCharacters(excludedRelations)
+	err = utils.ValidateFQNs(excludedRelations)
 	if err != nil {
 		return nil, err
 	}
@@ -199,21 +198,6 @@ func SeparateSchemaAndTable(tableNames []string) ([]FqnStruct, error) {
 	}
 
 	return fqnSlice, nil
-}
-
-func ValidateCharacters(tableList []string) error {
-	if len(tableList) == 0 {
-		return nil
-	}
-
-	validFormat := regexp.MustCompile(`^.+\..+$`)
-	for _, fqn := range tableList {
-		if !validFormat.Match([]byte(fqn)) {
-			return errors.Errorf(`Table %s is not correctly fully-qualified.  Please ensure that it is in the format schema.table, it is quoted appropriately, and it has no preceding or trailing whitespace.`, fqn)
-		}
-	}
-
-	return nil
 }
 
 func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.FlagSet) error {

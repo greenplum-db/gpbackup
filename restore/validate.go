@@ -106,11 +106,10 @@ func ValidateRelationsInRestoreDatabase(connectionPool *dbconn.DBConn, relationL
 	if len(relationList) == 0 {
 		return
 	}
-	utils.ValidateFQNs(relationList)
 	quotedTablesStr := utils.SliceToQuotedString(relationList)
 	query := fmt.Sprintf(`
 SELECT
-	n.nspname || '.' || c.relname AS string
+	quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS string
 FROM pg_namespace n
 JOIN pg_class c ON n.oid = c.relnamespace
 WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTablesStr)

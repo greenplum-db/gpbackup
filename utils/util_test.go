@@ -36,41 +36,31 @@ var _ = Describe("utils/util tests", func() {
 		})
 	})
 	Describe("ValidateFQNs", func() {
-		It("validates an unquoted string", func() {
-			testStrings := []string{`schemaname.tablename`}
+		It("validates the following cases correctly", func() {
+			testStrings := []string{
+				`schemaname.tablename`,    // unquoted
+				`"schema,name".tablename`, // quoted schema
+				`schemaname."table,name"`, // quoted table
+				`schema name.tablename"`,  // spaces
+				`schema name	.tablename"`, //tabs
+				`schemaname.TABLENAME!@#$%^&*()_+={}|[]\';":/,?><"`, // special characters
+			}
 			utils.ValidateFQNs(testStrings)
 		})
-		It("validates a string with a quoted schema", func() {
-			testStrings := []string{`"schema,name".tablename`}
-			utils.ValidateFQNs(testStrings)
+		It("fails if given a string without a schema", func() {
+			testStrings := []string{`.tablename`}
+			err := utils.ValidateFQNs(testStrings)
+			Expect(err).To(HaveOccurred())
 		})
-		It("validates a string with a quoted table", func() {
-			testStrings := []string{`schemaname."table,name"`}
-			utils.ValidateFQNs(testStrings)
+		It("fails if given a string without a table", func() {
+			testStrings := []string{`schemaname.`}
+			err := utils.ValidateFQNs(testStrings)
+			Expect(err).To(HaveOccurred())
 		})
-		It("validates a string with both schema and table quoted", func() {
-			testStrings := []string{`"schema,name"."table,name"`}
-			utils.ValidateFQNs(testStrings)
-		})
-		It("panics if given a string without a schema", func() {
-			testStrings := []string{`tablename`}
-			defer testhelper.ShouldPanicWithMessage(`tablename is not correctly fully-qualified.`)
-			utils.ValidateFQNs(testStrings)
-		})
-		It("panics if given an invalid string", func() {
-			testStrings := []string{`schema"name.table.name`}
-			defer testhelper.ShouldPanicWithMessage(`schema"name.table.name is not correctly fully-qualified.`)
-			utils.ValidateFQNs(testStrings)
-		})
-		It("panics if given a string with preceding whitespace", func() {
-			testStrings := []string{`  schemaname.tablename`}
-			defer testhelper.ShouldPanicWithMessage(`  schemaname.tablename is not correctly fully-qualified.`)
-			utils.ValidateFQNs(testStrings)
-		})
-		It("panics if given a string with trailing whitespace", func() {
-			testStrings := []string{`schemaname.tablename  `}
-			defer testhelper.ShouldPanicWithMessage(`schemaname.tablename   is not correctly fully-qualified.`)
-			utils.ValidateFQNs(testStrings)
+		It("fails if the schema and table can't be determined", func() {
+			testStrings := []string{`schema.name.table.name`}
+			err := utils.ValidateFQNs(testStrings)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 	Context("ValidateFullPath", func() {

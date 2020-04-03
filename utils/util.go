@@ -74,16 +74,17 @@ func MakeFQN(schema string, object string) string {
 	return fmt.Sprintf("%s.%s", schema, object)
 }
 
-func ValidateFQNs(fqns []string) {
-	unquotedIdentString := "[a-z_][a-z0-9_]*"
-	validIdentString := fmt.Sprintf("(?:\"(.*)\"|(%s))", unquotedIdentString)
-	validFormat := regexp.MustCompile(fmt.Sprintf(`^%s\.%s$`, validIdentString, validIdentString))
-	var matches []string
-	for _, fqn := range fqns {
-		if matches = validFormat.FindStringSubmatch(fqn); len(matches) == 0 {
-			gplog.Fatal(errors.Errorf(`Table %s is not correctly fully-qualified.  Please ensure that it is in the format schema.table, it is quoted appropriately, and it has no preceding or trailing whitespace.`, fqn), "")
+// Since we currently split schema and table on the dot (.), we can't allow
+// users to filter backup or restore tables with dots in the schema or table.
+func ValidateFQNs(tableList []string) error {
+	validFormat := regexp.MustCompile(`^[^.]+\.[^.]+$`)
+	for _, fqn := range tableList {
+		if !validFormat.Match([]byte(fqn)) {
+			return errors.Errorf(`Table "%s" is not correctly fully-qualified.  Please ensure table is in the format "schema.table" and both the schema and table does not contain a dot (.).`, fqn)
 		}
 	}
+
+	return nil
 }
 
 func ValidateFullPath(path string) error {

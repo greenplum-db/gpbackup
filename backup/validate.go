@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/filepath"
@@ -49,7 +50,8 @@ func ValidateFilterTables(conn *dbconn.DBConn, tableList []string, excludeSet bo
 	if len(tableList) == 0 {
 		return
 	}
-	utils.ValidateFQNs(tableList)
+	err := utils.ValidateFQNs(tableList)
+	gplog.FatalOnError(err)
 	DBValidate(conn, tableList, excludeSet)
 }
 

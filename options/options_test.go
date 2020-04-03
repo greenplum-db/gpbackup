@@ -60,17 +60,14 @@ var _ = Describe("options", func() {
 			Expect(err).ToNot(HaveOccurred())
 			err = myflags.Set(options.INCLUDE_RELATION, "bar.baz")
 			Expect(err).ToNot(HaveOccurred())
-			err = myflags.Set(options.INCLUDE_RELATION, "abc.com,xyz.com")
-			Expect(err).ToNot(HaveOccurred())
 
 			subject, err := options.NewOptions(myflags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			includedTables := subject.GetIncludedTables()
-			Expect(includedTables).To(HaveLen(3))
+			Expect(includedTables).To(HaveLen(2))
 			Expect(includedTables[0]).To(Equal("foo.bar"))
 			Expect(includedTables[1]).To(Equal("bar.baz"))
-			Expect(includedTables[2]).To(Equal("abc.com,xyz.com"))
 		})
 		It("returns the text-file tables when specified", func() {
 			file, err := ioutil.TempFile("/tmp", "gpbackup_test_options*.txt")
@@ -147,35 +144,6 @@ var _ = Describe("options", func() {
 				Expect(subject.GetIncludedTables()).To(Equal([]string{"public.foobar"}))
 				Expect(subject.GetOriginalIncludedTables()).To(BeEmpty())
 			})
-		})
-	})
-	Describe("character validation", func() {
-		It("succeeds if characters are valid", func() {
-			tableList := []string{"foo.bar", "foo.Bar", "FOO.Bar", "FO!@#.BAR"}
-			err := options.ValidateCharacters(tableList)
-			Expect(err).ToNot(HaveOccurred())
-		})
-		It("fails if schema and table are not separated by a dot", func() {
-			tableList := []string{"foobar"}
-			err := options.ValidateCharacters(tableList)
-			Expect(err).To(HaveOccurred())
-		})
-		It("fails if at least one schema and table are not separated by a dot", func() {
-			tableList := []string{"foobar", "foo.bar"}
-			err := options.ValidateCharacters(tableList)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("foobar"))
-		})
-		It("fails if either table or schema is not specified", func() {
-			schemaOnlyList := []string{"foo."}
-			err := options.ValidateCharacters(schemaOnlyList)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("foo."))
-
-			tableOnlyList := []string{".bar"}
-			err = options.ValidateCharacters(tableOnlyList)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(".bar"))
 		})
 	})
 	Describe("SeparateSchemaAndTable", func() {
