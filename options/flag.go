@@ -44,7 +44,7 @@ const (
 	TIMESTAMP             = "timestamp"
 	WITH_GLOBALS          = "with-globals"
 	REDIRECT_SCHEMA       = "redirect-schema"
-	TRUNCATE              = "truncate"
+	TRUNCATE_TABLE        = "truncate-table"
 )
 
 func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
@@ -101,7 +101,7 @@ func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.String(REDIRECT_SCHEMA, "", "Restore to the specified schema instead of the schema that was backed up")
 	flagSet.Bool(WITH_GLOBALS, false, "Restore global metadata")
 	flagSet.String(TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
-	flagSet.Bool(TRUNCATE, false, "Removes data of the tables getting restored")
+	flagSet.Bool(TRUNCATE_TABLE, false, "Removes data of the tables getting restored")
 	flagSet.Bool(VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(WITH_STATS, false, "Restore query plan statistics")
 	flagSet.Bool(LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")

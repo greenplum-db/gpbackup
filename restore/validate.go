@@ -259,17 +259,17 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	options.CheckExclusiveFlags(flags, options.METADATA_ONLY, options.DATA_ONLY)
 	options.CheckExclusiveFlags(flags, options.PLUGIN_CONFIG, options.BACKUP_DIR)
 	options.CheckExclusiveFlags(flags,
-		options.TRUNCATE, options.REDIRECT_SCHEMA, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE,
+		options.TRUNCATE_TABLE, options.REDIRECT_SCHEMA, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE,
 		options.EXCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE)
 	if flags.Changed(options.REDIRECT_SCHEMA) &&
 		!(flags.Changed(options.INCLUDE_RELATION) || flags.Changed(options.INCLUDE_RELATION_FILE)) {
 		gplog.Fatal(errors.Errorf("Cannot use --redirect-schema without --include-table or --include-table-file"), "")
 	}
 	options.CheckExclusiveFlags(flags,
-		options.TRUNCATE, options.METADATA_ONLY, options.INCREMENTAL, options.REDIRECT_SCHEMA)
-	if flags.Changed(options.TRUNCATE) &&
+		options.TRUNCATE_TABLE, options.METADATA_ONLY, options.INCREMENTAL, options.REDIRECT_SCHEMA)
+	if flags.Changed(options.TRUNCATE_TABLE) &&
 		!(flags.Changed(options.INCLUDE_RELATION) || flags.Changed(options.INCLUDE_RELATION_FILE)) &&
 		!flags.Changed(options.DATA_ONLY) {
-		gplog.Fatal(errors.Errorf("Cannot use --truncate without --include-table or --include-table-file and without --data-only"), "")
+		gplog.Fatal(errors.Errorf("Cannot use --truncate-table without --include-table or --include-table-file and without --data-only"), "")
 	}
 }

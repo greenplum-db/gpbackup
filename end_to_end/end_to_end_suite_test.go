@@ -2215,8 +2215,8 @@ PARTITION BY LIST (gender)
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 		})
-		Describe("Restore with truncate", func() {
-			It("runs gpbackup and gprestore with truncate and include-table flags", func() {
+		Describe("Restore with truncate-table", func() {
+			It("runs gpbackup and gprestore with truncate-table and include-table flags", func() {
 				timestamp := gpbackup(gpbackupPath, backupHelperPath)
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
@@ -2231,11 +2231,11 @@ PARTITION BY LIST (gender)
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
 					"--include-table", "public.sales",
-					"--truncate", "--data-only")
+					"--truncate-table", "--data-only")
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 13})
 			})
-			It("runs gpbackup and gprestore with truncate and include-table-file flags", func() {
+			It("runs gpbackup and gprestore with truncate-table and include-table-file flags", func() {
 				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 				utils.MustPrintln(includeFile, "public.sales")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -2255,13 +2255,13 @@ PARTITION BY LIST (gender)
 					"--redirect-db", "restoredb",
 					"--backup-dir", backupDir,
 					"--include-table-file", "/tmp/include-tables.txt",
-					"--truncate", "--data-only")
+					"--truncate-table", "--data-only")
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 13})
 
 				_ = os.Remove("/tmp/include-tables.txt")
 			})
-			It("runs gpbackup and gprestore with truncate flag against a leaf partition", func() {
+			It("runs gpbackup and gprestore with truncate-table flag against a leaf partition", func() {
 				skipIfOldBackupVersionBefore("1.7.2")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data")
@@ -2276,7 +2276,7 @@ PARTITION BY LIST (gender)
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
 					"--include-table", "public.sales_1_prt_jan17",
-					"--truncate", "--data-only")
+					"--truncate-table", "--data-only")
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 1, "public.sales_1_prt_jan17": 1})
 			})
