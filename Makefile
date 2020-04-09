@@ -12,9 +12,9 @@ BIN_DIR=$(shell echo $${GOPATH:-~/go} | awk -F':' '{ print $$1 "/bin"}')
 GINKGO_FLAGS := -r -keepGoing -randomizeSuites -randomizeAllSpecs -noisySkippings=false
 
 GIT_VERSION := $(shell git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/')
-BACKUP_VERSION_STR="-X github.com/greenplum-db/gpbackup/backup.version=$(GIT_VERSION)"
-RESTORE_VERSION_STR="-X github.com/greenplum-db/gpbackup/restore.version=$(GIT_VERSION)"
-HELPER_VERSION_STR="-X github.com/greenplum-db/gpbackup/helper.version=$(GIT_VERSION)"
+BACKUP_VERSION_STR=github.com/greenplum-db/gpbackup/backup.version=$(GIT_VERSION)
+RESTORE_VERSION_STR=github.com/greenplum-db/gpbackup/restore.version=$(GIT_VERSION)
+HELPER_VERSION_STR=github.com/greenplum-db/gpbackup/helper.version=$(GIT_VERSION)
 
 # note that /testutils is not a production directory, but has unit tests to validate testing tools
 SUBDIRS_HAS_UNIT=backup/ filepath/ history/ helper/ options/ report/ restore/ toc/ utils/ testutils/
@@ -22,7 +22,8 @@ SUBDIRS_ALL=$(SUBDIRS_HAS_UNIT) integration/ end_to_end/
 GOLANG_LINTER=$(GOPATH)/bin/golangci-lint
 GINKGO=$(GOPATH)/bin/ginkgo
 GOIMPORTS=$(GOPATH)/bin/goimports
-GO_ENV=GO111MODULE=on # ensure the project still compiles in $GOPATH/src using golang versions 1.12 and below
+GO_ENV=GO111MODULE=on # ensures the project still compiles in $GOPATH/src using golang versions 1.12 and below
+GO_BUILD=$(GO_ENV) go build -mod=readonly
 DEBUG=-gcflags=all="-N -l"
 
 CUSTOM_BACKUP_DIR ?= "/tmp"
@@ -71,19 +72,19 @@ coverage :
 		@./show_coverage.sh
 
 build :
-		$(GO_ENV) go build -tags '$(BACKUP)' -o $(BIN_DIR)/$(BACKUP) -ldflags $(BACKUP_VERSION_STR)
-		$(GO_ENV) go build -tags '$(RESTORE)' -o $(BIN_DIR)/$(RESTORE) -ldflags $(RESTORE_VERSION_STR)
-		$(GO_ENV) go build -tags '$(HELPER)' -o $(BIN_DIR)/$(HELPER) -ldflags $(HELPER_VERSION_STR)
+		$(GO_BUILD) -tags '$(BACKUP)' -o $(BIN_DIR)/$(BACKUP) -ldflags "-X $(BACKUP_VERSION_STR)"
+		$(GO_BUILD) -tags '$(RESTORE)' -o $(BIN_DIR)/$(RESTORE) -ldflags "-X $(RESTORE_VERSION_STR)"
+		$(GO_BUILD) -tags '$(HELPER)' -o $(BIN_DIR)/$(HELPER) -ldflags "-X $(HELPER_VERSION_STR)"
 
 debug :
-		$(GO_ENV) go build -tags '$(BACKUP)' $(DEBUG) -o $(BIN_DIR)/$(BACKUP) -ldflags $(BACKUP_VERSION_STR)
-		$(GO_ENV) go build -tags '$(RESTORE)' $(DEBUG) -o $(BIN_DIR)/$(RESTORE) -ldflags $(RESTORE_VERSION_STR)
-		$(GO_ENV) go build -tags '$(HELPER)' $(DEBUG) -o $(BIN_DIR)/$(HELPER) -ldflags $(HELPER_VERSION_STR)
+		$(GO_BUILD) -tags '$(BACKUP)' -o $(BIN_DIR)/$(BACKUP) -ldflags "-X $(BACKUP_VERSION_STR)" $(DEBUG)
+		$(GO_BUILD) -tags '$(RESTORE)' -o $(BIN_DIR)/$(RESTORE) -ldflags "-X $(RESTORE_VERSION_STR)" $(DEBUG)
+		$(GO_BUILD) -tags '$(HELPER)' -o $(BIN_DIR)/$(HELPER) -ldflags "-X $(HELPER_VERSION_STR)" $(DEBUG)
 
 build_linux :
-		env GOOS=linux GOARCH=amd64 go build -tags '$(BACKUP)' $(GOFLAGS) -o $(BACKUP) -ldflags $(BACKUP_VERSION_STR)
-		env GOOS=linux GOARCH=amd64 go build -tags '$(RESTORE)' $(GOFLAGS) -o $(RESTORE) -ldflags $(RESTORE_VERSION_STR)
-		env GOOS=linux GOARCH=amd64 go build -tags '$(HELPER)' $(GOFLAGS) -o $(HELPER) -ldflags $(HELPER_VERSION_STR)
+		env GOOS=linux GOARCH=amd64 $(GO_BUILD) -tags '$(BACKUP)' -o $(BACKUP) -ldflags "-X $(BACKUP_VERSION_STR)"
+		env GOOS=linux GOARCH=amd64 $(GO_BUILD) -tags '$(RESTORE)' -o $(RESTORE) -ldflags "-X $(RESTORE_VERSION_STR)"
+		env GOOS=linux GOARCH=amd64 $(GO_BUILD) -tags '$(HELPER)' -o $(HELPER) -ldflags "-X $(HELPER_VERSION_STR)"
 
 install : build
 		cp $(BIN_DIR)/$(BACKUP) $(BIN_DIR)/$(RESTORE) $(GPHOME)/bin
@@ -109,6 +110,7 @@ clean :
 		rm -rf /tmp/go-build* /tmp/gexec_artifacts* /tmp/ginkgo*
 		# Code coverage files
 		rm -rf /tmp/cover* /tmp/unit*
+		go clean -i -r -x -testcache -modcache
 
 error-report:
 	@echo "Error messaging:"
