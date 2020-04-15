@@ -463,18 +463,18 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 	})
 	Describe("PrintCreateMaterializedViewStatement", func() {
 		var (
-			mview         backup.MaterializedView
+			mview         backup.View
 			emptyMetadata backup.ObjectMetadata
 		)
 		BeforeEach(func() {
 			if connectionPool.Version.Before("6.2.0") {
 				Skip("Test only applicable to GPDB 6.2.0 and above")
 			}
-			mview = backup.MaterializedView{Oid: 1, Schema: "schema1", Name: "mview1", Definition: "SELECT count(*) FROM pg_tables;"}
+			mview = backup.View{Oid: 1, Schema: "schema1", Name: "mview1", Definition: "SELECT count(*) FROM pg_tables;", IsMaterialized: true}
 			emptyMetadata = backup.ObjectMetadata{}
 		})
 		It("can print a basic materialized view", func() {
-			backup.PrintCreateMaterializedViewStatement(backupfile, tocfile, mview, emptyMetadata)
+			backup.PrintCreateViewStatement(backupfile, tocfile, mview, emptyMetadata)
 			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "mview1", "MATERIALIZED VIEW")
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer,
 				`CREATE MATERIALIZED VIEW schema1.mview1 AS SELECT count(*) FROM pg_tables
@@ -482,7 +482,7 @@ WITH NO DATA;`)
 		})
 		It("can print a view with privileges, an owner, and a comment", func() {
 			mviewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, false)
-			backup.PrintCreateMaterializedViewStatement(backupfile, tocfile, mview, mviewMetadata)
+			backup.PrintCreateViewStatement(backupfile, tocfile, mview, mviewMetadata)
 			expectedEntries := []string{`CREATE MATERIALIZED VIEW schema1.mview1 AS SELECT count(*) FROM pg_tables
 WITH NO DATA;`,
 				"COMMENT ON MATERIALIZED VIEW schema1.mview1 IS 'This is a materialized view comment.';",
@@ -495,7 +495,7 @@ GRANT ALL ON schema1.mview1 TO testrole;`}
 		It("can print a materialized view with options and a tablespace", func() {
 			mview.Options = " WITH (security_barrier=true)"
 			mview.Tablespace = "myTablespace"
-			backup.PrintCreateMaterializedViewStatement(backupfile, tocfile, mview, emptyMetadata)
+			backup.PrintCreateViewStatement(backupfile, tocfile, mview, emptyMetadata)
 			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "mview1", "MATERIALIZED VIEW")
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer,
 				`CREATE MATERIALIZED VIEW schema1.mview1 WITH (security_barrier=true) TABLESPACE myTablespace AS SELECT count(*) FROM pg_tables

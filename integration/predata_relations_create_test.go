@@ -424,7 +424,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			resultViews, _ := backup.GetAllViews(connectionPool)
+			resultViews := backup.GetAllViews(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simpleview", backup.TYPE_RELATION)
@@ -442,7 +442,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			resultViews, _ := backup.GetAllViews(connectionPool)
+			resultViews := backup.GetAllViews(connectionPool)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simpleview", backup.TYPE_RELATION)
 			Expect(resultViews).To(HaveLen(1))
@@ -456,15 +456,15 @@ SET SUBPARTITION TEMPLATE ` + `
 			}
 		})
 		It("creates a view with privileges, owner, security label, and comment", func() {
-			view := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplemview", Definition: " SELECT 1;"}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Definition: " SELECT 1;", IsMaterialized: true}
 			viewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, includeSecurityLabels)
 
-			backup.PrintCreateMaterializedViewStatement(backupfile, tocfile, view, viewMetadata)
+			backup.PrintCreateViewStatement(backupfile, tocfile, view, viewMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplemview")
 
-			_, resultViews := backup.GetAllViews(connectionPool)
+			resultViews := backup.GetAllViews(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_RELATION)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplemview", backup.TYPE_RELATION)
@@ -474,14 +474,14 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
 		})
 		It("creates a materialized view with options", func() {
-			view := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: " SELECT 1;"}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: " SELECT 1;", IsMaterialized: true}
 
-			backup.PrintCreateMaterializedViewStatement(backupfile, tocfile, view, backup.ObjectMetadata{})
+			backup.PrintCreateViewStatement(backupfile, tocfile, view, backup.ObjectMetadata{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplemview")
 
-			_, resultViews := backup.GetAllViews(connectionPool)
+			resultViews := backup.GetAllViews(connectionPool)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplemview", backup.TYPE_RELATION)
 			Expect(resultViews).To(HaveLen(1))

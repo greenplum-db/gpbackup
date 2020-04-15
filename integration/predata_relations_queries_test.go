@@ -389,8 +389,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.simpleview AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			results, _ := backup.GetAllViews(connectionPool)
-
+			results := backup.GetAllViews(connectionPool)
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef}
 
 			Expect(results).To(HaveLen(1))
@@ -405,8 +404,7 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW testschema.simpleview")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
-			results, _ := backup.GetAllViews(connectionPool)
-
+			results := backup.GetAllViews(connectionPool)
 			view := backup.View{Oid: 1, Schema: "testschema", Name: "simpleview", Definition: viewDef}
 
 			Expect(results).To(HaveLen(1))
@@ -417,8 +415,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.simpleview WITH (security_barrier=true) AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.simpleview")
 
-			results, _ := backup.GetAllViews(connectionPool)
-
+			results := backup.GetAllViews(connectionPool)
 			view := backup.View{Oid: 1, Schema: "public", Name: "simpleview", Definition: viewDef, Options: " WITH (security_barrier=true)"}
 
 			Expect(results).To(HaveLen(1))
@@ -431,9 +428,8 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
-			_, results := backup.GetAllViews(connectionPool)
-
-			materialView := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef}
+			results := backup.GetAllViews(connectionPool)
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, IsMaterialized: true}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
@@ -445,9 +441,8 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview WITH (fillfactor=50, autovacuum_enabled=false) AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
-			_, results := backup.GetAllViews(connectionPool)
-
-			materialView := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Options: " WITH (fillfactor=50, autovacuum_enabled=false)"}
+			results := backup.GetAllViews(connectionPool)
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Options: " WITH (fillfactor=50, autovacuum_enabled=false)", IsMaterialized: true}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
@@ -461,9 +456,8 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview TABLESPACE test_tablespace AS SELECT 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
-			_, results := backup.GetAllViews(connectionPool)
-
-			materialView := backup.MaterializedView{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Tablespace: "test_tablespace"}
+			results := backup.GetAllViews(connectionPool)
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Tablespace: "test_tablespace", IsMaterialized: true}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")

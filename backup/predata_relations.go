@@ -302,26 +302,20 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount,
 // A view's column names are automatically factored into it's definition.
 func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, view View, viewMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
-	// Option's keyword WITH is expected to be prepended to its options in the SQL statement
-	metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition)
-
-	section, entry := view.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, viewMetadata, view, "")
-}
-
-// A materialized view's column names are automatically factored into it's definition.
-func PrintCreateMaterializedViewStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, mview MaterializedView, mviewMetadata ObjectMetadata) {
-	start := metadataFile.ByteCount
-	var tablespaceClause string
-	if mview.Tablespace != "" {
-		tablespaceClause = fmt.Sprintf(" TABLESPACE %s", mview.Tablespace)
+	var tablespaceClause, viewDefinition string
+	if view.Tablespace != "" {
+		tablespaceClause = fmt.Sprintf(" TABLESPACE %s", view.Tablespace)
 	}
 	// Option's keyword WITH is expected to be prepended to its options in the SQL statement
 	// Remove trailing ';' at the end of materialized view's definition
-	metadataFile.MustPrintf("\n\nCREATE MATERIALIZED VIEW %s%s%s AS %s\nWITH NO DATA;\n", mview.FQN(), mview.Options, tablespaceClause, mview.Definition[:len(mview.Definition)-1])
-
-	section, entry := mview.GetMetadataEntry()
+	if !view.IsMaterialized {
+		viewDefinition = fmt.Sprintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition)
+	} else {
+		viewDefinition = fmt.Sprintf("\n\nCREATE MATERIALIZED VIEW %s%s%s AS %s\nWITH NO DATA;\n",
+			view.FQN(), view.Options, tablespaceClause, view.Definition[:len(view.Definition)-1])
+	}
+	metadataFile.MustPrintf(viewDefinition)
+	section, entry := view.GetMetadataEntry()
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, mviewMetadata, mview, "")
+	PrintObjectMetadata(metadataFile, toc, viewMetadata, view, "")
 }

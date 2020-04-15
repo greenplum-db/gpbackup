@@ -270,7 +270,7 @@ func (v View) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          v.Schema,
 			Name:            v.Name,
-			ObjectType:      "VIEW",
+			ObjectType:      v.ObjectType(),
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -285,9 +285,16 @@ func (v View) FQN() string {
 	return utils.MakeFQN(v.Schema, v.Name)
 }
 
+func (v View) ObjectType() string {
+	if v.IsMaterialized {
+		return "MATERIALIZED VIEW"
+	}
+	return "VIEW"
+}
+
 // This function retrieves both regular views and materialized views.
 // Materialized views were introduced in GPDB 7 and backported to GPDB 6.2.
-func GetAllViews(connectionPool *dbconn.DBConn) (regularViews []View, materializedViews []MaterializedView) {
+func GetAllViews(connectionPool *dbconn.DBConn) []View {
 
 	// When querying the view definition using pg_get_viewdef(), the pg function
 	// obtains dependency locks that are not released until the transaction is
@@ -324,57 +331,7 @@ func GetAllViews(connectionPool *dbconn.DBConn) (regularViews []View, materializ
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
-	regularViews = make([]View, 0)
-	materializedViews = make([]MaterializedView, 0)
-	for _, view := range results {
-		if view.IsMaterialized {
-			materializedViews = append(materializedViews, makeMaterializedView(view))
-		} else {
-			regularViews = append(regularViews, view)
-		}
-	}
-
-	return regularViews, materializedViews
-}
-
-type MaterializedView struct {
-	Oid        uint32
-	Schema     string
-	Name       string
-	Options    string
-	Tablespace string
-	Definition string
-}
-
-func (v MaterializedView) GetMetadataEntry() (string, toc.MetadataEntry) {
-	return "predata",
-		toc.MetadataEntry{
-			Schema:          v.Schema,
-			Name:            v.Name,
-			ObjectType:      "MATERIALIZED VIEW",
-			ReferenceObject: "",
-			StartByte:       0,
-			EndByte:         0,
-		}
-}
-
-func (v MaterializedView) GetUniqueID() UniqueID {
-	return UniqueID{ClassID: PG_CLASS_OID, Oid: v.Oid}
-}
-
-func (v MaterializedView) FQN() string {
-	return utils.MakeFQN(v.Schema, v.Name)
-}
-
-func makeMaterializedView(view View) MaterializedView {
-	return MaterializedView{
-		Oid:        view.Oid,
-		Schema:     view.Schema,
-		Name:       view.Name,
-		Options:    view.Options,
-		Definition: view.Definition,
-		Tablespace: view.Tablespace,
-	}
+	return results
 }
 
 func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {

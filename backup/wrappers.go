@@ -242,11 +242,10 @@ func retrieveProtocols(sortables *[]Sortable, metadataMap MetadataMap) []Externa
 
 func retrieveViews(sortables *[]Sortable) {
 	gplog.Verbose("Retrieving views")
-	views, materializedViews := GetAllViews(connectionPool)
+	views := GetAllViews(connectionPool)
 	objectCounts["Views"] = len(views)
 
 	*sortables = append(*sortables, convertToSortableSlice(views)...)
-	*sortables = append(*sortables, convertToSortableSlice(materializedViews)...)
 }
 
 func retrieveTSObjects(sortables *[]Sortable, metadataMap MetadataMap) {
