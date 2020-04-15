@@ -148,6 +148,19 @@ REVOKE ALL ON FOREIGN SERVER foreignserver FROM PUBLIC;
 REVOKE ALL ON FOREIGN SERVER foreignserver FROM testrole;
 GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 		})
+		It("prints FUNCTION for REVOKE and AGGREGATE for ALTER for an aggregate function", func() {
+			aggregate := backup.Aggregate{Schema: "public", Name: "testagg"}
+			aggregatePrivileges := testutils.DefaultACLForType("testrole", "AGGREGATE")
+			aggregateMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{aggregatePrivileges}, Owner: "testrole"}
+			backup.PrintObjectMetadata(backupfile, tocfile, aggregateMetadata, aggregate, "")
+			testhelper.ExpectRegexp(buffer, `
+
+ALTER AGGREGATE public.testagg(*) OWNER TO testrole;
+
+
+REVOKE ALL ON FUNCTION public.testagg(*) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.testagg(*) FROM testrole;`)
+		})
 		Context("Views and sequences have owners", func() {
 			view := backup.View{Schema: "public", Name: "viewname"}
 			sequence := backup.Sequence{Relation: backup.Relation{Schema: "public", Name: "sequencename"}}

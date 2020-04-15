@@ -271,6 +271,8 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 		typeStr = ""
 	} else if objectType == "COLUMN" {
 		typeStr = "TABLE "
+	} else if objectType == "AGGREGATE" {
+		typeStr = "FUNCTION "
 	}
 	columnStr := ""
 	if len(columnName) == 1 {
