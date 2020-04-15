@@ -162,6 +162,7 @@ func DoBackup() {
 
 	globalTOC.WriteToFileAndMakeReadOnly(globalFPInfo.GetTOCFilePath())
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
+		// COMMIT TRANSACTION
 		connectionPool.MustCommit(connNum)
 	}
 	metadataFile.Close()

@@ -288,6 +288,14 @@ func (v View) FQN() string {
 // This function retrieves both regular views and materialized views.
 // Materialized views were introduced in GPDB 7 and backported to GPDB 6.2.
 func GetAllViews(connectionPool *dbconn.DBConn) (regularViews []View, materializedViews []MaterializedView) {
+
+	// When querying the view definition using pg_get_viewdef(), the pg function
+	// obtains dependency locks that are not released until the transaction is
+	// committed at the end of gpbackup session. This blocks other sessions
+	// from commands that need AccessExclusiveLock (e.g. TRUNCATE)
+	connectionPool.MustExec("SAVEPOINT gpbackup_get_views")
+	defer connectionPool.MustExec("ROLLBACK TO SAVEPOINT gpbackup_get_views")
+
 	selectClause := `
 	SELECT
 		c.oid AS oid,
