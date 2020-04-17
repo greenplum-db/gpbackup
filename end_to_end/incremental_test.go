@@ -3,6 +3,7 @@ package end_to_end_test
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -315,6 +316,39 @@ var _ = Describe("End to End incremental tests", func() {
 				assertArtifactsCleaned(restoreConn, fullBackupTimestamp)
 				assertArtifactsCleaned(restoreConn, incremental1Timestamp)
 				assertArtifactsCleaned(restoreConn, incremental2Timestamp)
+			})
+			It("Runs backup and restore if plugin location changed", func(){
+				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+				fullBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--leaf-partition-data",
+					"--plugin-config", pluginConfigPath)
+
+				command := exec.Command("bash", "-c", fmt.Sprintf("mkdir %s/other_plugin_location && cp %s %s/other_plugin_location", backupDir, pluginExecutablePath, backupDir))
+				mustRunCommand(command)
+				newCongig := fmt.Sprintf(`EOF1
+executablepath: %s/other_plugin_location/example_plugin.bash
+options:
+ password: unknown
+EOF1`, backupDir)
+				newConfigPath := fmt.Sprintf("%s/other_plugin_location/example_plugin_config.yml", backupDir)
+				command = exec.Command("bash", "-c", fmt.Sprintf("cat > %s << %s", newConfigPath, newCongig))
+				mustRunCommand(command)
+
+				incrementalBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--leaf-partition-data",
+					"--incremental",
+					"--plugin-config", newConfigPath)
+
+				Expect(incrementalBackupTimestamp).NotTo(BeNil())
+
+				gprestore(gprestorePath, restoreHelperPath, incrementalBackupTimestamp,
+					"--redirect-db", "restoredb",
+					"--plugin-config", pluginConfigPath)
+
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+				assertDataRestored(restoreConn, publicSchemaTupleCounts)
+				assertArtifactsCleaned(restoreConn, fullBackupTimestamp)
+				assertArtifactsCleaned(restoreConn, incrementalBackupTimestamp)
 			})
 		})
 	})

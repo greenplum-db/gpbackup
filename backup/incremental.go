@@ -8,6 +8,7 @@ import (
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
+	"path"
 )
 
 func FilterTablesForIncremental(lastBackupTOC, currentTOC *toc.TOC, tables []Table) []Table {
@@ -71,10 +72,11 @@ func GetLatestMatchingBackupConfig(history *history.History, currentBackupConfig
 }
 
 func matchesIncrementalFlags(backupConfig *history.BackupConfig, currentBackupConfig *history.BackupConfig) bool {
+	_, pluginBinaryName := path.Split(backupConfig.Plugin)
 	return backupConfig.BackupDir == MustGetFlagString(options.BACKUP_DIR) &&
 		backupConfig.DatabaseName == currentBackupConfig.DatabaseName &&
 		backupConfig.LeafPartitionData == MustGetFlagBool(options.LEAF_PARTITION_DATA) &&
-		backupConfig.Plugin == currentBackupConfig.Plugin &&
+		pluginBinaryName == currentBackupConfig.Plugin &&
 		backupConfig.SingleDataFile == MustGetFlagBool(options.SINGLE_DATA_FILE) &&
 		backupConfig.Compressed == currentBackupConfig.Compressed &&
 		// Expanding of the include list happens before this now so we must compare again current backup config

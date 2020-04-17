@@ -11,6 +11,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/nightlyone/lockfile"
 	"github.com/pkg/errors"
+	"path"
 	"reflect"
 )
 
@@ -106,7 +107,7 @@ func initializeBackupReport(opts options.Options) {
 	escapedDBName := dbconn.MustSelectString(connectionPool, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", utils.EscapeSingleQuotes(connectionPool.DBName)))
 	plugin := ""
 	if pluginConfig != nil {
-		plugin = pluginConfig.ExecutablePath
+		_, plugin = path.Split(pluginConfig.ExecutablePath)
 	}
 	config := NewBackupConfig(escapedDBName, connectionPool.Version.VersionString, version,
 		plugin, globalFPInfo.Timestamp, opts)
