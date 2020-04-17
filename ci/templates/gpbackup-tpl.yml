@@ -911,7 +911,6 @@ jobs:
     - get: centos7-image
     - get: gpbackup_s3_plugin
     - get: gpbackup
-    - get: ccp_src
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpdb_binary
@@ -922,24 +921,26 @@ jobs:
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      vars:
-        <<: *ccp_default_vars
-        number_of_nodes: 4
-        segments_per_host: 4
-        instance_type: n1-standard-8
-        disk_size: 400
-        PLATFORM: centos7
-        ccp_reap_minutes: 240
-  - task: gen_cluster
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    params:
-      <<: *ccp_gen_cluster_default_params
-      PLATFORM: centos7
-  - task: gpinitsystem
-    file: ccp_src/ci/tasks/gpinitsystem.yml
+    - do:
+      - get: ccp_src
+      - put: terraform
+        params:
+          <<: *ccp_default_params
+          vars:
+            <<: *ccp_default_vars
+            number_of_nodes: 4
+            segments_per_host: 4
+            instance_type: n1-standard-8
+            disk_size: 400
+            PLATFORM: centos7
+            ccp_reap_minutes: 240
+      - task: gen_cluster
+        file: ccp_src/ci/tasks/gen_cluster.yml
+        params:
+          <<: *ccp_gen_cluster_default_params
+          PLATFORM: centos7
+      - task: gpinitsystem
+        file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
     image: centos7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
