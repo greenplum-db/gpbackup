@@ -51,8 +51,7 @@ var _ = Describe("backup/statistics tests", func() {
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real
-WHERE relname = 'testtable'
-AND relnamespace = 0;`)
+WHERE oid = 'testschema.testtable'::regclass::oid;`)
 		})
 		It("prints tuple and attribute stats for single table with stats", func() {
 			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
@@ -69,8 +68,7 @@ AND relnamespace = 0;`)
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real
-WHERE relname = 'testtable'
-AND relnamespace = 0;
+WHERE oid = 'testschema.testtable'::regclass::oid;
 
 
 DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable'::regclass::oid AND staattnum = 0;
@@ -128,16 +126,15 @@ INSERT INTO pg_statistic VALUES (
 		})
 	})
 	Describe("GenerateTupleStatisticsQuery", func() {
-		It("generates tuple statistics query with a single quote in the table name", func() {
-			tableTestTable := backup.Table{Relation: backup.Relation{Schema: "testschema", Name: `"test'table"`}}
-			tupleStats := backup.TupleStatistic{Schema: "testschema", Table: `"test'table"`}
+		It("generates tuple statistics query with double quotes and a single quote in the table name and schema name", func() {
+			tableTestTable := backup.Table{Relation: backup.Relation{Schema: `"""test'schema"""`, Name: `"""test'table"""`}}
+			tupleStats := backup.TupleStatistic{Schema: `"""test'schema"""`, Table: `"""test'table"""`}
 			tupleQuery := backup.GenerateTupleStatisticsQuery(tableTestTable, tupleStats)
 			Expect(tupleQuery).To(Equal(`UPDATE pg_class
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real
-WHERE relname = '"test''table"'
-AND relnamespace = 0;`))
+WHERE oid = '"""test''schema"""."""test''table"""'::regclass::oid;`))
 		})
 
 	})

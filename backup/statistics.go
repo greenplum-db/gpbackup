@@ -37,14 +37,12 @@ func GenerateTupleStatisticsQuery(table Table, tupleStat TupleStatistic) string 
 SET
 	relpages = %d::int,
 	reltuples = %f::real
-WHERE relname = '%s'
-AND relnamespace = %d;`
+WHERE oid = '%s'::regclass::oid;`
 	return fmt.Sprintf(
 		tupleQuery,
 		tupleStat.RelPages,
 		tupleStat.RelTuples,
-		utils.EscapeSingleQuotes(tupleStat.Table),
-		table.SchemaOid)
+		utils.EscapeSingleQuotes(table.FQN()))
 }
 
 func GenerateAttributeStatisticsQuery(table Table, attStat AttributeStatistic) string {

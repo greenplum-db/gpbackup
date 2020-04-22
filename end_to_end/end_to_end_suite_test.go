@@ -145,6 +145,30 @@ func assertDataRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
 	}
 }
 
+type PGClassStats struct {
+	Relpages  int
+	Reltuples float32
+}
+
+func assertPGClassStatsRestored(backupConn *dbconn.DBConn, restoreConn *dbconn.DBConn, tableToTupleCount map[string]int) {
+	for tableName, _ := range tableToTupleCount {
+		backupStats := make([]PGClassStats, 0)
+		restoreStats := make([]PGClassStats, 0)
+		pgClassStatsQuery := fmt.Sprintf("SELECT relpages, reltuples FROM pg_class WHERE oid='%s'::regclass::oid", tableName)
+		backupErr := backupConn.Select(&backupStats, pgClassStatsQuery)
+		restoreErr := restoreConn.Select(&restoreStats, pgClassStatsQuery)
+		if backupErr != nil {
+			Fail(fmt.Sprintf("Unable to get pg_class stats for table '%s' on the backup database", tableName))
+		} else if restoreErr != nil {
+			Fail(fmt.Sprintf("Unable to get pg_class stats for table '%s' on the restore database", tableName))
+		}
+
+		if backupStats[0].Relpages != restoreStats[0].Relpages && backupStats[0].Reltuples != restoreStats[0].Reltuples {
+			Fail(fmt.Sprintf("The pg_class stats for table '%s' do not match: %v != %v", tableName, backupStats, restoreStats))
+		}
+	}
+}
+
 func assertSchemasExist(conn *dbconn.DBConn, expectedNumSchemas int) {
 	countQuery := `SELECT COUNT(n.nspname) FROM pg_catalog.pg_namespace n WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' ORDER BY 1;`
 	actualSchemaCount := dbconn.MustSelectString(conn, countQuery)
@@ -735,6 +759,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"schema3.foo3": 100,
 			}
 			assertDataRestored(backupConn, schema3TupleCounts)
+			assertPGClassStatsRestored(backupConn, restoreConn, schema3TupleCounts)
 
 			actualIndexCount := dbconn.MustSelectString(backupConn,
 				`SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)
@@ -1019,6 +1044,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 		Expect(string(output)).To(ContainSubstring("Query planner statistics restore complete"))
 		assertDataRestored(restoreConn, publicSchemaTupleCounts)
 		assertDataRestored(restoreConn, schema2TupleCounts)
+		assertPGClassStatsRestored(backupConn, restoreConn, publicSchemaTupleCounts)
+		assertPGClassStatsRestored(backupConn, restoreConn, schema2TupleCounts)
 
 		backupStatisticCount := dbconn.MustSelectString(backupConn,
 			`SELECT count(*) AS string FROM pg_statistic;`)
@@ -1051,9 +1078,19 @@ var _ = Describe("backup and restore end to end tests", func() {
 			"--backup-dir", backupDir,
 			"--include-table", "public.table_to_include_with_stats")
 
+		includeTableTupleCounts := map[string]int{
+			"public.table_to_include_with_stats": 10,
+		}
+		assertDataRestored(backupConn, includeTableTupleCounts)
+		assertPGClassStatsRestored(backupConn, restoreConn, includeTableTupleCounts)
+
 		rawCount := dbconn.MustSelectString(restoreConn,
 			"SELECT count(*) FROM pg_statistic WHERE starelid = 'public.table_to_include_with_stats'::regclass::oid;")
 		Expect(rawCount).To(Equal(strconv.Itoa(1)))
+
+		restoreTableCount := dbconn.MustSelectString(restoreConn,
+			"SELECT count(*) FROM pg_class WHERE oid >= 16384 AND relnamespace in (SELECT oid from pg_namespace WHERE nspname in ('public', 'schema2'));")
+		Expect(restoreTableCount).To(Equal(strconv.Itoa(1)))
 	})
 	It("runs gpbackup and gprestore with jobs flag", func() {
 		skipIfOldBackupVersionBefore("1.3.0")
