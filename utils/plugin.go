@@ -7,6 +7,7 @@ import (
 	path "path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -342,10 +343,12 @@ func (plugin *PluginConfig) DeletePluginConfigWhenEncrypting(c *cluster.Cluster)
 	)
 }
 
+// Creates a valid segment-specific plugin configuration file with unique name
 func (plugin *PluginConfig) createHostPluginConfig(contentIDForSegmentOnHost int,
-	c *cluster.Cluster) (segmentSpecificConfigFilepath string) {
+	c *cluster.Cluster) string {
 	// copy "general" config file to temp, and add segment-specific PGPORT value
-	segmentSpecificConfigFile := plugin.ConfigPath + "_" + strconv.Itoa(contentIDForSegmentOnHost)
+
+	segmentSpecificConfigFile := plugin.ConfigPath + "_" + strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + strconv.Itoa(contentIDForSegmentOnHost)
 	file := iohelper.MustOpenFileForWriting(segmentSpecificConfigFile)
 
 	// add current pgport as attribute
@@ -371,7 +374,7 @@ func (plugin *PluginConfig) createHostPluginConfig(contentIDForSegmentOnHost int
 	gplog.FatalOnError(err)
 	err = file.Close()
 	gplog.FatalOnError(err)
-	gplog.Debug("Wrote %d bytes to plugin config %s", bytes, segmentSpecificConfigFilepath)
+	gplog.Debug("Wrote %d bytes to plugin config %s", bytes, segmentSpecificConfigFile)
 	return segmentSpecificConfigFile
 }
 

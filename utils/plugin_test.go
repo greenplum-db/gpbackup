@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -70,9 +71,15 @@ var _ = Describe("utils/plugin tests", func() {
 		err := os.RemoveAll(tempDir)
 		Expect(err).To(Not(HaveOccurred()))
 		_ = os.Remove(subject.ConfigPath)
-		_ = os.Remove(subject.ConfigPath + "_-1")
-		_ = os.Remove(subject.ConfigPath + "_0")
-		_ = os.Remove(subject.ConfigPath + "_1")
+		confDir := filepath.Dir(subject.ConfigPath)
+		confFileName := filepath.Base(subject.ConfigPath)
+		files, _ := ioutil.ReadDir(confDir)
+		for _, f := range files {
+			match, _ := filepath.Match(confFileName + "*", f.Name())
+			if match {
+				_ = os.Remove(confDir + "/" + f.Name())
+			}
+		}
 	})
 	Describe("plugin versions via CheckPluginExistsOnAllHosts()", func() {
 		It(" generates the correct commands", func() {
@@ -96,8 +103,8 @@ var _ = Describe("utils/plugin tests", func() {
 			}
 		})
 	})
-	Describe("copy plugin config", func() {
-		It("successfully copies to all hosts, appending PGPORT and the --version of the plugin", func() {
+	Describe("creates segment-specific plugin config and copies it to all hosts", func() {
+		It("appends PGPORT and the --version of the plugin", func() {
 			testConfigPath := "/tmp/my_plugin_config.yaml"
 			testConfigContents := `
 executablepath: /tmp/fake_path
@@ -114,18 +121,28 @@ options:
 			Expect(executor.NumRemoteExecutions).To(Equal(1))
 			cc := executor.ClusterCommands[0]
 			Expect(len(cc)).To(Equal(3))
-			Expect(cc[-1][2]).To(Equal("scp /tmp/my_plugin_config.yaml_-1 master:/tmp/my_plugin_config.yaml; rm /tmp/my_plugin_config.yaml_-1"))
-			Expect(cc[0][2]).To(Equal("scp /tmp/my_plugin_config.yaml_0 segment1:/tmp/my_plugin_config.yaml; rm /tmp/my_plugin_config.yaml_0"))
-			Expect(cc[1][2]).To(Equal("scp /tmp/my_plugin_config.yaml_1 segment2:/tmp/my_plugin_config.yaml; rm /tmp/my_plugin_config.yaml_1"))
+			Expect(cc[-1][2]).To(MatchRegexp(`scp .*-1 master:\/tmp\/my_plugin_config\.yaml; rm .*-1`))
+			Expect(cc[0][2]).To(MatchRegexp(`scp .*0 segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`))
+			Expect(cc[1][2]).To(MatchRegexp(`scp .*1 segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`))
+
+			rgx := regexp.MustCompile(`scp (.*-1) master:\/tmp\/my_plugin_config\.yaml; rm .*-1`)
+			rs := rgx.FindStringSubmatch(cc[-1][2])
+			masterConfigPath := rs[1]
+			rgx = regexp.MustCompile(`scp (.*0) segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`)
+			rs = rgx.FindStringSubmatch(cc[0][2])
+			segmentOneConfigPath := rs[1]
+			rgx = regexp.MustCompile(`scp (.*1) segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`)
+			rs = rgx.FindStringSubmatch(cc[1][2])
+			segmentTwoConfigPath := rs[1]
 
 			// check contents
-			contents := strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_-1"), "\n")
+			contents := strings.Join(iohelper.MustReadLinesFromFile(masterConfigPath), "\n")
 			Expect(contents).To(ContainSubstring("\n  pgport: \"100\""))
 			Expect(contents).To(ContainSubstring("\n  backup_plugin_version: my.test.version"))
-			contents = strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_0"), "\n")
+			contents = strings.Join(iohelper.MustReadLinesFromFile(segmentOneConfigPath), "\n")
 			Expect(contents).To(ContainSubstring("\n  pgport: \"101\""))
 			Expect(contents).To(ContainSubstring("\n  backup_plugin_version: my.test.version"))
-			contents = strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_1"), "\n")
+			contents = strings.Join(iohelper.MustReadLinesFromFile(segmentTwoConfigPath), "\n")
 			Expect(contents).To(ContainSubstring("\n  pgport: \"102\""))
 			Expect(contents).To(ContainSubstring("\n  backup_plugin_version: my.test.version"))
 		})
@@ -152,11 +169,23 @@ options:
 				subject.CopyPluginConfigToAllHosts(testCluster)
 
 				// check contents
-				contents := strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_-1"), "\n")
+				cc := executor.ClusterCommands[0]
+				rgx := regexp.MustCompile(`scp (.*-1) master:\/tmp\/my_plugin_config\.yaml; rm .*-1`)
+				rs := rgx.FindStringSubmatch(cc[-1][2])
+				masterConfigPath := rs[1]
+				rgx = regexp.MustCompile(`scp (.*0) segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`)
+				rs = rgx.FindStringSubmatch(cc[0][2])
+				segmentOneConfigPath := rs[1]
+				rgx = regexp.MustCompile(`scp (.*1) segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`)
+				rs = rgx.FindStringSubmatch(cc[1][2])
+				segmentTwoConfigPath := rs[1]
+
+				// check contents
+				contents := strings.Join(iohelper.MustReadLinesFromFile(masterConfigPath), "\n")
 				Expect(contents).To(ContainSubstring("\n  gpbackup_fake_plugin: \"0123456789\""))
-				contents = strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_0"), "\n")
+				contents = strings.Join(iohelper.MustReadLinesFromFile(segmentOneConfigPath), "\n")
 				Expect(contents).To(ContainSubstring("\n  gpbackup_fake_plugin: \"0123456789\""))
-				contents = strings.Join(iohelper.MustReadLinesFromFile("/tmp/my_plugin_config.yaml_1"), "\n")
+				contents = strings.Join(iohelper.MustReadLinesFromFile(segmentTwoConfigPath), "\n")
 				Expect(contents).To(ContainSubstring("\n  gpbackup_fake_plugin: \"0123456789\""))
 			})
 			It("writes a stdout message when encrypt key is not found", func() {

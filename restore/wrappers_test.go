@@ -294,8 +294,15 @@ withstatistics: false
 			Expect(err).To(Not(HaveOccurred()))
 			_ = os.Chdir(oldWd)
 			_ = os.Remove(testConfigPath)
-			_ = os.Remove(testConfigPath + "_0")
-			_ = os.Remove(testConfigPath + "_1")
+			confDir := filepath.Dir(testConfigPath)
+			confFileName := filepath.Base(testConfigPath)
+			files, _ := ioutil.ReadDir(confDir)
+			for _, f := range files {
+				match, _ := filepath.Match("*" + confFileName + "*", f.Name())
+				if match {
+					_ = os.Remove(confDir + "/" + f.Name())
+				}
+			}
 		})
 		Describe("RecoverMetadataFilesUsingPlugin", func() {
 			It("proceed without warning when plugin version is found", func() {
