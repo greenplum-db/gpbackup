@@ -16,18 +16,20 @@ import (
 
 func PrintStatisticsStatements(statisticsFile *utils.FileWithByteCount, tocfile *toc.TOC, tables []Table, attStats map[uint32][]AttributeStatistic, tupleStats map[uint32]TupleStatistic) {
 	for _, table := range tables {
-		PrintStatisticsStatementsForTable(statisticsFile, tocfile, table, attStats[table.Oid], tupleStats[table.Oid])
+		tupleQuery := GenerateTupleStatisticsQuery(table, tupleStats[table.Oid])
+		printStatisticsStatementForTable(statisticsFile, tocfile, table, tupleQuery)
+		for _, attStat := range attStats[table.Oid] {
+			attributeQueries := GenerateAttributeStatisticsQueries(table, attStat)
+			for _, attrQuery := range attributeQueries{
+				printStatisticsStatementForTable(statisticsFile, tocfile, table, attrQuery)
+			}
+		}
 	}
 }
 
-func PrintStatisticsStatementsForTable(statisticsFile *utils.FileWithByteCount, tocfile *toc.TOC, table Table, attStats []AttributeStatistic, tupleStat TupleStatistic) {
+func printStatisticsStatementForTable(statisticsFile *utils.FileWithByteCount, tocfile *toc.TOC, table Table, query string){
 	start := statisticsFile.ByteCount
-	tupleQuery := GenerateTupleStatisticsQuery(table, tupleStat)
-	statisticsFile.MustPrintf("\n\n%s\n", tupleQuery)
-	for _, attStat := range attStats {
-		attributeQuery := GenerateAttributeStatisticsQuery(table, attStat)
-		statisticsFile.MustPrintf("\n\n%s\n", attributeQuery)
-	}
+	statisticsFile.MustPrintf("\n\n%s\n", query)
 	entry := toc.MetadataEntry{Schema: table.Schema, Name: table.Name, ObjectType: "STATISTICS"}
 	tocfile.AddMetadataEntry("statistics", entry, start, statisticsFile.ByteCount)
 }
@@ -45,7 +47,7 @@ WHERE oid = '%s'::regclass::oid;`
 		utils.EscapeSingleQuotes(table.FQN()))
 }
 
-func GenerateAttributeStatisticsQuery(table Table, attStat AttributeStatistic) string {
+func GenerateAttributeStatisticsQueries(table Table, attStat AttributeStatistic) []string {
 	/*
 	 * When restoring statistics to a new database, we cannot determine what the
 	 * new OID for a given object will be, so we need to perform an explicit cast
@@ -56,6 +58,7 @@ func GenerateAttributeStatisticsQuery(table Table, attStat AttributeStatistic) s
 	// The entry may or may not already exist, so we can't either just UPDATE or just INSERT without a DELETE.
 	inheritStr := ""
 	attributeSlotsQueryStr := ""
+	var attributeQueries []string
 	if connectionPool.Version.AtLeast("6") {
 		inheritStr = fmt.Sprintf("\n\t%t::boolean,", attStat.Inherit)
 		attributeSlotsQueryStr = generateAttributeSlotsQueryMaster(attStat)
@@ -63,16 +66,14 @@ func GenerateAttributeStatisticsQuery(table Table, attStat AttributeStatistic) s
 		attributeSlotsQueryStr = generateAttributeSlotsQuery4(attStat)
 	}
 
-	attributeQuery := fmt.Sprintf(`DELETE FROM pg_statistic WHERE starelid = %s AND staattnum = %d;
-
-INSERT INTO pg_statistic VALUES (
+	attributeQueries = append(attributeQueries, fmt.Sprintf(`DELETE FROM pg_statistic WHERE starelid = %s AND staattnum = %d;`, starelidStr, attStat.AttNumber))
+	attributeQueries = append(attributeQueries, fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
 	%s,
 	%d::smallint,%s
 	%f::real,
 	%d::integer,
 	%f::real,
-	%s
-);`, starelidStr, attStat.AttNumber, starelidStr, attStat.AttNumber, inheritStr, attStat.NullFraction, attStat.Width, attStat.Distinct, attributeSlotsQueryStr)
+	%s);`, starelidStr, attStat.AttNumber, inheritStr, attStat.NullFraction, attStat.Width, attStat.Distinct, attributeSlotsQueryStr))
 
 	/*
 	 * If a type name starts with exactly one underscore, it describes an array
@@ -80,7 +81,7 @@ INSERT INTO pg_statistic VALUES (
 	 * NULL everything out.
 	 */
 
-	return attributeQuery
+	return attributeQueries
 }
 
 // GPDB6 introduced an additional statistic slot that we account for in this function

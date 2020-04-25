@@ -160,7 +160,7 @@ func assertPGClassStatsRestored(backupConn *dbconn.DBConn, restoreConn *dbconn.D
 		if backupErr != nil {
 			Fail(fmt.Sprintf("Unable to get pg_class stats for table '%s' on the backup database", tableName))
 		} else if restoreErr != nil {
-			Fail(fmt.Sprintf("Unable to get pg_class stats for table '%s' on the restore database", tableName))
+			Fail(fmt.Sprintf("Unable to get pg_class stats for table '%s' on the restore database: %s", tableName, restoreErr))
 		}
 
 		if backupStats[0].Relpages != restoreStats[0].Relpages && backupStats[0].Reltuples != restoreStats[0].Reltuples {
@@ -735,8 +735,41 @@ var _ = Describe("backup and restore end to end tests", func() {
 		})
 	})
 	Describe("Redirect Schema", func() {
+		It("runs gprestore with --redirect-schema restoring data and statistics to the new schema", func() {
+			skipIfOldBackupVersionBefore("1.17.0")
+			testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+			defer testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA schema3 CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP INDEX schema2.foo3_idx1")
+			testhelper.AssertQueryRuns(backupConn,
+				"ANALYZE schema2.foo3")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--with-stats")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+					"--include-table", "schema2.foo3",
+					"--redirect-schema", "schema3",
+					"--with-stats")
+
+			schema3TupleCounts := map[string]int{
+				"schema3.foo3": 100,
+			}
+			assertDataRestored(restoreConn, schema3TupleCounts)
+			assertPGClassStatsRestored(restoreConn, restoreConn, schema3TupleCounts)
+
+			actualIndexCount := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)
+			Expect(actualIndexCount).To(Equal("1"))
+
+			actualStatisticCount := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) FROM pg_statistic WHERE starelid='schema3.foo3'::regclass::oid;`)
+			Expect(actualStatisticCount).To(Equal("1"))
+		})
 		It("runs gprestore with --redirect-schema to redirect data back to the original database which still contain the original tables", func() {
-			Skip("TODO: fix restore statistics on redirect")
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(backupConn,
 				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
@@ -759,7 +792,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"schema3.foo3": 100,
 			}
 			assertDataRestored(backupConn, schema3TupleCounts)
-			assertPGClassStatsRestored(backupConn, restoreConn, schema3TupleCounts)
+			assertPGClassStatsRestored(backupConn, backupConn, schema3TupleCounts)
 
 			actualIndexCount := dbconn.MustSelectString(backupConn,
 				`SELECT count(*) AS string FROM pg_indexes WHERE schemaname='schema3' AND indexname='foo3_idx1';`)

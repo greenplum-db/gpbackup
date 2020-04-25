@@ -30,51 +30,60 @@ var _ = Describe("backup/statistics tests", func() {
 	}
 
 	Describe("PrintStatisticsStatementsForTable", func() {
-		var (
-			attStats       []backup.AttributeStatistic
-			tupleStats     backup.TupleStatistic
-			tableTestTable backup.Table
-		)
-
-		BeforeEach(func() {
-			attStats = []backup.AttributeStatistic{}
-			tupleStats = backup.TupleStatistic{}
+		It("prints tuple stats and attr stats for all tables", func() {
 			tocfile, backupfile = testutils.InitializeTestTOC(buffer, "statistics")
-			tableTestTable = backup.Table{Relation: backup.Relation{Schema: "testschema", Name: "testtable"}}
-		})
-		It("prints tuple and attribute stats for single table with no stats", func() {
-			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
-			attStats = []backup.AttributeStatistic{}
-			backup.PrintStatisticsStatementsForTable(backupfile, tocfile, tableTestTable, attStats, tupleStats)
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
-			testutils.AssertBufferContents(tocfile.StatisticsEntries, buffer, `UPDATE pg_class
-SET
-	relpages = 0::int,
-	reltuples = 0.000000::real
-WHERE oid = 'testschema.testtable'::regclass::oid;`)
-		})
-		It("prints tuple and attribute stats for single table with stats", func() {
-			tupleStats = backup.TupleStatistic{Schema: "testschema", Table: "testtable"}
-			attStats = []backup.AttributeStatistic{
-				{Schema: "testschema", Table: "testtable", AttName: "testattWithArray", Type: "_array"},
-				{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "_array", Relid: 2, AttNumber: 3, NullFraction: .4,
+
+			testTable1 := backup.Table{Relation: backup.Relation{Oid: 123, Schema: "testschema", Name: "testtable1"}}
+			tupleStat1 := backup.TupleStatistic{Schema: "testschema", Table: "testtable1"}
+			attStat1 := []backup.AttributeStatistic{}
+
+			testTable2 := backup.Table{Relation: backup.Relation{Oid: 456, Schema: "testschema", Name: "testtable2"}}
+			tupleStat2 := backup.TupleStatistic{Schema: "testschema", Table: "testtable2"}
+			attStat2 := []backup.AttributeStatistic{
+				{Schema: "testschema", Table: "testtable2", AttName: "testattWithArray", Type: "_array"},
+				{Schema: "testschema", Table: "testtable2", AttName: "testatt", Type: "_array", Relid: 2, AttNumber: 3, NullFraction: .4,
 					Width: 10, Distinct: .5, Kind1: 20, Operator1: 10, Numbers1: []string{"1", "2", "3"}, Values1: []string{"4", "5", "6"}},
 			}
-			backup.PrintStatisticsStatementsForTable(backupfile, tocfile, tableTestTable, attStats, tupleStats)
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 0, "testschema", "", "testtable", "STATISTICS")
+
+			tables := []backup.Table{testTable1, testTable2}
+			tupleStats := map[uint32]backup.TupleStatistic{
+				123: tupleStat1,
+				456: tupleStat2,
+			}
+			attStats := map[uint32][]backup.AttributeStatistic{
+				123: attStat1,
+				456: attStat2,
+			}
+
+			backup.PrintStatisticsStatements(backupfile, tocfile, tables, attStats, tupleStats)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 0, "testschema", "", "testtable1", "STATISTICS")
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 1, "testschema", "", "testtable2", "STATISTICS")
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 2, "testschema", "", "testtable2", "STATISTICS")
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 3, "testschema", "", "testtable2", "STATISTICS")
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 4, "testschema", "", "testtable2", "STATISTICS")
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 5, "testschema", "", "testtable2", "STATISTICS")
 
 			insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5 := getStatInsertReplace(0, 0)
-			testutils.AssertBufferContents(tocfile.StatisticsEntries, buffer, fmt.Sprintf(`UPDATE pg_class
+
+			fmt.Printf("Replaces")
+
+			expected := []string{
+`UPDATE pg_class
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real
-WHERE oid = 'testschema.testtable'::regclass::oid;
+WHERE oid = 'testschema.testtable1'::regclass::oid;`,
 
+`UPDATE pg_class
+SET
+	relpages = 0::int,
+	reltuples = 0.000000::real
+WHERE oid = 'testschema.testtable2'::regclass::oid;`,
 
-DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable'::regclass::oid AND staattnum = 0;
+`DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable2'::regclass::oid AND staattnum = 0;`,
 
-INSERT INTO pg_statistic VALUES (
-	'testschema.testtable'::regclass::oid,
+fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
+	'testschema.testtable2'::regclass::oid,
 	0::smallint,%[1]s
 	0.000000::real,
 	0::integer,
@@ -94,14 +103,12 @@ INSERT INTO pg_statistic VALUES (
 	NULL,
 	NULL,
 	NULL,%[5]s
-	NULL
-);
+	NULL);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5),
 
+`DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable2'::regclass::oid AND staattnum = 3;`,
 
-DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable'::regclass::oid AND staattnum = 3;
-
-INSERT INTO pg_statistic VALUES (
-	'testschema.testtable'::regclass::oid,
+fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
+	'testschema.testtable2'::regclass::oid,
 	3::smallint,%[1]s
 	0.400000::real,
 	10::integer,
@@ -121,8 +128,9 @@ INSERT INTO pg_statistic VALUES (
 	NULL,
 	NULL,
 	NULL,%[5]s
-	NULL
-);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5))
+	NULL);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5),
+			}
+			testutils.AssertBufferContents(tocfile.StatisticsEntries, buffer, expected...)
 		})
 	})
 	Describe("GenerateTupleStatisticsQuery", func() {
@@ -138,7 +146,7 @@ WHERE oid = '"""test''schema"""."""test''table"""'::regclass::oid;`))
 		})
 
 	})
-	Describe("GenerateAttributeStatisticsQuery", func() {
+	Describe("GenerateAttributeStatisticsQueries", func() {
 		tableTestTable := backup.Table{Relation: backup.Relation{Schema: "testschema", Name: `"test'table"`}}
 
 		It("generates attribute statistics query for array type", func() {
@@ -150,12 +158,11 @@ WHERE oid = '"""test''schema"""."""test''table"""'::regclass::oid;`))
 				attStats.Operator5 = 12
 			}
 
-			attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
+			attStatsQueries := backup.GenerateAttributeStatisticsQueries(tableTestTable, attStats)
+			Expect(attStatsQueries[0]).To(Equal(fmt.Sprintf(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;`)))
 
 			insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5 := getStatInsertReplace(0, 0)
-			Expect(attStatsQuery).To(Equal(fmt.Sprintf(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
-
-INSERT INTO pg_statistic VALUES (
+			Expect(attStatsQueries[1]).To(Equal(fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
 	'testschema."test''table"'::regclass::oid,
 	3::smallint,%s
 	0.400000::real,
@@ -176,8 +183,7 @@ INSERT INTO pg_statistic VALUES (
 	NULL,
 	NULL,
 	NULL,%s
-	NULL
-);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5)))
+	NULL);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5)))
 		})
 		It("generates attribute statistics query for non-array type", func() {
 			attStats := backup.AttributeStatistic{Schema: "testschema", Table: "testtable", AttName: "testatt", Type: "testtype", Relid: 2,
@@ -188,12 +194,12 @@ INSERT INTO pg_statistic VALUES (
 				attStats.Operator5 = 12
 			}
 
-			attStatsQuery := backup.GenerateAttributeStatisticsQuery(tableTestTable, attStats)
+			attStatsQueries := backup.GenerateAttributeStatisticsQueries(tableTestTable, attStats)
+
+			Expect(attStatsQueries[0]).To(Equal(fmt.Sprintf(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;`)))
 
 			insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5 := getStatInsertReplace(10, 12)
-			Expect(attStatsQuery).To(Equal(fmt.Sprintf(`DELETE FROM pg_statistic WHERE starelid = 'testschema."test''table"'::regclass::oid AND staattnum = 3;
-
-INSERT INTO pg_statistic VALUES (
+			Expect(attStatsQueries[1]).To(Equal(fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
 	'testschema."test''table"'::regclass::oid,
 	3::smallint,%s
 	0.400000::real,
@@ -214,8 +220,7 @@ INSERT INTO pg_statistic VALUES (
 	array_in('{"4","5","6"}', 'testtype'::regtype::oid, -1),
 	NULL,
 	NULL,%s
-	NULL
-);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5)))
+	NULL);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5)))
 		})
 	})
 	Describe("AnyValues", func() {
