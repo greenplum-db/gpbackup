@@ -345,7 +345,7 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 
 	const batchSize = 100
 	lastBatchSize := len(tables) % batchSize
-	tableBatches := generateTableBatches(tables, batchSize)
+	tableBatches := GenerateTableBatches(tables, batchSize)
 	currentBatchSize := batchSize
 
 	// The LOCK TABLE query could block if someone else is
@@ -373,10 +373,10 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	progressBar.Finish()
 }
 
-// generateTableBatches batches tables to reduce network congestion and
+// GenerateTableBatches batches tables to reduce network congestion and
 // resource contention.  Returns an array of batches where a batch of tables is
 // a single string with comma separated tables
-func generateTableBatches(tables []Relation, batchSize int) []string {
+func GenerateTableBatches(tables []Relation, batchSize int) []string {
 	var tableNames []string
 	for _, table := range tables {
 		tableNames = append(tableNames, table.FQN())
