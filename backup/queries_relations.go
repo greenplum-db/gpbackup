@@ -7,6 +7,7 @@ package backup
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -260,7 +261,7 @@ type View struct {
 	Schema         string
 	Name           string
 	Options        string
-	Definition     string
+	Definition     sql.NullString
 	Tablespace     string
 	IsMaterialized bool
 }
@@ -334,7 +335,19 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
-	return results
+	// Remove all views that have NULL definitions. This can happen
+	// if the query above is run and a concurrent view drop happens
+	// just before the pg_get_viewdef function execute.
+	verifiedResults := make([]View, 0)
+	for _, result := range results {
+		if result.Definition.Valid {
+			verifiedResults = append(verifiedResults, result)
+		} else {
+			gplog.Warn("View '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
+		}
+	}
+
+	return verifiedResults
 }
 
 func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {

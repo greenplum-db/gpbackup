@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -47,8 +49,8 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx2 ON public.simple_table(j)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX public.simple_table_idx2")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx1 ON public.simple_table USING btree (i)"}
-			index2 := backup.IndexDefinition{Oid: 1, Name: "simple_table_idx2", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx2 ON public.simple_table USING btree (j)"}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx1 ON public.simple_table USING btree (i)", Valid: true}}
+			index2 := backup.IndexDefinition{Oid: 1, Name: "simple_table_idx2", OwningSchema: "public", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx2 ON public.simple_table USING btree (j)", Valid: true}}
 
 			results := backup.GetIndexes(connectionPool)
 
@@ -66,8 +68,8 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE UNIQUE INDEX simple_table_idx1 ON public.simple_table(i)")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx2 ON public.simple_table(j)")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE UNIQUE INDEX simple_table_idx1 ON public.simple_table USING btree (i)"}
-			index2 := backup.IndexDefinition{Oid: 1, Name: "simple_table_idx2", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx2 ON public.simple_table USING btree (j)"}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE UNIQUE INDEX simple_table_idx1 ON public.simple_table USING btree (i)", Valid: true}}
+			index2 := backup.IndexDefinition{Oid: 1, Name: "simple_table_idx2", OwningSchema: "public", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx2 ON public.simple_table USING btree (j)", Valid: true}}
 
 			results := backup.GetIndexes(connectionPool)
 			supportsConstraint := make([]backup.IndexDefinition, 0)
@@ -97,7 +99,7 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX part_idx ON public.part(id)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX public.part_idx")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "part_idx", OwningSchema: "public", OwningTable: "part", Def: "CREATE INDEX part_idx ON public.part USING btree (id)"}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "part_idx", OwningSchema: "public", OwningTable: "part", Def: sql.NullString{String: "CREATE INDEX part_idx ON public.part USING btree (id)", Valid: true}}
 
 			results := backup.GetIndexes(connectionPool)
 
@@ -116,7 +118,7 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx ON public.simple_table(i) TABLESPACE test_tablespace")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX public.simple_table_idx")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx", OwningSchema: "public", OwningTable: "simple_table", Tablespace: "test_tablespace", Def: "CREATE INDEX simple_table_idx ON public.simple_table USING btree (i)"}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx", OwningSchema: "public", OwningTable: "simple_table", Tablespace: "test_tablespace", Def: sql.NullString{String: "CREATE INDEX simple_table_idx ON public.simple_table USING btree (i)", Valid: true}}
 
 			results := backup.GetIndexes(connectionPool)
 
@@ -138,7 +140,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX testschema.simple_table_idx1")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "testschema", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx1 ON testschema.simple_table USING btree (i)"}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "testschema", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx1 ON testschema.simple_table USING btree (i)", Valid: true}}
 
 			results := backup.GetIndexes(connectionPool)
 
@@ -160,7 +162,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX testschema.simple_table_idx1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.simple_table")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "testschema", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx1 ON testschema.simple_table USING btree (i)"}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "testschema", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx1 ON testschema.simple_table USING btree (i)", Valid: true}}
 
 			results := backup.GetIndexes(connectionPool)
 
@@ -176,7 +178,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX public.simple_table_idx1")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE public.simple_table CLUSTER ON simple_table_idx1")
 
-			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: "CREATE INDEX simple_table_idx1 ON public.simple_table USING btree (i)", IsClustered: true}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx1 ON public.simple_table USING btree (i)", Valid: true}, IsClustered: true}
 
 			results := backup.GetIndexes(connectionPool)
 
@@ -200,7 +202,7 @@ PARTITION BY RANGE (date)
 				ruleDef1 = "CREATE RULE double_insert AS\n    ON INSERT TO public.rule_table1 DO  INSERT INTO public.rule_table1 (i)\n  VALUES (1);"
 				ruleDef2 = "CREATE RULE update_notify AS\n    ON UPDATE TO public.rule_table1 DO\n NOTIFY rule_table1;"
 			}
-			rule1 = backup.RuleDefinition{Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef1}
+			rule1 = backup.RuleDefinition{Oid: 0, Name: "double_insert", OwningSchema: "public", OwningTable: "rule_table1", Def: sql.NullString{String: ruleDef1, Valid: true}}
 		})
 		It("returns no slice when no rule exists", func() {
 			results := backup.GetRules(connectionPool)
@@ -217,7 +219,7 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE RULE update_notify AS ON UPDATE TO public.rule_table1 DO NOTIFY rule_table1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE update_notify ON public.rule_table1")
 
-			rule2 := backup.RuleDefinition{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: ruleDef2}
+			rule2 := backup.RuleDefinition{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "rule_table1", Def: sql.NullString{String: ruleDef2, Valid: true}}
 
 			results := backup.GetRules(connectionPool)
 
@@ -278,8 +280,8 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table2 ON public.trigger_table2")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
-			trigger2 := backup.TriggerDefinition{Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
+			trigger2 := backup.TriggerDefinition{Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -311,7 +313,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -331,7 +333,7 @@ PARTITION BY RANGE (date)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.trigger_table1")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 

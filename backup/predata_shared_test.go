@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -23,12 +25,12 @@ var _ = Describe("backup/predata_shared tests", func() {
 			emptyMetadataMap backup.MetadataMap
 		)
 		BeforeEach(func() {
-			uniqueOne = backup.Constraint{Oid: 1, Name: "tablename_i_key", ConType: "u", ConDef: "UNIQUE (i)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			uniqueTwo = backup.Constraint{Oid: 0, Name: "tablename_j_key", ConType: "u", ConDef: "UNIQUE (j)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			primarySingle = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", ConDef: "PRIMARY KEY (i)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			primaryComposite = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", ConDef: "PRIMARY KEY (i, j)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			foreignOne = backup.Constraint{Oid: 0, Name: "tablename_i_fkey", ConType: "f", ConDef: "FOREIGN KEY (i) REFERENCES other_tablename(a)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			foreignTwo = backup.Constraint{Oid: 0, Name: "tablename_j_fkey", ConType: "f", ConDef: "FOREIGN KEY (j) REFERENCES other_tablename(b)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			uniqueOne = backup.Constraint{Oid: 1, Name: "tablename_i_key", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (i)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			uniqueTwo = backup.Constraint{Oid: 0, Name: "tablename_j_key", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (j)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			primarySingle = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (i)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			primaryComposite = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (i, j)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			foreignOne = backup.Constraint{Oid: 0, Name: "tablename_i_fkey", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (i) REFERENCES other_tablename(a)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			foreignTwo = backup.Constraint{Oid: 0, Name: "tablename_j_fkey", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (j) REFERENCES other_tablename(b)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
 			emptyMetadataMap = backup.MetadataMap{}
 		})
 
@@ -126,7 +128,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 					`ALTER TABLE ONLY public.tablename ADD CONSTRAINT tablename_i_fkey FOREIGN KEY (i) REFERENCES other_tablename(a);`)
 			})
 			It("doesn't print an ADD CONSTRAINT statement for domain check constraint", func() {
-				domainCheckConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42::numeric)", OwningObject: "public.domain1", IsDomainConstraint: true, IsPartitionParent: false}
+				domainCheckConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (VALUE <> 42::numeric)", Valid: true}, OwningObject: "public.domain1", IsDomainConstraint: true, IsPartitionParent: false}
 				constraints := []backup.Constraint{domainCheckConstraint}
 				backup.PrintConstraintStatements(backupfile, tocfile, constraints, emptyMetadataMap)
 				testhelper.NotExpectRegexp(buffer, `ALTER DOMAIN`)
@@ -138,7 +140,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 				testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, `ALTER TABLE public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);`)
 			})
 			It("prints an ADD CONSTRAINT [name] CHECK statement without keyword ONLY for a table with descendants (another table inherits it)", func() {
-				checkConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42::numeric)", OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false, ConIsLocal: true}
+				checkConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (VALUE <> 42::numeric)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false, ConIsLocal: true}
 				constraints := []backup.Constraint{checkConstraint}
 				backup.PrintConstraintStatements(backupfile, tocfile, constraints, emptyMetadataMap)
 				testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, `ALTER TABLE public.tablename ADD CONSTRAINT check1 CHECK (VALUE <> 42::numeric);`)

@@ -16,8 +16,8 @@ import (
 func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	funcFQN := utils.MakeFQN(funcDef.Schema, funcDef.Name)
-	metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS ", funcFQN, funcDef.Arguments)
-	metadataFile.MustPrintf("%s AS", funcDef.ResultType)
+	metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS ", funcFQN, funcDef.Arguments.String)
+	metadataFile.MustPrintf("%s AS", funcDef.ResultType.String)
 	PrintFunctionBodyOrPath(metadataFile, funcDef)
 	metadataFile.MustPrintf("LANGUAGE %s", funcDef.Language)
 	PrintFunctionModifiers(metadataFile, funcDef)
@@ -102,8 +102,8 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 		orderedStr = "ORDERED "
 	}
 	argumentsStr := "*"
-	if aggDef.Arguments != "" {
-		argumentsStr = aggDef.Arguments
+	if aggDef.Arguments.String != "" {
+		argumentsStr = aggDef.Arguments.String
 	}
 	metadataFile.MustPrintf("\n\nCREATE %sAGGREGATE %s.%s(%s) (\n", orderedStr, aggDef.Schema, aggDef.Name, argumentsStr)
 
@@ -255,17 +255,17 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *t
 		if procLang.Handler != 0 {
 			handlerInfo := funcInfoMap[procLang.Handler]
 			paramsStr += fmt.Sprintf(" HANDLER %s", handlerInfo.QualifiedName)
-			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", handlerInfo.QualifiedName, handlerInfo.Arguments, procLang.Owner)
+			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", handlerInfo.QualifiedName, handlerInfo.Arguments.String, procLang.Owner)
 		}
 		if procLang.Inline != 0 {
 			inlineInfo := funcInfoMap[procLang.Inline]
 			paramsStr += fmt.Sprintf(" INLINE %s", inlineInfo.QualifiedName)
-			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", inlineInfo.QualifiedName, inlineInfo.Arguments, procLang.Owner)
+			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", inlineInfo.QualifiedName, inlineInfo.Arguments.String, procLang.Owner)
 		}
 		if procLang.Validator != 0 {
 			validatorInfo := funcInfoMap[procLang.Validator]
 			paramsStr += fmt.Sprintf(" VALIDATOR %s", validatorInfo.QualifiedName)
-			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", validatorInfo.QualifiedName, validatorInfo.Arguments, procLang.Owner)
+			alterStr += fmt.Sprintf("\nALTER FUNCTION %s(%s) OWNER TO %s;", validatorInfo.QualifiedName, validatorInfo.Arguments.String, procLang.Owner)
 		}
 		metadataFile.MustPrintf("%s;", paramsStr)
 

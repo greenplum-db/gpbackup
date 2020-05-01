@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -102,12 +104,14 @@ var _ = Describe("backup/dependencies tests", func() {
 		)
 		BeforeEach(func() {
 			funcInfoMap = map[uint32]backup.FunctionInfo{
-				1: {QualifiedName: "public.write_to_s3", Arguments: "", IsInternal: false},
-				2: {QualifiedName: "public.read_from_s3", Arguments: "", IsInternal: false},
+				1: {QualifiedName: "public.write_to_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
+				2: {QualifiedName: "public.read_from_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
 			}
 			objects = []backup.Sortable{
 				backup.Function{Oid: 1, Schema: "public", Name: "function", FunctionBody: "SELECT $1 + $2",
-					Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Language: "sql"},
+					Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true}, Language: "sql"},
 				backup.BaseType{Oid: 2, Schema: "public", Name: "base", Input: "typin", Output: "typout", Category: "U"},
 				backup.CompositeType{Oid: 3, Schema: "public", Name: "composite", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}},
 				backup.Domain{Oid: 4, Schema: "public", Name: "domain", BaseType: "numeric"},
@@ -130,7 +134,7 @@ var _ = Describe("backup/dependencies tests", func() {
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (domain has a constraint)", func() {
 			constraints := []backup.Constraint{
-				{Name: "check_constraint", ConDef: "CHECK (VALUE > 2)", OwningObject: "public.domain"},
+				{Name: "check_constraint", ConDef: sql.NullString{String: "CHECK (VALUE > 2)", Valid: true}, OwningObject: "public.domain"},
 			}
 			backup.PrintDependentObjectStatements(backupfile, tocfile, objects, metadataMap, constraints, funcInfoMap)
 			testhelper.ExpectRegexp(buffer, `

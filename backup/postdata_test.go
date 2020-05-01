@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -15,7 +17,7 @@ var _ = Describe("backup/postdata tests", func() {
 	Context("PrintCreateIndexStatements", func() {
 		var index backup.IndexDefinition
 		BeforeEach(func() {
-			index = backup.IndexDefinition{Oid: 1, Name: "testindex", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX testindex ON public.testtable USING btree(i)"}
+			index = backup.IndexDefinition{Oid: 1, Name: "testindex", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE INDEX testindex ON public.testtable USING btree(i)", Valid: true}}
 		})
 		It("can print a basic index", func() {
 			indexes := []backup.IndexDefinition{index}
@@ -57,7 +59,7 @@ var _ = Describe("backup/postdata tests", func() {
 		})
 	})
 	Context("PrintCreateRuleStatements", func() {
-		rule := backup.RuleDefinition{Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;"}
+		rule := backup.RuleDefinition{Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;", Valid: true}}
 		It("can print a basic rule", func() {
 			rules := []backup.RuleDefinition{rule}
 			emptyMetadataMap := backup.MetadataMap{}
@@ -74,7 +76,7 @@ var _ = Describe("backup/postdata tests", func() {
 		})
 	})
 	Context("PrintCreateTriggerStatements", func() {
-		trigger := backup.TriggerDefinition{Oid: 1, Name: "testtrigger", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()"}
+		trigger := backup.TriggerDefinition{Oid: 1, Name: "testtrigger", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger()", Valid: true}}
 		It("can print a basic trigger", func() {
 			triggers := []backup.TriggerDefinition{trigger}
 			emptyMetadataMap := backup.MetadataMap{}

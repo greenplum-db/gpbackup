@@ -43,7 +43,7 @@ func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *toc.T
 		if constraint.IsPartitionParent || (constraint.ConType == "c" && constraint.ConIsLocal) {
 			objStr = "TABLE"
 		}
-		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef)
+		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.ConDef.String)
 
 		section, entry := constraint.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

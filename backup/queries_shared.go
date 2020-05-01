@@ -6,6 +6,7 @@ package backup
  */
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -76,7 +77,7 @@ type Constraint struct {
 	Schema             string
 	Name               string
 	ConType            string
-	ConDef             string
+	ConDef             sql.NullString
 	ConIsLocal         bool
 	OwningObject       string
 	IsDomainConstraint bool
@@ -174,7 +175,26 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 	results := make([]Constraint, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
-	return results
+
+	if connectionPool.Version.Before("6") {
+		// Remove all constraints that have NULL definitions. This can happen
+		// if the query above is run and a concurrent constraint drop happens
+		// just before the pg_get_constraintdef function executes. Note that
+		// GPDB 6+ pg_get_constraintdef uses an MVCC snapshot instead of
+		// syscache so we only need to verify for GPDB 4.3 and 5 (technically
+		// only GPDB 5 since 4.3 will get a cache error on the query).
+		verifiedResults := make([]Constraint, 0)
+		for _, result := range results {
+			if result.ConDef.Valid {
+				verifiedResults = append(verifiedResults, result)
+			} else {
+				gplog.Warn("Constraint '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
+			}
+		}
+		return verifiedResults
+	} else {
+		return results
+	}
 }
 
 // A list of schemas we don't want to back up, formatted for use in a WHERE clause

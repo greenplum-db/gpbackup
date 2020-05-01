@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -40,12 +42,16 @@ MODIFIES SQL DATA
 
 			addFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
-				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "SETOF record", Valid: true},
 				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
 
@@ -67,7 +73,9 @@ LANGUAGE SQL`)
 
 			addFunction := backup.Function{
 				Schema: "testschema", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
@@ -87,7 +95,9 @@ LANGUAGE SQL WINDOW`)
 
 			windowFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: true, ExecLocation: "a"}
 
@@ -111,12 +121,16 @@ EXECUTE ON ALL SEGMENTS;`)
 
 			srfOnMasterFunction := backup.Function{
 				Schema: "public", Name: "srf_on_master", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: true, ExecLocation: "m"}
 			srfOnAllSegmentsFunction := backup.Function{
 				Schema: "public", Name: "srf_on_all_segments", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: true, ExecLocation: "s"}
 
@@ -145,7 +159,9 @@ MODIFIES SQL DATA
 
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
-				BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "SETOF record", Valid: true},
 				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
 
@@ -184,7 +200,9 @@ MODIFIES SQL DATA
 		perform 1/$1;
 		return current_setting('work_mem');
 	end `,
-				BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "text",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer", Valid: true},
+				ResultType: sql.NullString{String: "text", Valid: true},
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "SET work_mem TO '1MB'", Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
 
@@ -217,7 +235,9 @@ MODIFIES SQL DATA
         perform 1/$1;
         return current_setting('work_mem');
     end `,
-				BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "text",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
+				IdentArgs: sql.NullString{String: "integer", Valid: true},
+				ResultType: sql.NullString{String: "text", Valid: true},
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: `SET search_path TO '$user', 'public', 'abc"def'`, Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
 
@@ -251,15 +271,21 @@ STABLE
 
 			addFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
+				BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true},
+				IdentArgs: sql.NullString{String: "", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, NumRows: 0, Language: "sql", ExecLocation: "a"}
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
-				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
+				BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true},
+				IdentArgs: sql.NullString{String: "", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: true},
 				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql", ExecLocation: "a"}
 			specCharFunction := backup.Function{
 				Schema: "public", Name: `"specChar"`, ReturnsSet: false, FunctionBody: "BEGIN RETURN precision + 1; END;",
-				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
+				BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true},
+				IdentArgs: sql.NullString{String: "", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, NumRows: 0, Language: "plpgsql", ExecLocation: "a"}
 
 			Expect(results).To(HaveLen(3))
@@ -281,7 +307,9 @@ LANGUAGE SQL`)
 
 			addFunction := backup.Function{
 				Schema: "testschema", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: "", IdentArgs: "", ResultType: "",
+				BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true},
+				IdentArgs: sql.NullString{String: "", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql", ExecLocation: "a"}
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			results := backup.GetFunctions4(connectionPool)
@@ -330,7 +358,8 @@ SORTOP = ~>~ );`)
 
 			resultAggregates := backup.GetAggregates(connectionPool)
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "ascii_max", Arguments: "character", IdentArgs: "character",
+				Schema: "public", Name: "ascii_max", Arguments: sql.NullString{String: "character", Valid: true},
+				IdentArgs: sql.NullString{String: "character", Valid: true},
 				TransitionFunction: transitionOid, FinalFunction: 0, SortOperator: "~>~", SortOperatorSchema: "pg_catalog", TransitionDataType: "character",
 				InitialValue: "", InitValIsNull: true, MInitValIsNull: true, IsOrdered: false,
 			}
@@ -353,8 +382,8 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			result := backup.GetAggregates(connectionPool)
 
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "agg_prefunc", Arguments: "numeric, numeric",
-				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
+				Schema: "public", Name: "agg_prefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 			if connectionPool.Version.AtLeast("6") {
@@ -388,8 +417,8 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 			transitionOid := testutils.OidFromObjectName(connectionPool, "public", "mysfunc_accum", backup.TYPE_FUNCTION)
 			prelimOid := testutils.OidFromObjectName(connectionPool, "public", "mypre_accum", backup.TYPE_FUNCTION)
 			aggregateDef := backup.Aggregate{
-				Schema: "testschema", Name: "agg_prefunc", Arguments: "numeric, numeric",
-				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
+				Schema: "testschema", Name: "agg_prefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: transitionOid, PreliminaryFunction: prelimOid,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
 			if connectionPool.Version.AtLeast("6") {
@@ -423,9 +452,9 @@ CREATE AGGREGATE public.agg_hypo_ord (VARIADIC "any" ORDER BY VARIADIC "any")
 			result := backup.GetAggregates(connectionPool)
 
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
-				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: transitionOid, FinalFunction: finalOid,
-				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
+				Schema: "public", Name: "agg_hypo_ord", Arguments: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true},
+				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: transitionOid,
+				FinalFunction: finalOid, TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -449,8 +478,8 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 			result := backup.GetAggregates(connectionPool)
 
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "agg_combinefunc", Arguments: "numeric, numeric",
-				IdentArgs: "numeric, numeric", TransitionFunction: transitionOid, CombineFunction: combineOid,
+				Schema: "public", Name: "agg_combinefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: transitionOid, CombineFunction: combineOid,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
@@ -476,8 +505,8 @@ CREATE AGGREGATE public.myavg (numeric) (
 			result := backup.GetAggregates(connectionPool)
 
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "myavg", Arguments: "numeric",
-				IdentArgs: "numeric", SerialFunction: serialOid, DeserialFunction: deserialOid,
+				Schema: "public", Name: "myavg", Arguments: sql.NullString{String: "numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric", Valid: true}, SerialFunction: serialOid, DeserialFunction: deserialOid,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
 			}
@@ -507,8 +536,8 @@ CREATE AGGREGATE public.moving_agg(numeric,numeric) (
 			result := backup.GetAggregates(connectionPool)
 
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "moving_agg", Arguments: "numeric, numeric",
-				IdentArgs: "numeric, numeric", TransitionFunction: sfuncOid, TransitionDataType: "numeric",
+				Schema: "public", Name: "moving_agg", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: sfuncOid, TransitionDataType: "numeric",
 				InitValIsNull: true, MTransitionFunction: sfuncOid, MInverseTransitionFunction: sfuncOid,
 				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: sfuncOid,
 				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
@@ -531,7 +560,7 @@ LANGUAGE SQL`)
 			oid := testutils.OidFromObjectName(connectionPool, "public", "add", backup.TYPE_FUNCTION)
 			Expect(result).To(HaveLen(initialLength + 1))
 			Expect(result[oid].QualifiedName).To(Equal("public.add"))
-			Expect(result[oid].Arguments).To(Equal("integer, integer"))
+			Expect(result[oid].Arguments.String).To(Equal("integer, integer"))
 			Expect(result[oid].IsInternal).To(BeFalse())
 		})
 		It("returns a map containing an internal function", func() {

@@ -407,12 +407,12 @@ SET SUBPARTITION TEMPLATE ` + `
 		})
 	})
 	Describe("PrintCreateViewStatements", func() {
-		var viewDef string
+		var viewDef sql.NullString
 		BeforeEach(func() {
 			if connectionPool.Version.Before("6") {
-				viewDef = "SELECT 1;"
+				viewDef = sql.NullString{String: "SELECT 1;", Valid: true}
 			} else {
-				viewDef = " SELECT 1;"
+				viewDef = sql.NullString{String: " SELECT 1;", Valid: true}
 			}
 		})
 		It("creates a view with privileges, owner, security label, and comment", func() {
@@ -456,7 +456,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			}
 		})
 		It("creates a view with privileges, owner, security label, and comment", func() {
-			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Definition: " SELECT 1;", IsMaterialized: true}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Definition: sql.NullString{String: " SELECT 1;", Valid: true}, IsMaterialized: true}
 			viewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateViewStatement(backupfile, tocfile, view, viewMetadata)
@@ -474,7 +474,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
 		})
 		It("creates a materialized view with options", func() {
-			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: " SELECT 1;", IsMaterialized: true}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: sql.NullString{String: " SELECT 1;", Valid: true}, IsMaterialized: true}
 
 			backup.PrintCreateViewStatement(backupfile, tocfile, view, backup.ObjectMetadata{})
 

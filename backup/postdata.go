@@ -17,7 +17,7 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 		if !index.SupportsConstraint {
 			section, entry := index.GetMetadataEntry()
 
-			metadataFile.MustPrintf("\n\n%s;", index.Def)
+			metadataFile.MustPrintf("\n\n%s;", index.Def.String)
 			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 			indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
@@ -45,7 +45,7 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, rules []RuleDefinition, ruleMetadata MetadataMap) {
 	for _, rule := range rules {
 		start := metadataFile.ByteCount
-		metadataFile.MustPrintf("\n\n%s", rule.Def)
+		metadataFile.MustPrintf("\n\n%s", rule.Def.String)
 
 		section, entry := rule.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
@@ -57,7 +57,7 @@ func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *toc.T
 func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, triggers []TriggerDefinition, triggerMetadata MetadataMap) {
 	for _, trigger := range triggers {
 		start := metadataFile.ByteCount
-		metadataFile.MustPrintf("\n\n%s;", trigger.Def)
+		metadataFile.MustPrintf("\n\n%s;", trigger.Def.String)
 
 		section, entry := trigger.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

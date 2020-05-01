@@ -6,6 +6,7 @@ package backup
  */
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -46,7 +47,7 @@ type IndexDefinition struct {
 	OwningSchema       string
 	OwningTable        string
 	Tablespace         string
-	Def                string
+	Def                sql.NullString
 	IsClustered        bool
 	SupportsConstraint bool
 	IsReplicaIdentity  bool
@@ -143,7 +144,21 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		err := connectionPool.Select(&resultIndexes, query)
 		gplog.FatalOnError(err)
 	}
-	return resultIndexes
+
+	// Remove all indexes that have NULL definitions. This can happen
+	// if a concurrent index drop happens before the associated table
+	// lock is acquired earlier during gpbackup execution.
+	verifiedResultIndexes := make([]IndexDefinition, 0)
+	for _, resultIndex := range resultIndexes {
+		if resultIndex.Def.Valid {
+			verifiedResultIndexes = append(verifiedResultIndexes, resultIndex)
+		} else {
+			gplog.Warn("Index '%s' on table '%s.%s' not backed up, most likely dropped after gpbackup had begun.",
+				resultIndex.Name, resultIndex.OwningSchema, resultIndex.OwningTable)
+		}
+	}
+
+	return verifiedResultIndexes
 }
 
 type RuleDefinition struct {
@@ -151,7 +166,7 @@ type RuleDefinition struct {
 	Name         string
 	OwningSchema string
 	OwningTable  string
-	Def          string
+	Def          sql.NullString
 }
 
 func (r RuleDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -200,7 +215,21 @@ func GetRules(connectionPool *dbconn.DBConn) []RuleDefinition {
 	results := make([]RuleDefinition, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
-	return results
+
+	// Remove all rules that have NULL definitions. Not sure how
+	// this can happen since pg_get_ruledef uses an SPI query but
+	// handle the NULL just in case.
+	verifiedResults := make([]RuleDefinition, 0)
+	for _, result := range results {
+		if result.Def.Valid {
+			verifiedResults = append(verifiedResults, result)
+		} else {
+			gplog.Warn("Rule '%s' on table '%s.%s' not backed up, most likely dropped after gpbackup had begun.",
+				result.Name, result.OwningSchema, result.OwningTable)
+		}
+	}
+
+	return verifiedResults
 }
 
 type TriggerDefinition RuleDefinition
@@ -250,7 +279,21 @@ func GetTriggers(connectionPool *dbconn.DBConn) []TriggerDefinition {
 	results := make([]TriggerDefinition, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
-	return results
+
+	// Remove all triggers that have NULL definitions. This can happen
+	// if the query above is run and a concurrent trigger drop happens
+	// just before the pg_get_triggerdef function executes.
+	verifiedResults := make([]TriggerDefinition, 0)
+	for _, result := range results {
+		if result.Def.Valid {
+			verifiedResults = append(verifiedResults, result)
+		} else {
+			gplog.Warn("Trigger '%s' on table '%s.%s' not backed up, most likely dropped after gpbackup had begun.",
+				result.Name, result.OwningSchema, result.OwningTable)
+		}
+	}
+
+	return verifiedResults
 }
 
 type EventTrigger struct {

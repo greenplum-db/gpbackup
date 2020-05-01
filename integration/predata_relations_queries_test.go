@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"database/sql"
 	"math"
 	"sort"
 
@@ -377,12 +378,12 @@ PARTITION BY LIST (gender)
 		})
 	})
 	Describe("GetAllViews", func() {
-		var viewDef string
+		var viewDef sql.NullString
 		BeforeEach(func() {
 			if connectionPool.Version.Before("6") {
-				viewDef = "SELECT 1;"
+				viewDef = sql.NullString{String: "SELECT 1;", Valid: true}
 			} else {
-				viewDef = " SELECT 1;"
+				viewDef = sql.NullString{String: " SELECT 1;", Valid: true}
 			}
 		})
 		It("returns a slice for a basic view", func() {

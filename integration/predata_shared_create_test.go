@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -62,11 +64,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			conMetadataMap           backup.MetadataMap
 		)
 		BeforeEach(func() {
-			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: "UNIQUE (a, b)", OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
-			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "constraints_other_table_pkey", ConType: "p", ConDef: "PRIMARY KEY (b)", OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
-			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: "FOREIGN KEY (b) REFERENCES public.constraints_other_table(b)", OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
-			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (a <> 42)", OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
-			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: "CHECK (id <> 0)", OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
+			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
+			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "constraints_other_table_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
+			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (b) REFERENCES public.constraints_other_table(b)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
+			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (a <> 42)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
+			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (id <> 0)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(a int, b text) DISTRIBUTED BY (b)")
 			conMetadataMap = backup.MetadataMap{}
 
@@ -149,7 +151,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("doesn't create a check constraint on a domain", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE DOMAIN public.domain1 AS numeric")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP DOMAIN public.domain1")
-			domainCheckConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: "CHECK (VALUE <> 42::numeric)", OwningObject: "public.domain1", IsDomainConstraint: true, IsPartitionParent: false}
+			domainCheckConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (VALUE <> 42::numeric)", Valid: true}, OwningObject: "public.domain1", IsDomainConstraint: true, IsPartitionParent: false}
 			constraints := []backup.Constraint{domainCheckConstraint}
 			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
 

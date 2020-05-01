@@ -53,7 +53,7 @@ func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *toc.
 		metadataFile.MustPrintf(" NOT NULL")
 	}
 	for _, constraint := range constraints {
-		metadataFile.MustPrintf("\n\tCONSTRAINT %s %s", constraint.Name, constraint.ConDef)
+		metadataFile.MustPrintf("\n\tCONSTRAINT %s %s", constraint.Name, constraint.ConDef.String)
 	}
 	metadataFile.MustPrintln(";")
 

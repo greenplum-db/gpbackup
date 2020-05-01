@@ -1,6 +1,7 @@
 package backup_test
 
 import (
+	"database/sql"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -443,9 +444,9 @@ ENCODING 'UTF-8'`)
 		protocolTrustedReadWriteValidator := backup.ExternalProtocol{Oid: 1, Name: "s3", Owner: "testrole", Trusted: true, ReadFunction: 1, WriteFunction: 2, Validator: 3}
 		emptyMetadata := backup.ObjectMetadata{}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "public.read_fn_s3", Arguments: "", IsInternal: false},
-			2: {QualifiedName: "public.write_fn_s3", Arguments: "", IsInternal: false},
-			3: {QualifiedName: "public.validator", Arguments: "", IsInternal: false},
+			1: {QualifiedName: "public.read_fn_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
+			2: {QualifiedName: "public.write_fn_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
+			3: {QualifiedName: "public.validator", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
 		}
 
 		It("prints untrusted protocol with read and write function", func() {

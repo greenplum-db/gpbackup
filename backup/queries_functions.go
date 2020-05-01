@@ -6,6 +6,7 @@ package backup
  */
 
 import (
+	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
@@ -23,9 +24,9 @@ type Function struct {
 	ReturnsSet        bool    `db:"proretset"`
 	FunctionBody      string
 	BinaryPath        string
-	Arguments         string
-	IdentArgs         string
-	ResultType        string
+	Arguments         sql.NullString
+	IdentArgs         sql.NullString
+	ResultType        sql.NullString
 	Volatility        string  `db:"provolatile"`
 	IsStrict          bool    `db:"proisstrict"`
 	IsLeakProof       bool    `db:"proleakproof"`
@@ -40,7 +41,7 @@ type Function struct {
 }
 
 func (f Function) GetMetadataEntry() (string, toc.MetadataEntry) {
-	nameWithArgs := fmt.Sprintf("%s(%s)", f.Name, f.IdentArgs)
+	nameWithArgs := fmt.Sprintf("%s(%s)", f.Name, f.IdentArgs.String)
 	return "predata",
 		toc.MetadataEntry{
 			Schema:          f.Schema,
@@ -60,7 +61,7 @@ func (f Function) FQN() string {
 	/*
 	 * We need to include arguments to differentiate functions with the same name
 	 */
-	return fmt.Sprintf("%s.%s(%s)", f.Schema, f.Name, f.IdentArgs)
+	return fmt.Sprintf("%s.%s(%s)", f.Schema, f.Name, f.IdentArgs.String)
 }
 
 /*
@@ -78,11 +79,14 @@ func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
 		returns := GetFunctionReturnTypes(connectionPool)
 		for i := range functions {
 			oid := functions[i].Oid
-			functions[i].Arguments = arguments[oid]
-			functions[i].IdentArgs = arguments[oid]
+			functions[i].Arguments.String = arguments[oid]
+			functions[i].Arguments.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
+			functions[i].IdentArgs.String = arguments[oid]
+			functions[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 			functions[i].ReturnsSet = returns[oid].ReturnsSet
 			if tableArguments[oid] != "" {
-				functions[i].ResultType = fmt.Sprintf("TABLE(%s)", tableArguments[oid])
+				functions[i].ResultType.String = fmt.Sprintf("TABLE(%s)", tableArguments[oid])
+				functions[i].ResultType.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 			} else {
 				functions[i].ResultType = returns[oid].ResultType
 			}
@@ -143,7 +147,20 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	err = PostProcessFunctionConfigs(results)
 	gplog.FatalOnError(err)
 
-	return results
+	// Remove all functions that have NULL arguments, NULL identity
+	// arguments, or NULL result type. This can happen if the query
+	// above is run and a concurrent function drop happens just
+	// before the pg_get_function_* functions execute.
+	verifiedResults := make([]Function, 0)
+	for _, result := range results {
+		if result.Arguments.Valid && result.IdentArgs.Valid && result.ResultType.Valid {
+			verifiedResults = append(verifiedResults, result)
+		} else {
+			gplog.Warn("Function '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
+		}
+	}
+
+	return verifiedResults
 }
 
 func PostProcessFunctionConfigs(allFunctions []Function) error {
@@ -323,8 +340,8 @@ type Aggregate struct {
 	Oid                        uint32
 	Schema                     string
 	Name                       string
-	Arguments                  string
-	IdentArgs                  string
+	Arguments                  sql.NullString
+	IdentArgs                  sql.NullString
 	TransitionFunction         uint32 `db:"aggtransfn"`
 	PreliminaryFunction        uint32 `db:"aggprelimfn"`
 	CombineFunction            uint32 `db:"aggcombinefn"`
@@ -352,8 +369,8 @@ type Aggregate struct {
 
 func (a Aggregate) GetMetadataEntry() (string, toc.MetadataEntry) {
 	identArgumentsStr := "*"
-	if a.IdentArgs != "" {
-		identArgumentsStr = a.IdentArgs
+	if a.IdentArgs.String != "" {
+		identArgumentsStr = a.IdentArgs.String
 	}
 	aggWithArgs := fmt.Sprintf("%s(%s)", a.Name, identArgumentsStr)
 	return "predata",
@@ -373,8 +390,8 @@ func (a Aggregate) GetUniqueID() UniqueID {
 
 func (a Aggregate) FQN() string {
 	identArgumentsStr := "*"
-	if a.IdentArgs != "" {
-		identArgumentsStr = a.IdentArgs
+	if a.IdentArgs.String != "" {
+		identArgumentsStr = a.IdentArgs.String
 	}
 	return fmt.Sprintf("%s.%s(%s)", a.Schema, a.Name, identArgumentsStr)
 }
@@ -484,11 +501,29 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		arguments, _ := GetFunctionArgsAndIdentArgs(connectionPool)
 		for i := range aggregates {
 			oid := aggregates[i].Oid
-			aggregates[i].Arguments = arguments[oid]
-			aggregates[i].IdentArgs = arguments[oid]
+			aggregates[i].Arguments.String = arguments[oid]
+			aggregates[i].Arguments.Valid = true  // Hardcode for GPDB 4.3 to fit sql.NullString
+			aggregates[i].IdentArgs.String = arguments[oid]
+			aggregates[i].IdentArgs.Valid = true  // Hardcode for GPDB 4.3 to fit sql.NullString
 		}
+
+		return aggregates
+	} else {
+		// Remove all aggregates that have NULL arguments or NULL
+		// identity arguments. This can happen if the query above
+		// is run and a concurrent aggregate drop happens before
+		// the pg_get_function_* functions execute.
+		verifiedAggregates := make([]Aggregate, 0)
+		for _, aggregate := range aggregates {
+			if aggregate.Arguments.Valid && aggregate.IdentArgs.Valid {
+				verifiedAggregates = append(verifiedAggregates, aggregate)
+			} else {
+				gplog.Warn("Aggregate '%s.%s' not backed up, most likely dropped after gpbackup had begun.", aggregate.Schema, aggregate.Name)
+			}
+		}
+
+		return verifiedAggregates
 	}
-	return aggregates
 }
 
 type FunctionInfo struct {
@@ -496,17 +531,17 @@ type FunctionInfo struct {
 	Name          string
 	Schema        string
 	QualifiedName string
-	Arguments     string
-	IdentArgs     string
+	Arguments     sql.NullString
+	IdentArgs     sql.NullString
 	IsInternal    bool
 }
 
 func (info FunctionInfo) FQN() string {
-	return fmt.Sprintf("%s(%s)", info.QualifiedName, info.IdentArgs)
+	return fmt.Sprintf("%s(%s)", info.QualifiedName, info.IdentArgs.String)
 }
 
 func (info FunctionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
-	nameWithArgs := fmt.Sprintf("%s(%s)", info.Name, info.IdentArgs)
+	nameWithArgs := fmt.Sprintf("%s(%s)", info.Name, info.IdentArgs.String)
 	return "predata",
 		toc.MetadataEntry{
 			Schema:          info.Schema,
@@ -541,14 +576,21 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 		err = connectionPool.Select(&results, version4query)
 		arguments, _ := GetFunctionArgsAndIdentArgs(connectionPool)
 		for i := range results {
-			results[i].Arguments = arguments[results[i].Oid]
-			results[i].IdentArgs = arguments[results[i].Oid]
+			results[i].Arguments.String = arguments[results[i].Oid]
+			results[i].Arguments.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
+			results[i].IdentArgs.String = arguments[results[i].Oid]
+			results[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 		}
 	} else {
 		err = connectionPool.Select(&results, query)
 	}
 	gplog.FatalOnError(err)
 	for _, funcInfo := range results {
+		if !funcInfo.Arguments.Valid || !funcInfo.IdentArgs.Valid {
+			gplog.Warn("Function '%s.%s' not backed up, most likely dropped after gpbackup had begun.", funcInfo.Schema, funcInfo.Name)
+			continue
+		}
+
 		if funcInfo.Schema == "pg_catalog" {
 			funcInfo.IsInternal = true
 		}

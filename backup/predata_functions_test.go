@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -15,7 +17,7 @@ var _ = Describe("backup/predata_functions tests", func() {
 	})
 	Describe("Functions involved in printing CREATE FUNCTION statements", func() {
 		var funcDef backup.Function
-		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer", Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
+		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
 		BeforeEach(func() {
 			funcDef = funcDefault
 		})
@@ -36,7 +38,7 @@ LANGUAGE internal;`)
 			})
 			It("prints a function definition for a function that returns a set", func() {
 				funcDef.ReturnsSet = true
-				funcDef.ResultType = "SETOF integer"
+				funcDef.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, funcDef, funcMetadata)
 				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE FUNCTION public.func_name(integer, integer) RETURNS SETOF integer AS
 $$add_two_ints$$
@@ -265,14 +267,14 @@ $_$`)
 			aggMetadata   backup.ObjectMetadata
 		)
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "public.mysfunc", Arguments: "integer"},
-			2: {QualifiedName: "public.mypfunc", Arguments: "numeric, numeric"},
-			3: {QualifiedName: "public.myffunc", Arguments: "text"},
-			4: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
-			5: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
+			1: {QualifiedName: "public.mysfunc", Arguments: sql.NullString{String: "integer", Valid: true}},
+			2: {QualifiedName: "public.mypfunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true}},
+			3: {QualifiedName: "public.myffunc", Arguments: sql.NullString{String: "text", Valid: true}},
+			4: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: sql.NullString{String: `internal, VARIADIC "any"`, Valid: true}},
+			5: {QualifiedName: "pg_catalog.rank_final", Arguments: sql.NullString{String: `internal, VARIADIC "any"`, Valid: true}},
 		}
 		BeforeEach(func() {
-			aggDefinition = backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: "integer, integer", IdentArgs: "integer, integer", TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
+			aggDefinition = backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
 			emptyMetadata = backup.ObjectMetadata{}
 			aggMetadata = testutils.DefaultMetadata("AGGREGATE", false, true, true, true)
 		})
@@ -294,8 +296,8 @@ $_$`)
 );`)
 		})
 		It("prints an aggregate definition for an unordered aggregate with no arguments", func() {
-			aggDefinition.Arguments = ""
-			aggDefinition.IdentArgs = ""
+			aggDefinition.Arguments = sql.NullString{String: "", Valid: true}
+			aggDefinition.IdentArgs = sql.NullString{String: "", Valid: true}
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggDefinition, funcInfoMap, emptyMetadata)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(*) (
 	SFUNC = public.mysfunc,
@@ -470,8 +472,8 @@ $_$`)
 		})
 		It("prints a hypothetical ordered-set aggregate", func() {
 			complexAggDefinition := backup.Aggregate{
-				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
-				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 4, FinalFunction: 5,
+				Schema: "public", Name: "agg_hypo_ord", Arguments: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true},
+				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: 4, FinalFunction: 5,
 				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
 			aggDefinition = complexAggDefinition
@@ -496,8 +498,8 @@ $_$`)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 		It("prints an aggregate with owner, comment, and no arguments", func() {
-			aggDefinition.Arguments = ""
-			aggDefinition.IdentArgs = ""
+			aggDefinition.Arguments = sql.NullString{String: "", Valid: true}
+			aggDefinition.IdentArgs = sql.NullString{String: "", Valid: true}
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggDefinition, funcInfoMap, aggMetadata)
 			expectedStatements := []string{
 				`CREATE AGGREGATE public.agg_name(*) (
@@ -619,10 +621,10 @@ SET search_path=pg_catalog;`, "COMMENT ON EXTENSION extension1 IS 'This is an ex
 		plAllFields := backup.ProceduralLanguage{Oid: 1, Name: "plperl", Owner: "testrole", IsPl: true, PlTrusted: true, Handler: 1, Inline: 2, Validator: 3}
 		plComment := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: 4, Inline: 0, Validator: 0}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "pg_catalog.plperl_call_handler", Arguments: "", IsInternal: true},
-			2: {QualifiedName: "pg_catalog.plperl_inline_handler", Arguments: "internal", IsInternal: true},
-			3: {QualifiedName: "pg_catalog.plperl_validator", Arguments: "oid", IsInternal: true},
-			4: {QualifiedName: "pg_catalog.plpython_call_handler", Arguments: "", IsInternal: true},
+			1: {QualifiedName: "pg_catalog.plperl_call_handler", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+			2: {QualifiedName: "pg_catalog.plperl_inline_handler", Arguments: sql.NullString{String: "internal", Valid: true}, IsInternal: true},
+			3: {QualifiedName: "pg_catalog.plperl_validator", Arguments: sql.NullString{String: "oid", Valid: true}, IsInternal: true},
+			4: {QualifiedName: "pg_catalog.plpython_call_handler", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
 		}
 		emptyMetadataMap := backup.MetadataMap{}
 
@@ -745,8 +747,8 @@ GRANT ALL ON LANGUAGE plperl TO testrole;`,
 	})
 	Describe("PrintCreateForeignDataWrapperStatement", func() {
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "pg_catalog.postgresql_fdw_handler", Arguments: "", IsInternal: true},
-			2: {QualifiedName: "pg_catalog.postgresql_fdw_validator", Arguments: "", IsInternal: true},
+			1: {QualifiedName: "pg_catalog.postgresql_fdw_handler", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+			2: {QualifiedName: "pg_catalog.postgresql_fdw_validator", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
 		}
 		It("prints a basic foreign data wrapper", func() {
 			foreignDataWrapper := backup.ForeignDataWrapper{Oid: 1, Name: "foreigndata"}

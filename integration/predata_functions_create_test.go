@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -23,7 +25,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function with a simple return type", func() {
 				addFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: 0, Language: "sql", ExecLocation: "a",
 				}
 
@@ -41,7 +45,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function that returns a set", func() {
 				appendFunction := backup.Function{
 					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
-					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "SETOF record", Valid: true},
 					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql", ExecLocation: "a",
 				}
 
@@ -58,7 +64,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function that returns a table", func() {
 				dupFunction := backup.Function{
 					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
-					BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "TABLE(f1 integer, f2 text)",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer", Valid: true},
+					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql", ExecLocation: "a",
 				}
 
@@ -81,7 +89,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function with a simple return type", func() {
 				addFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
 				}
@@ -101,7 +111,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function that returns a set", func() {
 				appendFunction := backup.Function{
 					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
-					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "SETOF record",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "SETOF record", Valid: true},
 					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO 'pg_temp'", Cost: 200,
 					NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
 				}
@@ -120,7 +132,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function that returns a table", func() {
 				dupFunction := backup.Function{
 					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
-					BinaryPath: "", Arguments: "integer", IdentArgs: "integer", ResultType: "TABLE(f1 integer, f2 text)",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer", Valid: true},
+					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
 				}
@@ -144,7 +158,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a window function to execute on master", func() {
 				windowFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: true, ExecLocation: "m",
 				}
@@ -162,7 +178,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function to execute on segments", func() {
 				segmentFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "s",
 				}
@@ -180,7 +198,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			It("creates a function with LEAKPROOF", func() {
 				leakProofFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-					BinaryPath: "", Arguments: "integer, integer", IdentArgs: "integer, integer", ResultType: "integer",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsLeakProof: true, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "a",
 				}
@@ -200,21 +220,21 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateAggregateStatement", func() {
 		emptyMetadata := backup.ObjectMetadata{}
 		basicAggregateDef := backup.Aggregate{
-			Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: "numeric, numeric",
-			IdentArgs: "numeric, numeric", TransitionFunction: 1, PreliminaryFunction: 2,
+			Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+			IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: 1, PreliminaryFunction: 2,
 			TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true,
 		}
 
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "public.mysfunc_accum", Arguments: "numeric, numeric, numeric"},
-			2: {QualifiedName: "public.mypre_accum", Arguments: "numeric, numeric"},
-			3: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: `internal, VARIADIC "any"`},
-			4: {QualifiedName: "pg_catalog.rank_final", Arguments: `internal, VARIADIC "any"`},
-			5: {QualifiedName: "pg_catalog.numeric_avg", Arguments: `internal`},
-			6: {QualifiedName: "pg_catalog.numeric_avg_serialize", Arguments: `internal`},
-			7: {QualifiedName: "pg_catalog.numeric_avg_deserialize", Arguments: `bytea, internal`},
-			8: {QualifiedName: "pg_catalog.numeric_avg_accum", Arguments: `numeric, numeric`},
-			9: {QualifiedName: "pg_catalog.power", Arguments: `numeric, numeric`},
+			1: {QualifiedName: "public.mysfunc_accum", Arguments: sql.NullString{String: "numeric, numeric, numeric", Valid: true}},
+			2: {QualifiedName: "public.mypre_accum", Arguments: sql.NullString{String: "numeric, numeric", Valid: true}},
+			3: {QualifiedName: "pg_catalog.ordered_set_transition_multi", Arguments: sql.NullString{String: `internal, VARIADIC "any"`, Valid: true}},
+			4: {QualifiedName: "pg_catalog.rank_final", Arguments: sql.NullString{String: `internal, VARIADIC "any"`, Valid: true}},
+			5: {QualifiedName: "pg_catalog.numeric_avg", Arguments: sql.NullString{String: "internal", Valid: true}},
+			6: {QualifiedName: "pg_catalog.numeric_avg_serialize", Arguments: sql.NullString{String: "internal", Valid: true}},
+			7: {QualifiedName: "pg_catalog.numeric_avg_deserialize", Arguments: sql.NullString{String: "bytea, internal", Valid: true}},
+			8: {QualifiedName: "pg_catalog.numeric_avg_accum", Arguments: sql.NullString{String: "numeric, numeric", Valid: true}},
+			9: {QualifiedName: "pg_catalog.power", Arguments: sql.NullString{String: "numeric, numeric", Valid: true}},
 		}
 		BeforeEach(func() {
 			//Run queries to set up the database state so we can successfully create an aggregate
@@ -265,8 +285,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a hypothetical ordered-set aggregate", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			complexAggregateDef := backup.Aggregate{
-				Schema: "public", Name: "agg_hypo_ord", Arguments: `VARIADIC "any" ORDER BY VARIADIC "any"`,
-				IdentArgs: `VARIADIC "any" ORDER BY VARIADIC "any"`, TransitionFunction: 3, FinalFunction: 4,
+				Schema: "public", Name: "agg_hypo_ord", Arguments: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true},
+				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: 3, FinalFunction: 4,
 				TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true, MInitValIsNull: true,
 			}
 
@@ -281,8 +301,9 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates an aggregate with a sort operator", func() {
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "agg_sort", Arguments: "numeric",
-				IdentArgs: "numeric", TransitionFunction: 9, FinalFunction: 0, SortOperator: "+", SortOperatorSchema: "pg_catalog", TransitionDataType: "numeric",
+				Schema: "public", Name: "agg_sort", Arguments: sql.NullString{String: "numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric", Valid: true}, TransitionFunction: 9, FinalFunction: 0,
+				SortOperator: "+", SortOperatorSchema: "pg_catalog", TransitionDataType: "numeric",
 				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
 			}
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
@@ -297,8 +318,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates an aggregate with combine function and transition data size", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "agg_6_features", Arguments: "numeric, numeric",
-				IdentArgs: "numeric, numeric", TransitionFunction: 1, CombineFunction: 2,
+				Schema: "public", Name: "agg_6_features", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: 1, CombineFunction: 2,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
 			}
@@ -314,8 +335,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates an aggregate with serial/deserial functions", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "myavg", Arguments: "numeric",
-				IdentArgs: "numeric", TransitionFunction: 8,
+				Schema: "public", Name: "myavg", Arguments: sql.NullString{String: "numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric", Valid: true}, TransitionFunction: 8,
 				FinalFunction: 5, SerialFunction: 6, DeserialFunction: 7, TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
 			}
@@ -332,8 +353,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates an aggregate with moving attributes", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			aggregateDef := backup.Aggregate{
-				Schema: "public", Name: "moving_agg", Arguments: "numeric, numeric",
-				IdentArgs: "numeric, numeric", TransitionFunction: 1, TransitionDataType: "numeric",
+				Schema: "public", Name: "moving_agg", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: 1, TransitionDataType: "numeric",
 				InitValIsNull: true, MTransitionFunction: 1, MInverseTransitionFunction: 1,
 				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: 1,
 				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
@@ -426,8 +447,8 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateLanguageStatements", func() {
 		It("creates procedural languages", func() {
 			funcInfoMap := map[uint32]backup.FunctionInfo{
-				1: {QualifiedName: "pg_catalog.plpython_call_handler", Arguments: "", IsInternal: true},
-				2: {QualifiedName: "pg_catalog.plpython_inline_handler", Arguments: "internal", IsInternal: true},
+				1: {QualifiedName: "pg_catalog.plpython_call_handler", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+				2: {QualifiedName: "pg_catalog.plpython_inline_handler", Arguments: sql.NullString{String: "internal", Valid: true}, IsInternal: true},
 			}
 			langOwner := ""
 			var langMetadata backup.ObjectMetadata
@@ -509,7 +530,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateForeignDataWrapperStatement", func() {
 		emptyMetadata := backup.ObjectMetadata{}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "pg_catalog.postgresql_fdw_validator", Arguments: "", IsInternal: true},
+			1: {QualifiedName: "pg_catalog.postgresql_fdw_validator", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
 		}
 		It("creates foreign data wrappers with a validator and options", func() {
 			testutils.SkipIfBefore6(connectionPool)

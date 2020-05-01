@@ -1,6 +1,7 @@
 package backup_test
 
 import (
+	"database/sql"
 	"fmt"
 	"math"
 	"sort"
@@ -197,7 +198,7 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 			emptyMetadata backup.ObjectMetadata
 		)
 		BeforeEach(func() {
-			view = backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: "SELECT count(*) FROM pg_tables;"}
+			view = backup.View{Oid: 1, Schema: "shamwow", Name: "shazam", Definition: sql.NullString{String: "SELECT count(*) FROM pg_tables;", Valid: true}}
 			emptyMetadata = backup.ObjectMetadata{}
 		})
 		It("can print a basic view", func() {
@@ -470,7 +471,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 			if connectionPool.Version.Before("6.2.0") {
 				Skip("Test only applicable to GPDB 6.2.0 and above")
 			}
-			mview = backup.View{Oid: 1, Schema: "schema1", Name: "mview1", Definition: "SELECT count(*) FROM pg_tables;", IsMaterialized: true}
+			mview = backup.View{Oid: 1, Schema: "schema1", Name: "mview1", Definition: sql.NullString{String: "SELECT count(*) FROM pg_tables;", Valid: true}, IsMaterialized: true}
 			emptyMetadata = backup.ObjectMetadata{}
 		})
 		It("can print a basic materialized view", func() {

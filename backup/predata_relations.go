@@ -309,10 +309,10 @@ func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *toc.TO
 	// Option's keyword WITH is expected to be prepended to its options in the SQL statement
 	// Remove trailing ';' at the end of materialized view's definition
 	if !view.IsMaterialized {
-		metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition)
+		metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition.String)
 	} else {
 		metadataFile.MustPrintf("\n\nCREATE MATERIALIZED VIEW %s%s%s AS %s\nWITH NO DATA;\n",
-			view.FQN(), view.Options, tablespaceClause, view.Definition[:len(view.Definition)-1])
+			view.FQN(), view.Options, tablespaceClause, view.Definition.String[:len(view.Definition.String)-1])
 	}
 	section, entry := view.GetMetadataEntry()
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

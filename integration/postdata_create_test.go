@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -26,11 +28,11 @@ var _ = Describe("backup integration create statement tests", func() {
 				Name:         "index1",
 				OwningSchema: "public",
 				OwningTable:  "testtable",
-				Def:          "CREATE INDEX index1 ON public.testtable USING btree (i)",
+				Def:          sql.NullString{String: "CREATE INDEX index1 ON public.testtable USING btree (i)", Valid: true},
 			}
 		})
 		It("creates a basic index", func() {
-			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
+			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE INDEX index1 ON public.testtable USING btree (i)", Valid: true}}}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
@@ -44,7 +46,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index used for clustering", func() {
-			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)", IsClustered: true}}
+			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE INDEX index1 ON public.testtable USING btree (i)", Valid: true}, IsClustered: true}}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
@@ -58,7 +60,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
 		It("creates an index with a comment", func() {
-			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
+			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE INDEX index1 ON public.testtable USING btree (i)", Valid: true}}}
 			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true, false)
 			indexMetadata := indexMetadataMap[indexes[0].GetUniqueID()]
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
@@ -83,7 +85,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 			}
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
-			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "test_tablespace", Def: "CREATE INDEX index1 ON public.testtable USING btree (i)"}}
+			indexes := []backup.IndexDefinition{{Oid: 0, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Tablespace: "test_tablespace", Def: sql.NullString{String: "CREATE INDEX index1 ON public.testtable USING btree (i)", Valid: true}}}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
 			//Create table whose columns we can index
@@ -98,7 +100,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a unique index used as replica identity", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			index.Def = "CREATE UNIQUE INDEX index1 ON public.testtable USING btree (i)"
+			index.Def = sql.NullString{String: "CREATE UNIQUE INDEX index1 ON public.testtable USING btree (i)", Valid: true}
 			index.IsReplicaIdentity = true
 			indexes := []backup.IndexDefinition{index}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
@@ -128,7 +130,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			}
 		})
 		It("creates a basic rule", func() {
-			rules := []backup.RuleDefinition{{Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
+			rules := []backup.RuleDefinition{{Oid: 0, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: ruleDef, Valid: true}}}
 			backup.PrintCreateRuleStatements(backupfile, tocfile, rules, ruleMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -141,7 +143,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultRules[0], &rules[0], "Oid")
 		})
 		It("creates a rule with a comment", func() {
-			rules := []backup.RuleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: ruleDef}}
+			rules := []backup.RuleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: ruleDef, Valid: true}}}
 			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			ruleMetadata := ruleMetadataMap[rules[0].GetUniqueID()]
 			backup.PrintCreateRuleStatements(backupfile, tocfile, rules, ruleMetadataMap)
@@ -168,7 +170,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggerMetadataMap = backup.MetadataMap{}
 		})
 		It("creates a basic trigger", func() {
-			triggers := []backup.TriggerDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
+			triggers := []backup.TriggerDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}}
 			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -181,7 +183,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 		})
 		It("creates a trigger with a comment", func() {
-			triggers := []backup.TriggerDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`}}
+			triggers := []backup.TriggerDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}}
 			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			triggerMetadata := triggerMetadataMap[triggers[0].GetUniqueID()]
 			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)

@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"database/sql"
 	"os"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
@@ -179,8 +180,8 @@ var _ = Describe("backup integration create statement tests", func() {
 		protocolReadWrite := backup.ExternalProtocol{Oid: 1, Name: "s3_read_write", Owner: "testrole", Trusted: false, ReadFunction: 2, WriteFunction: 1, Validator: 0}
 		emptyMetadata := backup.ObjectMetadata{}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
-			1: {QualifiedName: "public.write_to_s3", Arguments: "", IsInternal: false},
-			2: {QualifiedName: "public.read_from_s3", Arguments: "", IsInternal: false},
+			1: {QualifiedName: "public.write_to_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
+			2: {QualifiedName: "public.read_from_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
 		}
 
 		It("creates a trusted protocol with a read function, privileges, and an owner", func() {

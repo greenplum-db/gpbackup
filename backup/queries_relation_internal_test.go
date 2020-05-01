@@ -1,8 +1,12 @@
 package backup_test
 
 import (
+	"database/sql"
+	"database/sql/driver"
 	"fmt"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
 
 	. "github.com/onsi/ginkgo"
@@ -30,6 +34,22 @@ var _ = Describe("backup internal tests", func() {
 			batchSize := 50
 			lockQueries := backup.GenerateTableBatches(tables, batchSize)
 			Expect(len(lockQueries)).To(Equal(3))
+		})
+	})
+	Describe("GetAllViews", func() {
+		It("GetAllViews properly handles NULL view definitions", func() {
+			header := []string{"oid", "schema", "name", "options", "definition", "tablespace", "ismaterialized"}
+			rowOne := []driver.Value{"1", "mock_schema", "mock_table", "mock_options", "mock_def", "mock_tablespace", false}
+			rowTwo := []driver.Value{"2", "mock_schema2", "mock_table2", "mock_options2", nil, "mock_tablespace2", false}
+			fakeRows := sqlmock.NewRows(header).AddRow(rowOne...).AddRow(rowTwo...)
+			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeRows)
+			result := backup.GetAllViews(connectionPool)
+
+			// Expect the GetAllViews function to return only the 1st row since the 2nd row has a NULL view definition
+			expectedResult := []backup.View{{Oid: 1, Schema: "mock_schema", Name: "mock_table", Options: "mock_options",
+				Definition: sql.NullString{String: "mock_def", Valid: true}, Tablespace: "mock_tablespace", IsMaterialized: false}}
+			Expect(result).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatch(&expectedResult[0], &result[0])
 		})
 	})
 })
