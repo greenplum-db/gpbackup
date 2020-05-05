@@ -340,11 +340,13 @@ func RestoreSchemas(schemaStatements []toc.StatementWithType, progressBar utils.
 func GetExistingTableFQNs() ([]string, error) {
 	existingTableFQNs := make([]string, 0)
 
+	// Note that 'f' for foreign tables only matters for GPDB 6+ but we shouldn't need a GPDB
+	// version check on this since this is catalog and 'f' is new starting from GPDB 6+.
 	query := `SELECT quote_ident(n.nspname) || '.' || quote_ident(c.relname)
 			  FROM pg_catalog.pg_class c
 				LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-			  WHERE c.relkind IN ('r','')
-			  AND c.relstorage IN ('h', 'a', 'c','')
+			  WHERE c.relkind IN ('r', 'f')
+			  AND c.relstorage IN ('h', 'a', 'c', 'x', 'f')
 				 AND n.nspname <> 'pg_catalog'
 				 AND n.nspname <> 'information_schema'
 				 AND n.nspname !~ '^pg_toast'

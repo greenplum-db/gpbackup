@@ -360,6 +360,42 @@ EOF1`, backupDir)
 		BeforeEach(func() {
 			skipIfOldBackupVersionBefore("1.16.0")
 		})
+		Context("Simple incremental restore", func() {
+			It("Existing tables should be excluded from metadata restore", func() {
+				// Create a heap, ao, co, and external table and create a backup
+				testhelper.AssertQueryRuns(backupConn,
+					"DROP SCHEMA IF EXISTS testschema CASCADE; CREATE SCHEMA testschema;")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE testschema.heap_table (a int);")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE testschema.ao_table (a int) WITH (appendonly=true);")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE testschema.co_table (a int) WITH (appendonly=true, orientation=column);")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE EXTERNAL WEB TABLE external_table (a text) EXECUTE E'echo hi' FORMAT 'csv';")
+				backupTimestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data")
+
+				// Restore the backup to a different database
+				testhelper.AssertQueryRuns(restoreConn,
+					"DROP SCHEMA IF EXISTS testschema CASCADE;")
+				gprestore(gprestorePath, restoreHelperPath, backupTimestamp, "--redirect-db", "restoredb")
+
+				// Trigger an incremental backup
+				testhelper.AssertQueryRuns(backupConn,
+					"INSERT INTO testschema.ao_table VALUES (1);")
+				incrementalBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental")
+
+				// Restore the incremental backup. We should see gprestore
+				// not error out due to already existing tables.
+				gprestore(gprestorePath, restoreHelperPath, incrementalBackupTimestamp, "--redirect-db", "restoredb", "--incremental")
+
+				// Cleanup
+				testhelper.AssertQueryRuns(backupConn,
+					"DROP SCHEMA IF EXISTS testschema CASCADE;")
+				testhelper.AssertQueryRuns(restoreConn,
+					"DROP SCHEMA IF EXISTS testschema CASCADE;")
+			})
+		})
 		Context("No DDL no partitioning", func() {
 			BeforeEach(func() {
 				testhelper.AssertQueryRuns(backupConn,
