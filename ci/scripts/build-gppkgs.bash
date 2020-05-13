@@ -51,6 +51,8 @@ if [[ ${OS} == "RHEL" || ${OS} == "SLES" ]]; then
     build_rpm_rhel
 elif [[ ${OS} == "ubuntu" ]]; then
     build_deb_ubuntu
+    # Publish the debian package also
+    cp ${PKG_FILES} gppkgs/
 fi
 
 # Install gpdb binaries

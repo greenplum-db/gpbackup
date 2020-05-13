@@ -52,10 +52,15 @@ product_files:
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
 
-########## Ubuntu Debian Gppkgs ##########
+########## Ubuntu Debian Gppkgs/Debian ##########
   - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.gppkg
     description:
     upload_as: Backup and Restore for GP 6 on Ubuntu 18.04
+    file_type: Software
+    file_version: <TILE_RELEASE_VERSION>
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.deb
+    description:
+    upload_as: Backup and Restore for GP 6 on Ubuntu 18.04 Debian package
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
 
