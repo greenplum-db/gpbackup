@@ -7,6 +7,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/utils"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("End to End Filtered tests", func() {
@@ -102,6 +103,28 @@ PARTITION BY LIST (gender)
 			}
 			assertDataRestored(restoreConn, localSchemaTupleCounts)
 			assertArtifactsCleaned(restoreConn, timestamp)
+		})
+		It("gpbackup with --include-table does not backup protocols and functions", func() {
+			testhelper.AssertQueryRuns(backupConn,
+				`CREATE TABLE t1(i int)`)
+			defer testhelper.AssertQueryRuns(backupConn,
+				`DROP TABLE public.t1`)
+			testhelper.AssertQueryRuns(backupConn,
+				`CREATE FUNCTION f1() RETURNS int AS 'SELECT 1' LANGUAGE SQL;`)
+			defer testhelper.AssertQueryRuns(backupConn,
+				`DROP FUNCTION public.f1()`)
+			testhelper.AssertQueryRuns(backupConn,
+				`CREATE PROTOCOL p1 (readfunc = f1);`)
+			defer testhelper.AssertQueryRuns(backupConn,
+				`DROP PROTOCOL p1`)
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir, "--include-table", "public.t1")
+
+			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+			Expect(string(metadataFileContents)).To(ContainSubstring("t1"))
+			Expect(string(metadataFileContents)).ToNot(ContainSubstring("read_from_s3"))
+			Expect(string(metadataFileContents)).ToNot(ContainSubstring("s3_protocol"))
 		})
 	})
 	Describe("Restore include filtering", func() {

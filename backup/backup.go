@@ -201,15 +201,19 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	}
 	gplog.Info("Writing pre-data metadata")
 
+	var protocols []ExternalProtocol
+	var functions []Function
+	var funcInfoMap map[uint32]FunctionInfo
 	objects := make([]Sortable, 0)
 	metadataMap := make(MetadataMap)
+
 	objects = append(objects, convertToSortableSlice(tables)...)
 	relationMetadata := GetMetadataForObjectType(connectionPool, TYPE_RELATION)
 	addToMetadataMap(relationMetadata, metadataMap)
-	functions, funcInfoMap := retrieveFunctions(&objects, metadataMap)
-	protocols := retrieveProtocols(&objects, metadataMap)
 
 	if !tableOnly {
+		functions, funcInfoMap = retrieveFunctions(&objects, metadataMap)
+		protocols = retrieveProtocols(&objects, metadataMap)
 		backupSchemas(metadataFile, createAlteredPartitionSchemaSet(tables))
 		backupExtensions(metadataFile)
 		backupCollations(metadataFile)
