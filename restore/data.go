@@ -116,6 +116,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 	var workerPool sync.WaitGroup
 	var numErrors int32
 	var mutex = &sync.Mutex{}
+	var err error
 
 	for i := 0; i < connectionPool.NumConns; i++ {
 		workerPool.Add(1)
@@ -141,14 +142,20 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 				if opts.RedirectSchema != "" {
 					tableName = utils.MakeFQN(opts.RedirectSchema, entry.Name)
 				}
-				err := restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
+				// Truncate table before restore, if needed
+				if MustGetFlagBool(options.INCREMENTAL) || MustGetFlagBool(options.TRUNCATE_TABLE) {
+					err = TruncateTable(tableName)
+				}
+				if err == nil {
+					err = restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
 
-				atomic.AddInt64(&tableNum, 1)
-				if gplog.GetVerbosity() > gplog.LOGINFO {
-					// No progress bar at this log level, so we note table count here
-					gplog.Verbose("Restored data to table %s from file (table %d of %d)", tableName, tableNum, totalTables)
-				} else {
-					gplog.Verbose("Restored data to table %s from file", tableName)
+					atomic.AddInt64(&tableNum, 1)
+					if gplog.GetVerbosity() > gplog.LOGINFO {
+						// No progress bar at this log level, so we note table count here
+						gplog.Verbose("Restored data to table %s from file (table %d of %d)", tableName, tableNum, totalTables)
+					} else {
+						gplog.Verbose("Restored data to table %s from file", tableName)
+					}
 				}
 
 				if err != nil {

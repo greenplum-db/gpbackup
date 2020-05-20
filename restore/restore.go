@@ -320,11 +320,7 @@ func restoreData() {
 
 	gucStatements := setGUCsForConnection(nil, 0)
 	for timestamp, entries := range filteredDataEntries {
-		if MustGetFlagBool(options.INCREMENTAL) || MustGetFlagBool(options.TRUNCATE_TABLE) {
-			gplog.Verbose("Truncating tables prior to restoring backup with timestamp: %s", timestamp)
-			_ = TruncateTablesBeforeRestore(entries)
-		}
-		gplog.Verbose("Restoring data from backup with timestamp: %s", timestamp)
+		gplog.Verbose("Restoring data for %d tables from backup with timestamp: %s", len(entries), timestamp)
 		restoreDataFromTimestamp(GetBackupFPInfoForTimestamp(timestamp), entries, gucStatements, dataProgressBar)
 	}
 

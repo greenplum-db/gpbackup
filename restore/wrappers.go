@@ -368,15 +368,7 @@ func GetExistingSchemas() ([]string, error) {
 	return existingSchemas, err
 }
 
-func TruncateTablesBeforeRestore(entries []toc.MasterDataEntry) error {
-	query := `TRUNCATE `
-	tableFQNs := make([]string, 0)
-	for _, entry := range entries {
-		tableFQN := utils.MakeFQN(entry.Schema, entry.Name)
-		tableFQNs = append(tableFQNs, tableFQN)
-	}
-	query += strings.Join(tableFQNs, ",")
-	query += ";"
-	_, err := connectionPool.Exec(query)
+func TruncateTable(tableFQN string) error {
+	_, err := connectionPool.Exec(`TRUNCATE ` + tableFQN)
 	return err
 }
