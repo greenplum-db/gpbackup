@@ -369,6 +369,7 @@ func GetExistingSchemas() ([]string, error) {
 }
 
 func TruncateTable(tableFQN string) error {
+	gplog.Verbose("Truncating table %s prior to restoring data", tableFQN)
 	_, err := connectionPool.Exec(`TRUNCATE ` + tableFQN)
 	return err
 }
