@@ -201,6 +201,10 @@ func restorePredata(metadataFilename string) {
 		existingTableFQNs, err := GetExistingTableFQNs()
 		gplog.FatalOnError(err)
 
+		existingSchemasMap := make(map[string]Empty)
+		for _, schema := range existingSchemas {
+			existingSchemasMap[schema] = Empty{}
+		}
 		existingTablesMap := make(map[string]Empty)
 		for _, table := range existingTableFQNs {
 			existingTablesMap[table] = Empty{}
@@ -224,7 +228,8 @@ func restorePredata(metadataFilename string) {
 				if utils.RelationIsExcludedByUser(inRelationsUserInput, exRelationsUserInput, table) {
 					tablesExcludedByUserInput = append(tablesExcludedByUserInput, table)
 				} else {
-					if !utils.Exists(schemasToCreate, schemaName) {
+					_, ok := existingSchemasMap[schemaName]
+					if !ok && !utils.Exists(schemasToCreate, schemaName) {
 						schemasToCreate = append(schemasToCreate, schemaName)
 					}
 					tableFQNsToCreate = append(tableFQNsToCreate, table)
@@ -232,16 +237,21 @@ func restorePredata(metadataFilename string) {
 			}
 		}
 
+		var missing []string
 		if len(schemasToCreate) == 0 { // no new schemas
 			exSchemas = append(existingSchemas, schemasExcludedByUserInput...)
-		} else {
-			inSchemas = schemasToCreate
+		} else if !MustGetFlagBool(options.ON_ERROR_CONTINUE) {
+			missing = schemasToCreate
 		}
 
 		if len(tableFQNsToCreate) == 0 { // no new tables
 			exRelations = append(existingTableFQNs, tablesExcludedByUserInput...)
-		} else {
-			inRelations = tableFQNsToCreate
+		} else if !MustGetFlagBool(options.ON_ERROR_CONTINUE) {
+			missing = append(missing, tableFQNsToCreate...)
+		}
+		if missing != nil {
+			err = errors.Errorf("Some objects are missing from the target database: %v", missing)
+			gplog.FatalOnError(err)
 		}
 	} else { // if not incremental restore - assume database is empty and just filter based on user input
 		inSchemas = opts.IncludedSchemas
@@ -296,8 +306,8 @@ func restoreData() {
 	restorePlan := backupConfig.RestorePlan
 	restorePlanEntries := make([]history.RestorePlanEntry, 0)
 	if MustGetFlagBool(options.INCREMENTAL) {
-		restorePlanEntries = append(restorePlanEntries, restorePlan[len(backupConfig.RestorePlan)-1])
-
+		restorePlanEntries = append(restorePlanEntries,
+			restorePlan[len(backupConfig.RestorePlan)-1])
 	} else {
 		for _, restorePlanEntry := range restorePlan {
 			restorePlanEntries = append(restorePlanEntries, restorePlanEntry)
