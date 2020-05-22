@@ -433,7 +433,7 @@ EOF1`, backupDir)
 				testhelper.AssertQueryRuns(restoreConn,
 					"DROP SCHEMA IF EXISTS new_schema CASCADE; DROP SCHEMA IF EXISTS old_schema CASCADE;")
 			})
-			Context("Only new schemas and tables", func() {
+			Context("Include/Exclude schemas and tables", func() {
 				var timestamp string
 				BeforeEach(func() {
 					testhelper.AssertQueryRuns(backupConn,
@@ -446,6 +446,8 @@ EOF1`, backupDir)
 						"INSERT INTO new_schema.new_table1 SELECT generate_series(1, 30);")
 					testhelper.AssertQueryRuns(backupConn,
 						"INSERT INTO new_schema.new_table2 SELECT generate_series(1, 35);")
+					testhelper.AssertQueryRuns(backupConn,
+						"INSERT INTO old_schema.old_table1 SELECT generate_series(11, 20);")
 					timestamp = gpbackup(gpbackupPath, backupHelperPath,
 						"--leaf-partition-data", "--incremental")
 				})
@@ -454,28 +456,21 @@ EOF1`, backupDir)
 						"DROP SCHEMA IF EXISTS new_schema CASCADE;")
 					testhelper.AssertQueryRuns(restoreConn,
 						"DROP SCHEMA IF EXISTS new_schema CASCADE;")
+					testhelper.AssertQueryRuns(backupConn,
+						"DELETE FROM old_schema.old_table1 where mydata>10;")
+					oldSchemaTupleCounts = map[string]int{}
 					newSchemaTupleCounts = map[string]int{}
 					assertArtifactsCleaned(restoreConn, timestamp)
-				})
-				It("Restores new schemas and tables", func() {
-					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental",
-						"--redirect-db", "restoredb")
-					newSchemaTupleCounts["new_schema.new_table1"] = 30
-					newSchemaTupleCounts["new_schema.new_table2"] = 35
-					assertSchemasExist(restoreConn, 5)
-					assertRelationsExistForIncremental(restoreConn, 5)
-					assertDataRestored(restoreConn, oldSchemaTupleCounts)
-					assertDataRestored(restoreConn, newSchemaTupleCounts)
 				})
 				It("Restores only tables included by use if user input is provided", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
 						"--incremental",
-						"--include-table", "new_schema.new_table1",
+						"--include-table", "old_schema.old_table1",
 						"--redirect-db", "restoredb")
-					newSchemaTupleCounts["new_schema.new_table1"] = 30
-					assertSchemasExist(restoreConn, 5)
-					assertRelationsExistForIncremental(restoreConn, 4)
+					oldSchemaTupleCounts["old_schema.old_table1"] = 20
+					// new_schema should not be present
+					assertSchemasExist(restoreConn, 4)
+					assertRelationsExistForIncremental(restoreConn, 3)
 					assertDataRestored(restoreConn, oldSchemaTupleCounts)
 					assertDataRestored(restoreConn, newSchemaTupleCounts)
 				})
@@ -483,10 +478,12 @@ EOF1`, backupDir)
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
 						"--incremental",
 						"--exclude-table", "new_schema.new_table1",
+						"--exclude-table", "new_schema.new_table2",
 						"--redirect-db", "restoredb")
-					newSchemaTupleCounts["new_schema.new_table2"] = 35
-					assertSchemasExist(restoreConn, 5)
-					assertRelationsExistForIncremental(restoreConn, 4)
+					oldSchemaTupleCounts["old_schema.old_table1"] = 20
+					// new_schema should not be present
+					assertSchemasExist(restoreConn, 4)
+					assertRelationsExistForIncremental(restoreConn, 3)
 					assertDataRestored(restoreConn, oldSchemaTupleCounts)
 					assertDataRestored(restoreConn, newSchemaTupleCounts)
 				})
@@ -495,6 +492,7 @@ EOF1`, backupDir)
 						"--incremental",
 						"--include-schema", "old_schema",
 						"--redirect-db", "restoredb")
+					oldSchemaTupleCounts["old_schema.old_table1"] = 20
 					assertSchemasExist(restoreConn, 4)
 					assertRelationsExistForIncremental(restoreConn, 3)
 					assertDataRestored(restoreConn, oldSchemaTupleCounts)
@@ -505,23 +503,30 @@ EOF1`, backupDir)
 						"--incremental",
 						"--exclude-schema", "new_schema",
 						"--redirect-db", "restoredb")
+					oldSchemaTupleCounts["old_schema.old_table1"] = 20
 					assertSchemasExist(restoreConn, 4)
 					assertRelationsExistForIncremental(restoreConn, 3)
 					assertDataRestored(restoreConn, oldSchemaTupleCounts)
 					assertDataRestored(restoreConn, newSchemaTupleCounts)
 				})
 			})
-			Context("New tables in existing schemas", func() {
+			Context("New tables and schemas", func() {
 				var timestamp string
 				BeforeEach(func() {
 					testhelper.AssertQueryRuns(backupConn,
-						"CREATE TABLE old_schema.new_table1 (mydata int) WITH (appendonly=true) DISTRIBUTED BY (mydata);")
+						"CREATE SCHEMA new_schema;")
 					testhelper.AssertQueryRuns(backupConn,
-						"CREATE TABLE old_schema.new_table2 (mydata int) WITH (appendonly=true) DISTRIBUTED BY (mydata);")
+						"CREATE TABLE new_schema.new_table1 (mydata int) WITH (appendonly=true) DISTRIBUTED BY (mydata);")
+					testhelper.AssertQueryRuns(backupConn,
+						"INSERT INTO new_schema.new_table1 SELECT generate_series(1, 30);")
+					testhelper.AssertQueryRuns(backupConn,
+						"CREATE TABLE old_schema.new_table1 (mydata int) WITH (appendonly=true) DISTRIBUTED BY (mydata);")
 					testhelper.AssertQueryRuns(backupConn,
 						"INSERT INTO old_schema.new_table1 SELECT generate_series(1, 20);")
 					testhelper.AssertQueryRuns(backupConn,
-						"INSERT INTO old_schema.new_table2 SELECT generate_series(1, 25);")
+						"INSERT INTO new_schema.new_table1 SELECT generate_series(1, 25);")
+					testhelper.AssertQueryRuns(backupConn,
+						"INSERT INTO old_schema.old_table1 SELECT generate_series(11, 20);")
 					timestamp = gpbackup(gpbackupPath, backupHelperPath,
 						"--leaf-partition-data", "--incremental")
 				})
@@ -534,70 +539,41 @@ EOF1`, backupDir)
 						"DROP TABLE IF EXISTS old_schema.new_table1 CASCADE;")
 					testhelper.AssertQueryRuns(restoreConn,
 						"DROP TABLE IF EXISTS old_schema.new_table2 CASCADE;")
+					testhelper.AssertQueryRuns(backupConn,
+						"DELETE FROM old_schema.old_table1 where mydata>10;")
+					testhelper.AssertQueryRuns(backupConn,
+						"DROP SCHEMA IF EXISTS new_schema CASCADE;")
+					testhelper.AssertQueryRuns(restoreConn,
+						"DROP SCHEMA IF EXISTS new_schema CASCADE;")
 					oldSchemaTupleCounts = map[string]int{}
 					newSchemaTupleCounts = map[string]int{}
 					assertArtifactsCleaned(restoreConn, timestamp)
 				})
-				It("Restores new tables", func() {
-					gprestore(gprestorePath, restoreHelperPath, timestamp,
+				It("Does not restore old/new tables and exits gracefully", func() {
+					args := []string{
+						"--timestamp", timestamp,
 						"--incremental",
-						"--redirect-db", "restoredb")
-					oldSchemaTupleCounts["old_schema.new_table1"] = 20
-					oldSchemaTupleCounts["old_schema.new_table2"] = 25
-					assertSchemasExist(restoreConn, 4)
-					assertRelationsExistForIncremental(restoreConn, 5)
-					assertDataRestored(restoreConn, oldSchemaTupleCounts)
-					assertDataRestored(restoreConn, newSchemaTupleCounts)
-				})
-				It("Restores only tables included by use if user input is provided", func() {
-					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental",
-						"--include-table", "old_schema.new_table1",
-						"--redirect-db", "restoredb")
-					oldSchemaTupleCounts["old_schema.new_table1"] = 20
-					assertSchemasExist(restoreConn, 4)
-					assertRelationsExistForIncremental(restoreConn, 4)
-					assertDataRestored(restoreConn, oldSchemaTupleCounts)
-					assertDataRestored(restoreConn, newSchemaTupleCounts)
-				})
-				It("Does not restore tables excluded by user if user input is provided", func() {
-					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental",
-						"--exclude-table", "old_schema.new_table1",
-						"--redirect-db", "restoredb")
-					oldSchemaTupleCounts["old_schema.new_table2"] = 25
-					assertSchemasExist(restoreConn, 4)
-					assertRelationsExistForIncremental(restoreConn, 4)
-					assertDataRestored(restoreConn, oldSchemaTupleCounts)
-					assertDataRestored(restoreConn, newSchemaTupleCounts)
-				})
-				It("Does not restore anything if user excluded all new tables", func() {
-					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental",
-						"--exclude-table", "old_schema.new_table1",
-						"--exclude-table", "old_schema.new_table2",
-						"--redirect-db", "restoredb")
-					assertSchemasExist(restoreConn, 4)
+						"--redirect-db", "restoredb"}
+					cmd := exec.Command(gprestorePath, args...)
+					output, err := cmd.CombinedOutput()
+					Expect(err).To(HaveOccurred())
+					Expect(string(output)).To(ContainSubstring(
+						"objects are missing from the target database: " +
+						"[new_schema new_schema.new_table1 old_schema.new_table1]"))
 					assertRelationsExistForIncremental(restoreConn, 3)
 					assertDataRestored(restoreConn, oldSchemaTupleCounts)
 					assertDataRestored(restoreConn, newSchemaTupleCounts)
 				})
-				It("Does not restore tables if user input is provided and schema is not included", func() {
-					gprestore(gprestorePath, restoreHelperPath, timestamp,
+				It("Only restores existing tables if --on-error-continue is specified", func() {
+					args := []string{
+						"--timestamp", timestamp,
 						"--incremental",
-						"--include-schema", "public",
-						"--redirect-db", "restoredb")
-					assertSchemasExist(restoreConn, 4)
-					assertRelationsExistForIncremental(restoreConn, 3)
-					assertDataRestored(restoreConn, oldSchemaTupleCounts)
-					assertDataRestored(restoreConn, newSchemaTupleCounts)
-				})
-				It("Does not restore tables if user input is provide and schema is excluded", func() {
-					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental",
-						"--exclude-schema", "old_schema",
-						"--redirect-db", "restoredb")
-					assertSchemasExist(restoreConn, 4)
+						"--on-error-continue",
+						"--redirect-db", "restoredb"}
+					cmd := exec.Command(gprestorePath, args...)
+					_, err := cmd.CombinedOutput()
+					Expect(err).To(HaveOccurred())
+					oldSchemaTupleCounts["old_schema.old_table1"] = 20
 					assertRelationsExistForIncremental(restoreConn, 3)
 					assertDataRestored(restoreConn, oldSchemaTupleCounts)
 					assertDataRestored(restoreConn, newSchemaTupleCounts)
