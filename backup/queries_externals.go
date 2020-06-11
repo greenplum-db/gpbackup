@@ -18,8 +18,6 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 
 	location := `CASE WHEN urilocation IS NOT NULL THEN unnest(urilocation) ELSE '' END AS location,
 		array_to_string(execlocation, ',') AS execlocation,`
-	options := `array_to_string(ARRAY(SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
-			FROM pg_options_to_table(options) ORDER BY option_name), E',\n\t') AS options,`
 	errTable := `coalesce(quote_ident(c.relname),'') AS errtablename,
 		coalesce((SELECT quote_ident(nspname) FROM pg_namespace n WHERE n.oid = c.relnamespace), '') AS errtableschema,`
 	errColumn := `fmterrtbl`
@@ -28,7 +26,6 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		execOptions := "'ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'"
 		location = fmt.Sprintf(`CASE WHEN split_part(location[1], ':', 1) NOT IN (%s) THEN unnest(location) ELSE '' END AS location,
 		CASE WHEN split_part(location[1], ':', 1) IN (%s) THEN unnest(location) ELSE 'ALL_SEGMENTS' END AS execlocation,`, execOptions, execOptions)
-		options = "'' AS options,"
 	} else if !connectionPool.Version.Before("6") {
 		errTable = `CASE WHEN logerrors = 'false' THEN '' ELSE quote_ident(c.relname) END AS errtablename,
 		CASE WHEN logerrors = 'false' THEN '' ELSE coalesce(
@@ -41,7 +38,6 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		%s
 		fmttype AS formattype,
 		fmtopts AS formatopts,
-		%s
 		coalesce(command, '') AS command,
 		coalesce(rejectlimit, 0) AS rejectlimit,
 		coalesce(rejectlimittype, '') AS rejectlimittype,
@@ -49,7 +45,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		pg_encoding_to_char(encoding) AS encoding,
 		writable
 	FROM pg_exttable e
-		LEFT JOIN pg_class c ON e.%s = c.oid`, location, options, errTable, errColumn)
+		LEFT JOIN pg_class c ON e.%s = c.oid`, location, errTable, errColumn)
 
 	results := make([]ExternalTableDefinition, 0)
 	err := connectionPool.Select(&results, query)

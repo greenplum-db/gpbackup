@@ -25,7 +25,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		BeforeEach(func() {
 			extTable = backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: backup.FILE, Location: "file://tmp/ext_table_file",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
-				Options: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF8",
+				Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/ext_table_file"}}
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
@@ -102,6 +102,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			extTable.Writable = false
 			extTable.FormatType = "b"
 			extTable.FormatOpts = "formatter 'fixedwidth_out' i '20' "
+			if connectionPool.Version.AtLeast("7") {
+				extTable.FormatOpts = "formatter 'fixedwidth_out'i '20' "
+			}
 			testTable.ExtTableDef = extTable
 
 			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)

@@ -2,6 +2,7 @@ package backup_test
 
 import (
 	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -293,19 +294,6 @@ FORMAT 'TEXT'
 ENCODING 'UTF-8'
 LOG ERRORS
 SEGMENT REJECT LIMIT 2 ROWS`)
-			})
-			It("prints a CREATE block for a table with custom options", func() {
-				extTableDef.Options = "foo 'bar'\n\tbar 'baz'"
-				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOCATION (
-	'file://host:port/path/file'
-)
-FORMAT 'TEXT'
-OPTIONS (
-	foo 'bar'
-	bar 'baz'
-)
-ENCODING 'UTF-8'`)
 			})
 		})
 	})

@@ -36,7 +36,6 @@ type ExternalTableDefinition struct {
 	ExecLocation    string
 	FormatType      string
 	FormatOpts      string
-	Options         string
 	Command         string
 	RejectLimit     int
 	RejectLimitType string
@@ -296,9 +295,6 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 	metadataFile.MustPrintln()
 	metadataFile.MustPrint(GenerateFormatStatement(extTableDef))
 	metadataFile.MustPrintln()
-	if extTableDef.Options != "" {
-		metadataFile.MustPrintf("OPTIONS (\n\t%s\n)\n", extTableDef.Options)
-	}
 	metadataFile.MustPrintf("ENCODING '%s'", extTableDef.Encoding)
 	if extTableDef.Type == READABLE || extTableDef.Type == READABLE_WEB {
 		metadataFile.MustPrint(generateLogErrorStatement(extTableDef, tableName))
