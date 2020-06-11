@@ -768,6 +768,7 @@ resources:
     access_key_id: ((pivnet_bucket_access_key_id))
     secret_access_key: ((pivnet_bucket_secret_access_key))
     region: ((pivnet_aws_region))
+    copy_metadata: true
     sort_by: semver
 
 - name: gpbackup-release-license

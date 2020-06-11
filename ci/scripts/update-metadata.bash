@@ -72,6 +72,11 @@ OSL_FILENAME=$(basename -- gpbackup-release-license/open_source_license_pivotal-
 sed -i "s/<OSL_FILENAME>/${OSL_FILENAME}/g" workspace/metadata.yml
 sed -i "s/<RELEASE_TYPE>/${RELEASE_TYPE} Release/g" workspace/metadata.yml
 
+# Calculate end of support date (last day of the month 18 months from now)
+future_date_18_month=$(date -d "+19 month" +%Y-%m-01)
+END_OF_SUPPORT_DATE=$(date -d "$future_date_18_month - 1 day" +%Y-%m-%d)
+sed -i "s/<END_OF_SUPPORT_DATE>/${END_OF_SUPPORT_DATE}/g" workspace/metadata.yml
+
 # The URL adjusts based on major/minor version
 REL_NOTES_VERSION=$(echo ${GPBACKUP_VERSION//./-} | cut -d- -f1,2)
 sed -i "s/<REL_NOTES_VERSION>/${REL_NOTES_VERSION}/g" workspace/metadata.yml
