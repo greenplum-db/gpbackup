@@ -290,9 +290,9 @@ withstatistics: false
 			restore.SetVersion("1.11.0+dev.28.g10571fd")
 		})
 		AfterEach(func() {
+			_ = os.Chdir(oldWd)
 			err := os.RemoveAll(tempDir)
 			Expect(err).To(Not(HaveOccurred()))
-			_ = os.Chdir(oldWd)
 			_ = os.Remove(testConfigPath)
 			confDir := filepath.Dir(testConfigPath)
 			confFileName := filepath.Base(testConfigPath)
