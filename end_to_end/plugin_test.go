@@ -169,7 +169,7 @@ var _ = Describe("End to End plugin tests", func() {
 				}
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, and no-compression", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -188,7 +188,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and single-data-file", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -206,7 +206,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and metadata-only", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -231,7 +231,7 @@ var _ = Describe("End to End plugin tests", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the most recent backup versions")
 			}
-			pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+			pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 			copyPluginToAllHosts(backupConn, pluginExecutablePath)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -253,7 +253,7 @@ var _ = Describe("End to End plugin tests", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the most recent backup versions")
 			}
-			pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+			pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 			copyPluginToAllHosts(backupConn, pluginExecutablePath)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -275,7 +275,7 @@ var _ = Describe("End to End plugin tests", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the latest backup version")
 			}
-			pluginsDir := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("HOME"))
+			pluginsDir := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("GOPATH"))
 			copyPluginToAllHosts(backupConn, fmt.Sprintf("%s/example_plugin.bash", pluginsDir))
 			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test_bench.sh %s/example_plugin.bash %s/example_plugin_config.yaml", pluginsDir, pluginsDir, pluginsDir))
 			mustRunCommand(command)

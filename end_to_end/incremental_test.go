@@ -273,7 +273,7 @@ var _ = Describe("End to End incremental tests", func() {
 				if useOldBackupVersion {
 					Skip("This test is only needed for the most recent backup versions")
 				}
-				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
 			})
 			It("Restores from an incremental backup based on a from-timestamp incremental", func() {
@@ -318,7 +318,7 @@ var _ = Describe("End to End incremental tests", func() {
 				assertArtifactsCleaned(restoreConn, incremental2Timestamp)
 			})
 			It("Runs backup and restore if plugin location changed", func(){
-				pluginExecutablePath := fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("HOME"))
+				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				fullBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data",
 					"--plugin-config", pluginConfigPath)

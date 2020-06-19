@@ -28,7 +28,7 @@ var (
 	dataFileFullPath = filepath.Join(testDir, "test_data")
 	pluginBackupPath = filepath.Join(pluginDir, "test_data")
 	errorFile        = fmt.Sprintf("%s_error", pipeFile)
-	pluginConfigPath = fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml", os.Getenv("HOME"))
+	pluginConfigPath = fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml", os.Getenv("GOPATH"))
 )
 
 const (
@@ -67,7 +67,7 @@ func buildAndInstallBinaries() string {
 		Fail(fmt.Sprintf("%v", err))
 	}
 	_ = os.Chdir("integration")
-	binDir := fmt.Sprintf("%s/go/bin", operating.System.Getenv("HOME"))
+	binDir := fmt.Sprintf("%s/bin", operating.System.Getenv("GOPATH"))
 	return fmt.Sprintf("%s/gpbackup_helper", binDir)
 }
 

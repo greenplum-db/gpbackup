@@ -303,8 +303,8 @@ var _ = BeforeSuite(func() {
 	// This is used to run tests from an older gpbackup version to gprestore latest
 	useOldBackupVersion = os.Getenv("OLD_BACKUP_VERSION") != ""
 	pluginConfigPath =
-		fmt.Sprintf("%s/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml",
-			os.Getenv("HOME"))
+		fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml",
+			os.Getenv("GOPATH"))
 	var err error
 	testhelper.SetupTestLogger()
 	_ = exec.Command("dropdb", "testdb").Run()

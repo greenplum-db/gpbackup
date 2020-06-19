@@ -1,3 +1,3 @@
-executablepath: $HOME/go/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash
+executablepath: $GOPATH/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash
 options:
   password: unknown
