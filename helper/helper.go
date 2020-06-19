@@ -14,6 +14,8 @@ import (
 	"sync"
 	"syscall"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -126,7 +128,7 @@ func InitializeGlobals() {
  */
 
 func createPipe(pipe string) error {
-	err := syscall.Mkfifo(pipe, 0777)
+	err := unix.Mkfifo(pipe, 0777)
 	return err
 }
 
