@@ -144,12 +144,12 @@ func (report *Report) WriteBackupReportFile(reportFilename string, timestamp str
 	if errMsg != "" {
 		reportInfo = append(reportInfo,
 			LineInfo{},
-			LineInfo{Key: "backup status:", Value: "Failure"},
+			LineInfo{Key: "backup status:", Value: history.BackupStatusFailed},
 			LineInfo{Key: "backup error:", Value: errMsg})
 	} else {
 		reportInfo = append(reportInfo,
 			LineInfo{},
-			LineInfo{Key: "backup status:", Value: "Success"})
+			LineInfo{Key: "backup status:", Value: history.BackupStatusSucceed})
 	}
 	if report.DatabaseSize != "" {
 		reportInfo = append(reportInfo,

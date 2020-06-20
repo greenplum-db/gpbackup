@@ -18,6 +18,11 @@ type RestorePlanEntry struct {
 	TableFQNs []string
 }
 
+const (
+	BackupStatusSucceed = "Success"
+	BackupStatusFailed  = "Failure"
+)
+
 type BackupConfig struct {
 	BackupDir             string
 	BackupVersion         string
@@ -45,6 +50,11 @@ type BackupConfig struct {
 	EndTime               string
 	WithoutGlobals        bool
 	WithStatistics        bool
+	Status                string
+}
+
+func (backup *BackupConfig) Failed() bool {
+	return backup.Status == BackupStatusFailed
 }
 
 func ReadConfigFile(filename string) *BackupConfig {
@@ -76,7 +86,6 @@ func NewHistory(filename string) (*History, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return history, nil
 }
 
@@ -156,7 +165,7 @@ func (history *History) WriteToFileAndMakeReadOnly(filename string) error {
 
 func (history *History) FindBackupConfig(timestamp string) *BackupConfig {
 	for _, backupConfig := range history.BackupConfigs {
-		if backupConfig.Timestamp == timestamp {
+		if backupConfig.Timestamp == timestamp && !backupConfig.Failed() {
 			return &backupConfig
 		}
 	}

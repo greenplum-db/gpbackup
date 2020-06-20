@@ -33,9 +33,9 @@ import (
 )
 
 var (
-	stdout       *Buffer
-	logfile      *Buffer
-	buffer       *Buffer
+	stdout  *Buffer
+	logfile *Buffer
+	buffer  *Buffer
 )
 
 func TestReport(t *testing.T) {
@@ -324,6 +324,7 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 				Plugin:               "/tmp/plugin.sh",
 				Timestamp:            "timestamp1",
 				IncludeTableFiltered: true,
+				Status:               history.BackupStatusFailed,
 			}, backupConfig)
 		})
 	})

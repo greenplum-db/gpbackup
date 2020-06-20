@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"path"
+
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/history"
@@ -8,7 +10,6 @@ import (
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
-	"path"
 )
 
 func FilterTablesForIncremental(lastBackupTOC, currentTOC *toc.TOC, tables []Table) []Table {
@@ -63,7 +64,7 @@ func GetLatestMatchingBackupTimestamp() string {
 
 func GetLatestMatchingBackupConfig(history *history.History, currentBackupConfig *history.BackupConfig) *history.BackupConfig {
 	for _, backupConfig := range history.BackupConfigs {
-		if matchesIncrementalFlags(&backupConfig, currentBackupConfig) {
+		if matchesIncrementalFlags(&backupConfig, currentBackupConfig) && !backupConfig.Failed() {
 			return &backupConfig
 		}
 	}

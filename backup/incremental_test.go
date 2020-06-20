@@ -80,7 +80,7 @@ var _ = Describe("backup/incremental tests", func() {
 
 	Describe("GetLatestMatchingBackupConfig", func() {
 		contents := history.History{BackupConfigs: []history.BackupConfig{
-			{DatabaseName: "test2", Timestamp: "timestamp4"},
+			{DatabaseName: "test2", Timestamp: "timestamp4", Status: history.BackupStatusFailed},
 			{DatabaseName: "test1", Timestamp: "timestamp3"},
 			{DatabaseName: "test2", Timestamp: "timestamp2"},
 			{DatabaseName: "test1", Timestamp: "timestamp1"},
@@ -91,6 +91,13 @@ var _ = Describe("backup/incremental tests", func() {
 			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&contents, &currentBackupConfig)
 
 			structmatcher.ExpectStructsToMatch(contents.BackupConfigs[1], latestBackupHistoryEntry)
+		})
+		It("Should return the latest matching backup's timestamp that did not fail", func() {
+			currentBackupConfig := history.BackupConfig{DatabaseName: "test2"}
+
+			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&contents, &currentBackupConfig)
+
+			structmatcher.ExpectStructsToMatch(contents.BackupConfigs[2], latestBackupHistoryEntry)
 		})
 		It("should return nil with no matching Dbname", func() {
 			currentBackupConfig := history.BackupConfig{DatabaseName: "test3"}

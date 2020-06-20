@@ -36,7 +36,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("backup/history tests", func() {
-	var testConfig1, testConfig2, testConfig3 history.BackupConfig
+	var testConfig1, testConfig2, testConfig3, testConfigSucceed, testConfigFailed history.BackupConfig
 	var historyFilePath = "/tmp/history_file.yaml"
 
 	BeforeEach(func() {
@@ -66,6 +66,26 @@ var _ = Describe("backup/history tests", func() {
 			IncludeSchemas:   []string{},
 			RestorePlan:      []history.RestorePlanEntry{},
 			Timestamp:        "timestamp3",
+		}
+		testConfigSucceed = history.BackupConfig{
+			DatabaseName:     "testdb3",
+			ExcludeRelations: []string{},
+			ExcludeSchemas:   []string{"public"},
+			IncludeRelations: []string{},
+			IncludeSchemas:   []string{},
+			RestorePlan:      []history.RestorePlanEntry{},
+			Timestamp:        "timestampSucceed",
+			Status:           history.BackupStatusSucceed,
+		}
+		testConfigFailed = history.BackupConfig{
+			DatabaseName:     "testdb3",
+			ExcludeRelations: []string{},
+			ExcludeSchemas:   []string{"public"},
+			IncludeRelations: []string{},
+			IncludeSchemas:   []string{},
+			RestorePlan:      []history.RestorePlanEntry{},
+			Timestamp:        "timestampFailed",
+			Status:           history.BackupStatusFailed,
 		}
 		_ = os.Remove(historyFilePath)
 	})
@@ -253,13 +273,28 @@ var _ = Describe("backup/history tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			err = history.WriteBackupHistory(historyFilePath, &testConfig3)
 			Expect(err).ToNot(HaveOccurred())
+			err = history.WriteBackupHistory(historyFilePath, &testConfigSucceed)
+			Expect(err).ToNot(HaveOccurred())
+			resultHistory, err = history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			err = history.WriteBackupHistory(historyFilePath, &testConfigFailed)
+			Expect(err).ToNot(HaveOccurred())
+			resultHistory, err = history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("finds a backup config for the given timestamp", func() {
 			foundConfig := resultHistory.FindBackupConfig("timestamp2")
 			Expect(foundConfig).To(Equal(&testConfig2))
+
+			foundConfig = resultHistory.FindBackupConfig("timestampSucceed")
+			Expect(foundConfig).To(Equal(&testConfigSucceed))
 		})
 		It("returns nil when timestamp not found", func() {
 			foundConfig := resultHistory.FindBackupConfig("foo")
+			Expect(foundConfig).To(BeNil())
+		})
+		It("returns nil when timestamp is there but status is failed", func() {
+			foundConfig := resultHistory.FindBackupConfig("timestampFailed")
 			Expect(foundConfig).To(BeNil())
 		})
 	})

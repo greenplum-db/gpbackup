@@ -155,7 +155,6 @@ func DoBackup() {
 		backupReport.RestorePlan = PopulateRestorePlan(backupSetTables, targetBackupRestorePlan, dataTables)
 		backupData(backupSetTables)
 	}
-
 	if MustGetFlagBool(options.WITH_STATS) {
 		backupStatistics(metadataTables)
 	}
@@ -175,9 +174,6 @@ func DoBackup() {
 		_ = utils.CopyFile(pluginConfigFlag, globalFPInfo.GetPluginConfigPath())
 		pluginConfig.MustBackupFile(globalFPInfo.GetPluginConfigPath())
 	}
-
-	err := history.WriteBackupHistory(globalFPInfo.GetBackupHistoryFilePath(), &backupReport.BackupConfig)
-	gplog.FatalOnError(err)
 }
 
 func backupGlobals(metadataFile *utils.FileWithByteCount) {
@@ -360,13 +356,21 @@ func DoTeardown() {
 		if statErr != nil { // Even if this isn't os.IsNotExist, don't try to write a report file in case of further errors
 			return
 		}
+		historyFilename := globalFPInfo.GetBackupHistoryFilePath()
 		reportFilename := globalFPInfo.GetBackupReportFilePath()
 		configFilename := globalFPInfo.GetConfigFilePath()
 
 		time.Sleep(time.Second) // We sleep for 1 second to ensure multiple backups do not start within the same second.
 
 		if backupReport != nil {
+			if !backupFailed {
+				backupReport.BackupConfig.Status = history.BackupStatusSucceed
+			}
 			backupReport.ConstructBackupParamsString()
+			err := history.WriteBackupHistory(historyFilename, &backupReport.BackupConfig)
+			if err != nil {
+				gplog.Error(fmt.Sprintf("%v", err))
+			}
 			history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
 			if backupReport.BackupConfig.EndTime == "" {
 				backupReport.BackupConfig.EndTime = history.CurrentTimestamp()
@@ -375,7 +379,7 @@ func DoTeardown() {
 			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, endtime, objectCounts, errMsg)
 			report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup")
 			if pluginConfig != nil {
-				err := pluginConfig.BackupFile(configFilename)
+				err = pluginConfig.BackupFile(configFilename)
 				if err != nil {
 					gplog.Error(fmt.Sprintf("%v", err))
 					return
