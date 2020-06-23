@@ -470,14 +470,6 @@ resources:
     uri: https://github.com/greenplum-db/gpdb
     branch: master
 
-- name: bin_gpdb_master_centos6
-  type: gcs
-  icon: google
-  source:
-    bucket: ((gcs-bucket))
-    json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/master/server-rc-(.*)-rhel6_x86_64((rc-build-type-gcs)).tar.gz
-
 - name: bin_gpdb_master_centos7
   type: gcs
   icon: google
@@ -1178,11 +1170,8 @@ jobs:
 - name: master
   plan:
   - in_parallel:
-    - get: centos6-image
     - get: centos7-image
     - get: gpbackup
-    - get: bin_gpdb_master_centos6
-      trigger: true
     - get: bin_gpdb_master_centos7
     - get: gpdb_src
       resource: gpdb_master_src
@@ -1191,21 +1180,13 @@ jobs:
     - get: gppkgs
       trigger: true
       passed: [build_gppkgs]
-  - in_parallel:
-    - task: run-tests-locally-centos6
-      image: centos6-image
-      file: gpbackup/ci/tasks/test-on-local-cluster.yml
-      params:
-        REQUIRES_DUMMY_SEC: true
-      input_mapping:
-        bin_gpdb: bin_gpdb_master_centos6
-    - task: run-tests-locally-centos7
-      image: centos7-image
-      file: gpbackup/ci/tasks/test-on-local-cluster.yml
-      params:
-        REQUIRES_DUMMY_SEC: true
-      input_mapping:
-        bin_gpdb: bin_gpdb_master_centos7
+  - task: run-tests-locally-centos7
+    image: centos7-image
+    file: gpbackup/ci/tasks/test-on-local-cluster.yml
+    params:
+      REQUIRES_DUMMY_SEC: true
+    input_mapping:
+      bin_gpdb: bin_gpdb_master_centos7
   on_failure:
     *slack_alert
 {% endif %}
