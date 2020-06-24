@@ -205,10 +205,15 @@ func sortACLs(privileges []ACL) []ACL {
 }
 
 func GetCommentsForObjectType(connectionPool *dbconn.DBConn, params MetadataQueryParams) MetadataMap {
+	selectClause := fmt.Sprintf(`
+	SELECT '%s'::regclass::oid AS classid,
+		o.%s AS oid,
+		coalesce(description,'') AS comment
+		`, params.CatalogTable, params.OidField)
+
 	joinStr := ""
 	if params.SchemaField != "" {
-		joinStr = fmt.Sprintf(`JOIN pg_namespace n ON o.%s = n.oid
-	 WHERE %s`, params.SchemaField, SchemaFilterClause("n"))
+		joinStr = fmt.Sprintf(`JOIN pg_namespace n ON o.%s = n.oid`, params.SchemaField)
 	}
 	descTable := "pg_description"
 	subidStr := " AND d.objsubid = 0"
@@ -220,19 +225,23 @@ func GetCommentsForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	if params.CommentTable != "" {
 		commentTable = params.CommentTable
 	}
-	query := fmt.Sprintf(`
-	SELECT '%s'::regclass::oid AS classid,
-		o.%s AS oid,
-		coalesce(description,'') AS comment
+
+	fromClause := fmt.Sprintf(`
 	FROM %s o
 		JOIN %s d ON (d.objoid = %s AND d.classoid = '%s'::regclass%s)
-		%s`, params.CatalogTable, params.OidField, params.CatalogTable, descTable,
-		params.OidField, commentTable, subidStr, joinStr)
+		%s`, params.CatalogTable, descTable, params.OidField, commentTable,
+		subidStr, joinStr)
+
+	whereClause := fmt.Sprintf("\nWHERE o.%s >= %d", params.OidField, FIRST_NORMAL_OBJECT_ID)
+	if params.SchemaField != "" {
+		whereClause += " AND " + SchemaFilterClause("n")
+	}
 
 	results := make([]struct {
 		UniqueID
 		Comment string
 	}, 0)
+	query := selectClause + fromClause + whereClause
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 

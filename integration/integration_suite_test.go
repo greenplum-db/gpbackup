@@ -72,9 +72,6 @@ var _ = BeforeSuite(func() {
 		testhelper.AssertQueryRuns(connectionPool, "SET allow_system_table_mods = 'DML'")
 		testutils.SetupTestFilespace(connectionPool, testCluster)
 	} else {
-		// Drop plpgsql extension to not interfere in extension tests
-		testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION plpgsql CASCADE")
-		testhelper.AssertQueryRuns(connectionPool, "CREATE LANGUAGE plpgsql")
 		testhelper.AssertQueryRuns(connectionPool, "SET allow_system_table_mods = true")
 
 		remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directories on all hosts", func(contentID int) string {

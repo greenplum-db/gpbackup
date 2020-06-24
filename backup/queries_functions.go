@@ -719,12 +719,13 @@ func (e Extension) FQN() string {
 func GetExtensions(connectionPool *dbconn.DBConn) []Extension {
 	results := make([]Extension, 0)
 
-	query := `
+	query := fmt.Sprintf(`
 	SELECT e.oid,
 		quote_ident(extname) AS name,
 		quote_ident(n.nspname) AS schema
 	FROM pg_extension e
-		JOIN pg_namespace n ON e.extnamespace = n.oid`
+		JOIN pg_namespace n ON e.extnamespace = n.oid
+	WHERE e.oid >= %d`, FIRST_NORMAL_OBJECT_ID)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
