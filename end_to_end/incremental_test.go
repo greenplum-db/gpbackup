@@ -179,7 +179,7 @@ var _ = Describe("End to End incremental tests", func() {
 
 				_ = os.Remove(backupDir)
 			})
-			It("restores from a filtered incremental backup with partition tables", func() {
+			It("restores from -include filtered incremental backup with partition tables", func() {
 				_ = gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data",
 					"--include-table", "public.sales")
@@ -209,6 +209,51 @@ var _ = Describe("End to End incremental tests", func() {
 					"public.sales_1_prt_feb17": 2,
 					"public.sales_1_prt_mar17": 2,
 				})
+			})
+			It("restores from -exclude filtered incremental backup with partition tables", func() {
+				publicSchemaTupleCountsWithExclude := map[string]int{
+					"public.foo":   40000, // holds is excluded and doesn't exist
+					"public.sales": 12,  // 13 original - 1 for excluded partition
+				}
+				schema2TupleCountsWithExclude := map[string]int{
+					"schema2.returns": 6,
+					"schema2.foo2":    0,
+					"schema2.foo3":    100,
+					"schema2.ao2":     1001,  // +1 for new row, ao1 is excluded and doesn't exist
+				}
+
+				_ = gpbackup(gpbackupPath, backupHelperPath,
+					"--leaf-partition-data",
+					"--exclude-table", "public.holds",
+					"--exclude-table", "public.sales_1_prt_mar17",
+					"--exclude-table", "schema2.ao1")
+
+				testhelper.AssertQueryRuns(backupConn,
+					"INSERT into sales VALUES(20, '2017-03-15'::date, 100)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DELETE from sales where id=20")
+				testhelper.AssertQueryRuns(backupConn,
+					"INSERT into schema2.ao1 values(1001)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DELETE from schema2.ao1 where i=1001")
+				testhelper.AssertQueryRuns(backupConn,
+					"INSERT into schema2.ao2 values(1002)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DELETE from schema2.ao2 where i=1002")
+
+				incremental1Timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--incremental",
+					"--leaf-partition-data",
+					"--exclude-table", "public.holds",
+					"--exclude-table", "public.sales_1_prt_mar17",
+					"--exclude-table", "schema2.ao1")
+
+				gprestore(gprestorePath, restoreHelperPath, incremental1Timestamp,
+					"--redirect-db", "restoredb")
+
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS-2) // -2 for public.holds and schema2.ao1, excluded partition will be included anyway but it's data - will not
+				assertDataRestored(restoreConn, publicSchemaTupleCountsWithExclude)
+				assertDataRestored(restoreConn, schema2TupleCountsWithExclude)
 			})
 			It("restores from full incremental backup with partition tables with restore table filtering", func() {
 				skipIfOldBackupVersionBefore("1.7.2")
