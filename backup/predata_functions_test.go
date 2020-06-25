@@ -633,14 +633,25 @@ SET search_path=pg_catalog;`, "COMMENT ON EXTENSION extension1 IS 'This is an ex
 
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, langs, funcInfoMap, emptyMetadataMap)
 			testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "", "plpythonu", "LANGUAGE")
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, "CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;", "ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;")
+
+			createStatement1 := "CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;"
+			if connectionPool.Version.AtLeast("6") {
+				createStatement1 = "CREATE OR REPLACE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;"
+			}
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, createStatement1, "ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;")
 		})
 		It("prints trusted language with handler, inline, and validator", func() {
 			langs := []backup.ProceduralLanguage{plAllFields}
 
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, langs, funcInfoMap, emptyMetadataMap)
+
+			createStatement1 := "CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;"
+			if connectionPool.Version.AtLeast("6") {
+				createStatement1 = "CREATE OR REPLACE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;"
+			}
+
 			expectedStatements := []string{
-				"CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;",
+				createStatement1,
 				`ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
@@ -651,10 +662,17 @@ ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
 			langs := []backup.ProceduralLanguage{plUntrustedHandlerOnly, plAllFields}
 
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, langs, funcInfoMap, emptyMetadataMap)
+
+			createStatement1 := "CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;"
+			createStatement2 := "CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;"
+			if connectionPool.Version.AtLeast("6") {
+				createStatement1 = "CREATE OR REPLACE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;"
+				createStatement2 = "CREATE OR REPLACE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;"
+			}
 			expectedStatements := []string{
-				"CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;",
+				createStatement1,
 				"ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;",
-				"CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;",
+				createStatement2,
 				`ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO testrole;
 ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
@@ -666,8 +684,14 @@ ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
 			langMetadataMap := testutils.DefaultMetadataMap("LANGUAGE", true, true, true, true)
 
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, langs, funcInfoMap, langMetadataMap)
+
+			createStatement1 := "CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;"
+			if connectionPool.Version.AtLeast("6") {
+				createStatement1 = "CREATE OR REPLACE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;"
+			}
+
 			expectedStatements := []string{
-				"CREATE PROCEDURAL LANGUAGE plpythonu HANDLER pg_catalog.plpython_call_handler;",
+				createStatement1,
 				"ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;",
 				"COMMENT ON LANGUAGE plpythonu IS 'This is a language comment.';",
 			}
@@ -689,8 +713,13 @@ GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
 			langMetadataMap := testutils.DefaultMetadataMap("LANGUAGE", true, true, true, true)
 
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, langs, funcInfoMap, langMetadataMap)
+
+			createStatement1 := "CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;"
+			if connectionPool.Version.AtLeast("6") {
+				createStatement1 = "CREATE OR REPLACE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;"
+			}
 			expectedStatements := []string{
-				"CREATE TRUSTED PROCEDURAL LANGUAGE plperl HANDLER pg_catalog.plperl_call_handler INLINE pg_catalog.plperl_inline_handler VALIDATOR pg_catalog.plperl_validator;",
+				createStatement1,
 				"ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO owner%percentage;",
 				`COMMENT ON LANGUAGE plperl IS 'This is a language comment.';`,
 			}

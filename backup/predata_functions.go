@@ -238,6 +238,9 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *t
 	for _, procLang := range procLangs {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nCREATE ")
+		if connectionPool.Version.AtLeast("6") {
+			metadataFile.MustPrintf("OR REPLACE ")
+		}
 		if procLang.PlTrusted {
 			metadataFile.MustPrintf("TRUSTED ")
 		}
