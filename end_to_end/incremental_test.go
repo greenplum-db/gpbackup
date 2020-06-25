@@ -179,7 +179,7 @@ var _ = Describe("End to End incremental tests", func() {
 
 				_ = os.Remove(backupDir)
 			})
-			It("restores from -include filtered incremental backup with partition tables", func() {
+			It("restores from --include filtered incremental backup with partition tables", func() {
 				_ = gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data",
 					"--include-table", "public.sales")
@@ -210,16 +210,17 @@ var _ = Describe("End to End incremental tests", func() {
 					"public.sales_1_prt_mar17": 2,
 				})
 			})
-			It("restores from -exclude filtered incremental backup with partition tables", func() {
+			It("restores from --exclude filtered incremental backup with partition tables", func() {
+				skipIfOldBackupVersionBefore("1.18.0")
 				publicSchemaTupleCountsWithExclude := map[string]int{
 					"public.foo":   40000, // holds is excluded and doesn't exist
-					"public.sales": 12,  // 13 original - 1 for excluded partition
+					"public.sales": 12,    // 13 original - 1 for excluded partition
 				}
 				schema2TupleCountsWithExclude := map[string]int{
 					"schema2.returns": 6,
 					"schema2.foo2":    0,
 					"schema2.foo3":    100,
-					"schema2.ao2":     1001,  // +1 for new row, ao1 is excluded and doesn't exist
+					"schema2.ao2":     1001, // +1 for new row, ao1 is excluded and doesn't exist
 				}
 
 				_ = gpbackup(gpbackupPath, backupHelperPath,
@@ -362,7 +363,7 @@ var _ = Describe("End to End incremental tests", func() {
 				assertArtifactsCleaned(restoreConn, incremental1Timestamp)
 				assertArtifactsCleaned(restoreConn, incremental2Timestamp)
 			})
-			It("Runs backup and restore if plugin location changed", func(){
+			It("Runs backup and restore if plugin location changed", func() {
 				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				fullBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data",
@@ -440,7 +441,7 @@ EOF1`, backupDir)
 				testhelper.AssertQueryRuns(restoreConn,
 					"DROP SCHEMA IF EXISTS testschema CASCADE;")
 			})
-			It("Does not try to restore postdata", func(){
+			It("Does not try to restore postdata", func() {
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE TABLE zoo (a int) WITH (appendonly=true);")
 				testhelper.AssertQueryRuns(backupConn,
@@ -622,7 +623,7 @@ EOF1`, backupDir)
 					Expect(err).To(HaveOccurred())
 					Expect(string(output)).To(ContainSubstring(
 						"objects are missing from the target database: " +
-						"[new_schema new_schema.new_table1 old_schema.new_table1]"))
+							"[new_schema new_schema.new_table1 old_schema.new_table1]"))
 					assertRelationsExistForIncremental(restoreConn, 3)
 					assertDataRestored(restoreConn, oldSchemaTupleCounts)
 					assertDataRestored(restoreConn, newSchemaTupleCounts)
