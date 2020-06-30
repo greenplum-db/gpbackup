@@ -89,15 +89,18 @@ func setFiltersFromFile(initialFlags *pflag.FlagSet, filterFlag string, filterFi
 		return nil, err
 	}
 	if filename != "" {
-		filters, err = iohelper.ReadLinesFromFile(filename)
+		filterLines, err := iohelper.ReadLinesFromFile(filename)
 		if err != nil {
 			return nil, err
 		}
 		// copy any values for flag filterFileFlag into global flag for filterFlag
-		for _, fqn := range filters {
-			err = initialFlags.Set(filterFlag, fqn) //This appends to the slice underlying the flag.
-			if err != nil {
-				return nil, err
+		for _, fqn := range filterLines {
+			if fqn != "" {
+				filters = append(filters, fqn)          //This appends filter to options
+				err = initialFlags.Set(filterFlag, fqn) //This appends to the slice underlying the flag.
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		if err != nil {
