@@ -64,7 +64,7 @@ func SetSessionGUCs(connNum int) {
 	// our Semver package only allows up to 3 digits. To avoid any complicated
 	// version diffs of setting this GUC, we use set_config() with a subquery
 	// getting the max value of the GUC.
-	connectionPool.MustExec("SELECT set_config('extra_float_digits', (SELECT max_val FROM pg_settings WHERE name = 'extra_float_digits'), false)")
+	connectionPool.MustExec("SELECT set_config('extra_float_digits', (SELECT max_val FROM pg_settings WHERE name = 'extra_float_digits'), false)", connNum)
 
 	if connectionPool.Version.AtLeast("5") {
 		connectionPool.MustExec("SET synchronize_seqscans TO off", connNum)

@@ -1166,18 +1166,26 @@ var _ = Describe("backup and restore end to end tests", func() {
 		skipIfOldBackupVersionBefore("1.13.0")
 
 		tableName := "public.test_real_precision"
+		tableNameCopy := "public.test_real_precision_copy"
 		testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s (val real)`, tableName))
 		defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableName))
 		testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO %s VALUES (0.100001216)`, tableName))
+		testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s AS SELECT * FROM %s`, tableNameCopy, tableName))
+		defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableNameCopy))
+
+		// We use --jobs flag to make sure all parallel connections have the GUC set properly
 		timestamp := gpbackup(gpbackupPath, backupHelperPath,
 			"--backup-dir", backupDir,
-			"--dbname", "testdb",
-			"--include-table", fmt.Sprintf("%s", tableName))
+			"--dbname", "testdb", "--jobs", "2",
+			"--include-table", fmt.Sprintf("%s", tableName),
+			"--include-table", fmt.Sprintf("%s", tableNameCopy))
 		gprestore(gprestorePath, restoreHelperPath, timestamp,
 			"--redirect-db", "restoredb",
 			"--backup-dir", backupDir)
 		tableCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableName))
 		Expect(tableCount).To(Equal(strconv.Itoa(1)))
+		tableCopyCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableNameCopy))
+		Expect(tableCopyCount).To(Equal(strconv.Itoa(1)))
 	})
 	It("backup and restore all data when NOT VALID option on constraints is specified", func() {
 		testutils.SkipIfBefore6(backupConn)
