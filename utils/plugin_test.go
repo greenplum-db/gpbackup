@@ -373,11 +373,25 @@ options:
 	})
 	Describe("ReadPluginConfig", func() {
 		It("returns an error if executablepath is not specified", func() {
-			operating.System.ReadFile = func(string) ([]byte, error) { return []byte{}, nil }
+			operating.System.ReadFile = func(string) ([]byte, error) {
+				return []byte(`options:
+ hostname: "myhostname"`), nil
+			}
 
 			_, err := utils.ReadPluginConfig("myconfigpath")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("executablepath is required in config file"))
+		})
+		It("returns an error if additional fields are present on the root level", func() {
+			operating.System.ReadFile = func(string) ([]byte, error) {
+				return []byte(`executablepath: "/usr/local/gpdb/bin/gpbackup_ddboost_plugin"
+options:
+hostname: "myhostname"`), nil
+			}
+
+			_, err := utils.ReadPluginConfig("myconfigpath")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("plugin config file is formatted incorrectly"))
 		})
 	})
 })

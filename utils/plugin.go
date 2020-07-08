@@ -44,12 +44,15 @@ func ReadPluginConfig(configFile string) (*PluginConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = yaml.Unmarshal(contents, config)
+	err = yaml.UnmarshalStrict(contents, config)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("plugin config file is formatted incorrectly")
 	}
 	if config.ExecutablePath == "" {
 		return nil, errors.New("executablepath is required in config file")
+	}
+	if config.Options == nil {
+		config.Options = make(map[string]string)
 	}
 	config.ExecutablePath = os.ExpandEnv(config.ExecutablePath)
 	err = ValidateFullPath(config.ExecutablePath)
