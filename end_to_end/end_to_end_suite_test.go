@@ -751,9 +751,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--with-stats")
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
-					"--include-table", "schema2.foo3",
-					"--redirect-schema", "schema3",
-					"--with-stats")
+				"--include-table", "schema2.foo3",
+				"--redirect-schema", "schema3",
+				"--with-stats")
 
 			schema3TupleCounts := map[string]int{
 				"schema3.foo3": 100,
@@ -1217,6 +1217,59 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 		_, err := restoreConn.Exec("INSERT INTO legacy_table_violate_constraints VALUES (1)")
 		Expect(err).To(HaveOccurred())
+		assertArtifactsCleaned(restoreConn, timestamp)
+	})
+	It("runs gpbackup and gprestore to backup tables depending on functions", func() {
+		skipIfOldBackupVersionBefore("1.19.0")
+		testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + 1; END; $$ LANGUAGE PLPGSQL;;")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
+
+		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
+		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
+		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (2);")
+
+		timestamp := gpbackup(gpbackupPath, backupHelperPath)
+		gprestore(gprestorePath, restoreHelperPath, timestamp,
+			"--redirect-db", "restoredb")
+
+		assertRelationsCreated(restoreConn, TOTAL_RELATIONS+1) // for new table
+		assertDataRestored(restoreConn, schema2TupleCounts)
+		assertDataRestored(restoreConn, map[string]int{
+			"public.foo":                      40000,
+			"public.holds":                    50000,
+			"public.sales":                    13,
+			"public.test_depends_on_function": 2})
+		assertArtifactsCleaned(restoreConn, timestamp)
+	})
+	It("runs gpbackup and gprestore to backup functions depending on tables", func() {
+		skipIfOldBackupVersionBefore("1.19.0")
+
+		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE to_use_for_function (n int);")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE to_use_for_function;")
+
+		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  to_use_for_function values (1);")
+		testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + (SELECT n FROM to_use_for_function); END; $$ LANGUAGE PLPGSQL;;")
+
+		defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
+
+		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
+		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
+
+		timestamp := gpbackup(gpbackupPath, backupHelperPath)
+		gprestore(gprestorePath, restoreHelperPath, timestamp,
+			"--redirect-db", "restoredb")
+
+		assertRelationsCreated(restoreConn, TOTAL_RELATIONS+2) // for 2 new tables
+		assertDataRestored(restoreConn, schema2TupleCounts)
+		assertDataRestored(restoreConn, map[string]int{
+			"public.foo":                      40000,
+			"public.holds":                    50000,
+			"public.sales":                    13,
+			"public.to_use_for_function":      1,
+			"public.test_depends_on_function": 1})
+
 		assertArtifactsCleaned(restoreConn, timestamp)
 	})
 })

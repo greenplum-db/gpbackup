@@ -123,6 +123,7 @@ PARTITION BY LIST (gender)
 
 			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
 			Expect(string(metadataFileContents)).To(ContainSubstring("t1"))
+			Expect(string(metadataFileContents)).ToNot(ContainSubstring("public.f1()"))
 			Expect(string(metadataFileContents)).ToNot(ContainSubstring("read_from_s3"))
 			Expect(string(metadataFileContents)).ToNot(ContainSubstring("s3_protocol"))
 		})
@@ -287,6 +288,33 @@ PARTITION BY LIST (gender)
 				"public.holds": 50000})
 
 			_ = os.Remove("/tmp/exclude-tables.txt")
+		})
+		It("gpbackup with --exclude-table and then runs gprestore when functions and tables depending on each other", func() {
+			skipIfOldBackupVersionBefore("1.19.0")
+
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE to_use_for_function (n int);")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE to_use_for_function;")
+
+			testhelper.AssertQueryRuns(backupConn, "INSERT INTO  to_use_for_function values (1);")
+			testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + (SELECT n FROM to_use_for_function); END; $$ LANGUAGE PLPGSQL;;")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
+
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
+			testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--exclude-table", "public.holds")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb")
+
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS-1+2) // -1 for exclude +2 for 2 new tables
+			assertDataRestored(restoreConn, map[string]int{
+				"public.foo":                      40000,
+				"public.sales":                    13,
+				"public.to_use_for_function":      1,
+				"public.test_depends_on_function": 1})
+			assertArtifactsCleaned(restoreConn, timestamp)
 		})
 	})
 	Describe("Restore exclude filtering", func() {
