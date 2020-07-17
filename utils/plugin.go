@@ -126,9 +126,9 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 		tempPluginVersion := strings.TrimSpace(remoteOutput.Stdouts[contentID])
 		if pluginVersion != "" && tempPluginVersion != "" {
 			if pluginVersion != tempPluginVersion {
-				gplog.Verbose("Plugin %s on content ID %v with API version %s is not consistent " +
+				gplog.Verbose("Plugin %s on content ID %v with API version %s is not consistent "+
 					"with version on another segment", plugin.ExecutablePath, contentID, version)
-				cluster.LogFatalClusterError("Plugin API version is inconsistent " +
+				cluster.LogFatalClusterError("Plugin API version is inconsistent "+
 					"across segments; please reinstall plugin across segments",
 					cluster.ON_HOSTS_AND_MASTER, numIncorrect)
 			}
@@ -140,7 +140,7 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 			gplog.Fatal(fmt.Errorf("ERROR: Unable to parse plugin API version: %s", err.Error()), "")
 		}
 		if !version.GE(requiredVersion) {
-			gplog.Verbose("Plugin %s API version %s is not compatible with supported API " +
+			gplog.Verbose("Plugin %s API version %s is not compatible with supported API "+
 				"version %s", plugin.ExecutablePath, version, requiredVersion)
 			numIncorrect++
 		}
@@ -178,9 +178,9 @@ func (plugin *PluginConfig) getPluginNativeVersion(c *cluster.Cluster) string {
 		// check consistency of plugin version across all segments
 		if pluginVersion != "" && tempPluginVersion != "" {
 			if pluginVersion != tempPluginVersion {
-				gplog.Verbose("Plugin %s on content ID %v with --version %s is not consistent " +
+				gplog.Verbose("Plugin %s on content ID %v with --version %s is not consistent "+
 					"with version on another segment", plugin.ExecutablePath, contentID, pluginVersion)
-				cluster.LogFatalClusterError("Plugin --version is inconsistent " +
+				cluster.LogFatalClusterError("Plugin --version is inconsistent "+
 					"across segments; please reinstall plugin across segments",
 					cluster.ON_HOSTS_AND_MASTER, numIncorrect)
 			}
@@ -385,7 +385,7 @@ func GetSecretKey(pluginName string, mdd string) (string, error) {
 	secretFilePath := path.Join(mdd, SecretKeyFile)
 	contents, err := operating.System.ReadFile(secretFilePath)
 
-	errMsg := fmt.Sprintf("Cannot find encryption key for plugin %s. " +
+	errMsg := fmt.Sprintf("Cannot find encryption key for plugin %s. "+
 		"Please re-encrypt password(s) so that key becomes available.", pluginName)
 	if err != nil {
 		return "", errors.New(errMsg)
@@ -417,7 +417,7 @@ func (plugin *PluginConfig) BackupSegmentTOCs(c *cluster.Cluster, fpInfo filepat
 	remoteOutput = c.GenerateAndExecuteCommand("Processing segment TOC files with plugin",
 		func(contentID int) string {
 			tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
-			return fmt.Sprintf("source %s/greenplum_path.sh && %s backup_file %s %s && " +
+			return fmt.Sprintf("source %s/greenplum_path.sh && %s backup_file %s %s && "+
 				"chmod 0755 %s", operating.System.Getenv("GPHOME"), plugin.ExecutablePath, plugin.ConfigPath, tocFile, tocFile)
 		}, cluster.ON_SEGMENTS)
 	c.CheckClusterError(remoteOutput, "Unable to process segment TOC files using plugin", func(contentID int) string {
@@ -432,7 +432,7 @@ func (plugin *PluginConfig) RestoreSegmentTOCs(c *cluster.Cluster, fpInfo filepa
 		command = fmt.Sprintf("mkdir -p %s && source %s/greenplum_path.sh && %s restore_file %s %s",
 			fpInfo.GetDirForContent(contentID), operating.System.Getenv("GPHOME"),
 			plugin.ExecutablePath, plugin.ConfigPath, tocFile)
-		return 	command
+		return command
 	}, cluster.ON_SEGMENTS)
 	gplog.Debug("%s", command)
 	c.CheckClusterError(remoteOutput, "Unable to process segment TOC files using plugin", func(contentID int) string {
@@ -455,7 +455,7 @@ func (plugin *PluginConfig) GetPluginName(c *cluster.Cluster) (pluginName string
 	// expects the output to be in "[plugin_name] version [git_version]"
 	s := strings.Split(output, " ")
 	if len(s) != 3 {
-		return "", fmt.Errorf("Unexpected plugin version format: " +
+		return "", fmt.Errorf("Unexpected plugin version format: "+
 			"\"%s\"\nExpected: \"[plugin_name] version [git_version]\"", strings.Join(s, " "))
 	}
 
@@ -468,8 +468,8 @@ func (plugin *PluginConfig) BackupPluginVersion() string {
 
 func (plugin *PluginConfig) SetBackupPluginVersion(timestamp string, historicalPluginVersion string) {
 	if historicalPluginVersion == "" {
-		gplog.Warn("cannot recover plugin version from history using timestamp %s, " +
-			"so using current plugin version. This is fine unless there is a backwards " +
+		gplog.Warn("cannot recover plugin version from history using timestamp %s, "+
+			"so using current plugin version. This is fine unless there is a backwards "+
 			"compatibility consideration within the plugin", timestamp)
 		plugin.backupPluginVersion = ""
 	} else {
@@ -479,6 +479,6 @@ func (plugin *PluginConfig) SetBackupPluginVersion(timestamp string, historicalP
 
 func (plugin *PluginConfig) CanRestoreSubset() bool {
 	return (plugin.Options["restore_subset"] == "on") ||
-			(strings.HasSuffix(plugin.ExecutablePath, "ddboost_plugin") &&
-				plugin.Options["restore_subset"] != "off")
+		(strings.HasSuffix(plugin.ExecutablePath, "ddboost_plugin") &&
+			plugin.Options["restore_subset"] != "off")
 }

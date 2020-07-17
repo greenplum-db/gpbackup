@@ -75,7 +75,7 @@ var _ = Describe("utils/plugin tests", func() {
 		confFileName := filepath.Base(subject.ConfigPath)
 		files, _ := ioutil.ReadDir(confDir)
 		for _, f := range files {
-			match, _ := filepath.Match(confFileName + "*", f.Name())
+			match, _ := filepath.Match(confFileName+"*", f.Name())
 			if match {
 				_ = os.Remove(confDir + "/" + f.Name())
 			}
