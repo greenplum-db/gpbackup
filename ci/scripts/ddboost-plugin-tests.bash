@@ -6,6 +6,13 @@ set -ex
 ccp_src/scripts/setup_ssh_to_cluster.sh
 out=$(ssh -t mdw 'source env.sh && psql postgres -c "select version();"')
 GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
+
+# To prevent ddboost flaking with multiple pipelines due to backups running
+# with the same timestamps, the current time in nanoseconds lowers the gpbackup
+# timestamp collision rate. Nanoseconds for `date` command does not work on
+# macOS.
+TIME_NANO=$(date +%s%N)
+
 mkdir -p /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
 scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg mdw:/home/gpadmin
@@ -64,7 +71,7 @@ pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
 #       because the backup artifact that these tests are using only works on local clusters.
 sed -i 's|\tIt\(.*\)\(--on-error-continue\)|\tPIt\1\2|' end_to_end/end_to_end_suite_test.go
 
-make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end_GPDB${GPDB_VERSION}
+make end_to_end CUSTOM_BACKUP_DIR=/data/gpdata/dd_dir/end_to_end_GPDB${GPDB_VERSION}/${TIME_NANO}
 SCRIPT
 
 chmod +x /tmp/run_tests.bash

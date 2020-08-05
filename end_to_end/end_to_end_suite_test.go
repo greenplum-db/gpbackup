@@ -371,6 +371,10 @@ var _ = BeforeSuite(func() {
 
 	saveHistory(backupCluster)
 
+	err = os.MkdirAll(customBackupDir, 0777)
+	if err != nil {
+		Fail(fmt.Sprintf("Failed to create directory: %s. Error: %s", customBackupDir, err.Error()))
+	}
 	// Flag validation
 	_, err = os.Stat(customBackupDir)
 	if os.IsNotExist(err) {
