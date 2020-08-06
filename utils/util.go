@@ -57,12 +57,12 @@ func WriteToFileAndMakeReadOnly(filename string, contents []byte) error {
 		return err
 	}
 
-	err = file.Sync()
+	err = file.Chmod(0444)
 	if err != nil {
 		return err
 	}
 
-	err = file.Chmod(0444)
+	err = file.Sync()
 	if err != nil {
 		return err
 	}
