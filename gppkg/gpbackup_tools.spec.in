@@ -18,10 +18,12 @@ Backup and restore utilities for Greenplum
 
 %install
 mkdir -p $RPM_BUILD_ROOT%{prefix}/bin $RPM_BUILD_ROOT%{prefix}/lib
+cp open_source_licenses_VMware_Tanzu_Greenplum_Backup_and_Restore.txt $RPM_BUILD_ROOT%{prefix}/
 cp bin/gpbackup bin/gprestore bin/gpbackup_helper bin/gpbackup_manager bin/gpbackup_ddboost_plugin bin/gpbackup_s3_plugin $RPM_BUILD_ROOT%{prefix}/bin
 cp lib/libDDBoost.so $RPM_BUILD_ROOT%{prefix}/lib
 
 %files
+%{prefix}/open_source_licenses_VMware_Tanzu_Greenplum_Backup_and_Restore.txt
 %{prefix}/bin/gpbackup
 %{prefix}/bin/gprestore
 %{prefix}/bin/gpbackup_helper

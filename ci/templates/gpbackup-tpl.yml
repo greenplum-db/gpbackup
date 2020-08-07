@@ -767,6 +767,7 @@ resources:
     region: ((pivnet_aws_region))
     copy_metadata: true
     sort_by: semver
+{% endif %}
 
 - name: gpbackup-release-license
   type: gcs
@@ -774,8 +775,7 @@ resources:
   source:
     bucket: gpbackup-release-licenses
     json_key: ((gcp_svc_acct_key))
-    regexp: open_source_license_pivotal-gpdb-backup-(.*)-*.txt
-{% endif %}
+    regexp: open_source_license_VMware_Tanzu_Greenplum_Backup_and_Restore_(.*)_.*.txt
 
 jobs:
 - name: build_binaries
@@ -831,6 +831,7 @@ jobs:
       trigger: true
 {% endif %}
     - get: pivnet_release_cache
+    - get: gpbackup-release-license
   - task: gpbackup-tools-versions
     image: centos6-image
     file: gpbackup/ci/tasks/gpbackup-tools-versions.yml
