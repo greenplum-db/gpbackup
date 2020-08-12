@@ -1,8 +1,10 @@
 package history
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -101,28 +103,62 @@ func CurrentTimestamp() string {
 }
 
 func WriteBackupHistory(historyFilePath string, currentBackupConfig *BackupConfig) error {
-	lock := lockHistoryFile()
-	defer func() {
-		_ = lock.Unlock()
-	}()
 
-	history := &History{BackupConfigs: make([]BackupConfig, 0)}
-	_, err := os.Stat(historyFilePath)
-	fileExists := err == nil
-	if fileExists {
-		err = os.Chmod(historyFilePath, 0644)
-		gplog.FatalOnError(err)
-		history, err = NewHistory(historyFilePath)
-		gplog.FatalOnError(err)
+	var oldHistoryLock lockfile.Lockfile
+	currentBackupConfig.EndTime = CurrentTimestamp()
+	history := &History{BackupConfigs: []BackupConfig{*currentBackupConfig}}
+
+	tmpFile, err := ioutil.TempFile(filepath.Dir(historyFilePath), "gpbackup_history*.yaml")
+	if err != nil {
+		return err
 	}
-	if len(history.BackupConfigs) == 0 {
+
+	contents, err := yaml.Marshal(history)
+	if err != nil {
+		return err
+	}
+
+	_, err = tmpFile.Write(contents)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(historyFilePath)
+	oldHistoryFileExists := err == nil
+	if oldHistoryFileExists {
+		oldHistoryLock = lockHistoryFile()
+		oldHistoryFile, err := os.Open(historyFilePath)
+		if err != nil {
+			return err
+		}
+		_, err = oldHistoryFile.Seek(15, 0)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(tmpFile, oldHistoryFile)
+		if err != nil {
+			return err
+		}
+		oldHistoryFile.Close()
+	} else {
 		gplog.Verbose("No existing backups found. Creating new backup history file.")
 	}
-
-	currentBackupConfig.EndTime = CurrentTimestamp()
-
-	history.AddBackupConfig(currentBackupConfig)
-	return history.WriteToFileAndMakeReadOnly(historyFilePath)
+	err = tmpFile.Chmod(0444)
+	if err != nil {
+		return err
+	}
+	err = tmpFile.Sync()
+	if err != nil {
+		return err
+	}
+	err = os.Rename(tmpFile.Name(), historyFilePath)
+	if err != nil {
+		return err
+	}
+	if oldHistoryFileExists {
+		_ = oldHistoryLock.Unlock()
+	}
+	return nil
 }
 
 func (history *History) RewriteHistoryFile(historyFilePath string) error {
