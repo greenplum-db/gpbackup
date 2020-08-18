@@ -15,7 +15,7 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	"gopkg.in/cheggaaa/pb.v1"
 )
@@ -46,8 +46,8 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 		errStr := fmt.Sprintf("Error loading data into table %s", tableName)
 
 		// The COPY ON SEGMENT error might contain useful CONTEXT output
-		if err.(pgx.PgError).Where != "" {
-			errStr = fmt.Sprintf("%s: %s", errStr, err.(pgx.PgError).Where)
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Where != "" {
+			errStr = fmt.Sprintf("%s: %s", errStr, pgErr.Where)
 		}
 
 		return 0, errors.Wrap(err, errStr)

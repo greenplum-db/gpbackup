@@ -8,7 +8,7 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgconn"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -73,7 +73,7 @@ var _ = Describe("restore/data tests", func() {
 		})
 		It("will output expected error string from COPY ON SEGMENT failure", func() {
 			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456 | cat -' WITH CSV DELIMITER ',' ON SEGMENT;")
-			pgErr := pgx.PgError{
+			pgErr := &pgconn.PgError{
 				Severity: "ERROR",
 				Code:     "22P04",
 				Message:  "value of distribution key doesn't belong to segment with ID 0, it belongs to segment with ID 1",
