@@ -27,15 +27,15 @@ var _ = Describe("agent remote", func() {
 		It("writes oids to a temp file and copies it to all segments", func() {
 			utils.WriteOidListToSegments(oidList, testCluster, filePath)
 
-			remoteOutput := testCluster.GenerateAndExecuteCommand("ensure oid file was written to segments", func(contentID int) string {
+			remoteOutput := testCluster.GenerateAndExecuteCommand("ensure oid file was written to segments", cluster.ON_SEGMENTS, func(contentID int) string {
 				remoteOidFile := filePath.GetSegmentHelperFilePath(contentID, "oid")
 				return fmt.Sprintf("cat %s", remoteOidFile)
-			}, cluster.ON_SEGMENTS)
+			})
 			defer func() {
-				remoteOutputRemoval := testCluster.GenerateAndExecuteCommand("ensure oid file removed", func(contentID int) string {
+				remoteOutputRemoval := testCluster.GenerateAndExecuteCommand("ensure oid file removed", cluster.ON_SEGMENTS, func(contentID int) string {
 					remoteOidFile := filePath.GetSegmentHelperFilePath(contentID, "oid")
 					return fmt.Sprintf("rm %s", remoteOidFile)
-				}, cluster.ON_SEGMENTS)
+				})
 				testCluster.CheckClusterError(remoteOutputRemoval, "Could not remove oid file", func(contentID int) string {
 					return "Could not remove oid file"
 				})
@@ -45,8 +45,8 @@ var _ = Describe("agent remote", func() {
 				return "Could not cat oid file"
 			})
 
-			for _, stdout := range remoteOutput.Stdouts {
-				Expect(stdout).To(Equal("1\n2\n3\n"))
+			for _, cmd := range remoteOutput.Commands {
+				Expect(cmd.Stdout).To(Equal("1\n2\n3\n"))
 			}
 		})
 	})

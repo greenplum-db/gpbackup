@@ -20,9 +20,9 @@ func VerifyBackupDirectoriesExistOnAllHosts() {
 	_, err := globalCluster.ExecuteLocalCommand(fmt.Sprintf("test -d %s", globalFPInfo.GetDirForContent(-1)))
 	gplog.FatalOnError(err, "Backup directory %s missing or inaccessible", globalFPInfo.GetDirForContent(-1))
 	if MustGetFlagString(options.PLUGIN_CONFIG) == "" || backupConfig.SingleDataFile {
-		remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup directories exist", func(contentID int) string {
+		remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup directories exist", cluster.ON_SEGMENTS, func(contentID int) string {
 			return fmt.Sprintf("test -d %s", globalFPInfo.GetDirForContent(contentID))
-		}, cluster.ON_SEGMENTS)
+		})
 		globalCluster.CheckClusterError(remoteOutput, "Backup directories missing or inaccessible", func(contentID int) string {
 			return fmt.Sprintf("Backup directory %s missing or inaccessible", globalFPInfo.GetDirForContent(contentID))
 		})
@@ -30,16 +30,16 @@ func VerifyBackupDirectoriesExistOnAllHosts() {
 }
 
 func VerifyBackupFileCountOnSegments(fileCount int) {
-	remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup file count", func(contentID int) string {
+	remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup file count", cluster.ON_SEGMENTS, func(contentID int) string {
 		return fmt.Sprintf("find %s -type f | wc -l", globalFPInfo.GetDirForContent(contentID))
-	}, cluster.ON_SEGMENTS)
+	})
 	globalCluster.CheckClusterError(remoteOutput, "Could not verify backup file count", func(contentID int) string {
 		return "Could not verify backup file count"
 	})
 
 	numIncorrect := 0
-	for contentID := range remoteOutput.Stdouts {
-		numFound, _ := strconv.Atoi(strings.TrimSpace(remoteOutput.Stdouts[contentID]))
+	for contentID, cmd := range remoteOutput.Commands {
+		numFound, _ := strconv.Atoi(strings.TrimSpace(cmd.Stdout))
 		if numFound != fileCount {
 			gplog.Verbose("Expected to find %d file(s) on segment %d on host %s, but found %d instead.", fileCount, contentID, globalCluster.GetHostForContent(contentID), numFound)
 			numIncorrect++
