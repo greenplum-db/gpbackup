@@ -33,7 +33,7 @@ func SetupTestEnvironment() (*dbconn.DBConn, sqlmock.Sqlmock, *Buffer, *Buffer, 
 
 	// Default if not set is GPDB version `5.1.0`
 	envTestGpdbVersion := os.Getenv("TEST_GPDB_VERSION")
-	if (envTestGpdbVersion != "") {
+	if envTestGpdbVersion != "" {
 		testhelper.SetDBVersion(connectionPool, envTestGpdbVersion)
 	}
 
@@ -66,9 +66,11 @@ func SetDefaultSegmentConfiguration() *cluster.Cluster {
 }
 
 func SetupTestFilespace(connectionPool *dbconn.DBConn, testCluster *cluster.Cluster) {
-	remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directory", func(contentID int) string {
-		return fmt.Sprintf("mkdir -p /tmp/test_dir")
-	}, cluster.ON_HOSTS_AND_MASTER)
+	remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directory",
+		cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+		func(contentID int) string {
+			return fmt.Sprintf("mkdir -p /tmp/test_dir")
+		})
 	if remoteOutput.NumErrors != 0 {
 		Fail("Could not create filespace test directory on 1 or more hosts")
 	}
@@ -131,20 +133,26 @@ func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComme
 		securityLabel = "unclassified"
 	}
 	switch objType {
-	case "DOMAIN": objType = "TYPE"
-	case "FOREIGN SERVER": objType = "SERVER"
-	case "MATERIALIZED VIEW": objType = "RELATION"
-	case "SEQUENCE": objType = "RELATION"
-	case "TABLE": objType = "RELATION"
-	case "VIEW": objType = "RELATION"
+	case "DOMAIN":
+		objType = "TYPE"
+	case "FOREIGN SERVER":
+		objType = "SERVER"
+	case "MATERIALIZED VIEW":
+		objType = "RELATION"
+	case "SEQUENCE":
+		objType = "RELATION"
+	case "TABLE":
+		objType = "RELATION"
+	case "VIEW":
+		objType = "RELATION"
 	}
 	return backup.ObjectMetadata{
-		Privileges: privileges,
-		ObjectType: objType,
-		Owner: owner,
-		Comment: comment,
+		Privileges:            privileges,
+		ObjectType:            objType,
+		Owner:                 owner,
+		Comment:               comment,
 		SecurityLabelProvider: securityLabelProvider,
-		SecurityLabel: securityLabel,
+		SecurityLabel:         securityLabel,
 	}
 
 }
@@ -488,7 +496,7 @@ func InitializeTestTOC(buffer io.Writer, which string) (*toc.TOC, *utils.FileWit
 
 type TestExecutorMultiple struct {
 	ClusterOutputs      []*cluster.RemoteOutput
-	ClusterCommands     []map[int][]string
+	ClusterCommands     [][]cluster.ShellCommand
 	ErrorOnExecNum      int // Throw the specified error after this many executions of Execute[...]Command(); 0 means always return error
 	NumLocalExecutions  int
 	NumRemoteExecutions int
@@ -506,10 +514,10 @@ func (executor *TestExecutorMultiple) ExecuteLocalCommand(commandStr string) (st
 	return executor.LocalOutput, nil
 }
 
-func (executor *TestExecutorMultiple) ExecuteClusterCommand(scope int, commandMap map[int][]string) (result *cluster.RemoteOutput) {
+func (executor *TestExecutorMultiple) ExecuteClusterCommand(scope cluster.Scope, commands []cluster.ShellCommand) (result *cluster.RemoteOutput) {
 	originalExecutions := executor.NumRemoteExecutions
 	executor.NumRemoteExecutions++
-	executor.ClusterCommands = append(executor.ClusterCommands, commandMap)
+	executor.ClusterCommands = append(executor.ClusterCommands, commands)
 	if executor.ErrorOnExecNum == 0 || executor.NumRemoteExecutions == executor.ErrorOnExecNum {
 		// return the indexed item if exists, otherwise the last item
 		numOutputs := len(executor.ClusterOutputs)

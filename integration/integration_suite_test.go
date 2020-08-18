@@ -24,13 +24,13 @@ import (
 )
 
 var (
-	buffer                  *bytes.Buffer
-	connectionPool          *dbconn.DBConn
-	tocfile                 *toc.TOC
-	backupfile              *utils.FileWithByteCount
-	testCluster             *cluster.Cluster
-	gpbackupHelperPath      string
-	stderr, logFile         *Buffer
+	buffer             *bytes.Buffer
+	connectionPool     *dbconn.DBConn
+	tocfile            *toc.TOC
+	backupfile         *utils.FileWithByteCount
+	testCluster        *cluster.Cluster
+	gpbackupHelperPath string
+	stderr, logFile    *Buffer
 
 	// GUC defaults. Initially set to GPDB4 values
 	concurrencyDefault    = "20"
@@ -74,9 +74,12 @@ var _ = BeforeSuite(func() {
 	} else {
 		testhelper.AssertQueryRuns(connectionPool, "SET allow_system_table_mods = true")
 
-		remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directories on all hosts", func(contentID int) string {
-			return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
-		}, cluster.ON_HOSTS_AND_MASTER)
+		remoteOutput := testCluster.GenerateAndExecuteCommand(
+			"Creating filespace test directories on all hosts",
+			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			func(contentID int) string {
+				return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
+			})
 		if remoteOutput.NumErrors != 0 {
 			Fail("Could not create filespace test directory on 1 or more hosts")
 		}
@@ -112,9 +115,12 @@ var _ = AfterSuite(func() {
 	if connectionPool.Version.Before("6") {
 		testutils.DestroyTestFilespace(connectionPool)
 	} else {
-		remoteOutput := testCluster.GenerateAndExecuteCommand("Removing /tmp/test_dir* directories on all hosts", func(contentID int) string {
-			return fmt.Sprintf("rm -rf /tmp/test_dir*")
-		}, cluster.ON_HOSTS_AND_MASTER)
+		remoteOutput := testCluster.GenerateAndExecuteCommand(
+			"Removing /tmp/test_dir* directories on all hosts",
+			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			func(contentID int) string {
+				return fmt.Sprintf("rm -rf /tmp/test_dir*")
+			})
 		if remoteOutput.NumErrors != 0 {
 			Fail("Could not remove /tmp/testdir* directories on 1 or more hosts")
 		}

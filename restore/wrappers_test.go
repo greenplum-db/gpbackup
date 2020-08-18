@@ -248,21 +248,19 @@ withstatistics: false
 			executor = testutils.TestExecutorMultiple{
 				ClusterOutputs: make([]*cluster.RemoteOutput, 2),
 			}
-			// set up fake command results
-			apiResponse := make(map[int]string, 3)
-			apiResponse[-1] = utils.RequiredPluginVersion // this is a successful result fpr API version
-			apiResponse[0] = utils.RequiredPluginVersion
-			apiResponse[1] = utils.RequiredPluginVersion
 			executor.ClusterOutputs[0] = &cluster.RemoteOutput{
-				Stdouts: apiResponse,
+				Commands: []cluster.ShellCommand{
+					cluster.ShellCommand{Stdout: utils.RequiredPluginVersion},
+					cluster.ShellCommand{Stdout: utils.RequiredPluginVersion},
+					cluster.ShellCommand{Stdout: utils.RequiredPluginVersion},
+				},
 			}
-
-			nativeResponse := make(map[int]string, 3)
-			nativeResponse[-1] = "myPlugin version 1.2.3" // this is a successful result for --version
-			nativeResponse[0] = "myPlugin version 1.2.3"
-			nativeResponse[1] = "myPlugin version 1.2.3"
 			executor.ClusterOutputs[1] = &cluster.RemoteOutput{
-				Stdouts: nativeResponse,
+				Commands: []cluster.ShellCommand{
+					cluster.ShellCommand{Stdout: "myPlugin version 1.2.3"},
+					cluster.ShellCommand{Stdout: "myPlugin version 1.2.3"},
+					cluster.ShellCommand{Stdout: "myPlugin version 1.2.3"},
+				},
 			}
 
 			// write history file using test cluster directories
@@ -298,7 +296,7 @@ withstatistics: false
 			confFileName := filepath.Base(testConfigPath)
 			files, _ := ioutil.ReadDir(confDir)
 			for _, f := range files {
-				match, _ := filepath.Match("*" + confFileName + "*", f.Name())
+				match, _ := filepath.Match("*"+confFileName+"*", f.Name())
 				if match {
 					_ = os.Remove(confDir + "/" + f.Name())
 				}

@@ -30,23 +30,27 @@ var _ = Describe("filepath tests", func() {
 	segDirTwo := "/data/gpseg1"
 	var c *cluster.Cluster
 	BeforeEach(func() {
-		c = &cluster.Cluster{
-			Segments: map[int]cluster.SegConfig{
-				-1: {DataDir: masterDir},
-			},
-		}
+		c = cluster.NewCluster([]cluster.SegConfig{
+			{ContentID: -1, DataDir: masterDir},
+		})
 	})
 	Describe("Backup Filepath setup and accessors", func() {
 		It("returns content dir for a single-host, single-segment nodes", func() {
-			c.Segments[0] = cluster.SegConfig{DataDir: segDirOne}
+			c = cluster.NewCluster([]cluster.SegConfig{
+				{ContentID: -1, DataDir: masterDir},
+				{ContentID: 0, DataDir: segDirOne},
+			})
 			fpInfo := NewFilePathInfo(c, "", "20170101010101", "gpseg")
 			Expect(fpInfo.SegDirMap).To(HaveLen(2))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg0/backups/20170101/20170101010101"))
 		})
 		It("sets up the configuration for a single-host, multi-segment fpInfo", func() {
-			c.Segments[0] = cluster.SegConfig{DataDir: segDirOne}
-			c.Segments[1] = cluster.SegConfig{DataDir: segDirTwo}
+			c = cluster.NewCluster([]cluster.SegConfig{
+				{ContentID: -1, DataDir: masterDir},
+				{ContentID: 0, DataDir: segDirOne},
+				{ContentID: 1, DataDir: segDirTwo},
+			})
 			fpInfo := NewFilePathInfo(c, "", "20170101010101", "gpseg")
 			Expect(fpInfo.SegDirMap).To(HaveLen(3))
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))

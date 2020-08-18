@@ -35,8 +35,8 @@ func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestam
 	backupFPInfo.UserSpecifiedSegPrefix = userSegPrefix
 	backupFPInfo.Timestamp = timestamp
 	backupFPInfo.SegDirMap = make(map[int]string)
-	for content, segment := range c.Segments {
-		backupFPInfo.SegDirMap[content] = segment.DataDir
+	for _, segment := range c.Segments {
+		backupFPInfo.SegDirMap[segment.ContentID] = segment.DataDir
 	}
 	return backupFPInfo
 }

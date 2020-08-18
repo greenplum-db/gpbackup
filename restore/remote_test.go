@@ -8,7 +8,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/restore"
-	"github.com/pkg/errors"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -45,9 +44,9 @@ var _ = Describe("restore/remote tests", func() {
 		})
 		It("panics if backup file counts do not match on all segments", func() {
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				Stdouts: map[int]string{
-					0: "1",
-					1: "1",
+				Commands: []cluster.ShellCommand{
+					cluster.ShellCommand{Stdout: "1"},
+					cluster.ShellCommand{Stdout: "1"},
 				},
 			}
 			testCluster.Executor = testExecutor
@@ -57,8 +56,8 @@ var _ = Describe("restore/remote tests", func() {
 		})
 		It("panics if backup file counts do not match on some segments", func() {
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
-				Stdouts: map[int]string{
-					1: "1",
+				Commands: []cluster.ShellCommand{
+					cluster.ShellCommand{Stdout: "1"},
 				},
 			}
 			testCluster.Executor = testExecutor
@@ -69,8 +68,8 @@ var _ = Describe("restore/remote tests", func() {
 		It("panics if it cannot verify some backup file counts", func() {
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
 				NumErrors: 1,
-				Errors: map[int]error{
-					1: errors.Errorf("exit status 1"),
+				FailedCommands: []*cluster.ShellCommand{
+					&cluster.ShellCommand{Content: 1, Stdout: "1"},
 				},
 			}
 			testCluster.Executor = testExecutor

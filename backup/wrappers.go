@@ -143,9 +143,11 @@ func createBackupLockFile(timestamp string) {
 }
 
 func createBackupDirectoriesOnAllHosts() {
-	remoteOutput := globalCluster.GenerateAndExecuteCommand("Creating backup directories", func(contentID int) string {
-		return fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(contentID))
-	}, cluster.ON_SEGMENTS_AND_MASTER)
+	remoteOutput := globalCluster.GenerateAndExecuteCommand("Creating backup directories",
+		cluster.ON_SEGMENTS|cluster.INCLUDE_MASTER,
+		func(contentID int) string {
+			return fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(contentID))
+		})
 	globalCluster.CheckClusterError(remoteOutput, "Unable to create backup directories", func(contentID int) string {
 		return fmt.Sprintf("Unable to create backup directory %s", globalFPInfo.GetDirForContent(contentID))
 	})

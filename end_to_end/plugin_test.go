@@ -32,9 +32,11 @@ func forceMetadataFileDownloadFromPlugin(conn *dbconn.DBConn, timestamp string) 
 	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, filepath.GetSegPrefix(conn))
 	remoteOutput := backupCluster.GenerateAndExecuteCommand(
 		fmt.Sprintf("Removing backups on all segments for "+
-			"timestamp %s", timestamp), func(contentID int) string {
+			"timestamp %s", timestamp),
+		cluster.ON_SEGMENTS|cluster.INCLUDE_MASTER,
+		func(contentID int) string {
 			return fmt.Sprintf("rm -rf %s", fpInfo.GetDirForContent(contentID))
-		}, cluster.ON_SEGMENTS_AND_MASTER)
+		})
 	if remoteOutput.NumErrors != 0 {
 		Fail(fmt.Sprintf("Failed to remove backup directory for timestamp %s", timestamp))
 	}

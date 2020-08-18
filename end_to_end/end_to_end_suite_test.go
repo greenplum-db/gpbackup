@@ -216,7 +216,7 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 
 		return fmt.Sprintf("! ls %s && ! ls %s && ! ls %s && ! ls %s*", errorFile, oidFile, scriptFile, pipeFile)
 	}
-	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cleanupFunc, cluster.ON_SEGMENTS_AND_MASTER)
+	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS|cluster.INCLUDE_MASTER, cleanupFunc)
 	if remoteOutput.NumErrors != 0 {
 		Fail(fmt.Sprintf("Helper files found for timestamp %s", timestamp))
 	}
@@ -361,9 +361,11 @@ var _ = BeforeSuite(func() {
 		testutils.SetupTestFilespace(backupConn, backupCluster)
 	} else {
 		remoteOutput := backupCluster.GenerateAndExecuteCommand(
-			"Creating filespace test directories on all hosts", func(contentID int) string {
+			"Creating filespace test directories on all hosts",
+			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			func(contentID int) string {
 				return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
-			}, cluster.ON_HOSTS_AND_MASTER)
+			})
 		if remoteOutput.NumErrors != 0 {
 			Fail("Could not create filespace test directory on 1 or more hosts")
 		}
@@ -397,9 +399,11 @@ var _ = AfterSuite(func() {
 		_ = exec.Command("psql", "postgres",
 			"-c", "DROP TABLESPACE test_tablespace").Run()
 		remoteOutput := backupCluster.GenerateAndExecuteCommand(
-			"Removing /tmp/test_dir* directories on all hosts", func(contentID int) string {
+			"Removing /tmp/test_dir* directories on all hosts",
+			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			func(contentID int) string {
 				return fmt.Sprintf("rm -rf /tmp/test_dir*")
-			}, cluster.ON_HOSTS_AND_MASTER)
+			})
 		if remoteOutput.NumErrors != 0 {
 			Fail("Could not remove /tmp/testdir* directories on 1 or more hosts")
 		}
