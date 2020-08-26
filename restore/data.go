@@ -125,16 +125,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		workerPool.Add(1)
 		go func(whichConn int) {
 			defer workerPool.Done()
-			if MustGetFlagBool(options.WITH_STATS) && backupConfig.WithStatistics {
-				disableAutoStatsForSession := toc.StatementWithType{
-					Schema:          "",
-					Name:            "",
-					ObjectType:      "SESSION",
-					ReferenceObject: "",
-					Statement:       "SET gp_autostats_mode='none';",
-				}
-				gucStatements = append(gucStatements, disableAutoStatsForSession)
-			}
+
 			setGUCsForConnection(gucStatements, whichConn)
 			for entry := range tasks {
 				if wasTerminated {

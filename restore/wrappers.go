@@ -106,6 +106,10 @@ SET default_with_oids = off;
 	}
 	setupQuery += SetMaxCsvLineLengthQuery(connectionPool)
 
+	// Always disable gp_autostats_mode to prevent automatic ANALYZE
+	// during COPY FROM SEGMENT. ANALYZE should be run separately.
+	setupQuery += "SET gp_autostats_mode = 'none';\n"
+
 	for i := 0; i < connectionPool.NumConns; i++ {
 		connectionPool.MustExec(setupQuery, i)
 	}
