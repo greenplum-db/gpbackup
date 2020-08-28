@@ -950,6 +950,64 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"public.sales": 1, "public.sales_1_prt_jan17": 1})
 		})
 	})
+	Describe("Restore with --run-analyze", func() {
+		It("runs gprestore without --run-analyze", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb")
+
+			// Since --run-analyze was not used, there should be no statistics
+			actualStatisticCount := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) FROM pg_statistic WHERE starelid='public.sales'::regclass::oid`)
+			Expect(actualStatisticCount).To(Equal("0"))
+		})
+		It("runs gprestore with --run-analyze", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--run-analyze")
+
+			// Since --run-analyze was used, there should be stats
+			// for all 3 columns of the sales partition table
+			actualStatisticCount := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) FROM pg_statistic WHERE starelid='public.sales'::regclass::oid`)
+			Expect(actualStatisticCount).To(Equal("3"))
+		})
+		It("runs gprestore with --run-analyze and --redirect-schema", func() {
+			testhelper.AssertQueryRuns(restoreConn, "CREATE SCHEMA fooschema")
+			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA fooschema CASCADE")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--include-table", "public.sales",
+				"--redirect-schema", "fooschema",
+				"--run-analyze")
+
+			// Since --run-analyze was used, there should be stats
+			// for all 3 columns of the sales partition table.
+			actualStatisticCount := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) FROM pg_statistic WHERE starelid='fooschema.sales'::regclass::oid`)
+			Expect(actualStatisticCount).To(Equal("3"))
+		})
+		It("runs gpbackup with --leaf-partition-data and gprestore with --run-analyze", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--include-table", "public.sales", "--leaf-partition-data")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--run-analyze")
+
+			// Since --run-analyze was used, there should be stats
+			// for all 3 columns of the sales partition table. The
+			// leaf partition stats should merge up to the root
+			// partition.
+			actualStatisticCount := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) FROM pg_statistic WHERE starelid='public.sales'::regclass::oid`)
+			Expect(actualStatisticCount).To(Equal("3"))
+		})
+	})
 	It("runs gpbackup and gprestore without redirecting restore to another db", func() {
 		err := exec.Command("createdb", "recreateme").Run()
 		if err != nil {

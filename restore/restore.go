@@ -122,6 +122,7 @@ func DoSetup() {
 }
 
 func DoRestore() {
+	var filteredDataEntries map[string][]toc.MasterDataEntry
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY)
 	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(options.METADATA_ONLY)
@@ -135,6 +136,7 @@ func DoRestore() {
 		restorePredata(metadataFilename)
 	}
 
+	totalTablesRestored := 0
 	if !isMetadataOnly {
 		if MustGetFlagString(options.PLUGIN_CONFIG) == "" {
 			backupFileCount := 2 // 1 for the actual data file, 1 for the segment TOC file
@@ -143,7 +145,7 @@ func DoRestore() {
 			}
 			VerifyBackupFileCountOnSegments(backupFileCount)
 		}
-		restoreData()
+		totalTablesRestored, filteredDataEntries = restoreData()
 	}
 
 	if !isDataOnly && !isIncremental {
@@ -152,6 +154,8 @@ func DoRestore() {
 
 	if MustGetFlagBool(options.WITH_STATS) && backupConfig.WithStatistics {
 		restoreStatistics()
+	} else if MustGetFlagBool(options.RUN_ANALYZE) && totalTablesRestored > 0 {
+		runAnalyze(filteredDataEntries)
 	}
 }
 
@@ -289,9 +293,9 @@ func editStatementsRedirectSchema(statements []toc.StatementWithType, redirectSc
 	}
 }
 
-func restoreData() {
+func restoreData() (int, map[string][]toc.MasterDataEntry) {
 	if wasTerminated {
-		return
+		return -1, nil
 	}
 	restorePlan := backupConfig.RestorePlan
 	restorePlanEntries := make([]history.RestorePlanEntry, 0)
@@ -330,6 +334,8 @@ func restoreData() {
 	} else {
 		gplog.Info("Data restore complete")
 	}
+
+	return totalTables, filteredDataEntries
 }
 
 func restorePostdata(metadataFilename string) {
@@ -368,6 +374,44 @@ func restoreStatistics() {
 	editStatementsRedirectSchema(statements, opts.RedirectSchema)
 	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
 	gplog.Info("Query planner statistics restore complete")
+}
+
+func runAnalyze(filteredDataEntries map[string][]toc.MasterDataEntry) {
+	if wasTerminated {
+		return
+	}
+	gplog.Info("Running ANALYZE on restored tables")
+
+	var analyzeStatements []toc.StatementWithType
+	for _, dataEntries := range filteredDataEntries {
+		for _, entry := range dataEntries {
+			tableSchema := entry.Schema
+			if opts.RedirectSchema != "" {
+				tableSchema = opts.RedirectSchema
+			}
+			tableFQN := utils.MakeFQN(tableSchema, entry.Name)
+			analyzeCommand := fmt.Sprintf("ANALYZE %s", tableFQN)
+
+			newAnalyzeStatement := toc.StatementWithType{
+				Schema: tableSchema,
+				Name: entry.Name,
+				Statement: analyzeCommand,
+			}
+			analyzeStatements = append(analyzeStatements, newAnalyzeStatement)
+		}
+	}
+
+	progressBar := utils.NewProgressBar(len(analyzeStatements), "Tables analyzed: ", utils.PB_VERBOSE)
+	progressBar.Start()
+	ExecuteStatements(analyzeStatements, progressBar, connectionPool.NumConns > 1)
+	progressBar.Finish()
+
+	if wasTerminated {
+		gplog.Info("ANALYZE on restored tables incomplete")
+	} else {
+		gplog.Info("ANALYZE on restored tables complete")
+	}
+
 }
 
 func DoTeardown() {

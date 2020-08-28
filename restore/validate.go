@@ -274,4 +274,5 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	if flags.Changed(options.INCREMENTAL) && !flags.Changed(options.DATA_ONLY) {
 		gplog.Fatal(errors.Errorf("Cannot use --incremental without --data-only"), "")
 	}
+	options.CheckExclusiveFlags(flags, options.RUN_ANALYZE, options.WITH_STATS)
 }

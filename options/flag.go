@@ -41,6 +41,7 @@ const (
 	CREATE_DB             = "create-db"
 	ON_ERROR_CONTINUE     = "on-error-continue"
 	REDIRECT_DB           = "redirect-db"
+	RUN_ANALYZE           = "run-analyze"
 	TIMESTAMP             = "timestamp"
 	WITH_GLOBALS          = "with-globals"
 	REDIRECT_SCHEMA       = "redirect-schema"
@@ -107,6 +108,7 @@ func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(WITH_STATS, false, "Restore query plan statistics")
 	flagSet.Bool(LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
+	flagSet.Bool(RUN_ANALYZE, false, "Run ANALYZE on restored tables")
 	_ = flagSet.MarkHidden(LEAF_PARTITION_DATA)
 }
 
