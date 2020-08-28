@@ -368,8 +368,8 @@ func GetExistingSchemas() ([]string, error) {
 	return existingSchemas, err
 }
 
-func TruncateTable(tableFQN string) error {
+func TruncateTable(tableFQN string, whichConn int) error {
 	gplog.Verbose("Truncating table %s prior to restoring data", tableFQN)
-	_, err := connectionPool.Exec(`TRUNCATE ` + tableFQN)
+	_, err := connectionPool.Exec(`TRUNCATE ` + tableFQN, whichConn)
 	return err
 }

@@ -148,7 +148,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 				// Truncate table before restore, if needed
 				var err error
 				if MustGetFlagBool(options.INCREMENTAL) || MustGetFlagBool(options.TRUNCATE_TABLE) {
-					err = TruncateTable(tableName)
+					err = TruncateTable(tableName, whichConn)
 				}
 				if err == nil {
 					err = restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
