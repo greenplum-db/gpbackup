@@ -41,11 +41,13 @@ func DoFlagValidation(cmd *cobra.Command) {
 func DoSetup() {
 	SetLoggerVerbosity()
 	gplog.Verbose("Backup Command: %s", os.Args)
+	gplog.Info("gpbackup version = %s", GetVersion())
 
 	utils.CheckGpexpandRunning(utils.BackupPreventedByGpexpandMessage)
 	timestamp := history.CurrentTimestamp()
 	createBackupLockFile(timestamp)
 	initializeConnectionPool()
+	gplog.Info("Greenplum Database Version = %s", connectionPool.Version.VersionString)
 
 	gplog.Info("Starting backup of database %s", MustGetFlagString(options.DBNAME))
 	opts, err := options.NewOptions(cmdFlags)
