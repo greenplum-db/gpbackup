@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -138,6 +139,11 @@ func DoRestore() {
 
 	if !isDataOnly && !isIncremental {
 		restorePredata(metadataFilename)
+	} else if isDataOnly {
+		// The sequence setval commands need to be run during data only restores since
+		// they are arguably the data of the sequence relations and can affect user tables
+		// containing columns that reference those sequence relations.
+		restoreSequenceValues(metadataFilename)
 	}
 
 	totalTablesRestored := 0
@@ -277,6 +283,43 @@ func restorePredata(metadataFilename string) {
 		gplog.Info("Pre-data metadata restore incomplete")
 	} else {
 		gplog.Info("Pre-data metadata restore complete")
+	}
+}
+
+func restoreSequenceValues(metadataFilename string) {
+	if wasTerminated {
+		return
+	}
+	gplog.Info("Restoring sequence values")
+
+	// if not incremental restore - assume database is empty and just filter based on user input
+	filters := NewFilters(opts.IncludedSchemas, opts.ExcludedSchemas, opts.IncludedRelations, opts.ExcludedRelations)
+
+	// Extract out the setval calls for each SEQUENCE object
+	var sequenceValueStatements []toc.StatementWithType
+	statements := GetRestoreMetadataStatementsFiltered("predata", metadataFilename, []string{"SEQUENCE"}, []string{}, filters)
+	re := regexp.MustCompile(`SELECT pg_catalog.setval\(.*`)
+	for _, statement := range statements {
+		matches := re.FindStringSubmatch(statement.Statement)
+		if len(matches) == 1 {
+			statement.Statement = matches[0]
+			sequenceValueStatements = append(sequenceValueStatements, statement)
+		}
+	}
+
+	if len(sequenceValueStatements) == 0 {
+		gplog.Verbose("No sequence values to restore")
+	} else {
+		progressBar := utils.NewProgressBar(len(sequenceValueStatements), "Sequence values restored: ", utils.PB_VERBOSE)
+		progressBar.Start()
+		ExecuteRestoreMetadataStatements(sequenceValueStatements, "Sequence values", progressBar, utils.PB_VERBOSE, true)
+		progressBar.Finish()
+	}
+
+	if wasTerminated {
+		gplog.Info("Sequence values restore incomplete")
+	} else {
+		gplog.Info("Sequence values restore complete")
 	}
 }
 

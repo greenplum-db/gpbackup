@@ -1081,13 +1081,24 @@ var _ = Describe("backup and restore end to end tests", func() {
 	})
 	It("runs gpbackup and gprestore with the data-only restore flag", func() {
 		testutils.ExecuteSQLFile(restoreConn, "resources/test_tables_ddl.sql")
+		testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 8888, false)")
+		defer testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 100, false)")
+
 		timestamp := gpbackup(gpbackupPath, backupHelperPath)
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
+		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
 			"--redirect-db", "restoredb",
 			"--data-only")
 
 		assertDataRestored(restoreConn, publicSchemaTupleCounts)
 		assertDataRestored(restoreConn, schema2TupleCounts)
+
+		// Assert that sequence values have been properly
+		// updated as part of special sequence handling during
+		// gprestore --data-only calls
+		restoreSequenceValue := dbconn.MustSelectString(restoreConn,
+			`SELECT last_value FROM public.myseq2`)
+		Expect(restoreSequenceValue).To(Equal("8888"))
+		Expect(string(output)).To(ContainSubstring("Restoring sequence values"))
 	})
 	It("runs gpbackup and gprestore with the metadata-only restore flag", func() {
 		timestamp := gpbackup(gpbackupPath, backupHelperPath)
