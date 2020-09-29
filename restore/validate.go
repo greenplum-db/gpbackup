@@ -252,17 +252,25 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.WITH_GLOBALS)
 	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.CREATE_DB)
 	options.CheckExclusiveFlags(flags, options.DEBUG, options.QUIET, options.VERBOSE)
-	options.CheckExclusiveFlags(flags,
-		options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE, options.EXCLUDE_RELATION, options.EXCLUDE_RELATION_FILE,
-		options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE, options.INCLUDE_RELATION, options.INCLUDE_RELATION_FILE)
+
+	options.CheckExclusiveFlags(flags, options.INCLUDE_SCHEMA, options.INCLUDE_RELATION, options.INCLUDE_RELATION_FILE)
+	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.INCLUDE_SCHEMA)
+	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.EXCLUDE_RELATION, options.INCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.INCLUDE_RELATION_FILE)
+
 	options.CheckExclusiveFlags(flags, options.METADATA_ONLY, options.DATA_ONLY)
 	options.CheckExclusiveFlags(flags, options.PLUGIN_CONFIG, options.BACKUP_DIR)
-	options.CheckExclusiveFlags(flags,
-		options.TRUNCATE_TABLE, options.REDIRECT_SCHEMA, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE,
-		options.EXCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE)
-	if flags.Changed(options.REDIRECT_SCHEMA) &&
-		!(flags.Changed(options.INCLUDE_RELATION) || flags.Changed(options.INCLUDE_RELATION_FILE)) {
-		gplog.Fatal(errors.Errorf("Cannot use --redirect-schema without --include-table or --include-table-file"), "")
+
+	if flags.Changed(options.REDIRECT_SCHEMA) {
+		// Redirect schema not compatible with any exclude flags and include schema flags
+		if flags.Changed(options.EXCLUDE_SCHEMA) || flags.Changed(options.EXCLUDE_SCHEMA_FILE) ||
+			flags.Changed(options.EXCLUDE_RELATION) || flags.Changed(options.EXCLUDE_RELATION_FILE) ||
+			flags.Changed(options.INCLUDE_SCHEMA) || flags.Changed(options.INCLUDE_SCHEMA_FILE) {
+			gplog.Fatal(errors.Errorf("Cannot use --redirect-schema with exclude flags or include schema flags"), "")
+		}
+		// Redirect schema requires include relation
+		if !(flags.Changed(options.INCLUDE_RELATION) || flags.Changed(options.INCLUDE_RELATION_FILE)) {
+			gplog.Fatal(errors.Errorf("Cannot use --redirect-schema without --include-table or --include-table-file"), "")
+		}
 	}
 	options.CheckExclusiveFlags(flags,
 		options.TRUNCATE_TABLE, options.METADATA_ONLY, options.INCREMENTAL, options.REDIRECT_SCHEMA)

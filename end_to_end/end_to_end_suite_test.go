@@ -1354,4 +1354,14 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 		assertArtifactsCleaned(restoreConn, timestamp)
 	})
+	It("runs gprestore with --include-schema and --exclude-table flag", func() {
+		timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			"--metadata-only")
+		gprestore(gprestorePath, restoreHelperPath, timestamp,
+			"--redirect-db", "restoredb",
+			"--include-schema", "schema2",
+			"--exclude-table", "schema2.returns",
+			"--metadata-only")
+		assertRelationsCreated(restoreConn, 4)
+	})
 })
