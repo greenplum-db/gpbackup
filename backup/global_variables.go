@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"sync"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -26,8 +25,6 @@ import (
 var (
 	backupReport         *report.Report
 	connectionPool       *dbconn.DBConn
-	queryContext         context.Context
-	queryCancelFunc      context.CancelFunc
 	globalCluster        *cluster.Cluster
 	globalFPInfo         filepath.FilePathInfo
 	globalTOC            *toc.TOC
