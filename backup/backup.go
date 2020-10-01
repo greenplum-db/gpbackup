@@ -46,7 +46,7 @@ func DoSetup() {
 	utils.CheckGpexpandRunning(utils.BackupPreventedByGpexpandMessage)
 	timestamp := history.CurrentTimestamp()
 	createBackupLockFile(timestamp)
-	initializeConnectionPool()
+	initializeConnectionPool(timestamp)
 	gplog.Info("Greenplum Database Version = %s", connectionPool.Version.VersionString)
 
 	gplog.Info("Starting backup of database %s", MustGetFlagString(options.DBNAME))

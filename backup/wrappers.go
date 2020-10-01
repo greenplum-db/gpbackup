@@ -37,13 +37,13 @@ func SetLoggerVerbosity() {
 	}
 }
 
-func initializeConnectionPool() {
+func initializeConnectionPool(timestamp string) {
 	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
 	connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 	InitializeMetadataParams(connectionPool)
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
-		connectionPool.MustExec("SET application_name TO 'gpbackup'", connNum)
+		connectionPool.MustExec(fmt.Sprintf("SET application_name TO 'gpbackup_%s'", timestamp), connNum)
 		// BEGIN TRANSACTION
 		connectionPool.MustBegin(connNum)
 		SetSessionGUCs(connNum)
