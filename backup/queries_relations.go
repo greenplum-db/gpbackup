@@ -6,7 +6,6 @@ package backup
  */
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -154,7 +153,7 @@ type Sequence struct {
 	OwningTableSchema string
 	OwningTable       string
 	OwningColumn      string
-	Definition SequenceDefinition
+	Definition        SequenceDefinition
 }
 
 func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -361,15 +360,11 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	tableBatches := GenerateTableBatches(tables, batchSize)
 	currentBatchSize := batchSize
 
-	// The LOCK TABLE query could block if someone else is
-	// holding an AccessExclusiveLock on the table. If gpbackup
-	// is interrupted and exits, the SQL session will leak if
-	// we don't cancel the query.
-	queryContext, queryCancelFunc = context.WithCancel(context.Background())
-
+	// The LOCK TABLE query could block if someone else is holding an
+	// AccessExclusiveLock on the table.  In the case gpbackup is interrupted,
+	// cancelBlockedQueries() will cancel these queries during cleanup.
 	for i, currentBatch := range tableBatches {
-		connectionPool.MustExecContext(queryContext,
-			fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
+		connectionPool.MustExec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
 
 		if i == len(tableBatches)-1 && lastBatchSize > 0 {
 			currentBatchSize = lastBatchSize
@@ -377,11 +372,6 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 
 		progressBar.Add(currentBatchSize)
 	}
-
-	// We're done grabbing table locks. Unset the Context globals
-	// so we don't use them during DoCleanup.
-	queryContext = context.TODO()
-	queryCancelFunc = nil
 
 	progressBar.Finish()
 }
