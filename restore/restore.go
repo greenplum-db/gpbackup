@@ -508,7 +508,7 @@ func DoTeardown() {
 		}
 		reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
 		report.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, errMsg)
-		report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore")
+		report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore", !restoreFailed)
 		if pluginConfig != nil {
 			pluginConfig.CleanupPluginForRestore(globalCluster, globalFPInfo)
 			pluginConfig.DeletePluginConfigWhenEncrypting(globalCluster)

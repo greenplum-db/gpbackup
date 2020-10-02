@@ -346,16 +346,20 @@ func GetContacts(filename string, utility string) string {
 	return strings.Join(contactList, " ")
 }
 
-func ConstructEmailMessage(timestamp string, contactList string, reportFilePath string, utility string) string {
+func ConstructEmailMessage(timestamp string, contactList string, reportFilePath string, utility string, status bool) string {
 	hostname, _ := operating.System.Hostname()
+	statusString := history.BackupStatusSucceed
+	if !status {
+		statusString = history.BackupStatusFailed
+	}
 	emailHeader := fmt.Sprintf(`To: %s
-Subject: %s %s on %s completed
+Subject: %s %s on %s completed: %s
 Content-Type: text/html
 Content-Disposition: inline
 <html>
 <body>
 <pre style=\"font: monospace\">
-`, contactList, utility, timestamp, hostname)
+`, contactList, utility, timestamp, hostname, statusString)
 	emailFooter := `
 </pre>
 </body>
@@ -364,7 +368,7 @@ Content-Disposition: inline
 	return emailHeader + fileContents + emailFooter
 }
 
-func EmailReport(c *cluster.Cluster, timestamp string, reportFilePath string, utility string) {
+func EmailReport(c *cluster.Cluster, timestamp string, reportFilePath string, utility string, status bool) {
 	contactsFilename := "gp_email_contacts.yaml"
 	gphomeFile := fmt.Sprintf("%s/bin/%s", operating.System.Getenv("GPHOME"), contactsFilename)
 	homeFile := fmt.Sprintf("%s/%s", operating.System.Getenv("HOME"), contactsFilename)
@@ -385,7 +389,7 @@ func EmailReport(c *cluster.Cluster, timestamp string, reportFilePath string, ut
 	if contactList == "" {
 		return
 	}
-	message := ConstructEmailMessage(timestamp, contactList, reportFilePath, utility)
+	message := ConstructEmailMessage(timestamp, contactList, reportFilePath, utility, status)
 	gplog.Verbose("Sending email report to the following addresses: %s", contactList)
 	output, sendErr := c.ExecuteLocalCommand(fmt.Sprintf(`echo "%s" | sendmail -t`, message))
 	if sendErr != nil {
