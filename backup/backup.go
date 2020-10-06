@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	path "path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/filepath"
@@ -430,16 +432,51 @@ func DoCleanup(backupFailed bool) {
 		gplog.Warn("Failed to remove lock file %s.", backupLockFile)
 	}
 	if connectionPool != nil {
-		// The connection pool might still have an ongoing transaction. Try
-		// to cancel it. We need to queue a ROLLBACK to ensure the transaction
-		// cancel actually happened because the Golang Context cancel function
-		// does not block... nor is there a cancel acknowledgement function.
-		if queryCancelFunc != nil {
-			queryCancelFunc()
-			connectionPool.MustExec("ROLLBACK")
-		}
-
+		cancelBlockedQueries(globalFPInfo.Timestamp)
 		connectionPool.Close()
+	}
+}
+
+// Cancel blocked gpbackup queries waiting for locks.
+func cancelBlockedQueries(timestamp string) {
+	conn := dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
+	conn.MustConnect(1)
+	defer conn.Close()
+
+	// Query for all blocked queries
+	pids := make([]int64, 0)
+	findBlockedQuery := fmt.Sprintf("SELECT procpid from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND waiting_reason='lock';", timestamp)
+	if conn.Version.AtLeast("6") {
+		findBlockedQuery = fmt.Sprintf("SELECT pid from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND waiting_reason='lock';", timestamp)
+	}
+	err := conn.Select(&pids, findBlockedQuery)
+	gplog.FatalOnError(err)
+
+	if len(pids) == 0 {
+		return
+	}
+
+	gplog.Info(fmt.Sprintf("Canceling %d blocked queries", len(pids)))
+	// Cancel all gpbackup queries waiting for a lock
+	for _, pid := range pids {
+		conn.MustExec(fmt.Sprintf("SELECT pg_cancel_backend(%d)", pid))
+	}
+
+	// Wait for the cancel queries to finish
+	tickerCheckCanceled := time.NewTicker(500 * time.Millisecond)
+	var count string
+	for {
+		select {
+		case <-tickerCheckCanceled.C:
+			blockedQueryCount := fmt.Sprintf("SELECT count(*) from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND  waiting_reason='lock';", timestamp)
+			count = dbconn.MustSelectString(conn, blockedQueryCount)
+			if count == "0" {
+				return
+			}
+		case <-time.After(20 * time.Second):
+			tickerCheckCanceled.Stop()
+			gplog.FatalOnError(errors.New("Timeout attempting to cancel blocked queries"))
+		}
 	}
 }
 
