@@ -310,29 +310,28 @@ func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount,
 			hasUserDefinedFunc = true
 		}
 	}
-	if !hasUserDefinedFunc {
-		return
+	if hasUserDefinedFunc {
+		protocolFunctions := make([]string, 0)
+		if protocol.ReadFunction != 0 {
+			protocolFunctions = append(protocolFunctions, fmt.Sprintf("readfunc = %s", funcInfoMap[protocol.ReadFunction].QualifiedName))
+		}
+		if protocol.WriteFunction != 0 {
+			protocolFunctions = append(protocolFunctions, fmt.Sprintf("writefunc = %s", funcInfoMap[protocol.WriteFunction].QualifiedName))
+		}
+		if protocol.Validator != 0 {
+			protocolFunctions = append(protocolFunctions, fmt.Sprintf("validatorfunc = %s", funcInfoMap[protocol.Validator].QualifiedName))
+		}
+
+		metadataFile.MustPrintf("\n\nCREATE ")
+		if protocol.Trusted {
+			metadataFile.MustPrintf("TRUSTED ")
+		}
+		metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
+
+		section, entry := protocol.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 
-	protocolFunctions := make([]string, 0)
-	if protocol.ReadFunction != 0 {
-		protocolFunctions = append(protocolFunctions, fmt.Sprintf("readfunc = %s", funcInfoMap[protocol.ReadFunction].QualifiedName))
-	}
-	if protocol.WriteFunction != 0 {
-		protocolFunctions = append(protocolFunctions, fmt.Sprintf("writefunc = %s", funcInfoMap[protocol.WriteFunction].QualifiedName))
-	}
-	if protocol.Validator != 0 {
-		protocolFunctions = append(protocolFunctions, fmt.Sprintf("validatorfunc = %s", funcInfoMap[protocol.Validator].QualifiedName))
-	}
-
-	metadataFile.MustPrintf("\n\nCREATE ")
-	if protocol.Trusted {
-		metadataFile.MustPrintf("TRUSTED ")
-	}
-	metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
-
-	section, entry := protocol.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	PrintObjectMetadata(metadataFile, toc, protoMetadata, protocol, "")
 }
 

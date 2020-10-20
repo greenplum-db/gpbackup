@@ -466,6 +466,26 @@ REVOKE ALL ON PROTOCOL s3 FROM testrole;
 GRANT ALL ON PROTOCOL s3 TO testrole;`}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
+		It("prints a protocol ACL even when the protocol's CREATE statement is skipped", func() {
+			// The protocol create statement can be skipped if for example the
+			// protocol is being created by an extension.
+
+			// Functions belong to pg_catalog
+			pgCatalogFuncInfoMap := map[uint32]backup.FunctionInfo{
+				1: {QualifiedName: "public.read_fn_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+				2: {QualifiedName: "public.write_fn_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+				3: {QualifiedName: "public.validator", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+			}
+			protoMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{{Grantee: "testrole", Select: true, Insert: true}}, Owner: "testrole"}
+
+			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolUntrustedReadWrite, pgCatalogFuncInfoMap, protoMetadata)
+			expectedStatements := []string{
+				"ALTER PROTOCOL s3 OWNER TO testrole;",
+				`REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;
+REVOKE ALL ON PROTOCOL s3 FROM testrole;
+GRANT ALL ON PROTOCOL s3 TO testrole;`}
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
+		})
 	})
 	Describe("PrintExchangeExternalPartitionStatements", func() {
 		tables := []backup.Table{
