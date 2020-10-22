@@ -260,6 +260,11 @@ func (o *Options) QuoteIncludeRelations(conn *dbconn.DBConn) error {
 }
 
 func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) ([]FqnStruct, error) {
+	// TODO: fix for gpdb7 partitioning
+	if connectionPool.Version.AtLeast("7") {
+		return []FqnStruct{}, nil
+	}
+
 	includeOids, err := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	if err != nil {
 		return nil, err
