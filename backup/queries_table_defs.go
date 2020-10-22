@@ -57,20 +57,20 @@ func createAlteredPartitionSchemaSet(tables []Table) map[string]bool {
 }
 
 type TableDefinition struct {
-	DistPolicy         string
-	PartDef            string
-	PartTemplateDef    string
-	StorageOpts        string
-	TablespaceName     string
-	ColumnDefs         []ColumnDefinition
-	IsExternal         bool
-	ExtTableDef        ExternalTableDefinition
-	PartitionLevelInfo PartitionLevelInfo
-	TableType          string
-	IsUnlogged         bool
-	ForeignDef         ForeignTableDefinition
-	Inherits           []string
-	ReplicaIdentity    string
+	DistPolicy              string
+	PartDef                 string
+	PartTemplateDef         string
+	StorageOpts             string
+	TablespaceName          string
+	ColumnDefs              []ColumnDefinition
+	IsExternal              bool
+	ExtTableDef             ExternalTableDefinition
+	PartitionLevelInfo      PartitionLevelInfo
+	TableType               string
+	IsUnlogged              bool
+	ForeignDef              ForeignTableDefinition
+	Inherits                []string
+	ReplicaIdentity         string
 	PartitionAlteredSchemas []AlteredPartitionRelation
 	AccessMethodName        string
 }
@@ -102,20 +102,20 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	for _, tableRel := range tableRelations {
 		oid := tableRel.Oid
 		tableDef := TableDefinition{
-			DistPolicy:         distributionPolicies[oid],
-			PartDef:            partitionDefs[oid],
-			PartTemplateDef:    partTemplateDefs[oid],
-			StorageOpts:        storageOptions[oid],
-			TablespaceName:     tablespaceNames[oid],
-			ColumnDefs:         columnDefs[oid],
-			IsExternal:         extTableDefs[oid].Oid != 0,
-			ExtTableDef:        extTableDefs[oid],
-			PartitionLevelInfo: partTableMap[oid],
-			TableType:          tableTypeMap[oid],
-			IsUnlogged:         unloggedTableMap[oid],
-			ForeignDef:         foreignTableDefs[oid],
-			Inherits:           inheritanceMap[oid],
-			ReplicaIdentity:    replicaIdentityMap[oid],
+			DistPolicy:              distributionPolicies[oid],
+			PartDef:                 partitionDefs[oid],
+			PartTemplateDef:         partTemplateDefs[oid],
+			StorageOpts:             storageOptions[oid],
+			TablespaceName:          tablespaceNames[oid],
+			ColumnDefs:              columnDefs[oid],
+			IsExternal:              extTableDefs[oid].Oid != 0,
+			ExtTableDef:             extTableDefs[oid],
+			PartitionLevelInfo:      partTableMap[oid],
+			TableType:               tableTypeMap[oid],
+			IsUnlogged:              unloggedTableMap[oid],
+			ForeignDef:              foreignTableDefs[oid],
+			Inherits:                inheritanceMap[oid],
+			ReplicaIdentity:         replicaIdentityMap[oid],
 			PartitionAlteredSchemas: partitionAlteredSchemaMap[oid],
 			AccessMethodName:        accessMethodMap[oid],
 		}
@@ -140,6 +140,11 @@ type PartitionLevelInfo struct {
 }
 
 func GetPartitionTableMap(connectionPool *dbconn.DBConn) map[uint32]PartitionLevelInfo {
+	// TODO: fix for gpdb7 partitioning
+	if connectionPool.Version.AtLeast("7") {
+		return make(map[uint32]PartitionLevelInfo)
+	}
+
 	query := `
 	SELECT pc.oid AS oid,
 		'p' AS level,
@@ -228,15 +233,22 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
 		LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
 		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum`
-	whereClause := `
-	WHERE ` + relationAndSchemaFilterClause() + `
+
+	// TODO: fix for gpdb7 partitioning
+	partitionRuleExcludeClause := ""
+	if connectionPool.Version.Before("7") {
+		partitionRuleExcludeClause = `
 		AND NOT EXISTS (SELECT 1 FROM 
 			(SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable)
-			par WHERE par.parchildrelid = c.oid)
+			par WHERE par.parchildrelid = c.oid)`
+	}
+	whereClause := fmt.Sprintf(`
+	WHERE %s
+		%s
 		AND c.reltype <> 0
 		AND a.attnum > 0::pg_catalog.int2
 		AND a.attisdropped = 'f'
-	ORDER BY a.attrelid, a.attnum`
+	ORDER BY a.attrelid, a.attnum`, relationAndSchemaFilterClause(), partitionRuleExcludeClause)
 
 	if connectionPool.Version.AtLeast("6") {
 		// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
@@ -339,7 +351,7 @@ func GetTableAccessMethod(connectionPool *dbconn.DBConn) map[uint32]string {
 
 func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
-		return map[uint32]string{}
+		return make(map[uint32]string)
 	}
 	query := fmt.Sprintf(`
 	SELECT oid,
@@ -351,6 +363,10 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 }
 
 func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint32]string) {
+	if connectionPool.Version.AtLeast("7") {
+		return make(map[uint32]string), make(map[uint32]string)
+	}
+
 	gplog.Info("Getting partition definitions")
 	query := fmt.Sprintf(`
 	SELECT p.parrelid AS oid,
@@ -379,9 +395,9 @@ func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[
 }
 
 type AlteredPartitionRelation struct {
-	OldSchema	string
-	NewSchema	string
-	Name		string
+	OldSchema string
+	NewSchema string
+	Name      string
 }
 
 /*
@@ -391,6 +407,10 @@ type AlteredPartitionRelation struct {
  * them.
  */
 func GetPartitionAlteredSchema(connectionPool *dbconn.DBConn) map[uint32][]AlteredPartitionRelation {
+	if connectionPool.Version.AtLeast("7") {
+		return make(map[uint32][]AlteredPartitionRelation)
+	}
+
 	gplog.Info("Getting child partitions with altered schema")
 	query := fmt.Sprintf(`
 	SELECT pgp.parrelid AS oid,
@@ -405,7 +425,7 @@ func GetPartitionAlteredSchema(connectionPool *dbconn.DBConn) map[uint32][]Alter
 		JOIN pg_catalog.pg_namespace pgn2 ON pgc2.relnamespace = pgn2.oid
 	WHERE pgc.relnamespace != pgc2.relnamespace`)
 	var results []struct {
-		Oid	uint32
+		Oid uint32
 		AlteredPartitionRelation
 	}
 	err := connectionPool.Select(&results, query)
@@ -477,6 +497,7 @@ func GetForeignTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Foreig
 	if connectionPool.Version.Before("6") {
 		return map[uint32]ForeignTableDefinition{}
 	}
+
 	query := fmt.Sprintf(`
 	SELECT ftrelid, fs.srvname AS ftserver,
 		pg_catalog.array_to_string(array(
@@ -522,7 +543,7 @@ func GetTableInheritance(connectionPool *dbconn.DBConn, tables []Relation) map[u
 		JOIN pg_namespace n ON p.relnamespace = n.oid
 	WHERE %s%s
 	ORDER BY i.inhrelid, i.inhseqno`,
-	ExtensionFilterClause("p"), tableFilterStr)
+		ExtensionFilterClause("p"), tableFilterStr)
 
 	results := make([]Dependency, 0)
 	resultMap := make(map[uint32][]string)

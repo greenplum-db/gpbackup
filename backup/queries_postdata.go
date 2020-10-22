@@ -79,14 +79,15 @@ func (i IndexDefinition) FQN() string {
  * e.g. comments on implicitly created indexes
  */
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
-	resultIndexes := make([]IndexDefinition, 0)
+
+	var query string
 	if connectionPool.Version.Before("6") {
 		indexOidList := ConstructImplicitIndexOidList(connectionPool)
 		implicitIndexStr := ""
 		if indexOidList != "" {
 			implicitIndexStr = fmt.Sprintf("OR i.indexrelid IN (%s)", indexOidList)
 		}
-		query := fmt.Sprintf(`
+		query = fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,
 		quote_ident(ic.relname) AS name,
 		quote_ident(n.nspname) AS owningschema,
@@ -108,12 +109,16 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 		AND %s
 	ORDER BY name`,
-	implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+			implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
-		err := connectionPool.Select(&resultIndexes, query)
-		gplog.FatalOnError(err)
 	} else {
-		query := fmt.Sprintf(`
+		// TODO: fix for gpdb7 partitioning
+		partitionRuleExcludeClause := ""
+		if connectionPool.Version.Before("7") {
+			partitionRuleExcludeClause = "AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)"
+		}
+
+		query = fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,
 		quote_ident(ic.relname) AS name,
 		quote_ident(n.nspname) AS owningschema,
@@ -138,14 +143,15 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		AND i.indisvalid
 		AND i.indisready
 		AND i.indisprimary = 'f'
-		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
+		%s
 		AND %s
 	ORDER BY name`,
-	relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
-		err := connectionPool.Select(&resultIndexes, query)
-		gplog.FatalOnError(err)
+			relationAndSchemaFilterClause(), partitionRuleExcludeClause, ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
 	}
 
+	resultIndexes := make([]IndexDefinition, 0)
+	err := connectionPool.Select(&resultIndexes, query)
+	gplog.FatalOnError(err)
 	// Remove all indexes that have NULL definitions. This can happen
 	// if a concurrent index drop happens before the associated table
 	// lock is acquired earlier during gpbackup execution.
@@ -211,7 +217,7 @@ func GetRules(connectionPool *dbconn.DBConn) []RuleDefinition {
 		AND rulename NOT LIKE 'pg_%%'
 		AND %s
 	ORDER BY rulename`,
-	relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 	results := make([]RuleDefinition, 0)
 	err := connectionPool.Select(&results, query)
@@ -275,7 +281,7 @@ func GetTriggers(connectionPool *dbconn.DBConn) []TriggerDefinition {
 		AND %s
 		AND %s
 	ORDER BY tgname`,
-	relationAndSchemaFilterClause(), constraintClause, ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), constraintClause, ExtensionFilterClause("c"))
 
 	results := make([]TriggerDefinition, 0)
 	err := connectionPool.Select(&results, query)

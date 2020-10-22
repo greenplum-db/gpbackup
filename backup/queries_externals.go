@@ -165,6 +165,11 @@ func (pi PartitionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetExternalPartitionInfo(connectionPool *dbconn.DBConn) ([]PartitionInfo, map[uint32]PartitionInfo) {
+	// TODO: fix for gpdb7 partitioning
+	if connectionPool.Version.AtLeast("7") {
+		return []PartitionInfo{}, make(map[uint32]PartitionInfo, 0)
+	}
+
 	results := make([]PartitionInfo, 0)
 	query := `
 	SELECT pr1.oid AS partitionruleoid,

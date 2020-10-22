@@ -115,7 +115,17 @@ func (c Constraint) FQN() string {
 }
 
 func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []Constraint {
-	// ConIsLocal should always return true from GetConstraints because we filter out constraints that are inherited using the INHERITS clause, or inherited from a parent partition table. This field only accurately reflects constraints in GPDB6+ because check constraints on parent tables must propogate to children. For GPDB versions 5 or lower, this field will default to false.
+	// TODO: fix for gpdb7 partitioning
+	if connectionPool.Version.AtLeast("7") {
+		return []Constraint{}
+	}
+
+	// ConIsLocal should always return true from GetConstraints because we
+	// filter out constraints that are inherited using the INHERITS clause, or
+	// inherited from a parent partition table. This field only accurately
+	// reflects constraints in GPDB6+ because check constraints on parent
+	// tables must propogate to children. For GPDB versions 5 or lower, this
+	// field will default to false.
 	var selectConIsLocal string
 	var groupByConIsLocal string
 	if connectionPool.Version.AtLeast("6") {
