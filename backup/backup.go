@@ -468,8 +468,10 @@ func cancelBlockedQueries(timestamp string) {
 	// Query for all blocked queries
 	pids := make([]int64, 0)
 	findBlockedQuery := fmt.Sprintf("SELECT procpid from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND waiting_reason='lock';", timestamp)
-	if conn.Version.AtLeast("6") {
+	if conn.Version.Is("6") {
 		findBlockedQuery = fmt.Sprintf("SELECT pid from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND waiting_reason='lock';", timestamp)
+	} else if conn.Version.AtLeast("7") {
+		findBlockedQuery = fmt.Sprintf("SELECT pid from pg_stat_activity WHERE application_name='gpbackup_%s' AND wait_event_type='Lock';", timestamp)
 	}
 	err := conn.Select(&pids, findBlockedQuery)
 	gplog.FatalOnError(err)
