@@ -573,7 +573,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--timestamp", timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
-				"--include-schema", "schema2",
 				"--verbose"}
 			cmd := exec.Command(gprestorePath, args...)
 			go func() {
