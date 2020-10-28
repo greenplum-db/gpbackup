@@ -72,6 +72,7 @@ type TableDefinition struct {
 	Inherits           []string
 	ReplicaIdentity    string
 	PartitionAlteredSchemas []AlteredPartitionRelation
+	AccessMethodName        string
 }
 
 /*
@@ -90,6 +91,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	extTableDefs := GetExternalTableDefinitions(connectionPool)
 	partTableMap := GetPartitionTableMap(connectionPool)
 	tableTypeMap := GetTableType(connectionPool)
+	accessMethodMap := GetTableAccessMethod(connectionPool)
 	unloggedTableMap := GetUnloggedTables(connectionPool)
 	foreignTableDefs := GetForeignTableDefinitions(connectionPool)
 	inheritanceMap := GetTableInheritance(connectionPool, tableRelations)
@@ -115,6 +117,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			Inherits:           inheritanceMap[oid],
 			ReplicaIdentity:    replicaIdentityMap[oid],
 			PartitionAlteredSchemas: partitionAlteredSchemaMap[oid],
+			AccessMethodName:        accessMethodMap[oid],
 		}
 		if tableDef.Inherits == nil {
 			tableDef.Inherits = []string{}
@@ -318,6 +321,19 @@ func GetTableType(connectionPool *dbconn.DBConn) map[uint32]string {
 		return map[uint32]string{}
 	}
 	query := `SELECT oid, reloftype::pg_catalog.regtype AS value FROM pg_class WHERE reloftype != 0`
+	return selectAsOidToStringMap(connectionPool, query)
+}
+
+func GetTableAccessMethod(connectionPool *dbconn.DBConn) map[uint32]string {
+	if connectionPool.Version.Before("7") {
+		return map[uint32]string{}
+	}
+	query := `
+	SELECT c.oid, a.amname AS value
+	FROM pg_class c
+        JOIN pg_am a ON c.relam = a.oid
+	WHERE a.amtype = 't'
+        AND a.amname != 'heap';`
 	return selectAsOidToStringMap(connectionPool, query)
 }
 

@@ -109,6 +109,17 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
 			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
 		})
+		It("creates a basic GPDB 7+ append-optimized table", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testTable.TableDefinition.AccessMethodName = "ao_column"
+
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
+		})
 		It("creates a one-level partition table", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "region", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "gender", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
