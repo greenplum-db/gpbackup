@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 set -o pipefail
 
 plugin=$1
@@ -53,36 +52,66 @@ test_backup_and_restore_with_plugin() {
       echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $MASTER_DATA_DIRECTORY/.encrypt
     fi
 
+    # Run gpbackup and get return code for error check later
     echo
     print_header "GPBACKUP $test_db (flags: [${backup_flags}])"
     print_time_exec "gpbackup --dbname $test_db --plugin-config $config $backup_flags &> $log_file"
+    gpbackup_return_code=$?
 
+    # Parse out the backup timestamp for gprestore and plugin delete_backup
+    timestamp=`head -10 $log_file | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}"`
     if [ ! $? -eq 0 ]; then
+        echo "Unable to parse backup timestamp. Check gpbackup log file in ~/gpAdminLogs for details."
         echo
         cat $log_file
         echo
-        echo "gpbackup failed. Check gpbackup log file in ~/gpAdminLogs for details."
         exit 1
     fi
-    timestamp=`head -10 $log_file | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}"`
 
+    # Check if gpbackup was successful. If not, call plugin
+    # delete_backup to clean up and then exit with error.
+    if [ ! $gpbackup_return_code -eq 0 ]; then
+        echo "gpbackup failed. Check gpbackup log file in ~/gpAdminLogs for details."
+        $plugin delete_backup $config $timestamp
+        echo
+        cat $log_file
+        echo
+        exit 1
+    fi
+
+    # Run gprestore and check for error. If gprestore failed, call
+    # plugin delete_backup to clean up and then exit with error.
     print_header "GPRESTORE $test_db (flags: [${restore_flags}])"
     print_time_exec "gprestore --quiet --timestamp $timestamp --plugin-config $config --create-db --redirect-db restoredb $restore_flags &> $log_file"
 
-    dropdb restoredb
     if [ ! $? -eq 0 ]; then
+        echo "gprestore failed. Check gprestore log file in ~/gpAdminLogs for details."
+        $plugin delete_backup $config $timestamp
         echo
         cat $log_file
         echo
-        echo "gprestore failed. Check gprestore log file in ~/gpAdminLogs for details."
         exit 1
     fi
+
+    # drop restoredb to allow next caller to create it
+    dropdb restoredb
 
     # replace the encrypt key file to its proper location
     if [ -f "/tmp/.encrypt_saved" ] ; then
         mv /tmp/.encrypt_saved $MASTER_DATA_DIRECTORY/.encrypt
     fi
-    $plugin delete_backup $config $timestamp
+
+    # Call plugin delete_backup to clean up. This step is important so
+    # that the backup location doesn't fill up and run out of disk
+    # space.
+    $plugin delete_backup $config $timestamp &> $log_file
+    if [ ! $? -eq 0 ]; then
+        echo "Attempt to delete backup $timestamp failed."
+        echo
+        cat $log_file
+        echo
+        exit 1
+    fi
 }
 
 # ----------------------------------------------
