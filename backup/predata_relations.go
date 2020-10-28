@@ -399,9 +399,9 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount,
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, sequence.OwningColumn)
 			entry := toc.MetadataEntry{
-				Schema: sequence.Relation.Schema,
-				Name: sequence.Relation.Name,
-				ObjectType: "SEQUENCE OWNER",
+				Schema:          sequence.Relation.Schema,
+				Name:            sequence.Relation.Name,
+				ObjectType:      "SEQUENCE OWNER",
 				ReferenceObject: sequence.OwningTable,
 			}
 			tocfile.AddMetadataEntry("predata", entry, start, metadataFile.ByteCount)
