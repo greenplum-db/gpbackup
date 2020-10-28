@@ -124,6 +124,9 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 			metadataFile.MustPrintf("OPTIONS (%s) ", table.ForeignDef.Options)
 		}
 	}
+	if table.AccessMethodName != "" {
+		metadataFile.MustPrintf("USING %s ", table.AccessMethodName)
+	}
 	if table.StorageOpts != "" {
 		metadataFile.MustPrintf("WITH (%s) ", table.StorageOpts)
 	}
