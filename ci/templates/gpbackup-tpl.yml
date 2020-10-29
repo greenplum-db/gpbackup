@@ -795,10 +795,6 @@ jobs:
     - get: gpbackup
 {% endif %}
     - get: pivnet_release_cache
-{% if nightly_trigger and "gpbackup-release" != pipeline_name %}
-    - get: nightly-trigger
-      trigger: true
-{% endif %}
   - task: build-go-binaries
     image: centos6-image
     file: gpbackup/ci/tasks/build-go-binaries.yml
@@ -917,9 +913,6 @@ jobs:
       resource: gpdb5_src
     - get: gpdb_binary
       resource: bin_gpdb_5x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
@@ -968,9 +961,6 @@ jobs:
       resource: gpdb6_src
     - get: gpdb_binary
       resource: bin_gpdb_6x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
@@ -1038,9 +1028,6 @@ jobs:
       resource: gpdb5_src
     - get: gpdb_binary
       resource: bin_gpdb_43_stable
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: pgcrypto43
   - <<: *ddboost_plugin_and_boostfs
   - <<: *ddboost_plugin_and_boostfs_tests
@@ -1052,9 +1039,6 @@ jobs:
       resource: gpdb5_src
     - get: gpdb_binary
       resource: bin_gpdb_5x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
   - <<: *ddboost_plugin_and_boostfs
   - <<: *ddboost_plugin_and_boostfs_tests
 {% endif %}
@@ -1066,9 +1050,6 @@ jobs:
       resource: gpdb6_src
     - get: gpdb_binary
       resource: bin_gpdb_6x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: dummy_seclabel
       resource: dummy_seclabel_linux_gpdb6
   - <<: *ddboost_plugin_and_boostfs
@@ -1081,9 +1062,6 @@ jobs:
       resource: gpdb6_src
     - get: gpdb_binary
       resource: bin_gpdb_6x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - do:
       - <<: *ddboost_plugin_and_boostfs
       - put: ddboost_terraform
@@ -1286,6 +1264,7 @@ jobs:
     - get: gpbackup
       passed: [build_gppkgs]
     - get: bin_gpdb_master_centos7
+      trigger: true
     - get: gpdb_src
       resource: gpdb_master_src
     - get: dummy_seclabel
@@ -1512,7 +1491,6 @@ jobs:
       passed: [build_gppkgs]
     - get: gpdb_binary
       resource: bin_gpdb_master_centos7
-      trigger: true
     - get: ccp_src
     - get: gpdb_src
       resource: gpdb_master_src
@@ -1560,9 +1538,6 @@ jobs:
       passed: [build_gppkgs]
     - get: gpdb_binary
       resource: bin_gpdb_6x_stable_centos7
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: ccp_src
     - get: gpdb_src
       resource: gpdb6_src
@@ -1608,9 +1583,6 @@ jobs:
       passed: [build_gppkgs]
     - get: gpdb_binary
       resource: bin_gpdb_5x_stable_centos6
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: ccp_src
     - get: gpdb_src
       resource: gpdb5_src
@@ -1654,9 +1626,6 @@ jobs:
       passed: [build_gppkgs]
     - get: gpdb_binary
       resource: bin_gpdb_43_stable
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: ccp_src
     - get: gpdb_src
       resource: gpdb5_src
