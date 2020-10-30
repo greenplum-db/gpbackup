@@ -156,6 +156,11 @@ $_$`)
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testhelper.ExpectRegexp(buffer, "WINDOW")
 			})
+			It("print 'WINDOW' if Kind is 'w'", func() {
+				funcDef.Kind = "w"
+				backup.PrintFunctionModifiers(backupfile, funcDef)
+				testhelper.ExpectRegexp(buffer, "WINDOW")
+			})
 			Context("Execlocation cases", func() {
 				It("Default", func() {
 					funcDef.ExecLocation = "a"

@@ -36,8 +36,9 @@ type Function struct {
 	NumRows           float32 `db:"prorows"`
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
-	IsWindow          bool    `db:"proiswindow"`
-	ExecLocation      string  `db:"proexeclocation"`
+	Kind              string `db:prokind`			// GPDB 7+
+	IsWindow          bool   `db:"proiswindow"`		// before 7
+	ExecLocation      string `db:"proexeclocation"`
 }
 
 func (f Function) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -109,36 +110,72 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 		WHERE classid = 'pg_proc'::regclass::oid
 			AND objid = p.oid AND deptype = 'i')`
 	}
-	query := fmt.Sprintf(`
-	SELECT p.oid,
-		quote_ident(nspname) AS schema,
-		quote_ident(proname) AS name,
-		proretset,
-		coalesce(prosrc, '') AS functionbody,
-		coalesce(probin, '') AS binarypath,
-		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
-		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
-		pg_catalog.pg_get_function_result(p.oid) AS resulttype,
-		provolatile,
-		proisstrict,
-		prosecdef,
-		%s
-		coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
-			FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
-		procost,
-		prorows,
-		prodataaccess,
-		l.lanname AS language
-	FROM pg_proc p
-		JOIN pg_catalog.pg_language l ON p.prolang = l.oid
-		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-	WHERE %s
-		AND proisagg = 'f'
-		AND %s%s
-	ORDER BY nspname, proname, identargs`, masterAtts,
-		SchemaFilterClause("n"),
-		ExtensionFilterClause("p"),
-		excludeImplicitFunctionsClause)
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		masterAtts = "proexeclocation,proleakproof,"
+		query = fmt.Sprintf(`
+		SELECT p.oid,
+			quote_ident(nspname) AS schema,
+			quote_ident(proname) AS name,
+			proretset,
+			coalesce(prosrc, '') AS functionbody,
+			coalesce(probin, '') AS binarypath,
+			pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+			pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+			pg_catalog.pg_get_function_result(p.oid) AS resulttype,
+			provolatile,
+			proisstrict,
+			prosecdef,
+			%s
+			coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
+				FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
+			procost,
+			prorows,
+			prodataaccess,
+			prokind,
+			l.lanname AS language
+		FROM pg_proc p
+			JOIN pg_catalog.pg_language l ON p.prolang = l.oid
+			LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+		WHERE %s
+			AND prokind <> 'a'
+			AND %s%s
+		ORDER BY nspname, proname, identargs`, masterAtts,
+			SchemaFilterClause("n"),
+			ExtensionFilterClause("p"),
+			excludeImplicitFunctionsClause)
+	} else {
+		query = fmt.Sprintf(`
+		SELECT p.oid,
+			quote_ident(nspname) AS schema,
+			quote_ident(proname) AS name,
+			proretset,
+			coalesce(prosrc, '') AS functionbody,
+			coalesce(probin, '') AS binarypath,
+			pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+			pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+			pg_catalog.pg_get_function_result(p.oid) AS resulttype,
+			provolatile,
+			proisstrict,
+			prosecdef,
+			%s
+			coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
+				FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
+			procost,
+			prorows,
+			prodataaccess,
+			l.lanname AS language
+		FROM pg_proc p
+			JOIN pg_catalog.pg_language l ON p.prolang = l.oid
+			LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+		WHERE %s
+			AND proisagg = 'f'
+			AND %s%s
+		ORDER BY nspname, proname, identargs`, masterAtts,
+			SchemaFilterClause("n"),
+			ExtensionFilterClause("p"),
+			excludeImplicitFunctionsClause)
+	}
 
 	results := make([]Function, 0)
 	err := connectionPool.Select(&results, query)

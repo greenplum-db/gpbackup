@@ -67,7 +67,12 @@ var (
 )
 
 func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
-	TYPE_AGGREGATE = MetadataQueryParams{ObjectType: "AGGREGATE", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc", FilterClause: "proisagg = 't'"}
+	TYPE_AGGREGATE = MetadataQueryParams{ObjectType: "AGGREGATE", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
+	if connectionPool.Version.AtLeast("7") {
+		TYPE_AGGREGATE.FilterClause = "prokind = 'a'"
+	} else {
+		TYPE_AGGREGATE.FilterClause = "proisagg = 't'"
+	}
 	TYPE_CAST = MetadataQueryParams{ObjectType: "CAST", NameField: "typname", OidField: "oid", OidTable: "pg_type", CatalogTable: "pg_cast"}
 	TYPE_COLLATION = MetadataQueryParams{ObjectType: "COLLATION", NameField: "collname", OidField: "oid", SchemaField: "collnamespace", OwnerField: "collowner", CatalogTable: "pg_collation"}
 	TYPE_CONSTRAINT = MetadataQueryParams{ObjectType: "CONSTRAINT", NameField: "conname", SchemaField: "connamespace", OidField: "oid", CatalogTable: "pg_constraint"}
@@ -77,7 +82,12 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	TYPE_EXTENSION = MetadataQueryParams{ObjectType: "EXTENSION", NameField: "extname", OidField: "oid", CatalogTable: "pg_extension"}
 	TYPE_FOREIGNDATAWRAPPER = MetadataQueryParams{ObjectType: "FOREIGN DATA WRAPPER", NameField: "fdwname", ACLField: "fdwacl", OwnerField: "fdwowner", CatalogTable: "pg_foreign_data_wrapper"}
 	TYPE_FOREIGNSERVER = MetadataQueryParams{ObjectType: "SERVER", NameField: "srvname", ACLField: "srvacl", OwnerField: "srvowner", CatalogTable: "pg_foreign_server"}
-	TYPE_FUNCTION = MetadataQueryParams{ObjectType: "FUNCTION", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc", FilterClause: "proisagg = 'f'"}
+	TYPE_FUNCTION = MetadataQueryParams{ObjectType: "FUNCTION", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
+	if connectionPool.Version.AtLeast("7") {
+		TYPE_AGGREGATE.FilterClause = "prokind <> 'a'"
+	} else {
+		TYPE_AGGREGATE.FilterClause = "proisagg = 'f'"
+	}
 	TYPE_INDEX = MetadataQueryParams{ObjectType: "INDEX", NameField: "relname", OidField: "indexrelid", OidTable: "pg_class", CommentTable: "pg_class", CatalogTable: "pg_index"}
 	TYPE_PROCLANGUAGE = MetadataQueryParams{ObjectType: "LANGUAGE", NameField: "lanname", ACLField: "lanacl", CatalogTable: "pg_language"}
 	if connectionPool.Version.Before("5") {
