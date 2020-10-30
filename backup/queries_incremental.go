@@ -34,22 +34,44 @@ func getAllModCounts(connectionPool *dbconn.DBConn) map[string]int64 {
 }
 
 func getAOSegTableFQNs(connectionPool *dbconn.DBConn) map[string]string {
-	query := fmt.Sprintf(`
-	SELECT seg.aotablefqn,
-		'pg_aoseg.' || quote_ident(aoseg_c.relname) AS aosegtablefqn
-	FROM pg_class aoseg_c
-		JOIN (SELECT pg_ao.relid AS aooid,
-				pg_ao.segrelid,
-				aotables.aotablefqn
-			FROM pg_appendonly pg_ao
-				JOIN (SELECT c.oid,
-						quote_ident(n.nspname)|| '.' || quote_ident(c.relname) AS aotablefqn
-					FROM pg_class c
-						JOIN pg_namespace n ON c.relnamespace = n.oid
-					WHERE relstorage IN ( 'ao', 'co' )
-						AND %s
-				) aotables ON pg_ao.relid = aotables.oid
-		) seg ON aoseg_c.oid = seg.segrelid`, relationAndSchemaFilterClause())
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		query = fmt.Sprintf(`
+		SELECT seg.aotablefqn,
+			'pg_aoseg.' || quote_ident(aoseg_c.relname) AS aosegtablefqn
+		FROM pg_class aoseg_c
+			JOIN (SELECT pg_ao.relid AS aooid,
+					pg_ao.segrelid,
+					aotables.aotablefqn
+				FROM pg_appendonly pg_ao
+					JOIN (SELECT c.oid,
+							quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS aotablefqn
+						FROM pg_class c
+							JOIN pg_namespace n ON c.relnamespace = n.oid
+							JOIN pg_am a ON c.relam = a.oid
+						WHERE a.amname in ('ao_row', 'ao_col')
+							AND %s
+					) aotables ON pg_ao.relid = aotables.oid
+			) seg ON aoseg_c.oid = seg.segrelid`, relationAndSchemaFilterClause())
+	} else {
+		query = fmt.Sprintf(`
+		SELECT seg.aotablefqn,
+			'pg_aoseg.' || quote_ident(aoseg_c.relname) AS aosegtablefqn
+		FROM pg_class aoseg_c
+			JOIN (SELECT pg_ao.relid AS aooid,
+					pg_ao.segrelid,
+					aotables.aotablefqn
+				FROM pg_appendonly pg_ao
+					JOIN (SELECT c.oid,
+							quote_ident(n.nspname)|| '.' || quote_ident(c.relname) AS aotablefqn
+						FROM pg_class c
+							JOIN pg_namespace n ON c.relnamespace = n.oid
+						WHERE relstorage IN ( 'ao', 'co' )
+							AND %s
+					) aotables ON pg_ao.relid = aotables.oid
+			) seg ON aoseg_c.oid = seg.segrelid`, relationAndSchemaFilterClause())
+	}
+
 	results := make([]struct {
 		AOTableFQN    string
 		AOSegTableFQN string
@@ -86,24 +108,47 @@ func getModCount(connectionPool *dbconn.DBConn, aosegtablefqn string) int64 {
 }
 
 func getLastDDLTimestamps(connectionPool *dbconn.DBConn) map[string]string {
-	query := fmt.Sprintf(`
-	SELECT quote_ident(aoschema) || '.' || quote_ident(aorelname) as aotablefqn,
-		lastddltimestamp
-	FROM ( SELECT c.oid AS aooid,
-				n.nspname AS aoschema,
-				c.relname AS aorelname
-			FROM pg_class c
-			JOIN pg_namespace n ON c.relnamespace = n.oid
-			WHERE c.relstorage IN ('ao', 'co')
-			AND %s
-		) aotables
-	JOIN ( SELECT lo.objid,
-				MAX(lo.statime) AS lastddltimestamp
-			FROM pg_stat_last_operation lo
-			WHERE lo.staactionname IN ('CREATE', 'ALTER', 'TRUNCATE')
-			GROUP BY lo.objid
-		) lastop
-	ON aotables.aooid = lastop.objid`, relationAndSchemaFilterClause())
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		query = fmt.Sprintf(`
+		SELECT quote_ident(aoschema) || '.' || quote_ident(aorelname) as aotablefqn,
+			lastddltimestamp
+		FROM ( SELECT c.oid AS aooid,
+					n.nspname AS aoschema,
+					c.relname AS aorelname
+				FROM pg_class c
+					JOIN pg_namespace n ON c.relnamespace = n.oid
+					JOIN pg_am a ON c.relam = a.oid
+				WHERE a.amname in ('ao_row', 'ao_col');
+					AND %s
+			) aotables
+		JOIN ( SELECT lo.objid,
+					MAX(lo.statime) AS lastddltimestamp
+				FROM pg_stat_last_operation lo
+				WHERE lo.staactionname IN ('CREATE', 'ALTER', 'TRUNCATE')
+				GROUP BY lo.objid
+			) lastop
+		ON aotables.aooid = lastop.objid`, relationAndSchemaFilterClause())
+	} else {
+		query = fmt.Sprintf(`
+		SELECT quote_ident(aoschema) || '.' || quote_ident(aorelname) as aotablefqn,
+			lastddltimestamp
+		FROM ( SELECT c.oid AS aooid,
+					n.nspname AS aoschema,
+					c.relname AS aorelname
+				FROM pg_class c
+				JOIN pg_namespace n ON c.relnamespace = n.oid
+				WHERE c.relstorage IN ('ao', 'co')
+				AND %s
+			) aotables
+		JOIN ( SELECT lo.objid,
+					MAX(lo.statime) AS lastddltimestamp
+				FROM pg_stat_last_operation lo
+				WHERE lo.staactionname IN ('CREATE', 'ALTER', 'TRUNCATE')
+				GROUP BY lo.objid
+			) lastop
+		ON aotables.aooid = lastop.objid`, relationAndSchemaFilterClause())
+	}
 
 	var results []struct {
 		AOTableFQN       string
