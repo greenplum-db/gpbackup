@@ -93,14 +93,24 @@ LANGUAGE SQL WINDOW`)
 
 			results := backup.GetFunctions(connectionPool)
 
-			windowFunction := backup.Function{
-				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-				ResultType: sql.NullString{String: "integer", Valid: true},
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "a"}
-
+			var windowFunction backup.Function
+			if connectionPool.Version.AtLeast("7"){
+				windowFunction = backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "sql", Kind: "w", ExecLocation: "a"}
+			} else {
+				windowFunction = backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "sql", IsWindow: true, ExecLocation: "a"}
+			}
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &windowFunction, "Oid")
 		})
