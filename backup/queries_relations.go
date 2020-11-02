@@ -170,6 +170,7 @@ type Sequence struct {
 	OwningTableSchema string
 	OwningTable       string
 	OwningColumn      string
+	IsIdentity        bool
 	Definition        SequenceDefinition
 }
 
@@ -198,27 +199,54 @@ type SequenceDefinition struct {
 }
 
 func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
-	query := fmt.Sprintf(`
-	SELECT n.oid AS schemaoid,
-		c.oid AS oid,
-		quote_ident(n.nspname) AS schema,
-		quote_ident(c.relname) AS name,
-        coalesce(d.refobjid::text, '') AS owningtableoid,
-		coalesce(quote_ident(m.nspname), '') AS owningtableschema,
-		coalesce(quote_ident(t.relname), '') AS owningtable,
-		coalesce(quote_ident(a.attname), '') AS owningcolumn
-	FROM pg_class c 
-		JOIN pg_namespace n ON n.oid = c.relnamespace
-		LEFT JOIN pg_depend d ON c.oid = d.objid AND d.deptype = 'a'
-		LEFT JOIN pg_class t ON t.oid = d.refobjid
-		LEFT JOIN pg_namespace m ON m.oid = t.relnamespace
-		LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
-	WHERE c.relkind = 'S'
-		AND %s
-		AND %s
-	ORDER BY n.nspname, c.relname`,
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		query = fmt.Sprintf(`
+		SELECT n.oid AS schemaoid,
+			c.oid AS oid,
+			quote_ident(n.nspname) AS schema,
+			quote_ident(c.relname) AS name,
+			coalesce(d.refobjid::text, '') AS owningtableoid,
+			coalesce(quote_ident(m.nspname), '') AS owningtableschema,
+			coalesce(quote_ident(t.relname), '') AS owningtable,
+			coalesce(quote_ident(a.attname), '') AS owningcolumn,
+			CASE
+				WHEN d.deptype IS NULL THEN false
+				ELSE d.deptype = 'i'
+			END AS isidentity
+		FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			LEFT JOIN pg_depend d ON c.oid = d.objid AND d.deptype in ('a', 'i')
+			LEFT JOIN pg_class t ON t.oid = d.refobjid
+			LEFT JOIN pg_namespace m ON m.oid = t.relnamespace
+			LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+		WHERE c.relkind = 'S'
+			AND %s
+			AND %s
+		ORDER BY n.nspname, c.relname`,
 		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
-
+	} else {
+		query = fmt.Sprintf(`
+		SELECT n.oid AS schemaoid,
+			c.oid AS oid,
+			quote_ident(n.nspname) AS schema,
+			quote_ident(c.relname) AS name,
+			coalesce(d.refobjid::text, '') AS owningtableoid,
+			coalesce(quote_ident(m.nspname), '') AS owningtableschema,
+			coalesce(quote_ident(t.relname), '') AS owningtable,
+			coalesce(quote_ident(a.attname), '') AS owningcolumn
+		FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			LEFT JOIN pg_depend d ON c.oid = d.objid AND d.deptype = 'a'
+			LEFT JOIN pg_class t ON t.oid = d.refobjid
+			LEFT JOIN pg_namespace m ON m.oid = t.relnamespace
+			LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+		WHERE c.relkind = 'S'
+			AND %s
+			AND %s
+		ORDER BY n.nspname, c.relname`,
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+	}
 	results := make([]Sequence, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -250,20 +278,35 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 }
 
 func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) SequenceDefinition {
-	startValQuery := ""
-	if connectionPool.Version.AtLeast("6") {
-		startValQuery = "start_value AS startval,"
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		query = fmt.Sprintf(`
+		SELECT s.seqstart AS startval,
+			r.last_value AS lastval,
+			s.seqincrement AS increment,
+			s.seqmax AS maxval,
+			s.seqmin AS minval,
+			s.seqcache AS cacheval,
+			s.seqcycle AS iscycled,
+			r.is_called AS iscalled
+		FROM %s r
+		JOIN pg_sequence s ON s.seqrelid = '%s'::regclass::oid;`, seqName, seqName)
+	} else {
+		startValQuery := ""
+		if connectionPool.Version.AtLeast("6") {
+			startValQuery = "start_value AS startval,"
+		}
+		query = fmt.Sprintf(`
+		SELECT last_value AS lastval,
+			%s
+			increment_by AS increment,
+			max_value AS maxval,
+			min_value AS minval,
+			cache_value AS cacheval,
+			is_cycled AS iscycled,
+			is_called AS iscalled
+		FROM %s`, startValQuery, seqName)
 	}
-	query := fmt.Sprintf(`
-	SELECT last_value AS lastval,
-		%s
-		increment_by AS increment,
-		max_value AS maxval,
-		min_value AS minval,
-		cache_value AS cacheval,
-		is_cycled AS iscycled,
-		is_called AS iscalled
-	FROM %s`, startValQuery, seqName)
 	result := SequenceDefinition{}
 	err := connectionPool.Get(&result, query)
 	gplog.FatalOnError(err)

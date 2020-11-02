@@ -298,6 +298,9 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount,
 	maxVal := int64(math.MaxInt64)
 	minVal := int64(math.MinInt64)
 	for _, sequence := range sequences {
+		if sequence.IsIdentity {
+			continue
+		}
 		start := metadataFile.ByteCount
 		definition := sequence.Definition
 		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", sequence.FQN())
@@ -339,6 +342,9 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount,
 	tocfile *toc.TOC, sequences []Sequence) {
 	gplog.Verbose("Writing ALTER SEQUENCE statements to metadata file")
 	for _, sequence := range sequences {
+		if sequence.IsIdentity {
+			continue
+		}
 		seqFQN := sequence.FQN()
 		// owningColumn is quoted and doesn't need to be quoted again
 		if sequence.OwningColumn != "" {

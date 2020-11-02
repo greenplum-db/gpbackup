@@ -353,6 +353,7 @@ PARTITION BY LIST (gender)
 		})
 	})
 	Describe("GetAllSequences", func() {
+		// TODO: add test for IsIdentity field for GPDB7
 		It("returns a slice of definitions for all sequences", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.seq_one START 3")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.seq_one")

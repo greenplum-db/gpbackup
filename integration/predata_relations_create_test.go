@@ -623,6 +623,27 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatch(&sequence.Definition, &resultSequences[0].Definition)
 			structmatcher.ExpectStructsToMatch(&sequenceMetadata, &resultMetadata)
 		})
+		It("doesn't create identity sequences", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			startValue := int64(0)
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+
+			identitySequenceRel := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_identity_sequence"}
+			identitySequence := backup.Sequence{Relation: identitySequenceRel, IsIdentity: true}
+			identitySequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 20, StartVal: startValue}
+
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence, identitySequence}, sequenceMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_identity_sequence")
+
+			resultSequences := backup.GetAllSequences(connectionPool)
+
+			Expect(resultSequences).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&sequenceRel, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequence.Definition, &resultSequences[0].Definition)
+		})
 	})
 	Describe("PrintAlterSequenceStatements", func() {
 		It("creates a sequence owned by a table column", func() {
@@ -648,6 +669,29 @@ SET SUBPARTITION TEMPLATE ` + `
 			Expect(sequences).To(HaveLen(1))
 			Expect(sequences[0].OwningTable).To(Equal("public.sequence_table"))
 			Expect(sequences[0].OwningColumn).To(Equal("public.sequence_table.a"))
+		})
+		It("skips identity sequences", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			startValue := int64(0)
+			sequenceRel := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}
+			sequence := backup.Sequence{Relation: sequenceRel}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+
+			identitySequenceRel := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_identity_sequence"}
+			identitySequence := backup.Sequence{Relation: identitySequenceRel, IsIdentity: true}
+			identitySequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 20, StartVal: startValue}
+
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence, identitySequence}, backup.MetadataMap{})
+			backup.PrintAlterSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence, identitySequence})
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_identity_sequence")
+
+			sequences := backup.GetAllSequences(connectionPool)
+			Expect(sequences).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&sequenceRel, &sequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequence.Definition, &sequences[0].Definition)
 		})
 	})
 })
