@@ -21,7 +21,7 @@ type Function struct {
 	Oid               uint32
 	Schema            string
 	Name              string
-	ReturnsSet        bool    `db:"proretset"`
+	ReturnsSet        bool `db:"proretset"`
 	FunctionBody      string
 	BinaryPath        string
 	Arguments         sql.NullString
@@ -36,8 +36,8 @@ type Function struct {
 	NumRows           float32 `db:"prorows"`
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
-	Kind              string `db:prokind`			// GPDB 7+
-	IsWindow          bool   `db:"proiswindow"`		// before 7
+	Kind              string `db:"prokind"`     // GPDB 7+
+	IsWindow          bool   `db:"proiswindow"` // before 7
 	ExecLocation      string `db:"proexeclocation"`
 }
 
@@ -191,6 +191,8 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	verifiedResults := make([]Function, 0)
 	for _, result := range results {
 		if result.Arguments.Valid && result.IdentArgs.Valid && result.ResultType.Valid {
+			verifiedResults = append(verifiedResults, result)
+		} else if connectionPool.Version.AtLeast("7") && result.Kind == "p" && !result.ResultType.Valid { // GPDB7+ stored procedure
 			verifiedResults = append(verifiedResults, result)
 		} else {
 			gplog.Warn("Function '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
@@ -390,7 +392,7 @@ type Aggregate struct {
 	SortOperatorSchema         string
 	Hypothetical               bool
 	TransitionDataType         string
-	TransitionDataSize         int    `db:"aggtransspace"`
+	TransitionDataSize         int `db:"aggtransspace"`
 	InitialValue               string
 	InitValIsNull              bool
 	IsOrdered                  bool   `db:"aggordered"`
@@ -539,9 +541,9 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		for i := range aggregates {
 			oid := aggregates[i].Oid
 			aggregates[i].Arguments.String = arguments[oid]
-			aggregates[i].Arguments.Valid = true  // Hardcode for GPDB 4.3 to fit sql.NullString
+			aggregates[i].Arguments.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 			aggregates[i].IdentArgs.String = arguments[oid]
-			aggregates[i].IdentArgs.Valid = true  // Hardcode for GPDB 4.3 to fit sql.NullString
+			aggregates[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 		}
 
 		return aggregates

@@ -59,6 +59,14 @@ GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`,
 				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 
 			})
+			It("prints a function definition for a stored procedure", func() {
+				testutils.SkipIfBefore7(connectionPool)
+				procDef := backup.Function{Oid: 1, Schema: "public", Name: "my_procedure", Kind: "p", ReturnsSet: false, FunctionBody: "do_something", BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true}, IdentArgs: sql.NullString{String: "", Valid: true}, ResultType: sql.NullString{String: "", Valid: false}, Volatility: "", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "SQL", ExecLocation: "a"}
+				backup.PrintCreateFunctionStatement(backupfile, tocfile, procDef, funcMetadata)
+				testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "my_procedure()", "PROCEDURE")
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROCEDURE public.my_procedure() LANGUAGE SQL AS
+$$do_something$$;`)
+			})
 		})
 		Describe("PrintFunctionBodyOrPath", func() {
 			It("prints a function definition for an internal function with 'NULL' binary path using '-'", func() {
@@ -161,6 +169,7 @@ $_$`)
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testhelper.ExpectRegexp(buffer, "WINDOW")
 			})
+			// TODO: TRANSFORM for stored procedures
 			Context("Execlocation cases", func() {
 				It("Default", func() {
 					funcDef.ExecLocation = "a"

@@ -16,8 +16,12 @@ import (
 func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	funcFQN := utils.MakeFQN(funcDef.Schema, funcDef.Name)
-	metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS ", funcFQN, funcDef.Arguments.String)
-	metadataFile.MustPrintf("%s AS", funcDef.ResultType.String)
+
+	if connectionPool.Version.AtLeast("7") && funcDef.Kind == "p" {
+		metadataFile.MustPrintf("\n\nCREATE PROCEDURE %s(%s) AS", funcFQN, funcDef.Arguments.String)
+	} else {
+		metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS %s AS", funcFQN, funcDef.Arguments.String, funcDef.ResultType.String)
+	}
 	PrintFunctionBodyOrPath(metadataFile, funcDef)
 	metadataFile.MustPrintf("LANGUAGE %s", funcDef.Language)
 	PrintFunctionModifiers(metadataFile, funcDef)
@@ -83,6 +87,9 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	}
 	if funcDef.IsSecurityDefiner {
 		metadataFile.MustPrintf(" SECURITY DEFINER")
+	}
+	if connectionPool.Version.AtLeast("7") {
+		// TODO: TRANSFORM
 	}
 	// Default cost is 1 for C and internal functions or 100 for functions in other languages
 	isInternalOrC := funcDef.Language == "c" || funcDef.Language == "internal"

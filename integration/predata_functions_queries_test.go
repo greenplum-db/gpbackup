@@ -2,7 +2,6 @@ package integration
 
 import (
 	"database/sql"
-
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -39,16 +38,22 @@ MODIFIES SQL DATA
 			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON FUNCTION public.append(integer, integer) IS 'this is a function comment'")
 
 			results := backup.GetFunctions(connectionPool)
+			var prokindValue string
+			if connectionPool.Version.AtLeast("7"){
+				prokindValue = "f"
+			} else {
+				prokindValue = ""
+			}
 
 			addFunction := backup.Function{
-				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "public", Name: "add", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
 			appendFunction := backup.Function{
-				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
+				Schema: "public", Name: "append", Kind: prokindValue, ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
@@ -71,8 +76,15 @@ AS 'SELECT $1 + $2'
 LANGUAGE SQL`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION testschema.add(integer, integer)")
 
+			var prokindValue string
+			if connectionPool.Version.AtLeast("7"){
+				prokindValue = "f"
+			} else {
+				prokindValue = ""
+			}
+
 			addFunction := backup.Function{
-				Schema: "testschema", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "testschema", Name: "add", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
@@ -128,21 +140,30 @@ EXECUTE ON ALL SEGMENTS;`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_all_segments(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
+			var prokindValue string
+			var isWindowValue bool
+			if connectionPool.Version.AtLeast("7"){
+				prokindValue = "w"
+				isWindowValue = false
+			} else {
+				prokindValue = ""
+				isWindowValue = true
+			}
 
 			srfOnMasterFunction := backup.Function{
-				Schema: "public", Name: "srf_on_master", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "public", Name: "srf_on_master", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "m"}
+				Language: "sql", IsWindow: isWindowValue, ExecLocation: "m"}
 			srfOnAllSegmentsFunction := backup.Function{
-				Schema: "public", Name: "srf_on_all_segments", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "public", Name: "srf_on_all_segments", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "s"}
+				Language: "sql", IsWindow: isWindowValue, ExecLocation: "s"}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
@@ -190,9 +211,15 @@ MODIFIES SQL DATA
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.append(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
+			var prokindValue string
+			if connectionPool.Version.AtLeast("7"){
+				prokindValue = "f"
+			} else {
+				prokindValue = ""
+			}
 
 			appendFunction := backup.Function{
-				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
+				Schema: "public", Name: "append", Kind: prokindValue, ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
@@ -226,9 +253,14 @@ MODIFIES SQL DATA
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.myfunc(integer)")
 
 			results := backup.GetFunctions(connectionPool)
-
+			var prokindValue string
+			if connectionPool.Version.AtLeast("7"){
+				prokindValue = "f"
+			} else {
+				prokindValue = ""
+			}
 			appendFunction := backup.Function{
-				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `
+				Schema: "public", Name: "myfunc", Kind: prokindValue, ReturnsSet: false, FunctionBody: `
 	begin
 		set work_mem = '2MB';
 		perform 1/$1;
@@ -239,7 +271,6 @@ MODIFIES SQL DATA
 				ResultType: sql.NullString{String: "text", Valid: true},
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "SET work_mem TO '1MB'", Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
-
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
 		})
@@ -261,9 +292,15 @@ MODIFIES SQL DATA
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP SCHEMA "abc""def"`)
 
 			results := backup.GetFunctions(connectionPool)
+			var prokindValue string
+			if connectionPool.Version.AtLeast("7"){
+				prokindValue = "f"
+			} else {
+				prokindValue = ""
+			}
 
 			appendFunction := backup.Function{
-				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `
+				Schema: "public", Name: "myfunc", Kind: prokindValue, ReturnsSet: false, FunctionBody: `
     begin
         set work_mem = '2MB';
         perform 1/$1;
@@ -277,6 +314,55 @@ MODIFIES SQL DATA
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
+		})
+		It("includes stored procedures in the result", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.tbl (n int);`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public.tbl;`)
+
+			testhelper.AssertQueryRuns(connectionPool, `
+CREATE PROCEDURE
+public.insert_data(a integer, b integer) LANGUAGE SQL AS $$
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+$$;`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP PROCEDURE public.insert_data(a integer, b integer);`)
+
+			testhelper.AssertQueryRuns(connectionPool, `
+CREATE PROCEDURE
+public.insert_more_data(a integer, b integer) LANGUAGE SQL AS $$
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+$$;`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP PROCEDURE public.insert_more_data(a integer, b integer);`)
+
+			results := backup.GetFunctions(connectionPool)
+
+			firstProcedure := backup.Function{
+				Schema: "public", Name: "insert_data", Kind: "p", ReturnsSet: false, FunctionBody: `
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+`,
+				BinaryPath: "", Arguments: sql.NullString{String: "a integer, b integer", Valid: true},
+				IdentArgs: sql.NullString{String: "a integer, b integer", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: false},
+				Volatility: "v", IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", ExecLocation: "a"}
+			secondProcedure := backup.Function{
+				Schema: "public", Name: "insert_more_data", Kind: "p", ReturnsSet: false, FunctionBody: `
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+`,
+				BinaryPath: "", Arguments: sql.NullString{String: "a integer, b integer", Valid: true},
+				IdentArgs: sql.NullString{String: "a integer, b integer", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: false},
+				Volatility: "v", IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", ExecLocation: "a"}
+
+			Expect(results).To(HaveLen(2))
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &firstProcedure, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[1], &secondProcedure, "Oid")
 		})
 	})
 	Describe("GetFunctions4", func() {
