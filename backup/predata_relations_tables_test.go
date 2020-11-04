@@ -362,6 +362,15 @@ ALTER TABLE ONLY public.tablename ALTER COLUMN i SET (n_distinct=1);`)
 	j character varying(20)
 ) WITH (appendonly=true, orientation=column, fillfactor=42, compresstype=zlib, blocksize=32768, compresslevel=1) DISTRIBUTED BY (i, j);`)
 			})
+			It("is a GPDB 7+ root partition", func() {
+				testutils.SkipIfBefore7(connectionPool)
+				testTable.PartitionKeyDef = "RANGE (b)"
+				backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TABLE public.tablename (
+	i integer,
+	j character varying(20)
+) PARTITION BY RANGE (b) DISTRIBUTED RANDOMLY;`)
+			})
 		})
 		Context("Table partitioning", func() {
 			col := []backup.ColumnDefinition{rowOne, rowTwo}

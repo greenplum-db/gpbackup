@@ -73,6 +73,7 @@ type TableDefinition struct {
 	ReplicaIdentity         string
 	PartitionAlteredSchemas []AlteredPartitionRelation
 	AccessMethodName        string
+	PartitionKeyDef         string
 }
 
 /*
@@ -97,6 +98,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	inheritanceMap := GetTableInheritance(connectionPool, tableRelations)
 	replicaIdentityMap := GetTableReplicaIdentity(connectionPool)
 	partitionAlteredSchemaMap := GetPartitionAlteredSchema(connectionPool)
+	partitionKeyDefs := GetPartitionKeyDefs(connectionPool)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, tableRel := range tableRelations {
@@ -118,6 +120,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			ReplicaIdentity:         replicaIdentityMap[oid],
 			PartitionAlteredSchemas: partitionAlteredSchemaMap[oid],
 			AccessMethodName:        accessMethodMap[oid],
+			PartitionKeyDef:         partitionKeyDefs[oid],
 		}
 		if tableDef.Inherits == nil {
 			tableDef.Inherits = []string{}
@@ -551,6 +554,32 @@ func GetTableInheritance(connectionPool *dbconn.DBConn, tables []Relation) map[u
 	gplog.FatalOnError(err)
 	for _, result := range results {
 		resultMap[result.Oid] = append(resultMap[result.Oid], result.ReferencedObject)
+	}
+	return resultMap
+}
+
+// Used to contruct root tables for GPDB 7+, because the root partition must be
+// constructed by itself first.
+func GetPartitionKeyDefs(connectionPool *dbconn.DBConn) map[uint32]string {
+	if connectionPool.Version.Before("7") {
+		return make(map[uint32]string, 0)
+	}
+	query := `
+SELECT
+    partrelid AS oid,
+    pg_get_partkeydef(partrelid) AS keydef
+FROM
+    pg_partitioned_table;`
+
+	var results []struct {
+		Oid    uint32
+		Keydef string
+	}
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	resultMap := make(map[uint32]string)
+	for _, result := range results {
+		resultMap[result.Oid] = result.Keydef
 	}
 	return resultMap
 }

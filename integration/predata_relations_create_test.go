@@ -235,6 +235,22 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
 
 		})
+		It("creates a GPDB 7+ root table", func() {
+			testTable.PartitionKeyDef = "RANGE (b)"
+			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "int", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
+			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "b", NotNull: false, HasDefault: false, Type: "int", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
+			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
+
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+
+			fmt.Println(buffer.String())
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			testTable.PartitionLevelInfo.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
+		})
 		It("creates a table with a non-default tablespace", func() {
 			if connectionPool.Version.Before("6") {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
