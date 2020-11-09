@@ -37,6 +37,7 @@ type Function struct {
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
 	Kind              string `db:"prokind"`     // GPDB 7+
+	PlannerSupport    string `db:"prosupport"`  // GPDB 7+
 	IsWindow          bool   `db:"proiswindow"` // before 7
 	ExecLocation      string `db:"proexeclocation"`
 }
@@ -133,6 +134,7 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 			prorows,
 			prodataaccess,
 			prokind,
+			prosupport,
 			l.lanname AS language
 		FROM pg_proc p
 			JOIN pg_catalog.pg_language l ON p.prolang = l.oid

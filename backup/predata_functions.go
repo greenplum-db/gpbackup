@@ -90,6 +90,9 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	}
 	if connectionPool.Version.AtLeast("7") {
 		// TODO: TRANSFORM
+		if funcDef.PlannerSupport != "-" {
+			metadataFile.MustPrintf("\nSUPPORT %s", funcDef.PlannerSupport)
+		}
 	}
 	// Default cost is 1 for C and internal functions or 100 for functions in other languages
 	isInternalOrC := funcDef.Language == "c" || funcDef.Language == "internal"
