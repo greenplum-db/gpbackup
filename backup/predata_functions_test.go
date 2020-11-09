@@ -170,6 +170,11 @@ $_$`)
 				testhelper.ExpectRegexp(buffer, "WINDOW")
 			})
 			// TODO: TRANSFORM for stored procedures
+			It("print 'SUPPORT' if PlanerSupport is set", func() {
+				funcDef.PlannerSupport = "my_planner_support"
+				backup.PrintFunctionModifiers(backupfile, funcDef)
+				testhelper.ExpectRegexp(buffer, "SUPPORT my_planner_support")
+			})
 			Context("Execlocation cases", func() {
 				It("Default", func() {
 					funcDef.ExecLocation = "a"
