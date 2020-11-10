@@ -240,6 +240,12 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 				utils.MakeFQN(alteredPartitionRelation.OldSchema, alteredPartitionRelation.Name), alteredPartitionRelation.NewSchema))
 	}
 
+	attachInfo := table.AttachPartitionInfo
+	if (attachInfo != AttachPartitionInfo{}) {
+		statements = append(statements,
+			fmt.Sprintf("ALTER TABLE ONLY %s ATTACH PARTITION %s %s;", attachInfo.Parent, attachInfo.Relname, attachInfo.Expr))
+	}
+
 	PrintStatements(metadataFile, toc, table, statements)
 }
 

@@ -74,6 +74,7 @@ type TableDefinition struct {
 	PartitionAlteredSchemas []AlteredPartitionRelation
 	AccessMethodName        string
 	PartitionKeyDef         string
+	AttachPartitionInfo     AttachPartitionInfo
 }
 
 /*
@@ -99,6 +100,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	replicaIdentityMap := GetTableReplicaIdentity(connectionPool)
 	partitionAlteredSchemaMap := GetPartitionAlteredSchema(connectionPool)
 	partitionKeyDefs := GetPartitionKeyDefs(connectionPool)
+	attachPartitionInfo := GetAttachPartitionInfo(connectionPool)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, tableRel := range tableRelations {
@@ -121,6 +123,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			PartitionAlteredSchemas: partitionAlteredSchemaMap[oid],
 			AccessMethodName:        accessMethodMap[oid],
 			PartitionKeyDef:         partitionKeyDefs[oid],
+			AttachPartitionInfo:     attachPartitionInfo[oid],
 		}
 		if tableDef.Inherits == nil {
 			tableDef.Inherits = []string{}
@@ -565,11 +568,11 @@ func GetPartitionKeyDefs(connectionPool *dbconn.DBConn) map[uint32]string {
 		return make(map[uint32]string, 0)
 	}
 	query := `
-SELECT
-    partrelid AS oid,
-    pg_get_partkeydef(partrelid) AS keydef
-FROM
-    pg_partitioned_table;`
+	SELECT
+		partrelid AS oid,
+		pg_get_partkeydef(partrelid) AS keydef
+	FROM
+		pg_partitioned_table;`
 
 	var results []struct {
 		Oid    uint32
@@ -580,6 +583,40 @@ FROM
 	resultMap := make(map[uint32]string)
 	for _, result := range results {
 		resultMap[result.Oid] = result.Keydef
+	}
+	return resultMap
+}
+
+type AttachPartitionInfo struct {
+	Oid     uint32
+	Relname string
+	Parent  string
+	Expr    string
+}
+
+func GetAttachPartitionInfo(connectionPool *dbconn.DBConn) map[uint32]AttachPartitionInfo {
+	if connectionPool.Version.Before("7") {
+		return make(map[uint32]AttachPartitionInfo, 0)
+	}
+
+	query := fmt.Sprintf(`
+	SELECT
+		c.oid,
+		quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS relname,
+		quote_ident(rn.nspname) || '.' || quote_ident(rc.relname) AS parent,
+		pg_get_expr(c.relpartbound, c.oid) AS expr
+	FROM pg_class c
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+		JOIN pg_class rc ON pg_partition_root(c.oid) = rc.oid
+		JOIN pg_namespace rn ON rc.relnamespace = rn.oid
+	WHERE c.relispartition = 't'`)
+
+	results := make([]AttachPartitionInfo, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	resultMap := make(map[uint32]AttachPartitionInfo)
+	for _, result := range results {
+		resultMap[result.Oid] = result
 	}
 	return resultMap
 }
