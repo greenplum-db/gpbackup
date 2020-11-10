@@ -878,4 +878,22 @@ SET SUBPARTITION TEMPLATE
 			Expect(result[oid]).To(ConsistOf(expectedAlteredPartitions))
 		})
 	})
+	Describe("GetAttachedPartitionInfo", func() {
+		It("Returns a map of table oid to attach partition info", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foopart(a integer, b integer) PARTITION BY RANGE (b) DISTRIBUTED BY (a)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foopart_1_prt_1 (a integer, b integer) DISTRIBUTED BY (a)")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY testschema.foopart ATTACH PARTITION testschema.foopart_1_prt_1 FOR VALUES FROM (1) TO (2)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foopart")
+
+			oid := testutils.OidFromObjectName(connectionPool, "testschema", "foopart_1_prt_1", backup.TYPE_RELATION)
+			result := backup.GetAttachPartitionInfo(connectionPool)
+
+			expectedAttachPartitionInfo := backup.AttachPartitionInfo{Oid: oid, Relname: "testschema.foopart_1_prt_1", Parent: "testschema.foopart", Expr: "FOR VALUES FROM (1) TO (2)"}
+
+			structmatcher.ExpectStructsToMatch(result[oid], &expectedAttachPartitionInfo)
+		})
+	})
 })

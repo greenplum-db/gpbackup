@@ -432,6 +432,36 @@ SET SUBPARTITION TEMPLATE ` + `
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
 			Expect(resultTable.ReplicaIdentity).To(Equal("f"))
 		})
+		It("prints a GPDB 7+ ALTER statement to ATTACH a child table to it's root", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testroottable(i int) PARTITION BY RANGE (i) DISTRIBUTED BY (i); ")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testroottable;")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testchildtable(i int) DISTRIBUTED BY (i);")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testchildtable;")
+			tableMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, ObjectType: "RELATION"}
+			testChildTable := backup.Table{
+				Relation: backup.Relation{Schema: "public", Name: "testChildTable"},
+				TableDefinition: backup.TableDefinition{
+					DistPolicy:  "DISTRIBUTED BY (i)",
+					ColumnDefs:  []backup.ColumnDefinition{tableRow},
+					ExtTableDef: extTableEmpty,
+					Inherits:    []string{},
+					AttachPartitionInfo: backup.AttachPartitionInfo{
+						Relname: "public.testchildtable",
+						Parent:  "public.testroottable",
+						Expr:    "FOR VALUES FROM (1) TO (2)",
+					},
+				},
+			}
+
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testChildTable, tableMetadata)
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			attachPartitionInfoMap := backup.GetAttachPartitionInfo(connectionPool)
+			childTableOid := testutils.OidFromObjectName(connectionPool, "public", "testchildtable", backup.TYPE_RELATION)
+			testChildTable.AttachPartitionInfo.Oid = childTableOid
+			structmatcher.ExpectStructsToMatch(&testChildTable.AttachPartitionInfo, attachPartitionInfoMap[childTableOid])
+		})
 	})
 	Describe("PrintCreateViewStatements", func() {
 		var viewDef sql.NullString
