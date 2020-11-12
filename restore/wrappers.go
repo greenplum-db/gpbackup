@@ -369,18 +369,23 @@ func RestoreSchemas(schemaStatements []toc.StatementWithType, progressBar utils.
 
 func GetExistingTableFQNs() ([]string, error) {
 	existingTableFQNs := make([]string, 0)
+	var relkindFilter string
 
-	// Note that 'f' for foreign tables only matters for GPDB 6+ but we shouldn't need a GPDB
-	// version check on this since this is catalog and 'f' is new starting from GPDB 6+.
-	query := `SELECT quote_ident(n.nspname) || '.' || quote_ident(c.relname)
+	if connectionPool.Version.Before("6") {
+		relkindFilter = "'r', 'S'"
+	} else if connectionPool.Version.Is("6") {
+		relkindFilter = "'r', 'S', f'"
+	} else if connectionPool.Version.AtLeast("7") {
+		relkindFilter = "'r', 'S', 'f', 'p'"
+	}
+	query := fmt.Sprintf(`SELECT quote_ident(n.nspname) || '.' || quote_ident(c.relname)
 			  FROM pg_catalog.pg_class c
 				LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-			  WHERE c.relkind IN ('r', 'f')
-			  AND c.relstorage IN ('h', 'a', 'c', 'x', 'f')
-				 AND n.nspname <> 'pg_catalog'
+			  WHERE c.relkind IN (%s)
+				 AND n.nspname !~ '^pg_'
+				 AND n.nspname !~ '^gp_'
 				 AND n.nspname <> 'information_schema'
-				 AND n.nspname !~ '^pg_toast'
-			  ORDER BY 1;`
+			  ORDER BY 1;`, relkindFilter)
 
 	err := connectionPool.Select(&existingTableFQNs, query)
 	return existingTableFQNs, err
