@@ -64,7 +64,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 
 			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
-				Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTableName: "ext_table", ErrTableSchema: "public", Encoding: "UTF8",
+				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
@@ -84,7 +84,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 
 			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "c", FormatOpts: `delimiter '|' null '' escape ''' quote ''' force not null i`,
-				Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTableName: "ext_table", ErrTableSchema: "public", Encoding: "UTF8",
+				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
@@ -104,7 +104,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 
 			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "b", FormatOpts: "formatter 'fixedwidth_out' i '20' ",
-				Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTableName: "ext_table", ErrTableSchema: "public", Encoding: "UTF8",
+				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
 			if connectionPool.Version.AtLeast("7") {
 				extTable.FormatOpts = "formatter 'fixedwidth_out'i '20'"
@@ -130,7 +130,7 @@ LOG ERRORS SEGMENT REJECT LIMIT 10 PERCENT`)
 
 			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '%' null '' escape 'OFF'",
-				Command: "", RejectLimit: 10, RejectLimitType: "p", ErrTableName: "ext_table", ErrTableSchema: "public", Encoding: "UTF8",
+				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")

@@ -42,8 +42,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a READABLE EXTERNAL table", func() {
 			extTable.Type = backup.READABLE
 			extTable.Writable = false
-			extTable.ErrTableName = "testtable"
-			extTable.ErrTableSchema = "public"
+			extTable.LogErrors = true
 			extTable.RejectLimit = 2
 			extTable.RejectLimitType = "r"
 			testTable.ExtTableDef = extTable

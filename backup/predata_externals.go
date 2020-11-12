@@ -41,6 +41,7 @@ type ExternalTableDefinition struct {
 	RejectLimitType string
 	ErrTableName    string
 	ErrTableSchema  string
+	LogErrors       bool
 	Encoding        string
 	Writable        bool
 	URIs            []string
@@ -251,16 +252,12 @@ func GenerateFormatStatement(extTableDef ExternalTableDefinition) string {
 	return formatStatement
 }
 
-/*
- * If an external table is created using LOG ERRORS instead of LOG ERRORS INTO [tablename],
- * the value of pg_exttable.fmterrtbl will match the table's own name.
- */
-func generateLogErrorStatement(extTableDef ExternalTableDefinition, tableFQN string) string {
-	var logErrorStatement string
-	errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
-	if errTableFQN == tableFQN {
+func generateLogErrorStatement(extTableDef ExternalTableDefinition) string {
+	logErrorStatement := ""
+	if extTableDef.LogErrors {
 		logErrorStatement += "\nLOG ERRORS"
-	} else if extTableDef.ErrTableName != "" {
+	} else if extTableDef.ErrTableName != ""  && extTableDef.ErrTableSchema != "" {
+		errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
 		logErrorStatement += fmt.Sprintf("\nLOG ERRORS INTO %s", errTableFQN)
 	}
 	if extTableDef.RejectLimit != 0 {
@@ -297,7 +294,7 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 	metadataFile.MustPrintln()
 	metadataFile.MustPrintf("ENCODING '%s'", extTableDef.Encoding)
 	if extTableDef.Type == READABLE || extTableDef.Type == READABLE_WEB {
-		metadataFile.MustPrint(generateLogErrorStatement(extTableDef, tableName))
+		metadataFile.MustPrint(generateLogErrorStatement(extTableDef))
 	}
 }
 

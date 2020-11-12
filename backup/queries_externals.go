@@ -16,21 +16,36 @@ import (
 func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]ExternalTableDefinition {
 	gplog.Verbose("Retrieving external table information")
 
-	location := `CASE WHEN urilocation IS NOT NULL THEN unnest(urilocation) ELSE '' END AS location,
-		array_to_string(execlocation, ',') AS execlocation,`
-	errTable := `coalesce(quote_ident(c.relname),'') AS errtablename,
-		coalesce((SELECT quote_ident(nspname) FROM pg_namespace n WHERE n.oid = c.relnamespace), '') AS errtableschema,`
-	errColumn := `fmterrtbl`
-
+	var location string
 	if connectionPool.Version.Before("5") {
 		execOptions := "'ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'"
 		location = fmt.Sprintf(`CASE WHEN split_part(location[1], ':', 1) NOT IN (%s) THEN unnest(location) ELSE '' END AS location,
 		CASE WHEN split_part(location[1], ':', 1) IN (%s) THEN unnest(location) ELSE 'ALL_SEGMENTS' END AS execlocation,`, execOptions, execOptions)
-	} else if !connectionPool.Version.Before("6") {
-		errTable = `CASE WHEN logerrors = 'false' THEN '' ELSE quote_ident(c.relname) END AS errtablename,
-		CASE WHEN logerrors = 'false' THEN '' ELSE coalesce(
-			(SELECT quote_ident(nspname) FROM pg_namespace n WHERE n.oid = c.relnamespace), '') END AS errtableschema,`
-		errColumn = `reloid`
+	} else {
+		location = `CASE WHEN urilocation IS NOT NULL THEN unnest(urilocation) ELSE '' END AS location,
+		array_to_string(execlocation, ',') AS execlocation,`
+	}
+
+	// In GPDB 4.3, users can define an error table with `LOG ERRORS
+	// INTO <err_table_name>`. In GPDB 5+, error tables were removed
+	// but internal error logging is still available using `LOG ERRORS`.
+	var errorHandling string
+	errorHandlingJoin := ""
+	if connectionPool.Version.Before("5") {
+		// In GPDB 4.3, we need to get the error table's fully-qualified name
+		// if `LOG ERRORS INTO <err_table_name>` was used. If `LOG ERRORS` was
+		// used, we can just simply check if reloid = fmterrtbl and avoid trying
+		// to get the FQN of a nonexistant error table.
+		errorHandling = `coalesce(quote_ident(c.relname), '') AS errtablename,
+				coalesce(quote_ident(n.nspname), '') AS errtableschema,
+				e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,`
+		errorHandlingJoin = `LEFT JOIN pg_class c ON e.fmterrtbl = c.oid AND e.fmterrtbl != e.reloid
+				LEFT JOIN pg_namespace n ON n.oid = c.relnamespace`
+	} else if connectionPool.Version.Is("5") {
+		// If `LOG ERRORS` was used, we will see reloid = fmterrtbl.
+		errorHandling = `e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,`
+	} else {
+		errorHandling = `logerrors,`
 	}
 
 	query := fmt.Sprintf(`
@@ -45,7 +60,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		pg_encoding_to_char(encoding) AS encoding,
 		writable
 	FROM pg_exttable e
-		LEFT JOIN pg_class c ON e.%s = c.oid`, location, errTable, errColumn)
+		%s`, location, errorHandling, errorHandlingJoin)
 
 	results := make([]ExternalTableDefinition, 0)
 	err := connectionPool.Select(&results, query)

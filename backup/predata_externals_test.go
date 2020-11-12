@@ -238,6 +238,10 @@ FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
 			It("prints a CREATE block for a table using error logging with an error table", func() {
+				// Error tables were removed in GPDB 5
+				if connectionPool.Version.AtLeast("5") {
+					Skip("Test does not apply for GPDB versions after 5")
+				}
 				extTableDef.ErrTableName = "error_table"
 				extTableDef.ErrTableSchema = "error_table_schema"
 				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
@@ -249,8 +253,7 @@ ENCODING 'UTF-8'
 LOG ERRORS INTO error_table_schema.error_table`)
 			})
 			It("prints a CREATE block for a table using error logging without an error table", func() {
-				extTableDef.ErrTableName = "tablename"
-				extTableDef.ErrTableSchema = "public"
+				extTableDef.LogErrors = true
 				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	'file://host:port/path/file'
@@ -282,8 +285,7 @@ ENCODING 'UTF-8'
 SEGMENT REJECT LIMIT 2 PERCENT`)
 			})
 			It("prints a CREATE block for a table with error logging and a row-based reject limit", func() {
-				extTableDef.ErrTableName = "tablename"
-				extTableDef.ErrTableSchema = "public"
+				extTableDef.LogErrors = true
 				extTableDef.RejectLimit = 2
 				extTableDef.RejectLimitType = "r"
 				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
