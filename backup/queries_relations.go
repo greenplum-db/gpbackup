@@ -175,7 +175,6 @@ type SequenceDefinition struct {
 	MaxVal      int64
 	MinVal      int64
 	CacheVal    int64
-	LogCnt      int64
 	IsCycled    bool
 	IsCalled    bool
 	OwningTable string
@@ -245,7 +244,6 @@ func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) Sequen
 		max_value AS maxval,
 		min_value AS minval,
 		cache_value AS cacheval,
-		log_cnt AS logcnt,
 		is_cycled AS iscycled,
 		is_called AS iscalled
 	FROM %s`, startValQuery, seqName)

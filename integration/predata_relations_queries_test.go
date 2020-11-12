@@ -258,9 +258,6 @@ PARTITION BY LIST (gender)
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
 			expectedSequence := backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1}
-			if connectionPool.Version.Before("5") {
-				expectedSequence.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
-			}
 			if connectionPool.Version.AtLeast("6") {
 				expectedSequence.StartVal = 1
 			}
@@ -283,19 +280,12 @@ PARTITION BY LIST (gender)
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
 			expectedSequence := backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
-			if connectionPool.Version.Before("5") {
-				expectedSequence.LogCnt = 32 // In GPDB 4.3, sequence log count is one-indexed
-			} else {
-				expectedSequence.LogCnt = 31 // In GPDB 5, sequence log count is zero-indexed
-			}
 			if connectionPool.Version.AtLeast("6") {
 				expectedSequence.StartVal = 100
 			}
 			if connectionPool.Version.AtLeast("7") {
 				// In GPDB 7+, default cache value is 20
 				expectedSequence.CacheVal = 20
-				// log_cnt goes from 0 -> 32 -> 12 due to next cache batch
-				expectedSequence.LogCnt = 12
 				// last_value goes from 100 -> 195 -> 295 due to increment_by and cache_value
 				expectedSequence.LastVal = 295
 			}
@@ -376,10 +366,6 @@ PARTITION BY LIST (gender)
 			seqOneDef := backup.SequenceDefinition{LastVal: 3, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValOne}
 			seqTwoRelation := backup.Relation{Schema: "public", Name: "seq_two"}
 			seqTwoDef := backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValTwo}
-			if connectionPool.Version.Before("5") {
-				seqOneDef.LogCnt = 1 // In GPDB 4.3, sequence log count is one-indexed
-				seqTwoDef.LogCnt = 1
-			}
 			if connectionPool.Version.AtLeast("7") {
 				// In GPDB 7+, default cache value is 20
 				seqOneDef.CacheVal = 20
