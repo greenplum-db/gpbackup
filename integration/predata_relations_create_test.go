@@ -560,18 +560,24 @@ SET SUBPARTITION TEMPLATE ` + `
 			sequenceRel         backup.Relation
 			sequence            backup.Sequence
 			sequenceMetadataMap backup.MetadataMap
+			dataType            string
 		)
 		BeforeEach(func() {
 			sequenceRel = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}
 			sequence = backup.Sequence{Relation: sequenceRel}
 			sequenceMetadataMap = backup.MetadataMap{}
+
+			dataType = ""
+			if connectionPool.Version.AtLeast("7") {
+				dataType = "bigint"
+			}
 		})
 		It("creates a basic sequence", func() {
 			startValue := int64(0)
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -588,7 +594,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 105
 			}
-			sequence.Definition = backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 105, Type: dataType, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true, StartVal: startValue}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -605,7 +611,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			sequenceMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true, includeSecurityLabels)
 			sequenceMetadataMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
@@ -626,17 +632,16 @@ SET SUBPARTITION TEMPLATE ` + `
 		It("doesn't create identity sequences", func() {
 			testutils.SkipIfBefore7(connectionPool)
 			startValue := int64(0)
-			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, MinVal: math.MinInt64, MaxVal: math.MaxInt64, Increment: 1, CacheVal: 1, StartVal: startValue}
 
 			identitySequenceRel := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_identity_sequence"}
 			identitySequence := backup.Sequence{Relation: identitySequenceRel, IsIdentity: true}
-			identitySequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 20, StartVal: startValue}
+			identitySequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, MinVal: math.MinInt64, MaxVal: math.MaxInt64, Increment: 1, CacheVal: 20, StartVal: startValue}
 
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence, identitySequence}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_identity_sequence")
 
 			resultSequences := backup.GetAllSequences(connectionPool)
 

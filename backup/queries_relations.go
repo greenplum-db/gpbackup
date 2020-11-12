@@ -188,6 +188,7 @@ func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
 
 type SequenceDefinition struct {
 	LastVal     int64
+	Type        string
 	StartVal    int64
 	Increment   int64
 	MaxVal      int64
@@ -283,6 +284,7 @@ func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) Sequen
 		query = fmt.Sprintf(`
 		SELECT s.seqstart AS startval,
 			r.last_value AS lastval,
+			pg_catalog.format_type(s.seqtypid, NULL) AS type,
 			s.seqincrement AS increment,
 			s.seqmax AS maxval,
 			s.seqmin AS minval,

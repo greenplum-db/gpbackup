@@ -304,6 +304,18 @@ func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount,
 		start := metadataFile.ByteCount
 		definition := sequence.Definition
 		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", sequence.FQN())
+		if connectionPool.Version.AtLeast("7") {
+			if definition.Type != "bigint"{
+				metadataFile.MustPrintln("\tAS", definition.Type)
+			}
+			if definition.Type == "smallint" {
+				maxVal = int64(math.MaxInt16)
+				minVal = int64(math.MinInt16)
+			} else if definition.Type == "integer" {
+				maxVal = int64(math.MaxInt32)
+				minVal = int64(math.MinInt32)
+			}
+		}
 		if connectionPool.Version.AtLeast("6") {
 			metadataFile.MustPrintln("\tSTART WITH", definition.StartVal)
 		} else if !definition.IsCalled {

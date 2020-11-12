@@ -257,13 +257,22 @@ PARTITION BY LIST (gender)
 		})
 	})
 	Describe("GetSequenceDefinition", func() {
+		var dataType string
+
+		BeforeEach(func() {
+			dataType = ""
+			if connectionPool.Version.AtLeast("7") {
+				dataType = "bigint"
+			}
+		})
+
 		It("returns sequence information for sequence with default values", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
-			expectedSequence := backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1}
+			expectedSequence := backup.SequenceDefinition{LastVal: 1, Type: dataType, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1}
 			if connectionPool.Version.AtLeast("6") {
 				expectedSequence.StartVal = 1
 			}
@@ -285,7 +294,7 @@ PARTITION BY LIST (gender)
 
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
-			expectedSequence := backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
+			expectedSequence := backup.SequenceDefinition{LastVal: 105, Type: dataType, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
 			if connectionPool.Version.AtLeast("6") {
 				expectedSequence.StartVal = 100
 			}
