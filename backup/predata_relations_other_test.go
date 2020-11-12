@@ -191,6 +191,44 @@ SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()),
 				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
 GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 		})
+		It("prints data_type of the sequence", func() {
+			if connectionPool.Version.Before("7") {
+				Skip("Test only applicable to GPDB 7 and above")
+			}
+			seqSmallInt := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 10, Type: "smallint", Increment: 2, MaxVal: math.MaxInt16, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
+			seqInteger := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 10, Type: "integer", Increment: 2, MaxVal: math.MaxInt32, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
+			seqBigInt := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 10, Type: "bigint", Increment: 2, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, LogCnt: 42, IsCycled: false, IsCalled: true}}
+			sequences := []backup.Sequence{seqSmallInt}
+			sequences = append(sequences, seqInteger)
+			sequences = append(sequences, seqBigInt)
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
+			expectedStatements := []string{
+				fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s AS smallint
+INCREMENT BY 2
+NO MAXVALUE
+NO MINVALUE
+CACHE 5;
+
+SELECT pg_catalog.setval('public.seq_name', 10, true)`, getSeqDefReplace()),
+
+				fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s AS integer
+INCREMENT BY 2
+NO MAXVALUE
+NO MINVALUE
+CACHE 5;
+
+SELECT pg_catalog.setval('public.seq_name', 10, true);`, getSeqDefReplace()),
+
+				fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
+INCREMENT BY 2
+NO MAXVALUE
+NO MINVALUE
+CACHE 5;
+
+SELECT pg_catalog.setval('public.seq_name', 10, true);`, getSeqDefReplace()),
+			}
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
+		})
 	})
 	Describe("PrintCreateViewStatement", func() {
 		var (
