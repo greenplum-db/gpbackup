@@ -54,7 +54,8 @@ func DoSetup() {
 
 	utils.CheckGpexpandRunning(utils.RestorePreventedByGpexpandMessage)
 	restoreStartTime = history.CurrentTimestamp()
-	gplog.Info("Restore Key = %s", MustGetFlagString(options.TIMESTAMP))
+	backupTimestamp := MustGetFlagString(options.TIMESTAMP)
+	gplog.Info("Restore Key = %s", backupTimestamp)
 
 	CreateConnectionPool("postgres")
 
@@ -67,8 +68,8 @@ func DoSetup() {
 
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), MustGetFlagString(options.TIMESTAMP))
-	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), MustGetFlagString(options.TIMESTAMP), segPrefix)
+	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), backupTimestamp)
+	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), backupTimestamp, segPrefix)
 
 	// Get restore metadata from plugin
 	if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
@@ -99,7 +100,7 @@ func DoSetup() {
 	if connectionPool != nil {
 		connectionPool.Close()
 	}
-	InitializeConnectionPool(unquotedRestoreDatabase)
+	InitializeConnectionPool(backupTimestamp, restoreStartTime, unquotedRestoreDatabase)
 
 	/*
 	 * We don't need to validate anything if we're creating the database; we

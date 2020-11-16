@@ -67,10 +67,10 @@ func CreateConnectionPool(unquotedDBName string) {
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 }
 
-func InitializeConnectionPool(unquotedDBName string) {
+func InitializeConnectionPool(backupTimestamp string, restoreTimestamp string, unquotedDBName string) {
 	CreateConnectionPool(unquotedDBName)
-	setupQuery := `
-SET application_name TO 'gprestore';
+	setupQuery := fmt.Sprintf("SET application_name TO 'gprestore_%s_%s';", backupTimestamp, restoreTimestamp)
+	setupQuery += `
 SET search_path TO pg_catalog;
 SET gp_default_storage_options='';
 SET statement_timeout = 0;
