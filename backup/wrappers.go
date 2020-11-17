@@ -545,6 +545,7 @@ func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, constraints, funcInfoMap)
+	PrintIdentityColumns(metadataFile, globalTOC, sequences)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
