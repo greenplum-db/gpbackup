@@ -172,6 +172,7 @@ $_$`)
 			})
 			// TODO: TRANSFORM for stored procedures
 			It("print 'SUPPORT' if PlanerSupport is set", func() {
+				testutils.SkipIfBefore7(connectionPool)
 				funcDef.PlannerSupport = "my_planner_support"
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testhelper.ExpectRegexp(buffer, "SUPPORT my_planner_support")

@@ -166,12 +166,13 @@ func GetForeignTableRelations(connectionPool *dbconn.DBConn) []Relation {
 
 type Sequence struct {
 	Relation
-	OwningTableOid    string
-	OwningTableSchema string
-	OwningTable       string
-	OwningColumn      string
-	IsIdentity        bool
-	Definition        SequenceDefinition
+	OwningTableOid          string
+	OwningTableSchema       string
+	OwningTable             string
+	OwningColumn            string
+	OwningColumnAttIdentity string
+	IsIdentity              bool
+	Definition              SequenceDefinition
 }
 
 func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -211,6 +212,7 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 			coalesce(quote_ident(m.nspname), '') AS owningtableschema,
 			coalesce(quote_ident(t.relname), '') AS owningtable,
 			coalesce(quote_ident(a.attname), '') AS owningcolumn,
+			a.attidentity AS owningcolumnattidentity,
 			CASE
 				WHEN d.deptype IS NULL THEN false
 				ELSE d.deptype = 'i'
@@ -225,7 +227,7 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 			AND %s
 			AND %s
 		ORDER BY n.nspname, c.relname`,
-		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+			relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 	} else {
 		query = fmt.Sprintf(`
 		SELECT n.oid AS schemaoid,
@@ -246,7 +248,7 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 			AND %s
 			AND %s
 		ORDER BY n.nspname, c.relname`,
-		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+			relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 	}
 	results := make([]Sequence, 0)
 	err := connectionPool.Select(&results, query)

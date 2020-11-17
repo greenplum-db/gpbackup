@@ -10,6 +10,8 @@ import (
 	"math"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/toc"
@@ -289,57 +291,91 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 	PrintStatements(metadataFile, toc, table, statements)
 }
 
+func generateSequenceDefinitionStatement(sequence Sequence) string {
+	statement := ""
+	definition := sequence.Definition
+	maxVal := int64(math.MaxInt64)
+	minVal := int64(math.MinInt64)
+
+	// Identity columns cannot be defined with `AS smallint/integer`
+	if connectionPool.Version.AtLeast("7") && sequence.OwningColumnAttIdentity == "" {
+		if definition.Type != "bigint" {
+			statement += fmt.Sprintf("\n\tAS %s", definition.Type)
+		}
+		if definition.Type == "smallint" {
+			maxVal = int64(math.MaxInt16)
+			minVal = int64(math.MinInt16)
+		} else if definition.Type == "integer" {
+			maxVal = int64(math.MaxInt32)
+			minVal = int64(math.MinInt32)
+		}
+	}
+	if connectionPool.Version.AtLeast("6") {
+		statement += fmt.Sprintf("\n\tSTART WITH %d", definition.StartVal)
+	} else if !definition.IsCalled {
+		statement += fmt.Sprintf("\n\tSTART WITH %d", definition.LastVal)
+	}
+	statement += fmt.Sprintf("\n\tINCREMENT BY %d", definition.Increment)
+
+	if !((definition.MaxVal == maxVal && definition.Increment > 0) ||
+		(definition.MaxVal == -1 && definition.Increment < 0)) {
+		statement += fmt.Sprintf("\n\tMAXVALUE %d", definition.MaxVal)
+	} else {
+		statement += "\n\tNO MAXVALUE"
+	}
+	if !((definition.MinVal == minVal && definition.Increment < 0) ||
+		(definition.MinVal == 1 && definition.Increment > 0)) {
+		statement += fmt.Sprintf("\n\tMINVALUE %d", definition.MinVal)
+	} else {
+		statement += "\n\tNO MINVALUE"
+	}
+	statement += fmt.Sprintf("\n\tCACHE %d", definition.CacheVal)
+	if definition.IsCycled {
+		statement += "\n\tCYCLE"
+	}
+	return statement
+}
+
+func PrintIdentityColumns(metadataFile *utils.FileWithByteCount, toc *toc.TOC, sequences []Sequence) {
+	for _, seq := range sequences {
+		if seq.IsIdentity {
+			start := metadataFile.ByteCount
+
+			attrIdentityStr := ""
+			if seq.OwningColumnAttIdentity == "a" {
+				attrIdentityStr = "ALWAYS"
+			} else if seq.OwningColumnAttIdentity == "d" {
+				attrIdentityStr = "BY DEFAULT"
+			} else {
+				gplog.Fatal(errors.Errorf("Invalid Owning Column Attribute came for Identity sequence: expected 'a' or 'd', got '%s'\n", seq.OwningColumnAttIdentity), "")
+			}
+
+			metadataFile.MustPrintf("ALTER TABLE %s.%s\nALTER COLUMN %s ADD GENERATED %s AS IDENTITY (",
+				seq.OwningTableSchema, seq.OwningTable, seq.OwningColumn, attrIdentityStr)
+			metadataFile.MustPrintf("\n\tSEQUENCE NAME %s", seq.FQN())
+			seqDefStatement := generateSequenceDefinitionStatement(seq)
+			metadataFile.MustPrintf("%s);", seqDefStatement)
+			section, entry := seq.GetMetadataEntry()
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		}
+	}
+}
+
 /*
  * This function is largely derived from the dumpSequence() function in pg_dump.c.  The values of
  * minVal and maxVal come from SEQ_MINVALUE and SEQ_MAXVALUE, defined in include/commands/sequence.h.
  */
 func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount,
 	toc *toc.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
-	maxVal := int64(math.MaxInt64)
-	minVal := int64(math.MinInt64)
 	for _, sequence := range sequences {
 		if sequence.IsIdentity {
 			continue
 		}
 		start := metadataFile.ByteCount
 		definition := sequence.Definition
-		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", sequence.FQN())
-		if connectionPool.Version.AtLeast("7") {
-			if definition.Type != "bigint"{
-				metadataFile.MustPrintln("\tAS", definition.Type)
-			}
-			if definition.Type == "smallint" {
-				maxVal = int64(math.MaxInt16)
-				minVal = int64(math.MinInt16)
-			} else if definition.Type == "integer" {
-				maxVal = int64(math.MaxInt32)
-				minVal = int64(math.MinInt32)
-			}
-		}
-		if connectionPool.Version.AtLeast("6") {
-			metadataFile.MustPrintln("\tSTART WITH", definition.StartVal)
-		} else if !definition.IsCalled {
-			metadataFile.MustPrintln("\tSTART WITH", definition.LastVal)
-		}
-		metadataFile.MustPrintln("\tINCREMENT BY", definition.Increment)
-
-		if !((definition.MaxVal == maxVal && definition.Increment > 0) ||
-			(definition.MaxVal == -1 && definition.Increment < 0)) {
-			metadataFile.MustPrintln("\tMAXVALUE", definition.MaxVal)
-		} else {
-			metadataFile.MustPrintln("\tNO MAXVALUE")
-		}
-		if !((definition.MinVal == minVal && definition.Increment < 0) ||
-			(definition.MinVal == 1 && definition.Increment > 0)) {
-			metadataFile.MustPrintln("\tMINVALUE", definition.MinVal)
-		} else {
-			metadataFile.MustPrintln("\tNO MINVALUE")
-		}
-		cycleStr := ""
-		if definition.IsCycled {
-			cycleStr = "\n\tCYCLE"
-		}
-		metadataFile.MustPrintf("\tCACHE %d%s;", definition.CacheVal, cycleStr)
+		metadataFile.MustPrintf("\n\nCREATE SEQUENCE %s", sequence.FQN())
+		seqDefStatement := generateSequenceDefinitionStatement(sequence)
+		metadataFile.MustPrint(seqDefStatement + ";")
 
 		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n",
 			utils.EscapeSingleQuotes(sequence.FQN()), definition.LastVal, definition.IsCalled)
