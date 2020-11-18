@@ -119,7 +119,7 @@ func getLastDDLTimestamps(connectionPool *dbconn.DBConn) map[string]string {
 				FROM pg_class c
 					JOIN pg_namespace n ON c.relnamespace = n.oid
 					JOIN pg_am a ON c.relam = a.oid
-				WHERE a.amname in ('ao_row', 'ao_col');
+				WHERE a.amname in ('ao_row', 'ao_col')
 					AND %s
 			) aotables
 		JOIN ( SELECT lo.objid,
