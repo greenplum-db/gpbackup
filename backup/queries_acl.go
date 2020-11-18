@@ -144,11 +144,22 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	}
 	aclCols := "''"
 	kindCol := "''"
+	aclLateralJoin := ""
 	if params.ACLField != "" {
-		aclCols = fmt.Sprintf(`CASE
-		WHEN %[1]s IS NULL THEN NULL
-		WHEN array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
-		ELSE unnest(%[1]s) END`, params.ACLField)
+		// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+		// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+		// because the CASE unnest() logic is more performant.
+		if connectionPool.Version.AtLeast("7") {
+			aclLateralJoin = fmt.Sprintf(
+				`LEFT JOIN LATERAL unnest(o.%[1]s) ljl_unnest ON o.%[1]s IS NOT NULL AND array_length(o.%[1]s, 1) != 0`, params.ACLField)
+			aclCols = "ljl_unnest"
+		} else {
+			aclCols = fmt.Sprintf(`CASE
+			WHEN %[1]s IS NULL THEN NULL
+			WHEN array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
+			ELSE unnest(%[1]s) END`, params.ACLField)
+		}
+
 		kindCol = fmt.Sprintf(`CASE
 		WHEN %[1]s IS NULL THEN ''
 		WHEN array_upper(%[1]s, 1) = 0 THEN 'Empty'
@@ -203,10 +214,11 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 		coalesce(description,'') AS comment
 	FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
 		%s
+		%s
 	WHERE %s
 	ORDER BY o.oid`,
 		params.ObjectType, tableName, nameCol, kindCol, schemaCol, ownerCol, aclCols, secCols,
-		tableName, descTable, tableName, subidFilter, joinClause, filterClause)
+		tableName, descTable, tableName, subidFilter, joinClause, aclLateralJoin, filterClause)
 	results := make([]MetadataQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -306,15 +318,27 @@ func (dp DefaultPrivileges) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
-	query := `
+	// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+	// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+	// because the CASE unnest() logic is more performant.
+	aclCols := "''"
+	aclLateralJoin := ""
+	if connectionPool.Version.AtLeast("7") {
+		aclLateralJoin =
+			`LEFT JOIN LATERAL unnest(a.defaclacl) ljl_unnest ON a.defaclacl IS NOT NULL AND array_length(a.defaclacl, 1) != 0`
+		aclCols = "ljl_unnest"
+	} else {
+		aclCols = `CASE
+			WHEN a.defaclacl IS NULL THEN NULL
+			WHEN array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
+			ELSE unnest(a.defaclacl) END`
+	}
+
+	query := fmt.Sprintf(`
 	SELECT a.oid,
 		quote_ident(r.rolname) AS owner,
 		coalesce(quote_ident(n.nspname),'') AS schema,
-		CASE
-			WHEN a.defaclacl IS NULL THEN NULL
-			WHEN array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
-			ELSE unnest(a.defaclacl)
-		END AS privileges,
+		%s AS privileges,
 		CASE
 			WHEN a.defaclacl IS NULL THEN ''
 			WHEN array_upper(a.defaclacl, 1) = 0 THEN 'Empty'
@@ -324,7 +348,9 @@ func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
 	FROM pg_default_acl a
 		JOIN pg_roles r ON r.oid = a.defaclrole
 		LEFT JOIN pg_namespace n ON n.oid = a.defaclnamespace
-	ORDER BY n.nspname, a.defaclobjtype, r.rolname`
+		%s
+	ORDER BY n.nspname, a.defaclobjtype, r.rolname`,
+		aclCols, aclLateralJoin)
 	results := make([]DefaultPrivilegesQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)

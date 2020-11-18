@@ -17,13 +17,21 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 	gplog.Verbose("Retrieving external table information")
 
 	var location string
+	locationJoin := ""
 	if connectionPool.Version.Before("5") {
 		execOptions := "'ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'"
 		location = fmt.Sprintf(`CASE WHEN split_part(location[1], ':', 1) NOT IN (%s) THEN unnest(location) ELSE '' END AS location,
 		CASE WHEN split_part(location[1], ':', 1) IN (%s) THEN unnest(location) ELSE 'ALL_SEGMENTS' END AS execlocation,`, execOptions, execOptions)
-	} else {
+	} else if connectionPool.Version.Before("7") {
 		location = `CASE WHEN urilocation IS NOT NULL THEN unnest(urilocation) ELSE '' END AS location,
 		array_to_string(execlocation, ',') AS execlocation,`
+	} else if connectionPool.Version.AtLeast("7") {
+		// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+		// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+		// because the CASE unnest() logic is more performant.
+		location = `ljl_unnest AS location,
+			array_to_string(execlocation, ',') AS execlocation,`
+		locationJoin = `LEFT JOIN LATERAL unnest(urilocation) ljl_unnest ON urilocation IS NOT NULL`
 	}
 
 	// In GPDB 4.3, users can define an error table with `LOG ERRORS
@@ -64,7 +72,8 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		pg_encoding_to_char(encoding) AS encoding,
 		writable
 	FROM pg_exttable e
-		%s`, location, errorHandling, errorHandlingJoin)
+		%s
+		%s`, location, errorHandling, errorHandlingJoin, locationJoin)
 
 	results := make([]ExternalTableDefinition, 0)
 	err := connectionPool.Select(&results, query)
@@ -77,8 +86,8 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		} else {
 			extTableDef = result
 		}
-		if result.Location != "" {
-			extTableDef.URIs = append(extTableDef.URIs, result.Location)
+		if result.Location.Valid {
+			extTableDef.URIs = append(extTableDef.URIs, result.Location.String)
 		}
 		resultMap[result.Oid] = extTableDef
 	}

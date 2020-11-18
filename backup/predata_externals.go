@@ -7,6 +7,7 @@ package backup
  */
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -32,7 +33,7 @@ type ExternalTableDefinition struct {
 	Oid             uint32
 	Type            int
 	Protocol        int
-	Location        string
+	Location        sql.NullString
 	ExecLocation    string
 	FormatType      string
 	FormatOpts      string
@@ -76,7 +77,7 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 	isWritable := extTableDef.Writable
 	var tableType int
 	tableProtocol := -1
-	if extTableDef.Location == "" { // EXTERNAL WEB tables may have EXECUTE instead of LOCATION
+	if !extTableDef.Location.Valid { // EXTERNAL WEB tables may have EXECUTE instead of LOCATION
 		tableProtocol = HTTP
 		if isWritable {
 			tableType = WRITABLE_WEB
@@ -88,7 +89,7 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 		 * All data sources must use the same protocol, so we can use Location to determine
 		 * the table's protocol even though it only holds one data source URI.
 		 */
-		isWeb := strings.HasPrefix(extTableDef.Location, "http")
+		isWeb := strings.HasPrefix(extTableDef.Location.String, "http")
 		if isWeb && isWritable {
 			tableType = WRITABLE_WEB
 		} else if isWeb && !isWritable {
@@ -98,7 +99,7 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 		} else {
 			tableType = READABLE
 		}
-		prefix := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
+		prefix := extTableDef.Location.String[0:strings.Index(extTableDef.Location.String, "://")]
 		switch prefix {
 		case "file":
 			tableProtocol = FILE

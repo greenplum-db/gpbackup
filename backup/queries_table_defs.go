@@ -231,12 +231,24 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 	ORDER BY a.attrelid, a.attnum`
 
 	if connectionPool.Version.AtLeast("6") {
-		selectClause += `,
-		CASE
-			WHEN a.attacl IS NULL THEN NULL
-			WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
-			ELSE UNNEST(a.attacl)
-		END AS privileges,
+		// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+		// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+		// because the CASE unnest() logic is more performant.
+		aclCols := "''"
+		aclLateralJoin := ""
+		if connectionPool.Version.AtLeast("7") {
+			aclLateralJoin =
+				`LEFT JOIN LATERAL unnest(a.attacl) ljl_unnest ON a.attacl IS NOT NULL AND array_length(a.attacl, 1) != 0`
+			aclCols = "ljl_unnest"
+		} else {
+			aclCols = `CASE
+				WHEN a.attacl IS NULL THEN NULL
+				WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
+				ELSE unnest(a.attacl) END`
+		}
+
+		selectClause += fmt.Sprintf(`,
+		%s AS privileges,
 		CASE
 			WHEN a.attacl IS NULL THEN ''
 			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
@@ -246,12 +258,14 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
 		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
 		coalesce(sec.provider,'') AS securitylabelprovider,
-		coalesce(sec.label,'') AS securitylabel`
-		fromClause += `
+		coalesce(sec.label,'') AS securitylabel`, aclCols)
+
+		fromClause += fmt.Sprintf(`
 		LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
 		LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
 		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND
-			sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum`
+			sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum
+		%s`, aclLateralJoin)
 	}
 
 	query := fmt.Sprintf(`%s %s %s;`, selectClause, fromClause, whereClause)
