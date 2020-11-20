@@ -192,9 +192,16 @@ func GetSegPrefix(connectionPool *dbconn.DBConn) string {
 func ParseSegPrefix(backupDir string, timestamp string) string {
 	segPrefix := ""
 	if len(backupDir) > 0 {
-		backupDirForTimestamp, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups/*/%s", backupDir, timestamp))
-		if err != nil || len(backupDirForTimestamp) == 0 {
+		backupDirForMaster, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups", backupDir))
+		if err != nil || len(backupDirForMaster) == 0 {
 			gplog.Fatal(err, "Master backup directory in %s missing or inaccessible", backupDir)
+		}
+		if len(backupDirForMaster) != 1 {
+			gplog.Fatal(err, "Multiple master backup directories in %s", backupDir)
+		}
+		backupDirForTimestamp, err := operating.System.Glob(fmt.Sprintf("%s/*/%s", backupDirForMaster[0], timestamp))
+		if err != nil || len(backupDirForTimestamp) == 0 {
+			gplog.Fatal(err, "Master backup directory for timestamp %s in %s is missing or inaccessible", timestamp, backupDir)
 		}
 		indexOfBackupsSubstr := strings.LastIndex(backupDirForTimestamp[0], "-1/backups/")
 		_, segPrefix = path.Split(backupDirForTimestamp[0][:indexOfBackupsSubstr])
