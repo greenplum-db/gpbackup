@@ -212,7 +212,7 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 			coalesce(quote_ident(m.nspname), '') AS owningtableschema,
 			coalesce(quote_ident(t.relname), '') AS owningtable,
 			coalesce(quote_ident(a.attname), '') AS owningcolumn,
-			a.attidentity AS owningcolumnattidentity,
+			coalesce(a.attidentity, '') AS owningcolumnattidentity,
 			CASE
 				WHEN d.deptype IS NULL THEN false
 				ELSE d.deptype = 'i'
