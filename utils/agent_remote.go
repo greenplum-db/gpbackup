@@ -5,6 +5,7 @@ import (
 	"io"
 	path "path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -13,6 +14,8 @@ import (
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/pkg/errors"
 )
+
+var helperMutex sync.Mutex
 
 /*
  * Functions to run commands on entire cluster during both backup and restore
@@ -111,7 +114,17 @@ func VerifyHelperVersionOnSegments(version string, c *cluster.Cluster) {
 	}
 }
 
-func StartGpbackupHelpers(c *cluster.Cluster, fpInfo filepath.FilePathInfo, operation string, pluginConfigFile string, compressStr string, onErrorContinue bool, isFilter bool) {
+func StartGpbackupHelpers(c *cluster.Cluster, fpInfo filepath.FilePathInfo, operation string, pluginConfigFile string, compressStr string, onErrorContinue bool, isFilter bool, wasTerminated *bool) {
+	// A mutex lock for cleaning up and starting gpbackup helpers prevents a
+	// race condition that causes gpbackup_helpers to be orphaned if
+	// gpbackup_helper cleanup happens before they are started.
+	helperMutex.Lock()
+	if *wasTerminated {
+		helperMutex.Unlock()
+		select {} // Pause forever and wait for cleanup to exit program.
+	}
+	defer helperMutex.Unlock()
+
 	gphomePath := operating.System.Getenv("GPHOME")
 	pluginStr := ""
 	if pluginConfigFile != "" {
@@ -164,6 +177,9 @@ func CleanUpHelperFilesOnAllHosts(c *cluster.Cluster, fpInfo filepath.FilePathIn
 }
 
 func CleanUpSegmentHelperProcesses(c *cluster.Cluster, fpInfo filepath.FilePathInfo, operation string) {
+	helperMutex.Lock()
+	defer helperMutex.Unlock()
+
 	remoteOutput := c.GenerateAndExecuteCommand("Cleaning up segment agent processes", cluster.ON_SEGMENTS, func(contentID int) string {
 		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
 		procPattern := fmt.Sprintf("gpbackup_helper --%s-agent --toc-file %s", operation, tocFile)
