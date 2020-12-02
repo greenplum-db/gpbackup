@@ -2,7 +2,6 @@ package backup_test
 
 import (
 	"database/sql"
-
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -17,9 +16,17 @@ var _ = Describe("backup/predata_functions tests", func() {
 	})
 	Describe("Functions involved in printing CREATE FUNCTION statements", func() {
 		var funcDef backup.Function
-		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
+		getPlannerSupport := func() string {
+			plannerSupportReplace := ""
+			if connectionPool.Version.AtLeast("7") {
+				plannerSupportReplace = "-"
+			}
+			return plannerSupportReplace
+		}
+		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal" ,ExecLocation: "a"}
 		BeforeEach(func() {
 			funcDef = funcDefault
+			funcDef.PlannerSupport = getPlannerSupport()
 		})
 
 		Describe("PrintCreateFunctionStatement", func() {
@@ -61,11 +68,12 @@ GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`,
 			})
 			It("prints a function definition for a stored procedure", func() {
 				testutils.SkipIfBefore7(connectionPool)
-				procDef := backup.Function{Oid: 1, Schema: "public", Name: "my_procedure", Kind: "p", ReturnsSet: false, FunctionBody: "do_something", BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true}, IdentArgs: sql.NullString{String: "", Valid: true}, ResultType: sql.NullString{String: "", Valid: false}, Volatility: "", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "SQL", ExecLocation: "a"}
+				procDef := backup.Function{Oid: 1, Schema: "public", Name: "my_procedure", Kind: "p", ReturnsSet: false, FunctionBody: "do_something", BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true}, IdentArgs: sql.NullString{String: "", Valid: true}, ResultType: sql.NullString{String: "", Valid: false}, Volatility: "", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: float32(0), DataAccess: "", Language: "SQL", ExecLocation: "a", PlannerSupport: getPlannerSupport()}
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, procDef, funcMetadata)
-				testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "my_procedure()", "PROCEDURE")
-				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROCEDURE public.my_procedure() LANGUAGE SQL AS
-$$do_something$$;`)
+				testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "my_procedure()", "FUNCTION")
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROCEDURE public.my_procedure() AS
+$$do_something$$
+LANGUAGE SQL;`)
 			})
 		})
 		Describe("PrintFunctionBodyOrPath", func() {

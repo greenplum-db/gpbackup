@@ -102,6 +102,13 @@ var _ = Describe("backup/dependencies tests", func() {
 			metadataMap backup.MetadataMap
 			funcInfoMap map[uint32]backup.FunctionInfo
 		)
+		getPlannerSupport := func() string {
+			plannerSupportReplace := ""
+			if connectionPool.Version.AtLeast("7") {
+				plannerSupportReplace = "-"
+			}
+			return plannerSupportReplace
+		}
 		BeforeEach(func() {
 			funcInfoMap = map[uint32]backup.FunctionInfo{
 				1: {QualifiedName: "public.write_to_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
@@ -111,7 +118,7 @@ var _ = Describe("backup/dependencies tests", func() {
 				backup.Function{Oid: 1, Schema: "public", Name: "function", FunctionBody: "SELECT $1 + $2",
 					Arguments: sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "integer", Valid: true}, Language: "sql"},
+					ResultType: sql.NullString{String: "integer", Valid: true}, Language: "sql", PlannerSupport : getPlannerSupport()},
 				backup.BaseType{Oid: 2, Schema: "public", Name: "base", Input: "typin", Output: "typout", Category: "U"},
 				backup.CompositeType{Oid: 3, Schema: "public", Name: "composite", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}},
 				backup.Domain{Oid: 4, Schema: "public", Name: "domain", BaseType: "numeric"},
