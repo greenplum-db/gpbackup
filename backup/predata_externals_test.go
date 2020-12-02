@@ -24,26 +24,26 @@ var _ = Describe("backup/predata_externals tests", func() {
 		})
 		Context("Type classification", func() {
 			It("classifies a READABLE EXTERNAL table correctly", func() {
-				extTableDef.Location = "file://host:port/path/file"
+				extTableDef.Location = sql.NullString{String: "file://host:port/path/file", Valid: true}
 				typ, proto := backup.DetermineExternalTableCharacteristics(extTableDef)
 				Expect(typ).To(Equal(backup.READABLE))
 				Expect(proto).To(Equal(backup.FILE))
 			})
 			It("classifies a WRITABLE EXTERNAL table correctly", func() {
-				extTableDef.Location = "file://host:port/path/file"
+				extTableDef.Location = sql.NullString{String: "file://host:port/path/file", Valid:true}
 				extTableDef.Writable = true
 				typ, proto := backup.DetermineExternalTableCharacteristics(extTableDef)
 				Expect(typ).To(Equal(backup.WRITABLE))
 				Expect(proto).To(Equal(backup.FILE))
 			})
 			It("classifies a READABLE EXTERNAL WEB table with a LOCATION correctly", func() {
-				extTableDef.Location = "http://webhost:port/path/file"
+				extTableDef.Location = sql.NullString{String: "http://webhost:port/path/file", Valid: true}
 				typ, proto := backup.DetermineExternalTableCharacteristics(extTableDef)
 				Expect(typ).To(Equal(backup.READABLE_WEB))
 				Expect(proto).To(Equal(backup.HTTP))
 			})
 			It("classifies a WRITABLE EXTERNAL WEB table with a LOCATION correctly", func() {
-				extTableDef.Location = "http://webhost:port/path/file"
+				extTableDef.Location = sql.NullString{String: "http://webhost:port/path/file", Valid: true}
 				extTableDef.Writable = true
 				typ, proto := backup.DetermineExternalTableCharacteristics(extTableDef)
 				Expect(typ).To(Equal(backup.WRITABLE_WEB))
@@ -65,7 +65,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 		})
 		DescribeTable("Protocol classification", func(location string, expectedType int, expectedProto int) {
 			extTableDef := extTableEmpty
-			extTableDef.Location = location
+			extTableDef.Location = sql.NullString{String: location, Valid: true}
 			typ, proto := backup.DetermineExternalTableCharacteristics(extTableDef)
 			Expect(typ).To(Equal(expectedType))
 			Expect(proto).To(Equal(expectedProto))
@@ -90,7 +90,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 		})
 
 		It("prints a CREATE block for a READABLE EXTERNAL table", func() {
-			extTableDef.Location = "file://host:port/path/file"
+			extTableDef.Location = sql.NullString{String: "file://host:port/path/file", Valid: true}
 			extTableDef.URIs = []string{"file://host:port/path/file"}
 			testTable.ExtTableDef = extTableDef
 			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
@@ -103,7 +103,7 @@ FORMAT 'TEXT'
 ENCODING 'UTF-8';`)
 		})
 		It("prints a CREATE block for a WRITABLE EXTERNAL table", func() {
-			extTableDef.Location = "file://host:port/path/file"
+			extTableDef.Location = sql.NullString{String: "file://host:port/path/file", Valid: true}
 			extTableDef.URIs = []string{"file://host:port/path/file"}
 			extTableDef.Writable = true
 			testTable.ExtTableDef = extTableDef
@@ -117,7 +117,7 @@ ENCODING 'UTF-8'
 DISTRIBUTED RANDOMLY;`)
 		})
 		It("prints a CREATE block for a READABLE EXTERNAL WEB table with a LOCATION", func() {
-			extTableDef.Location = "http://webhost:port/path/file"
+			extTableDef.Location = sql.NullString{String:"http://webhost:port/path/file", Valid: true}
 			extTableDef.URIs = []string{"http://webhost:port/path/file"}
 			testTable.ExtTableDef = extTableDef
 			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
@@ -220,13 +220,13 @@ ENCODING 'UTF-8'`)
 				extTableDef = extTableEmpty
 				extTableDef.Type = backup.READABLE
 				extTableDef.Protocol = backup.FILE
-				extTableDef.Location = "file://host:port/path/file"
+				extTableDef.Location = sql.NullString{String: "file://host:port/path/file", Valid: true}
 				extTableDef.URIs = []string{"file://host:port/path/file"}
 			})
 
 			It("prints a CREATE block for an S3 table with ON MASTER", func() {
 				extTableDef.Protocol = backup.S3
-				extTableDef.Location = "s3://s3_endpoint:port/bucket_name/s3_prefix"
+				extTableDef.Location = sql.NullString{String: "s3://s3_endpoint:port/bucket_name/s3_prefix", Valid: true}
 				extTableDef.URIs = []string{"s3://s3_endpoint:port/bucket_name/s3_prefix"}
 				extTableDef.ExecLocation = "MASTER_ONLY"
 				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)

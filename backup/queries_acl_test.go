@@ -79,6 +79,18 @@ var _ = Describe("backup/queries_acl tests", func() {
 		})
 		It("queries metadata for an object with an ACL field", func() {
 			securityLabelSelectReplace, securityLabelJoinReplace, _ := getSecurityLabelReplace()
+			aclLateralJoin := ""
+			aclCols := ""
+			if connectionPool.Version.AtLeast("7") {
+				aclLateralJoin = fmt.Sprintf(
+					`LEFT JOIN LATERAL unnest(o.acl) ljl_unnest ON o.acl IS NOT NULL AND array_length(o.acl, 1) != 0`)
+				aclCols = "ljl_unnest"
+			} else {
+				aclCols = fmt.Sprintf(`CASE
+			WHEN acl IS NULL THEN NULL
+			WHEN array_upper(acl, 1) = 0 THEN acl[0]
+			ELSE unnest(acl) END`)
+			}
 
 			mock.ExpectQuery(regexp.QuoteMeta(fmt.Sprintf(`
 	SELECT 'RELATION' AS objecttype,
@@ -91,15 +103,13 @@ var _ = Describe("backup/queries_acl tests", func() {
 			ELSE '' END AS kind,
 		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
-		CASE
-			WHEN acl IS NULL THEN NULL
-			WHEN array_upper(acl, 1) = 0 THEN acl[0]
-			ELSE unnest(acl) END AS privileges,%s
+		%s AS privileges,%s
 		coalesce(description,'') AS comment
 	FROM table o
 		LEFT JOIN pg_description d ON (d.objoid = o.oid AND d.classoid = 'table'::regclass AND d.objsubid = 0)%s
+	%s
 	WHERE 1 = 1
-	ORDER BY o.oid`, securityLabelSelectReplace, securityLabelJoinReplace))).WillReturnRows(emptyRows)
+	ORDER BY o.oid`, aclCols, securityLabelSelectReplace, securityLabelJoinReplace, aclLateralJoin))).WillReturnRows(emptyRows)
 			params.ACLField = "acl"
 			backup.GetMetadataForObjectType(connectionPool, params)
 		})
