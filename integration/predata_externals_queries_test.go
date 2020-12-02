@@ -121,7 +121,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 ) ON ALL
 FORMAT 'text' (delimiter E'%' null E'' escape E'OFF')
 ENCODING 'UTF8'
-LOG ERRORS SEGMENT REJECT LIMIT 10 PERCENT`)
+LOG ERRORS PERSISTENTLY SEGMENT REJECT LIMIT 10 PERCENT`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTERNAL TABLE public.ext_table")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "ext_table", backup.TYPE_RELATION)
 
@@ -130,7 +130,7 @@ LOG ERRORS SEGMENT REJECT LIMIT 10 PERCENT`)
 
 			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '%' null '' escape 'OFF'",
-				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
+				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, LogErrPersist: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")

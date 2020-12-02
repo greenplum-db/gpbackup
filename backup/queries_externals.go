@@ -28,7 +28,9 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 
 	// In GPDB 4.3, users can define an error table with `LOG ERRORS
 	// INTO <err_table_name>`. In GPDB 5+, error tables were removed
-	// but internal error logging is still available using `LOG ERRORS`.
+	// but internal error logging is still available using `LOG ERRORS`
+	// with an optional `PERSISTENTLY` syntax to persist the error logs.
+	// The `PERSISTENTLY` part is stored in the pg_exttable.options array.
 	var errorHandling string
 	errorHandlingJoin := ""
 	if connectionPool.Version.Before("5") {
@@ -43,9 +45,11 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 				LEFT JOIN pg_namespace n ON n.oid = c.relnamespace`
 	} else if connectionPool.Version.Is("5") {
 		// If `LOG ERRORS` was used, we will see reloid = fmterrtbl.
-		errorHandling = `e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,`
+		errorHandling = `e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,
+				'error_log_persistent=true' = any(e.options) AS logerrpersist,`
 	} else {
-		errorHandling = `logerrors,`
+		errorHandling = `logerrors,
+				'error_log_persistent=true' = any(e.options) AS logerrpersist,`
 	}
 
 	query := fmt.Sprintf(`

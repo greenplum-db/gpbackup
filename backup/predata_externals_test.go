@@ -262,6 +262,16 @@ FORMAT 'TEXT'
 ENCODING 'UTF-8'
 LOG ERRORS`)
 			})
+			It("prints a LOG ERRORS PERSISTENTLY block for an external table using persistent error logging", func() {
+				// PERSISTENTLY option is specifically for GPDB 5+
+				if connectionPool.Version.AtLeast("5") {
+					Skip("Test does not apply for GPDB versions after 5")
+				}
+				extTableDef.LogErrors = true
+				extTableDef.LogErrPersist = true
+				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
+				testhelper.ExpectRegexp(buffer, `LOG ERRORS PERSISTENTLY`)
+			})
 			It("prints a CREATE block for a table with a row-based reject limit", func() {
 				extTableDef.RejectLimit = 2
 				extTableDef.RejectLimitType = "r"

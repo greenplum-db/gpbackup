@@ -42,6 +42,7 @@ type ExternalTableDefinition struct {
 	ErrTableName    string
 	ErrTableSchema  string
 	LogErrors       bool
+	LogErrPersist   bool
 	Encoding        string
 	Writable        bool
 	URIs            []string
@@ -255,7 +256,11 @@ func GenerateFormatStatement(extTableDef ExternalTableDefinition) string {
 func generateLogErrorStatement(extTableDef ExternalTableDefinition) string {
 	logErrorStatement := ""
 	if extTableDef.LogErrors {
-		logErrorStatement += "\nLOG ERRORS"
+		if extTableDef.LogErrPersist {
+			logErrorStatement += "\nLOG ERRORS PERSISTENTLY"
+		} else {
+			logErrorStatement += "\nLOG ERRORS"
+		}
 	} else if extTableDef.ErrTableName != ""  && extTableDef.ErrTableSchema != "" {
 		errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
 		logErrorStatement += fmt.Sprintf("\nLOG ERRORS INTO %s", errTableFQN)
