@@ -201,7 +201,7 @@ func ParseSegPrefix(backupDir string, timestamp string) string {
 		}
 		backupDirForTimestamp, err := operating.System.Glob(fmt.Sprintf("%s/*/%s", backupDirForMaster[0], timestamp))
 		if err != nil || len(backupDirForTimestamp) == 0 {
-			gplog.Fatal(err, "Master backup directory for timestamp %s in %s is missing or inaccessible", timestamp, backupDir)
+			gplog.Fatal(err, "Timestamp directory %s inside backup directory %s is missing or inaccessible", timestamp, backupDir)
 		}
 		indexOfBackupsSubstr := strings.LastIndex(backupDirForTimestamp[0], "-1/backups/")
 		_, segPrefix = path.Split(backupDirForTimestamp[0][:indexOfBackupsSubstr])

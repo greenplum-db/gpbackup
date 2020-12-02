@@ -170,7 +170,7 @@ var _ = Describe("filepath tests", func() {
 					return []string{}, nil
 				}
 			}
-			defer testhelper.ShouldPanicWithMessage("Master backup directory for timestamp timestamp1 in /tmp/foo is missing or inaccessible")
+			defer testhelper.ShouldPanicWithMessage("Timestamp directory timestamp1 inside backup directory /tmp/foo is missing or inaccessible")
 			Expect(ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
 		})
 		Describe("IsValidTimestamp", func() {
