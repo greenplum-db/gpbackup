@@ -379,6 +379,7 @@ func LockTablesWithConnection(connectionPool *dbconn.DBConn, tables []Relation, 
 		if err != nil {
 			if wasTerminated {
 				gplog.Warn("Interrupt received while acquiring ACCESS SHARE locks on tables")
+				select {} // wait for cleanup thread to exit gpbackup
 			} else {
 				gplog.FatalOnError(err)
 			}
