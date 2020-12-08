@@ -105,6 +105,17 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	if funcDef.Config != "" {
 		metadataFile.MustPrintf("\n%s", funcDef.Config)
 	}
+
+	switch funcDef.Parallel {
+	case "u":
+		metadataFile.MustPrintf(" PARALLEL UNSAFE")
+	case "s":
+		metadataFile.MustPrintf(" PARALLEL SAFE")
+	case "r":
+		metadataFile.MustPrintf(" PARALLEL RESTRICTED")
+	default:
+		gplog.Fatal(errors.Errorf("unrecognized proparallel value for function %s", funcDef.FQN()), "")
+	}
 }
 
 func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, aggDef Aggregate, funcInfoMap map[uint32]FunctionInfo, aggMetadata ObjectMetadata) {

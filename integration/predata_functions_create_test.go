@@ -216,6 +216,32 @@ var _ = Describe("backup integration create statement tests", func() {
 				structmatcher.ExpectStructsToMatchExcluding(&leakProofFunction, &resultFunctions[0], "Oid")
 			})
 		})
+		Context("Tests for GPDB 7", func() {
+			BeforeEach(func() {
+				testutils.SkipIfBefore7(connectionPool)
+			})
+			funcMetadata := backup.ObjectMetadata{}
+			It("creates a function with PARALLEL", func() {
+				ParallelFunction := backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "sql", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "u",
+				}
+
+				backup.PrintCreateFunctionStatement(backupfile, tocfile, ParallelFunction, funcMetadata)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
+
+				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+
+				Expect(resultFunctions).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&ParallelFunction, &resultFunctions[0], "Oid")
+			})
+		})
 	})
 	Describe("PrintCreateAggregateStatement", func() {
 		emptyMetadata := backup.ObjectMetadata{}

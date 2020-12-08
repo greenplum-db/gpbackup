@@ -281,6 +281,29 @@ $_$`)
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testhelper.ExpectRegexp(buffer, "SET client_min_messages TO error")
 			})
+			Context("Parallel cases", func() {
+				It("prints 'u' as 'PARALLEL UNSAFE'", func() {
+					funcDef.Parallel = "u"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testhelper.ExpectRegexp(buffer, "PARALLEL UNSAFE")
+				})
+				It("prints 's' as 'PARALLEL SAFE'", func() {
+					funcDef.Parallel = "s"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testhelper.ExpectRegexp(buffer, "PARALLEL SAFE")
+				})
+				It("prints 'r' as 'PARALLEL RESTRICTED'", func() {
+					funcDef.Parallel = "r"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testhelper.ExpectRegexp(buffer, "PARALLEL RESTRICTED")
+				})
+				It("panics is there is an unrecognized parallel value", func() {
+					defer testhelper.ShouldPanicWithMessage("unrecognized proparallel value for function public.func_name")
+					funcDef.Parallel = "unknown_value"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+				})
+			})
+
 		})
 
 	})
