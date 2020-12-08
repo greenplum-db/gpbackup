@@ -130,6 +130,30 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(resultIndexes).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
 		})
+		It("creates a parition index and attaches it to the parent index", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foopart_new (a integer, b integer) PARTITION BY RANGE (b) DISTRIBUTED BY (a)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foopart_new")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foopart_new_p1 (a integer, b integer) DISTRIBUTED BY (a)")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.foopart_new ATTACH PARTITION public.foopart_new_p1 FOR VALUES FROM (0) TO (1)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX fooidx ON ONLY public.foopart_new USING btree (b)")
+
+			partitionIndex := backup.IndexDefinition{Oid: 0, Name: "foopart_new_p1_b_idx", OwningSchema: "public", OwningTable: "foopart_new_p1", Def: sql.NullString{String: "CREATE INDEX foopart_new_p1_b_idx ON public.foopart_new_p1 USING btree (b)", Valid: true}, ParentIndexFQN: "public.fooidx"}
+
+			indexes := []backup.IndexDefinition{partitionIndex}
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			partitionIndex.Oid = testutils.OidFromObjectName(connectionPool, "", "foopart_new_p1_b_idx", backup.TYPE_INDEX)
+			partitionIndex.ParentIndex = testutils.OidFromObjectName(connectionPool, "", "fooidx", backup.TYPE_INDEX)
+
+			resultIndexes := backup.GetIndexes(connectionPool)
+			Expect(resultIndexes).To(HaveLen(2))
+			resultIndex := resultIndexes[1]
+
+			structmatcher.ExpectStructsToMatch(&resultIndex, &partitionIndex)
+		})
 	})
 	Describe("PrintCreateRuleStatements", func() {
 		var (

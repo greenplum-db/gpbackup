@@ -224,6 +224,29 @@ PARTITION BY RANGE (date)
 
 			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
+		It("returns a sorted slice of partition indexes ", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foopart_new (a integer, b integer) PARTITION BY RANGE (b) DISTRIBUTED BY (a)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foopart_new")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foopart_new_p1 (a integer, b integer) DISTRIBUTED BY (a); ALTER TABLE ONLY public.foopart_new ATTACH PARTITION public.foopart_new_p1 FOR VALUES FROM (0) TO (1);")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX fooidx ON ONLY public.foopart_new USING btree (b)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX foopart_new_p1_b_idx ON public.foopart_new_p1 USING btree (b)")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER INDEX public.fooidx ATTACH PARTITION public.foopart_new_p1_b_idx;")
+
+			index0 := backup.IndexDefinition{Oid: 0, Name: "fooidx", OwningSchema: "public", OwningTable: "foopart_new", Def: sql.NullString{String: "CREATE INDEX fooidx ON ONLY public.foopart_new USING btree (b)", Valid: true}}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "foopart_new_p1_b_idx", OwningSchema: "public", OwningTable: "foopart_new_p1", Def: sql.NullString{String: "CREATE INDEX foopart_new_p1_b_idx ON public.foopart_new_p1 USING btree (b)", Valid: true}, ParentIndexFQN: "public.fooidx"}
+			index0.Oid = testutils.OidFromObjectName(connectionPool, "", "fooidx", backup.TYPE_INDEX)
+			index1.Oid = testutils.OidFromObjectName(connectionPool, "", "foopart_new_p1_b_idx", backup.TYPE_INDEX)
+			index1.ParentIndex = index0.Oid
+
+			results := backup.GetIndexes(connectionPool)
+
+			Expect(results).To(HaveLen(2))
+
+			structmatcher.ExpectStructsToMatchExcluding(&index0, &results[0])
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[1])
+		})
+
 	})
 	Describe("GetRules", func() {
 		var (

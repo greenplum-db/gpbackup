@@ -50,6 +50,8 @@ type IndexDefinition struct {
 	IsReplicaIdentity  bool
 	StatisticsColumns  string
 	StatisticsValues   string
+	ParentIndex        uint32
+	ParentIndexFQN     string
 }
 
 func (i IndexDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -79,7 +81,6 @@ func (i IndexDefinition) FQN() string {
  * e.g. comments on implicitly created indexes
  */
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
-
 	var query string
 	if connectionPool.Version.Before("6") {
 		indexOidList := ConstructImplicitIndexOidList(connectionPool)
@@ -111,13 +112,7 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 	ORDER BY name`,
 			implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
-	} else {
-		// TODO: fix for gpdb7 partitioning
-		partitionRuleExcludeClause := ""
-		if connectionPool.Version.Before("7") {
-			partitionRuleExcludeClause = "AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)"
-		}
-
+	} else if connectionPool.Version.Is("6") {
 		query = fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,
 		quote_ident(ic.relname) AS name,
@@ -130,9 +125,7 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		CASE
 			WHEN conindid > 0 THEN 't'
 			ELSE 'f'
-		END as supportsconstraint,
-		coalesce(array_to_string((SELECT pg_catalog.array_agg(attnum ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticscolumns,
-		coalesce(array_to_string((SELECT pg_catalog.array_agg(attstattarget ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticsvalues
+		END as supportsconstraint
 	FROM pg_index i
 		JOIN pg_class ic ON ic.oid = i.indexrelid
 		JOIN pg_namespace n ON ic.relnamespace = n.oid
@@ -143,29 +136,108 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		AND i.indisvalid
 		AND i.indisready
 		AND i.indisprimary = 'f'
-		%s
+		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 		AND %s
 	ORDER BY name`,
-			relationAndSchemaFilterClause(), partitionRuleExcludeClause, ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
+			relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
+
+	} else {
+		query = fmt.Sprintf(`
+		SELECT DISTINCT i.indexrelid AS oid,
+			coalesce(inh.inhparent, '0') AS parentindex,
+			quote_ident(ic.relname) AS name,
+			quote_ident(n.nspname) AS owningschema,
+			quote_ident(c.relname) AS owningtable,
+			coalesce(quote_ident(s.spcname), '') AS tablespace,
+			pg_get_indexdef(i.indexrelid) AS def,
+			i.indisclustered AS isclustered,
+			i.indisreplident AS isreplicaidentity,
+			CASE
+				WHEN conindid > 0 THEN 't'
+				ELSE 'f'
+			END as supportsconstraint,
+			coalesce(array_to_string((SELECT pg_catalog.array_agg(attnum ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticscolumns,
+			coalesce(array_to_string((SELECT pg_catalog.array_agg(attstattarget ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticsvalues	
+		FROM pg_index i
+			JOIN pg_class ic ON ic.oid = i.indexrelid
+			JOIN pg_namespace n ON ic.relnamespace = n.oid
+			JOIN pg_class c ON c.oid = i.indrelid
+			LEFT JOIN pg_tablespace s ON ic.reltablespace = s.oid
+			LEFT JOIN pg_constraint con ON i.indexrelid = con.conindid
+			LEFT JOIN pg_catalog.pg_inherits inh ON inh.inhrelid = i.indexrelid
+		WHERE %s
+			AND i.indisvalid
+			AND i.indisready
+			AND i.indisprimary = 'f'
+			AND i.indexrelid >= %d
+			AND %s
+		ORDER BY name`,
+			relationAndSchemaFilterClause(), FIRST_NORMAL_OBJECT_ID, ExtensionFilterClause("c"))
 	}
 
 	resultIndexes := make([]IndexDefinition, 0)
 	err := connectionPool.Select(&resultIndexes, query)
 	gplog.FatalOnError(err)
+
 	// Remove all indexes that have NULL definitions. This can happen
 	// if a concurrent index drop happens before the associated table
 	// lock is acquired earlier during gpbackup execution.
 	verifiedResultIndexes := make([]IndexDefinition, 0)
-	for _, resultIndex := range resultIndexes {
-		if resultIndex.Def.Valid {
-			verifiedResultIndexes = append(verifiedResultIndexes, resultIndex)
+	indexMap := make(map[uint32]IndexDefinition, 0)
+	for _, index := range resultIndexes {
+		if index.Def.Valid {
+			verifiedResultIndexes = append(verifiedResultIndexes, index)
+			if connectionPool.Version.AtLeast("7") {
+				indexMap[index.Oid] = index // hash index for topological sort
+			}
 		} else {
 			gplog.Warn("Index '%s' on table '%s.%s' not backed up, most likely dropped after gpbackup had begun.",
-				resultIndex.Name, resultIndex.OwningSchema, resultIndex.OwningTable)
+				index.Name, index.OwningSchema, index.OwningTable)
 		}
 	}
 
-	return verifiedResultIndexes
+	if connectionPool.Version.Before("7") {
+		return verifiedResultIndexes
+	}
+
+	// Since GPDB 7+ partition indexes can now be ALTERED to attach to a parent
+	// index. Topological sort indexes to ensure parent indexes are printed
+	// before their child indexes.
+	visited := make(map[uint32]struct{})
+	sortedIndexes := make([]IndexDefinition, 0)
+	stack := make([]uint32, 0)
+	var seen struct{}
+	for _, index := range verifiedResultIndexes {
+		currIndex := index
+		// Depth-first search loop. Store visited indexes to a stack
+		for {
+			if _, indexWasVisited := visited[currIndex.Oid]; indexWasVisited {
+				break // exit DFS if a visited index is found.
+			}
+
+			stack = append(stack, currIndex.Oid)
+			visited[currIndex.Oid] = seen
+			if currIndex.ParentIndex == 0 {
+				break // exit DFS if index has no parent.
+			} else {
+				currIndex = indexMap[currIndex.ParentIndex]
+			}
+		}
+
+		// "Pop" indexes found by DFS
+		for i := len(stack) - 1; i >= 0; i-- {
+			indexOid := stack[i]
+			popIndex := indexMap[indexOid]
+			if popIndex.ParentIndex != 0 {
+				// Preprocess parent index FQN for GPDB 7+ partition indexes
+				popIndex.ParentIndexFQN = indexMap[popIndex.ParentIndex].FQN()
+			}
+			sortedIndexes = append(sortedIndexes, popIndex)
+		}
+		stack = stack[:0] // empty slice but keep memory allocation
+	}
+
+	return sortedIndexes
 }
 
 type RuleDefinition struct {
