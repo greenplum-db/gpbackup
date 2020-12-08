@@ -117,7 +117,7 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 	if table.PartitionKeyDef != "" {
 		metadataFile.MustPrintf("PARTITION BY %s ", table.PartitionKeyDef)
 	}
-	if len(table.Inherits) != 0 {
+	if len(table.Inherits) != 0  && table.AttachPartitionInfo == (AttachPartitionInfo{}) {
 		dependencyList := strings.Join(table.Inherits, ", ")
 		metadataFile.MustPrintf("INHERITS (%s) ", dependencyList)
 	}
