@@ -31,12 +31,17 @@ func (t Table) GetMetadataEntry() (string, toc.MetadataEntry) {
 	if (t.ForeignDef != ForeignTableDefinition{}) {
 		objectType = "FOREIGN TABLE"
 	}
+	referenceObject := ""
+	if t.AttachPartitionInfo != (AttachPartitionInfo{}) {
+		referenceObject = t.AttachPartitionInfo.Parent
+	}
+
 	return "predata",
 		toc.MetadataEntry{
 			Schema:          t.Schema,
 			Name:            t.Name,
 			ObjectType:      objectType,
-			ReferenceObject: "",
+			ReferenceObject: referenceObject,
 			StartByte:       0,
 			EndByte:         0,
 		}
@@ -146,27 +151,39 @@ type PartitionLevelInfo struct {
 }
 
 func GetPartitionTableMap(connectionPool *dbconn.DBConn) map[uint32]PartitionLevelInfo {
-	// TODO: fix for gpdb7 partitioning
+	var query string
 	if connectionPool.Version.AtLeast("7") {
-		return make(map[uint32]PartitionLevelInfo)
+		query = `
+		SELECT c.oid,
+			CASE WHEN p.partrelid IS NOT NULL AND c.relispartition = false THEN ''
+				ELSE rc.relname
+			END AS rootname,
+			CASE WHEN p.partrelid IS NOT NULL AND c.relispartition = false THEN 'p'
+				WHEN p.partrelid IS NOT NULL AND c.relispartition = true THEN 'i'
+				ELSE 'l'
+			END AS level
+		FROM pg_class c
+			LEFT JOIN pg_partitioned_table p ON c.oid = p.partrelid
+			LEFT JOIN pg_class rc ON pg_partition_root(c.oid) = rc.oid
+		WHERE c.relispartition = true OR c.relkind = 'p'`
+	} else {
+		query = `
+		SELECT pc.oid AS oid,
+			'p' AS level,
+			'' AS rootname
+		FROM pg_partition p
+			JOIN pg_class pc ON p.parrelid = pc.oid
+		UNION ALL
+		SELECT r.parchildrelid AS oid,
+			CASE WHEN p.parlevel = levels.pl THEN 'l' ELSE 'i' END AS level,
+			quote_ident(cparent.relname) AS rootname
+		FROM pg_partition p
+			JOIN pg_partition_rule r ON p.oid = r.paroid
+			JOIN pg_class cparent ON cparent.oid = p.parrelid
+			JOIN (SELECT parrelid AS relid, max(parlevel) AS pl
+				FROM pg_partition GROUP BY parrelid) AS levels ON p.parrelid = levels.relid
+		WHERE r.parchildrelid != 0`
 	}
-
-	query := `
-	SELECT pc.oid AS oid,
-		'p' AS level,
-		'' AS rootname
-	FROM pg_partition p
-		JOIN pg_class pc ON p.parrelid = pc.oid
-	UNION ALL
-	SELECT r.parchildrelid AS oid,
-		CASE WHEN p.parlevel = levels.pl THEN 'l' ELSE 'i' END AS level,
-		quote_ident(cparent.relname) AS rootname
-	FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		JOIN pg_class cparent ON cparent.oid = p.parrelid
-		JOIN (SELECT parrelid AS relid, max(parlevel) AS pl
-			FROM pg_partition GROUP BY parrelid) AS levels ON p.parrelid = levels.relid
-	WHERE r.parchildrelid != 0`
 
 	results := make([]PartitionLevelInfo, 0)
 	err := connectionPool.Select(&results, query)

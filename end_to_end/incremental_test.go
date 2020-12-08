@@ -252,7 +252,15 @@ var _ = Describe("End to End incremental tests", func() {
 				gprestore(gprestorePath, restoreHelperPath, incremental1Timestamp,
 					"--redirect-db", "restoredb")
 
-				assertRelationsCreated(restoreConn, TOTAL_RELATIONS-2) // -2 for public.holds and schema2.ao1, excluded partition will be included anyway but it's data - will not
+				if backupConn.Version.Before("7") {
+					// -2 for public.holds and schema2.ao1, excluded partition will be included anyway but it's data - will not
+					assertRelationsCreated(restoreConn, TOTAL_RELATIONS-2)
+				} else {
+					// In GPDB 7+, the sales_1_prt_mar17 partition will not be created.
+					// TODO: Should the leaf partition actually be created when it has
+					// been excluded with the new GPDB partitioning logic?
+					assertRelationsCreated(restoreConn, TOTAL_RELATIONS-3)
+				}
 				assertDataRestored(restoreConn, publicSchemaTupleCountsWithExclude)
 				assertDataRestored(restoreConn, schema2TupleCountsWithExclude)
 			})

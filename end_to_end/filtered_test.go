@@ -96,7 +96,15 @@ PARTITION BY LIST (gender)
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir)
 
-			assertRelationsCreated(restoreConn, 4)
+			// When running against GPDB 7+, only the root partition and the included leaf partition
+			// will be created due to the new flexible GPDB 7+ partitioning logic. For versions
+			// before GPDB 7, there is only one big DDL for the entire partition table.
+			if backupConn.Version.AtLeast("7") {
+				assertRelationsCreated(restoreConn, 2)
+			} else {
+				assertRelationsCreated(restoreConn, 4)
+			}
+
 			localSchemaTupleCounts := map[string]int{
 				`public.testparent_1_prt_girls`: 1,
 				`public.testparent`:             1,
