@@ -395,6 +395,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "MTransitionFunction", "MInverseTransitionFunction", "MFinalFunction")
 		})
+		// TODO: test for aggregate with aggfinalmodify/aggmfinalmodify (no table, just couple examples to check on query is correct)
 	})
 	Describe("PrintCreateCastStatement", func() {
 		var (

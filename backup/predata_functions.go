@@ -160,8 +160,14 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	if aggDef.SortOperator != "" {
 		metadataFile.MustPrintf(",\n\tSORTOP = %s.\"%s\"", aggDef.SortOperatorSchema, aggDef.SortOperator)
 	}
-	if aggDef.Hypothetical {
-		metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+	if connectionPool.Version.Before("7") {
+		if aggDef.Hypothetical {
+			metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+		}
+	} else {
+		if aggDef.Kind == "h" {
+			metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+		}
 	}
 	if aggDef.MTransitionFunction != 0 {
 		metadataFile.MustPrintf(",\n\tMSFUNC = %s", funcInfoMap[aggDef.MTransitionFunction].QualifiedName)
@@ -183,6 +189,43 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	}
 	if !aggDef.MInitValIsNull {
 		metadataFile.MustPrintf(",\n\tMINITCOND = '%s'", aggDef.MInitialValue)
+	}
+
+	if connectionPool.Version.AtLeast("7") {
+		var defaultFinalModify string
+		if aggDef.Kind == "n" {
+			defaultFinalModify = "r"
+		} else {
+			defaultFinalModify = "w"
+		}
+		if aggDef.Finalmodify == "" {
+			aggDef.Finalmodify = defaultFinalModify
+		}
+		if aggDef.Mfinalmodify == "" {
+			aggDef.Mfinalmodify = defaultFinalModify
+		}
+		if aggDef.Finalmodify != defaultFinalModify {
+			if aggDef.Finalmodify == "r" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_ONLY")
+			} else if aggDef.Finalmodify == "s" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = SHARABLE")
+			} else if aggDef.Finalmodify == "w" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_WRITE")
+			} else {
+				gplog.Fatal(errors.Errorf("Invalid aggfinalmodify value: expected 'r', 's' or 'w', got '%s'\n", aggDef.Finalmodify), "")
+			}
+		}
+		if aggDef.Mfinalmodify != defaultFinalModify {
+			if aggDef.Mfinalmodify == "r" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_ONLY")
+			} else if aggDef.Mfinalmodify == "s" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = SHARABLE")
+			} else if aggDef.Mfinalmodify == "w" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_WRITE")
+			} else {
+				gplog.Fatal(errors.Errorf("Invalid aggmfinalmodify value: expected 'r', 's' or 'w', got '%s'\n", aggDef.Mfinalmodify), "")
+			}
+		}
 	}
 	if aggDef.Parallel != "" {
 		switch aggDef.Parallel {

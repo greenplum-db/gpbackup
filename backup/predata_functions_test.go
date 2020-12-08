@@ -2,12 +2,14 @@ package backup_test
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -526,7 +528,12 @@ $_$`)
 			complexAggDefinition := backup.Aggregate{
 				Schema: "public", Name: "agg_hypo_ord", Arguments: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true},
 				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: 4, FinalFunction: 5,
-				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
+				TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				complexAggDefinition.Kind = "h"
+			} else {
+				complexAggDefinition.Hypothetical = true
 			}
 			aggDefinition = complexAggDefinition
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggDefinition, funcInfoMap, emptyMetadata)
@@ -573,6 +580,38 @@ $_$`)
 	PARALLEL = SAFE
 );`)
 		})
+		DescribeTable("prints aggregate with aggfinalmodify or aggmfinalmodify",
+			func(kind string, finalMod string, mfinalMod string, expected string) {
+				testutils.SkipIfBefore7(connectionPool)
+				aggDefinition = backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: sql.NullString{String: "", Valid: true}, IdentArgs: sql.NullString{String: "", Valid: true}, TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
+				aggDefinition.Kind = kind
+				aggDefinition.Finalmodify = finalMod
+				aggDefinition.Mfinalmodify = mfinalMod
+				backup.PrintCreateAggregateStatement(backupfile, tocfile, aggDefinition, funcInfoMap, aggMetadata)
+				expectedStatements := []string{
+					fmt.Sprintf(`CREATE AGGREGATE public.agg_name(*) (
+	SFUNC = public.mysfunc,
+	STYPE = integer%s
+);`, expected),
+					"COMMENT ON AGGREGATE public.agg_name(*) IS 'This is an aggregate comment.';",
+					"ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;",
+					"SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(*) IS 'unclassified';"}
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
+			},
+			Entry("kind: n, aggfinalmodify: r", "n", "r", "", ""), // default, don't print
+			Entry("kind: n, aggfinalmodify: s", "n", "s", "", ",\n\tFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: n, aggfinalmodify: w", "n", "w", "", ",\n\tFINALFUNC_MODIFY = READ_WRITE"),
+			Entry("kind: o or h, aggfinalmodify: r", "o", "r", "", ",\n\tFINALFUNC_MODIFY = READ_ONLY"),
+			Entry("kind: o or h, aggfinalmodify: s", "o", "s", "", ",\n\tFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: o or h, aggfinalmodify: w", "o", "w", "", ""), // default, don't print
+
+			Entry("kind: n, aggmfinalmodify: r", "n", "", "r", ""), // default, don't print
+			Entry("kind: n, aggmfinalmodify: s", "n", "", "s", ",\n\tMFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: n, aggmfinalmodify: w", "n", "", "w", ",\n\tMFINALFUNC_MODIFY = READ_WRITE"),
+			Entry("kind: o or h, aggmfinalmodify: r", "o", "", "r", ",\n\tMFINALFUNC_MODIFY = READ_ONLY"),
+			Entry("kind: o or h, aggmfinalmodify: s", "o", "", "s", ",\n\tMFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: o or h, aggmfinalmodify: w", "o", "", "w", ""), // default, don't print
+		)
 	})
 	Describe("PrintCreateCastStatement", func() {
 		emptyMetadata := backup.ObjectMetadata{}
