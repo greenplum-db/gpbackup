@@ -58,6 +58,21 @@ var _ = Describe("backup/postdata tests", func() {
 				"ALTER TABLE public.testtable REPLICA IDENTITY USING INDEX testindex;",
 			)
 		})
+		It("can print an index of a partition that is attached to a parent partition index", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			parentIndex := backup.IndexDefinition{Oid: 2, Name: "parenttestindex", OwningSchema: "public", OwningTable: "parenttesttable", Def: sql.NullString{String: "CREATE INDEX parenttestindex ON public.parenttesttable USING btree(i)", Valid: true}}
+			index.ParentIndexFQN = "public.parenttestindex"
+			indexes := []backup.IndexDefinition{parentIndex, index}
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, emptyMetadataMap)
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.parenttesttable", "parenttestindex", "INDEX")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 1, "public", "public.testtable", "testindex", "INDEX")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 2, "public", "public.testtable", "testindex", "INDEX")
+			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer,
+				"CREATE INDEX parenttestindex ON public.parenttesttable USING btree(i);",
+				"CREATE INDEX testindex ON public.testtable USING btree(i);",
+				"ALTER INDEX public.parenttestindex ATTACH PARTITION public.testindex;",
+			)
+		})
 	})
 	Context("PrintCreateRuleStatements", func() {
 		rule := backup.RuleDefinition{Oid: 1, Name: "testrule", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;", Valid: true}}
