@@ -40,6 +40,7 @@ type Function struct {
 	PlannerSupport    string `db:"prosupport"`  // GPDB 7+
 	IsWindow          bool   `db:"proiswindow"` // before 7
 	ExecLocation      string `db:"proexeclocation"`
+	Parallel          string `db:"proparallel"` // GPDB 7+
 }
 
 func (f Function) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -113,7 +114,7 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	}
 	var query string
 	if connectionPool.Version.AtLeast("7") {
-		masterAtts = "proexeclocation,proleakproof,"
+		masterAtts = "proexeclocation,proleakproof,proparallel,"
 		query = fmt.Sprintf(`
 		SELECT p.oid,
 			quote_ident(nspname) AS schema,
