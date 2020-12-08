@@ -223,7 +223,7 @@ func assertSchemasExist(conn *dbconn.DBConn, expectedNumSchemas int) {
 }
 
 func assertRelationsCreated(conn *dbconn.DBConn, expectedNumTables int) {
-	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname IN ('public', 'schema2');`
+	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r','p') AND n.nspname IN ('public', 'schema2');`
 	actualTableCount := dbconn.MustSelectString(conn, countQuery)
 	if strconv.Itoa(expectedNumTables) != actualTableCount {
 		Fail(fmt.Sprintf("Expected:\n\t%s relations to have been created\nActual:\n\t%s relations were created", strconv.Itoa(expectedNumTables), actualTableCount))
@@ -231,7 +231,7 @@ func assertRelationsCreated(conn *dbconn.DBConn, expectedNumTables int) {
 }
 
 func assertRelationsCreatedInSchema(conn *dbconn.DBConn, schema string, expectedNumTables int) {
-	countQuery := fmt.Sprintf(`SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname = '%s'`, schema)
+	countQuery := fmt.Sprintf(`SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r','p') AND n.nspname = '%s'`, schema)
 	actualTableCount := dbconn.MustSelectString(conn, countQuery)
 	if strconv.Itoa(expectedNumTables) != actualTableCount {
 		Fail(fmt.Sprintf("Expected:\n\t%s relations to have been created\nActual:\n\t%s relations were created", strconv.Itoa(expectedNumTables), actualTableCount))
@@ -239,7 +239,7 @@ func assertRelationsCreatedInSchema(conn *dbconn.DBConn, schema string, expected
 }
 
 func assertRelationsExistForIncremental(conn *dbconn.DBConn, expectedNumTables int) {
-	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname IN ('old_schema', 'new_schema');`
+	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r','p') AND n.nspname IN ('old_schema', 'new_schema');`
 	actualTableCount := dbconn.MustSelectString(conn, countQuery)
 	if strconv.Itoa(expectedNumTables) != actualTableCount {
 		Fail(fmt.Sprintf("Expected:\n\t%s relations to exist in old_schema and new_schema\nActual:\n\t%s relations are present", strconv.Itoa(expectedNumTables), actualTableCount))
