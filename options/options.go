@@ -270,11 +270,6 @@ func (o *Options) QuoteExcludeRelations(conn *dbconn.DBConn) error {
 }
 
 func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) ([]FqnStruct, error) {
-	// TODO: fix for gpdb7 partitioning
-	if connectionPool.Version.AtLeast("7") {
-		return []FqnStruct{}, nil
-	}
-
 	includeOids, err := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	if err != nil {
 		return nil, err
@@ -282,28 +277,65 @@ func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbcon
 
 	oidStr := strings.Join(includeOids, ", ")
 	childPartitionFilter := ""
-	if o.isLeafPartitionData {
-		//Get all leaf partition tables whose parents are in the include list
-		childPartitionFilter = fmt.Sprintf(`
-	OR c.oid IN (
-		SELECT
-			r.parchildrelid
-		FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		WHERE p.paristemplate = false
-		AND p.parrelid IN (%s))`, oidStr)
+	parentAndExternalPartitionFilter := ""
+	if connectionPool.Version.Before("7") {
+		if o.isLeafPartitionData {
+			//Get all leaf partition tables whose parents are in the include list
+			childPartitionFilter = fmt.Sprintf(`
+		OR c.oid IN (
+			SELECT
+				r.parchildrelid
+			FROM pg_partition p
+			JOIN pg_partition_rule r ON p.oid = r.paroid
+			WHERE p.paristemplate = false
+			AND p.parrelid IN (%s))`, oidStr)
+		} else {
+			//Get only external partition tables whose parents are in the include list
+			childPartitionFilter = fmt.Sprintf(`
+		OR c.oid IN (
+			SELECT
+				r.parchildrelid
+			FROM pg_partition p
+			JOIN pg_partition_rule r ON p.oid = r.paroid
+			JOIN pg_exttable e ON r.parchildrelid = e.reloid
+			WHERE p.paristemplate = false
+			AND e.reloid IS NOT NULL
+			AND p.parrelid IN (%s))`, oidStr)
+		}
+
+		parentAndExternalPartitionFilter = fmt.Sprintf(`
+		-- Get parent partition tables whose children are in the include list
+		OR c.oid IN (
+			SELECT
+				p.parrelid
+			FROM pg_partition p
+			JOIN pg_partition_rule r ON p.oid = r.paroid
+			WHERE p.paristemplate = false
+			AND r.parchildrelid IN (%[1]s)
+		)
+		-- Get external partition tables whose siblings are in the include list
+		OR c.oid IN (
+			SELECT
+				r.parchildrelid
+			FROM pg_partition_rule r
+			JOIN pg_exttable e ON r.parchildrelid = e.reloid
+			WHERE r.paroid IN (
+				SELECT
+					pr.paroid
+				FROM pg_partition_rule pr
+				WHERE pr.parchildrelid IN (%[1]s)
+			)
+		)`, oidStr)
 	} else {
-		//Get only external partition tables whose parents are in the include list
 		childPartitionFilter = fmt.Sprintf(`
-	OR c.oid IN (
-		SELECT
-			r.parchildrelid
-		FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		JOIN pg_exttable e ON r.parchildrelid = e.reloid
-		WHERE p.paristemplate = false
-		AND e.reloid IS NOT NULL
-		AND p.parrelid IN (%s))`, oidStr)
+		-- Get leaf partitions whose roots are in the include list
+		OR pg_partition_root(c.oid) IN (%s)`, oidStr)
+
+		parentAndExternalPartitionFilter = fmt.Sprintf(`
+		-- Get parent partition tables whose children are in the include list
+		OR c.oid IN (
+			SELECT DISTINCT pg_partition_root(unnest(ARRAY[%s]))::oid
+		)`, oidStr)
 	}
 
 	query := fmt.Sprintf(`
@@ -317,33 +349,12 @@ WHERE %s
 AND (
 	-- Get tables in the include list
 	c.oid IN (%s)
-	-- Get parent partition tables whose children are in the include list
-	OR c.oid IN (
-		SELECT
-			p.parrelid
-		FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		WHERE p.paristemplate = false
-		AND r.parchildrelid IN (%s)
-	)
-	-- Get external partition tables whose siblings are in the include list
-	OR c.oid IN (
-		SELECT
-			r.parchildrelid
-		FROM pg_partition_rule r
-		JOIN pg_exttable e ON r.parchildrelid = e.reloid
-		WHERE r.paroid IN (
-			SELECT
-				pr.paroid
-			FROM pg_partition_rule pr
-			WHERE pr.parchildrelid IN (%s)
-		)
-	)
+	%s
 	%s
 )
-AND (relkind = 'r' OR relkind = 'f')
+AND relkind IN ('r', 'f', 'p')
 AND %s
-ORDER BY c.oid;`, o.schemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter, ExtensionFilterClause("c"))
+ORDER BY c.oid;`, o.schemaFilterClause("n"), oidStr, parentAndExternalPartitionFilter, childPartitionFilter, ExtensionFilterClause("c"))
 
 	results := make([]FqnStruct, 0)
 	err = connectionPool.Select(&results, query)

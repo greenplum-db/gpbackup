@@ -160,8 +160,17 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *utils.FilterSet, sch
 	shouldIncludeObject := objectSet.MatchesFilter(entry.ObjectType)
 	shouldIncludeSchema := schemaSet.MatchesFilter(entry.Schema)
 	relationFQN := utils.MakeFQN(entry.Schema, entry.Name)
+
+	// In GPDB 7+, leaf partitions have the reference object set to their
+	// upper-most root. If that root is in the exclude set, then we need
+	// to prevent the leaf partition from being included.
+	includeLeafPartition := true
+	if relationSet.IsExclude && entry.ReferenceObject != "" && !relationSet.MatchesFilter(entry.ReferenceObject) {
+		includeLeafPartition = false
+	}
+
 	shouldIncludeRelation := (relationSet.IsExclude && entry.ObjectType != "TABLE" && entry.ObjectType != "VIEW" && entry.ObjectType != "MATERIALIZED VIEW" && entry.ObjectType != "SEQUENCE" && entry.ObjectType != "STATISTICS" && entry.ReferenceObject == "") ||
-		((entry.ObjectType == "TABLE" || entry.ObjectType == "VIEW" || entry.ObjectType == "MATERIALIZED VIEW" || entry.ObjectType == "SEQUENCE" || entry.ObjectType == "STATISTICS") && relationSet.MatchesFilter(relationFQN) && entry.ReferenceObject == "") || // Relations should match the filter
+		((entry.ObjectType == "TABLE" || entry.ObjectType == "VIEW" || entry.ObjectType == "MATERIALIZED VIEW" || entry.ObjectType == "SEQUENCE" || entry.ObjectType == "STATISTICS") && relationSet.MatchesFilter(relationFQN) && includeLeafPartition) || // Relations should match the filter
 		(entry.ObjectType != "SEQUENCE OWNER" && entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) || // Include relations that filtered tables depend on
 		(entry.ObjectType == "SEQUENCE OWNER" && relationSet.MatchesFilter(relationFQN) && relationSet.MatchesFilter(entry.ReferenceObject)) //Include sequence owners if both table and sequence are being restored
 

@@ -36,25 +36,59 @@ func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, 
 				metadataTables = append(metadataTables, table)
 			}
 			partType := table.PartitionLevelInfo.Level
-			if partType != "l" && partType != "i" {
+			if connectionPool.Version.AtLeast("7") {
+				// In GPDB 7+, we need to dump out the leaf partition DDL along with their
+				// ALTER TABLE ATTACH PARTITION commands to construct the partition table
+				metadataTables = append(metadataTables, table)
+			} else if partType != "l" && partType != "i" {
 				metadataTables = append(metadataTables, table)
 			}
 			if MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 				if partType != "p" && partType != "i" {
 					dataTables = append(dataTables, table)
 				}
+			} else if connectionPool.Version.AtLeast("7") &&
+				table.AttachPartitionInfo != (AttachPartitionInfo{}) {
+				// For GPDB 7+ and without --leaf-partition-data, we must exclude the
+				// leaf partitions from dumping data. The COPY will be called on the
+				// top-most root partition.
+				continue
 			} else if includeSet.MatchesFilter(table.FQN()) {
 				dataTables = append(dataTables, table)
 			}
 		}
 	} else {
+		var excludeList *utils.FilterSet
+		if connectionPool.Version.AtLeast("7") {
+			excludeList = utils.NewExcludeSet(MustGetFlagStringArray(options.EXCLUDE_RELATION))
+		} else {
+			excludeList = utils.NewExcludeSet([]string{})
+		}
+
 		for _, table := range tables {
+			// In GPDB 7+, we need to filter out leaf and intermediate subroot partitions
+			// since the COPY will be called on the top-most root partition. It just so
+			// happens that those particular partition types will always have an
+			// AttachPartitionInfo initialized.
+			if table.AttachPartitionInfo == (AttachPartitionInfo{}) {
+				dataTables = append(dataTables, table)
+			}
+
+			// In GPDB 7+, we need to filter out leaf and intermediate subroot partitions
+			// from being added to the metadata table list if their root partition parent
+			// is in the exclude list. This is to prevent ATTACH PARTITION statements
+			// against nonexistant root partitions from being printed to the metadata file.
+			if connectionPool.Version.AtLeast("7") &&
+				table.AttachPartitionInfo != (AttachPartitionInfo{}) &&
+				!excludeList.MatchesFilter(table.AttachPartitionInfo.Parent) {
+				continue
+			}
+
 			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
 				table.Name = AppendExtPartSuffix(table.Name)
 			}
 			metadataTables = append(metadataTables, table)
 		}
-		dataTables = tables
 	}
 	return metadataTables, dataTables
 }
