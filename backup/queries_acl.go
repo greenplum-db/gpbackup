@@ -34,6 +34,7 @@ type MetadataQueryParams struct {
 }
 
 var (
+	TYPE_ACCESS_METHOD      MetadataQueryParams
 	TYPE_AGGREGATE          MetadataQueryParams
 	TYPE_CAST               MetadataQueryParams
 	TYPE_COLLATION          MetadataQueryParams
@@ -67,6 +68,7 @@ var (
 )
 
 func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
+	TYPE_ACCESS_METHOD = MetadataQueryParams{ObjectType: "ACCESS METHOD", NameField: "amname", OidField: "oid", CatalogTable: "pg_am"}
 	TYPE_AGGREGATE = MetadataQueryParams{ObjectType: "AGGREGATE", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
 	if connectionPool.Version.AtLeast("7") {
 		TYPE_AGGREGATE.FilterClause = "prokind = 'a'"
