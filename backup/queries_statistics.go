@@ -36,6 +36,11 @@ type AttributeStatistic struct {
 	Operator3    uint32         `db:"staop3"`
 	Operator4    uint32         `db:"staop4"`
 	Operator5    uint32         `db:"staop5"`
+	Collation1   uint32         `db:"stacoll1"`
+	Collation2   uint32         `db:"stacoll2"`
+	Collation3   uint32         `db:"stacoll3"`
+	Collation4   uint32         `db:"stacoll4"`
+	Collation5   uint32         `db:"stacoll5"`
 	Numbers1     pq.StringArray `db:"stanumbers1"`
 	Numbers2     pq.StringArray `db:"stanumbers2"`
 	Numbers3     pq.StringArray `db:"stanumbers3"`
@@ -58,6 +63,16 @@ func GetAttributeStatistics(connectionPool *dbconn.DBConn, tables []Table) map[u
 	s.stanumbers5,
 	s.stavalues5,`
 	}
+
+	statCollationClause := ""
+	if connectionPool.Version.AtLeast("7") {
+		statCollationClause = `s.stacoll1,
+					s.stacoll2,
+					s.stacoll3,
+					s.stacoll4,
+					s.stacoll5,`
+	}
+
 	tablenames := make([]string, 0)
 	for _, table := range tables {
 		tablenames = append(tablenames, table.FQN())
@@ -83,6 +98,7 @@ func GetAttributeStatistics(connectionPool *dbconn.DBConn, tables []Table) map[u
 		s.staop2,
 		s.staop3,
 		s.staop4,
+		%s
 		s.stanumbers1,
 		s.stanumbers2,
 		s.stanumbers3,
@@ -99,7 +115,8 @@ func GetAttributeStatistics(connectionPool *dbconn.DBConn, tables []Table) map[u
 	WHERE %s
 		AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
 	ORDER BY n.nspname, c.relname, a.attnum`,
-	inheritClause, statSlotClause, SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
+		inheritClause, statSlotClause, statCollationClause,
+		SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
 
 	results := make([]AttributeStatistic, 0)
 	err := connectionPool.Select(&results, query)
