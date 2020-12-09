@@ -116,9 +116,9 @@ var _ = Describe("backup/dependencies tests", func() {
 			}
 			objects = []backup.Sortable{
 				backup.Function{Oid: 1, Schema: "public", Name: "function", FunctionBody: "SELECT $1 + $2",
-					Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "integer", Valid: true}, Language: "sql", PlannerSupport : getPlannerSupport()},
+					Arguments:  sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true}, Language: "sql", PlannerSupport: getPlannerSupport()},
 				backup.BaseType{Oid: 2, Schema: "public", Name: "base", Input: "typin", Output: "typout", Category: "U"},
 				backup.CompositeType{Oid: 3, Schema: "public", Name: "composite", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}},
 				backup.Domain{Oid: 4, Schema: "public", Name: "domain", BaseType: "numeric"},
