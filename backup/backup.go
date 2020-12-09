@@ -251,6 +251,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 		retrieveOperatorObjects(&objects, metadataMap)
 		retrieveAggregates(&objects, metadataMap)
 		retrieveCasts(&objects, metadataMap)
+		backupAccessMethods(metadataFile)
 	}
 
 	retrieveViews(&objects)

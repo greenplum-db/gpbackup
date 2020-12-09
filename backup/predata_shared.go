@@ -7,8 +7,10 @@ package backup
  */
 
 import (
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/pkg/errors"
 )
 
 /*
@@ -40,5 +42,24 @@ func PrintCreateSchemaStatements(metadataFile *utils.FileWithByteCount, toc *toc
 		section, entry := schema.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		PrintObjectMetadata(metadataFile, toc, schemaMetadata[schema.GetUniqueID()], schema, "")
+	}
+}
+
+func PrintAccessMethodStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, accessMethods []AccessMethod, accessMethodMetadata MetadataMap) {
+	for _, method := range accessMethods {
+		start := metadataFile.ByteCount
+		methodTypeStr := ""
+		switch method.Type {
+		case "t":
+			methodTypeStr = "TABLE"
+		case "i":
+			methodTypeStr = "INDEX"
+		default:
+			gplog.Fatal(errors.Errorf("Invalid access method type: expected 't' or 'i', got '%s'\n", method.Type), "")
+		}
+		metadataFile.MustPrintf("\n\nCREATE ACCESS METHOD %s TYPE %s HANDLER %s;", method.Name, methodTypeStr, method.Handler)
+		section, entry := method.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, accessMethodMetadata[method.GetUniqueID()], method, "")
 	}
 }

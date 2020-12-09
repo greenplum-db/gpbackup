@@ -34,6 +34,7 @@ type MetadataQueryParams struct {
 }
 
 var (
+	TYPE_ACCESS_METHOD      MetadataQueryParams
 	TYPE_AGGREGATE          MetadataQueryParams
 	TYPE_CAST               MetadataQueryParams
 	TYPE_COLLATION          MetadataQueryParams
@@ -68,7 +69,13 @@ var (
 )
 
 func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
-	TYPE_AGGREGATE = MetadataQueryParams{ObjectType: "AGGREGATE", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc", FilterClause: "proisagg = 't'"}
+	TYPE_ACCESS_METHOD = MetadataQueryParams{ObjectType: "ACCESS METHOD", NameField: "amname", OidField: "oid", CatalogTable: "pg_am"}
+	TYPE_AGGREGATE = MetadataQueryParams{ObjectType: "AGGREGATE", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
+	if connectionPool.Version.AtLeast("7") {
+		TYPE_AGGREGATE.FilterClause = "prokind = 'a'"
+	} else {
+		TYPE_AGGREGATE.FilterClause = "proisagg = 't'"
+	}
 	TYPE_CAST = MetadataQueryParams{ObjectType: "CAST", NameField: "typname", OidField: "oid", OidTable: "pg_type", CatalogTable: "pg_cast"}
 	TYPE_COLLATION = MetadataQueryParams{ObjectType: "COLLATION", NameField: "collname", OidField: "oid", SchemaField: "collnamespace", OwnerField: "collowner", CatalogTable: "pg_collation"}
 	TYPE_CONSTRAINT = MetadataQueryParams{ObjectType: "CONSTRAINT", NameField: "conname", SchemaField: "connamespace", OidField: "oid", CatalogTable: "pg_constraint"}

@@ -263,3 +263,45 @@ func ExtensionFilterClause(namespace string) string {
 
 	return fmt.Sprintf("%s NOT IN (select objid from pg_depend where deptype = 'e')", oidStr)
 }
+
+type AccessMethod struct {
+	Oid     uint32
+	Name    string
+	Handler string
+	Type    string
+}
+
+func (a AccessMethod) GetMetadataEntry() (string, toc.MetadataEntry) {
+	return "predata",
+		toc.MetadataEntry{
+			Name:            a.Name,
+			ObjectType:      "ACCESS METHOD",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (a AccessMethod) FQN() string {
+	return a.Name
+}
+
+func (a AccessMethod) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: a.Oid}
+}
+
+func GetAccessMethods(connectionPool *dbconn.DBConn) []AccessMethod {
+	results := make([]AccessMethod, 0)
+	query := fmt.Sprintf(`
+	SELECT oid,
+       quote_ident(amname) AS name,
+       amhandler::pg_catalog.regproc AS handler,
+       amtype AS type
+	FROM pg_am
+	WHERE oid > %d
+	ORDER BY oid;`, FIRST_NORMAL_OBJECT_ID)
+
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}

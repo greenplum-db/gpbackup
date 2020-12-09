@@ -162,6 +162,23 @@ PARTITION BY RANGE (year)
 			structmatcher.ExpectStructsToMatchExcluding(&partitionCheckConstraint, &resultConstraints[0], "Oid")
 		})
 	})
+	Describe("PrintAccessMethodStatement", func() {
+		It("creates user defined access method for tables and indexes", func() {
+			accessMethodTable := backup.AccessMethod{Oid: 1, Name: "test_tableam_table", Handler: "heap_tableam_handler", Type: "t"}
+			accessMethodIndex := backup.AccessMethod{Oid: 2, Name: "test_tableam_index", Handler: "gisthandler", Type: "i"}
+			accessMethods := []backup.AccessMethod{accessMethodTable, accessMethodIndex}
+			backup.PrintAccessMethodStatements(backupfile, tocfile, accessMethods, backup.MetadataMap{})
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ACCESS METHOD test_tableam_table;")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ACCESS METHOD test_tableam_index;")
+
+			resultAccessMethods := backup.GetAccessMethods(connectionPool)
+			Expect(resultAccessMethods).To(HaveLen(2))
+			structmatcher.ExpectStructsToMatchExcluding(&resultAccessMethods[0], &accessMethodTable, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&resultAccessMethods[1], &accessMethodIndex, "Oid")
+		})
+	})
 	Describe("GUC-printing functions", func() {
 		gucs := backup.SessionGUCs{ClientEncoding: "UTF8"}
 		Describe("PrintSessionGUCs", func() {

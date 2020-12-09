@@ -556,6 +556,17 @@ func backupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata Metadat
 	PrintCreateEnumTypeStatements(metadataFile, globalTOC, enums, typeMetadata)
 }
 
+func backupAccessMethods(metadataFile *utils.FileWithByteCount) {
+	if connectionPool.Version.Before("7") {
+		return
+	}
+	gplog.Verbose("Writing CREATE ACCESS METHOD statements to metadata file")
+	accessMethods := GetAccessMethods(connectionPool)
+	objectCounts["Access Methods"] = len(accessMethods)
+	accessMethodsMetadata := GetMetadataForObjectType(connectionPool, TYPE_ACCESS_METHOD)
+	PrintAccessMethodStatements(metadataFile, globalTOC, accessMethods, accessMethodsMetadata)
+}
+
 func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]bool) {
 	backupSet = make(map[UniqueID]bool)
 	for _, obj := range objSlice {

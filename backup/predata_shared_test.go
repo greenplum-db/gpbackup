@@ -163,4 +163,14 @@ GRANT ALL ON SCHEMA schemaname TO testrole;`,
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 	})
+	Describe("PrintAccessMethodStatements", func() {
+		It("can print a user defined access rights", func() {
+			accessMethods := []backup.AccessMethod{{Oid: 1, Name: "my_access_method", Handler: "my_access_handler", Type: "t"}}
+			emptyMetadataMap := backup.MetadataMap{}
+
+			backup.PrintAccessMethodStatements(backupfile, tocfile, accessMethods, emptyMetadataMap)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "", "my_access_method", "ACCESS METHOD")
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, "CREATE ACCESS METHOD my_access_method TYPE TABLE HANDLER my_access_handler;")
+		})
+	})
 })

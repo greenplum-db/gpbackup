@@ -339,4 +339,23 @@ PARTITION BY RANGE (date)
 			})
 		})
 	})
+	Describe("GetAccessMethods", func() {
+		It("returns information for user defined access methods", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ACCESS METHOD test_tableam_table TYPE TABLE HANDLER heap_tableam_handler;")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ACCESS METHOD test_tableam_table;")
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ACCESS METHOD test_tableam_index TYPE INDEX HANDLER gisthandler;")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ACCESS METHOD test_tableam_index;")
+
+			accessMethods := backup.GetAccessMethods(connectionPool)
+
+			accessMethodTable := backup.AccessMethod{Oid: 1, Name: "test_tableam_table", Handler: "heap_tableam_handler", Type: "t"}
+			accessMethodIndex := backup.AccessMethod{Oid: 2, Name: "test_tableam_index", Handler: "gisthandler", Type: "i"}
+
+			Expect(accessMethods).To(HaveLen(2))
+			structmatcher.ExpectStructsToMatchExcluding(&accessMethodTable, &accessMethods[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&accessMethodIndex, &accessMethods[1], "Oid")
+
+		})
+	})
 })
