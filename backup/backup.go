@@ -493,6 +493,9 @@ func cancelBlockedQueries(timestamp string) {
 		select {
 		case <-tickerCheckCanceled.C:
 			blockedQueryCount := fmt.Sprintf("SELECT count(*) from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND  waiting_reason='lock';", timestamp)
+			if conn.Version.AtLeast("7") {
+				blockedQueryCount = fmt.Sprintf("SELECT count(*) from pg_stat_activity WHERE application_name='gpbackup_%s' AND wait_event_type='Lock';", timestamp)
+			}
 			count = dbconn.MustSelectString(conn, blockedQueryCount)
 			if count == "0" {
 				return
