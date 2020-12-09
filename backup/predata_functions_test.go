@@ -3,6 +3,7 @@ package backup_test
 import (
 	"fmt"
 	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
@@ -32,7 +33,7 @@ var _ = Describe("backup/predata_functions tests", func() {
 			}
 			return plannerSupportReplace
 		}
-		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal" ,ExecLocation: "a"}
+		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
 		BeforeEach(func() {
 			funcDef = funcDefault
 			funcDef.PlannerSupport = getPlannerSupport()

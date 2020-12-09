@@ -30,7 +30,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 				Expect(proto).To(Equal(backup.FILE))
 			})
 			It("classifies a WRITABLE EXTERNAL table correctly", func() {
-				extTableDef.Location = sql.NullString{String: "file://host:port/path/file", Valid:true}
+				extTableDef.Location = sql.NullString{String: "file://host:port/path/file", Valid: true}
 				extTableDef.Writable = true
 				typ, proto := backup.DetermineExternalTableCharacteristics(extTableDef)
 				Expect(typ).To(Equal(backup.WRITABLE))
@@ -117,7 +117,7 @@ ENCODING 'UTF-8'
 DISTRIBUTED RANDOMLY;`)
 		})
 		It("prints a CREATE block for a READABLE EXTERNAL WEB table with a LOCATION", func() {
-			extTableDef.Location = sql.NullString{String:"http://webhost:port/path/file", Valid: true}
+			extTableDef.Location = sql.NullString{String: "http://webhost:port/path/file", Valid: true}
 			extTableDef.URIs = []string{"http://webhost:port/path/file"}
 			testTable.ExtTableDef = extTableDef
 			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)

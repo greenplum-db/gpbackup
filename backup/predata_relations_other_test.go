@@ -94,7 +94,6 @@ SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()))
 		})
 		It("can print a decreasing sequence", func() {
 			seqNegIncr.Definition.Type = getSeqType()
-			fmt.Printf("Connection: %s, Seq def type: %s\n",  connectionPool.Version, seqNegIncr.Definition.Type)
 			sequences := []backup.Sequence{seqNegIncr}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, sequences, emptySequenceMetadataMap)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
