@@ -58,6 +58,7 @@ ENCODING 'UTF-8';`)
 		colOptions := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", Options: "n_distinct=1", StatTarget: -1}
 		colStorageType := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, StorageType: "PLAIN"}
 		colWithCollation := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "c", Type: "character (8)", StatTarget: -1, Collation: "public.some_coll"}
+		rowTwoGenerated := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", HasDefault: true, Type: "integer", StatTarget: -1, DefaultVal: "(i * 2)", AttGenerated: "STORED"}
 
 		Context("No special table attributes", func() {
 			It("prints a CREATE TABLE OF type block with one attribute", func() {
@@ -179,6 +180,15 @@ ALTER TABLE ONLY public.tablename ALTER COLUMN i SET STORAGE PLAIN;`)
 ) DISTRIBUTED RANDOMLY;
 
 ALTER TABLE ONLY public.tablename ALTER COLUMN i SET (n_distinct=1);`)
+			})
+			It("prints a CREATE TABLE block with one line with regular attribute and a line with generated attribute", func() {
+				col := []backup.ColumnDefinition{rowOne, rowTwoGenerated}
+				testTable.ColumnDefs = col
+				backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TABLE public.tablename (
+	i integer,
+	j integer GENERATED ALWAYS AS (i * 2) STORED
+) DISTRIBUTED RANDOMLY;`)
 			})
 		})
 		Context("Multiple special table attributes on one column", func() {

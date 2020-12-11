@@ -159,7 +159,11 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 			line += fmt.Sprintf(" COLLATE %s", column.Collation)
 		}
 		if column.HasDefault {
-			line += fmt.Sprintf(" DEFAULT %s", column.DefaultVal)
+			if column.AttGenerated != ""  {
+				line += fmt.Sprintf(" GENERATED ALWAYS AS %s %s", column.DefaultVal, column.AttGenerated)
+			} else {
+				line += fmt.Sprintf(" DEFAULT %s", column.DefaultVal)
+			}
 		}
 		if column.NotNull {
 			line += " NOT NULL"

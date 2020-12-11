@@ -185,6 +185,7 @@ type ColumnDefinition struct {
 	Collation             string
 	SecurityLabelProvider string
 	SecurityLabel         string
+	AttGenerated          string
 }
 
 var storageTypeCodes = map[string]string{
@@ -192,6 +193,10 @@ var storageTypeCodes = map[string]string{
 	"m": "MAIN",
 	"p": "PLAIN",
 	"x": "EXTENDED",
+}
+
+var attGeneratedCodes = map[string]string{
+	"s": "STORED",
 }
 
 func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefinition {
@@ -240,6 +245,8 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 			aclLateralJoin =
 				`LEFT JOIN LATERAL unnest(a.attacl) ljl_unnest ON a.attacl IS NOT NULL AND array_length(a.attacl, 1) != 0`
 			aclCols = "ljl_unnest"
+			// Generated columns
+			selectClause += `, a.attgenerated`
 		} else {
 			aclCols = `CASE
 				WHEN a.attacl IS NULL THEN NULL
@@ -274,6 +281,9 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 	resultMap := make(map[uint32][]ColumnDefinition)
 	for _, result := range results {
 		result.StorageType = storageTypeCodes[result.StorageType]
+		if connectionPool.Version.AtLeast("7") {
+			result.AttGenerated = attGeneratedCodes[result.AttGenerated]
+		}
 		resultMap[result.Oid] = append(resultMap[result.Oid], result)
 	}
 	return resultMap
