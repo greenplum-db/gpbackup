@@ -9,8 +9,10 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/pkg/errors"
 )
 
 func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
@@ -171,6 +173,17 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	if !aggDef.MInitValIsNull {
 		metadataFile.MustPrintf(",\n\tMINITCOND = '%s'", aggDef.MInitialValue)
 	}
+	switch aggDef.Parallel {
+		case "u":
+			metadataFile.MustPrintf(",\n\tPARALLEL = UNSAFE")
+		case "s":
+			metadataFile.MustPrintf(",\n\tPARALLEL = SAFE")
+		case "r":
+			metadataFile.MustPrintf(",\n\tPARALLEL = RESTRICTED")
+		default:
+			gplog.Fatal(errors.Errorf("unrecognized proparallel value for function %s", aggDef.Parallel), "")
+	}
+
 	metadataFile.MustPrintln("\n);")
 
 	section, entry := aggDef.GetMetadataEntry()
