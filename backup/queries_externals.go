@@ -86,7 +86,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		} else {
 			extTableDef = result
 		}
-		if result.Location.Valid {
+		if result.Location.Valid && result.Location.String != "" {
 			extTableDef.URIs = append(extTableDef.URIs, result.Location.String)
 		}
 		resultMap[result.Oid] = extTableDef

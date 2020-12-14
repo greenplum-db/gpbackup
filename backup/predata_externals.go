@@ -77,7 +77,8 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 	isWritable := extTableDef.Writable
 	var tableType int
 	tableProtocol := -1
-	if !extTableDef.Location.Valid { // EXTERNAL WEB tables may have EXECUTE instead of LOCATION
+	if !extTableDef.Location.Valid ||
+		extTableDef.Location.String == "" { // EXTERNAL WEB tables may have EXECUTE instead of LOCATION
 		tableProtocol = HTTP
 		if isWritable {
 			tableType = WRITABLE_WEB
