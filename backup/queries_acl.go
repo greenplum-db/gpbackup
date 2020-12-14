@@ -59,6 +59,7 @@ var (
 	TYPE_ROLE               MetadataQueryParams
 	TYPE_RULE               MetadataQueryParams
 	TYPE_SCHEMA             MetadataQueryParams
+	TYPE_STATISTIC_EXT      MetadataQueryParams
 	TYPE_TABLESPACE         MetadataQueryParams
 	TYPE_TSCONFIGURATION    MetadataQueryParams
 	TYPE_TSDICTIONARY       MetadataQueryParams
@@ -109,6 +110,7 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	TYPE_ROLE = MetadataQueryParams{ObjectType: "ROLE", NameField: "rolname", OidField: "oid", CatalogTable: "pg_authid", Shared: true}
 	TYPE_RULE = MetadataQueryParams{ObjectType: "RULE", NameField: "rulename", OidField: "oid", CatalogTable: "pg_rewrite"}
 	TYPE_SCHEMA = MetadataQueryParams{ObjectType: "SCHEMA", NameField: "nspname", ACLField: "nspacl", OwnerField: "nspowner", CatalogTable: "pg_namespace"}
+	TYPE_STATISTIC_EXT = MetadataQueryParams{ObjectType: "STATISTIC_EXT", NameField: "stxname", OwnerField: "stxowner", CatalogTable: "pg_statistic_ext"}
 	TYPE_TABLESPACE = MetadataQueryParams{ObjectType: "TABLESPACE", NameField: "spcname", ACLField: "spcacl", OwnerField: "spcowner", CatalogTable: "pg_tablespace", Shared: true}
 	TYPE_TRANSFORM = MetadataQueryParams{ObjectType: "TRANSFORM", CatalogTable: "pg_transform"}
 	TYPE_TSCONFIGURATION = MetadataQueryParams{ObjectType: "TEXT SEARCH CONFIGURATION", NameField: "cfgname", OidField: "oid", SchemaField: "cfgnamespace", OwnerField: "cfgowner", CatalogTable: "pg_ts_config"}

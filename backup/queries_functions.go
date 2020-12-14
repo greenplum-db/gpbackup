@@ -1128,3 +1128,60 @@ func GetUserMappings(connectionPool *dbconn.DBConn) []UserMapping {
 	gplog.FatalOnError(err)
 	return results
 }
+
+type StatisticExt struct {
+	Oid         uint32
+	Name        string
+	Namespace   string // namespace that statistics object belongs to
+	Owner       string
+	TableSchema string // schema that table covered by statistics belongs to
+	TableName   string // table covered by statistics
+	Columns     string
+	Kind        string
+}
+
+func (se StatisticExt) GetMetadataEntry() (string, toc.MetadataEntry) {
+	return "postdata",
+		toc.MetadataEntry{
+			Schema:          se.Namespace,
+			Name:            se.Name,
+			ObjectType:      "STATISTICS",
+			ReferenceObject: utils.MakeFQN(se.TableSchema, se.TableName),
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (se StatisticExt) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_STATISTIC_EXT_OID, Oid: se.Oid}
+}
+
+func (se StatisticExt) FQN() string {
+	return se.Name
+}
+
+func GetExtendedStatistics(connectionPool *dbconn.DBConn) []StatisticExt {
+	results := make([]StatisticExt, 0)
+
+	query := fmt.Sprintf(`
+	SELECT 	oid,
+			stxname AS name,
+			(SELECT nspname from pg_namespace where oid = stxnamespace) AS namespace,
+			stxowner::regrole::text AS owner,
+			(SELECT relnamespace::regnamespace::text FROM pg_class WHERE oid = stxrelid) AS tableschema,
+			(SELECT relname from pg_class WHERE oid = stxrelid) as tablename,
+			(SELECT ARRAY(
+				SELECT column_name FROM information_schema.columns WHERE table_schema = (
+					SELECT relnamespace::regnamespace::text FROM pg_class WHERE oid = stxrelid
+				) AND table_name = (
+					SELECT relname from pg_class WHERE oid = stxrelid
+				) AND ordinal_position in (
+					SELECT unnest(stxkeys)
+				)
+			)) AS columns,
+			stxkind AS kind
+			FROM pg_catalog.pg_statistic_ext;`)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}

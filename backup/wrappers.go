@@ -717,6 +717,14 @@ func backupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
 	PrintDefaultPrivilegesStatements(metadataFile, globalTOC, defaultPrivileges)
 }
 
+func backupExtendedStatistic(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing CREATE STATISTICS statements to metadata file (for extended statistics)")
+	statisticsExt := GetExtendedStatistics(connectionPool)
+	objectCounts["STATISTICS EXT"] = len(statisticsExt)
+	statisticExtMetadata := GetMetadataForObjectType(connectionPool, TYPE_STATISTIC_EXT)
+	PrintCreateExtendedStatistics(metadataFile, globalTOC, statisticsExt, statisticExtMetadata)
+}
+
 /*
  * Data wrapper functions
  */

@@ -319,4 +319,5 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 
 		})
 	})
+	// TODO: test PrintCreateExtendedStatistics()
 })
