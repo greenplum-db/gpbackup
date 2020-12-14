@@ -374,7 +374,7 @@ func GetExistingTableFQNs() ([]string, error) {
 	if connectionPool.Version.Before("6") {
 		relkindFilter = "'r', 'S'"
 	} else if connectionPool.Version.Is("6") {
-		relkindFilter = "'r', 'S', f'"
+		relkindFilter = "'r', 'S', 'f'"
 	} else if connectionPool.Version.AtLeast("7") {
 		relkindFilter = "'r', 'S', 'f', 'p'"
 	}
