@@ -507,7 +507,7 @@ func (rm RoleMember) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
-	query := `
+	query := fmt.Sprintf(`
 	SELECT quote_ident(pg_get_userbyid(pga.roleid)) AS role,
 		quote_ident(pg_get_userbyid(pga.member)) AS member,
 		CASE
@@ -516,7 +516,8 @@ func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 		END AS grantor,
 		admin_option AS isadmin
 	FROM pg_auth_members pga
-	ORDER BY roleid, member`
+	WHERE roleid >= %d
+	ORDER BY roleid, member`, FIRST_NORMAL_OBJECT_ID)
 
 	results := make([]RoleMember, 0)
 	err := connectionPool.Select(&results, query)
