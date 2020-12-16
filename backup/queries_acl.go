@@ -87,9 +87,9 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	TYPE_FOREIGNSERVER = MetadataQueryParams{ObjectType: "SERVER", NameField: "srvname", ACLField: "srvacl", OwnerField: "srvowner", CatalogTable: "pg_foreign_server"}
 	TYPE_FUNCTION = MetadataQueryParams{ObjectType: "FUNCTION", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
 	if connectionPool.Version.AtLeast("7") {
-		TYPE_AGGREGATE.FilterClause = "prokind <> 'a'"
+		TYPE_FUNCTION.FilterClause = "prokind <> 'a'"
 	} else {
-		TYPE_AGGREGATE.FilterClause = "proisagg = 'f'"
+		TYPE_FUNCTION.FilterClause = "proisagg = 'f'"
 	}
 	TYPE_INDEX = MetadataQueryParams{ObjectType: "INDEX", NameField: "relname", OidField: "indexrelid", OidTable: "pg_class", CommentTable: "pg_class", CatalogTable: "pg_index"}
 	TYPE_PROCLANGUAGE = MetadataQueryParams{ObjectType: "LANGUAGE", NameField: "lanname", ACLField: "lanacl", CatalogTable: "pg_language"}
