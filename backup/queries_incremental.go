@@ -49,7 +49,7 @@ func getAOSegTableFQNs(connectionPool *dbconn.DBConn) map[string]string {
 						FROM pg_class c
 							JOIN pg_namespace n ON c.relnamespace = n.oid
 							JOIN pg_am a ON c.relam = a.oid
-						WHERE a.amname in ('ao_row', 'ao_col')
+						WHERE a.amname in ('ao_row', 'ao_column')
 							AND %s
 					) aotables ON pg_ao.relid = aotables.oid
 			) seg ON aoseg_c.oid = seg.segrelid`, relationAndSchemaFilterClause())
@@ -119,7 +119,7 @@ func getLastDDLTimestamps(connectionPool *dbconn.DBConn) map[string]string {
 				FROM pg_class c
 					JOIN pg_namespace n ON c.relnamespace = n.oid
 					JOIN pg_am a ON c.relam = a.oid
-				WHERE a.amname in ('ao_row', 'ao_col')
+				WHERE a.amname in ('ao_row', 'ao_column')
 					AND %s
 			) aotables
 		JOIN ( SELECT lo.objid,
