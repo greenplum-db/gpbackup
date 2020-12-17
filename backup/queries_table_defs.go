@@ -379,12 +379,18 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 	if connectionPool.Version.Before("6") {
 		return make(map[uint32]string)
 	}
+
+	relkindFilter := "'r', 'm'"
+	if connectionPool.Version.AtLeast("7") {
+		relkindFilter = "'r', 'm', 'p'"
+	}
+
 	query := fmt.Sprintf(`
 	SELECT oid,
 		relreplident AS value
 	FROM pg_class
-	WHERE relkind IN ('r', 'm')
-		AND oid >= %d`, FIRST_NORMAL_OBJECT_ID)
+	WHERE relkind IN (%s)
+		AND oid >= %d`, relkindFilter, FIRST_NORMAL_OBJECT_ID)
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
