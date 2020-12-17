@@ -94,7 +94,11 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 		if eventTrigger.EventTags != "" {
 			metadataFile.MustPrintf("\nWHEN TAG IN (%s)", eventTrigger.EventTags)
 		}
-		metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
+		if connectionPool.Version.AtLeast("7") {
+			metadataFile.MustPrintf("\nEXECUTE FUNCTION %s();", eventTrigger.FunctionName)
+		} else {
+			metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
+		}
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 		// Start EVENT TRIGGER metadata
