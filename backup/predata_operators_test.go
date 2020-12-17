@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"fmt"
+
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
@@ -14,22 +16,28 @@ var _ = Describe("backup/predata_operators tests", func() {
 	})
 	Describe("PrintCreateOperatorStatement", func() {
 		var (
-			operatorMetadata backup.ObjectMetadata
-			operator         backup.Operator
+			operatorMetadata        backup.ObjectMetadata
+			operator                backup.Operator
+			createStatementFuncRepl string
 		)
 		BeforeEach(func() {
 			operatorMetadata = testutils.DefaultMetadata("OPERATOR", false, true, true, false)
 			operator = backup.Operator{Oid: 0, Schema: "public", Name: "##", Procedure: "public.path_inter", LeftArgType: "public.path", RightArgType: `public."PATH"`, CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
+			if connectionPool.Version.AtLeast("7") {
+				createStatementFuncRepl = "FUNCTION"
+			} else {
+				createStatementFuncRepl = "PROCEDURE"
+			}
 		})
 		It("prints a basic operator", func() {
 			backup.PrintCreateOperatorStatement(backupfile, tocfile, operator, emptyMetadata)
 
 			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "##", "OPERATOR")
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE OPERATOR public.## (
-	PROCEDURE = public.path_inter,
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE OPERATOR public.## (
+	%s = public.path_inter,
 	LEFTARG = public.path,
 	RIGHTARG = public."PATH"
-);`)
+);`, createStatementFuncRepl))
 		})
 		It("prints a full-featured operator with a comment and owner", func() {
 			complexOperator := backup.Operator{Oid: 1, Schema: "testschema", Name: "##", Procedure: "public.path_inter", LeftArgType: "public.path", RightArgType: "public.path", CommutatorOp: "testschema.##", NegatorOp: "testschema.###", RestrictFunction: "eqsel(internal,oid,internal,integer)", JoinFunction: "eqjoinsel(internal,oid,internal,smallint)", CanHash: true, CanMerge: true}
@@ -37,8 +45,8 @@ var _ = Describe("backup/predata_operators tests", func() {
 			backup.PrintCreateOperatorStatement(backupfile, tocfile, complexOperator, operatorMetadata)
 
 			expectedStatements := []string{
-				`CREATE OPERATOR testschema.## (
-	PROCEDURE = public.path_inter,
+				fmt.Sprintf(`CREATE OPERATOR testschema.## (
+	%s = public.path_inter,
 	LEFTARG = public.path,
 	RIGHTARG = public.path,
 	COMMUTATOR = OPERATOR(testschema.##),
@@ -47,7 +55,7 @@ var _ = Describe("backup/predata_operators tests", func() {
 	JOIN = eqjoinsel(internal,oid,internal,smallint),
 	HASHES,
 	MERGES
-);`,
+);`, createStatementFuncRepl),
 				"COMMENT ON OPERATOR testschema.## (public.path, public.path) IS 'This is an operator comment.';",
 				"ALTER OPERATOR testschema.## (public.path, public.path) OWNER TO testrole;"}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
@@ -57,20 +65,20 @@ var _ = Describe("backup/predata_operators tests", func() {
 
 			backup.PrintCreateOperatorStatement(backupfile, tocfile, operator, emptyMetadata)
 
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE OPERATOR public.## (
-	PROCEDURE = public.path_inter,
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE OPERATOR public.## (
+	%s = public.path_inter,
 	LEFTARG = public.path
-);`)
+);`, createStatementFuncRepl))
 		})
 		It("prints an operator with only a right argument", func() {
 			operator.LeftArgType = "-"
 
 			backup.PrintCreateOperatorStatement(backupfile, tocfile, operator, emptyMetadata)
 
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE OPERATOR public.## (
-	PROCEDURE = public.path_inter,
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE OPERATOR public.## (
+	%s = public.path_inter,
 	RIGHTARG = public."PATH"
-);`)
+);`, createStatementFuncRepl))
 		})
 	})
 	Describe("PrintCreateOperatorFamilyStatements", func() {
