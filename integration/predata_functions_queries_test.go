@@ -2,6 +2,7 @@ package integration
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -764,18 +765,23 @@ LANGUAGE SQL`)
 	})
 	Describe("GetProceduralLanguages", func() {
 		It("returns a slice of procedural languages", func() {
-			testhelper.AssertQueryRuns(connectionPool, "CREATE LANGUAGE plpythonu")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP LANGUAGE plpythonu")
+			plpythonString := "plpython"
+			if connectionPool.Version.AtLeast("7") {
+				plpythonString = "plpython3"
+			}
 
-			pythonHandlerOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "plpython_call_handler", backup.TYPE_FUNCTION)
+			testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("CREATE LANGUAGE %su", plpythonString))
+			defer testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("DROP LANGUAGE %su", plpythonString))
 
-			expectedPlpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: pythonHandlerOid, Inline: 0, Validator: 0}
+			pythonHandlerOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", fmt.Sprintf("%s_call_handler", plpythonString), backup.TYPE_FUNCTION)
+
+			expectedPlpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: fmt.Sprintf("%su", plpythonString), Owner: "testrole", IsPl: true, PlTrusted: false, Handler: pythonHandlerOid, Inline: 0, Validator: 0}
 			if connectionPool.Version.AtLeast("5") {
-				pythonInlineOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "plpython_inline_handler", backup.TYPE_FUNCTION)
+				pythonInlineOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", fmt.Sprintf("%s_inline_handler", plpythonString), backup.TYPE_FUNCTION)
 				expectedPlpythonInfo.Inline = pythonInlineOid
 			}
 			if connectionPool.Version.AtLeast("6") {
-				expectedPlpythonInfo.Validator = testutils.OidFromObjectName(connectionPool, "pg_catalog", "plpython_validator", backup.TYPE_FUNCTION)
+				expectedPlpythonInfo.Validator = testutils.OidFromObjectName(connectionPool, "pg_catalog", fmt.Sprintf("%s_validator", plpythonString), backup.TYPE_FUNCTION)
 			}
 
 			resultProcLangs := backup.GetProceduralLanguages(connectionPool)

@@ -52,7 +52,13 @@ PARTITION BY LIST (gender)
 
 				tableRank := backup.Relation{Schema: "public", Name: "rank"}
 
-				Expect(tables).To(HaveLen(1))
+				if connectionPool.Version.Before("7") {
+					Expect(tables).To(HaveLen(1))
+				} else {
+					// For GPDB 7+, the leaf partitions have their own DDL so they need to be obtained as well
+					Expect(tables).To(HaveLen(4))
+				}
+
 				structmatcher.ExpectStructsToMatchExcluding(&tableRank, &tables[0], "SchemaOid", "Oid")
 			})
 			It("returns both parent and leaf partition tables if the leaf-partition-data flag is set and there are no include tables", func() {
@@ -385,7 +391,9 @@ PARTITION BY LIST (gender)
 			if connectionPool.Version.AtLeast("7") {
 				// In GPDB 7+, default cache value is 20
 				seqOneDef.CacheVal = 20
+				seqOneDef.Type = "bigint"
 				seqTwoDef.CacheVal = 20
+				seqTwoDef.Type = "bigint"
 			}
 
 			results := backup.GetAllSequences(connectionPool)

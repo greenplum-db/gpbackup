@@ -297,6 +297,11 @@ CREATE TABLE public.test_tsvector (
 	Describe("GetPartitionDefinitions", func() {
 		var partitionPartFalseExpectation = "false "
 		BeforeEach(func() {
+			// GPDB 7+ does not have pg_get_partition_def()
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+
 			if connectionPool.Version.AtLeast("6") {
 				partitionPartFalseExpectation = "'false'"
 			}
@@ -408,6 +413,12 @@ PARTITION BY LIST (gender)
 		})
 	})
 	Describe("GetPartitionTemplates", func() {
+		BeforeEach(func() {
+			// GPDB 7+ does not have pg_get_partition_template_def()
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+		})
 		It("returns empty string when no partition definition template exists", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
@@ -707,7 +718,12 @@ SET SUBPARTITION TEMPLATE
 
 			_, result := backup.GetTableStorage(connectionPool)
 
-			Expect(result[oid]).To(Equal("appendonly=true"))
+			if connectionPool.Version.Before("7") {
+				Expect(result[oid]).To(Equal("appendonly=true"))
+			} else {
+				// For GPDB 7+, storage options no longer contain appendonly and orientation
+				Expect(result[oid]).To(Equal(""))
+			}
 		})
 	})
 	Describe("GetTableInheritance", func() {
@@ -859,6 +875,12 @@ SET SUBPARTITION TEMPLATE
 		})
 	})
 	Describe("GetPartitionAlteredSchema", func() {
+		BeforeEach(func() {
+			// For GPDB 7+, leaf partitions have their own DDL which will have the correct namespace
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+		})
 		It("Returns a map of table oid to array of child partitions with different schemas", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")

@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"database/sql"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -24,7 +26,7 @@ FORMAT 'TEXT'`)
 			results := backup.GetExternalTableDefinitions(connectionPool)
 			result := results[oid]
 
-			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: sql.NullString{String: "file://tmp/myfile.txt", Valid: true},
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
 				Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
@@ -42,10 +44,14 @@ FORMAT 'TEXT'`)
 			results := backup.GetExternalTableDefinitions(connectionPool)
 			result := results[oid]
 
-			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "",
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: sql.NullString{String: "", Valid: true},
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
 				Command: "hostname", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF8",
 				Writable: false, URIs: nil}
+			if connectionPool.Version.AtLeast("7") {
+				// The query for GPDB 7+ will have a NULL value instead of ""
+				extTable.Location.Valid = false
+			}
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
@@ -62,7 +68,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 			results := backup.GetExternalTableDefinitions(connectionPool)
 			result := results[oid]
 
-			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: sql.NullString{String: "file://tmp/myfile.txt", Valid: true},
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
 				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
@@ -82,7 +88,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 			results := backup.GetExternalTableDefinitions(connectionPool)
 			result := results[oid]
 
-			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: sql.NullString{String: "file://tmp/myfile.txt", Valid: true},
 				ExecLocation: "ALL_SEGMENTS", FormatType: "c", FormatOpts: `delimiter '|' null '' escape ''' quote ''' force not null i`,
 				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
@@ -102,7 +108,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 			results := backup.GetExternalTableDefinitions(connectionPool)
 			result := results[oid]
 
-			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: sql.NullString{String: "file://tmp/myfile.txt", Valid: true},
 				ExecLocation: "ALL_SEGMENTS", FormatType: "b", FormatOpts: "formatter 'fixedwidth_out' i '20' ",
 				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
@@ -128,7 +134,7 @@ LOG ERRORS PERSISTENTLY SEGMENT REJECT LIMIT 10 PERCENT`)
 			results := backup.GetExternalTableDefinitions(connectionPool)
 			result := results[oid]
 
-			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: "file://tmp/myfile.txt",
+			extTable := backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: 0, Location: sql.NullString{String: "file://tmp/myfile.txt", Valid: true},
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '%' null '' escape 'OFF'",
 				Command: "", RejectLimit: 10, RejectLimitType: "p", LogErrors: true, LogErrPersist: true, Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/myfile.txt"}}
@@ -157,6 +163,12 @@ LOG ERRORS PERSISTENTLY SEGMENT REJECT LIMIT 10 PERCENT`)
 		})
 	})
 	Describe("GetExternalPartitionInfo", func() {
+		BeforeEach(func() {
+			// For GPDB 7+, external partitions will have their own ATTACH PARTITION DDL commands.
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+		})
 		AfterEach(func() {
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_tbl")
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_tbl_ext_part_")

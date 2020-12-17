@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"fmt"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -126,10 +128,14 @@ var _ = Describe("backup integration tests", func() {
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a procedural language", func() {
-				testhelper.AssertQueryRuns(connectionPool, "CREATE LANGUAGE plpythonu")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP LANGUAGE plpythonu")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON LANGUAGE plpythonu IS 'This is a language comment.'")
-				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "LANGUAGE", "plpythonu")
+				plpythonString := "plpythonu"
+				if connectionPool.Version.AtLeast("7") {
+					plpythonString = "plpython3u"
+				}
+				testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("CREATE LANGUAGE %s", plpythonString))
+				defer testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("DROP LANGUAGE %s", plpythonString))
+				testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("COMMENT ON LANGUAGE %s IS 'This is a language comment.'", plpythonString))
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, "LANGUAGE", plpythonString)
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_PROCLANGUAGE)
 
@@ -140,7 +146,7 @@ var _ = Describe("backup integration tests", func() {
 				} else {
 					expectedMetadata = testutils.DefaultMetadata("LANGUAGE", false, true, true, includeSecurityLabels)
 				}
-				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "plpythonu", backup.TYPE_PROCLANGUAGE)
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", plpythonString, backup.TYPE_PROCLANGUAGE)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
@@ -875,7 +881,7 @@ LANGUAGE SQL`)
 				testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.testtable(i int)`)
 				testhelper.AssertQueryRuns(connectionPool, `CREATE RULE update_notify AS ON UPDATE TO public.testtable DO NOTIFY testtable`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON RULE update_notify IS 'This is a rule comment.'")
+				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON RULE update_notify ON public.testtable IS 'This is a rule comment.'")
 
 				resultMetadataMap = backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RULE)
 
@@ -891,7 +897,11 @@ LANGUAGE SQL`)
 				numTriggers := len(resultMetadataMap)
 
 				testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.testtable(i int)`)
-				testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+				if connectionPool.Version.Before("7") {
+					testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+				} else {
+					testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`)
+				}
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TRIGGER sync_testtable ON public.testtable IS 'This is a trigger comment.'")
 

@@ -185,7 +185,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			triggerMetadataMap = backup.MetadataMap{}
 		})
 		It("creates a basic trigger", func() {
-			triggers := []backup.TriggerDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}}
+			triggerDef := `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerDef = `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+			}
+			triggers := []backup.TriggerDefinition{{Oid: 0, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: triggerDef, Valid: true}}}
 			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int)")
@@ -198,7 +202,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&resultTriggers[0], &triggers[0], "Oid")
 		})
 		It("creates a trigger with a comment", func() {
-			triggers := []backup.TriggerDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}}
+			triggerDef := `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerDef = `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+			}
+			triggers := []backup.TriggerDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: triggerDef, Valid: true}}}
 			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
 			triggerMetadata := triggerMetadataMap[triggers[0].GetUniqueID()]
 			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)

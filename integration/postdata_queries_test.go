@@ -102,6 +102,12 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&index2, &userIndex[1], "Oid")
 		})
 		It("returns a slice of indexes for only partition parent tables", func() {
+			// In GPDB 7+, all partitions will have their own CREATE INDEX statement
+			// followed by an ALTER INDEX ATTACH PARTITION statement
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part (id int, date date, amt decimal(10,2)) DISTRIBUTED BY (id)
 PARTITION BY RANGE (date)
       (PARTITION Jan08 START (date '2008-01-01') INCLUSIVE ,
@@ -302,17 +308,24 @@ PARTITION BY RANGE (date)
 			Expect(results).To(BeEmpty())
 		})
 		It("returns a slice of multiple triggers", func() {
+			triggerString1 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			triggerString2 := `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerString1 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+				triggerString2 = `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table2(j int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table2")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString1)
+			testhelper.AssertQueryRuns(connectionPool, triggerString2)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON public.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table2 ON public.trigger_table2")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
-			trigger2 := backup.TriggerDefinition{Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: sql.NullString{String: triggerString1, Valid: true}}
+			trigger2 := backup.TriggerDefinition{Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: sql.NullString{String: triggerString2, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -332,19 +345,25 @@ PARTITION BY RANGE (date)
 			Expect(results).To(BeEmpty())
 		})
 		It("returns a slice of triggers for a specific schema", func() {
+			triggerString1 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			triggerString2 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerString1 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+				triggerString2 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString1)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON public.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString2)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: triggerString2, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -352,19 +371,25 @@ PARTITION BY RANGE (date)
 			structmatcher.ExpectStructsToMatchExcluding(&trigger1, &results[0], "Oid")
 		})
 		It("returns a slice of triggers belonging to filtered tables", func() {
+			triggerString1 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			triggerString2 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerString1 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+				triggerString2 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString1)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON public.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString2)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.trigger_table1")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: triggerString2, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 

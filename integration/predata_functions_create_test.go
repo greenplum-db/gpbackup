@@ -2,6 +2,7 @@ package integration
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -95,6 +96,10 @@ var _ = Describe("backup integration create statement tests", func() {
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
 				}
+				if connectionPool.Version.AtLeast("7") {
+					addFunction.PlannerSupport = "-"
+					addFunction.Kind = "f"
+				}
 
 				metadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, addFunction, metadata)
@@ -117,6 +122,10 @@ var _ = Describe("backup integration create statement tests", func() {
 					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO 'pg_temp'", Cost: 200,
 					NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
 				}
+				if connectionPool.Version.AtLeast("7") {
+					appendFunction.PlannerSupport = "-"
+					appendFunction.Kind = "f"
+				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, appendFunction, funcMetadata)
 
@@ -137,6 +146,10 @@ var _ = Describe("backup integration create statement tests", func() {
 					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
+				}
+				if connectionPool.Version.AtLeast("7") {
+					dupFunction.PlannerSupport = "-"
+					dupFunction.Kind = "f"
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, dupFunction, funcMetadata)
@@ -162,7 +175,13 @@ var _ = Describe("backup integration create statement tests", func() {
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", IsWindow: true, ExecLocation: "m",
+					Language: "sql", ExecLocation: "m",
+				}
+				if connectionPool.Version.AtLeast("7") {
+					windowFunction.PlannerSupport = "-"
+					windowFunction.Kind = "w"
+				} else {
+					windowFunction.IsWindow = true
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, windowFunction, funcMetadata)
@@ -184,6 +203,10 @@ var _ = Describe("backup integration create statement tests", func() {
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "s",
 				}
+				if connectionPool.Version.AtLeast("7") {
+					segmentFunction.PlannerSupport = "-"
+					segmentFunction.Kind = "f"
+				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, segmentFunction, funcMetadata)
 
@@ -203,6 +226,10 @@ var _ = Describe("backup integration create statement tests", func() {
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsLeakProof: true, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "a",
+				}
+				if connectionPool.Version.AtLeast("7") {
+					leakProofFunction.PlannerSupport = "-"
+					leakProofFunction.Kind = "f"
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, leakProofFunction, funcMetadata)
@@ -473,9 +500,14 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateLanguageStatements", func() {
 		It("creates procedural languages", func() {
+			plpythonString := "plpython"
+			if connectionPool.Version.AtLeast("7") {
+				plpythonString = "plpython3"
+			}
+
 			funcInfoMap := map[uint32]backup.FunctionInfo{
-				1: {QualifiedName: "pg_catalog.plpython_call_handler", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
-				2: {QualifiedName: "pg_catalog.plpython_inline_handler", Arguments: sql.NullString{String: "internal", Valid: true}, IsInternal: true},
+				1: {QualifiedName: fmt.Sprintf("pg_catalog.%s_call_handler", plpythonString), Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+				2: {QualifiedName: fmt.Sprintf("pg_catalog.%s_inline_handler", plpythonString), Arguments: sql.NullString{String: "internal", Valid: true}, IsInternal: true},
 			}
 			langOwner := ""
 			var langMetadata backup.ObjectMetadata
@@ -486,7 +518,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				langOwner = "testrole"
 				langMetadata = testutils.DefaultMetadata("LANGUAGE", false, true, true, includeSecurityLabels)
 			}
-			plpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: langOwner, IsPl: true, PlTrusted: false, Handler: 1, Inline: 2}
+			plpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: fmt.Sprintf("%su", plpythonString), Owner: langOwner, IsPl: true, PlTrusted: false, Handler: 1, Inline: 2}
 
 			langMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{plpythonInfo.GetUniqueID(): langMetadata}
 			if connectionPool.Version.Before("5") {
@@ -497,12 +529,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, procLangs, funcInfoMap, langMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP LANGUAGE plpythonu")
+			defer testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("DROP LANGUAGE %su", plpythonString))
 
 			resultProcLangs := backup.GetProceduralLanguages(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_PROCLANGUAGE)
 
-			plpythonInfo.Oid = testutils.OidFromObjectName(connectionPool, "", "plpythonu", backup.TYPE_PROCLANGUAGE)
+			plpythonInfo.Oid = testutils.OidFromObjectName(connectionPool, "", fmt.Sprintf("%su", plpythonString), backup.TYPE_PROCLANGUAGE)
 			Expect(resultProcLangs).To(HaveLen(1))
 			resultMetadata := resultMetadataMap[plpythonInfo.GetUniqueID()]
 			structmatcher.ExpectStructsToMatchIncluding(&plpythonInfo, &resultProcLangs[0], "Name", "IsPl", "PlTrusted")

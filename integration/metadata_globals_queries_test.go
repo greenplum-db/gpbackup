@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"fmt"
+
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -23,27 +25,27 @@ var _ = Describe("backup integration tests", func() {
 	})
 	Describe("GetDatabaseGUCs", func() {
 		It("returns a slice of values for database level GUCs", func() {
-			testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb SET default_with_oids TO true")
-			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET default_with_oids")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb SET enable_nestloop TO true")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET enable_nestloop")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb SET search_path TO public,pg_catalog")
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET search_path")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb SET lc_time TO 'C'")
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET lc_time")
 			results := backup.GetDatabaseGUCs(connectionPool)
 			Expect(results).To(HaveLen(3))
-			Expect(results[0]).To(Equal(`SET default_with_oids TO 'true'`))
+			Expect(results[0]).To(Equal(`SET enable_nestloop TO 'true'`))
 			Expect(results[1]).To(Equal("SET search_path TO public, pg_catalog"))
 			Expect(results[2]).To(Equal(`SET lc_time TO 'C'`))
 		})
 		It("only gets GUCs that are non role specific", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE testrole IN DATABASE testdb SET default_with_oids TO false")
-			defer testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE testrole IN DATABASE testdb RESET default_with_oids")
-			testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb SET default_with_oids TO true")
-			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET default_with_oids")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE testrole IN DATABASE testdb SET enable_nestloop TO true")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE testrole IN DATABASE testdb RESET enable_nestloop")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb SET enable_nestloop TO false")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET enable_nestloop")
 			results := backup.GetDatabaseGUCs(connectionPool)
 			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(`SET default_with_oids TO 'true'`))
+			Expect(results[0]).To(Equal(`SET enable_nestloop TO 'false'`))
 		})
 	})
 	Describe("GetDefaultDatabaseEncodingInfo", func() {
@@ -568,7 +570,12 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE role1 SET search_path TO public")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE role1 SET client_min_messages TO 'info'")
-			testhelper.AssertQueryRuns(connectionPool, "ALTER ROLE role1 SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'")
+
+			defaultStorageOptionsString := "appendonly=true, compresslevel=6, orientation=row, compresstype=none"
+			if connectionPool.Version.AtLeast("7") {
+				defaultStorageOptionsString = "compresslevel=6, compresstype=none"
+			}
+			testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("ALTER ROLE role1 SET gp_default_storage_options TO '%s'", defaultStorageOptionsString))
 
 			results := backup.GetRoleGUCs(connectionPool)
 			roleConfig := results["role1"]
@@ -576,7 +583,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 			Expect(roleConfig).To(HaveLen(3))
 			expectedRoleConfig := []backup.RoleGUC{
 				{RoleName: "role1", Config: `SET client_min_messages TO 'info'`},
-				{RoleName: "role1", Config: `SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'`},
+				{RoleName: "role1", Config: fmt.Sprintf(`SET gp_default_storage_options TO '%s'`, defaultStorageOptionsString)},
 				{RoleName: "role1", Config: `SET search_path TO public`}}
 
 			Expect(roleConfig).To(ConsistOf(expectedRoleConfig))

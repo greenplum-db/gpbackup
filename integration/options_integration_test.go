@@ -210,12 +210,18 @@ FORMAT 'csv';`)
 			expectedTableNames := []string{
 				"public.partition_table",
 				"public.partition_table_1_prt_boys",
-				"public.partition_table_1_prt_girls",
+			}
+			if connectionPool.Version.Before("7") {
+				// For GPDB 4, 5, and 6, the leaf partition metadata is a part of the large root partition DDL.
+				// For GPDB 7+, the leaf partition has its own separate DDL and attaches onto the root partition
+				// with ALTER TABLE ATTACH PARTITION. Therefore, only the included leaf partition and its root
+				// partition will have their metadata dumped.
+				expectedTableNames = append(expectedTableNames, "public.partition_table_1_prt_girls")
 			}
 
 			tables := subject.GetIncludedTables()
 			sort.Strings(tables)
-			Expect(tables).To(HaveLen(3))
+			Expect(tables).To(HaveLen(len(expectedTableNames)))
 			Expect(tables).To(Equal(expectedTableNames))
 		})
 		It("returns external partition tables for an included parent table if the filter includes a parent partition table", func() {
@@ -265,17 +271,32 @@ FORMAT 'csv';`)
 			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
-			expectedTableNames := []string{
-				"public.partition_table1",
-				"public.partition_table1_1_prt_boys",
-				"public.partition_table2",
-				"public.partition_table2_1_prt_girls",
-				"public.partition_table2_1_prt_other",
+			var expectedTableNames []string
+			if connectionPool.Version.Before("7") {
+				expectedTableNames = []string{
+					"public.partition_table1",
+					"public.partition_table1_1_prt_boys",
+					"public.partition_table2",
+					"public.partition_table2_1_prt_girls",
+					"public.partition_table2_1_prt_other",
+				}
+			} else {
+				// For GPDB 7+, each leaf partition of the included partition_table1 will have their own
+				// separate DDL along with an ATTACH PARTITION. Since only partition_table2_1_prt_other
+				// is included, only it and its root partition will be a part of the list.
+				expectedTableNames = []string{
+					"public.partition_table1",
+					"public.partition_table1_1_prt_boys",
+					"public.partition_table1_1_prt_girls",
+					"public.partition_table1_1_prt_other",
+					"public.partition_table2",
+					"public.partition_table2_1_prt_other",
+				}
 			}
 
 			tables := subject.GetIncludedTables()
 			sort.Strings(tables)
-			Expect(tables).To(HaveLen(5))
+			Expect(tables).To(HaveLen(len(expectedTableNames)))
 			Expect(tables).To(Equal(expectedTableNames))
 		})
 	})
