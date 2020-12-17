@@ -58,8 +58,14 @@ var _ = Describe("backup integration tests", func() {
 			It("should have a last DDL timestamp", func() {
 				Expect(aoIncrementalMetadata[aoTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
 				Expect(aoIncrementalMetadata[aoCOTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
-				Expect(aoIncrementalMetadata[aoPartParentTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
 				Expect(aoIncrementalMetadata[aoPartChildTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
+
+				// For GPDB 7+, the root partition is not included.
+				// TODO: Should the root be included?
+				if connectionPool.Version.Before("7") {
+					Expect(aoIncrementalMetadata[aoPartParentTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
+				}
+
 			})
 		})
 		Context("AO, AO_CO and AO partition tables have DML changes", func() {
@@ -97,8 +103,13 @@ var _ = Describe("backup integration tests", func() {
 				It("should have a last DDL timestamp", func() {
 					Expect(aoIncrementalMetadata[aoTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
 					Expect(aoIncrementalMetadata[aoCOTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
-					Expect(aoIncrementalMetadata[aoPartParentTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
 					Expect(aoIncrementalMetadata[aoPartChildTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
+
+					// For GPDB 7+, the root partition is not included.
+					// TODO: Should the root be included?
+					if connectionPool.Version.Before("7") {
+						Expect(aoIncrementalMetadata[aoPartParentTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
+					}
 				})
 			})
 			Context("After a delete operation", func() {
@@ -134,8 +145,13 @@ var _ = Describe("backup integration tests", func() {
 				It("should have a last DDL timestamp", func() {
 					Expect(aoIncrementalMetadata[aoTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
 					Expect(aoIncrementalMetadata[aoCOTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
-					Expect(aoIncrementalMetadata[aoPartParentTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
 					Expect(aoIncrementalMetadata[aoPartChildTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
+
+					// For GPDB 7+, the root partition is not included.
+					// TODO: Should the root be included?
+					if connectionPool.Version.Before("7") {
+						Expect(aoIncrementalMetadata[aoPartParentTableFQN].LastDDLTimestamp).To(Not(BeEmpty()))
+					}
 				})
 			})
 		})

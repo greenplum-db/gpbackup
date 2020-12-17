@@ -23,7 +23,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testTable backup.Table
 		)
 		BeforeEach(func() {
-			extTable = backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: backup.FILE, Location: "file://tmp/ext_table_file",
+			extTable = backup.ExternalTableDefinition{Oid: 0, Type: 0, Protocol: backup.FILE, Location: sql.NullString{String: "file://tmp/ext_table_file", Valid: true},
 				ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "delimiter '	' null '\\N' escape '\\'",
 				Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF8",
 				Writable: false, URIs: []string{"file://tmp/ext_table_file"}}
@@ -61,11 +61,15 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a READABLE WEB EXTERNAL table with an EXECUTE statement containing special characters", func() {
 			extTable.Type = backup.READABLE_WEB
 			extTable.Writable = false
-			extTable.Location = ""
+			extTable.Location = sql.NullString{String: "", Valid: true}
 			extTable.Protocol = backup.HTTP
 			extTable.URIs = nil
 			extTable.Command = `bash % someone's \.custom_script.sh`
 			testTable.ExtTableDef = extTable
+			if connectionPool.Version.AtLeast("7") {
+				// The query for GPDB 7+ will have a NULL value instead of ""
+				extTable.Location.Valid = false
+			}
 
 			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
 
@@ -159,7 +163,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a WRITABLE EXTERNAL table", func() {
 			extTable.Type = backup.WRITABLE
 			extTable.Writable = true
-			extTable.Location = "gpfdist://outputhost:8081/data1.out"
+			extTable.Location = sql.NullString{String: "gpfdist://outputhost:8081/data1.out", Valid: true}
 			extTable.URIs = []string{"gpfdist://outputhost:8081/data1.out"}
 			extTable.Protocol = backup.GPFDIST
 			testTable.ExtTableDef = extTable
@@ -240,6 +244,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			{Relation: backup.Relation{Oid: 2, Schema: "public", Name: "part_tbl"}},
 		}
 		emptyPartInfoMap := make(map[uint32]backup.PartitionInfo)
+		BeforeEach(func() {
+			// For GPDB 7+, external partitions will have their own ATTACH PARTITION DDL commands.
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+		})
 		AfterEach(func() {
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_tbl")
 		})

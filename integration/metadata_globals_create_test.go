@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
@@ -67,15 +68,19 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintDatabaseGUCs", func() {
-		defaultOidGUC := "SET default_with_oids TO 'true'"
-		searchPathGUC := "SET search_path TO pg_catalog, public"
-		defaultStorageGUC := "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"
 		It("creates database GUCs with correct quoting", func() {
-			gucs := []string{defaultOidGUC, searchPathGUC, defaultStorageGUC}
+			enableNestLoopGUC := "SET enable_nestloop TO 'true'"
+			searchPathGUC := "SET search_path TO pg_catalog, public"
+			defaultStorageGUC := "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"
+			if connectionPool.Version.AtLeast("7") {
+				defaultStorageGUC = "SET gp_default_storage_options TO 'compresslevel=6, compresstype=none'"
+			}
+
+			gucs := []string{enableNestLoopGUC, searchPathGUC, defaultStorageGUC}
 
 			backup.PrintDatabaseGUCs(backupfile, tocfile, gucs, "testdb")
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET default_with_oids")
+			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET enable_nestloop")
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET search_path")
 			defer testhelper.AssertQueryRuns(connectionPool, "ALTER DATABASE testdb RESET gp_default_storage_options")
 			resultGUCs := backup.GetDatabaseGUCs(connectionPool)
@@ -386,9 +391,14 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, `DROP ROLE testuser`)
 		})
 		It("Sets GUCs for a particular role", func() {
+			defaultStorageOptionsString := "appendonly=true, compresslevel=6, orientation=row, compresstype=none"
+			if connectionPool.Version.AtLeast("7") {
+				defaultStorageOptionsString = "compresslevel=6, compresstype=none"
+			}
+
 			roleConfigMap := map[string][]backup.RoleGUC{
 				"testuser": {
-					{RoleName: "testuser", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"},
+					{RoleName: "testuser", Config: fmt.Sprintf("SET gp_default_storage_options TO '%s'", defaultStorageOptionsString)},
 					{RoleName: "testuser", Config: "SET search_path TO public"}},
 			}
 
@@ -402,9 +412,14 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("Sets GUCs for a role in a particular database", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
+			defaultStorageOptionsString := "appendonly=true, compresslevel=6, orientation=row, compresstype=none"
+			if connectionPool.Version.AtLeast("7") {
+				defaultStorageOptionsString = "compresslevel=6, compresstype=none"
+			}
+
 			roleConfigMap := map[string][]backup.RoleGUC{
 				"testuser": {
-					{RoleName: "testuser", DbName: "testdb", Config: "SET gp_default_storage_options TO 'appendonly=true, compresslevel=6, orientation=row, compresstype=none'"},
+					{RoleName: "testuser", DbName: "testdb", Config: fmt.Sprintf("SET gp_default_storage_options TO '%s'", defaultStorageOptionsString)},
 					{RoleName: "testuser", DbName: "testdb", Config: "SET search_path TO public"}},
 			}
 

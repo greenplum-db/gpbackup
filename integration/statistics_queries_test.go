@@ -59,6 +59,10 @@ var _ = Describe("backup integration tests", func() {
 			expectedStats5K := backup.AttributeStatistic{Oid: tableOid, Schema: "public", Table: "foo", AttName: "k",
 				Type: "bool", Relid: tableOid, AttNumber: 3, Inherit: false, Width: 1, Distinct: -1, Kind1: 2, Kind2: 3, Operator1: 58,
 				Operator2: 58, Numbers2: []string{"-1"}, Values1: []string{"f", "t"}}
+			if connectionPool.Version.AtLeast("7") {
+				expectedStats5J.Collation1 = 100
+				expectedStats5J.Collation2 = 100
+			}
 
 			// The order in which the stavalues1 values is returned is not guaranteed to be deterministic
 			sort.Strings(tableAttStatsI.Values1)
