@@ -165,7 +165,8 @@ func (pi PartitionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetExternalPartitionInfo(connectionPool *dbconn.DBConn) ([]PartitionInfo, map[uint32]PartitionInfo) {
-	// TODO: fix for gpdb7 partitioning
+	// For GPDB 7+, external partitions will have their own ATTACH PARTITION DDL command
+	// instead of a complicated EXCHANGE PARTITION command.
 	if connectionPool.Version.AtLeast("7") {
 		return []PartitionInfo{}, make(map[uint32]PartitionInfo, 0)
 	}

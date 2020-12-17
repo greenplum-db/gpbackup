@@ -618,7 +618,7 @@ func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 	PrintIdentityColumns(metadataFile, globalTOC, sequences)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
-	if len(extPartInfo) > 0 {
+	if connectionPool.Version.Before("7") && len(extPartInfo) > 0 {
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
 		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
 	}
