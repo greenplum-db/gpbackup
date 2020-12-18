@@ -298,6 +298,9 @@ func backupPostdata(metadataFile *utils.FileWithByteCount) {
 			backupEventTriggers(metadataFile)
 		}
 	}
+	if connectionPool.Version.AtLeast("7") {
+		backupRowLevelSecurityPolicies(metadataFile)
+	}
 
 	logCompletionMessage("Post-data metadata backup")
 }
