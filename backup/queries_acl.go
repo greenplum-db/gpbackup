@@ -66,6 +66,7 @@ var (
 	TYPE_TSTEMPLATE         MetadataQueryParams
 	TYPE_TRIGGER            MetadataQueryParams
 	TYPE_TYPE               MetadataQueryParams
+	TYPE_POLICY             MetadataQueryParams
 )
 
 func InitializeMetadataParams(connectionPool *dbconn.DBConn) {

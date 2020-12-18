@@ -127,3 +127,51 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 		PrintObjectMetadata(metadataFile, toc, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger, "")
 	}
 }
+
+func PrintCreatePolicyStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, policies []RLSPolicy, policyMetadata MetadataMap) {
+	for _, policy := range policies {
+		start := metadataFile.ByteCount
+		section, entry := policy.GetMetadataEntry()
+
+		tableFQN := utils.MakeFQN(policy.Schema, policy.Table)
+		metadataFile.MustPrintf("\n\nALTER TABLE %s ENABLE ROW LEVEL SECURITY;", tableFQN)
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+
+		permissiveOption := ""
+		if policy.Permissive == "false" {
+			permissiveOption =  " AS RESTRICTIVE"
+		}
+		cmdOption := ""
+		if policy.Cmd != "" {
+			switch policy.Cmd {
+			case "*":
+				cmdOption = ""
+			case "r":
+				cmdOption = " FOR SELECT"
+			case "a":
+				cmdOption = " FOR INSERT"
+			case "w":
+				cmdOption = " FOR UPDATE"
+			case "d":
+				cmdOption = " FOR DELETE"
+			default:
+				gplog.Fatal(errors.Errorf("Unexpected policy command: expected '*|r|a|w|d' got '%s'\n", policy.Cmd), "")
+			}
+		}
+		start = metadataFile.ByteCount
+		metadataFile.MustPrintf("\nCREATE POLICY %s\nON %s%s%s", policy.Name, tableFQN, permissiveOption, cmdOption)
+
+		if policy.Roles != "" {
+			metadataFile.MustPrintf("\n TO %s", policy.Roles)
+		}
+		if policy.Qual != "" {
+			metadataFile.MustPrintf("\n USING (%s)", policy.Qual)
+		}
+		if policy.WithCheck != "" {
+			metadataFile.MustPrintf("\n WITH CHECK (%s)", policy.WithCheck)
+		}
+		metadataFile.MustPrintf(";\n")
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, policyMetadata[policy.GetUniqueID()], policy, "")
+	}
+}

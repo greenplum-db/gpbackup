@@ -490,4 +490,53 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 
 		})
 	})
+	Describe("GetPolicies", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
+		})
+		It("returns no results when no policies exists", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.policy_table(user_name text)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.policy_table")
+			results := backup.GetPolicies(connectionPool)
+			Expect(results).To(BeEmpty())
+		})
+		It("returns a slice of multiple policies", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.users(user_name text)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.users")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy1_user_sel ON public.users FOR SELECT USING (true)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy1_user_sel on public.users")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy2_user_mod ON public.users USING (user_name = current_user)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy2_user_mod on public.users")
+
+			results := backup.GetPolicies(connectionPool)
+
+			Expect(results).To(HaveLen(2))
+			policy1 := backup.RLSPolicy{Oid: 1, Name: "policy1_user_sel", Cmd: "r", Permissive: "true", Schema: "public", Table: "users", Qual: "true"}
+			policy2 := backup.RLSPolicy{Oid: 1, Name: "policy2_user_mod", Cmd: "*", Permissive: "true", Schema: "public", Table: "users", Qual: "(user_name = CURRENT_USER)"}
+			structmatcher.ExpectStructsToMatchExcluding(&policy1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&policy2, &results[1], "Oid")
+		})
+		It("returns a slice of multiple policies with checks", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.passwd(user_name text, shell text not null)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.passwd")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE BOB")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE BOB")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy1_bob_all ON public.passwd TO bob USING (true) WITH CHECK (true)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy1_bob_all on public.passwd")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy2_all_view ON public.passwd FOR SELECT USING (true)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy2_all_view on public.passwd")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy3_user_mod ON public.passwd FOR UPDATE USING (user_name = current_user) WITH CHECK (current_user = user_name AND shell IN ('/bin/bash', '/bin/sh'))")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy3_user_mod on public.passwd")
+
+			results := backup.GetPolicies(connectionPool)
+
+			Expect(results).To(HaveLen(3))
+			policy1 := backup.RLSPolicy{Oid: 1, Name: "policy1_bob_all", Cmd: "*", Permissive: "true", Schema: "public", Table: "passwd", Roles: "bob", Qual: "true",WithCheck:"true"}
+			policy2 := backup.RLSPolicy{Oid: 1, Name: "policy2_all_view", Cmd: "r", Permissive: "true", Schema: "public", Table: "passwd", Roles: "", Qual: "true", WithCheck:""}
+			policy3 := backup.RLSPolicy{Oid: 1, Name: "policy3_user_mod", Cmd: "w", Permissive: "true", Schema: "public", Table: "passwd", Roles: "", Qual: "(user_name = CURRENT_USER)", WithCheck: "((CURRENT_USER = user_name) AND (shell = ANY (ARRAY['/bin/bash'::text, '/bin/sh'::text])))"}
+			structmatcher.ExpectStructsToMatchExcluding(&policy1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&policy2, &results[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&policy3, &results[2], "Oid")
+		})
+	})
 })

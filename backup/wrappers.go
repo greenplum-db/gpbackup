@@ -702,6 +702,14 @@ func backupEventTriggers(metadataFile *utils.FileWithByteCount) {
 	PrintCreateEventTriggerStatements(metadataFile, globalTOC, eventTriggers, eventTriggerMetadata)
 }
 
+func backupRowLevelSecurityPolicies(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing CREATE POLICY statements to metadata file")
+	policies := GetPolicies(connectionPool)
+	objectCounts["Policies"] = len(policies)
+	ruleMetadata := GetCommentsForObjectType(connectionPool, TYPE_RULE)
+	PrintCreatePolicyStatements(metadataFile, globalTOC, policies, ruleMetadata)
+}
+
 func backupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing ALTER DEFAULT PRIVILEGES statements to metadata file")
 	defaultPrivileges := GetDefaultPrivileges(connectionPool)

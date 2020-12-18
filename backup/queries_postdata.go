@@ -421,3 +421,62 @@ func GetEventTriggers(connectionPool *dbconn.DBConn) []EventTrigger {
 	gplog.FatalOnError(err)
 	return results
 }
+
+type RLSPolicy struct {
+	Oid         uint32
+	Name        string
+	Cmd         string
+	Permissive  string
+	Schema      string
+	Table       string
+	Roles       string
+	Qual        string
+	WithCheck   string
+}
+
+func GetPolicies(connectionPool *dbconn.DBConn) []RLSPolicy {
+	query := fmt.Sprintf(`
+	SELECT
+		p.oid as oid,
+		quote_ident(p.polname) as name,
+		p.polcmd as cmd,
+		p.polpermissive as permissive,
+		quote_ident(c.relnamespace::regnamespace::text) as schema,
+		quote_ident(c.relname) as table,
+		CASE
+			WHEN polroles = '{0}' THEN ''
+			ELSE coalesce(pg_catalog.array_to_string(ARRAY(SELECT pg_catalog.quote_ident(rolname) from pg_catalog.pg_roles WHERE oid = ANY(polroles)), ', '), '')
+		END AS roles,
+		coalesce(pg_catalog.pg_get_expr(polqual, polrelid), '') AS qual,
+		coalesce(pg_catalog.pg_get_expr(polwithcheck, polrelid), '') AS withcheck
+	FROM pg_catalog.pg_policy p
+		JOIN pg_catalog.pg_class c ON p.polrelid = c.oid
+	ORDER BY p.polname`)
+
+
+	results := make([]RLSPolicy, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}
+
+func (p RLSPolicy) GetMetadataEntry() (string, toc.MetadataEntry) {
+	tableFQN := utils.MakeFQN(p.Schema, p.Table)
+	return "postdata",
+		toc.MetadataEntry{
+			Schema:          p.Schema,
+			Name:            p.Table,
+			ObjectType:      "POLICY",
+			ReferenceObject: tableFQN,
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (p RLSPolicy) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_REWRITE_OID, Oid: p.Oid}
+}
+
+func (p RLSPolicy) FQN() string {
+	return p.Name
+}
