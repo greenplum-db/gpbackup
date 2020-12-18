@@ -13,7 +13,6 @@ import (
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
@@ -178,42 +177,13 @@ func PrintCreatePolicyStatements(metadataFile *utils.FileWithByteCount, toc *toc
 }
 
 func PrintCreateExtendedStatistics(metadataFile *utils.FileWithByteCount, toc *toc.TOC, statExtObjects []StatisticExt, statMetadata MetadataMap) {
-	statKindMap := map[string]string{
-		"d": "ndistinct",
-		"f": "dependencies",
-		"m": "mcv",
-	}
-
 	for _, stat := range statExtObjects {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintln()
-		statKindStr := ""
-		kindArr := strings.Split(strings.Trim(stat.Kind, "{}"), ",")
-		for index, key := range kindArr {
-			kind, ok := statKindMap[key]
-			if !ok {
-				gplog.Fatal(errors.Errorf("Unknown kind of extended statistics, expected 'd', 'f' or 'm', found %s", key), "")
-			}
-			statKindStr += kind
-			if index < len(kindArr)-1 {
-				statKindStr += ", "
-			}
-		}
 
-		statColumnsStr := ""
-		colsArr := strings.Split(strings.Trim(stat.Columns, "{}"), ",")
-		for index, column := range colsArr {
-			statColumnsStr += column
-			if index < len(colsArr)-1 {
-				statColumnsStr += ", "
-			}
-		}
-
-		metadataFile.MustPrintf("\nCREATE STATISTICS %s.%s (%s) ON %s FROM %s.%s;", stat.Namespace, stat.Name, statKindStr, statColumnsStr, stat.TableSchema, stat.TableName)
-
-		metadataFile.MustPrintf("\n\nALTER STATISTICS %s.%s OWNER TO %s;", stat.Namespace, stat.Name, stat.Owner)
-
+		metadataFile.MustPrintf("\n%s;", stat.Definition)
 		section, entry := stat.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, statMetadata[stat.GetUniqueID()], stat, "")
 	}
 }

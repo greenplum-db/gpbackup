@@ -319,5 +319,29 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 
 		})
 	})
-	// TODO: test PrintCreateExtendedStatistics()
+	Describe("PrintCreateExtendedStatistics", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE SCHEMA schema1;`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE schema1.table_for_ext_stats (m int, n int);`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connectionPool, `DROP TABLE schema1.table_for_ext_stats;`)
+			testhelper.AssertQueryRuns(connectionPool, `DROP SCHEMA schema1;`)
+		})
+		It("creates an extended statistics", func() {
+			extStats := []backup.StatisticExt{{Oid: 1, Name: "myextstatistics", Namespace: "public", Owner: "testrole", TableSchema: "schema1", TableName: "table_for_ext_stats", Definition: "CREATE STATISTICS public.myextstatistics (dependencies) ON m, n FROM schema1.table_for_ext_stats"}}
+
+			statisticsMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateExtendedStatistics(backupfile, tocfile, extStats, statisticsMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP STATISTICS public.myextstatistics")
+
+			results := backup.GetExtendedStatistics(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&extStats[0], &results[0], "Oid")
+		})
+	})
 })

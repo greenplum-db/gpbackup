@@ -210,15 +210,13 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER t
 		})
 	})
 	Context("PrintCreateExtendedStatistics", func() {
-		statExt := backup.StatisticExt{Oid: 1, Name: "test_stat", Namespace: "public", Owner: "username", TableSchema: "myschema", TableName: "mytable", Columns: "a,b", Kind: "f"}
+		statExt := backup.StatisticExt{Oid: 1, Name: "test_stat", Namespace: "public", Owner: "username", TableSchema: "myschema", TableName: "mytable", Definition: "CREATE STATISTICS public.test_stat (dependencies) ON a, b FROM myschema.mytable"}
 		It("can print an extended statistics", func() {
 			stats := []backup.StatisticExt{statExt}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateExtendedStatistics(backupfile, tocfile, stats, emptyMetadataMap)
 			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "myschema.mytable", "test_stat", "STATISTICS")
-			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, `CREATE STATISTICS public.test_stat (dependencies) ON a, b FROM myschema.mytable;
-
-ALTER STATISTICS public.test_stat OWNER TO username;`)
+			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, `CREATE STATISTICS public.test_stat (dependencies) ON a, b FROM myschema.mytable;`)
 		})
 	})
 })

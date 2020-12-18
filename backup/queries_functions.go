@@ -1136,8 +1136,7 @@ type StatisticExt struct {
 	Owner       string
 	TableSchema string // schema that table covered by statistics belongs to
 	TableName   string // table covered by statistics
-	Columns     string
-	Kind        string
+	Definition  string
 }
 
 func (se StatisticExt) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -1157,30 +1156,22 @@ func (se StatisticExt) GetUniqueID() UniqueID {
 }
 
 func (se StatisticExt) FQN() string {
-	return se.Name
+	return fmt.Sprintf("%s.%s", se.Namespace, se.Name)
 }
 
 func GetExtendedStatistics(connectionPool *dbconn.DBConn) []StatisticExt {
 	results := make([]StatisticExt, 0)
 
 	query := fmt.Sprintf(`
-	SELECT 	oid,
+	SELECT 	se.oid,
 			stxname AS name,
-			(SELECT nspname from pg_namespace where oid = stxnamespace) AS namespace,
-			stxowner::regrole::text AS owner,
-			(SELECT relnamespace::regnamespace::text FROM pg_class WHERE oid = stxrelid) AS tableschema,
-			(SELECT relname from pg_class WHERE oid = stxrelid) as tablename,
-			(SELECT ARRAY(
-				SELECT column_name FROM information_schema.columns WHERE table_schema = (
-					SELECT relnamespace::regnamespace::text FROM pg_class WHERE oid = stxrelid
-				) AND table_name = (
-					SELECT relname from pg_class WHERE oid = stxrelid
-				) AND ordinal_position in (
-					SELECT unnest(stxkeys)
-				)
-			)) AS columns,
-			stxkind AS kind
-			FROM pg_catalog.pg_statistic_ext;`)
+			regexp_replace(pg_catalog.pg_get_statisticsobjdef(se.oid), '(.* FROM ).*', '\1' || quote_ident(c.relnamespace::regnamespace::text) || '.' || quote_ident(c.relname)) AS definition,
+			quote_ident(se.stxnamespace::regnamespace::text) AS namespace,
+			se.stxowner::regrole AS owner,
+			quote_ident(c.relnamespace::regnamespace::text) AS tableschema,
+			quote_ident(c.relname) AS tablename
+	FROM pg_catalog.pg_statistic_ext se
+	JOIN pg_catalog.pg_class c ON se.stxrelid = c.oid;`)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
