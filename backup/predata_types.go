@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/pkg/errors"
 )
 
 /*
@@ -205,7 +207,26 @@ func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, toc *t
 func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, collations []Collation, collationMetadata MetadataMap) {
 	for _, collation := range collations {
 		start := metadataFile.ByteCount
-		metadataFile.MustPrintf("\nCREATE COLLATION %s (LC_COLLATE = '%s', LC_CTYPE = '%s');", collation.FQN(), collation.Collate, collation.Ctype)
+		metadataFile.MustPrintf("\nCREATE COLLATION %s (LC_COLLATE = '%s', LC_CTYPE = '%s'", collation.FQN(), collation.Collate, collation.Ctype)
+		if collation.Provider != "" {
+			providerOption := ""
+			switch collation.Provider {
+			case "c":
+				providerOption = "libc"
+			case "i":
+				providerOption = "icu"
+			case "d":
+				providerOption = "default"
+			default:
+				gplog.Fatal(errors.Errorf("Unexpected collation provider: expected 'c|i|d' got '%s'\n", collation.Provider), "")
+			}
+			metadataFile.MustPrintf(", PROVIDER = '%s'", providerOption)
+		}
+		if collation.IsDeterministic == "f" {
+			metadataFile.MustPrintf(", DETERMINISTIC = 'false'")
+		}
+		metadataFile.MustPrintf(");")
+
 
 		section, entry := collation.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

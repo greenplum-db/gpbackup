@@ -211,10 +211,13 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateCollationStatement", func() {
-		collation := backup.Collation{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}
 		It("creates a basic collation", func() {
 			testutils.SkipIfBefore6(connectionPool)
-
+			collation := backup.Collation{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}
+			if(connectionPool.Version.AtLeast("7")) {
+				collation.IsDeterministic = "true"
+				collation.Provider = "c"
+			}
 			backup.PrintCreateCollationStatements(backupfile, tocfile, []backup.Collation{collation}, backup.MetadataMap{})
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -227,6 +230,11 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a basic collation with comment and owner", func() {
 			testutils.SkipIfBefore6(connectionPool)
+			collation := backup.Collation{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}
+			if(connectionPool.Version.AtLeast("7")) {
+				collation.IsDeterministic = "true"
+				collation.Provider = "c"
+			}
 			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true, false)
 			collationMetadata := collationMetadataMap[collation.GetUniqueID()]
 
@@ -244,6 +252,19 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&collation, &resultCollations[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&collationMetadata, &resultMetadata)
 
+		})
+		It("creates a specific collation", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			collation := backup.Collation{Oid: 1, Schema: "public", Name: "testcollation", Collate: "de_DE", Ctype: "de_DE", Provider: "c", IsDeterministic: "true"}
+			backup.PrintCreateCollationStatements(backupfile, tocfile, []backup.Collation{collation}, backup.MetadataMap{})
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.testcollation")
+
+			resultCollations := backup.GetCollations(connectionPool)
+
+			Expect(resultCollations).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&collation, &resultCollations[0], "Oid")
 		})
 	})
 })
