@@ -10,6 +10,7 @@ import (
 	"github.com/greenplum-db/gpbackup/testutils"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -606,6 +607,39 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatch(&plperlExtension, &resultExtensions[0])
 			structmatcher.ExpectStructsToMatch(&extensionMetadata, &plperlMetadata)
 		})
+	})
+	Describe("PrintCreateTransformStatements", func() {
+		var fromSQLFuncOid uint32
+		var toSQLFuncOid uint32
+		var funcInfoMap map[uint32]backup.FunctionInfo
+
+		BeforeEach(func() {
+			fromSQLFuncOid = testutils.OidFromObjectName(connectionPool, "pg_catalog", "numeric_support", backup.TYPE_FUNCTION)
+			toSQLFuncOid = testutils.OidFromObjectName(connectionPool, "pg_catalog", "int2recv", backup.TYPE_FUNCTION)
+
+			funcInfoMap = map[uint32]backup.FunctionInfo{
+				fromSQLFuncOid: {QualifiedName: "numeric_support", IdentArgs: sql.NullString{String: "internal", Valid: true}},
+				toSQLFuncOid:   {QualifiedName: "int2recv", IdentArgs: sql.NullString{String: "internal", Valid: true}},
+			}
+		})
+
+		DescribeTable("creates transforms", func(fromSql func() uint32, toSql func() uint32) {
+			testutils.SkipIfBefore7(connectionPool)
+			transform := backup.Transform{Oid: 1, TypeNamespace: "pg_catalog", TypeName: "int2", LanguageName: "c", FromSQLFunc: fromSql(), ToSQLFunc: toSql()}
+			transforms := []backup.Transform{transform}
+			transMetadataMap := testutils.DefaultMetadataMap("TRANSFORM", false, false, true, false)
+			backup.PrintCreateTransformStatements(backupfile, tocfile, transforms, transMetadataMap, funcInfoMap)
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRANSFORM FOR int2 LANGUAGE c")
+
+			resultTransforms := backup.GetTransforms(connectionPool)
+			Expect(resultTransforms).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&transform, &resultTransforms[0], "Oid")
+		},
+			Entry("both functions are specified", func() uint32 { return fromSQLFuncOid }, func() uint32 { return toSQLFuncOid }),
+			Entry("only fromSQL function is specified", func() uint32 { return fromSQLFuncOid }, func() uint32 { return uint32(0) }),
+			Entry("only toSql function is specified", func() uint32 { return uint32(0) }, func() uint32 { return toSQLFuncOid }),
+		)
 	})
 	Describe("PrintCreateConversionStatements", func() {
 		It("creates conversions", func() {
