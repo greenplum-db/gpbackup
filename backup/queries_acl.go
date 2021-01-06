@@ -47,6 +47,7 @@ var (
 	TYPE_FUNCTION           MetadataQueryParams
 	TYPE_INDEX              MetadataQueryParams
 	TYPE_PROCLANGUAGE       MetadataQueryParams
+	TYPE_TRANSFORM          MetadataQueryParams
 	TYPE_OPERATOR           MetadataQueryParams
 	TYPE_OPERATORCLASS      MetadataQueryParams
 	TYPE_OPERATORFAMILY     MetadataQueryParams
@@ -96,6 +97,7 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	TYPE_RULE = MetadataQueryParams{ObjectType: "RULE", NameField: "rulename", OidField: "oid", CatalogTable: "pg_rewrite"}
 	TYPE_SCHEMA = MetadataQueryParams{ObjectType: "SCHEMA", NameField: "nspname", ACLField: "nspacl", OwnerField: "nspowner", CatalogTable: "pg_namespace"}
 	TYPE_TABLESPACE = MetadataQueryParams{ObjectType: "TABLESPACE", NameField: "spcname", ACLField: "spcacl", OwnerField: "spcowner", CatalogTable: "pg_tablespace", Shared: true}
+	TYPE_TRANSFORM = MetadataQueryParams{ObjectType: "TRANSFORM", CatalogTable: "pg_transform"}
 	TYPE_TSCONFIGURATION = MetadataQueryParams{ObjectType: "TEXT SEARCH CONFIGURATION", NameField: "cfgname", OidField: "oid", SchemaField: "cfgnamespace", OwnerField: "cfgowner", CatalogTable: "pg_ts_config"}
 	TYPE_TSDICTIONARY = MetadataQueryParams{ObjectType: "TEXT SEARCH DICTIONARY", NameField: "dictname", OidField: "oid", SchemaField: "dictnamespace", OwnerField: "dictowner", CatalogTable: "pg_ts_dict"}
 	TYPE_TSPARSER = MetadataQueryParams{ObjectType: "TEXT SEARCH PARSER", NameField: "prsname", OidField: "oid", SchemaField: "prsnamespace", CatalogTable: "pg_ts_parser"}
@@ -124,7 +126,10 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	gplog.Verbose("Getting object type metadata from " + params.CatalogTable)
 
 	tableName := params.CatalogTable
-	nameCol := params.NameField
+	nameCol := "''"
+	if params.NameField != "" {
+		nameCol = params.NameField
+	}
 	aclCols := "''"
 	kindCol := "''"
 	if params.ACLField != "" {
@@ -177,7 +182,7 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 		'%s' AS objecttype,
 		'%s'::regclass::oid AS classid,
 		o.oid,
-		quote_ident(%s) AS name,
+		coalesce(quote_ident(%s),'') AS name,
 		%s AS kind,
 		coalesce(quote_ident(%s),'') AS schema,
 		%s AS owner,

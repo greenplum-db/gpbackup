@@ -55,6 +55,7 @@ var (
 	PG_FOREIGN_SERVER_OID       uint32 = 1417
 	PG_INDEX_OID                uint32 = 2610
 	PG_LANGUAGE_OID             uint32 = 2612
+	PG_TRANSFORM_OID            uint32 = 3576
 	PG_NAMESPACE_OID            uint32 = 2615
 	PG_OPCLASS_OID              uint32 = 2616
 	PG_OPERATOR_OID             uint32 = 2617

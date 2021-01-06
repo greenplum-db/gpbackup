@@ -242,6 +242,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 {
 			backupProceduralLanguages(metadataFile, functions, funcInfoMap, metadataMap)
+			backupTransforms(metadataFile, funcInfoMap)
 			retrieveFDWObjects(&objects, metadataMap)
 		}
 

@@ -729,6 +729,25 @@ LANGUAGE SQL`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedConversion, &resultConversions[0], "Oid")
 		})
 	})
+	Describe("GetTransforms", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
+		})
+		It("returns a slice of transfroms", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TRANSFORM FOR pg_catalog.int4 LANGUAGE c (FROM SQL WITH FUNCTION numeric_support(internal), TO SQL WITH FUNCTION int4recv(internal));")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRANSFORM FOR int4 LANGUAGE c")
+
+			fromSQLFuncOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "numeric_support", backup.TYPE_FUNCTION)
+			toSQLFuncOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "int4recv", backup.TYPE_FUNCTION)
+
+			expectedTransforms := backup.Transform{TypeNamespace: "pg_catalog", TypeName: "int4", LanguageName: "c", FromSQLFunc: fromSQLFuncOid, ToSQLFunc: toSQLFuncOid}
+
+			resultTransforms := backup.GetTransforms(connectionPool)
+
+			Expect(resultTransforms).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedTransforms, &resultTransforms[0], "Oid")
+		})
+	})
 	Describe("GetForeignDataWrappers", func() {
 		BeforeEach(func() {
 			testutils.SkipIfBefore6(connectionPool)

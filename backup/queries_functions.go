@@ -800,6 +800,54 @@ func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage 
 	return results
 }
 
+type Transform struct {
+	Oid           uint32
+	TypeNamespace string `db:"typnamespace"`
+	TypeName      string `db:"typname"`
+	LanguageName  string `db:"lanname"`
+	FromSQLFunc   uint32 `db:"trffromsql"`
+	ToSQLFunc     uint32 `db:"trftosql"`
+}
+
+func (trf Transform) GetMetadataEntry() (string, toc.MetadataEntry) {
+	return "predata",
+		toc.MetadataEntry{
+			Schema:          "",
+			Name:            "",
+			ObjectType:      "TRANSFORM",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (trf Transform) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TRANSFORM_OID, Oid: trf.Oid}
+}
+
+func (trf Transform) FQN() string {
+	return fmt.Sprintf("FOR %s.%s LANGUAGE %s", trf.TypeNamespace, trf.TypeName, trf.LanguageName)
+}
+
+func GetTransforms(connectionPool *dbconn.DBConn) []Transform {
+	results := make([]Transform, 0)
+	query := fmt.Sprintf(`
+	SELECT trf.oid,
+		quote_ident(ns.nspname) AS typnamespace,
+		quote_ident(tp.typname) AS typname,
+		l.lanname,
+		trf.trffromsql::oid,
+		trf.trftosql::oid
+	FROM pg_transform trf
+		JOIN pg_type tp ON trf.trftype=tp.oid
+		JOIN pg_namespace ns ON tp.typnamespace = ns.oid
+		JOIN pg_language l ON trf.trflang=l.oid;`)
+
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}
+
 type Conversion struct {
 	Oid                uint32
 	Schema             string

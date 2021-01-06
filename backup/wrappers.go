@@ -529,6 +529,17 @@ func backupProceduralLanguages(metadataFile *utils.FileWithByteCount,
 	PrintCreateLanguageStatements(metadataFile, globalTOC, procLangs, funcInfoMap, procLangMetadata)
 }
 
+func backupTransforms(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
+	if connectionPool.Version.Before("7") {
+		return
+	}
+	gplog.Verbose("Writing CREATE TRANSFORM statements to metadata file")
+	transforms := GetTransforms(connectionPool)
+	objectCounts["Transforms"] = len(transforms)
+	transformMetadata := GetMetadataForObjectType(connectionPool, TYPE_TRANSFORM)
+	PrintCreateTransformStatements(metadataFile, globalTOC, transforms, transformMetadata, funcInfoMap)
+}
+
 func backupShellTypes(metadataFile *utils.FileWithByteCount, shellTypes []ShellType, baseTypes []BaseType, rangeTypes []RangeType) {
 	gplog.Verbose("Writing CREATE TYPE statements for shell types to metadata file")
 	PrintCreateShellTypeStatements(metadataFile, globalTOC, shellTypes, baseTypes, rangeTypes)

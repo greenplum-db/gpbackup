@@ -740,6 +740,36 @@ GRANT ALL ON LANGUAGE plperl TO testrole;`,
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 	})
+	Describe("PrintCreateTransformStatements", func() {
+		funcInfoMap := map[uint32]backup.FunctionInfo{
+			1: {QualifiedName: "somenamespace.from_sql_f", IdentArgs: sql.NullString{String: "internal", Valid: true}},
+			2: {QualifiedName: "somenamespace.to_sql_f", IdentArgs: sql.NullString{String: "internal", Valid: true}},
+		}
+
+		DescribeTable("prints transform statements with at least one transform function", func(fromSql uint32, toSql uint32, expected string) {
+			testutils.SkipIfBefore7(connectionPool)
+			transform := backup.Transform{Oid: 1, TypeNamespace: "mynamespace", TypeName: "mytype", LanguageName: "somelang", FromSQLFunc: fromSql, ToSQLFunc: toSql}
+			transforms := []backup.Transform{transform}
+			transMetadataMap := testutils.DefaultMetadataMap("TRANSFORM", false, false, true, false)
+			backup.PrintCreateTransformStatements(backupfile, tocfile, transforms, transMetadataMap, funcInfoMap)
+			expectedStatements := []string{fmt.Sprintf(`CREATE TRANSFORM FOR mynamespace.mytype LANGUAGE somelang %s;`, expected)}
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
+		},
+			Entry("both functions are specified", uint32(1), uint32(2), "(FROM SQL WITH FUNCTION somenamespace.from_sql_f(internal), TO SQL WITH FUNCTION somenamespace.to_sql_f(internal))"),
+			Entry("only fromSQL function is specified", uint32(1), uint32(0), "(FROM SQL WITH FUNCTION somenamespace.from_sql_f(internal))"),
+			Entry("only toSql function is specified", uint32(0), uint32(2), "(TO SQL WITH FUNCTION somenamespace.to_sql_f(internal))"),
+		)
+		It("prints a warning if there are no transform functions specified", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			_, _, logfile = testhelper.SetupTestLogger()
+			transform := backup.Transform{Oid: 1, TypeNamespace: "mynamespace", TypeName: "mycustomtype", LanguageName: "someproclanguage", FromSQLFunc: 0, ToSQLFunc: 0}
+			transforms := []backup.Transform{transform}
+			transMetadataMap := testutils.DefaultMetadataMap("TRANSFORM", false, false, true, false)
+			backup.PrintCreateTransformStatements(backupfile, tocfile, transforms, transMetadataMap, funcInfoMap)
+			testhelper.ExpectRegexp(logfile, "[WARNING]:-Skipping invalid transform object for type mynamespace.mycustomtype and language someproclanguage; At least one of FROM and TO functions should be specified")
+		})
+	})
+
 	Describe("PrintCreateConversionStatements", func() {
 		var (
 			convOne     backup.Conversion
