@@ -555,7 +555,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		(a.aggminitval IS NULL) AS minitvalisnull,
 		coalesce(a.aggminitval, '') AS minitialvalue,
 		a.aggfinalmodify AS finalmodify,
-		a.aggmfinalmodify AS mfinalmodify,
+		a.aggmfinalmodify AS mfinalmodify
 	FROM pg_aggregate a
 		LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
