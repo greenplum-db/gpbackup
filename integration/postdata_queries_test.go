@@ -247,6 +247,19 @@ PARTITION BY RANGE (date)
 			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[1])
 		})
 
+		It("returns a slice for an index with non-key columns included", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.table_with_index (a int, b int, c int, d int) DISTRIBUTED BY (a);")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.table_with_index")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE UNIQUE INDEX table_with_index_idx ON public.table_with_index USING btree (a, b) INCLUDE (c, d);")
+
+			expectedIndex := backup.IndexDefinition{Oid: 0, Name: "table_with_index_idx", OwningSchema: "public", OwningTable: "table_with_index", Def: sql.NullString{String: "CREATE UNIQUE INDEX table_with_index_idx ON public.table_with_index USING btree (a, b) INCLUDE (c, d)", Valid: true}, IsClustered: false}
+
+			results := backup.GetIndexes(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedIndex, &results[0], "Oid")
+		})
 	})
 	Describe("GetRules", func() {
 		var (

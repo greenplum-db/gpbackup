@@ -338,6 +338,17 @@ PARTITION BY RANGE (date)
 				structmatcher.ExpectStructsToMatchExcluding(&constraints[3], &uniqueConstraint, "Oid")
 			})
 		})
+		It("returns a constraint array for a table with PRIMARY KEY constraint that includes non-key columns", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.table_with_constr (a int NOT NULL, b int NOT NULL, c int, d int) DISTRIBUTED BY (a);")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.table_with_constr")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.table_with_constr ADD CONSTRAINT table_with_constr_pkey PRIMARY KEY (a, b) INCLUDE (c, d);")
+
+			constraints := backup.GetConstraints(connectionPool)
+			expectedConstraint := backup.Constraint{Oid: 0, Schema: "public", Name: "table_with_constr_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (a, b) INCLUDE (c, d)", Valid: true}, ConIsLocal: true, OwningObject: "public.table_with_constr", IsDomainConstraint: false, IsPartitionParent: false}
+
+			Expect(constraints).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &expectedConstraint, "Oid")
+		})
 	})
 	Describe("GetAccessMethods", func() {
 		It("returns information for user defined access methods", func() {
