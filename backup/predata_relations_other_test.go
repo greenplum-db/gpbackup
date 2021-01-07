@@ -350,20 +350,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 	Describe("SplitTablesByPartitionType", func() {
 		var tables []backup.Table
 		var includeList []string
-		var expectedMetadataTables = []backup.Table{
-			{
-				Relation:        backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1"},
-				TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "p"}},
-			},
-			{
-				Relation:        backup.Relation{Oid: 2, Schema: "public", Name: "part_parent2"},
-				TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "p"}},
-			},
-			{
-				Relation:        backup.Relation{Oid: 8, Schema: "public", Name: "test_table"},
-				TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "n"}},
-			},
-		}
+		var expectedMetadataTables []backup.Table
 		BeforeEach(func() {
 			tables = []backup.Table{
 				{
@@ -399,6 +386,21 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 					TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "n"}},
 				},
 			}
+
+			expectedMetadataTables = []backup.Table{
+				{
+					Relation:        backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1"},
+					TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "p"}},
+				},
+				{
+					Relation:        backup.Relation{Oid: 2, Schema: "public", Name: "part_parent2"},
+					TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "p"}},
+				},
+				{
+					Relation:        backup.Relation{Oid: 8, Schema: "public", Name: "test_table"},
+					TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "n"}},
+				},
+			}
 		})
 		Context("leafPartitionData and includeTables", func() {
 			It("gets only parent partitions of included tables for metadata and only child partitions for data", func() {
@@ -407,6 +409,10 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 
 				metadataTables, dataTables := backup.SplitTablesByPartitionType(tables, includeList)
 
+				// In GPDB 7+, leaf partitions are created and attached to the root in separate metadata DDL
+				if connectionPool.Version.AtLeast("7") {
+					expectedMetadataTables = tables
+				}
 				Expect(metadataTables).To(Equal(expectedMetadataTables))
 
 				expectedDataTables := []string{"public.part_parent1_child1", "public.part_parent1_child2", "public.part_parent2_child1", "public.part_parent2_child2", "public.test_table"}
@@ -426,6 +432,10 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 				includeList = []string{}
 				metadataTables, dataTables := backup.SplitTablesByPartitionType(tables, includeList)
 
+				// In GPDB 7+, leaf partitions are created and attached to the root in separate metadata DDL
+				if connectionPool.Version.AtLeast("7") {
+					expectedMetadataTables = tables
+				}
 				Expect(metadataTables).To(Equal(expectedMetadataTables))
 
 				expectedDataTables := []string{"public.part_parent1_child1", "public.part_parent1_child2", "public.part_parent2_child1", "public.part_parent2_child2", "public.test_table"}
@@ -445,6 +455,10 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 				includeList = []string{"public.part_parent1", "public.part_parent2_child1", "public.part_parent2_child2", "public.test_table"}
 				metadataTables, dataTables := backup.SplitTablesByPartitionType(tables, includeList)
 
+				// In GPDB 7+, leaf partitions are created and attached to the root in separate metadata DDL
+				if connectionPool.Version.AtLeast("7") {
+					expectedMetadataTables = tables
+				}
 				Expect(metadataTables).To(Equal(expectedMetadataTables))
 
 				expectedDataTables := []string{"public.part_parent1", "public.part_parent2_child1", "public.part_parent2_child2", "public.test_table"}
