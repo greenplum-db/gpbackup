@@ -164,6 +164,8 @@ PARTITION BY RANGE (year)
 	})
 	Describe("PrintAccessMethodStatement", func() {
 		It("creates user defined access method for tables and indexes", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
 			accessMethodTable := backup.AccessMethod{Oid: 1, Name: "test_tableam_table", Handler: "heap_tableam_handler", Type: "t"}
 			accessMethodIndex := backup.AccessMethod{Oid: 2, Name: "test_tableam_index", Handler: "gisthandler", Type: "i"}
 			accessMethods := []backup.AccessMethod{accessMethodTable, accessMethodIndex}

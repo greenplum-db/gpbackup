@@ -473,6 +473,13 @@ SORTOP = ~>~ );`)
 				TransitionFunction: transitionOid, FinalFunction: 0, SortOperator: "~>~", SortOperatorSchema: "pg_catalog", TransitionDataType: "character",
 				InitialValue: "", InitValIsNull: true, MInitValIsNull: true, IsOrdered: false,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
+
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultAggregates[0], &aggregateDef, "Oid")
 		})
@@ -499,6 +506,12 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			if connectionPool.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
 				aggregateDef.CombineFunction = prelimOid
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -535,6 +548,12 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 				aggregateDef.PreliminaryFunction = 0
 				aggregateDef.CombineFunction = prelimOid
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			result := backup.GetAggregates(connectionPool)
@@ -566,6 +585,13 @@ CREATE AGGREGATE public.agg_hypo_ord (VARIADIC "any" ORDER BY VARIADIC "any")
 				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: transitionOid,
 				FinalFunction: finalOid, TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Hypothetical = false
+				aggregateDef.Kind = "h"
+				aggregateDef.Finalmodify = "w"
+				aggregateDef.Mfinalmodify = "w"
+				aggregateDef.Parallel = "u"
+			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
@@ -593,6 +619,12 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
@@ -619,6 +651,12 @@ CREATE AGGREGATE public.myavg (numeric) (
 				IdentArgs: sql.NullString{String: "numeric", Valid: true}, SerialFunction: serialOid, DeserialFunction: deserialOid,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -651,6 +689,12 @@ CREATE AGGREGATE public.moving_agg(numeric,numeric) (
 				InitValIsNull: true, MTransitionFunction: sfuncOid, MInverseTransitionFunction: sfuncOid,
 				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: sfuncOid,
 				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))

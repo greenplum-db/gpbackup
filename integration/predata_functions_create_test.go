@@ -99,6 +99,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				if connectionPool.Version.AtLeast("7") {
 					addFunction.PlannerSupport = "-"
 					addFunction.Kind = "f"
+					addFunction.Parallel = "u"
 				}
 
 				metadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
@@ -125,6 +126,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				if connectionPool.Version.AtLeast("7") {
 					appendFunction.PlannerSupport = "-"
 					appendFunction.Kind = "f"
+					appendFunction.Parallel = "u"
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, appendFunction, funcMetadata)
@@ -150,6 +152,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				if connectionPool.Version.AtLeast("7") {
 					dupFunction.PlannerSupport = "-"
 					dupFunction.Kind = "f"
+					dupFunction.Parallel = "u"
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, dupFunction, funcMetadata)
@@ -208,6 +211,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				if connectionPool.Version.AtLeast("7") {
 					segmentFunction.PlannerSupport = "-"
 					segmentFunction.Kind = "f"
+					segmentFunction.Parallel = "u"
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, segmentFunction, funcMetadata)
@@ -232,6 +236,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				if connectionPool.Version.AtLeast("7") {
 					leakProofFunction.PlannerSupport = "-"
 					leakProofFunction.Kind = "f"
+					leakProofFunction.Parallel = "u"
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, leakProofFunction, funcMetadata)
@@ -250,14 +255,14 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.SkipIfBefore7(connectionPool)
 			})
 			funcMetadata := backup.ObjectMetadata{}
-			It("creates a function with PARALLEL", func() {
+			It("creates a function with PARALLEL RESTRICTED", func() {
 				ParallelFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "u",
+					Language: "sql", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "r",
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, ParallelFunction, funcMetadata)
@@ -274,12 +279,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateAggregateStatement", func() {
 		emptyMetadata := backup.ObjectMetadata{}
-		basicAggregateDef := backup.Aggregate{
-			Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
-			IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: 1, PreliminaryFunction: 2,
-			TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true,
-		}
-
+		basicAggregateDef := backup.Aggregate{}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc_accum", Arguments: sql.NullString{String: "numeric, numeric, numeric", Valid: true}},
 			2: {QualifiedName: "public.mypre_accum", Arguments: sql.NullString{String: "numeric, numeric", Valid: true}},
@@ -308,6 +308,18 @@ var _ = Describe("backup integration create statement tests", func() {
 			   IMMUTABLE
 			   RETURNS NULL ON NULL INPUT;
 			`)
+
+			basicAggregateDef = backup.Aggregate{
+				Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: 1, PreliminaryFunction: 2,
+				TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				basicAggregateDef.Kind = "n"
+				basicAggregateDef.Finalmodify = "r"
+				basicAggregateDef.Mfinalmodify = "r"
+				basicAggregateDef.Parallel = "u"
+			}
 		})
 		AfterEach(func() {
 			testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
@@ -344,6 +356,13 @@ var _ = Describe("backup integration create statement tests", func() {
 				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: 3, FinalFunction: 4,
 				TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true, MInitValIsNull: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				complexAggregateDef.Hypothetical = false
+				complexAggregateDef.Kind = "h"
+				complexAggregateDef.Finalmodify = "w"
+				complexAggregateDef.Mfinalmodify = "w"
+				complexAggregateDef.Parallel = "u"
+			}
 
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, complexAggregateDef, funcInfoMap, emptyMetadata)
 
@@ -361,6 +380,13 @@ var _ = Describe("backup integration create statement tests", func() {
 				SortOperator: "+", SortOperatorSchema: "pg_catalog", TransitionDataType: "numeric",
 				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
+
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -378,6 +404,13 @@ var _ = Describe("backup integration create statement tests", func() {
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
+
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -394,6 +427,12 @@ var _ = Describe("backup integration create statement tests", func() {
 				IdentArgs: sql.NullString{String: "numeric", Valid: true}, TransitionFunction: 8,
 				FinalFunction: 5, SerialFunction: 6, DeserialFunction: 7, TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
@@ -413,6 +452,12 @@ var _ = Describe("backup integration create statement tests", func() {
 				InitValIsNull: true, MTransitionFunction: 1, MInverseTransitionFunction: 1,
 				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: 1,
 				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)

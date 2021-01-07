@@ -352,6 +352,8 @@ PARTITION BY RANGE (date)
 	})
 	Describe("GetAccessMethods", func() {
 		It("returns information for user defined access methods", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
 			testhelper.AssertQueryRuns(connectionPool, "CREATE ACCESS METHOD test_tableam_table TYPE TABLE HANDLER heap_tableam_handler;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP ACCESS METHOD test_tableam_table;")
 
