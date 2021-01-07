@@ -65,6 +65,10 @@ MODIFIES SQL DATA
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
 				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, PlannerSupport: plannerSupportValue, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
+			if connectionPool.Version.AtLeast("7") {
+				addFunction.Parallel = "u"
+				appendFunction.Parallel = "u"
+			}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
@@ -89,6 +93,10 @@ LANGUAGE SQL`)
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
+			if connectionPool.Version.AtLeast("7") {
+				addFunction.Parallel = "u"
+			}
+
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			results := backup.GetFunctions(connectionPool)
 
@@ -111,7 +119,7 @@ LANGUAGE SQL WINDOW`)
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", Kind: "w", ExecLocation: "a"}
+					Language: "sql", Kind: "w", ExecLocation: "a", Parallel: "u"}
 			} else {
 				windowFunction = backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -165,6 +173,10 @@ EXECUTE ON ALL SEGMENTS;`)
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: isWindowValue, ExecLocation: "s"}
+			if connectionPool.Version.AtLeast("7") {
+				srfOnMasterFunction.Parallel = "u"
+				srfOnAllSegmentsFunction.Parallel = "u"
+			}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
@@ -197,6 +209,9 @@ MODIFIES SQL DATA
 				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true,
 				PlannerSupport: plannerSupportValue, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
+			if connectionPool.Version.AtLeast("7") {
+				appendFunction.Parallel = "u"
+			}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
@@ -238,6 +253,10 @@ MODIFIES SQL DATA
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: "SET work_mem TO '1MB'", Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
+			if connectionPool.Version.AtLeast("7") {
+				appendFunction.Parallel = "u"
+			}
+
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
 		})
@@ -273,6 +292,9 @@ MODIFIES SQL DATA
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: `SET search_path TO '$user', 'public', 'abc"def'`, Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
+			if connectionPool.Version.AtLeast("7") {
+				appendFunction.Parallel = "u"
+			}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
@@ -323,6 +345,10 @@ INSERT INTO public.tbl VALUES (b);
 				Volatility: "v", IsSecurityDefiner: false, PlannerSupport: plannerSupportValue,
 				Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
+			if connectionPool.Version.AtLeast("7") {
+				firstProcedure.Parallel = "u"
+				secondProcedure.Parallel = "u"
+			}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &firstProcedure, "Oid")
@@ -435,6 +461,13 @@ SORTOP = ~>~ );`)
 				TransitionFunction: transitionOid, FinalFunction: 0, SortOperator: "~>~", SortOperatorSchema: "pg_catalog", TransitionDataType: "character",
 				InitialValue: "", InitValIsNull: true, MInitValIsNull: true, IsOrdered: false,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
+
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultAggregates[0], &aggregateDef, "Oid")
 		})
@@ -461,6 +494,12 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			if connectionPool.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
 				aggregateDef.CombineFunction = prelimOid
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -497,6 +536,12 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 				aggregateDef.PreliminaryFunction = 0
 				aggregateDef.CombineFunction = prelimOid
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			result := backup.GetAggregates(connectionPool)
@@ -528,6 +573,13 @@ CREATE AGGREGATE public.agg_hypo_ord (VARIADIC "any" ORDER BY VARIADIC "any")
 				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: transitionOid,
 				FinalFunction: finalOid, TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Hypothetical = false
+				aggregateDef.Kind = "h"
+				aggregateDef.Finalmodify = "w"
+				aggregateDef.Mfinalmodify = "w"
+				aggregateDef.Parallel = "u"
+			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
@@ -555,6 +607,12 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
@@ -581,6 +639,12 @@ CREATE AGGREGATE public.myavg (numeric) (
 				IdentArgs: sql.NullString{String: "numeric", Valid: true}, SerialFunction: serialOid, DeserialFunction: deserialOid,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -613,6 +677,12 @@ CREATE AGGREGATE public.moving_agg(numeric,numeric) (
 				InitValIsNull: true, MTransitionFunction: sfuncOid, MInverseTransitionFunction: sfuncOid,
 				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: sfuncOid,
 				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
