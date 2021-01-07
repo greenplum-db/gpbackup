@@ -26,6 +26,17 @@ var _ = Describe("backup/statistics tests", func() {
 			insertReplace5 = `
 	NULL,`
 		}
+
+		// GPDB 7+ has collations
+		if connectionPool.Version.AtLeast("7") {
+			insertReplace3 = insertReplace3 + `
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,`
+		}
+
 		return insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5
 	}
 
