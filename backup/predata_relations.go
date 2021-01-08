@@ -151,7 +151,7 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 	if table.PartitionKeyDef != "" {
 		metadataFile.MustPrintf("PARTITION BY %s ", table.PartitionKeyDef)
 	}
-	if len(table.Inherits) != 0  && table.AttachPartitionInfo == (AttachPartitionInfo{}) {
+	if len(table.Inherits) != 0 && table.AttachPartitionInfo == (AttachPartitionInfo{}) {
 		dependencyList := strings.Join(table.Inherits, ", ")
 		metadataFile.MustPrintf("INHERITS (%s) ", dependencyList)
 	}
@@ -199,7 +199,7 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 			line += fmt.Sprintf(" COLLATE %s", column.Collation)
 		}
 		if column.HasDefault {
-			if column.AttGenerated != ""  {
+			if column.AttGenerated != "" {
 				line += fmt.Sprintf(" GENERATED ALWAYS AS %s %s", column.DefaultVal, column.AttGenerated)
 			} else {
 				line += fmt.Sprintf(" DEFAULT %s", column.DefaultVal)
@@ -274,10 +274,16 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 				utils.MakeFQN(alteredPartitionRelation.OldSchema, alteredPartitionRelation.Name), alteredPartitionRelation.NewSchema))
 	}
 
-	attachInfo := table.AttachPartitionInfo
-	if (attachInfo != AttachPartitionInfo{}) {
-		statements = append(statements,
-			fmt.Sprintf("ALTER TABLE ONLY %s ATTACH PARTITION %s %s;", table.Inherits[0], attachInfo.Relname, attachInfo.Expr))
+	if connectionPool.Version.AtLeast("7") {
+		attachInfo := table.AttachPartitionInfo
+		if (attachInfo != AttachPartitionInfo{}) {
+			statements = append(statements,
+				fmt.Sprintf("ALTER TABLE ONLY %s ATTACH PARTITION %s %s;", table.Inherits[0], attachInfo.Relname, attachInfo.Expr))
+		}
+
+		if table.ForceRowSecurity {
+			statements = append(statements, fmt.Sprintf("ALTER TABLE ONLY %s FORCE ROW LEVEL SECURITY;", table.FQN()))
+		}
 	}
 
 	PrintStatements(metadataFile, toc, table, statements)

@@ -80,6 +80,7 @@ type TableDefinition struct {
 	AccessMethodName        string
 	PartitionKeyDef         string
 	AttachPartitionInfo     AttachPartitionInfo
+	ForceRowSecurity        bool
 }
 
 /*
@@ -106,6 +107,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 	partitionAlteredSchemaMap := GetPartitionAlteredSchema(connectionPool)
 	partitionKeyDefs := GetPartitionKeyDefs(connectionPool)
 	attachPartitionInfo := GetAttachPartitionInfo(connectionPool)
+	forceRowSecurity := GetForceRowSecurity(connectionPool)
 
 	gplog.Verbose("Constructing table definition map")
 	for _, tableRel := range tableRelations {
@@ -129,6 +131,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 			AccessMethodName:        accessMethodMap[oid],
 			PartitionKeyDef:         partitionKeyDefs[oid],
 			AttachPartitionInfo:     attachPartitionInfo[oid],
+			ForceRowSecurity:        forceRowSecurity[oid],
 		}
 		if tableDef.Inherits == nil {
 			tableDef.Inherits = []string{}
@@ -634,6 +637,28 @@ func GetAttachPartitionInfo(connectionPool *dbconn.DBConn) map[uint32]AttachPart
 	resultMap := make(map[uint32]AttachPartitionInfo)
 	for _, result := range results {
 		resultMap[result.Oid] = result
+	}
+	return resultMap
+}
+
+func GetForceRowSecurity(connectionPool *dbconn.DBConn) map[uint32]bool {
+	resultMap := make(map[uint32]bool)
+	if connectionPool.Version.Before("7") {
+		return resultMap
+	}
+
+	query := fmt.Sprintf(`
+	SELECT oid
+	FROM pg_class
+	WHERE relforcerowsecurity = 't'
+		AND oid >= %d`, FIRST_NORMAL_OBJECT_ID)
+
+	results := make([]uint32, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+
+	for _, oid := range results {
+		resultMap[oid] = true
 	}
 	return resultMap
 }
