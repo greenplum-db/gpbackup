@@ -101,6 +101,10 @@ func SetSessionGUCs(connNum int) {
 		connectionPool.MustExec("SET INTERVALSTYLE = POSTGRES", connNum)
 		connectionPool.MustExec("SET lock_timeout = 0", connNum)
 	}
+
+	if connectionPool.Version.AtLeast("7") {
+		connectionPool.MustExec("SET idle_in_transaction_session_timeout = 0", connNum)
+	}
 }
 
 func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts options.Options) *history.BackupConfig {
