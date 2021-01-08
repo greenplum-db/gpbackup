@@ -234,7 +234,6 @@ SET SUBPARTITION TEMPLATE ` + `
 				testTable.PartitionKeyDef = "LIST (gender)"
 			}
 
-
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "region", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "gender", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
@@ -477,6 +476,16 @@ SET SUBPARTITION TEMPLATE ` + `
 			childTableOid := testutils.OidFromObjectName(connectionPool, "public", "testchildtable", backup.TYPE_RELATION)
 			testChildTable.AttachPartitionInfo.Oid = childTableOid
 			structmatcher.ExpectStructsToMatch(&testChildTable.AttachPartitionInfo, attachPartitionInfoMap[childTableOid])
+		})
+		It("prints an ALTER statement to force row level security on the table owner", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
+			testTable.ForceRowSecurity = true
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, tableMetadata)
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+			Expect(resultTable.ForceRowSecurity).To(Equal(true))
 		})
 	})
 	Describe("PrintCreateViewStatements", func() {

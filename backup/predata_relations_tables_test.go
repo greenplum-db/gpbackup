@@ -688,5 +688,11 @@ ALTER TABLE schema1.table1 SET SCHEMA schema2;
 
 ALTER TABLE schema2.table2 SET SCHEMA schema1;`)
 		})
+		It("prints force row security", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testTable.ForceRowSecurity = true
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, backup.ObjectMetadata{})
+			testhelper.ExpectRegexp(buffer, `ALTER TABLE ONLY public.tablename FORCE ROW LEVEL SECURITY;`)
+		})
 	})
 })
