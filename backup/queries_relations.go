@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -348,21 +347,14 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 	return verifiedResults
 }
 
-// This function is responsible for getting the necessary access share locks
-// for the target relations. Each worker thread will have its own set of
-// access share locks in parallel.
+// This function is responsible for getting the necessary access share
+// locks for the target relations. This is mainly to protect the metadata
+// dumping part but it also makes the main worker thread (worker 0) the
+// most resilient for the later data dumping logic. Locks will still be
+// taken for --data-only calls.
 func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	gplog.Info("Acquiring ACCESS SHARE locks on tables")
-	var workerPool sync.WaitGroup
-	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
-		workerPool.Add(1)
-		go LockTablesWithConnection(connectionPool, tables, connNum, &workerPool)
-	}
-	workerPool.Wait()
-}
 
-func LockTablesWithConnection(connectionPool *dbconn.DBConn, tables []Relation, whichConn int, wg *sync.WaitGroup) {
-	defer wg.Done()
 	progressBar := utils.NewProgressBar(len(tables), "Locks acquired: ", utils.PB_VERBOSE)
 	progressBar.Start()
 
@@ -375,7 +367,7 @@ func LockTablesWithConnection(connectionPool *dbconn.DBConn, tables []Relation, 
 	// AccessExclusiveLock on the table.  In the case gpbackup is interrupted,
 	// cancelBlockedQueries() will cancel these queries during cleanup.
 	for i, currentBatch := range tableBatches {
-		_, err := connectionPool.Exec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch), whichConn)
+		_, err := connectionPool.Exec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
 		if err != nil {
 			if wasTerminated {
 				gplog.Warn("Interrupt received while acquiring ACCESS SHARE locks on tables")
