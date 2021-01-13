@@ -166,7 +166,11 @@ func DoBackup() {
 	globalTOC.WriteToFileAndMakeReadOnly(globalFPInfo.GetTOCFilePath())
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
 		// COMMIT TRANSACTION
-		connectionPool.MustCommit(connNum)
+		// The transaction could have been rollbacked already
+		// during COPY step due to deadlock handling.
+		if connectionPool.Tx[connNum] != nil {
+			connectionPool.MustCommit(connNum)
+		}
 	}
 	metadataFile.Close()
 	if pluginConfigFlag != "" {
