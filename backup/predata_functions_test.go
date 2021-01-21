@@ -210,6 +210,11 @@ $_$`)
 					backup.PrintFunctionModifiers(backupfile, funcDef)
 					testhelper.ExpectRegexp(buffer, "EXECUTE ON MASTER")
 				})
+				It("print 'c' as EXECUTE ON COORDINATOR", func() {
+					funcDef.ExecLocation = "c"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testhelper.ExpectRegexp(buffer, "EXECUTE ON COORDINATOR")
+				})
 				It("print 's' as EXECUTE ON ALL SEGMENTS", func() {
 					funcDef.ExecLocation = "s"
 					backup.PrintFunctionModifiers(backupfile, funcDef)

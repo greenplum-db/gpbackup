@@ -130,10 +130,18 @@ LANGUAGE SQL WINDOW`)
 		})
 		It("returns a function to execute on master and all segments", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
+			if connectionPool.Version.Is("6") {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON MASTER;`)
+			} else {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON COORDINATOR;`)
+			}
+
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_master(integer, integer)")
 			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_all_segments(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
@@ -160,6 +168,9 @@ EXECUTE ON ALL SEGMENTS;`)
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: isWindowValue, ExecLocation: "m", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				srfOnMasterFunction.ExecLocation = "c"
+			}
 			srfOnAllSegmentsFunction := backup.Function{
 				Schema: "public", Name: "srf_on_all_segments", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},

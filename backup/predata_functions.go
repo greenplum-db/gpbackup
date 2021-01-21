@@ -71,6 +71,8 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	switch funcDef.ExecLocation {
 	case "m":
 		metadataFile.MustPrintf(" EXECUTE ON MASTER")
+	case "c":
+		metadataFile.MustPrintf(" EXECUTE ON COORDINATOR")
 	case "s":
 		metadataFile.MustPrintf(" EXECUTE ON ALL SEGMENTS")
 	case "i":

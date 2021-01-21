@@ -82,7 +82,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				structmatcher.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
 			})
 		})
-		Context("Tests for GPDB 5 and GPDB 6", func() {
+		Context("Tests for GPDB 5 and above", func() {
 			BeforeEach(func() {
 				testutils.SkipIfBefore5(connectionPool)
 			})
@@ -180,6 +180,8 @@ var _ = Describe("backup integration create statement tests", func() {
 				if connectionPool.Version.AtLeast("7") {
 					windowFunction.PlannerSupport = "-"
 					windowFunction.Kind = "w"
+					windowFunction.Parallel = "u"
+					windowFunction.ExecLocation = "c"
 				} else {
 					windowFunction.IsWindow = true
 				}

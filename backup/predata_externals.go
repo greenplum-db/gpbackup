@@ -133,6 +133,8 @@ func generateExecuteStatement(extTableDef ExternalTableDefinition) string {
 		executeStatement += fmt.Sprintf(" ON HOST '%s'", execType[1])
 	case "MASTER_ONLY":
 		executeStatement += " ON MASTER"
+	case "COORDINATOR_ONLY":
+		executeStatement += " ON COORDINATOR"
 	case "PER_HOST":
 		executeStatement += " ON HOST"
 	case "SEGMENT_ID":
@@ -289,6 +291,8 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 	if extTableDef.Type == READABLE || (extTableDef.Type == WRITABLE_WEB && extTableDef.Protocol == S3) {
 		if extTableDef.ExecLocation == "MASTER_ONLY" {
 			metadataFile.MustPrintf(" ON MASTER")
+		} else if extTableDef.ExecLocation == "COORDINATOR_ONLY" {
+			metadataFile.MustPrintf(" ON COORDINATOR")
 		}
 	}
 	if extTableDef.Type == READABLE_WEB || extTableDef.Type == WRITABLE_WEB {
