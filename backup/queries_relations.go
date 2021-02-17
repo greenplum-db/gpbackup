@@ -15,6 +15,7 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/pkg/errors"
 )
 
 func relationAndSchemaFilterClause() string {
@@ -334,11 +335,20 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 
 	// Remove all views that have NULL definitions. This can happen
 	// if the query above is run and a concurrent view drop happens
-	// just before the pg_get_viewdef function execute.
+	// just before the pg_get_viewdef function execute. Also, error
+	// out if a view has anyarray typecasts in their view definition
+	// as those will error out during restore. Anyarray typecasts can
+	// show up if the view was created with array typecasting in an
+	// OpExpr (Operator Expression) argument.
 	verifiedResults := make([]View, 0)
 	for _, result := range results {
 		if result.Definition.Valid {
-			verifiedResults = append(verifiedResults, result)
+			if strings.Contains(result.Definition.String, "::anyarray") {
+				gplog.Fatal(errors.Errorf("Detected anyarray type cast in view definition for View '%s'", result.FQN()),
+					"Drop the view or recreate the view without explicit array type casts.")
+			} else {
+				verifiedResults = append(verifiedResults, result)
+			}
 		} else {
 			gplog.Warn("View '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
 		}

@@ -414,6 +414,20 @@ PARTITION BY LIST (gender)
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "Oid")
 		})
+		It("PANIC on views with anyarray typecasts in its view definition", func() {
+			// The view definition gets incorrectly converted and stored as
+			// `SELECT '{1}'::anyarray = NULL::anyarray`. This issue is fixed
+			// in later versions of GPDB.
+			if (connectionPool.Version.AtLeast("5.28.6") && connectionPool.Version.Before("6")) ||
+				connectionPool.Version.AtLeast("6.14.1") {
+				Skip("test only applicable to GPDB 4.3.X, GPDB 5.0.0 - 5.28.5, and GPDB 6.0.0 - 6.14.0")
+			}
+			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.opexpr_array_typecasting AS SELECT '{1}'::int[] = NULL::int[]")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.opexpr_array_typecasting")
+
+			defer testhelper.ShouldPanicWithMessage(`[CRITICAL]:-Detected anyarray type cast in view definition for View 'public.opexpr_array_typecasting': Drop the view or recreate the view without explicit array type casts.`)
+			_ = backup.GetAllViews(connectionPool)
+		})
 		It("returns a slice for a view with options", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.simpleview WITH (security_barrier=true) AS SELECT 1")
