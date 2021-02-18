@@ -25,18 +25,15 @@ import (
  * to get indexes, but multiple unique indexes can be created on the
  * same column so we only want to filter out the implicit ones.
  */
-func ConstructImplicitIndexNames(connectionPool *dbconn.DBConn) string {
-	query := `
-	SELECT DISTINCT
-		n.nspname || '.' || t.relname || '_' || a.attname || '_key' AS string
-	FROM pg_constraint c
-		JOIN pg_class t ON c.conrelid = t.oid
-		JOIN pg_namespace n ON t.relnamespace = n.oid
-		JOIN pg_attribute a ON c.conrelid = a.attrelid
-		JOIN pg_index i ON i.indrelid = c.conrelid
-	WHERE a.attnum > 0
-		AND i.indisunique = 't'
-		AND i.indisprimary = 'f'`
+func ConstructImplicitIndexOidList(connectionPool *dbconn.DBConn) string {
+	query := fmt.Sprintf(`
+	SELECT i.indexrelid
+	FROM pg_index i
+		JOIN pg_depend d on i.indexrelid = d.objid
+		JOIN pg_constraint c on d.refobjid = c.oid
+	WHERE i.indexrelid >= %d
+		AND i.indisunique is true
+		AND i.indisprimary is false;`, FIRST_NORMAL_OBJECT_ID)
 	indexNames := dbconn.MustSelectStringSlice(connectionPool, query)
 	return utils.SliceToQuotedString(indexNames)
 }
@@ -82,10 +79,10 @@ func (i IndexDefinition) FQN() string {
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 	resultIndexes := make([]IndexDefinition, 0)
 	if connectionPool.Version.Before("6") {
-		indexNameSet := ConstructImplicitIndexNames(connectionPool)
+		indexOidList := ConstructImplicitIndexOidList(connectionPool)
 		implicitIndexStr := ""
-		if indexNameSet != "" {
-			implicitIndexStr = fmt.Sprintf("OR n.nspname || '.' || ic.relname IN (%s)", indexNameSet)
+		if indexOidList != "" {
+			implicitIndexStr = fmt.Sprintf("OR i.indexrelid IN (%s)", indexOidList)
 		}
 		query := fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,

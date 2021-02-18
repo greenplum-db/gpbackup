@@ -2,6 +2,7 @@ package integration
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -14,12 +15,14 @@ import (
 )
 
 var _ = Describe("backup integration tests", func() {
-	Describe("ConstructImplicitIndexNames", func() {
+	Describe("ConstructImplicitIndexOidList", func() {
 		It("returns an empty string if there are no implicit indexes", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
 
-			indexNameSet := backup.ConstructImplicitIndexNames(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE UNIQUE INDEX simple_table_unique_index ON public.simple_table USING btree(i)")
+
+			indexNameSet := backup.ConstructImplicitIndexOidList(connectionPool)
 
 			Expect(indexNameSet).To(Equal(""))
 		})
@@ -27,10 +30,21 @@ var _ = Describe("backup integration tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int UNIQUE)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
 
-			indexNameSet := backup.ConstructImplicitIndexNames(connectionPool)
+			actualIndexOids := backup.ConstructImplicitIndexOidList(connectionPool)
 
-			Expect(indexNameSet).To(Equal("'public.simple_table_i_key'"))
+			expectedIndexOids := testutils.OidFromObjectName(connectionPool, "public", "simple_table_i_key", backup.TYPE_RELATION)
+			Expect(actualIndexOids).To(Equal(fmt.Sprintf("'%d'", expectedIndexOids)))
 		})
+		It("returns a string of all implicit indexes for long table names", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.long_table_name_63_chars_abcdefghigklmnopqrstuvwxyz123456789abc(mycol int UNIQUE)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.long_table_name_63_chars_abcdefghigklmnopqrstuvwxyz123456789abc")
+
+			actualIndexOids := backup.ConstructImplicitIndexOidList(connectionPool)
+
+			expectedIndexOids := testutils.OidFromObjectName(connectionPool, "public", "long_table_name_63_chars_abcdefghigklmnopqrstuvwxyz12_mycol_key", backup.TYPE_RELATION)
+			Expect(actualIndexOids).To(Equal(fmt.Sprintf("'%d'", expectedIndexOids)))
+		})
+
 	})
 	Describe("GetIndex", func() {
 		It("returns no slice when no index exists", func() {
