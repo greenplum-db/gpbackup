@@ -68,6 +68,8 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 		metadataFile.MustPrintf(" EXECUTE ON MASTER")
 	case "s":
 		metadataFile.MustPrintf(" EXECUTE ON ALL SEGMENTS")
+	case "i":
+		metadataFile.MustPrintf(" EXECUTE ON INITPLAN")
 	case "a": // Default case, don't print anything else
 	}
 	if funcDef.IsWindow {

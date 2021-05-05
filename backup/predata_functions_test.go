@@ -172,6 +172,11 @@ $_$`)
 					backup.PrintFunctionModifiers(backupfile, funcDef)
 					testhelper.ExpectRegexp(buffer, "EXECUTE ON ALL SEGMENTS")
 				})
+				It("print 'i' as EXECUTE ON INITPLAN", func() {
+					funcDef.ExecLocation = "i"
+					backup.PrintFunctionModifiers(backupfile, funcDef)
+					testhelper.ExpectRegexp(buffer, "EXECUTE ON INITPLAN")
+				})
 			})
 			Context("Cost cases", func() {
 				/*

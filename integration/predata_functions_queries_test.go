@@ -138,6 +138,30 @@ EXECUTE ON ALL SEGMENTS;`)
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&results[1], &srfOnMasterFunction, "Oid")
 		})
+		It("returns a function to execute on initplan", func() {
+			if connectionPool.Version.Before("6.5") {
+				Skip("Test only applicable to GPDB6.5 and above")
+			}
+
+			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_initplan(integer, integer) RETURNS integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON INITPLAN;`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_initplan(integer, integer)")
+
+			results := backup.GetFunctions(connectionPool)
+
+			srfOnInitplan := backup.Function{
+				Schema: "public", Name: "srf_on_initplan", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "integer", Valid: true},
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", IsWindow: true, ExecLocation: "i"}
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnInitplan, "Oid")
+		})
 		It("returns a function with LEAKPROOF", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `
