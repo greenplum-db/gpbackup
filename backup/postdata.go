@@ -20,7 +20,10 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 			metadataFile.MustPrintf("\n\n%s;", index.Def.String)
 			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
+			// Start INDEX metadata
 			indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
+			entry.ReferenceObject = indexFQN
+			entry.ObjectType = "INDEX METADATA"
 			if index.Tablespace != "" {
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace)
@@ -78,6 +81,9 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 		metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
+		// Start EVENT TRIGGER metadata
+		entry.ReferenceObject = eventTrigger.Name
+		entry.ObjectType = "EVENT TRIGGER METADATA"
 		if eventTrigger.Enabled != "O" {
 			var enableOption string
 			switch eventTrigger.Enabled {

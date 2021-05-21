@@ -62,6 +62,19 @@ func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s\n", statement)
 		section, entry := obj.GetMetadataEntry()
+
+		/*
+		 * Postdata metadata needs to be specifically marked as such to
+		 * help with gprestore postdata parallel restore (--jobs).
+		 */
+		if section == "postdata" {
+			entry.ObjectType = fmt.Sprintf("%s METADATA", entry.ObjectType)
+			if entry.Schema != "" {
+				entry.ReferenceObject = utils.MakeFQN(entry.Schema, entry.Name)
+			} else {
+				entry.ReferenceObject = entry.Name
+			}
+		}
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 	}
 }

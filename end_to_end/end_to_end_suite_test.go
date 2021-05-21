@@ -1490,4 +1490,62 @@ var _ = Describe("backup and restore end to end tests", func() {
 			"--metadata-only")
 		assertRelationsCreated(restoreConn, 4)
 	})
+	It("runs gprestore with jobs flag and postdata has metadata", func() {
+		if useOldBackupVersion {
+			Skip("This test is not needed for old backup versions")
+		}
+
+		if backupConn.Version.Before("6") {
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
+		} else {
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir';")
+		}
+		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLESPACE test_tablespace;")
+
+		// Store everything in this test schema for easy test cleanup.
+		testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA postdata_metadata;")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA postdata_metadata CASCADE;")
+		defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA postdata_metadata CASCADE;")
+
+		// Create a table and indexes. Currently for indexes, there are 4 possible pieces
+		// of metadata: TABLESPACE, CLUSTER, REPLICA IDENTITY, and COMMENT.
+		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE postdata_metadata.foobar (a int NOT NULL);")
+		testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx1 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+		testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx2 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+		testhelper.AssertQueryRuns(backupConn, "CREATE UNIQUE INDEX fooidx3 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx1 IS 'hello';")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx2 IS 'hello';")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx3 IS 'hello';")
+		testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar CLUSTER ON fooidx3;")
+		if backupConn.Version.AtLeast("6") {
+			testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar REPLICA IDENTITY USING INDEX fooidx3")
+		}
+
+		// Create a rule. Currently for rules, the only metadata is COMMENT.
+		testhelper.AssertQueryRuns(backupConn, "CREATE RULE postdata_rule AS ON UPDATE TO postdata_metadata.foobar DO SELECT * FROM postdata_metadata.foobar;")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule IS 'hello';")
+
+		// Create a trigger. Currently for triggers, the only metadata is COMMENT.
+		testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
+
+		// Create an event trigger. Currently for event triggers, there are 2 possible
+		// pieces of metadata: ENABLE and COMMENT.
+		if backupConn.Version.AtLeast("6") {
+			testhelper.AssertQueryRuns(backupConn, "CREATE OR REPLACE FUNCTION postdata_metadata.postdata_eventtrigger_func() RETURNS event_trigger AS $$ BEGIN END $$ LANGUAGE plpgsql;")
+			testhelper.AssertQueryRuns(backupConn, "CREATE EVENT TRIGGER postdata_eventtrigger ON sql_drop EXECUTE PROCEDURE postdata_metadata.postdata_eventtrigger_func();")
+			testhelper.AssertQueryRuns(backupConn, "ALTER EVENT TRIGGER postdata_eventtrigger DISABLE;")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON EVENT TRIGGER postdata_eventtrigger IS 'hello'")
+		}
+
+		timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			"--metadata-only")
+		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
+			"--redirect-db", "restoredb", "--jobs", "8", "--verbose")
+
+		// The gprestore parallel postdata restore should have succeeded without a CRITICAL error.
+		stdout := string(output)
+		Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+		Expect(stdout).To(Not(ContainSubstring("Error encountered when executing statement")))
+	})
 })
