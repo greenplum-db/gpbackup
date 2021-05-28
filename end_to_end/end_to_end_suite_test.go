@@ -1356,6 +1356,33 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
 	})
+	It("successfully backs up foreign tables", func() {
+		if backupConn.Version.Before("6") {
+			Skip("Test does not apply for GPDB versions before 6")
+		}
+		testhelper.AssertQueryRuns(backupConn,
+			"CREATE FOREIGN DATA WRAPPER foreigndatawrapper;")
+		defer testhelper.AssertQueryRuns(backupConn,
+			"DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE;")
+		testhelper.AssertQueryRuns(backupConn,
+			"CREATE SERVER sc FOREIGN DATA WRAPPER foreigndatawrapper;")
+		testhelper.AssertQueryRuns(backupConn,
+			"CREATE FOREIGN TABLE public.ft1 (field1 text) SERVER sc")
+		testhelper.AssertQueryRuns(backupConn,
+			"CREATE FOREIGN TABLE public.ft2 (field1 text) SERVER sc")
+		args := []string{
+			"--dbname", "testdb",
+			"--backup-dir", backupDir,
+			"--jobs", "4",
+			"--verbose"}
+		cmd := exec.Command(gpbackupPath, args...)
+		output, _ := cmd.CombinedOutput()
+		stdout := string(output)
+		Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+		Expect(stdout).To(ContainSubstring("Skipping data backup of table public.ft1"))
+		Expect(stdout).To(ContainSubstring("Skipping data backup of table public.ft2"))
+		Expect(stdout).To(ContainSubstring("Skipped data backup of 2 external/foreign table(s)"))
+	})
 	It("runs gpbackup with --version flag", func() {
 		if useOldBackupVersion {
 			Skip("This test is not needed for old backup versions")
