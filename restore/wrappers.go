@@ -92,6 +92,7 @@ SET default_with_oids = off;
 		setupQuery += "SET allow_system_table_mods = true;\n"
 		setupQuery += "SET lock_timeout = 0;\n"
 		setupQuery += "SET default_transaction_read_only = off;\n"
+		setupQuery += "SET xmloption = content;\n"
 
 		// If the backup is from a GPDB version less than 6.0,
 		// we need to use legacy hash operators when restoring

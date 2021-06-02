@@ -844,7 +844,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			assertDataRestored(restoreConn, schema3TupleCounts)
 			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
 		})
-		It("runs --redirect-schema with --matadata-only", func(){
+		It("runs --redirect-schema with --matadata-only", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(restoreConn,
 				"DROP SCHEMA IF EXISTS schema_to_redirect CASCADE; CREATE SCHEMA \"schema_to_redirect\";")
@@ -1569,5 +1569,21 @@ var _ = Describe("backup and restore end to end tests", func() {
 		stdout := string(output)
 		Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
 		Expect(stdout).To(Not(ContainSubstring("Error encountered when executing statement")))
+	})
+	It("Can restore xml with xmloption set to document", func() {
+		testutils.SkipIfBefore6(backupConn)
+		// Set up the XML table that contains XML content
+		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE xml_test AS SELECT xml 'fooxml'")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE xml_test")
+
+		// Set up database that has xmloption default to document instead of content
+		testhelper.AssertQueryRuns(backupConn, "CREATE DATABASE document_db")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP DATABASE document_db")
+		testhelper.AssertQueryRuns(backupConn, "ALTER DATABASE document_db SET xmloption TO document")
+
+		timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-table", "public.xml_test")
+
+		gprestore(gprestorePath, restoreHelperPath, timestamp,
+			"--redirect-db", "document_db")
 	})
 })
