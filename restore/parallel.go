@@ -50,7 +50,7 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
  * This function creates a worker pool of N goroutines to be able to execute up
  * to N statements in parallel.
  */
-func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) {
+func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) int32 {
 	var workerPool sync.WaitGroup
 	var fatalErr error
 	var numErrors int32
@@ -81,13 +81,17 @@ func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.Pro
 		fmt.Println("")
 		gplog.Error("Encountered %d errors during metadata restore; see log file %s for a list of failed statements.", numErrors, gplog.GetLogFilePath())
 	}
+
+	return numErrors
 }
 
-func ExecuteStatementsAndCreateProgressBar(statements []toc.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) {
+func ExecuteStatementsAndCreateProgressBar(statements []toc.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) int32 {
 	progressBar := utils.NewProgressBar(len(statements), fmt.Sprintf("%s restored: ", objectsTitle), showProgressBar)
 	progressBar.Start()
-	ExecuteStatements(statements, progressBar, executeInParallel, whichConn...)
+	numErrors := ExecuteStatements(statements, progressBar, executeInParallel, whichConn...)
 	progressBar.Finish()
+
+	return numErrors
 }
 
 /*

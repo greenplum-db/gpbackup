@@ -180,8 +180,13 @@ func createDatabase(metadataFilename string) {
 		dbName = quotedDBName
 		statements = toc.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
-	ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
-	gplog.Info("Database creation complete for: %s", dbName)
+	numErrors := ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
+
+	if numErrors > 0 {
+		gplog.Info("Database creation completed with failures for: %s", dbName)
+	} else {
+		gplog.Info("Database creation complete for: %s", dbName)
+	}
 }
 
 func restoreGlobal(metadataFilename string) {
@@ -196,8 +201,13 @@ func restoreGlobal(metadataFilename string) {
 		statements = toc.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
 	statements = toc.RemoveActiveRole(connectionPool.User, statements)
-	ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
-	gplog.Info("Global database metadata restore complete")
+	numErrors := ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
+
+	if numErrors > 0 {
+		gplog.Info("Global database metadata restore completed with failures")
+	} else {
+		gplog.Info("Global database metadata restore complete")
+	}
 }
 
 func verifyIncrementalState() {
@@ -277,11 +287,13 @@ func restorePredata(metadataFilename string) {
 	progressBar.Start()
 
 	RestoreSchemas(schemaStatements, progressBar)
-	ExecuteRestoreMetadataStatements(statements, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
+	numErrors := ExecuteRestoreMetadataStatements(statements, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
 
 	progressBar.Finish()
 	if wasTerminated {
 		gplog.Info("Pre-data metadata restore incomplete")
+	} else if numErrors > 0 {
+		gplog.Info("Pre-data metadata restore completed with failures")
 	} else {
 		gplog.Info("Pre-data metadata restore complete")
 	}
@@ -308,17 +320,20 @@ func restoreSequenceValues(metadataFilename string) {
 		}
 	}
 
+	numErrors := int32(0)
 	if len(sequenceValueStatements) == 0 {
 		gplog.Verbose("No sequence values to restore")
 	} else {
 		progressBar := utils.NewProgressBar(len(sequenceValueStatements), "Sequence values restored: ", utils.PB_VERBOSE)
 		progressBar.Start()
-		ExecuteRestoreMetadataStatements(sequenceValueStatements, "Sequence values", progressBar, utils.PB_VERBOSE, true)
+		numErrors = ExecuteRestoreMetadataStatements(sequenceValueStatements, "Sequence values", progressBar, utils.PB_VERBOSE, true)
 		progressBar.Finish()
 	}
 
 	if wasTerminated {
 		gplog.Info("Sequence values restore incomplete")
+	} else if numErrors > 0 {
+		gplog.Info("Sequence values restore completed with failures")
 	} else {
 		gplog.Info("Sequence values restore complete")
 	}
@@ -371,14 +386,17 @@ func restoreData() (int, map[string][]toc.MasterDataEntry) {
 	dataProgressBar.Start()
 
 	gucStatements := setGUCsForConnection(nil, 0)
+	numErrors := int32(0)
 	for timestamp, entries := range filteredDataEntries {
 		gplog.Verbose("Restoring data for %d tables from backup with timestamp: %s", len(entries), timestamp)
-		restoreDataFromTimestamp(GetBackupFPInfoForTimestamp(timestamp), entries, gucStatements, dataProgressBar)
+		numErrors = restoreDataFromTimestamp(GetBackupFPInfoForTimestamp(timestamp), entries, gucStatements, dataProgressBar)
 	}
 
 	dataProgressBar.Finish()
 	if wasTerminated {
 		gplog.Info("Data restore incomplete")
+	} else if numErrors > 0 {
+		gplog.Info("Data restore completed with failures")
 	} else {
 		gplog.Info("Data restore complete")
 	}
@@ -399,12 +417,16 @@ func restorePostdata(metadataFilename string) {
 	firstBatch, secondBatch, thirdBatch := BatchPostdataStatements(statements)
 	progressBar := utils.NewProgressBar(len(statements), "Post-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
-	ExecuteRestoreMetadataStatements(firstBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
-	ExecuteRestoreMetadataStatements(secondBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
-	ExecuteRestoreMetadataStatements(thirdBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+
+	numErrors := ExecuteRestoreMetadataStatements(firstBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+	numErrors += ExecuteRestoreMetadataStatements(secondBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+	numErrors += ExecuteRestoreMetadataStatements(thirdBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
 	progressBar.Finish()
+
 	if wasTerminated {
 		gplog.Info("Post-data metadata restore incomplete")
+	} else if numErrors > 0 {
+		gplog.Info("Post-data metadata restore completed with failures")
 	} else {
 		gplog.Info("Post-data metadata restore complete")
 	}
@@ -421,8 +443,13 @@ func restoreStatistics() {
 
 	statements := GetRestoreMetadataStatementsFiltered("statistics", statisticsFilename, []string{}, []string{}, filters)
 	editStatementsRedirectSchema(statements, opts.RedirectSchema)
-	ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
-	gplog.Info("Query planner statistics restore complete")
+	numErrors := ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
+
+	if numErrors > 0 {
+		gplog.Info("Query planner statistics restore completed with failures")
+	} else {
+		gplog.Info("Query planner statistics restore complete")
+	}
 }
 
 func runAnalyze(filteredDataEntries map[string][]toc.MasterDataEntry) {
@@ -487,11 +514,13 @@ func runAnalyze(filteredDataEntries map[string][]toc.MasterDataEntry) {
 
 	progressBar := utils.NewProgressBar(len(analyzeStatements), "Tables analyzed: ", utils.PB_VERBOSE)
 	progressBar.Start()
-	ExecuteStatements(analyzeStatements, progressBar, connectionPool.NumConns > 1)
+	numErrors := ExecuteStatements(analyzeStatements, progressBar, connectionPool.NumConns > 1)
 	progressBar.Finish()
 
 	if wasTerminated {
 		gplog.Info("ANALYZE on restored tables incomplete")
+	} else if numErrors > 0 {
+		gplog.Info("ANALYZE on restored tables completed with failures")
 	} else {
 		gplog.Info("ANALYZE on restored tables complete")
 	}

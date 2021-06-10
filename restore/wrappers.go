@@ -277,12 +277,15 @@ func GetRestoreMetadataStatementsFiltered(section string, filename string, inclu
 	return statements
 }
 
-func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) {
+func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) int32 {
+	var numErrors int32
 	if progressBar == nil {
-		ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, executeInParallel)
+		numErrors = ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, executeInParallel)
 	} else {
-		ExecuteStatements(statements, progressBar, executeInParallel)
+		numErrors = ExecuteStatements(statements, progressBar, executeInParallel)
 	}
+
+	return numErrors
 }
 
 func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {

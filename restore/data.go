@@ -84,11 +84,11 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 }
 
 func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.MasterDataEntry,
-	gucStatements []toc.StatementWithType, dataProgressBar utils.ProgressBar) {
+	gucStatements []toc.StatementWithType, dataProgressBar utils.ProgressBar) int32 {
 	totalTables := len(dataEntries)
 	if totalTables == 0 {
 		gplog.Verbose("No data to restore for timestamp = %s", fpInfo.Timestamp)
-		return
+		return 0
 	}
 
 	if backupConfig.SingleDataFile {
@@ -102,7 +102,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		firstOid := fmt.Sprintf("%d", dataEntries[0].Oid)
 		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, fpInfo)
 		if wasTerminated {
-			return
+			return 0
 		}
 		isFilter := false
 		if len(opts.IncludedRelations) > 0 || len(opts.ExcludedRelations) > 0 || len(opts.IncludedSchemas) > 0 || len(opts.ExcludedSchemas) > 0 {
@@ -187,4 +187,6 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		fmt.Println("")
 		gplog.Error("Encountered %d error(s) during table data restore; see log file %s for a list of table errors.", numErrors, gplog.GetLogFilePath())
 	}
+
+	return numErrors
 }
