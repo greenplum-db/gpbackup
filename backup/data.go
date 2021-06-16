@@ -85,32 +85,27 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 }
 
 func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters *BackupProgressCounters, whichConn int) error {
-	if table.SkipDataBackup() {
-		gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
+	atomic.AddInt64(&counters.NumRegTables, 1)
+	numTables := counters.NumRegTables //We save this so it won't be modified before we log it
+	if gplog.GetVerbosity() > gplog.LOGINFO {
+		// No progress bar at this log level, so we note table count here
+		gplog.Verbose("Writing data for table %s to file (table %d of %d)", table.FQN(), numTables, counters.TotalRegTables)
 	} else {
-
-		atomic.AddInt64(&counters.NumRegTables, 1)
-		numTables := counters.NumRegTables //We save this so it won't be modified before we log it
-		if gplog.GetVerbosity() > gplog.LOGINFO {
-			// No progress bar at this log level, so we note table count here
-			gplog.Verbose("Writing data for table %s to file (table %d of %d)", table.FQN(), numTables, counters.TotalRegTables)
-		} else {
-			gplog.Verbose("Writing data for table %s to file", table.FQN())
-		}
-
-		destinationToWrite := ""
-		if MustGetFlagBool(options.SINGLE_DATA_FILE) {
-			destinationToWrite = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), table.Oid)
-		} else {
-			destinationToWrite = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, utils.GetPipeThroughProgram().Extension, false)
-		}
-		rowsCopied, err := CopyTableOut(connectionPool, table, destinationToWrite, whichConn)
-		if err != nil {
-			return err
-		}
-		rowsCopiedMap[table.Oid] = rowsCopied
-		counters.ProgressBar.Increment()
+		gplog.Verbose("Writing data for table %s to file", table.FQN())
 	}
+
+	destinationToWrite := ""
+	if MustGetFlagBool(options.SINGLE_DATA_FILE) {
+		destinationToWrite = fmt.Sprintf("%s_%d", globalFPInfo.GetSegmentPipePathForCopyCommand(), table.Oid)
+	} else {
+		destinationToWrite = globalFPInfo.GetTableBackupFilePathForCopyCommand(table.Oid, utils.GetPipeThroughProgram().Extension, false)
+	}
+	rowsCopied, err := CopyTableOut(connectionPool, table, destinationToWrite, whichConn)
+	if err != nil {
+		return err
+	}
+	rowsCopiedMap[table.Oid] = rowsCopied
+	counters.ProgressBar.Increment()
 	return nil
 }
 
@@ -146,6 +141,10 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 					return
 				}
 
+				if table.SkipDataBackup() {
+					gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
+					continue
+				}
 				// If a random external SQL command had queued an AccessExclusiveLock acquisition request
 				// against this next table, the --job worker thread would deadlock on the COPY attempt.
 				// To prevent gpbackup from hanging, we attempt to acquire an AccessShareLock on the

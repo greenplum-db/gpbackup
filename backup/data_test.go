@@ -173,24 +173,6 @@ var _ = Describe("backup/data tests", func() {
 			Expect(rowsCopiedMap[0]).To(Equal(int64(10)))
 			Expect(counters.NumRegTables).To(Equal(int64(1)))
 		})
-		It("backs up a single external table", func() {
-			_ = cmdFlags.Set(options.LEAF_PARTITION_DATA, "false")
-			testTable.IsExternal = true
-			err := backup.BackupSingleTableData(testTable, rowsCopiedMap, &counters, 0)
-
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(rowsCopiedMap).To(BeEmpty())
-			Expect(counters.NumRegTables).To(Equal(int64(0)))
-		})
-		It("backs up a single foreign table", func() {
-			_ = cmdFlags.Set(options.LEAF_PARTITION_DATA, "false")
-			testTable.ForeignDef = backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
-			err := backup.BackupSingleTableData(testTable, rowsCopiedMap, &counters, 0)
-
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(rowsCopiedMap).To(BeEmpty())
-			Expect(counters.NumRegTables).To(Equal(int64(0)))
-		})
 	})
 	Describe("CheckDBContainsData", func() {
 		config := history.BackupConfig{}
