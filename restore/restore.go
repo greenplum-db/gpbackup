@@ -66,6 +66,9 @@ func DoSetup() {
 	err = opts.QuoteIncludeRelations(connectionPool)
 	gplog.FatalOnError(err)
 
+	err = opts.QuoteExcludeRelations(connectionPool)
+	gplog.FatalOnError(err)
+
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), backupTimestamp)

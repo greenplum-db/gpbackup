@@ -343,22 +343,31 @@ PARTITION BY LIST (gender)
 			_ = os.Remove("/tmp/exclude-schema.txt")
 		})
 		It("runs gpbackup and gprestore with exclude-table restore flag", func() {
+			// Create keyword table to make sure we properly escape it during the exclusion check.
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public."user"(i int)`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public."user"`)
+
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--exclude-table", "schema2.foo2",
 				"--exclude-table", "schema2.returns",
 				"--exclude-table", "public.myseq2",
-				"--exclude-table", "public.myview2")
+				"--exclude-table", "public.myview2",
+				"--exclude-table", "public.user")
 
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS_AFTER_EXCLUDE)
 			assertDataRestored(restoreConn, map[string]int{
 				"schema2.foo3": 100, "public.foo": 40000, "public.holds": 50000, "public.sales": 13})
 		})
 		It("runs gpbackup and gprestore with exclude-table-file restore flag", func() {
+			// Create keyword table to make sure we properly escape it during the exclusion check.
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public."user"(i int)`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public."user"`)
+
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 			utils.MustPrintln(includeFile,
-				"schema2.foo2\nschema2.returns\npublic.myseq2\npublic.myview2")
+				"schema2.foo2\nschema2.returns\npublic.myseq2\npublic.myview2\npublic.user")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,

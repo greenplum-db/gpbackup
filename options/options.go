@@ -259,6 +259,16 @@ func (o *Options) QuoteIncludeRelations(conn *dbconn.DBConn) error {
 	return nil
 }
 
+func (o *Options) QuoteExcludeRelations(conn *dbconn.DBConn) error {
+	var err error
+	o.ExcludedRelations, err = QuoteTableNames(conn, o.GetExcludedTables())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) ([]FqnStruct, error) {
 	includeOids, err := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	if err != nil {
