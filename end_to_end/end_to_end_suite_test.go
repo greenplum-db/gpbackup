@@ -866,6 +866,44 @@ var _ = Describe("backup and restore end to end tests", func() {
 			assertRelationsCreatedInSchema(restoreConn, "schema_to_redirect", 1)
 			assertDataRestored(restoreConn, map[string]int{"schema_to_redirect.table_metadata_only": 0})
 		})
+		It("runs --redirect-schema with --include-schema and --include-schema-file", func() {
+			skipIfOldBackupVersionBefore("1.17.0")
+			testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+			defer testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA schema3 CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE SCHEMA fooschema")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA fooschema CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE fooschema.redirected_table(i int)")
+
+			schemaFile := path.Join(backupDir, "test-schema-file.txt")
+			includeSchemaFd := iohelper.MustOpenFileForWriting(schemaFile)
+			utils.MustPrintln(includeSchemaFd, "fooschema")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--include-schema-file", schemaFile,
+				"--include-schema", "schema2",
+				"--redirect-db", "restoredb",
+				"--redirect-schema", "schema3")
+
+			expectedSchema3TupleCounts := map[string]int{
+				"schema3.returns": 6,
+				"schema3.foo2":    0,
+				"schema3.foo3":    100,
+				"schema3.ao1":     1000,
+				"schema3.ao2":     1000,
+				"schema3.redirected_table": 0,
+			}
+			assertDataRestored(restoreConn, expectedSchema3TupleCounts)
+			assertRelationsCreatedInSchema(restoreConn, "public", 0)
+			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+			assertRelationsCreatedInSchema(restoreConn, "fooschema", 0)
+		})
 	})
 	Describe("ACLs for extensions", func() {
 		It("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
