@@ -163,10 +163,11 @@ HEREDOC
 
 func CleanUpHelperFilesOnAllHosts(c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
 	remoteOutput := c.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", cluster.ON_SEGMENTS, func(contentID int) string {
-		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
 		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
 		scriptFile := fpInfo.GetSegmentHelperFilePath(contentID, "script")
-		return fmt.Sprintf("rm -f %s && rm -f %s && rm -f %s", errorFile, oidFile, scriptFile)
+		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
+		skipFile := fmt.Sprintf("%s_skip_*", fpInfo.GetSegmentPipeFilePath(contentID))
+		return fmt.Sprintf("rm -f %s && rm -f %s && rm -f %s && rm -f %s", oidFile, scriptFile, errorFile, skipFile)
 	})
 	errMsg := fmt.Sprintf("Unable to remove segment helper file(s). See %s for a complete list of segments with errors and remove manually.",
 		gplog.GetLogFilePath())
@@ -218,4 +219,13 @@ func CheckAgentErrorsOnSegments(c *cluster.Cluster, fpInfo filepath.FilePathInfo
 			numErrors, gplog.GetLogFilePath(), helperLogName)
 	}
 	return nil
+}
+
+func CreateSkipFileOnSegments(oid string, c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
+	remoteOutput := c.GenerateAndExecuteCommand("Touch skip file", cluster.ON_SEGMENTS, func(contentID int) string {
+		return fmt.Sprintf("touch %s_skip_%s", fpInfo.GetSegmentPipeFilePath(contentID), oid)
+	})
+	c.CheckClusterError(remoteOutput, "Error while touching skip file", func(contentID int) string {
+		return fmt.Sprintf("Could not create skip file %s_skip_%s", fpInfo.GetSegmentPipeFilePath(contentID), oid)
+	})
 }

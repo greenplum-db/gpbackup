@@ -159,6 +159,10 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 					if !MustGetFlagBool(options.ON_ERROR_CONTINUE) {
 						dataProgressBar.(*pb.ProgressBar).NotPrint = true
 						return
+					} else {
+						// inform segment helpers to skip this entry
+						gplog.Info(fmt.Sprintf("Error encoutered to restore entry %d (%s)", entry.Oid, tableName))
+						utils.CreateSkipFileOnSegments(fmt.Sprintf("%d", entry.Oid), globalCluster, globalFPInfo)
 					}
 					mutex.Lock()
 					errorTablesData[tableName] = Empty{}

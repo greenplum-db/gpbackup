@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -95,7 +97,6 @@ func doRestoreAgent() error {
 		return err
 	}
 	log(fmt.Sprintf("Using reader type: %s", reader.readerType))
-
 	for i, oid := range oidList {
 		if wasTerminated {
 			return errors.New("Terminated due to user request")
@@ -118,13 +119,31 @@ func doRestoreAgent() error {
 		end = tocEntries[uint(oid)].EndByte
 
 		log(fmt.Sprintf("Opening pipe for oid %d: %s", oid, currentPipe))
-		writer, writeHandle, err = getRestorePipeWriter(currentPipe)
-		if err != nil {
-			// In the case this error is hit it means we have lost the
-			// ability to open pipes normally, so hard quit even if
-			// --on-error-continue is given
-			_ = utils.RemoveFileIfExists(currentPipe)
-			return err
+		for {
+			writer, writeHandle, err = getRestorePipeWriter(currentPipe)
+			if err != nil {
+				if errors.Is(err, syscall.ENXIO) {
+					// the reader is not ready, so writer will fail with very specific error
+					// discover if gprestore created a skip file for this entry
+					skipFileName := fmt.Sprintf("%s_skip_%d", *pipeFile, oid)
+					log(fmt.Sprintf("looking for skip file %s", skipFileName))
+					if utils.FileExists(skipFileName) {
+						log(fmt.Sprintf("Skip file discovered for entry %d, skipping it", oid))
+						goto LoopEnd
+					} else {
+						// keep trying to open the pipe
+						time.Sleep(100 * time.Millisecond)
+					}
+				} else {
+					// In the case this error is hit it means we have lost the
+					// ability to open pipes normally, so hard quit even if
+					// --on-error-continue is given
+					_ = utils.RemoveFileIfExists(currentPipe)
+					return err
+				}
+			} else {
+				break
+			}
 		}
 
 		log(fmt.Sprintf("Data Reader - Start Byte: %d; End Byte: %d; Last Byte: %d", start, end, lastByte))
@@ -229,8 +248,7 @@ func getRestoreDataReader(toc *toc.SegmentTOC, oidList []int) (*RestoreReader, e
 }
 
 func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File, error) {
-	// Opening this pipe will block until a reader connects to the pipe
-	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY, os.ModeNamedPipe)
+	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
 	if err != nil {
 		return nil, nil, err
 	}

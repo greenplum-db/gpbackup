@@ -86,7 +86,7 @@ func DoHelper() {
 		err = doRestoreAgent()
 	}
 	if err != nil {
-		gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
+		logError(fmt.Sprintf("%v: %s", err, debug.Stack()))
 		handle, _ := utils.OpenFileForWrite(fmt.Sprintf("%s_error", *pipeFile))
 		_ = handle.Close()
 	}
