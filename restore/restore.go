@@ -59,6 +59,7 @@ func DoSetup() {
 
 	CreateConnectionPool("postgres")
 
+	var segPrefix string
 	var err error
 	opts, err = options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
@@ -71,7 +72,8 @@ func DoSetup() {
 
 	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), backupTimestamp)
+	segPrefix, err = filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), backupTimestamp)
+	gplog.FatalOnError(err)
 	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), backupTimestamp, segPrefix)
 
 	// Get restore metadata from plugin

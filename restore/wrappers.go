@@ -292,7 +292,8 @@ func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, object
 func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 	fpInfoList := make([]filepath.FilePathInfo, 0)
 	for _, entry := range backupConfig.RestorePlan {
-		segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), entry.Timestamp)
+		segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), entry.Timestamp)
+		gplog.FatalOnError(err)
 
 		fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), entry.Timestamp, segPrefix)
 		fpInfoList = append(fpInfoList, fpInfo)
@@ -302,7 +303,8 @@ func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 }
 
 func GetBackupFPInfoForTimestamp(timestamp string) filepath.FilePathInfo {
-	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), timestamp)
+	segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), timestamp)
+	gplog.FatalOnError(err)
 	fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, segPrefix)
 	return fpInfo
 }
@@ -378,6 +380,6 @@ func GetExistingSchemas() ([]string, error) {
 
 func TruncateTable(tableFQN string, whichConn int) error {
 	gplog.Verbose("Truncating table %s prior to restoring data", tableFQN)
-	_, err := connectionPool.Exec(`TRUNCATE ` + tableFQN, whichConn)
+	_, err := connectionPool.Exec(`TRUNCATE `+tableFQN, whichConn)
 	return err
 }
