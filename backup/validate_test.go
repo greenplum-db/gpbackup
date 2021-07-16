@@ -1,12 +1,16 @@
 package backup_test
 
 import (
+	"strings"
+
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/spf13/cobra"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/options"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 )
 
 var _ = Describe("backup/validate tests", func() {
@@ -176,5 +180,95 @@ var _ = Describe("backup/validate tests", func() {
 				backup.ValidateTablesExist(connectionPool, filterList, false)
 			})
 		})
+	})
+	Describe("Validate various flag combinations that are required or exclusive", func() {
+		DescribeTable("Validate various flag combinations that are required or exclusive",
+			func(argString string, valid bool) {
+				testCmd := &cobra.Command{
+				Use: "flag validation",
+				Args: cobra.NoArgs,
+				Run: func(cmd *cobra.Command, args []string) {
+					backup.DoFlagValidation(cmd)
+				}}
+				testCmd.SetArgs(strings.Split(argString, " "))
+				backup.SetCmdFlags(testCmd.Flags())
+
+				if (!valid) {
+					defer testhelper.ShouldPanicWithMessage("CRITICAL")
+				}
+
+				err := testCmd.Execute(); if err != nil && valid{
+					Fail("Valid flag combination failed validation check")
+				}
+			},
+			Entry("--backup-dir combo", "--backup-dir /tmp --plugin-config /tmp/config", false),
+
+			/*
+			 * Below are all the different filter combinations
+			 */
+			// --exclude-schema combinations with other filters
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --include-table schema.table2", false),
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --include-table-file /tmp/file2", false),
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --include-schema schema2", false),
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --include-schema-file /tmp/file2", false),
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --exclude-table schema.table2", false),
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --exclude-table-file /tmp/file2", false),
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --exclude-schema schema2", true),
+			Entry("--exclude-schema combos", "--exclude-schema schema1 --exclude-schema-file /tmp/file2", false),
+
+			// --exclude-schema-file combinations with other filters
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-table schema.table2", false),
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-table-file /tmp/file2", false),
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-schema schema2", false),
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-schema-file /tmp/file2", false),
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --exclude-table schema.table2", false),
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --exclude-table-file /tmp/file2", false),
+
+			// --exclude-table combinations with other filters
+			Entry("--exclude-table combos", "--exclude-table schema.table --include-table schema.table2", false),
+			Entry("--exclude-table combos", "--exclude-table schema.table --include-table-file /tmp/file2", false),
+			Entry("--exclude-table combos", "--exclude-table schema.table --include-schema schema2", true), // TODO: Verify this.
+			Entry("--exclude-table combos", "--exclude-table schema.table --include-schema-file /tmp/file2", true), // TODO: Verify this.
+			Entry("--exclude-table combos", "--exclude-table schema.table --exclude-table schema.table2", true),
+			Entry("--exclude-table combos", "--exclude-table schema.table --exclude-table-file /tmp/file2", false),
+
+			// --exclude-table-file combinations with other filters
+			Entry("--exclude-table-file combos", "--exclude-table-file /tmp/file --include-table schema.table2", false),
+			Entry("--exclude-table-file combos", "--exclude-table-file /tmp/file --include-table-file /tmp/file2", false),
+			Entry("--exclude-table-file combos", "--exclude-table-file /tmp/file --include-schema schema2", true), // TODO: Verify this.
+			Entry("--exclude-table-file combos", "--exclude-table-file /tmp/file --include-schema-file /tmp/file2", true), // TODO: Verify this.
+
+			// --include-schema combinations with other filters
+			Entry("--include-schema combos", "--include-schema schema1 --include-table schema.table2", false),
+			Entry("--include-schema combos", "--include-schema schema1 --include-table-file /tmp/file2", false),
+			Entry("--include-schema combos", "--include-schema schema1 --include-schema schema2", true),
+			Entry("--include-schema combos", "--include-schema schema1 --include-schema-file /tmp/file2", false),
+
+			// --include-schema-file combinations with other filters
+			Entry("--include-schema-file combos", "--include-schema-file /tmp/file --include-table schema.table2", false),
+			Entry("--include-schema-file combos", "--include-schema-file /tmp/file --include-table-file /tmp/file2", false),
+
+			// --include-table combinations with other filters
+			Entry("--include-table combos", "--include-table schema.table --include-table schema.table2", true),
+			Entry("--include-table combos", "--include-table schema.table --include-table-file /tmp/file2", false),
+
+			/*
+			 * Below are various different incremental combinations
+			 */
+			Entry("incremental combos", "--incremental", false),
+			Entry("incremental combos", "--incremental --leaf-partition-data", true),
+			Entry("incremental combos", "--incremental --from-timestamp 20211507152558", false),
+			Entry("incremental combos", "--incremental --from-timestamp 20211507152558 --leaf-partition-data", true),
+			Entry("incremental combos", "--incremental --leaf-partition-data --data-only", false),
+			Entry("incremental combos", "--incremental --leaf-partition-data --metadata-only", false),
+
+			/*
+			 * Below are various different jobs combinations
+			 */
+			Entry("jobs combos", "--jobs 2 --metadata-only", false),
+			Entry("jobs combos", "--jobs 2 --single-data-file", false),
+			Entry("jobs combos", "--jobs 2 --plugin-config /tmp/file", true),
+			Entry("jobs combos", "--jobs 2 --data-only", true),
+		)
 	})
 })
