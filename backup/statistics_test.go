@@ -65,8 +65,6 @@ var _ = Describe("backup/statistics tests", func() {
 
 			insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5 := getStatInsertReplace(0, 0)
 
-			fmt.Printf("Replaces")
-
 			expected := []string{
 `UPDATE pg_class
 SET
