@@ -72,7 +72,7 @@ func DoSetup() {
 	}
 	globalTOC = &toc.TOC{}
 	globalTOC.InitializeMetadataEntryMap()
-	utils.InitializePipeThroughParameters(!MustGetFlagBool(options.NO_COMPRESSION), MustGetFlagInt(options.COMPRESSION_LEVEL))
+	utils.InitializePipeThroughParameters(!MustGetFlagBool(options.NO_COMPRESSION), MustGetFlagString(options.COMPRESSION_TYPE), MustGetFlagInt(options.COMPRESSION_LEVEL))
 	getQuotedRoleNames(connectionPool)
 
 	pluginConfigFlag := MustGetFlagString(options.PLUGIN_CONFIG)
@@ -268,7 +268,7 @@ func backupData(tables []Table) {
 		}
 		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo)
 		utils.CreateFirstSegmentPipeOnAllHosts(oidList[0], globalCluster, globalFPInfo)
-		compressStr := fmt.Sprintf(" --compression-level %d", MustGetFlagInt(options.COMPRESSION_LEVEL))
+		compressStr := fmt.Sprintf(" --compression-level %d --compression-type %s", MustGetFlagInt(options.COMPRESSION_LEVEL), MustGetFlagString(options.COMPRESSION_TYPE))
 		if MustGetFlagBool(options.NO_COMPRESSION) {
 			compressStr = " --compression-level 0"
 		}

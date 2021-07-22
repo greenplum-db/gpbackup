@@ -43,11 +43,11 @@ func RemoveFileIfExists(filename string) error {
 }
 
 func OpenFileForWrite(filename string) (*os.File, error) {
-	return os.OpenFile(filename, os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0644)
+	return os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 }
 
 func WriteToFileAndMakeReadOnly(filename string, contents []byte) error {
-	file, err := os.OpenFile(filename, os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -109,10 +109,24 @@ func ValidateFullPath(path string) error {
 	return nil
 }
 
-func ValidateCompressionLevel(compressionLevel int) error {
-	if compressionLevel < 1 || compressionLevel > 9 {
-		return errors.Errorf("Compression level must be between 1 and 9")
+func ValidateCompressionTypeAndLevel(compressionType string, compressionLevel int) error {
+	minAllowedCompressionLevels := map[string]int{
+		"gzip": 1,
 	}
+	maxAllowedCompressionLevels := map[string]int{
+		"gzip": 9,
+	}
+
+	if maxAllowedLevel, ok := maxAllowedCompressionLevels[compressionType]; ok {
+		minAllowedLevel := minAllowedCompressionLevels[compressionType]
+
+		if compressionLevel < minAllowedLevel || compressionLevel > maxAllowedLevel {
+			return fmt.Errorf("compression type '%s' only allows compression levels between %d and %d, but the provided level is %d", compressionType, minAllowedLevel, maxAllowedLevel, compressionLevel)
+		}
+	} else {
+		return fmt.Errorf("unknown compression type '%s'", compressionType)
+	}
+
 	return nil
 }
 

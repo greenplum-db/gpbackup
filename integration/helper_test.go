@@ -108,7 +108,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("runs backup gpbackup_helper with compression", func() {
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "1", "--data-file", dataFileFullPath+".gz")
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-type", "gzip", "--compression-level", "1", "--data-file", dataFileFullPath+".gz")
 			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
@@ -124,7 +124,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			assertBackupArtifacts(false, true)
 		})
 		It("runs backup gpbackup_helper with compression with plugin", func() {
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "1", "--data-file", dataFileFullPath+".gz", "--plugin-config", pluginConfigPath)
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-type", "gzip", "--compression-level", "1", "--data-file", dataFileFullPath+".gz", "--plugin-config", pluginConfigPath)
 			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)

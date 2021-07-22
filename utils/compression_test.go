@@ -39,7 +39,7 @@ var _ = Describe("utils/compression tests", func() {
 				InputCommand:  "cat -",
 				Extension:     "",
 			}
-			utils.InitializePipeThroughParameters(false, 3)
+			utils.InitializePipeThroughParameters(false, "", 3)
 			resultProgram := utils.GetPipeThroughProgram()
 			structmatcher.ExpectStructsToMatch(&expectedProgram, &resultProgram)
 		})
@@ -52,7 +52,7 @@ var _ = Describe("utils/compression tests", func() {
 				InputCommand:  "gzip -d -c",
 				Extension:     ".gz",
 			}
-			utils.InitializePipeThroughParameters(true, 7)
+			utils.InitializePipeThroughParameters(true, "gzip", 7)
 			resultProgram := utils.GetPipeThroughProgram()
 			structmatcher.ExpectStructsToMatch(&expectedProgram, &resultProgram)
 		})

@@ -295,10 +295,10 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 	})
 	Describe("SetBackupParamFromFlags", func() {
 		AfterEach(func() {
-			utils.InitializePipeThroughParameters(false, 0)
+			utils.InitializePipeThroughParameters(false, "", 0)
 		})
 		It("configures the Report struct correctly", func() {
-			utils.InitializePipeThroughParameters(true, 0)
+			utils.InitializePipeThroughParameters(true, "gzip", 0)
 			backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
 			backup.SetCmdFlags(backupCmdFlags)
 			err := backupCmdFlags.Set(options.INCLUDE_RELATION, "public.foobar")
@@ -315,6 +315,7 @@ restore status:      Success but non-fatal errors occurred. See log file .+ for 
 			structmatcher.ExpectStructsToMatch(history.BackupConfig{
 				BackupVersion:        "0.1.0",
 				Compressed:           true,
+				CompressionType:      "gzip",
 				DatabaseName:         "testdb",
 				DatabaseVersion:      "5.0.0 build test",
 				IncludeSchemas:       []string{},

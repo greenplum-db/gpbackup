@@ -103,21 +103,42 @@ var _ = Describe("utils/util tests", func() {
 			utils.ValidateGPDBVersionCompatibility(connectionPool)
 		})
 	})
-	Describe("ValidateCompressionLevel", func() {
-		It("validates a compression level between 1 and 9", func() {
+	Describe("ValidateCompressionTypeAndLevel", func() {
+		It("validates a compression type 'gzip' and a level between 1 and 9", func() {
+			compressType := "gzip"
 			compressLevel := 5
-			err := utils.ValidateCompressionLevel(compressLevel)
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
 			Expect(err).To(Not(HaveOccurred()))
 		})
-		It("panics if given a compression level < 1", func() {
+		It("panics if given a compression type 'gzip' and a compression level < 1", func() {
+			compressType := "gzip"
 			compressLevel := 0
-			err := utils.ValidateCompressionLevel(compressLevel)
-			Expect(err).To(MatchError("Compression level must be between 1 and 9"))
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(MatchError("compression type 'gzip' only allows compression levels between 1 and 9, but the provided level is 0"))
 		})
-		It("panics if given a compression level > 9", func() {
+		It("panics if given a compression type 'gzip' and a compression level > 9", func() {
+			compressType := "gzip"
 			compressLevel := 11
-			err := utils.ValidateCompressionLevel(compressLevel)
-			Expect(err).To(MatchError("Compression level must be between 1 and 9"))
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(MatchError("compression type 'gzip' only allows compression levels between 1 and 9, but the provided level is 11"))
+		})
+		It("panics if given a compression type 'invalid' and a compression level > 0", func() {
+			compressType := "invalid"
+			compressLevel := 1
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(MatchError("unknown compression type 'invalid'"))
+		})
+		It("panics if given a compression type 'invalid' and a compression level < 0", func() {
+			compressType := "invalid"
+			compressLevel := -1
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(MatchError("unknown compression type 'invalid'"))
+		})
+		It("panics if given a compression type '' and a compression level > 0", func() {
+			compressType := ""
+			compressLevel := 1
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(MatchError("unknown compression type ''"))
 		})
 	})
 	Describe("UnquoteIdent", func() {
