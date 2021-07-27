@@ -939,11 +939,11 @@ jobs:
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
-    - get: terraform.d
-      params:
-        unpack: true
     - do:
       - get: ccp_src
+      - get: terraform.d
+        params:
+          unpack: true
       - put: terraform
         params:
           <<: *ccp_default_params
@@ -990,11 +990,11 @@ jobs:
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
-    - get: terraform.d
-      params:
-        unpack: true
     - do:
       - get: ccp_src
+      - get: terraform.d
+        params:
+          unpack: true
       - put: terraform
         params:
           <<: *ccp_default_params
