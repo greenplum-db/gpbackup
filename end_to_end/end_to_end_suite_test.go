@@ -794,7 +794,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--backup-dir", backupDir)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
-				"--backup-dir", backupDir)
+				"--backup-dir", backupDir,
+				"--on-error-continue")
 			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(0))
