@@ -137,6 +137,10 @@ func getBackupPipeWriter() (pipe BackupPipeWriterCloser, writeCmd *exec.Cmd, err
 		pipe, err = NewGZipBackupPipeWriterCloser(writeHandle, *compressionLevel)
 		return
 	}
+	if *compressionType == "zstd" {
+		pipe, err = NewZSTDBackupPipeWriterCloser(writeHandle, *compressionLevel)
+		return
+	}
 
 	writeHandle.Close()
 	return nil, nil, fmt.Errorf("unknown compression type '%s' (compression level %d)", *compressionType, *compressionLevel)

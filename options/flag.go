@@ -52,8 +52,8 @@ const (
 
 func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.String(BACKUP_DIR, "", "The absolute path of the directory to which all backup files will be written")
-	flagSet.String(COMPRESSION_TYPE, "gzip", "Type of compression to use during data backup. Valid values are: 'gzip'")
-	flagSet.Int(COMPRESSION_LEVEL, 1, "Level of compression to use during data backup. Valid values are between 1 and 9.")
+	flagSet.String(COMPRESSION_TYPE, "gzip", "Type of compression to use during data backup. Valid values are 'gzip', 'zstd'")
+	flagSet.Int(COMPRESSION_LEVEL, 1, "Level of compression to use during data backup. Range of valid values depends on compression type")
 	flagSet.Bool(DATA_ONLY, false, "Only back up data, do not back up metadata")
 	flagSet.String(DBNAME, "", "The database to be backed up")
 	flagSet.Bool(DEBUG, false, "Print verbose and debug log messages")

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"compress/gzip"
 	"io"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 type BackupPipeWriterCloser interface {
@@ -55,6 +57,30 @@ func NewGZipBackupPipeWriterCloser(writeHandle io.WriteCloser, compressLevel int
 	gzPipe.gzipWriter, err = gzip.NewWriterLevel(gzPipe.cPipe.bufIoWriter, compressLevel)
 	if err != nil {
 		gzPipe.cPipe.Close()
+	}
+	return
+}
+
+type ZSTDBackupPipeWriterCloser struct {
+	cPipe       CommonBackupPipeWriterCloser
+	zstdEncoder *zstd.Encoder
+}
+
+func (zstdPipe ZSTDBackupPipeWriterCloser) Write(p []byte) (n int, err error) {
+	return zstdPipe.zstdEncoder.Write(p)
+}
+
+// Returns errors from underlying common writer only
+func (zstdPipe ZSTDBackupPipeWriterCloser) Close() error {
+	_ = zstdPipe.zstdEncoder.Close()
+	return zstdPipe.cPipe.Close()
+}
+
+func NewZSTDBackupPipeWriterCloser(writeHandle io.WriteCloser, compressLevel int) (zstdPipe ZSTDBackupPipeWriterCloser, err error) {
+	zstdPipe.cPipe = NewCommonBackupPipeWriterCloser(writeHandle)
+	zstdPipe.zstdEncoder, err = zstd.NewWriter(zstdPipe.cPipe.bufIoWriter, zstd.WithEncoderLevel(zstd.EncoderLevel(compressLevel)))
+	if err != nil {
+		zstdPipe.cPipe.Close()
 	}
 	return
 }

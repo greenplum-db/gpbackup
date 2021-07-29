@@ -112,9 +112,11 @@ func ValidateFullPath(path string) error {
 func ValidateCompressionTypeAndLevel(compressionType string, compressionLevel int) error {
 	minAllowedCompressionLevels := map[string]int{
 		"gzip": 1,
+		"zstd": 1,
 	}
 	maxAllowedCompressionLevels := map[string]int{
 		"gzip": 9,
+		"zstd": 19,
 	}
 
 	if maxAllowedLevel, ok := maxAllowedCompressionLevels[compressionType]; ok {
