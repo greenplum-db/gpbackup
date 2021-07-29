@@ -109,19 +109,21 @@ func ValidateFullPath(path string) error {
 	return nil
 }
 
+// A description of compression levels for some compression type
+type CompressionLevelsDescription struct {
+	Min int
+	Max int
+}
+
 func ValidateCompressionTypeAndLevel(compressionType string, compressionLevel int) error {
-	minAllowedCompressionLevels := map[string]int{
-		"gzip": 1,
-	}
-	maxAllowedCompressionLevels := map[string]int{
-		"gzip": 9,
+	compressionLevelsForType := map[string]CompressionLevelsDescription{
+		"gzip": {Min: 1, Max: 9},
+		"zstd": {Min: 1, Max: 19},
 	}
 
-	if maxAllowedLevel, ok := maxAllowedCompressionLevels[compressionType]; ok {
-		minAllowedLevel := minAllowedCompressionLevels[compressionType]
-
-		if compressionLevel < minAllowedLevel || compressionLevel > maxAllowedLevel {
-			return fmt.Errorf("compression type '%s' only allows compression levels between %d and %d, but the provided level is %d", compressionType, minAllowedLevel, maxAllowedLevel, compressionLevel)
+	if levelsDescription, ok := compressionLevelsForType[compressionType]; ok {
+		if compressionLevel < levelsDescription.Min || compressionLevel > levelsDescription.Max {
+			return fmt.Errorf("compression type '%s' only allows compression levels between %d and %d, but the provided level is %d", compressionType, levelsDescription.Min, levelsDescription.Max, compressionLevel)
 		}
 	} else {
 		return fmt.Errorf("unknown compression type '%s'", compressionType)

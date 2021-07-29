@@ -9,6 +9,7 @@ require (
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/greenplum-db/gp-common-go-libs v1.0.5-0.20201005232358-ee3f0135881b
 	github.com/jackc/pgconn v1.7.0
+	github.com/klauspost/compress v1.13.1
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/nightlyone/lockfile v0.0.0-20200124072040-edb130adc195

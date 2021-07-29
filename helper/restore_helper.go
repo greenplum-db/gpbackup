@@ -12,6 +12,7 @@ import (
 
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/klauspost/compress/zstd"
 	"github.com/pkg/errors"
 )
 
@@ -19,10 +20,11 @@ import (
  * Restore specific functions
  */
 type ReaderType string
+
 const (
-	SEEKABLE ReaderType = "seekable"	// reader which supports seek
-	NONSEEKABLE			= "discard"		// reader which is not seekable
-	SUBSET				= "subset"		// reader which operates on pre filtered data
+	SEEKABLE    ReaderType = "seekable" // reader which supports seek
+	NONSEEKABLE            = "discard"  // reader which is not seekable
+	SUBSET                 = "subset"   // reader which operates on pre filtered data
 )
 
 /* RestoreReader structure to wrap the underlying reader.
@@ -134,7 +136,7 @@ func doRestoreAgent() error {
 		}
 
 		log(fmt.Sprintf("Restoring table with oid %d", oid))
-		bytesRead, err = reader.copyData(int64(end-start))
+		bytesRead, err = reader.copyData(int64(end - start))
 		if err != nil {
 			// In case COPY FROM or copyN fails in the middle of a load. We
 			// need to update the lastByte with the amount of bytes that was
@@ -192,7 +194,7 @@ func getRestoreDataReader(toc *toc.SegmentTOC, oidList []int) (*RestoreReader, e
 			restoreReader.readerType = NONSEEKABLE
 		}
 	} else {
-		if *isFiltered && !strings.HasSuffix(*dataFile, ".gz") {
+		if *isFiltered && !strings.HasSuffix(*dataFile, ".gz") && !strings.HasSuffix(*dataFile, ".zst") {
 			// Seekable reader if backup is not compressed and filters are set
 			seekHandle, err = os.Open(*dataFile)
 			restoreReader.readerType = SEEKABLE
@@ -215,6 +217,12 @@ func getRestoreDataReader(toc *toc.SegmentTOC, oidList []int) (*RestoreReader, e
 			return nil, err
 		}
 		restoreReader.bufReader = bufio.NewReader(gzipReader)
+	} else if strings.HasSuffix(*dataFile, ".zst") {
+		zstdReader, err := zstd.NewReader(readHandle)
+		if err != nil {
+			return nil, err
+		}
+		restoreReader.bufReader = bufio.NewReader(zstdReader)
 	} else {
 		restoreReader.bufReader = bufio.NewReader(readHandle)
 	}
@@ -241,7 +249,7 @@ func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File, error) {
 	// adopting the new kernel, we must only use the bare essential methods Write() and
 	// Close() for the pipe to avoid an extra buffer read that can happen in error
 	// scenarios with --on-error-continue.
-	pipeWriter := bufio.NewWriter(struct{io.WriteCloser}{fileHandle})
+	pipeWriter := bufio.NewWriter(struct{ io.WriteCloser }{fileHandle})
 
 	return pipeWriter, fileHandle, nil
 }
@@ -253,7 +261,7 @@ func startRestorePluginCommand(toc *toc.SegmentTOC, oidList []int) (io.Reader, b
 		return nil, false, err
 	}
 	cmdStr := ""
-	if pluginConfig.CanRestoreSubset() && *isFiltered && !strings.HasSuffix(*dataFile, ".gz") {
+	if pluginConfig.CanRestoreSubset() && *isFiltered && !strings.HasSuffix(*dataFile, ".gz") && !strings.HasSuffix(*dataFile, ".zst") {
 		offsetsFile, _ := ioutil.TempFile("/tmp", "gprestore_offsets_")
 		defer func() {
 			offsetsFile.Close()

@@ -100,8 +100,8 @@ func InitializeGlobals() {
 
 	backupAgent = flag.Bool("backup-agent", false, "Use gpbackup_helper as an agent for backup")
 	content = flag.Int("content", -2, "Content ID of the corresponding segment")
-	compressionLevel = flag.Int("compression-level", 0, "The level of compression. O indicates no compression.")
-	compressionType = flag.String("compression-type", "gzip", "The type of compression. Valid values are 'gzip'")
+	compressionLevel = flag.Int("compression-level", 0, "The level of compression. O indicates no compression. Range of valid values depends on compression type")
+	compressionType = flag.String("compression-type", "gzip", "The type of compression. Valid values are 'gzip', 'zstd'")
 	dataFile = flag.String("data-file", "", "Absolute path to the data file")
 	oidFile = flag.String("oid-file", "", "Absolute path to the file containing a list of oids to restore")
 	onErrorContinue = flag.Bool("on-error-continue", false, "Continue restore even when encountering an error")

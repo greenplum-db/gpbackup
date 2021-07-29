@@ -140,6 +140,24 @@ var _ = Describe("utils/util tests", func() {
 			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
 			Expect(err).To(MatchError("unknown compression type ''"))
 		})
+		It("validates a compression type 'zstd' and a level between 1 and 19", func() {
+			compressType := "zstd"
+			compressLevel := 11
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(Not(HaveOccurred()))
+		})
+		It("panics if given a compression type 'zstd' and a compression level < 1", func() {
+			compressType := "zstd"
+			compressLevel := 0
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(MatchError("compression type 'zstd' only allows compression levels between 1 and 19, but the provided level is 0"))
+		})
+		It("panics if given a compression type 'gzip' and a compression level > 19", func() {
+			compressType := "zstd"
+			compressLevel := 20
+			err := utils.ValidateCompressionTypeAndLevel(compressType, compressLevel)
+			Expect(err).To(MatchError("compression type 'zstd' only allows compression levels between 1 and 19, but the provided level is 20"))
+		})
 	})
 	Describe("UnquoteIdent", func() {
 		It("returns unchanged ident when passed a single char", func() {
