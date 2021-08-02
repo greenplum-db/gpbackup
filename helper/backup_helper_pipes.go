@@ -78,7 +78,7 @@ func (zstdPipe ZSTDBackupPipeWriterCloser) Close() error {
 
 func NewZSTDBackupPipeWriterCloser(writeHandle io.WriteCloser, compressLevel int) (zstdPipe ZSTDBackupPipeWriterCloser, err error) {
 	zstdPipe.cPipe = NewCommonBackupPipeWriterCloser(writeHandle)
-	zstdPipe.zstdEncoder, err = zstd.NewWriter(zstdPipe.cPipe.bufIoWriter, zstd.WithEncoderLevel(zstd.EncoderLevel(compressLevel)))
+	zstdPipe.zstdEncoder, err = zstd.NewWriter(zstdPipe.cPipe.bufIoWriter, zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(compressLevel)))
 	if err != nil {
 		zstdPipe.cPipe.Close()
 	}

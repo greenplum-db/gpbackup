@@ -393,14 +393,13 @@ func assertBackupArtifactsWithCompression(compressionType string, withPlugin boo
 	if compressionType == "gzip" {
 		r, _ := gzip.NewReader(bytes.NewReader(contents))
 		contents, _ = ioutil.ReadAll(r)
-		Expect(string(contents)).To(Equal(expectedData))
 	} else if compressionType == "zstd" {
 		r, _ := zstd.NewReader(bytes.NewReader(contents))
 		contents, _ = ioutil.ReadAll(r)
-		Expect(string(contents)).To(Equal(expectedData))
 	} else {
 		Fail("unknown compression type " + compressionType)
 	}
+	Expect(string(contents)).To(Equal(expectedData))
 
 	contents, err = ioutil.ReadFile(tocFile)
 	Expect(err).ToNot(HaveOccurred())
