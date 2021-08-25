@@ -39,11 +39,11 @@ var _ = Describe("utils/compression tests", func() {
 				InputCommand:  "cat -",
 				Extension:     "",
 			}
-			utils.InitializePipeThroughParameters(false, 3)
+			utils.InitializePipeThroughParameters(false, "", 3)
 			resultProgram := utils.GetPipeThroughProgram()
 			structmatcher.ExpectStructsToMatch(&expectedProgram, &resultProgram)
 		})
-		It("initializes to use gzip when passed compression and a level", func() {
+		It("initializes to use gzip when passed compression type gzip and a level", func() {
 			originalProgram := utils.GetPipeThroughProgram()
 			defer utils.SetPipeThroughProgram(originalProgram)
 			expectedProgram := utils.PipeThroughProgram{
@@ -52,7 +52,20 @@ var _ = Describe("utils/compression tests", func() {
 				InputCommand:  "gzip -d -c",
 				Extension:     ".gz",
 			}
-			utils.InitializePipeThroughParameters(true, 7)
+			utils.InitializePipeThroughParameters(true, "gzip", 7)
+			resultProgram := utils.GetPipeThroughProgram()
+			structmatcher.ExpectStructsToMatch(&expectedProgram, &resultProgram)
+		})
+		It("initializes to use zstd when passed compression type zstd and a level", func() {
+			originalProgram := utils.GetPipeThroughProgram()
+			defer utils.SetPipeThroughProgram(originalProgram)
+			expectedProgram := utils.PipeThroughProgram{
+				Name:          "zstd",
+				OutputCommand: "zstd --compress -7 -c",
+				InputCommand:  "zstd --decompress -c",
+				Extension:     ".zst",
+			}
+			utils.InitializePipeThroughParameters(true, "zstd", 7)
 			resultProgram := utils.GetPipeThroughProgram()
 			structmatcher.ExpectStructsToMatch(&expectedProgram, &resultProgram)
 		})

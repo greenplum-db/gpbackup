@@ -29,6 +29,7 @@ type BackupConfig struct {
 	BackupDir             string
 	BackupVersion         string
 	Compressed            bool
+	CompressionType       string
 	DatabaseName          string
 	DatabaseVersion       string
 	DataOnly              bool
