@@ -14,7 +14,7 @@ MINIMUM_API_VERSION="0.3.0"
 # ----------------------------------------------
 if [ $# -lt 2 ] || [ $# -gt 3 ]
   then
-    echo "Usage: plugin_test_bench.sh [path_to_executable] [plugin_config] [optional_config_for_secondary_destination]"
+    echo "Usage: plugin_test.sh [path_to_executable] [plugin_config] [optional_config_for_secondary_destination]"
     exit 1
 fi
 
@@ -138,7 +138,7 @@ if [ "$nonexist_file_restore" == "0" ]; then
 fi
 
 
-if [ -n "$secondary_plugin_config" ]; then
+if [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$secondary_plugin_config" ]]; then
   rm $testfile
   echo "[RUNNING] restore_file (from secondary destination)"
   $plugin restore_file $secondary_plugin_config $testfile
@@ -168,7 +168,7 @@ if [ "$output" != "$data" ]; then
   exit 1
 fi
 
-if [ -n "$secondary_plugin_config" ]; then
+if [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$secondary_plugin_config" ]]; then
   echo "[RUNNING] restore_data (from secondary destination)"
   output=`$plugin restore_data $secondary_plugin_config $testdata`
 
@@ -191,7 +191,7 @@ if [ "$output" != "" ]; then
   exit 1
 fi
 
-if [ -n "$secondary_plugin_config" ]; then
+if [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$secondary_plugin_config" ]]; then
   echo "[RUNNING] restore_data with no data (from secondary destination)"
   output=`$plugin restore_data $secondary_plugin_config $test_no_data`
 
@@ -306,7 +306,7 @@ if [ "$retval_file_restore" = "0" ] ; then
 fi
 
 # test deletion from remote server
-if [ -n "$secondary_plugin_config" ]; then
+if [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$secondary_plugin_config" ]]; then
   output_data_restore=$($plugin restore_data $secondary_plugin_config $testdata_for_del 2>/dev/null)
   retval_data_restore=$(echo $?)
   if [ "${output_data_restore}" = "${data}"  ] || [ "$retval_data_restore" = "0" ] ; then
@@ -337,6 +337,52 @@ set -e
 echo "[PASSED] delete_backup"
 cleanup_test_dir $testdir_for_del
 
+# ----------------------------------------------
+# Replicate backup function
+# ----------------------------------------------
+if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboost_config.yaml ]]; then
+    time_second_for_repl=$(expr 99999999999999 - $(od -vAn -N5 -tu < /dev/urandom | tr -d ' \n'))
+    current_date_for_repl=$(echo $time_second_for_repl | cut -c 1-8)
+
+    testdir_for_repl="/tmp/testseg/backups/${current_date_for_repl}/${time_second_for_repl}"
+    testdata_for_repl="$testdir_for_repl/testdata_$time_second_for_repl.txt"
+
+    mkdir -p $testdir_for_repl
+
+    echo "[RUNNING] backup_data without replication to replicate later"
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl master \"-1\"
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment_host
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment \"0\"
+
+    echo $data | $plugin backup_data $plugin_config $testdata_for_repl
+    echo "[PASSED] backup_data without replication to replicate later"
+
+    echo "[RUNNING] replicate_backup"
+    $plugin replicate_backup $plugin_config $time_second_for_repl
+
+    set +e
+    echo "[RUNNING] replicate_backup second time to verify error"
+    output=`$plugin replicate_backup $plugin_config $time_second_for_repl 2>&1`
+    echo "replicate backup second time, output: $output"
+    if [[ ! "$output" == *"DDBoost open file in exclusive mode failed on remote"* ]]; then
+        echo "Error doesn't match when trying to replicate already replicated backup"
+        exit 1
+    fi
+    echo "[PASSED] replicate_backup second time to verify error"
+    set -e
+
+    if [ -n "$secondary_plugin_config" ]; then
+        echo "[RUNNING] restore_data (from secondary destination)"
+        output=`$plugin restore_data $secondary_plugin_config $testdata_for_repl`
+
+        if [ "$output" != "$data" ]; then
+            echo "Failed to replicate backup using plugin"
+            exit 1
+        fi
+    fi
+    echo "[PASSED] replicate backup"
+    cleanup_test_dir $testdir_for_repl
+fi
 
 set +e
 echo "[RUNNING] fails with unknown command"
@@ -415,7 +461,7 @@ test_backup_and_restore_with_plugin() {
       fi
     fi
 
-    if [ -n "$secondary_plugin_config" ]; then
+    if [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$secondary_plugin_config" ]]; then
         dropdb $test_db
         echo "[RUNNING] gprestore with test database from secondary destination"
         gprestore --timestamp $timestamp --plugin-config $secondary_plugin_config --create-db &> $log_file

@@ -180,7 +180,7 @@ debug_sleep_anchor: &debug_sleep
   config:
     platform: linux
     image_resource:
-      type: docker-image
+      type: registry-image
       source:
         repository: alpine
         tag: latest
@@ -196,10 +196,10 @@ set_failed_anchor: &set_failed
       config:
         platform: linux
         image_resource: &failed_image_resource
-          type: docker-image
+          type: registry-image
           source:
-            repository: pivotaldata/ccp
-            tag: "7"
+            repository: gcr.io/data-gpdb-public-images/ccp
+            tag: latest
         inputs:
           - name: ccp_src
           - name: terraform
@@ -311,25 +311,25 @@ ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
 
 resource_types:
 - name: terraform
-  type: docker-image
+  type: registry-image
   source:
     repository: ljfranklin/terraform-resource
     # We fixed this version after v0.12.1 had a breaking change
     tag: 0.11.14
 
 - name: slack-notification
-  type: docker-image
+  type: registry-image
   source:
     repository: cfcommunity/slack-notification-resource
     tag: latest
 
 - name: gcs
-  type: docker-image
+  type: registry-image
   source:
     repository: frodenas/gcs-resource
 
 - name: pivnet
-  type: docker-image
+  type: registry-image
   source:
     repository: pivotalcf/pivnet-resource
     tag: latest-final
@@ -338,35 +338,37 @@ resource_types:
 resources:
 ##### Docker Images #####
 - name: centos7-image
-  type: docker-image
+  type: registry-image
   source:
-    repository: pivotaldata/centos-gpdb-dev
-    tag: '7-gcc6.2-llvm3.7'
+    repository: gcr.io/data-gpdb-public-images/gpdb5-centos7-build-test
+    tag: latest
 
 - name: centos6-image
-  type: docker-image
+  type: registry-image
   source:
-    repository: pivotaldata/centos-gpdb-dev
-    tag: '6-gcc6.2-llvm3.7'
+    repository: gcr.io/data-gpdb-public-images/gpdb5-centos6-build-test
+    tag: latest
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: sles11-image
-  type: docker-image
+  type: registry-image
   source:
-    repository: pivotaldata/sles-gpdb-dev
-    tag: '11-beta'
+    repository: gcr.io/data-gpdb-private-images/gpdb5-sles11-build-test
+    tag: latest
+    username: _json_key
+    password: ((container-registry-readonly-service-account-key))
 
 - name: ubuntu-debian-image
-  type: docker-image
+  type: registry-image
   source:
-    repository: pivotaldata/gpdb6-ubuntu18.04-build
-    tag: 'latest'
+    repository: gcr.io/data-gpdb-public-images/gpdb6-ubuntu18.04-build
+    tag: latest
 
 - name: ubuntu-debian-test-image
-  type: docker-image
+  type: registry-image
   source:
-    repository: pivotaldata/gpdb6-ubuntu18.04-test
-    tag: 'latest'
+    repository: gcr.io/data-gpdb-public-images/gpdb6-ubuntu18.04-test
+    tag: latest
 {% endif %}
 
 ##### Other Resources #####
@@ -937,11 +939,11 @@ jobs:
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
-    - get: terraform.d
-      params:
-        unpack: true
     - do:
       - get: ccp_src
+      - get: terraform.d
+        params:
+          unpack: true
       - put: terraform
         params:
           <<: *ccp_default_params
@@ -988,11 +990,11 @@ jobs:
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
-    - get: terraform.d
-      params:
-        unpack: true
     - do:
       - get: ccp_src
+      - get: terraform.d
+        params:
+          unpack: true
       - put: terraform
         params:
           <<: *ccp_default_params

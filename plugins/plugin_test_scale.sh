@@ -79,6 +79,21 @@ test_backup_and_restore_with_plugin() {
         exit 1
     fi
 
+    # if replication was off during backup, run gpbackup_manager replicate_backup to test replication
+    if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboost_config.yaml ]]; then
+        echo
+        print_header "GPBACKUP_MANAGER replicate-backup [${timestamp}])"
+        print_time_exec "gpbackup_manager replicate-backup $timestamp --plugin-config $config &> $log_file"
+
+        if [ ! $? -eq 0 ]; then
+            echo "gpbackup_manager replicate-backup failed."
+            echo
+            cat $log_file
+            echo
+            exit 1
+        fi
+    fi
+
     # Run gprestore and check for error. If gprestore failed, call
     # plugin delete_backup to clean up and then exit with error.
     print_header "GPRESTORE $test_db (flags: [${restore_flags}])"
@@ -141,7 +156,6 @@ fi
 # Cleanup test artifacts
 # ----------------------------------------------
 echo "Cleaning up leftover test artifacts"
-dropdb tpchdb
 rm -r $logdir
 
 

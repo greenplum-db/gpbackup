@@ -478,7 +478,7 @@ EOF1`, backupDir)
 				output, err := cmd.CombinedOutput()
 				Expect(err).To(HaveOccurred())
 				Expect(string(output)).To(ContainSubstring(
-					"The following flags may not be specified together: truncate-table, metadata-only, incremental, redirect-schema"))
+					"The following flags may not be specified together: truncate-table, metadata-only, incremental"))
 			})
 		})
 		Context("No DDL no partitioning", func() {

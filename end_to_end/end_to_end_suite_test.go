@@ -3,6 +3,7 @@ package end_to_end_test
 import (
 	"flag"
 	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -669,6 +670,64 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"public.good_table1":   10,
 				"public.good_table2":   10})
 		})
+		It(`Creates skip file on segments for corrupted table for helpers to discover the file and skip it with --single-data-file and --on-error-continue`, func(){
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			} else if restoreConn.Version.Before("6") {
+				Skip("This test does not apply to GPDB versions before 6X")
+			}
+
+			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
+			mustRunCommand(command)
+
+			testhelper.AssertQueryRuns(restoreConn,
+				"CREATE TABLE public.corrupt_table (i integer);")
+			defer testhelper.AssertQueryRuns(restoreConn,
+				"DROP TABLE public.corrupt_table")
+
+			// we know that broken value goes to seg2, so seg1 should be
+			// ok. Connect in utility mode to seg1.
+			segmentOne := backupCluster.ByContent[1]
+			port := segmentOne[0].Port
+			segConn := testutils.SetupTestDBConnSegment("restoredb", port)
+			defer segConn.Close()
+
+			// Take ACCESS EXCLUSIVE LOCK on public.corrupt_table which will
+			// make COPY on seg1 block until the lock is released. By that
+			// time, COPY on seg2 will fail and gprestore will create a skip
+			// file for public.corrupt_table. When the lock is released on seg1,
+			// the restore helper should discover the file and skip the table.
+			segConn.Begin(0)
+			segConn.Exec("LOCK TABLE public.corrupt_table IN ACCESS EXCLUSIVE MODE;")
+
+			gprestoreCmd := exec.Command(gprestorePath,
+				"--timestamp", "20190809230424",
+				"--redirect-db", "restoredb",
+				"--backup-dir", path.Join(backupDir, "corrupt-db"),
+				"--data-only", "--on-error-continue",
+				"--include-table", "public.corrupt_table")
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).To(HaveOccurred())
+
+			segConn.Commit(0)
+			homeDir := os.Getenv("HOME")
+			helperLogs, _ := path.Glob(path.Join(homeDir, "gpAdminLogs/gpbackup_helper*"))
+			cmdStr := fmt.Sprintf("tail -n 40 %s | grep \"Skip file has been discovered for entry\" || true", helperLogs[len(helperLogs)-1])
+
+			attemts := 1000
+			err = errors.New("Timeout to discover skip file")
+			for attemts > 0 {
+				output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
+				if strings.TrimSpace(string(output)) == "" {
+					time.Sleep(5 * time.Millisecond)
+					attemts--
+				} else {
+					err = nil
+					break
+				}
+			}
+			Expect(err).NotTo(HaveOccurred())
+		})
 		It(`ensure gprestore on corrupt backup with --on-error-continue logs error tables`, func() {
 			command := exec.Command("tar", "-xzf",
 				"resources/corrupt-db.tar.gz", "-C", backupDir)
@@ -735,7 +794,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--backup-dir", backupDir)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
-				"--backup-dir", backupDir)
+				"--backup-dir", backupDir,
+				"--on-error-continue")
 			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(0))
@@ -843,6 +903,65 @@ var _ = Describe("backup and restore end to end tests", func() {
 			}
 			assertDataRestored(restoreConn, schema3TupleCounts)
 			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+		})
+		It("runs --redirect-schema with --matadata-only", func() {
+			skipIfOldBackupVersionBefore("1.17.0")
+			testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA IF EXISTS schema_to_redirect CASCADE; CREATE SCHEMA \"schema_to_redirect\";")
+			defer testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA schema_to_redirect CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE SCHEMA schema_to_test")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA schema_to_test CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE schema_to_test.table_metadata_only AS SELECT generate_series(1,10)")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only", "--include-schema", "schema_to_test")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--redirect-schema", "schema_to_redirect",
+				"--include-table", "schema_to_test.table_metadata_only",
+				"--metadata-only")
+			assertRelationsCreatedInSchema(restoreConn, "schema_to_redirect", 1)
+			assertDataRestored(restoreConn, map[string]int{"schema_to_redirect.table_metadata_only": 0})
+		})
+		It("runs --redirect-schema with --include-schema and --include-schema-file", func() {
+			skipIfOldBackupVersionBefore("1.17.0")
+			testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
+			defer testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA schema3 CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE SCHEMA fooschema")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA fooschema CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE fooschema.redirected_table(i int)")
+
+			schemaFile := path.Join(backupDir, "test-schema-file.txt")
+			includeSchemaFd := iohelper.MustOpenFileForWriting(schemaFile)
+			utils.MustPrintln(includeSchemaFd, "fooschema")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--include-schema-file", schemaFile,
+				"--include-schema", "schema2",
+				"--redirect-db", "restoredb",
+				"--redirect-schema", "schema3")
+
+			expectedSchema3TupleCounts := map[string]int{
+				"schema3.returns": 6,
+				"schema3.foo2":    0,
+				"schema3.foo3":    100,
+				"schema3.ao1":     1000,
+				"schema3.ao2":     1000,
+				"schema3.redirected_table": 0,
+			}
+			assertDataRestored(restoreConn, expectedSchema3TupleCounts)
+			assertRelationsCreatedInSchema(restoreConn, "public", 0)
+			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
+			assertRelationsCreatedInSchema(restoreConn, "fooschema", 0)
 		})
 	})
 	Describe("ACLs for extensions", func() {
@@ -1516,5 +1635,79 @@ var _ = Describe("backup and restore end to end tests", func() {
 			"--exclude-table", "schema2.returns",
 			"--metadata-only")
 		assertRelationsCreated(restoreConn, 4)
+	})
+	It("runs gprestore with jobs flag and postdata has metadata", func() {
+		if useOldBackupVersion {
+			Skip("This test is not needed for old backup versions")
+		}
+
+		if backupConn.Version.Before("6") {
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
+		} else {
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir';")
+		}
+		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLESPACE test_tablespace;")
+
+		// Store everything in this test schema for easy test cleanup.
+		testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA postdata_metadata;")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA postdata_metadata CASCADE;")
+		defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA postdata_metadata CASCADE;")
+
+		// Create a table and indexes. Currently for indexes, there are 4 possible pieces
+		// of metadata: TABLESPACE, CLUSTER, REPLICA IDENTITY, and COMMENT.
+		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE postdata_metadata.foobar (a int NOT NULL);")
+		testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx1 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+		testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx2 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+		testhelper.AssertQueryRuns(backupConn, "CREATE UNIQUE INDEX fooidx3 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx1 IS 'hello';")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx2 IS 'hello';")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx3 IS 'hello';")
+		testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar CLUSTER ON fooidx3;")
+		if backupConn.Version.AtLeast("6") {
+			testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar REPLICA IDENTITY USING INDEX fooidx3")
+		}
+
+		// Create a rule. Currently for rules, the only metadata is COMMENT.
+		testhelper.AssertQueryRuns(backupConn, "CREATE RULE postdata_rule AS ON UPDATE TO postdata_metadata.foobar DO SELECT * FROM postdata_metadata.foobar;")
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule IS 'hello';")
+
+		// Create a trigger. Currently for triggers, the only metadata is COMMENT.
+		testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
+		testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
+
+		// Create an event trigger. Currently for event triggers, there are 2 possible
+		// pieces of metadata: ENABLE and COMMENT.
+		if backupConn.Version.AtLeast("6") {
+			testhelper.AssertQueryRuns(backupConn, "CREATE OR REPLACE FUNCTION postdata_metadata.postdata_eventtrigger_func() RETURNS event_trigger AS $$ BEGIN END $$ LANGUAGE plpgsql;")
+			testhelper.AssertQueryRuns(backupConn, "CREATE EVENT TRIGGER postdata_eventtrigger ON sql_drop EXECUTE PROCEDURE postdata_metadata.postdata_eventtrigger_func();")
+			testhelper.AssertQueryRuns(backupConn, "ALTER EVENT TRIGGER postdata_eventtrigger DISABLE;")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON EVENT TRIGGER postdata_eventtrigger IS 'hello'")
+		}
+
+		timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			"--metadata-only")
+		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
+			"--redirect-db", "restoredb", "--jobs", "8", "--verbose")
+
+		// The gprestore parallel postdata restore should have succeeded without a CRITICAL error.
+		stdout := string(output)
+		Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+		Expect(stdout).To(Not(ContainSubstring("Error encountered when executing statement")))
+	})
+	It("Can restore xml with xmloption set to document", func() {
+		testutils.SkipIfBefore6(backupConn)
+		// Set up the XML table that contains XML content
+		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE xml_test AS SELECT xml 'fooxml'")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE xml_test")
+
+		// Set up database that has xmloption default to document instead of content
+		testhelper.AssertQueryRuns(backupConn, "CREATE DATABASE document_db")
+		defer testhelper.AssertQueryRuns(backupConn, "DROP DATABASE document_db")
+		testhelper.AssertQueryRuns(backupConn, "ALTER DATABASE document_db SET xmloption TO document")
+
+		timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-table", "public.xml_test")
+
+		gprestore(gprestorePath, restoreHelperPath, timestamp,
+			"--redirect-db", "document_db")
 	})
 })

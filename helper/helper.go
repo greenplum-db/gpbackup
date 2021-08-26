@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"path/filepath"
 
 	"golang.org/x/sys/unix"
 
@@ -87,7 +88,7 @@ func DoHelper() {
 		err = doRestoreAgent()
 	}
 	if err != nil {
-		gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
+		logError(fmt.Sprintf("%v: %s", err, debug.Stack()))
 		handle, _ := utils.OpenFileForWrite(fmt.Sprintf("%s_error", *pipeFile))
 		_ = handle.Close()
 	}
@@ -197,6 +198,14 @@ func DoCleanup() {
 	err = utils.RemoveFileIfExists(nextPipe)
 	if err != nil {
 		log("Encountered error during cleanup: %v", err)
+	}
+
+	skipFiles, _ := filepath.Glob(fmt.Sprintf("%s_skip_*", *pipeFile))
+	for _, skipFile := range skipFiles {
+		err = utils.RemoveFileIfExists(skipFile)
+		if err != nil {
+			log("Encountered error during cleanup skip files: %v", err)
+		}
 	}
 	log("Cleanup complete")
 }

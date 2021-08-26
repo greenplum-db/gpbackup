@@ -273,13 +273,13 @@ var _ = Describe("End to End plugin tests", func() {
 	})
 
 	Describe("Example Plugin", func() {
-		It("runs example_plugin.bash with plugin_test_bench", func() {
+		It("runs example_plugin.bash with plugin_test", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the latest backup version")
 			}
 			pluginsDir := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("GOPATH"))
 			copyPluginToAllHosts(backupConn, fmt.Sprintf("%s/example_plugin.bash", pluginsDir))
-			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test_bench.sh %s/example_plugin.bash %s/example_plugin_config.yaml", pluginsDir, pluginsDir, pluginsDir))
+			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test.sh %s/example_plugin.bash %s/example_plugin_config.yaml", pluginsDir, pluginsDir, pluginsDir))
 			mustRunCommand(command)
 
 			_ = os.RemoveAll("/tmp/plugin_dest")

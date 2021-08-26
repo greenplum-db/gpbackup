@@ -371,12 +371,12 @@ options:
 
 ## Verification using the gpbackup plugin API test bench
 
-We provide a test bench to ensure your plugin will work with gpbackup and gprestore. If the test bench succesfully runs your plugin, you can be confident that your plugin will work with the utilities. The test bench is located [here](https://github.com/greenplum-db/gpbackup/blob/master/plugins/plugin_test_bench.sh).
+We provide tests to ensure your plugin will work with gpbackup and gprestore. If the tests succesfully run your plugin, you can be confident that your plugin will work with the utilities. The tests are located [here](https://github.com/greenplum-db/gpbackup/blob/master/plugins/plugin_test.sh).
 
 Run the test bench script using:
 
 ```
-plugin_test_bench.sh [path_to_executable] [plugin_config] [optional_config_for_secondary_destination]
+plugin_test.sh [path_to_executable] [plugin_config] [optional_config_for_secondary_destination]
 ```
 
 This will individually test each command and run a backup and restore using your plugin. This suite will upload small amounts of data to your destination system (<1MB total)

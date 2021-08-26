@@ -133,23 +133,26 @@ var _ = Describe("filepath tests", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{"/tmp/foo/gpseg-1/backups/datestamp1/timestamp1"}, nil
 			}
-
-			Expect(ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
+			res, err := ParseSegPrefix("/tmp/foo", "timestamp1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(Equal("gpseg"))
 		})
 		It("returns empty string if backup directory is empty", func() {
-			Expect(ParseSegPrefix("", "timestamp1")).To(Equal(""))
+			res, err := ParseSegPrefix("", "timestamp1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(Equal(""))
 		})
 		It("panics if master backup directory does not exist", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) { return []string{}, nil }
-			defer testhelper.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
-			Expect(ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
+			_, err := ParseSegPrefix("/tmp/foo", "timestamp1")
+			Expect(err.Error()).To(Equal("Master backup directory in /tmp/foo missing or inaccessible"))
 		})
 		It("panics if there is an error accessing master backup directory", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{""}, os.ErrPermission
 			}
-			defer testhelper.ShouldPanicWithMessage("Master backup directory in /tmp/foo missing or inaccessible")
-			Expect(ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
+			_, err := ParseSegPrefix("/tmp/foo", "timestamp1")
+			Expect(err.Error()).To(Equal("Master backup directory in /tmp/foo missing or inaccessible"))
 		})
 		It("panics if multiple master backup directories", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
@@ -159,8 +162,8 @@ var _ = Describe("filepath tests", func() {
 					return []string{}, nil
 				}
 			}
-			defer testhelper.ShouldPanicWithMessage("Multiple master backup directories in /tmp/foo")
-			Expect(ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
+			_, err := ParseSegPrefix("/tmp/foo", "timestamp1")
+			Expect(err.Error()).To(Equal("Multiple master backup directories in /tmp/foo"))
 		})
 		It("panics if timestamp does not exist in master backup directory", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
@@ -170,8 +173,8 @@ var _ = Describe("filepath tests", func() {
 					return []string{}, nil
 				}
 			}
-			defer testhelper.ShouldPanicWithMessage("Timestamp directory timestamp1 inside backup directory /tmp/foo is missing or inaccessible")
-			Expect(ParseSegPrefix("/tmp/foo", "timestamp1")).To(Equal("gpseg"))
+			_, err := ParseSegPrefix("/tmp/foo", "timestamp1")
+			Expect(err.Error()).To(Equal("Timestamp directory timestamp1 inside backup directory /tmp/foo is missing or inaccessible"))
 		})
 		Describe("IsValidTimestamp", func() {
 			It("allows a valid timestamp", func() {

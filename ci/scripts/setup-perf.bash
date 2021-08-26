@@ -86,6 +86,11 @@ aws s3 cp s3://${BUCKET}/benchmark/tpch/lineitem/${SCALE_FACTOR}/lineitem.tbl /d
 
 # Create tpch dataset
 createdb tpchdb
+
+# install pgcrypto; works for GPDB 5.22+ and 6+
+psql -d postgres -c "CREATE EXTENSION pgcrypto"
+psql -d tpchdb -c "CREATE EXTENSION pgcrypto"
+
 psql -d tpchdb -a -f lineitem.ddl
 gpload -f gpload.yml
 

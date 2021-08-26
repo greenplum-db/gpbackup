@@ -92,6 +92,7 @@ SET default_with_oids = off;
 		setupQuery += "SET allow_system_table_mods = true;\n"
 		setupQuery += "SET lock_timeout = 0;\n"
 		setupQuery += "SET default_transaction_read_only = off;\n"
+		setupQuery += "SET xmloption = content;\n"
 
 		// If the backup is from a GPDB version less than 6.0,
 		// we need to use legacy hash operators when restoring
@@ -277,18 +278,22 @@ func GetRestoreMetadataStatementsFiltered(section string, filename string, inclu
 	return statements
 }
 
-func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) {
+func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) int32 {
+	var numErrors int32
 	if progressBar == nil {
-		ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, executeInParallel)
+		numErrors = ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, executeInParallel)
 	} else {
-		ExecuteStatements(statements, progressBar, executeInParallel)
+		numErrors = ExecuteStatements(statements, progressBar, executeInParallel)
 	}
+
+	return numErrors
 }
 
 func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 	fpInfoList := make([]filepath.FilePathInfo, 0)
 	for _, entry := range backupConfig.RestorePlan {
-		segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), entry.Timestamp)
+		segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), entry.Timestamp)
+		gplog.FatalOnError(err)
 
 		fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), entry.Timestamp, segPrefix)
 		fpInfoList = append(fpInfoList, fpInfo)
@@ -298,7 +303,8 @@ func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 }
 
 func GetBackupFPInfoForTimestamp(timestamp string) filepath.FilePathInfo {
-	segPrefix := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), timestamp)
+	segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), timestamp)
+	gplog.FatalOnError(err)
 	fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, segPrefix)
 	return fpInfo
 }
@@ -374,6 +380,6 @@ func GetExistingSchemas() ([]string, error) {
 
 func TruncateTable(tableFQN string, whichConn int) error {
 	gplog.Verbose("Truncating table %s prior to restoring data", tableFQN)
-	_, err := connectionPool.Exec(`TRUNCATE ` + tableFQN, whichConn)
+	_, err := connectionPool.Exec(`TRUNCATE `+tableFQN, whichConn)
 	return err
 }

@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -97,7 +99,6 @@ func doRestoreAgent() error {
 		return err
 	}
 	log(fmt.Sprintf("Using reader type: %s", reader.readerType))
-
 	for i, oid := range oidList {
 		if wasTerminated {
 			return errors.New("Terminated due to user request")
@@ -120,13 +121,41 @@ func doRestoreAgent() error {
 		end = tocEntries[uint(oid)].EndByte
 
 		log(fmt.Sprintf("Opening pipe for oid %d: %s", oid, currentPipe))
-		writer, writeHandle, err = getRestorePipeWriter(currentPipe)
-		if err != nil {
-			// In the case this error is hit it means we have lost the
-			// ability to open pipes normally, so hard quit even if
-			// --on-error-continue is given
-			_ = utils.RemoveFileIfExists(currentPipe)
-			return err
+		for {
+			writer, writeHandle, err = getRestorePipeWriter(currentPipe)
+			if err != nil {
+				if errors.Is(err, syscall.ENXIO) {
+					// COPY (the pipe reader) has not tried to access the pipe yet so our restore_helper
+					// process will get ENXIO error on its nonblocking open call on the pipe. We loop in
+					// here while looking to see if gprestore has created a skip file for this restore entry.
+					//
+					// TODO: Skip files will only be created when gprestore is run against GPDB 6+ so it
+					// might be good to have a GPDB version check here. However, the restore helper should
+					// not contain a database connection so the version should be passed through the helper
+					// invocation from gprestore (e.g. create a --db-version flag option).
+					if *onErrorContinue && utils.FileExists(fmt.Sprintf("%s_skip_%d", *pipeFile, oid)) {
+						log(fmt.Sprintf("Skip file has been discovered for entry %d, skipping it", oid))
+						err = nil
+						goto LoopEnd
+					} else {
+						// keep trying to open the pipe
+						time.Sleep(100 * time.Millisecond)
+					}
+				} else {
+					// In the case this error is hit it means we have lost the
+					// ability to open pipes normally, so hard quit even if
+					// --on-error-continue is given
+					_ = utils.RemoveFileIfExists(currentPipe)
+					return err
+				}
+			} else {
+				// A reader has connected to the pipe and we have successfully opened
+				// the writer for the pipe. To avoid having to write complex buffer
+				// logic for when os.write() returns EAGAIN due to full buffer, set
+				// the file descriptor to block on IO.
+				syscall.SetNonblock(int(writeHandle.Fd()), false)
+				break
+			}
 		}
 
 		log(fmt.Sprintf("Data Reader - Start Byte: %d; End Byte: %d; Last Byte: %d", start, end, lastByte))
@@ -237,8 +266,7 @@ func getRestoreDataReader(toc *toc.SegmentTOC, oidList []int) (*RestoreReader, e
 }
 
 func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File, error) {
-	// Opening this pipe will block until a reader connects to the pipe
-	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY, os.ModeNamedPipe)
+	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
 	if err != nil {
 		return nil, nil, err
 	}

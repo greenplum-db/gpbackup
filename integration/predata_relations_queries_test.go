@@ -121,8 +121,11 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foo(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.\"user\"(i int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.\"user\"")
 
 			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "testschema.foo")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "testschema.user")
 			tables := backup.GetIncludedUserTableRelations(connectionPool, []string{})
 
 			tableFoo := backup.Relation{Schema: "public", Name: "foo"}
@@ -139,9 +142,12 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foo")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.bar(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.bar")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.\"user\"(i int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.\"user\"")
 
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "testschema.foo")
+			_ = backupCmdFlags.Set(options.EXCLUDE_RELATION, "testschema.user")
 			tables := backup.GetIncludedUserTableRelations(connectionPool, []string{})
 
 			tableFoo := backup.Relation{Schema: "testschema", Name: "bar"}

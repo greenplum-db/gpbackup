@@ -50,7 +50,7 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
  * This function creates a worker pool of N goroutines to be able to execute up
  * to N statements in parallel.
  */
-func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) {
+func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) int32 {
 	var workerPool sync.WaitGroup
 	var fatalErr error
 	var numErrors int32
@@ -81,13 +81,17 @@ func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.Pro
 		fmt.Println("")
 		gplog.Error("Encountered %d errors during metadata restore; see log file %s for a list of failed statements.", numErrors, gplog.GetLogFilePath())
 	}
+
+	return numErrors
 }
 
-func ExecuteStatementsAndCreateProgressBar(statements []toc.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) {
+func ExecuteStatementsAndCreateProgressBar(statements []toc.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) int32 {
 	progressBar := utils.NewProgressBar(len(statements), fmt.Sprintf("%s restored: ", objectsTitle), showProgressBar)
 	progressBar.Start()
-	ExecuteStatements(statements, progressBar, executeInParallel, whichConn...)
+	numErrors := ExecuteStatements(statements, progressBar, executeInParallel, whichConn...)
 	progressBar.Finish()
+
+	return numErrors
 }
 
 /*
@@ -100,19 +104,27 @@ func ExecuteStatementsAndCreateProgressBar(statements []toc.StatementWithType, o
  *   restores them in parallel (which has no possibility of deadlock) and
  *   then the second restores all other postdata objects in parallel. After
  *   each table has at least one index, there is no more risk of deadlock.
+ *
+ *   A third batch is created specifically for postdata metadata
+ *   (e.g. ALTER INDEX, ALTER EVENT TRIGGER, COMMENT ON). These
+ *   statements cannot be concurrently run with batch two since that
+ *   is where the dependent postdata objects are being created.
  */
-func BatchPostdataStatements(statements []toc.StatementWithType) ([]toc.StatementWithType, []toc.StatementWithType) {
+func BatchPostdataStatements(statements []toc.StatementWithType) ([]toc.StatementWithType, []toc.StatementWithType, []toc.StatementWithType) {
 	indexMap := make(map[string]bool)
 	firstBatch := make([]toc.StatementWithType, 0)
 	secondBatch := make([]toc.StatementWithType, 0)
+	thirdBatch := make([]toc.StatementWithType, 0)
 	for _, statement := range statements {
 		_, tableIndexPresent := indexMap[statement.ReferenceObject]
 		if statement.ObjectType == "INDEX" && !tableIndexPresent {
 			indexMap[statement.ReferenceObject] = true
 			firstBatch = append(firstBatch, statement)
+		} else if strings.Contains(statement.ObjectType, " METADATA") {
+			thirdBatch = append(thirdBatch, statement)
 		} else {
 			secondBatch = append(secondBatch, statement)
 		}
 	}
-	return firstBatch, secondBatch
+	return firstBatch, secondBatch, thirdBatch
 }

@@ -2,6 +2,10 @@ package testutils
 
 import (
 	"fmt"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 	"io"
 	"os"
 	"os/exec"
@@ -55,6 +59,56 @@ func SetupTestCluster() *cluster.Cluster {
 func SetupTestDbConn(dbname string) *dbconn.DBConn {
 	conn := dbconn.NewDBConnFromEnvironment(dbname)
 	conn.MustConnect(1)
+	return conn
+}
+
+// Connects to specific segment in utility mode
+func SetupTestDBConnSegment(dbname string, port int) *dbconn.DBConn {
+
+	if dbname == "" {
+		gplog.Fatal(errors.New("No database provided"), "")
+	}
+	if port == 0 {
+		gplog.Fatal(errors.New("No segment port provided"), "")
+	}
+	username := operating.System.Getenv("PGUSER")
+	if username == "" {
+		currentUser, _ := operating.System.CurrentUser()
+		username = currentUser.Username
+	}
+	host := operating.System.Getenv("PGHOST")
+	if host == "" {
+		host, _ = operating.System.Hostname()
+	}
+
+	conn := &dbconn.DBConn{
+		ConnPool: nil,
+		NumConns: 0,
+		Driver:   dbconn.GPDBDriver{},
+		User:     username,
+		DBName:   dbname,
+		Host:     host,
+		Port:     port,
+		Tx:       nil,
+		Version:  dbconn.GPDBVersion{},
+	}
+
+	connStr := fmt.Sprintf("postgres://%s@%s:%d/%s?sslmode=disable&statement_cache_capacity=0&gp_session_role=utility", conn.User, conn.Host, conn.Port, conn.DBName)
+
+	segConn, err := conn.Driver.Connect("pgx", connStr)
+	if err != nil {
+		gplog.FatalOnError(err)
+	}
+	conn.ConnPool = make([]*sqlx.DB, 1)
+	conn.ConnPool[0] = segConn
+
+	conn.Tx = make([]*sqlx.Tx, 1)
+	conn.NumConns = 1
+	version, err := dbconn.InitializeVersion(conn)
+	if err != nil {
+		gplog.FatalOnError(err)
+	}
+	conn.Version = version
 	return conn
 }
 
