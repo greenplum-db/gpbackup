@@ -88,6 +88,9 @@ func ValidateTablesExist(conn *dbconn.DBConn, tableList []string, excludeSet boo
 		if partTableMap[tableOid].Level == "i" {
 			gplog.Fatal(nil, "Cannot filter on %s, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.", table)
 		}
+		if partTableMap[tableOid].Level == "l" && !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
+			gplog.Fatal(nil, "--leaf-partition-data flag must be specified to filter on %s, as it is a leaf partition table.", table)
+		}
 	}
 }
 
