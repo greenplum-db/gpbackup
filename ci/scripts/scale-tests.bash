@@ -59,12 +59,30 @@ echo "## Performing restore for data scale test ##"
 time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --jobs=4 --quiet
 rm "\$log_file"
 
+echo "## Performing backup for data scale test with zstd ##"
+### Multiple data file test with zstd ###
+time gpbackup --dbname datascaledb --backup-dir /data/gpdata/ --compression-type zstd | tee "\$log_file"
+timestamp=\$(head -10 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+dropdb datascaledb
+echo "## Performing restore for data scale test with zstd ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --jobs=4 --quiet
+rm "\$log_file"
+
 echo "## Performing single-data-file backup for data scale test ##"
 ### Single data file test ###
 time gpbackup --dbname datascaledb --backup-dir /data/gpdata/ --single-data-file | tee "\$log_file"
 timestamp=\$(head -10 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
 dropdb datascaledb
 echo "## Performing single-data-file restore for data scale test ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/  --create-db --quiet
+rm "\$log_file"
+
+echo "## Performing single-data-file backup for data scale test with zstd ##"
+### Single data file test with zstd ###
+time gpbackup --dbname datascaledb --backup-dir /data/gpdata/ --single-data-file --compression-type zstd | tee "\$log_file"
+timestamp=\$(head -10 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+dropdb datascaledb
+echo "## Performing single-data-file restore for data scale test with zstd ##"
 time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/  --create-db --quiet
 dropdb datascaledb
 rm "\$log_file"
