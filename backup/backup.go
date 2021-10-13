@@ -119,8 +119,11 @@ func DoBackup() {
 
 	gplog.Info("Gathering table state information")
 	metadataTables, dataTables := RetrieveAndProcessTables()
-	if !(MustGetFlagBool(options.METADATA_ONLY) || MustGetFlagBool(options.DATA_ONLY)) {
+	// This must be a full backup with --leaf-parition-data to query for incremental metadata
+	if !(MustGetFlagBool(options.METADATA_ONLY) || MustGetFlagBool(options.DATA_ONLY)) && MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		backupIncrementalMetadata()
+	} else {
+		gplog.Verbose("Skipping query for incremental metadata.")
 	}
 	CheckTablesContainData(dataTables)
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
