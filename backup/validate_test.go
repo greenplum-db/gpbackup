@@ -150,6 +150,7 @@ var _ = Describe("backup/validate tests", func() {
 				partitionTables.AddRow("1", "l", "root")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(partitionTables)
 				filterList = []string{"public.table1"}
+				_ = cmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 				backup.ValidateTablesExist(connectionPool, filterList, false)
 			})
 			It("panics if given an intermediate partition table and --leaf-partition-data is set", func() {
@@ -177,6 +178,19 @@ var _ = Describe("backup/validate tests", func() {
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(partitionTables)
 				filterList = []string{"public.table1"}
 				defer testhelper.ShouldPanicWithMessage("Cannot filter on public.table1, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.")
+				backup.ValidateTablesExist(connectionPool, filterList, false)
+			})
+			It("panics if given a leaf partition table and --leaf-partition-data is not set", func() {
+				// Added to handle call to `quote_ident`
+				schemaAndTable.AddRow("public", "table1")
+				mock.ExpectQuery("SELECT (.*)").WillReturnRows(schemaAndTable)
+				//
+				tableRows.AddRow("1", "public.table1")
+				mock.ExpectQuery("SELECT (.*)").WillReturnRows(tableRows)
+				partitionTables.AddRow("1", "l", "root")
+				mock.ExpectQuery("SELECT (.*)").WillReturnRows(partitionTables)
+				filterList = []string{"public.table1"}
+				defer testhelper.ShouldPanicWithMessage("--leaf-partition-data flag must be specified to filter on public.table1, as it is a leaf partition table.")
 				backup.ValidateTablesExist(connectionPool, filterList, false)
 			})
 		})

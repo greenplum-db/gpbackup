@@ -80,6 +80,7 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		BackupDir:             MustGetFlagString(options.BACKUP_DIR),
 		BackupVersion:         backupVersion,
 		Compressed:            !MustGetFlagBool(options.NO_COMPRESSION),
+		CompressionType:       MustGetFlagString(options.COMPRESSION_TYPE),
 		DatabaseName:          dbName,
 		DatabaseVersion:       dbVersion,
 		DataOnly:              MustGetFlagBool(options.DATA_ONLY),
