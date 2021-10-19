@@ -197,7 +197,7 @@ var _ = Describe("backup/data tests", func() {
 			Expect(counters.NumRegTables).To(Equal(int64(1)))
 		})
 	})
-	Describe("CheckDBContainsData", func() {
+	Describe("GetBackupDataSet", func() {
 		config := history.BackupConfig{}
 		var testTable backup.Table
 		BeforeEach(func() {
@@ -208,24 +208,38 @@ var _ = Describe("backup/data tests", func() {
 				TableDefinition: backup.TableDefinition{},
 			}
 		})
-		It("changes backup type to metadata if no tables in DB", func() {
-			backup.CheckTablesContainData([]backup.Table{})
-			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
+		It("excludes a foreign table", func() {
+			foreignDef := backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
+			testTable.ForeignDef = foreignDef
+			tables := []backup.Table{testTable}
+
+			dataTables, numExtOrForeignTables := backup.GetBackupDataSet(tables)
+			Expect(len(dataTables)).To(Equal(0))
+			Expect(numExtOrForeignTables).To(Equal(int64(1)))
 		})
-		It("changes backup type to metadata if only external or foreign tables in database", func() {
+		It("excludes an external table", func() {
 			testTable.IsExternal = true
-			backup.CheckTablesContainData([]backup.Table{testTable})
-			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
+			tables := []backup.Table{testTable}
+
+			dataTables, numExtOrForeignTables := backup.GetBackupDataSet(tables)
+			Expect(len(dataTables)).To(Equal(0))
+			Expect(numExtOrForeignTables).To(Equal(int64(1)))
 		})
-		It("does not change backup type if metadata-only backup", func() {
+		It("doesn't exclude regular table", func() {
+			tables := []backup.Table{testTable}
+
+			dataTables, numExtOrForeignTables := backup.GetBackupDataSet(tables)
+			Expect(len(dataTables)).To(Equal(1))
+			Expect(numExtOrForeignTables).To(Equal(int64(0)))
+		})
+		It("returns an empty set, if --metadata-only flag is set and a regular table is given", func() {
 			config.MetadataOnly = true
 			backup.SetReport(&report.Report{BackupConfig: config})
-			backup.CheckTablesContainData([]backup.Table{})
-			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeTrue())
-		})
-		It("does not change backup type if tables present in database", func() {
-			backup.CheckTablesContainData([]backup.Table{testTable})
-			Expect(backup.GetReport().BackupConfig.MetadataOnly).To(BeFalse())
+			tables := []backup.Table{testTable}
+
+			dataTables, numExtOrForeignTables := backup.GetBackupDataSet(tables)
+			Expect(len(dataTables)).To(Equal(0))
+			Expect(numExtOrForeignTables).To(Equal(int64(0)))
 		})
 	})
 })
