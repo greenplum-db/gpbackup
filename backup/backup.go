@@ -119,13 +119,18 @@ func DoBackup() {
 
 	gplog.Info("Gathering table state information")
 	metadataTables, dataTables := RetrieveAndProcessTables()
+	dataTables, numExtOrForeignTables := GetBackupDataSet(dataTables)
+	if len(dataTables) == 0 {
+		gplog.Warn("No tables in backup set contain data. Performing metadata-only backup instead.")
+		backupReport.MetadataOnly = true
+	}
 	// This must be a full backup with --leaf-parition-data to query for incremental metadata
 	if !(MustGetFlagBool(options.METADATA_ONLY) || MustGetFlagBool(options.DATA_ONLY)) && MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		backupIncrementalMetadata()
 	} else {
 		gplog.Verbose("Skipping query for incremental metadata.")
 	}
-	CheckTablesContainData(dataTables)
+
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	gplog.Info("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
@@ -162,6 +167,7 @@ func DoBackup() {
 		backupReport.RestorePlan = PopulateRestorePlan(backupSetTables, targetBackupRestorePlan, dataTables)
 		backupData(backupSetTables)
 	}
+	printDataBackupWarnings(numExtOrForeignTables)
 	if MustGetFlagBool(options.WITH_STATS) {
 		backupStatistics(metadataTables)
 	}
@@ -265,9 +271,7 @@ func backupData(tables []Table) {
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		oidList := make([]string, 0, len(tables))
 		for _, table := range tables {
-			if !table.SkipDataBackup() {
-				oidList = append(oidList, fmt.Sprintf("%d", table.Oid))
-			}
+			oidList = append(oidList, fmt.Sprintf("%d", table.Oid))
 		}
 		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo)
 		utils.CreateFirstSegmentPipeOnAllHosts(oidList[0], globalCluster, globalFPInfo)
