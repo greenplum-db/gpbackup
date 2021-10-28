@@ -148,13 +148,23 @@ func InitializeSignalHandler(cleanupFunc func(bool), procDesc string, termFlag *
 
 // TODO: Uniquely identify COPY commands in the multiple data file case to allow terminating sessions
 func TerminateHangingCopySessions(connectionPool *dbconn.DBConn, fpInfo filepath.FilePathInfo, appName string) {
+	var query string
 	copyFileName := fpInfo.GetSegmentPipePathForCopyCommand()
-	query := fmt.Sprintf(`SELECT
-	pg_terminate_backend(procpid)
-FROM pg_stat_activity
-WHERE application_name = '%s'
-AND current_query LIKE '%%%s%%'
-AND procpid <> pg_backend_pid()`, appName, copyFileName)
+	if connectionPool.Version.Before("6") {
+		query = fmt.Sprintf(`SELECT
+		pg_terminate_backend(procpid)
+	FROM pg_stat_activity
+	WHERE application_name = '%s'
+	AND current_query LIKE '%%%s%%'
+	AND procpid <> pg_backend_pid()`, appName, copyFileName)
+	} else {
+		query = fmt.Sprintf(`SELECT
+		pg_terminate_backend(pid)
+	FROM pg_stat_activity
+	WHERE application_name = '%s'
+	AND query LIKE '%%%s%%'
+	AND pid <> pg_backend_pid()`, appName, copyFileName)
+	}
 	// We don't check the error as the connection may have finished or been previously terminated
 	_, _ = connectionPool.Exec(query)
 }
