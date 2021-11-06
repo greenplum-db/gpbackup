@@ -423,13 +423,16 @@ func DoCleanup(backupFailed bool) {
 	gplog.Verbose("Beginning cleanup")
 	if globalFPInfo.Timestamp != "" {
 		if MustGetFlagBool(options.SINGLE_DATA_FILE) {
-			if backupFailed {
-				// Cleanup only if terminated or fataled
-				utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
-			}
+			// Copy sessions must be terminated before cleaning up gpbackup_helper processes to avoid a potential deadlock
+			// If the terminate query is sent via a connection with an active COPY command, and the COPY's pipe is cleaned up, the COPY query will hang.
+			// This results in the DoCleanup function passed to the signal handler to never return, blocking the os.Exit call
 			if wasTerminated {
 				// It is possible for the COPY command to become orphaned if an agent process is killed
 				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, fmt.Sprintf("gpbackup_%s", globalFPInfo.Timestamp))
+			}
+			if backupFailed {
+				// Cleanup only if terminated or fataled
+				utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
 			}
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
 		}

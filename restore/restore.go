@@ -641,13 +641,16 @@ func DoCleanup(restoreFailed bool) {
 	if backupConfig != nil && backupConfig.SingleDataFile {
 		fpInfoList := GetBackupFPInfoListFromRestorePlan()
 		for _, fpInfo := range fpInfoList {
+			// Copy sessions must be terminated before cleaning up gpbackup_helper processes to avoid a potential deadlock
+			// If the terminate query is sent via a connection with an active COPY command, and the COPY's pipe is cleaned up, the COPY query will hang.
+			// This results in the DoCleanup function passed to the signal handler to never return, blocking the os.Exit call
+			if wasTerminated { // These should all end on their own in a successful restore
+				utils.TerminateHangingCopySessions(connectionPool, fpInfo, fmt.Sprintf("gprestore_%s_%s", fpInfo.Timestamp, restoreStartTime))
+			}
 			if restoreFailed {
 				utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore")
 			}
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, fpInfo)
-			if wasTerminated { // These should all end on their own in a successful restore
-				utils.TerminateHangingCopySessions(connectionPool, fpInfo, fmt.Sprintf("gprestore_%s_%s", fpInfo.Timestamp, restoreStartTime))
-			}
 		}
 	}
 
