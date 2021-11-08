@@ -429,7 +429,7 @@ func DoCleanup(backupFailed bool) {
 			}
 			if wasTerminated {
 				// It is possible for the COPY command to become orphaned if an agent process is killed
-				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, "gpbackup")
+				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, fmt.Sprintf("gpbackup_%s", globalFPInfo.Timestamp))
 			}
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
 		}

@@ -646,7 +646,7 @@ func DoCleanup(restoreFailed bool) {
 			}
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, fpInfo)
 			if wasTerminated { // These should all end on their own in a successful restore
-				utils.TerminateHangingCopySessions(connectionPool, fpInfo, "gprestore")
+				utils.TerminateHangingCopySessions(connectionPool, fpInfo, fmt.Sprintf("gprestore_%s_%s", fpInfo.Timestamp, restoreStartTime))
 			}
 		}
 	}
