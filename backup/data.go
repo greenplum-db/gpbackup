@@ -85,13 +85,14 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 }
 
 func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters *BackupProgressCounters, whichConn int) error {
-	atomic.AddInt64(&counters.NumRegTables, 1)
-	numTables := counters.NumRegTables //We save this so it won't be modified before we log it
+	logMessage := fmt.Sprintf("Worker %d: Writing data for table %s to file", whichConn, table.FQN())
+	// Avoid race condition by incrementing counters in call to sprintf
+	tableCount := fmt.Sprintf(" (table %d of %d)", atomic.AddInt64(&counters.NumRegTables, 1), counters.TotalRegTables)
 	if gplog.GetVerbosity() > gplog.LOGINFO {
 		// No progress bar at this log level, so we note table count here
-		gplog.Verbose("Writing data for table %s to file (table %d of %d)", table.FQN(), numTables, counters.TotalRegTables)
+		gplog.Verbose(logMessage + tableCount)
 	} else {
-		gplog.Verbose("Writing data for table %s to file", table.FQN())
+		gplog.Verbose(logMessage)
 	}
 
 	destinationToWrite := ""

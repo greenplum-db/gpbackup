@@ -144,10 +144,9 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 				if err == nil {
 					err = restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
 
-					atomic.AddInt64(&tableNum, 1)
 					if gplog.GetVerbosity() > gplog.LOGINFO {
 						// No progress bar at this log level, so we note table count here
-						gplog.Verbose("Restored data to table %s from file (table %d of %d)", tableName, tableNum, totalTables)
+						gplog.Verbose("Restored data to table %s from file (table %d of %d)", tableName, atomic.AddInt64(&tableNum, 1), totalTables)
 					} else {
 						gplog.Verbose("Restored data to table %s from file", tableName)
 					}
