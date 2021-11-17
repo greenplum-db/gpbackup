@@ -32,6 +32,39 @@ set -e
 
 ### Data scale tests ###
 log_file=/tmp/gpbackup.log
+
+echo "## Populating database for copy queue test ##"
+createdb copyqueuedb
+for j in {1..20000}
+do
+  psql -d copyqueuedb -q -c "CREATE TABLE tbl_1k_\$j(i int) DISTRIBUTED BY (i);"
+  psql -d copyqueuedb -q -c "INSERT INTO tbl_1k_\$j SELECT generate_series(1,1000)"
+done
+
+echo "## Performing single-data-file, --no-compression, --copy-queue-size 2 backup for copy queue test ##"
+time gpbackup --dbname copyqueuedb --backup-dir /data/gpdata/ --single-data-file --no-compression --copy-queue-size 2 | tee "\$log_file"
+timestamp=\$(head -10 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+gpbackup_manager display-report \$timestamp
+
+echo "## Performing single-data-file, --no-compression, --copy-queue-size 4 backup for copy queue test ##"
+time gpbackup --dbname copyqueuedb --backup-dir /data/gpdata/ --single-data-file --no-compression --copy-queue-size 4 | tee "\$log_file"
+timestamp=\$(head -10 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+gpbackup_manager display-report \$timestamp
+
+echo "## Performing single-data-file, --no-compression, --copy-queue-size 8 backup for copy queue test ##"
+time gpbackup --dbname copyqueuedb --backup-dir /data/gpdata/ --single-data-file --no-compression --copy-queue-size 8 | tee "\$log_file"
+timestamp=\$(head -10 "\$log_file" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+gpbackup_manager display-report \$timestamp
+
+echo "## Performing single-data-file, --no-compression, --copy-queue-size 2 restore for copy queue test ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --redirect-db copyqueuerestore2 --copy-queue-size 2
+
+echo "## Performing single-data-file, --no-compression, --copy-queue-size 4 restore for copy queue test ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --redirect-db copyqueuerestore4 --copy-queue-size 4
+
+echo "## Performing single-data-file, --no-compression, --copy-queue-size 8 restore for copy queue test ##"
+time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --redirect-db copyqueuerestore8 --copy-queue-size 8
+
 echo "## Populating database for data scale test ##"
 createdb datascaledb
 for j in {1..5000}

@@ -65,6 +65,23 @@ var _ = Describe("End to End plugin tests", func() {
 			assertArtifactsCleaned(restoreConn, timestamp)
 
 		})
+		It("runs gpbackup and gprestore with single-data-file flag with copy-queue-size", func() {
+			skipIfOldBackupVersionBefore("1.23.0")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--single-data-file",
+				"--copy-queue-size", "4",
+				"--backup-dir", backupDir)
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--copy-queue-size", "4",
+				"--backup-dir", backupDir)
+
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+			assertArtifactsCleaned(restoreConn, timestamp)
+
+		})
 		It("runs gpbackup and gprestore with single-data-file flag without compression", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--single-data-file",
@@ -72,6 +89,23 @@ var _ = Describe("End to End plugin tests", func() {
 				"--no-compression")
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir)
+
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+			assertArtifactsCleaned(restoreConn, timestamp)
+		})
+		It("runs gpbackup and gprestore with single-data-file flag without compression with copy-queue-size", func() {
+			skipIfOldBackupVersionBefore("1.23.0")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--single-data-file",
+				"--copy-queue-size", "4",
+				"--backup-dir", backupDir,
+				"--no-compression")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--copy-queue-size", "4",
 				"--backup-dir", backupDir)
 
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
@@ -128,6 +162,58 @@ var _ = Describe("End to End plugin tests", func() {
 				"--redirect-db", "restoredb")
 			assertArtifactsCleaned(restoreConn, timestamp)
 		})
+		It("runs gpbackup and gprestore on database with all objects with copy-queue-size", func() {
+			skipIfOldBackupVersionBefore("1.23.0")
+			testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+			defer testutils.ExecuteSQLFile(backupConn,
+				"resources/test_tables_data.sql")
+			defer testutils.ExecuteSQLFile(backupConn,
+				"resources/test_tables_ddl.sql")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+			defer testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE ROLE testrole SUPERUSER")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP ROLE testrole")
+			testutils.ExecuteSQLFile(backupConn, "resources/gpdb4_objects.sql")
+			if backupConn.Version.AtLeast("5") {
+				testutils.ExecuteSQLFile(backupConn, "resources/gpdb5_objects.sql")
+			}
+			if backupConn.Version.AtLeast("6") {
+				testutils.ExecuteSQLFile(backupConn, "resources/gpdb6_objects.sql")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP FOREIGN DATA WRAPPER fdw CASCADE;")
+				defer testhelper.AssertQueryRuns(restoreConn,
+					"DROP FOREIGN DATA WRAPPER fdw CASCADE;")
+			}
+			if backupConn.Version.AtLeast("6.2") {
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE mview_table1(i int, j text);")
+				defer testhelper.AssertQueryRuns(restoreConn,
+					"DROP TABLE mview_table1;")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE MATERIALIZED VIEW mview1 (i2) as select i from mview_table1;")
+				defer testhelper.AssertQueryRuns(restoreConn,
+					"DROP MATERIALIZED VIEW mview1;")
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE MATERIALIZED VIEW mview2 as select * from mview1;")
+				defer testhelper.AssertQueryRuns(restoreConn,
+					"DROP MATERIALIZED VIEW mview2;")
+			}
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--leaf-partition-data",
+				"--single-data-file",
+				"--copy-queue-size", "4")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--metadata-only",
+				"--redirect-db", "restoredb",
+				"--copy-queue-size", "4")
+			assertArtifactsCleaned(restoreConn, timestamp)
+		})
 
 		Context("with include filtering on restore", func() {
 			It("runs gpbackup and gprestore with include-table-file restore flag with a single data file", func() {
@@ -147,6 +233,26 @@ var _ = Describe("End to End plugin tests", func() {
 
 				_ = os.Remove("/tmp/include-tables.txt")
 			})
+			It("runs gpbackup and gprestore with include-table-file restore flag with a single data with copy-queue-size", func() {
+				skipIfOldBackupVersionBefore("1.23.0")
+				includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
+				utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--backup-dir", backupDir,
+					"--single-data-file",
+					"--copy-queue-size", "4")
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir,
+					"--include-table-file", "/tmp/include-tables.txt",
+					"--copy-queue-size", "4")
+				assertRelationsCreated(restoreConn, 16)
+				assertDataRestored(restoreConn, map[string]int{
+					"public.sales": 13, "public.foo": 40000})
+				assertArtifactsCleaned(restoreConn, timestamp)
+
+				_ = os.Remove("/tmp/include-tables.txt")
+			})
 			It("runs gpbackup and gprestore with include-schema restore flag with a single data file", func() {
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--backup-dir", backupDir,
@@ -155,6 +261,22 @@ var _ = Describe("End to End plugin tests", func() {
 					"--redirect-db", "restoredb",
 					"--backup-dir", backupDir,
 					"--include-schema", "schema2")
+
+				assertRelationsCreated(restoreConn, 17)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
+			It("runs gpbackup and gprestore with include-schema restore flag with a single data file with copy-queue-size", func() {
+				skipIfOldBackupVersionBefore("1.23.0")
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--backup-dir", backupDir,
+					"--single-data-file",
+					"--copy-queue-size", "4")
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir,
+					"--include-schema", "schema2",
+					"--copy-queue-size", "4")
 
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
@@ -189,6 +311,27 @@ var _ = Describe("End to End plugin tests", func() {
 				assertDataRestored(restoreConn, schema2TupleCounts)
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
+			It("runs gpbackup and gprestore with plugin, single-data-file, no-compression, and copy-queue-size", func() {
+				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
+				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--single-data-file",
+					"--copy-queue-size", "4",
+					"--no-compression",
+					"--plugin-config", pluginConfigPath)
+				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--plugin-config", pluginConfigPath,
+					"--copy-queue-size", "4")
+
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+				assertDataRestored(restoreConn, publicSchemaTupleCounts)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
 			It("runs gpbackup and gprestore with plugin and single-data-file", func() {
 				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
@@ -201,6 +344,26 @@ var _ = Describe("End to End plugin tests", func() {
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
 					"--plugin-config", pluginConfigPath)
+
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+				assertDataRestored(restoreConn, publicSchemaTupleCounts)
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
+			It("runs gpbackup and gprestore with plugin, single-data-file, and copy-queue-size", func() {
+				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
+				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--single-data-file",
+					"--copy-queue-size", "4",
+					"--plugin-config", pluginConfigPath)
+				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
+
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--plugin-config", pluginConfigPath,
+					"--copy-queue-size", "4")
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/spf13/cobra"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
@@ -12,10 +11,11 @@ import (
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/spf13/cobra"
 
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("restore/validate tests", func() {
@@ -299,19 +299,20 @@ var _ = Describe("restore/validate tests", func() {
 		DescribeTable("Validate various flag combinations that are required or exclusive",
 			func(argString string, valid bool) {
 				testCmd := &cobra.Command{
-				Use: "flag validation",
-				Args: cobra.NoArgs,
-				Run: func(cmd *cobra.Command, args []string) {
-					restore.ValidateFlagCombinations(cmd.Flags())
-				}}
+					Use:  "flag validation",
+					Args: cobra.NoArgs,
+					Run: func(cmd *cobra.Command, args []string) {
+						restore.ValidateFlagCombinations(cmd.Flags())
+					}}
 				testCmd.SetArgs(strings.Split(argString, " "))
 				restore.SetCmdFlags(testCmd.Flags())
 
-				if (!valid) {
+				if !valid {
 					defer testhelper.ShouldPanicWithMessage("CRITICAL")
 				}
 
-				err := testCmd.Execute(); if err != nil && valid{
+				err := testCmd.Execute()
+				if err != nil && valid {
 					Fail("Valid flag combination failed validation check")
 				}
 			},
@@ -331,12 +332,12 @@ var _ = Describe("restore/validate tests", func() {
 			Entry("--exclude-schema combos", "--exclude-schema schema1 --exclude-schema-file /tmp/file2", true), // TODO: Verify this.
 
 			// --exclude-schema-file combinations with other filters
-			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-table schema.table2", true), // TODO: Verify this.
-			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-table-file /tmp/file2", true), // TODO: Verify this.
-			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-schema schema2", true), // TODO: Verify this.
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-table schema.table2", true),    // TODO: Verify this.
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-table-file /tmp/file2", true),  // TODO: Verify this.
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-schema schema2", true),         // TODO: Verify this.
 			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --include-schema-file /tmp/file2", true), // TODO: Verify this.
-			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --exclude-table schema.table2", true), // TODO: Verify this.
-			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --exclude-table-file /tmp/file2", true), // TODO: Verify this.
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --exclude-table schema.table2", true),    // TODO: Verify this.
+			Entry("--exclude-schema-file combos", "--exclude-schema-file /tmp/file --exclude-table-file /tmp/file2", true),  // TODO: Verify this.
 
 			// --exclude-table combinations with other filters
 			Entry("--exclude-table combos", "--exclude-table schema.table --include-table schema.table2", false),
@@ -359,7 +360,7 @@ var _ = Describe("restore/validate tests", func() {
 			Entry("--include-schema combos", "--include-schema schema1 --include-schema-file /tmp/file2", true), // TODO: Verify this.
 
 			// --include-schema-file combinations with other filters
-			Entry("--include-schema-file combos", "--include-schema-file /tmp/file --include-table schema.table2", true), // TODO: Verify this.
+			Entry("--include-schema-file combos", "--include-schema-file /tmp/file --include-table schema.table2", true),   // TODO: Verify this.
 			Entry("--include-schema-file combos", "--include-schema-file /tmp/file --include-table-file /tmp/file2", true), // TODO: Verify this.
 
 			// --include-table combinations with other filters
@@ -396,5 +397,24 @@ var _ = Describe("restore/validate tests", func() {
 			Entry("--redirect-schema combos", "--redirect-schema schema1 --include-table schema.table2 --metadata-only", true),
 			Entry("--redirect-schema combos", "--redirect-schema schema1 --include-table schema.table2 --data-only", true),
 		)
+	})
+	Describe("ValidateBackupFlagCombinations", func() {
+		It("restore with copy-queue-size should fatal if backup was not taken with single-data-file", func() {
+			restore.SetBackupConfig(&history.BackupConfig{SingleDataFile: false})
+			testCmd := &cobra.Command{
+				Use:  "flag validation",
+				Args: cobra.NoArgs,
+				Run: func(cmd *cobra.Command, args []string) {
+					restore.ValidateBackupFlagCombinations()
+				}}
+			testCmd.SetArgs([]string{"--copy-queue-size", "4"})
+			restore.SetCmdFlags(testCmd.Flags())
+
+			defer testhelper.ShouldPanicWithMessage("CRITICAL")
+			err := testCmd.Execute()
+			if err == nil {
+				Fail("invalid flag combination passed validation check")
+			}
+		})
 	})
 })

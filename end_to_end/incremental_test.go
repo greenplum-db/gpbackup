@@ -363,6 +363,51 @@ var _ = Describe("End to End incremental tests", func() {
 				assertArtifactsCleaned(restoreConn, incremental1Timestamp)
 				assertArtifactsCleaned(restoreConn, incremental2Timestamp)
 			})
+			It("Restores from an incremental backup based on a from-timestamp incremental with --copy-queue-size", func() {
+				fullBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--leaf-partition-data",
+					"--single-data-file",
+					"--copy-queue-size", "4",
+					"--plugin-config", pluginConfigPath)
+				forceMetadataFileDownloadFromPlugin(backupConn, fullBackupTimestamp)
+				testhelper.AssertQueryRuns(backupConn,
+					"INSERT into schema2.ao1 values(1001)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DELETE from schema2.ao1 where i=1001")
+				incremental1Timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--incremental",
+					"--leaf-partition-data",
+					"--single-data-file",
+					"--copy-queue-size", "4",
+					"--from-timestamp", fullBackupTimestamp,
+					"--plugin-config", pluginConfigPath)
+				forceMetadataFileDownloadFromPlugin(backupConn, incremental1Timestamp)
+
+				testhelper.AssertQueryRuns(backupConn,
+					"INSERT into schema2.ao1 values(1002)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DELETE from schema2.ao1 where i=1002")
+				incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--incremental",
+					"--leaf-partition-data",
+					"--single-data-file",
+					"--copy-queue-size", "4",
+					"--plugin-config", pluginConfigPath)
+				forceMetadataFileDownloadFromPlugin(backupConn, incremental2Timestamp)
+
+				gprestore(gprestorePath, restoreHelperPath, incremental2Timestamp,
+					"--redirect-db", "restoredb",
+					"--copy-queue-size", "4",
+					"--plugin-config", pluginConfigPath)
+
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+				assertDataRestored(restoreConn, publicSchemaTupleCounts)
+				schema2TupleCounts["schema2.ao1"] = 1002
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertArtifactsCleaned(restoreConn, fullBackupTimestamp)
+				assertArtifactsCleaned(restoreConn, incremental1Timestamp)
+				assertArtifactsCleaned(restoreConn, incremental2Timestamp)
+			})
 			It("Runs backup and restore if plugin location changed", func() {
 				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				fullBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,

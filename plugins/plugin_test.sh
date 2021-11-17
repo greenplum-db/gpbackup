@@ -486,10 +486,12 @@ test_backup_and_restore_with_plugin() {
     echo "[PASSED] gpbackup and gprestore (using ${flags})"
 }
 
+test_backup_and_restore_with_plugin "--single-data-file --no-compression --copy-queue-size 4" "--copy-queue-size 4"
 test_backup_and_restore_with_plugin "--no-compression --single-data-file"
 test_backup_and_restore_with_plugin "--no-compression"
 test_backup_and_restore_with_plugin "--metadata-only"
 test_backup_and_restore_with_plugin "--no-compression --single-data-file" "restore-filter"
+
 
 # ----------------------------------------------
 # Cleanup test artifacts
