@@ -259,7 +259,6 @@ func backupData(tables []Table) {
 		gplog.Info("Data backup complete")
 		return
 	}
-
 	if MustGetFlagBool(options.SINGLE_DATA_FILE) {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file backup")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
@@ -270,22 +269,26 @@ func backupData(tables []Table) {
 			}
 		}
 		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo)
-		utils.CreateFirstSegmentPipeOnAllHosts(oidList[0], globalCluster, globalFPInfo)
 		compressStr := fmt.Sprintf(" --compression-level %d --compression-type %s", MustGetFlagInt(options.COMPRESSION_LEVEL), MustGetFlagString(options.COMPRESSION_TYPE))
 		if MustGetFlagBool(options.NO_COMPRESSION) {
 			compressStr = " --compression-level 0"
 		}
+		initialPipes := CreateInitialSegmentPipes(oidList, globalCluster, connectionPool, globalFPInfo)
 		// Do not pass through the --on-error-continue flag because it does not apply to gpbackup
 		utils.StartGpbackupHelpers(globalCluster, globalFPInfo, "--backup-agent",
-			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated)
+			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated, initialPipes)
 	}
 	gplog.Info("Writing data to file")
-	rowsCopiedMaps := backupDataForAllTables(tables)
+	var rowsCopiedMaps []map[uint32]int64
+	if FlagChanged(options.COPY_QUEUE_SIZE) {
+		rowsCopiedMaps = backupDataForAllTablesCopyQueue(tables)
+	} else {
+		rowsCopiedMaps = backupDataForAllTables(tables)
+	}
 	AddTableDataEntriesToTOC(tables, rowsCopiedMaps)
 	if MustGetFlagBool(options.SINGLE_DATA_FILE) && MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
 	}
-
 	logCompletionMessage("Data backup")
 }
 
@@ -500,4 +503,18 @@ func logCompletionMessage(msg string) {
 	} else {
 		gplog.Info("%s complete", msg)
 	}
+}
+
+func CreateInitialSegmentPipes(oidList []string, c *cluster.Cluster, connectionPool *dbconn.DBConn, fpInfo filepath.FilePathInfo) int {
+	// Create min(connections, tables) segment pipes on each host
+	var maxPipes int
+	if connectionPool.NumConns < len(oidList) {
+		maxPipes = connectionPool.NumConns
+	} else {
+		maxPipes = len(oidList)
+	}
+	for i := 0; i < maxPipes; i++ {
+		utils.CreateSegmentPipeOnAllHosts(oidList[i], c, fpInfo)
+	}
+	return maxPipes
 }

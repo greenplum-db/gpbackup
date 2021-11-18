@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/filepath"
@@ -94,13 +95,12 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 	if backupConfig.SingleDataFile {
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
-		filteredOids := make([]string, totalTables)
+		oidList := make([]string, totalTables)
 		for i, entry := range dataEntries {
-			filteredOids[i] = fmt.Sprintf("%d", entry.Oid)
+			oidList[i] = fmt.Sprintf("%d", entry.Oid)
 		}
-		utils.WriteOidListToSegments(filteredOids, globalCluster, fpInfo)
-		firstOid := fmt.Sprintf("%d", dataEntries[0].Oid)
-		utils.CreateFirstSegmentPipeOnAllHosts(firstOid, globalCluster, fpInfo)
+		utils.WriteOidListToSegments(oidList, globalCluster, fpInfo)
+		initialPipes := CreateInitialSegmentPipes(oidList, globalCluster, connectionPool,fpInfo)
 		if wasTerminated {
 			return 0
 		}
@@ -108,7 +108,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		if len(opts.IncludedRelations) > 0 || len(opts.ExcludedRelations) > 0 || len(opts.IncludedSchemas) > 0 || len(opts.ExcludedSchemas) > 0 {
 			isFilter = true
 		}
-		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(options.PLUGIN_CONFIG), "", MustGetFlagBool(options.ON_ERROR_CONTINUE), isFilter, &wasTerminated)
+		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(options.PLUGIN_CONFIG), "", MustGetFlagBool(options.ON_ERROR_CONTINUE), isFilter, &wasTerminated, initialPipes)
 	}
 	/*
 	 * We break when an interrupt is received and rely on
@@ -191,4 +191,18 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 	}
 
 	return numErrors
+}
+
+func CreateInitialSegmentPipes(oidList []string, c *cluster.Cluster, connectionPool *dbconn.DBConn, fpInfo filepath.FilePathInfo) int {
+	// Create min(connections, tables) segment pipes on each host
+	var maxPipes int
+	if connectionPool.NumConns < len(oidList) {
+		maxPipes = connectionPool.NumConns
+	} else {
+		maxPipes = len(oidList)
+	}
+	for i := 0; i < maxPipes; i++ {
+		utils.CreateSegmentPipeOnAllHosts(oidList[i], c, fpInfo)
+	}
+	return maxPipes
 }

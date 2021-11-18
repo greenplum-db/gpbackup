@@ -37,6 +37,7 @@ const (
 	PLUGIN_CONFIG         = "plugin-config"
 	QUIET                 = "quiet"
 	SINGLE_DATA_FILE      = "single-data-file"
+	COPY_QUEUE_SIZE       = "copy-queue-size"
 	VERBOSE               = "verbose"
 	WITH_STATS            = "with-stats"
 	CREATE_DB             = "create-db"
@@ -76,6 +77,7 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool("version", false, "Print version number and exit")
 	flagSet.Bool(QUIET, false, "Suppress non-warning, non-error log messages")
 	flagSet.Bool(SINGLE_DATA_FILE, false, "Back up all data to a single file instead of one per table")
+	flagSet.Int(COPY_QUEUE_SIZE, 1, "number of COPY commands gpbackup should enqueue when backing up using the --single-data-file option")
 	flagSet.Bool(VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(WITH_STATS, false, "Back up query plan statistics")
 	flagSet.Bool(WITHOUT_GLOBALS, false, "Skip backup of global metadata")
@@ -104,6 +106,7 @@ func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(QUIET, false, "Suppress non-warning, non-error log messages")
 	flagSet.String(REDIRECT_DB, "", "Restore to the specified database instead of the database that was backed up")
 	flagSet.String(REDIRECT_SCHEMA, "", "Restore to the specified schema instead of the schema that was backed up")
+	flagSet.Int(COPY_QUEUE_SIZE, 1, "Number of COPY commands gprestore should enqueue when restoring a backup taken using the --single-data-file option")
 	flagSet.Bool(WITH_GLOBALS, false, "Restore global metadata")
 	flagSet.String(TIMESTAMP, "", "The timestamp to be restored, in the format YYYYMMDDHHMMSS")
 	flagSet.Bool(TRUNCATE_TABLE, false, "Removes data of the tables getting restored")

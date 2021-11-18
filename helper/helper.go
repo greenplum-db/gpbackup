@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
-	"path/filepath"
 
 	"golang.org/x/sys/unix"
 
@@ -28,14 +28,12 @@ import (
 
 var (
 	CleanupGroup  *sync.WaitGroup
-	currentPipe   string
 	errBuf        bytes.Buffer
-	lastPipe      string
-	nextPipe      string
 	version       string
 	wasTerminated bool
 	writeHandle   *os.File
 	writer        *bufio.Writer
+	pipesMap      map[string]bool
 )
 
 /*
@@ -55,6 +53,7 @@ var (
 	restoreAgent     *bool
 	tocFile          *string
 	isFiltered       *bool
+	copyQueue        *int
 )
 
 func DoHelper() {
@@ -112,18 +111,20 @@ func InitializeGlobals() {
 	restoreAgent = flag.Bool("restore-agent", false, "Use gpbackup_helper as an agent for restore")
 	tocFile = flag.String("toc-file", "", "Absolute path to the table of contents file")
 	isFiltered = flag.Bool("with-filters", false, "Used with table/schema filters")
+	copyQueue = flag.Int("copy-queue-size", 1, "Used to know how many COPIES are being queued up")
 
 	if *onErrorContinue && !*restoreAgent {
 		fmt.Printf("--on-error-continue flag can only be used with --restore-agent flag")
 		os.Exit(1)
 	}
-
 	flag.Parse()
 	if *printVersion {
 		fmt.Printf("gpbackup_helper version %s\n", version)
 		os.Exit(0)
 	}
 	operating.InitializeSystemFunctions()
+
+	pipesMap = make(map[string]bool, 0)
 }
 
 /*
@@ -132,7 +133,30 @@ func InitializeGlobals() {
 
 func createPipe(pipe string) error {
 	err := unix.Mkfifo(pipe, 0777)
-	return err
+	if err != nil {
+		return err
+	}
+
+	pipesMap[pipe] = true
+	return nil
+}
+
+func deletePipe(pipe string) error {
+	err := utils.RemoveFileIfExists(pipe)
+	if err != nil {
+		return err
+	}
+
+	delete(pipesMap, pipe)
+	return nil
+}
+
+// Gpbackup creates the first n pipes. Record these pipes.
+func preloadCreatedPipes(oidList []int, queuedPipeCount int) {
+	for i := 0; i < queuedPipeCount; i++ {
+		pipeName := fmt.Sprintf("%s_%d", *pipeFile, oidList[i])
+		pipesMap[pipeName] = true
+	}
 }
 
 func getOidListFromFile() ([]int, error) {
@@ -187,17 +211,13 @@ func DoCleanup() {
 	if err != nil {
 		log("Encountered error during cleanup: %v", err)
 	}
-	err = utils.RemoveFileIfExists(lastPipe)
-	if err != nil {
-		log("Encountered error during cleanup: %v", err)
-	}
-	err = utils.RemoveFileIfExists(currentPipe)
-	if err != nil {
-		log("Encountered error during cleanup: %v", err)
-	}
-	err = utils.RemoveFileIfExists(nextPipe)
-	if err != nil {
-		log("Encountered error during cleanup: %v", err)
+
+	for pipeName, _ := range pipesMap {
+		log("Removing pipe %s", pipeName)
+		err = deletePipe(pipeName)
+		if err != nil {
+			log("Encountered error removing pipe %s: %v", pipeName, err)
+		}
 	}
 
 	skipFiles, _ := filepath.Glob(fmt.Sprintf("%s_skip_*", *pipeFile))
