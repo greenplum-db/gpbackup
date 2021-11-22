@@ -183,9 +183,8 @@ func backupDataForAllTablesCopyQueue(tables []Table) []map[uint32]int64 {
 						// the following WARN message is nicely outputted.
 						fmt.Printf("\n")
 					}
-					gplog.Warn("Worker %d could not acquire AccessShareLock for table %s. Terminating worker and deferring table to main worker thread.",
-						whichConn, table.FQN())
-
+					// Log locks held on the table
+					logTableLocks(table, whichConn)
 					oidMap.Store(table.Oid, Deferred)
 					// Rollback transaction since it's in an aborted state
 					connectionPool.MustRollback(whichConn)
@@ -322,9 +321,8 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 							// the following WARN message is nicely outputted.
 							fmt.Printf("\n")
 						}
-						gplog.Warn("Worker %d could not acquire AccessShareLock for table %s. Terminating worker and deferring table to main worker thread.",
-							whichConn, table.FQN())
-
+						// Log locks held on the table
+						logTableLocks(table, whichConn)
 						// Defer table to main worker thread
 						deferredTablesMutex.Lock()
 						deferredTables = append(deferredTables, table)
@@ -412,6 +410,5 @@ func LockTableNoWait(dataTable Table, connNum int) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

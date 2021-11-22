@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -517,4 +518,78 @@ func CreateInitialSegmentPipes(oidList []string, c *cluster.Cluster, connectionP
 		utils.CreateSegmentPipeOnAllHosts(oidList[i], c, fpInfo)
 	}
 	return maxPipes
+}
+
+type TableLocks struct {
+	Oid         uint32
+	Database    string
+	Relation    string
+	Mode        string
+	Application string
+	Granted     string
+	User        string
+	Pid         string
+}
+
+func getTableLocks(table Table) []TableLocks {
+	conn := dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
+	conn.MustConnect(1)
+	var query string
+	defer conn.Close()
+	if conn.Version.Before("6") {
+		query = fmt.Sprintf(`
+		SELECT c.oid as oid,
+		coalesce(a.datname, '') as database,
+		n.nspname || '.' || l.relation::regclass as relation,
+		l.mode,
+		l.GRANTED as granted,
+		coalesce(a.application_name, '') as application,
+		coalesce(a.usename, '') as user,
+		a.procpid as pid
+		FROM pg_stat_activity a
+		JOIN pg_locks l ON l.pid = a.procpid
+		JOIN pg_class c on c.oid = l.relation
+		JOIN pg_namespace n on n.oid=c.relnamespace
+		WHERE (a.datname = '%s' OR a.datname IS NULL)
+		AND NOT a.procpid = pg_backend_pid()
+		AND relation = '%s'::regclass
+		AND mode = 'AccessExclusiveLock'
+		ORDER BY a.query_start;
+		`, conn.DBName, table.FQN())
+	} else {
+		query = fmt.Sprintf(`
+		SELECT c.oid as oid,
+		coalesce(a.datname, '') as database,
+		n.nspname || '.' || l.relation::regclass relation,
+		l.mode,
+		l.GRANTED as granted,
+		coalesce(a.application_name, '') as application,
+		coalesce(a.usename, '') as user,
+		a.pid
+		FROM pg_stat_activity a
+		JOIN pg_locks l ON l.pid = a.pid
+		JOIN pg_class c on c.oid = l.relation
+		JOIN pg_namespace n on n.oid=c.relnamespace
+		WHERE (a.datname = '%s' OR a.datname IS NULL)
+		AND NOT a.pid = pg_backend_pid()
+		AND relation = '%s'::regclass
+		AND mode = 'AccessExclusiveLock'
+		ORDER BY a.query_start;
+		`, conn.DBName, table.FQN())
+	}
+
+	locksResults := make([]TableLocks, 0)
+	err := conn.Select(&locksResults, query)
+	if err != nil {
+		gplog.FatalOnError(err)
+	}
+
+	return locksResults
+}
+
+func logTableLocks(table Table, whichConn int) {
+	locks := getTableLocks(table)
+	jsonData, _ := json.Marshal(&locks)
+	gplog.Warn("Worker %d could not acquire AccessShareLock for table %s. Terminating worker and deferring table to main worker thread.",	whichConn,table.FQN())
+	gplog.Warn("Locks held on table %s: %s", table.FQN(), jsonData)
 }
