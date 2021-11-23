@@ -59,6 +59,7 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 	checkPipeExistsCommand := ""
 	customPipeThroughCommand := utils.GetPipeThroughProgram().OutputCommand
 	sendToDestinationCommand := ">"
+	copyCommand := ""
 	if MustGetFlagBool(options.SINGLE_DATA_FILE) {
 		/*
 		 * The segment TOC files are always written to the segment data directory for
