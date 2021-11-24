@@ -3,7 +3,7 @@ release:
   release_type: <RELEASE_TYPE>
   eula_slug: vmware_eula
   description: |
-        The Pivotal Greenplum Backup and Restore <TILE_RELEASE_VERSION> release contains the following versions of binaries for use with the Pivotal Greenplum Server:
+        The VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION> release contains the following versions of binaries for use with the VMware Tanzu™ Greenplum® Server:
         - gpbackup <GPBAR_VERSION>
         - gpbackup_helper <GPBAR_VERSION>
         - gprestore <GPBAR_VERSION>
@@ -68,7 +68,7 @@ product_files:
 
 ########## License ##########
   - file: workspace/files-to-upload/<OSL_FILENAME>
-    upload_as: Open Source Licenses for Pivotal Greenplum Backup and Restore <TILE_RELEASE_VERSION>
-    description: Open Source Licenses for Pivotal Greenplum Backup and Restore <TILE_RELEASE_VERSION>
+    upload_as: Open Source Licenses for VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION>
+    description: Open Source Licenses for VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION>
     file_type: Open Source License
     file_version: <TILE_RELEASE_VERSION>

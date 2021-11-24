@@ -71,14 +71,14 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Int(JOBS, 1, "The number of parallel connections to use when backing up data")
 	flagSet.Bool(LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
 	flagSet.Bool(METADATA_ONLY, false, "Only back up metadata, do not back up data")
-	flagSet.Bool(NO_COMPRESSION, false, "Disable compression of data files")
+	flagSet.Bool(NO_COMPRESSION, false, "Skip compression of data files")
 	flagSet.String(PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
 	flagSet.Bool("version", false, "Print version number and exit")
 	flagSet.Bool(QUIET, false, "Suppress non-warning, non-error log messages")
 	flagSet.Bool(SINGLE_DATA_FILE, false, "Back up all data to a single file instead of one per table")
 	flagSet.Bool(VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(WITH_STATS, false, "Back up query plan statistics")
-	flagSet.Bool(WITHOUT_GLOBALS, false, "Disable backup of global metadata")
+	flagSet.Bool(WITHOUT_GLOBALS, false, "Skip backup of global metadata")
 }
 
 func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {

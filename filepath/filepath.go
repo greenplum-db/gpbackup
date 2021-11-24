@@ -189,22 +189,23 @@ func GetSegPrefix(connectionPool *dbconn.DBConn) string {
 	return segPrefix
 }
 
-func ParseSegPrefix(backupDir string, timestamp string) (string, error) {
-	segPrefix := ""
-	if len(backupDir) > 0 {
-		backupDirForMaster, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups", backupDir))
-		if err != nil || len(backupDirForMaster) == 0 {
-			return "", fmt.Errorf("Master backup directory in %s missing or inaccessible", backupDir)
-		}
-		if len(backupDirForMaster) != 1 {
-			return "", fmt.Errorf("Multiple master backup directories in %s", backupDir)
-		}
-		backupDirForTimestamp, err := operating.System.Glob(fmt.Sprintf("%s/*/%s", backupDirForMaster[0], timestamp))
-		if err != nil || len(backupDirForTimestamp) == 0 {
-			return "", fmt.Errorf("Timestamp directory %s inside backup directory %s is missing or inaccessible", timestamp, backupDir)
-		}
-		indexOfBackupsSubstr := strings.LastIndex(backupDirForTimestamp[0], "-1/backups/")
-		_, segPrefix = path.Split(backupDirForTimestamp[0][:indexOfBackupsSubstr])
+func ParseSegPrefix(backupDir string) (string, error) {
+	if backupDir == "" {
+		return "", nil
 	}
+
+	backupDirForMaster, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups", backupDir))
+	if err != nil {
+		return "", fmt.Errorf("Failure while trying to locate master backup directory in %s. Error: %s", backupDir, err.Error())
+	}
+	if len(backupDirForMaster) == 0 {
+		return "", fmt.Errorf("Master backup directory in %s missing", backupDir)
+	}
+	if len(backupDirForMaster) != 1 {
+		return "", fmt.Errorf("Multiple master backup directories in %s", backupDir)
+	}
+	indexOfBackupsSubstr := strings.LastIndex(backupDirForMaster[0], "-1/backups")
+	_, segPrefix := path.Split(backupDirForMaster[0][:indexOfBackupsSubstr])
+
 	return segPrefix, nil
 }
