@@ -108,6 +108,10 @@ clean :
 		rm -f $(BIN_DIR)/$(BACKUP) $(BACKUP) $(BIN_DIR)/$(RESTORE) $(RESTORE) $(BIN_DIR)/$(HELPER) $(HELPER)
 		# Test artifacts
 		rm -rf /tmp/go-build* /tmp/gexec_artifacts* /tmp/ginkgo*
+		docker stop s3-minio # stop minio before removing its data directories
+		docker rm s3-minio
+		rm -rf /tmp/minio
+		rm -f /tmp/minio_config.yaml
 		# Code coverage files
 		rm -rf /tmp/cover* /tmp/unit*
 		go clean -i -r -x -testcache -modcache
@@ -126,3 +130,12 @@ info-report:
 	@echo "Info and verbose messaging:"
 	@echo ""
 	@ag "gplog.Info|gplog.Verbose" --ignore "*_test*"
+
+test-s3-local: build install
+	${PWD}/plugins/generate_minio_config.sh
+	mkdir -p /tmp/minio/gpbackup-s3-test
+	docker run -d --name s3-minio -p 9000:9000 -p 9001:9001 -v /tmp/minio:/data/minio quay.io/minio/minio server /data/minio --console-address ":9001"
+	sleep 2 # Wait for minio server to start up
+	${PWD}/plugins/plugin_test.sh $(BIN_DIR)/gpbackup_s3_plugin /tmp/minio_config.yaml
+	docker stop s3-minio
+	docker rm s3-minio
