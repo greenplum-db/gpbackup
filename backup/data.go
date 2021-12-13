@@ -266,13 +266,7 @@ func backupDataForAllTablesCopyQueue(tables []Table) []map[uint32]int64 {
 }
 
 func backupDataForAllTables(tables []Table) []map[uint32]int64 {
-	var numExtOrForeignTables int64
-	for _, table := range tables {
-		if table.SkipDataBackup() {
-			numExtOrForeignTables++
-		}
-	}
-	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables)) - numExtOrForeignTables}
+	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables))}
 	counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
 	counters.ProgressBar.Start()
 	rowsCopiedMaps := make([]map[uint32]int64, connectionPool.NumConns)
@@ -297,10 +291,6 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 					return
 				}
 
-				if table.SkipDataBackup() {
-					gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
-					continue
-				}
 				// If a random external SQL command had queued an AccessExclusiveLock acquisition request
 				// against this next table, the --job worker thread would deadlock on the COPY attempt.
 				// To prevent gpbackup from hanging, we attempt to acquire an AccessShareLock on the
@@ -380,7 +370,6 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	}
 
 	counters.ProgressBar.Finish()
-	printDataBackupWarnings(numExtOrForeignTables)
 	return rowsCopiedMaps
 }
 
@@ -391,16 +380,22 @@ func printDataBackupWarnings(numExtTables int64) {
 	}
 }
 
-func CheckTablesContainData(tables []Table) {
+// Remove external/foreign tables from the data backup set
+func GetBackupDataSet(tables []Table) ([]Table, int64) {
+	var backupDataSet []Table
+	var numExtOrForeignTables int64
+
 	if !backupReport.MetadataOnly {
 		for _, table := range tables {
 			if !table.SkipDataBackup() {
-				return
+				backupDataSet = append(backupDataSet, table)
+			} else {
+				gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
+				numExtOrForeignTables++
 			}
 		}
-		gplog.Warn("No tables in backup set contain data. Performing metadata-only backup instead.")
-		backupReport.MetadataOnly = true
 	}
+	return backupDataSet, numExtOrForeignTables
 }
 
 // Acquire AccessShareLock on a table with NOWAIT option. If we are unable to acquire
