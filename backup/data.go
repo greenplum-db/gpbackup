@@ -120,13 +120,7 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 // workers encounter locking issues. Worker 0 already has all locks on the
 // tables so it will not run into locking issues.
 func backupDataForAllTablesCopyQueue(tables []Table) []map[uint32]int64 {
-	var numExtOrForeignTables int64
-	for _, table := range tables {
-		if table.SkipDataBackup() {
-			numExtOrForeignTables++
-		}
-	}
-	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables)) - numExtOrForeignTables}
+	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables))}
 	counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
 	counters.ProgressBar.Start()
 	rowsCopiedMaps := make([]map[uint32]int64, connectionPool.NumConns)
@@ -158,11 +152,6 @@ func backupDataForAllTablesCopyQueue(tables []Table) []map[uint32]int64 {
 					return
 				}
 
-				if table.SkipDataBackup() {
-					gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
-					oidMap.Store(table.Oid, Complete)
-					continue
-				}
 				// If a random external SQL command had queued an AccessExclusiveLock acquisition request
 				// against this next table, the --job worker thread would deadlock on the COPY attempt.
 				// To prevent gpbackup from hanging, we attempt to acquire an AccessShareLock on the
@@ -261,7 +250,6 @@ func backupDataForAllTablesCopyQueue(tables []Table) []map[uint32]int64 {
 	}
 
 	counters.ProgressBar.Finish()
-	printDataBackupWarnings(numExtOrForeignTables)
 	return rowsCopiedMaps
 }
 
