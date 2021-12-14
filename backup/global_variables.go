@@ -20,6 +20,16 @@ import (
  */
 
 /*
+ Table backup state constants
+*/
+const (
+	Unknown int = iota
+	Deferred
+	Complete
+	PG_LOCK_NOT_AVAILABLE = "55P03"
+)
+
+/*
  * Non-flag variables
  */
 var (
@@ -98,6 +108,10 @@ func SetQuotedRoleNames(quotedRoles map[string]string) {
 }
 
 // Util functions to enable ease of access to global flag values
+
+func FlagChanged(flagName string) bool {
+	return cmdFlags.Changed(flagName)
+}
 
 func MustGetFlagString(flagName string) string {
 	return options.MustGetFlagString(cmdFlags, flagName)

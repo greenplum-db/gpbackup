@@ -48,7 +48,6 @@ func (r *RestoreReader) positionReader(pos uint64) error {
 		seekPosition, err := r.seekReader.Seek(int64(pos), io.SeekCurrent)
 		if err != nil {
 			// Always hard quit if data reader has issues
-			_ = utils.RemoveFileIfExists(currentPipe)
 			return err
 		}
 		log(fmt.Sprintf("Data Reader seeked forward to %d byte offset", seekPosition))
@@ -56,7 +55,6 @@ func (r *RestoreReader) positionReader(pos uint64) error {
 		numDiscarded, err := r.bufReader.Discard(int(pos))
 		if err != nil {
 			// Always hard quit if data reader has issues
-			_ = utils.RemoveFileIfExists(currentPipe)
 			return err
 		}
 		log(fmt.Sprintf("Data Reader discarded %d bytes", numDiscarded))
@@ -86,7 +84,6 @@ func doRestoreAgent() error {
 	var bytesRead int64
 	var start uint64
 	var end uint64
-	var errRemove error
 	var lastError error
 
 	oidList, err := getOidListFromFile()
@@ -99,16 +96,20 @@ func doRestoreAgent() error {
 		return err
 	}
 	log(fmt.Sprintf("Using reader type: %s", reader.readerType))
+
+	preloadCreatedPipes(oidList, *copyQueue)
+
+	var currentPipe string
 	for i, oid := range oidList {
 		if wasTerminated {
 			return errors.New("Terminated due to user request")
 		}
 
 		currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i])
-		if i < len(oidList)-1 {
-			nextPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i+1])
-			log(fmt.Sprintf("Creating pipe for oid %d: %s", oidList[i+1], nextPipe))
-			err := createPipe(nextPipe)
+		if i < len(oidList)-*copyQueue {
+			log(fmt.Sprintf("Creating pipe for oid %d\n", oidList[i+*copyQueue]))
+			nextPipeToCreate := fmt.Sprintf("%s_%d", *pipeFile, oidList[i+*copyQueue])
+			err := createPipe(nextPipeToCreate)
 			if err != nil {
 				// In the case this error is hit it means we have lost the
 				// ability to create pipes normally, so hard quit even if
@@ -145,7 +146,6 @@ func doRestoreAgent() error {
 					// In the case this error is hit it means we have lost the
 					// ability to open pipes normally, so hard quit even if
 					// --on-error-continue is given
-					_ = utils.RemoveFileIfExists(currentPipe)
 					return err
 				}
 			} else {
@@ -185,10 +185,9 @@ func doRestoreAgent() error {
 
 	LoopEnd:
 		log(fmt.Sprintf("Removing pipe for oid %d: %s", oid, currentPipe))
-		errRemove = utils.RemoveFileIfExists(currentPipe)
-		if errRemove != nil {
-			_ = utils.RemoveFileIfExists(nextPipe)
-			return errRemove
+		errPipe := deletePipe(currentPipe)
+		if errPipe != nil {
+			return errPipe
 		}
 
 		if err != nil {

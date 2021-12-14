@@ -63,7 +63,11 @@ func SetLoggerVerbosity() {
 
 func CreateConnectionPool(unquotedDBName string) {
 	connectionPool = dbconn.NewDBConnFromEnvironment(unquotedDBName)
-	connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
+	if FlagChanged(options.COPY_QUEUE_SIZE) {
+		connectionPool.MustConnect(MustGetFlagInt(options.COPY_QUEUE_SIZE))
+	} else {
+		connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
+	}
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 }
 

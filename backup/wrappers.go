@@ -39,7 +39,18 @@ func SetLoggerVerbosity() {
 
 func initializeConnectionPool(timestamp string) {
 	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
-	connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
+	var numConns int
+	switch true {
+	case FlagChanged(options.COPY_QUEUE_SIZE):
+		// Connection 0 is reserved for deferred worker, initialize 1 additional connection.
+		numConns = MustGetFlagInt(options.COPY_QUEUE_SIZE) + 1
+	case FlagChanged(options.JOBS):
+		numConns = MustGetFlagInt(options.JOBS)
+	default:
+		numConns = 1
+	}
+	gplog.Verbose(fmt.Sprintf("Initializing %d worker connections", numConns))
+	connectionPool.MustConnect(numConns)
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 	InitializeMetadataParams(connectionPool)
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {

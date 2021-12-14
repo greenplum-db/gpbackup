@@ -3,7 +3,6 @@ package end_to_end_test
 import (
 	"flag"
 	"fmt"
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -563,6 +563,34 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(stdout).To(ContainSubstring("Cleanup complete"))
 			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
 		})
+		It("runs gpbackup with copy-queue-size and sends a SIGINT to ensure cleanup functions successfully", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			args := []string{"--dbname", "testdb",
+				"--backup-dir", backupDir,
+				"--single-data-file",
+				"--copy-queue-size", "4",
+				"--verbose"}
+			cmd := exec.Command(gpbackupPath, args...)
+			go func() {
+				/*
+				 * We use a random delay for the sleep in this test (between
+				 * 0.5s and 0.8s) so that gpbackup will be interrupted at a
+				 * different point in the backup process every time to help
+				 * catch timing issues with the cleanup.
+				 */
+				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+				time.Sleep(time.Duration(rng.Intn(300)+500) * time.Millisecond)
+				_ = cmd.Process.Signal(os.Interrupt)
+			}()
+			output, _ := cmd.CombinedOutput()
+			stdout := string(output)
+
+			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
+			Expect(stdout).To(ContainSubstring("Cleanup complete"))
+			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+		})
 		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
 				Skip("This test is not needed for old backup versions")
@@ -575,6 +603,39 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
 				"--verbose"}
+			cmd := exec.Command(gprestorePath, args...)
+			go func() {
+				/*
+				 * We use a random delay for the sleep in this test (between
+				 * 0.5s and 0.8s) so that gprestore will be interrupted at a
+				 * different point in the backup process every time to help
+				 * catch timing issues with the cleanup.
+				 */
+				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+				time.Sleep(time.Duration(rng.Intn(300)+500) * time.Millisecond)
+				_ = cmd.Process.Signal(os.Interrupt)
+			}()
+			output, _ := cmd.CombinedOutput()
+			stdout := string(output)
+
+			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting restore process"))
+			Expect(stdout).To(ContainSubstring("Cleanup complete"))
+			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			assertArtifactsCleaned(restoreConn, timestamp)
+		})
+		It("runs gprestore with copy-queue-size and sends a SIGINT to ensure cleanup functions successfully", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--single-data-file")
+			args := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir,
+				"--verbose",
+				"--copy-queue-size", "4"}
 			cmd := exec.Command(gprestorePath, args...)
 			go func() {
 				/*
@@ -1360,7 +1421,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 			"--jobs", "9",
 			"--verbose"}
 		cmd := exec.Command(gpbackupPath, args...)
-
 		// Concurrently wait for gpbackup to block when it requests an AccessShareLock on public.foo. Once
 		// that happens, acquire an AccessExclusiveLock on pg_catalog.pg_trigger to block gpbackup during its
 		// trigger metadata dump. Then release the initial AccessExclusiveLock on public.foo (from the
@@ -1457,6 +1517,137 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 		// No non-main worker should have been able to run COPY due to deadlock detection
 		for i := 1; i < 9; i++ {
+			expectedLockString := fmt.Sprintf("[DEBUG]:-Worker %d: LOCK TABLE ", i)
+			Expect(stdout).To(ContainSubstring(expectedLockString))
+
+			expectedWarnString := fmt.Sprintf("[WARNING]:-Worker %d could not acquire AccessShareLock for table", i)
+			Expect(stdout).To(ContainSubstring(expectedWarnString))
+
+			unexpectedCopyString := fmt.Sprintf("[DEBUG]:-Worker %d: COPY ", i)
+			Expect(stdout).ToNot(ContainSubstring(unexpectedCopyString))
+		}
+
+		// Only the main worker thread, worker 0, will run COPY on all the test tables
+		for _, dataTable := range dataTables {
+			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s TO PROGRAM `, dataTable)
+			Expect(stdout).To(ContainSubstring(expectedString))
+		}
+
+		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
+	})
+	It("runs gpbackup with copy-queue-size flag and COPY deadlock handling occurs", func() {
+		if useOldBackupVersion {
+			Skip("This test is not needed for old backup versions")
+		}
+		// Acquire AccessExclusiveLock on public.foo to block gpbackup when it attempts
+		// to grab AccessShareLocks before its metadata dump section.
+		backupConn.MustExec("BEGIN; LOCK TABLE public.foo IN ACCESS EXCLUSIVE MODE")
+
+		// Execute gpbackup with --copy-queue-size 2
+		args := []string{
+			"--dbname", "testdb",
+			"--backup-dir", backupDir,
+			"--single-data-file",
+			"--copy-queue-size", "2",
+			"--verbose"}
+		cmd := exec.Command(gpbackupPath, args...)
+
+		// Concurrently wait for gpbackup to block when it requests an AccessShareLock on public.foo. Once
+		// that happens, acquire an AccessExclusiveLock on pg_catalog.pg_trigger to block gpbackup during its
+		// trigger metadata dump. Then release the initial AccessExclusiveLock on public.foo (from the
+		// beginning of the test) to unblock gpbackup and let gpbackup move forward to the trigger metadata dump.
+		anotherConn := testutils.SetupTestDbConn("testdb")
+		defer anotherConn.Close()
+		go func() {
+			// Query to see if gpbackup's AccessShareLock request on public.foo is blocked
+			checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'public' AND c.relname = 'foo' AND l.granted = 'f' AND l.mode = 'AccessShareLock'`
+
+			// Wait up to 10 seconds for gpbackup to block
+			var gpbackupBlockedLockCount int
+			iterations := 100
+			for iterations > 0 {
+				_ = anotherConn.Get(&gpbackupBlockedLockCount, checkLockQuery)
+				if gpbackupBlockedLockCount < 1 {
+					time.Sleep(100 * time.Millisecond)
+					iterations--
+				} else {
+					break
+				}
+			}
+
+			// Queue AccessExclusiveLock request on pg_catalog.pg_trigger to block gpbackup
+			// during the trigger metadata dump so that the test can queue a bunch of
+			// AccessExclusiveLock requests against the test tables. Afterwards, release the
+			// AccessExclusiveLock on public.foo to let gpbackup go to the trigger metadata dump.
+			anotherConn.MustExec(`BEGIN; LOCK TABLE pg_catalog.pg_trigger IN ACCESS EXCLUSIVE MODE`)
+			backupConn.MustExec("COMMIT")
+		}()
+
+		// Concurrently wait for gpbackup to block on the trigger metadata dump section. Once we
+		// see gpbackup blocked, request AccessExclusiveLock (to imitate a TRUNCATE or VACUUM
+		// FULL) on all the test tables.
+		dataTables := []string{`public."FOObar"`, "public.foo", "public.holds", "public.sales",
+			"schema2.ao1", "schema2.ao2", "schema2.foo2", "schema2.foo3", "schema2.returns"}
+		for _, dataTable := range dataTables {
+			go func(dataTable string) {
+				accessExclusiveLockConn := testutils.SetupTestDbConn("testdb")
+				defer accessExclusiveLockConn.Close()
+
+				// Query to see if gpbackup's AccessShareLock request on pg_catalog.pg_trigger is blocked
+				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'pg_catalog' AND c.relname = 'pg_trigger' AND l.granted = 'f' AND l.mode = 'AccessShareLock'`
+
+				// Wait up to 10 seconds for gpbackup to block
+				var gpbackupBlockedLockCount int
+				iterations := 100
+				for iterations > 0 {
+					_ = accessExclusiveLockConn.Get(&gpbackupBlockedLockCount, checkLockQuery)
+					if gpbackupBlockedLockCount < 1 {
+						time.Sleep(100 * time.Millisecond)
+						iterations--
+					} else {
+						break
+					}
+				}
+
+				// Queue an AccessExclusiveLock request on a test table which will later
+				// result in a detected deadlock during the gpbackup data dump section.
+				accessExclusiveLockConn.MustExec(fmt.Sprintf(`BEGIN; LOCK TABLE %s IN ACCESS EXCLUSIVE MODE; COMMIT`, dataTable))
+			}(dataTable)
+		}
+
+		// Concurrently wait for all AccessExclusiveLock requests on all 9 test tables to block.
+		// Once that happens, release the AccessExclusiveLock on pg_catalog.pg_trigger to unblock
+		// gpbackup and let gpbackup move forward to the data dump section.
+		var accessExclBlockedLockCount int
+		go func() {
+			// Query to check for ungranted AccessExclusiveLock requests on our test tables
+			checkLockQuery := `SELECT count(*) FROM pg_locks WHERE granted = 'f' AND mode = 'AccessExclusiveLock'`
+
+			// Wait up to 10 seconds
+			iterations := 100
+			for iterations > 0 {
+				_ = backupConn.Get(&accessExclBlockedLockCount, checkLockQuery)
+				if accessExclBlockedLockCount < 9 {
+					time.Sleep(100 * time.Millisecond)
+					iterations--
+				} else {
+					break
+				}
+			}
+
+			// Unblock gpbackup by releasing AccessExclusiveLock on pg_catalog.pg_trigger
+			anotherConn.MustExec("COMMIT")
+		}()
+
+		// gpbackup has finished
+		output, _ := cmd.CombinedOutput()
+		stdout := string(output)
+
+		// Sanity check that 9 deadlock traps were placed during the test
+		Expect(accessExclBlockedLockCount).To(Equal(9))
+		Expect(stdout).To(ContainSubstring("All copy queue workers terminated due to lock issues. Falling back to single main worker."))
+		// No non-main worker should have been able to run COPY due to deadlock detection
+		for i := 1; i < 2; i++ {
 			expectedLockString := fmt.Sprintf("[DEBUG]:-Worker %d: LOCK TABLE ", i)
 			Expect(stdout).To(ContainSubstring(expectedLockString))
 

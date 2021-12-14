@@ -237,6 +237,9 @@ func ValidateBackupFlagCombinations() {
 	if backupConfig.DataOnly && MustGetFlagBool(options.METADATA_ONLY) {
 		gplog.Fatal(errors.Errorf("Cannot use metadata-only flag when restoring data-only backup"), "")
 	}
+	if !backupConfig.SingleDataFile && FlagChanged(options.COPY_QUEUE_SIZE) {
+		gplog.Fatal(errors.Errorf("The --copy-queue-size flag can only be used if the backup was taken with --single-data-file"), "")
+	}
 	validateBackupFlagPluginCombinations()
 }
 
