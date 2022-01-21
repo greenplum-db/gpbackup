@@ -13,13 +13,13 @@ groups:
 
 resource_types:
 - name: terraform
-  type: docker-image
+  type: registry-image
   source:
     repository: ljfranklin/terraform-resource
     tag: 0.11.14
 
 - name: gcs
-  type: docker-image
+  type: registry-image
   source:
     repository: frodenas/gcs-resource
 
@@ -69,13 +69,13 @@ resources:
     versioned_file: gpdb6/icw_gporca_centos6/gpbackup_all.tar.gz
 
 - name: centos-gpdb-dev-5
-  type: docker-image
+  type: registry-image
   source:
     repository: pivotaldata/centos-gpdb-dev
     tag: '5'
 
 - name: centos6-image
-  type: docker-image
+  type: registry-image
   source:
     repository: pivotaldata/centos-gpdb-dev
     tag: '6-gcc6.2-llvm3.7'
@@ -391,7 +391,7 @@ set_failed_anchor: &set_failed
     config:
       platform: linux
       image_resource:
-        type: docker-image
+        type: registry-image
         source:
           repository: pivotaldata/ccp
           tag: "7"
