@@ -5,7 +5,7 @@ set -ex
 # setup cluster and install gpbackup tools using gppkg
 ccp_src/scripts/setup_ssh_to_cluster.sh
 
-GO_VERSION=1.15.6
+GO_VERSION=1.17.6
 GPHOME=/usr/local/greenplum-db-devel
 
 ssh -t ${default_ami_user}@mdw " \
@@ -44,7 +44,9 @@ cat <<SCRIPT > /tmp/run_tests.bash
 
   set -ex
   source env.sh
-
+  if [[ -f /opt/gcc_env.sh ]]; then
+      source /opt/gcc_env.sh
+  fi
   if test -f ${GPHOME}/lib/postgresql/dummy_seclabel.so; then
     gpconfig -c shared_preload_libraries -v dummy_seclabel
     gpstop -ar

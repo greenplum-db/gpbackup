@@ -804,7 +804,6 @@ jobs:
 - name: build_binaries
   plan:
   - in_parallel:
-    - get: centos6-image
 {% if "gpbackup-release" != pipeline_name %}
     - get: gpbackup_s3_plugin
       trigger: true
@@ -819,7 +818,6 @@ jobs:
 {% endif %}
     - get: pivnet_release_cache
   - task: build-go-binaries
-    image: centos6-image
     file: gpbackup/ci/tasks/build-go-binaries.yml
   - put: gpbackup-go-components
     params:
@@ -1430,7 +1428,7 @@ jobs:
     - get: gpbackup
       passed: [build_gppkgs]
     - get: gpdb_binary
-      resource: bin_gpdb_5x_stable_centos6
+      resource: bin_gpdb_5x_stable_centos7
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}

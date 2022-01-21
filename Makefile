@@ -22,21 +22,20 @@ SUBDIRS_ALL=$(SUBDIRS_HAS_UNIT) integration/ end_to_end/
 GOLANG_LINTER=$(GOPATH)/bin/golangci-lint
 GINKGO=$(GOPATH)/bin/ginkgo
 GOIMPORTS=$(GOPATH)/bin/goimports
-GO_ENV=GO111MODULE=on # ensures the project still compiles in $GOPATH/src using golang versions 1.12 and below
-GO_BUILD=$(GO_ENV) go build -mod=readonly
+GO_BUILD=go build -mod=readonly
 DEBUG=-gcflags=all="-N -l"
 
 CUSTOM_BACKUP_DIR ?= "/tmp"
 helper_path ?= $(BIN_DIR)/$(HELPER)
 
 depend :
-		$(GO_ENV) go mod download
+	go mod download
 
-$(GINKGO) :
-		$(GO_ENV) go install github.com/onsi/ginkgo/ginkgo
+$(GINKGO) : # v1.14.0 is compatible with centos6 default gcc version
+	go install github.com/onsi/ginkgo/ginkgo@v1.14.0
 
 $(GOIMPORTS) :
-		$(GO_ENV) go install golang.org/x/tools/cmd/goimports
+	go install golang.org/x/tools/cmd/goimports@latest
 
 format : $(GOIMPORTS)
 		@goimports -w $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -52,21 +51,21 @@ lint : $(GOLANG_LINTER)
 		golangci-lint run --tests=false
 
 unit : $(GINKGO)
-		$(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
+	ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
 
 unit_all_gpdb_versions : $(GINKGO)
-		TEST_GPDB_VERSION=4.3.999 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
-		TEST_GPDB_VERSION=5.999.0 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
-		TEST_GPDB_VERSION=6.999.0 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
-		TEST_GPDB_VERSION=7.0.0 $(GO_ENV) ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1 # GPDB master
+		TEST_GPDB_VERSION=4.3.999 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
+		TEST_GPDB_VERSION=5.999.0 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
+		TEST_GPDB_VERSION=6.999.0 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
+		TEST_GPDB_VERSION=7.0.0 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1 # GPDB master
 
 integration : $(GINKGO)
-		$(GO_ENV) ginkgo $(GINKGO_FLAGS) integration 2>&1
+	ginkgo $(GINKGO_FLAGS) integration 2>&1
 
 test : build unit integration
 
 end_to_end : $(GINKGO)
-		$(GO_ENV) ginkgo $(GINKGO_FLAGS) -slowSpecThreshold=10 end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
+	ginkgo $(GINKGO_FLAGS) -slowSpecThreshold=10 end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
 
 coverage :
 		@./show_coverage.sh
