@@ -1447,9 +1447,11 @@ jobs:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
+        PLATFORM: centos7
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos7
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
@@ -1483,41 +1485,17 @@ jobs:
       trigger: true
     - get: gpbackup
       passed: [build_gppkgs]
-    - get: gpdb_binary
+    - get: bin_gpdb
       resource: bin_gpdb_5x_stable_intermediate
       trigger: true
-    - get: ccp_src
     - get: gpdb_src
       resource: gpdb5_src
     - get: gpbackup_1.12.1_dependencies
-    - get: terraform.d
-      params:
-        unpack: true
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      vars:
-        <<: *ccp_default_vars
-  - task: gen_cluster
-    params:
-      <<: *ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
-  - task: gpinitsystem
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    image: centos6-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: gpbackup-1.12.1-test
     image: centos6-image
     file: gpbackup/ci/tasks/integration-tests-fixed-version.yml
     params:
       GPBACKUP_VERSION: "1.12.1"
-  on_success:
-    <<: *ccp_destroy
-  on_failure:
-    *slack_alert
-  ensure:
-    <<: *set_failed
 {% endif %}
 
 {% if "gpbackup-release" != pipeline_name %}

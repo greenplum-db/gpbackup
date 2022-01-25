@@ -5,9 +5,9 @@ image_resource:
 
 inputs:
 - name: gpbackup
-- name: ccp_src
-- name: cluster_env_files
 - name: gpbackup_1.12.1_dependencies
+- name: gpdb_src
+- name: bin_gpdb
 
 params:
   GPBACKUP_VERSION:
