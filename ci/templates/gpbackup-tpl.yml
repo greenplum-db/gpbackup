@@ -126,14 +126,14 @@ ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
   CLOUD_PROVIDER: google
 
 ddboost_params_anchor: &ddboost_params
-  DD_SOURCE_HOST: {{datadomain_source_host}}
+  DD_SOURCE_HOST: {{datadomain_source_host_gcp}}
   DD_USER: {{datadomain_user}}
-  DD_PW: {{datadomain_password}}
+  DD_PW: {{datadomain_password_gcp}}
 
 ddboost_test_params_anchor: &ddboost_test_params
   <<: *ddboost_params
-  DD_DEST_HOST: {{datadomain_dest_host}}
-  DD_ENCRYPTED_PW: {{encrypted_datadomain_password}}
+  DD_DEST_HOST: {{datadomain_dest_host_gcp}}
+  DD_ENCRYPTED_PW: {{encrypted_datadomain_password_gcp}}
 
 ccp_destroy_anchor: &ccp_destroy
   put: terraform
@@ -171,7 +171,7 @@ ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
   params:
     <<: *destroy_params
     env_name_file: ddboost_terraform/name
-    terraform_source: ccp_src/aws/
+    terraform_source: ccp_src/google/
   get_params:
     action: destroy
 
@@ -266,16 +266,14 @@ ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
   - put: ddboost_terraform
     tags: ["ddboost"]
     params:
-      <<: *ccp_aws_default_params
+      <<: *ccp_default_params
       vars:
         aws_instance-node-instance_type: t2.medium
-        PLATFORM: centos6
+        PLATFORM: centos6-fips
   - task: gen_cluster
     tags: ["ddboost"]
     params:
       <<: *ccp_gen_cluster_default_params
-      BUCKET_PATH: clusters-aws/
-      CLOUD_PROVIDER: aws
     file: ccp_src/ci/tasks/gen_cluster.yml
     input_mapping:
       terraform: ddboost_terraform
