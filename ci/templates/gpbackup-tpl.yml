@@ -7,7 +7,6 @@ groups:
   - GPDB4.3
   - GPDB5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
-  - GPDB5-oracle7
   - GPDB5-sles11
   - GPDB6-ubuntu
   - ddboost_plugin_and_boostfs_tests_43
@@ -43,7 +42,6 @@ groups:
   jobs:
   - GPDB5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
-  - GPDB5-oracle7
   - GPDB5-sles11
   - scale-5x
   - ddboost_plugin_and_boostfs_tests_5x
@@ -95,70 +93,43 @@ groups:
 {% endif %}
 
 ##### Anchors #####
-ccp_default_params_anchor: &ccp_default_params
+anchors:
+- &ccp_default_params
   action: create
   delete_on_failure: true
   generate_random_name: true
   plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
   terraform_source: ccp_src/google/
 
-ccp_aws_default_params_anchor: &ccp_aws_default_params
-  action: create
-  delete_on_failure: true
-  generate_random_name: true
-  plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
-  terraform_source: ccp_src/aws/
-
-ccp_vars_anchor: &ccp_default_vars
+- &ccp_default_vars
   instance_type: n1-standard-1
   PLATFORM: centos6
 
-ccp_vars_anchor_aws: &ccp_default_vars_aws
-  aws_instance-node-instance_type: t2.medium
-  PLATFORM: centos6
-
-ccp_gen_cluster_default_params_anchor: &ccp_gen_cluster_default_params
-  AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-  AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-  AWS_DEFAULT_REGION: {{aws-region}}
+- &ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
+  AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
+  AWS_DEFAULT_REGION: ((aws-region))
   BUCKET_PATH: clusters-google/
-  BUCKET_NAME: {{tf-bucket-name}}
+  BUCKET_NAME: ((tf-bucket-name))
   CLOUD_PROVIDER: google
 
-ddboost_params_anchor: &ddboost_params
-  DD_SOURCE_HOST: {{datadomain_source_host_gcp}}
-  DD_USER: {{datadomain_user}}
-  DD_PW: {{datadomain_password_gcp}}
+- &destroy_params
+  action: destroy
+  plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
+  terraform_source: ccp_src/google/
+  env_name_file: terraform/name
+  vars:
+    aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
+    aws_ebs_volume_type: standard
 
-ddboost_test_params_anchor: &ddboost_test_params
-  <<: *ddboost_params
-  DD_DEST_HOST: {{datadomain_dest_host_gcp}}
-  DD_ENCRYPTED_PW: {{encrypted_datadomain_password_gcp}}
-
-ccp_destroy_anchor: &ccp_destroy
+- &ccp_destroy
   put: terraform
-  params: &destroy_params
-    action: destroy
-    env_name_file: terraform/name
-    plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
-    terraform_source: ccp_src/google/
-    vars:
-      aws_instance-node-instance_type: t2.micro
-      aws_ebs_volume_type: standard
-      instance_type: n1-standard-1
-  get_params:
-    action: destroy
-
-ccp_destroy_anchor_aws: &ccp_destroy_aws
-  put: terraform_aws
   params:
     <<: *destroy_params
-    env_name_file: terraform_aws/name
-    terraform_source: ccp_src/aws/
   get_params:
     action: destroy
 
-ccp_nvme_destroy_anchor: &ccp_destroy_nvme
+- &ccp_destroy_nvme
   put: terraform
   params:
     <<: *destroy_params
@@ -166,146 +137,63 @@ ccp_nvme_destroy_anchor: &ccp_destroy_nvme
   get_params:
     action: destroy
 
-ddboost_ccp_destroy_anchor: &ddboost_ccp_destroy
-  put: ddboost_terraform
-  params:
-    <<: *destroy_params
-    env_name_file: ddboost_terraform/name
-    terraform_source: ccp_src/google/
-  get_params:
-    action: destroy
-
-debug_sleep_anchor: &debug_sleep
-  task: debug_sleep
-  config:
-    platform: linux
-    image_resource:
-      type: registry-image
-      source:
-        repository: alpine
-        tag: latest
-    run:
-      path: 'sh'
-      args: ['-c', 'sleep 2h']
-  ensure:
-    <<: *ddboost_ccp_destroy
-
-set_failed_anchor: &set_failed
-  do:
-    - task: on_failure_set_failed
-      config:
-        platform: linux
-        image_resource: &failed_image_resource
-          type: registry-image
-          source:
-            repository: gcr.io/data-gpdb-public-images/ccp
-            tag: latest
-        inputs:
-          - name: ccp_src
-          - name: terraform
-        run:
-          path: 'ccp_src/google/ccp_failed_test.sh'
-        params: &failed_params
-          GOOGLE_CREDENTIALS: {{google-service-account-key}}
-          GOOGLE_PROJECT_ID: {{google-project-id}}
-          GOOGLE_ZONE: {{google-zone}}
-          GOOGLE_SERVICE_ACCOUNT: {{google-service-account}}
-          AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-          AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-          AWS_DEFAULT_REGION: {{tf-machine-region}}
-          BUCKET_PATH: clusters-google/
-          BUCKET_NAME: {{tf-bucket-name}}
-
-set_failed_anchor_aws: &set_failed_aws
+- &set_failed
   do:
     - task: on_failure_set_failed
       config:
         platform: linux
         image_resource:
-          <<: *failed_image_resource
+          type: registry-image
+          source:
+            repository: gcr.io/data-gpdb-public-images/ccp
+            tag: "latest"
         inputs:
           - name: ccp_src
-          - name: terraform_aws
-            path: terraform
+          - name: terraform
         run:
-          path: 'ccp_src/aws/ccp_failed_test.sh'
+          path: 'ccp_src/google/ccp_failed_test.sh'
         params:
-          <<: *failed_params
-          BUCKET_PATH: clusters-aws/
+          GOOGLE_CREDENTIALS: ((google-service-account-key))
+          GOOGLE_PROJECT_ID: ((google-project-id))
+          GOOGLE_ZONE: ((google-zone))
+          GOOGLE_SERVICE_ACCOUNT: ((google-service-account))
+          AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
+          AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
+          AWS_DEFAULT_REGION: ((tf-machine-region))
+          BUCKET_PATH: clusters-google/
+          BUCKET_NAME: ((tf-bucket-name))
 
-slack_alert_anchor: &slack_alert
+- &terraform_cluster
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
+      AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
+      GOOGLE_CREDENTIALS: ((google-service-account-key))
+    vars:
+      project_id: ((google-project-id))
+    storage:
+      access_key_id: ((tf-machine-access-key-id))
+      secret_access_key: ((tf-machine-secret-access-key))
+      region_name: ((aws-region))
+      # This is not parameterized, on purpose. All tfstates will go to this spot,
+      # and different teams will place there clusters' tfstate files under different paths
+      bucket: gpdb5-pipeline-dynamic-terraform
+      bucket_path: clusters-google/
+
+- &ddboost_params
+  DD_SOURCE_HOST: ((datadomain_source_host_gcp))
+  DD_USER: ((datadomain_user))
+  DD_PW: ((datadomain_password_gcp))
+  DD_DEST_HOST: ((datadomain_dest_host_gcp))
+  DD_ENCRYPTED_PW: ((encrypted_datadomain_password_gcp))
+
+- &slack_alert
   put: slack-alert
   params:
     text: |
-{% if "gpbackup-release" == pipeline_name %}
-      [gpbackup-release/$BUILD_JOB_NAME] failed:
-      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup-release/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
-{% else %}
       [gpbackup/$BUILD_JOB_NAME] failed:
       https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
-{% endif %}
-
-ddboost_plugin_and_boostfs_anchor: &ddboost_plugin_and_boostfs
-  in_parallel:
-    - get: centos7-image
-    - get: gpbackup_ddboost_plugin
-      passed: [build_gppkgs]
-    - get: gpbackup
-      passed: [build_gppkgs]
-    - get: ccp_src
-    - get: boostfs_installer
-    - get: gppkgs
-      passed: [build_gppkgs]
-      trigger: true
-    - get: terraform.d
-      params:
-        unpack: true
-
-ddboost_plugin_and_boostfs_tests_anchor: &ddboost_plugin_and_boostfs_tests
-  do:
-  - put: ddboost_terraform
-    tags: ["ddboost"]
-    params:
-      <<: *ccp_default_params
-      vars:
-        aws_instance-node-instance_type: t2.medium
-        PLATFORM: centos6-fips
-  - task: gen_cluster
-    tags: ["ddboost"]
-    params:
-      <<: *ccp_gen_cluster_default_params
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      terraform: ddboost_terraform
-  - task: gpinitsystem
-    tags: ["ddboost"]
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    tags: ["ddboost"]
-    image: centos7-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
-  - task: boostfs_installation
-    tags: ["ddboost"]
-    image: centos7-image
-    file: gpbackup/ci/tasks/boostfs-install.yml
-    params:
-      <<: *ddboost_params
-    on_failure:
-      do:
-        - *debug_sleep
-  - task: run_tests
-    tags: ["ddboost"]
-    image: centos7-image
-    file: gpbackup/ci/tasks/ddboost-plugin-tests.yml
-    params:
-      <<: *ddboost_test_params
-    on_failure:
-      do:
-        - *slack_alert
-        - *debug_sleep
-  ensure:
-    <<: *ddboost_ccp_destroy
-
 
 resource_types:
 - name: terraform
@@ -615,33 +503,7 @@ resources:
     uri: {{ccp-git-remote}}
 
 - name: terraform
-  type: terraform
-  source:
-    env:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      GOOGLE_CREDENTIALS: {{google-service-account-key}}
-    vars:
-      project_id: {{google-project-id}}
-    storage:
-      access_key_id: {{tf-machine-access-key-id}}
-      secret_access_key: {{tf-machine-secret-access-key}}
-      region_name: {{aws-region}}
-      bucket: {{tf-bucket-name}}
-      bucket_path: clusters-google/
-
-- name: ddboost_terraform
-  type: terraform
-  source:
-    env:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-    storage:
-      access_key_id: {{tf-machine-access-key-id}}
-      secret_access_key: {{tf-machine-secret-access-key}}
-      region_name: {{aws-region}}
-      bucket: {{tf-bucket-name}}
-      bucket_path: clusters-aws/
+  <<: *terraform_cluster
 
 - name: terraform.d
   type: s3
@@ -753,26 +615,6 @@ resources:
     repository: gpbackup
     access_token: {{gpbackup-git-access-token}}
     release: ((dpm-enable-release))
-{% endif %}
-
-{% if is_prod or "gpbackup-release" == pipeline_name %}
-- name: terraform_aws
-  type: terraform
-  source:
-    env:
-      AWS_ACCESS_KEY_ID: {{tf-machine-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{tf-machine-secret-access-key}}
-      GOOGLE_CREDENTIALS: {{google-service-account-key}}
-    vars:
-      project_id: {{google-project-id}}
-    storage:
-      access_key_id: {{tf-machine-access-key-id}}
-      secret_access_key: {{tf-machine-secret-access-key}}
-      region_name: {{aws-region}}
-      # This is not parameterized, on purpose. All tfstates will go to this spot,
-      # and different teams will place there clusters' tfstate files under different paths
-      bucket: gpdb5-pipeline-dynamic-terraform
-      bucket_path: clusters-aws/
 {% endif %}
 
 {% if "gpbackup-release" == pipeline_name %}
@@ -1054,8 +896,50 @@ jobs:
     - get: gpdb_binary
       resource: bin_gpdb_43_stable
     - get: pgcrypto43
-  - <<: *ddboost_plugin_and_boostfs
-  - <<: *ddboost_plugin_and_boostfs_tests
+    - get: centos6-image
+    - get: gpbackup_ddboost_plugin
+      passed: [build_gppkgs]
+    - get: gpbackup
+      passed: [build_gppkgs]
+    - get: boostfs_installer
+    - get: ccp_src
+    - get: gppkgs
+      passed: [build_gppkgs]
+      trigger: true
+    - get: terraform.d
+      params:
+        unpack: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        PLATFORM: centos6
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos6
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+    image: centos6-image
+  - task: install-boostfs
+    file: gpbackup/ci/tasks/boostfs-install.yml
+    image: centos6-image
+    params:
+      <<: *ddboost_params
+  - task: run_tests
+    image: centos6-image
+    file: gpbackup/ci/tasks/ddboost-plugin-tests.yml
+    params:
+      <<: *ddboost_params
+    on_success:
+      <<: *ccp_destroy_nvme
+  ensure:
+    <<: *set_failed
 
 - name: ddboost_plugin_and_boostfs_tests_5x
   plan:
@@ -1064,8 +948,50 @@ jobs:
       resource: gpdb5_src
     - get: gpdb_binary
       resource: bin_gpdb_5x_stable_centos6
-  - <<: *ddboost_plugin_and_boostfs
-  - <<: *ddboost_plugin_and_boostfs_tests
+    - get: centos6-image
+    - get: gpbackup_ddboost_plugin
+      passed: [build_gppkgs]
+    - get: gpbackup
+      passed: [build_gppkgs]
+    - get: boostfs_installer
+    - get: ccp_src
+    - get: gppkgs
+      passed: [build_gppkgs]
+      trigger: true
+    - get: terraform.d
+      params:
+        unpack: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        PLATFORM: centos6
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos6
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+    image: centos6-image
+  - task: install-boostfs
+    file: gpbackup/ci/tasks/boostfs-install.yml
+    image: centos6-image
+    params:
+      <<: *ddboost_params
+  - task: run_tests
+    image: centos6-image
+    file: gpbackup/ci/tasks/ddboost-plugin-tests.yml
+    params:
+      <<: *ddboost_params
+    on_success:
+      <<: *ccp_destroy_nvme
+  ensure:
+    <<: *set_failed
 {% endif %}
 
 - name: ddboost_plugin_and_boostfs_tests_6x
@@ -1077,61 +1003,105 @@ jobs:
       resource: bin_gpdb_6x_stable_centos6
     - get: dummy_seclabel
       resource: dummy_seclabel_linux_gpdb6
-  - <<: *ddboost_plugin_and_boostfs
-  - <<: *ddboost_plugin_and_boostfs_tests
+    - get: centos6-image
+    - get: gpbackup_ddboost_plugin
+      passed: [build_gppkgs]
+    - get: gpbackup
+      passed: [build_gppkgs]
+    - get: boostfs_installer
+    - get: ccp_src
+    - get: gppkgs
+      passed: [build_gppkgs]
+      trigger: true
+    - get: terraform.d
+      params:
+        unpack: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        PLATFORM: centos6
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos6
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+    image: centos6-image
+  - task: install-boostfs
+    file: gpbackup/ci/tasks/boostfs-install.yml
+    image: centos6-image
+    params:
+      <<: *ddboost_params
+  - task: run_tests
+    image: centos6-image
+    file: gpbackup/ci/tasks/ddboost-plugin-tests.yml
+    params:
+      <<: *ddboost_params
+    on_success:
+      <<: *ccp_destroy_nvme
+  ensure:
+    <<: *set_failed
 
 - name: ddboost_plugin_perf
   plan:
   - in_parallel:
+    - get: centos6-image
+    - get: gpbackup_ddboost_plugin
+      passed: [build_gppkgs]
+    - get: gpbackup
+      passed: [build_gppkgs]
+    - get: boostfs_installer
+    - get: dummy_seclabel
+      resource: dummy_seclabel_linux_gpdb6
+    - get: ccp_src
     - get: gpdb_src
       resource: gpdb6_src
     - get: gpdb_binary
       resource: bin_gpdb_6x_stable_centos6
-    - do:
-      - <<: *ddboost_plugin_and_boostfs
-      - put: ddboost_terraform
-        tags: ["ddboost"]
-        params:
-          <<: *ccp_aws_default_params
-          PLATFORM: centos6
-          vars:
-            number_of_nodes: 4
-            segments_per_host: 4
-            aws_instance-node-instance_type: i3.xlarge
-            ccp_reap_minutes: 360
-      - task: gen_cluster
-        tags: ["ddboost"]
-        params:
-          <<: *ccp_gen_cluster_default_params
-          BUCKET_PATH: clusters-aws/
-          CLOUD_PROVIDER: aws
-        file: ccp_src/ci/tasks/gen_cluster.yml
-        input_mapping:
-          terraform: ddboost_terraform
-      - task: gpinitsystem
-        tags: ["ddboost"]
-        file: ccp_src/ci/tasks/gpinitsystem.yml
+    - get: gppkgs
+      passed: [build_gppkgs]
+      trigger: true
+    - get: terraform.d
+      params:
+        unpack: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        number_of_nodes: 4
+        segments_per_host: 4
+        PLATFORM: centos6
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos6
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
-    tags: ["ddboost"]
-    image: centos7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: run_perf
-    tags: ["ddboost"]
-    image: centos7-image
+    image: centos6-image
     file: gpbackup/ci/tasks/ddboost-plugin-perf.yml
     params:
-      <<: *ddboost_test_params
+      <<: *ddboost_params
       REGION: us-west-2
-      AWS_ACCESS_KEY_ID: {{bucket-access-key-id}}
-      AWS_SECRET_ACCESS_KEY: {{bucket-secret-access-key}}
-      BUCKET: {{gpbackup-s3-plugin-test-bucket}}
+      AWS_ACCESS_KEY_ID: ((bucket-access-key-id))
+      AWS_SECRET_ACCESS_KEY: ((bucket-secret-access-key))
+      BUCKET: ((gpbackup-s3-plugin-test-bucket))
       SCALE_FACTOR: 1
-    on_failure:
-      do:
-        - *slack_alert
-        - *debug_sleep
+    on_success:
+      <<: *ccp_destroy_nvme
   ensure:
-    <<: *ddboost_ccp_destroy
+    <<: *set_failed
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: GPDB5-sles11
@@ -1179,64 +1149,6 @@ jobs:
     *slack_alert
   ensure:
     <<: *set_failed
-
-- name: GPDB5-oracle7
-  plan:
-  - in_parallel:
-    - get: centos6-image
-    - get: gpbackup
-      passed: [build_gppkgs]
-    - get: gpdb_binary
-      resource: bin_gpdb_5x_stable_centos7
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
-    - get: ccp_src
-    - get: gpdb_src
-      resource: gpdb5_src
-    - get: gppkgs
-      trigger: true
-      passed: [build_gppkgs]
-    - get: terraform.d
-      params:
-        unpack: true
-  - put: terraform_aws
-    params:
-      <<: *ccp_aws_default_params
-      vars:
-        <<: *ccp_default_vars_aws
-        PLATFORM: oracle7
-        default_ami_user: clckwrk
-        disk_size: 30
-  - task: gen_cluster
-    tags: ['aws']
-    file: ccp_src/ci/tasks/gen_cluster.yml
-    input_mapping:
-      terraform: terraform_aws
-    params:
-      <<: *ccp_gen_cluster_default_params
-      BUCKET_PATH: clusters-aws/
-      CLOUD_PROVIDER: aws
-      PLATFORM: oracle7
-  - task: gpinitsystem
-    tags: ['aws']
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-oracle-env
-    tags: ['aws']
-    image: centos6-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
-    params:
-      default_ami_user: clckwrk
-  - task: integration-tests
-    tags: ['aws']
-    image: centos6-image
-    file: gpbackup/ci/tasks/all-tests.yml
-  on_success:
-    <<: *ccp_destroy_aws
-  on_failure:
-    *slack_alert
-  ensure:
-    <<: *set_failed_aws
 
 - name: GPDB6-ubuntu
   plan:
@@ -1700,7 +1612,6 @@ jobs:
         - build_gppkgs
         - GPDB4.3
         - GPDB5
-        - GPDB5-oracle7
         - GPDB5-sles11
         - GPDB6-ubuntu
         - GPDB6
@@ -1792,7 +1703,6 @@ jobs:
         - backward-compatibility
         - 5X-head-gpbackup-fixed-test
 {% if is_prod %}
-        - GPDB5-oracle7
         - GPDB5-sles11
         - GPDB6-ubuntu
         - ddboost_plugin_and_boostfs_tests_43
