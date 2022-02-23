@@ -45,6 +45,7 @@ var (
 	backupLockFile       lockfile.Lockfile
 	filterRelationClause string
 	quotedRoleNames      map[string]string
+	backupSnapshot       string
 	/*
 	 * Used for synchronizing DoCleanup.  In DoInit() we increment the group
 	 * and then wait for at least one DoCleanup to finish, either in DoTeardown

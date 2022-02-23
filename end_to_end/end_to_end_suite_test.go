@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	path "path/filepath"
@@ -14,8 +13,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -553,466 +550,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(tocStruct.GlobalEntries[0].ObjectType).To(Equal("SESSION GUCS"))
 		})
 	})
-	Describe("Signal handler tests", FlakeAttempts(3), func() {
-		BeforeEach(func() {
-			testhelper.AssertQueryRuns(backupConn, "CREATE table bigtable(id int unique); INSERT INTO bigtable SELECT generate_series(1,10000000)")
-		})
-		AfterEach(func() {
-			testhelper.AssertQueryRuns(backupConn, "DROP TABLE bigtable")
-		})
-		Context("SIGINT", func() {
-			It("runs gpbackup and sends a SIGINT to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				args := []string{"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--single-data-file",
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 1.0s and 1.5s) so that gpbackup will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGINT)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gpbackup with copy-queue-size and sends a SIGINT to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				args := []string{"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--single-data-file",
-					"--copy-queue-size", "4",
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 0.5s and 0.8s) so that gpbackup will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(300)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGINT)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleaning up segment agent processes"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gpbackup and sends a SIGINT to ensure blocked LOCK TABLE query is canceled", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-
-				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
-				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-
-				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
-				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
-				args := []string{
-					"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-
-				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
-				// Once blocked, we send a SIGINT to cancel gpbackup.
-				var beforeLockCount int
-				go func() {
-					iterations := 50
-					for iterations > 0 {
-						_ = backupConn.Get(&beforeLockCount, checkLockQuery)
-						if beforeLockCount < 1 {
-							time.Sleep(100 * time.Millisecond)
-							iterations--
-						} else {
-							break
-						}
-					}
-					_ = cmd.Process.Signal(unix.SIGINT)
-				}()
-				output, _ := cmd.CombinedOutput()
-				Expect(beforeLockCount).To(Equal(1))
-
-				// After gpbackup has been canceled, we should no longer see a blocked SQL
-				// session trying to acquire AccessShareLock on foo2.
-				var afterLockCount int
-				_ = backupConn.Get(&afterLockCount, checkLockQuery)
-				Expect(afterLockCount).To(Equal(0))
-				backupConn.MustExec("ROLLBACK")
-
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gpbackup with single-data-file and sends a SIGINT to ensure blocked LOCK TABLE query is canceled", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-
-				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
-				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-
-				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
-				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
-				args := []string{
-					"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--single-data-file",
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-
-				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
-				// Once blocked, we send a SIGINT to cancel gpbackup.
-				var beforeLockCount int
-				go func() {
-					iterations := 50
-					for iterations > 0 {
-						_ = backupConn.Get(&beforeLockCount, checkLockQuery)
-						if beforeLockCount < 1 {
-							time.Sleep(100 * time.Millisecond)
-							iterations--
-						} else {
-							break
-						}
-					}
-					_ = cmd.Process.Signal(unix.SIGINT)
-				}()
-				output, _ := cmd.CombinedOutput()
-				Expect(beforeLockCount).To(Equal(1))
-
-				// After gpbackup has been canceled, we should no longer see a blocked SQL
-				// session trying to acquire AccessShareLock on foo2.
-				var afterLockCount int
-				_ = backupConn.Get(&afterLockCount, checkLockQuery)
-				Expect(afterLockCount).To(Equal(0))
-				backupConn.MustExec("ROLLBACK")
-
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				timestamp := gpbackup(gpbackupPath, backupHelperPath,
-					"--backup-dir", backupDir,
-					"--single-data-file")
-				args := []string{
-					"--timestamp", timestamp,
-					"--redirect-db", "restoredb",
-					"--backup-dir", backupDir,
-					"--verbose"}
-				cmd := exec.Command(gprestorePath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 1.0s and 1.5s) so that gprestore will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGINT)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting restore process"))
-				Expect(stdout).To(ContainSubstring("Cleaning up segment agent processes"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-				assertArtifactsCleaned(restoreConn, timestamp)
-			})
-			It("runs gprestore with copy-queue-size and sends a SIGINT to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				timestamp := gpbackup(gpbackupPath, backupHelperPath,
-					"--backup-dir", backupDir,
-					"--single-data-file")
-				args := []string{
-					"--timestamp", timestamp,
-					"--redirect-db", "restoredb",
-					"--backup-dir", backupDir,
-					"--verbose",
-					"--copy-queue-size", "4"}
-				cmd := exec.Command(gprestorePath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 1.0s and 1.5s) so that gprestore will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGINT)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting restore process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-				assertArtifactsCleaned(restoreConn, timestamp)
-			})
-		})
-		Context("SIGTERM", func() {
-			It("runs gpbackup and sends a SIGTERM to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				args := []string{"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--single-data-file",
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 1.0s and 1.5s) so that gpbackup will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGTERM)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gpbackup and sends a SIGTERM to ensure blocked LOCK TABLE query is canceled", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-
-				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
-				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-
-				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
-				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
-				args := []string{
-					"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-
-				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
-				// Once blocked, we send a SIGTERM to cancel gpbackup.
-				var beforeLockCount int
-				go func() {
-					iterations := 50
-					for iterations > 0 {
-						_ = backupConn.Get(&beforeLockCount, checkLockQuery)
-						if beforeLockCount < 1 {
-							time.Sleep(100 * time.Millisecond)
-							iterations--
-						} else {
-							break
-						}
-					}
-					_ = cmd.Process.Signal(unix.SIGTERM)
-				}()
-				output, _ := cmd.CombinedOutput()
-				Expect(beforeLockCount).To(Equal(1))
-
-				// After gpbackup has been canceled, we should no longer see a blocked SQL
-				// session trying to acquire AccessShareLock on foo2.
-				var afterLockCount int
-				_ = backupConn.Get(&afterLockCount, checkLockQuery)
-				Expect(afterLockCount).To(Equal(0))
-				backupConn.MustExec("ROLLBACK")
-
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gpbackup with single-data-file and sends a SIGTERM to ensure blocked LOCK TABLE query is canceled", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-
-				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
-				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-
-				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
-				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
-				args := []string{
-					"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--single-data-file",
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-
-				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
-				// Once blocked, we send a SIGTERM to cancel gpbackup.
-				var beforeLockCount int
-				go func() {
-					iterations := 50
-					for iterations > 0 {
-						_ = backupConn.Get(&beforeLockCount, checkLockQuery)
-						if beforeLockCount < 1 {
-							time.Sleep(100 * time.Millisecond)
-							iterations--
-						} else {
-							break
-						}
-					}
-					_ = cmd.Process.Signal(unix.SIGTERM)
-				}()
-				output, _ := cmd.CombinedOutput()
-				Expect(beforeLockCount).To(Equal(1))
-
-				// After gpbackup has been canceled, we should no longer see a blocked SQL
-				// session trying to acquire AccessShareLock on foo2.
-				var afterLockCount int
-				_ = backupConn.Get(&afterLockCount, checkLockQuery)
-				Expect(afterLockCount).To(Equal(0))
-				backupConn.MustExec("ROLLBACK")
-
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gpbackup with copy-queue-size and sends a SIGTERM to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				args := []string{"--dbname", "testdb",
-					"--backup-dir", backupDir,
-					"--single-data-file",
-					"--copy-queue-size", "4",
-					"--verbose"}
-				cmd := exec.Command(gpbackupPath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 1.0s and 1.5s) so that gpbackup will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGTERM)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				timestamp, err := getBackupTimestamp(stdout)
-				Expect(err).ToNot(HaveOccurred())
-				assertArtifactsCleaned(backupConn, timestamp)
-				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			})
-			It("runs gprestore and sends a SIGTERM to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				timestamp := gpbackup(gpbackupPath, backupHelperPath,
-					"--backup-dir", backupDir,
-					"--single-data-file")
-				args := []string{
-					"--timestamp", timestamp,
-					"--redirect-db", "restoredb",
-					"--backup-dir", backupDir,
-					"--verbose"}
-				cmd := exec.Command(gprestorePath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 1.0s and 1.5s) so that gprestore will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGTERM)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting restore process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-				assertArtifactsCleaned(restoreConn, timestamp)
-			})
-			It("runs gprestore with copy-queue-size and sends a SIGTERM to ensure cleanup functions successfully", func() {
-				if useOldBackupVersion {
-					Skip("This test is not needed for old backup versions")
-				}
-				timestamp := gpbackup(gpbackupPath, backupHelperPath,
-					"--backup-dir", backupDir,
-					"--single-data-file")
-				args := []string{
-					"--timestamp", timestamp,
-					"--redirect-db", "restoredb",
-					"--backup-dir", backupDir,
-					"--verbose",
-					"--copy-queue-size", "4"}
-				cmd := exec.Command(gprestorePath, args...)
-				go func() {
-					/*
-					 * We use a random delay for the sleep in this test (between
-					 * 1.0s and 1.5s) so that gprestore will be interrupted at a
-					 * different point in the backup process every time to help
-					 * catch timing issues with the cleanup.
-					 */
-					rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-					time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
-					_ = cmd.Process.Signal(unix.SIGTERM)
-				}()
-				output, _ := cmd.CombinedOutput()
-				stdout := string(output)
-				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting restore process"))
-				Expect(stdout).To(ContainSubstring("Cleanup complete"))
-				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-				assertArtifactsCleaned(restoreConn, timestamp)
-			})
-		})
-	})
 	Describe(`On Error Continue`, func() {
 		It(`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue`, func() {
 			// This backup is corrupt because the data for a single row on
@@ -1501,765 +1038,476 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(actualStatisticCount).To(Equal("3"))
 		})
 	})
-	It("runs gpbackup and gprestore without redirecting restore to another db", func() {
-		err := exec.Command("createdb", "recreateme").Run()
-		if err != nil {
-			Fail(fmt.Sprintf("%v", err))
-		}
-
-		// Specifying the recreateme database will override the default DB, testdb
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--dbname", "recreateme")
-
-		err = exec.Command("dropdb", "recreateme").Run()
-		if err != nil {
-			Fail(fmt.Sprintf("%v", err))
-		}
-
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--create-db")
-		recreatemeConn := testutils.SetupTestDbConn("recreateme")
-		recreatemeConn.Close()
-
-		err = exec.Command("dropdb", "recreateme").Run()
-		if err != nil {
-			Fail(fmt.Sprintf("%v", err))
-		}
-	})
-	It("runs basic gpbackup and gprestore with metadata and data-only flags", func() {
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--metadata-only")
-		timestamp2 := gpbackup(gpbackupPath, backupHelperPath,
-			"--data-only")
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb")
-		assertDataRestored(restoreConn, map[string]int{
-			"public.foo": 0, "schema2.foo3": 0})
-		assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
-		gprestore(gprestorePath, restoreHelperPath, timestamp2,
-			"--redirect-db", "restoredb")
-
-		assertDataRestored(restoreConn, publicSchemaTupleCounts)
-		assertDataRestored(restoreConn, schema2TupleCounts)
-	})
-	It("runs gpbackup and gprestore with metadata-only backup flag", func() {
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--metadata-only")
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb")
-
-		assertDataRestored(restoreConn, map[string]int{
-			"public.foo": 0, "schema2.foo3": 0})
-		assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
-	})
-	It("runs gpbackup and gprestore with data-only backup flag", func() {
-		testutils.ExecuteSQLFile(restoreConn, "resources/test_tables_ddl.sql")
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--data-only")
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb")
-
-		assertDataRestored(restoreConn, publicSchemaTupleCounts)
-		assertDataRestored(restoreConn, schema2TupleCounts)
-	})
-	It("runs gpbackup and gprestore with the data-only restore flag", func() {
-		testutils.ExecuteSQLFile(restoreConn, "resources/test_tables_ddl.sql")
-		testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 8888, false)")
-		defer testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 100, false)")
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath)
-		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--data-only")
-
-		assertDataRestored(restoreConn, publicSchemaTupleCounts)
-		assertDataRestored(restoreConn, schema2TupleCounts)
-
-		// Assert that sequence values have been properly
-		// updated as part of special sequence handling during
-		// gprestore --data-only calls
-		restoreSequenceValue := dbconn.MustSelectString(restoreConn,
-			`SELECT last_value FROM public.myseq2`)
-		Expect(restoreSequenceValue).To(Equal("8888"))
-		Expect(string(output)).To(ContainSubstring("Restoring sequence values"))
-	})
-	It("runs gpbackup and gprestore with the metadata-only restore flag", func() {
-		timestamp := gpbackup(gpbackupPath, backupHelperPath)
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--metadata-only")
-
-		assertDataRestored(restoreConn, map[string]int{
-			"public.foo": 0, "schema2.foo3": 0})
-		assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
-	})
-	It("runs gpbackup and gprestore with leaf-partition-data and backupDir flags", func() {
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--leaf-partition-data",
-			"--backup-dir", backupDir)
-		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--backup-dir", backupDir)
-		Expect(string(output)).To(ContainSubstring("table 31 of 31"))
-
-		assertDataRestored(restoreConn, publicSchemaTupleCounts)
-		assertDataRestored(restoreConn, schema2TupleCounts)
-	})
-	It("runs gpbackup and gprestore with no-compression flag", func() {
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--no-compression",
-			"--backup-dir", backupDir)
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--backup-dir", backupDir)
-		configFile, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
-			timestamp, "*config.yaml"))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(configFile).To(HaveLen(1))
-
-		contents, err := ioutil.ReadFile(configFile[0])
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(string(contents)).To(ContainSubstring("compressed: false"))
-		assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
-		assertDataRestored(restoreConn, publicSchemaTupleCounts)
-		assertDataRestored(restoreConn, schema2TupleCounts)
-	})
-	It("runs gpbackup and gprestore with with-stats flag", func() {
-		// gpbackup before version 1.18.0 does not dump pg_class statistics correctly
-		skipIfOldBackupVersionBefore("1.18.0")
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--with-stats",
-			"--backup-dir", backupDir)
-		files, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
-			timestamp, "*statistics.sql"))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(files).To(HaveLen(1))
-
-		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--with-stats",
-			"--backup-dir", backupDir)
-
-		Expect(string(output)).To(ContainSubstring("Query planner statistics restore complete"))
-		assertDataRestored(restoreConn, publicSchemaTupleCounts)
-		assertDataRestored(restoreConn, schema2TupleCounts)
-		assertPGClassStatsRestored(backupConn, restoreConn, publicSchemaTupleCounts)
-		assertPGClassStatsRestored(backupConn, restoreConn, schema2TupleCounts)
-
-		backupStatisticCount := dbconn.MustSelectString(backupConn,
-			`SELECT count(*) AS string FROM pg_statistic;`)
-		restoredStatisticsCount := dbconn.MustSelectString(restoreConn,
-			`SELECT count(*) AS string FROM pg_statistic;`)
-		Expect(backupStatisticCount).To(Equal(restoredStatisticsCount))
-
-		restoredTablesAnalyzed := dbconn.MustSelectString(restoreConn,
-			`SELECT count(*) FROM pg_stat_last_operation WHERE objid IN ('public.foo'::regclass::oid, 'public.holds'::regclass::oid, 'public.sales'::regclass::oid, 'schema2.returns'::regclass::oid, 'schema2.foo2'::regclass::oid, 'schema2.foo3'::regclass::oid, 'schema2.ao1'::regclass::oid, 'schema2.ao2'::regclass::oid) AND staactionname='ANALYZE';`)
-		Expect(restoredTablesAnalyzed).To(Equal("0"))
-	})
-	It("restores statistics only for tables specified in --include-table flag when runs gprestore with with-stats flag", func() {
-		// gpbackup before version 1.18.0 does not dump pg_class statistics correctly
-		skipIfOldBackupVersionBefore("1.18.0")
-
-		testhelper.AssertQueryRuns(backupConn,
-			"CREATE TABLE public.table_to_include_with_stats(i int)")
-		testhelper.AssertQueryRuns(backupConn,
-			"INSERT INTO public.table_to_include_with_stats SELECT generate_series(0,9);")
-		defer testhelper.AssertQueryRuns(backupConn,
-			"DROP TABLE public.table_to_include_with_stats")
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--with-stats",
-			"--backup-dir", backupDir)
-		statFiles, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
-			timestamp, "*statistics.sql"))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(statFiles).To(HaveLen(1))
-
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--with-stats",
-			"--backup-dir", backupDir,
-			"--include-table", "public.table_to_include_with_stats")
-
-		includeTableTupleCounts := map[string]int{
-			"public.table_to_include_with_stats": 10,
-		}
-		assertDataRestored(backupConn, includeTableTupleCounts)
-		assertPGClassStatsRestored(backupConn, restoreConn, includeTableTupleCounts)
-
-		rawCount := dbconn.MustSelectString(restoreConn,
-			"SELECT count(*) FROM pg_statistic WHERE starelid = 'public.table_to_include_with_stats'::regclass::oid;")
-		Expect(rawCount).To(Equal(strconv.Itoa(1)))
-
-		restoreTableCount := dbconn.MustSelectString(restoreConn,
-			"SELECT count(*) FROM pg_class WHERE oid >= 16384 AND relnamespace in (SELECT oid from pg_namespace WHERE nspname in ('public', 'schema2'));")
-		Expect(restoreTableCount).To(Equal(strconv.Itoa(1)))
-	})
-	It("runs gpbackup and gprestore with jobs flag", func() {
-		skipIfOldBackupVersionBefore("1.3.0")
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--backup-dir", backupDir,
-			"--jobs", "4")
-		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--backup-dir", backupDir,
-			"--jobs", "4",
-			"--verbose")
-
-		expectedString := fmt.Sprintf("table %d of %d", TOTAL_CREATE_STATEMENTS, TOTAL_CREATE_STATEMENTS)
-		Expect(string(output)).To(ContainSubstring(expectedString))
-		assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
-		assertDataRestored(restoreConn, schema2TupleCounts)
-		assertDataRestored(restoreConn, publicSchemaTupleCounts)
-	})
-	It("runs gpbackup with jobs flag and COPY deadlock handling occurs", func() {
-		if useOldBackupVersion {
-			Skip("This test is not needed for old backup versions")
-		}
-
-		// Acquire AccessExclusiveLock on public.foo to block gpbackup when it attempts
-		// to grab AccessShareLocks before its metadata dump section.
-		backupConn.MustExec("BEGIN; LOCK TABLE public.foo IN ACCESS EXCLUSIVE MODE")
-
-		// Execute gpbackup with --jobs 9 since there are 9 tables to back up
-		args := []string{
-			"--dbname", "testdb",
-			"--backup-dir", backupDir,
-			"--jobs", "9",
-			"--verbose"}
-		cmd := exec.Command(gpbackupPath, args...)
-		// Concurrently wait for gpbackup to block when it requests an AccessShareLock on public.foo. Once
-		// that happens, acquire an AccessExclusiveLock on pg_catalog.pg_trigger to block gpbackup during its
-		// trigger metadata dump. Then release the initial AccessExclusiveLock on public.foo (from the
-		// beginning of the test) to unblock gpbackup and let gpbackup move forward to the trigger metadata dump.
-		anotherConn := testutils.SetupTestDbConn("testdb")
-		defer anotherConn.Close()
-		go func() {
-			// Query to see if gpbackup's AccessShareLock request on public.foo is blocked
-			checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'public' AND c.relname = 'foo' AND l.granted = 'f' AND l.mode = 'AccessShareLock'`
-
-			// Wait up to 10 seconds for gpbackup to block
-			var gpbackupBlockedLockCount int
-			iterations := 100
-			for iterations > 0 {
-				_ = anotherConn.Get(&gpbackupBlockedLockCount, checkLockQuery)
-				if gpbackupBlockedLockCount < 1 {
-					time.Sleep(100 * time.Millisecond)
-					iterations--
-				} else {
-					break
-				}
+	Describe("Flag combinations", func() {
+		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
+			err := exec.Command("createdb", "recreateme").Run()
+			if err != nil {
+				Fail(fmt.Sprintf("%v", err))
 			}
-
-			// Queue AccessExclusiveLock request on pg_catalog.pg_trigger to block gpbackup
-			// during the trigger metadata dump so that the test can queue a bunch of
-			// AccessExclusiveLock requests against the test tables. Afterwards, release the
-			// AccessExclusiveLock on public.foo to let gpbackup go to the trigger metadata dump.
-			anotherConn.MustExec(`BEGIN; LOCK TABLE pg_catalog.pg_trigger IN ACCESS EXCLUSIVE MODE`)
-			backupConn.MustExec("COMMIT")
-		}()
-
-		// Concurrently wait for gpbackup to block on the trigger metadata dump section. Once we
-		// see gpbackup blocked, request AccessExclusiveLock (to imitate a TRUNCATE or VACUUM
-		// FULL) on all the test tables.
-		dataTables := []string{`public."FOObar"`, "public.foo", "public.holds", "public.sales",
-			"schema2.ao1", "schema2.ao2", "schema2.foo2", "schema2.foo3", "schema2.returns"}
-		for _, dataTable := range dataTables {
-			go func(dataTable string) {
-				accessExclusiveLockConn := testutils.SetupTestDbConn("testdb")
-				defer accessExclusiveLockConn.Close()
-
-				// Query to see if gpbackup's AccessShareLock request on pg_catalog.pg_trigger is blocked
-				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'pg_catalog' AND c.relname = 'pg_trigger' AND l.granted = 'f' AND l.mode = 'AccessShareLock'`
-
-				// Wait up to 10 seconds for gpbackup to block
-				var gpbackupBlockedLockCount int
-				iterations := 100
-				for iterations > 0 {
-					_ = accessExclusiveLockConn.Get(&gpbackupBlockedLockCount, checkLockQuery)
-					if gpbackupBlockedLockCount < 1 {
-						time.Sleep(100 * time.Millisecond)
-						iterations--
-					} else {
-						break
-					}
-				}
-
-				// Queue an AccessExclusiveLock request on a test table which will later
-				// result in a detected deadlock during the gpbackup data dump section.
-				accessExclusiveLockConn.MustExec(fmt.Sprintf(`BEGIN; LOCK TABLE %s IN ACCESS EXCLUSIVE MODE; COMMIT`, dataTable))
-			}(dataTable)
-		}
-
-		// Concurrently wait for all AccessExclusiveLock requests on all 9 test tables to block.
-		// Once that happens, release the AccessExclusiveLock on pg_catalog.pg_trigger to unblock
-		// gpbackup and let gpbackup move forward to the data dump section.
-		var accessExclBlockedLockCount int
-		go func() {
-			// Query to check for ungranted AccessExclusiveLock requests on our test tables
-			checkLockQuery := `SELECT count(*) FROM pg_locks WHERE granted = 'f' AND mode = 'AccessExclusiveLock'`
-
-			// Wait up to 10 seconds
-			iterations := 100
-			for iterations > 0 {
-				_ = backupConn.Get(&accessExclBlockedLockCount, checkLockQuery)
-				if accessExclBlockedLockCount < 9 {
-					time.Sleep(100 * time.Millisecond)
-					iterations--
-				} else {
-					break
-				}
+	
+			// Specifying the recreateme database will override the default DB, testdb
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--dbname", "recreateme")
+	
+			err = exec.Command("dropdb", "recreateme").Run()
+			if err != nil {
+				Fail(fmt.Sprintf("%v", err))
 			}
-
-			// Unblock gpbackup by releasing AccessExclusiveLock on pg_catalog.pg_trigger
-			anotherConn.MustExec("COMMIT")
-		}()
-
-		// gpbackup has finished
-		output, _ := cmd.CombinedOutput()
-		stdout := string(output)
-
-		// Sanity check that 9 deadlock traps were placed during the test
-		Expect(accessExclBlockedLockCount).To(Equal(9))
-
-		// No non-main worker should have been able to run COPY due to deadlock detection
-		for i := 1; i < 9; i++ {
-			expectedLockString := fmt.Sprintf("[DEBUG]:-Worker %d: LOCK TABLE ", i)
-			Expect(stdout).To(ContainSubstring(expectedLockString))
-
-			expectedWarnString := fmt.Sprintf("[WARNING]:-Worker %d could not acquire AccessShareLock for table", i)
-			Expect(stdout).To(ContainSubstring(expectedWarnString))
-
-			unexpectedCopyString := fmt.Sprintf("[DEBUG]:-Worker %d: COPY ", i)
-			Expect(stdout).ToNot(ContainSubstring(unexpectedCopyString))
-		}
-
-		// Only the main worker thread, worker 0, will run COPY on all the test tables
-		for _, dataTable := range dataTables {
-			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s TO PROGRAM `, dataTable)
-			Expect(stdout).To(ContainSubstring(expectedString))
-		}
-
-		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
-	})
-	It("runs gpbackup with copy-queue-size flag and COPY deadlock handling occurs", func() {
-		if useOldBackupVersion {
-			Skip("This test is not needed for old backup versions")
-		}
-		// Acquire AccessExclusiveLock on public.foo to block gpbackup when it attempts
-		// to grab AccessShareLocks before its metadata dump section.
-		backupConn.MustExec("BEGIN; LOCK TABLE public.foo IN ACCESS EXCLUSIVE MODE")
-
-		// Execute gpbackup with --copy-queue-size 2
-		args := []string{
-			"--dbname", "testdb",
-			"--backup-dir", backupDir,
-			"--single-data-file",
-			"--copy-queue-size", "2",
-			"--verbose"}
-		cmd := exec.Command(gpbackupPath, args...)
-
-		// Concurrently wait for gpbackup to block when it requests an AccessShareLock on public.foo. Once
-		// that happens, acquire an AccessExclusiveLock on pg_catalog.pg_trigger to block gpbackup during its
-		// trigger metadata dump. Then release the initial AccessExclusiveLock on public.foo (from the
-		// beginning of the test) to unblock gpbackup and let gpbackup move forward to the trigger metadata dump.
-		anotherConn := testutils.SetupTestDbConn("testdb")
-		defer anotherConn.Close()
-		go func() {
-			// Query to see if gpbackup's AccessShareLock request on public.foo is blocked
-			checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'public' AND c.relname = 'foo' AND l.granted = 'f' AND l.mode = 'AccessShareLock'`
-
-			// Wait up to 10 seconds for gpbackup to block
-			var gpbackupBlockedLockCount int
-			iterations := 100
-			for iterations > 0 {
-				_ = anotherConn.Get(&gpbackupBlockedLockCount, checkLockQuery)
-				if gpbackupBlockedLockCount < 1 {
-					time.Sleep(100 * time.Millisecond)
-					iterations--
-				} else {
-					break
-				}
+	
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--create-db")
+			recreatemeConn := testutils.SetupTestDbConn("recreateme")
+			recreatemeConn.Close()
+	
+			err = exec.Command("dropdb", "recreateme").Run()
+			if err != nil {
+				Fail(fmt.Sprintf("%v", err))
 			}
-
-			// Queue AccessExclusiveLock request on pg_catalog.pg_trigger to block gpbackup
-			// during the trigger metadata dump so that the test can queue a bunch of
-			// AccessExclusiveLock requests against the test tables. Afterwards, release the
-			// AccessExclusiveLock on public.foo to let gpbackup go to the trigger metadata dump.
-			anotherConn.MustExec(`BEGIN; LOCK TABLE pg_catalog.pg_trigger IN ACCESS EXCLUSIVE MODE`)
-			backupConn.MustExec("COMMIT")
-		}()
-
-		// Concurrently wait for gpbackup to block on the trigger metadata dump section. Once we
-		// see gpbackup blocked, request AccessExclusiveLock (to imitate a TRUNCATE or VACUUM
-		// FULL) on all the test tables.
-		dataTables := []string{`public."FOObar"`, "public.foo", "public.holds", "public.sales",
-			"schema2.ao1", "schema2.ao2", "schema2.foo2", "schema2.foo3", "schema2.returns"}
-		for _, dataTable := range dataTables {
-			go func(dataTable string) {
-				accessExclusiveLockConn := testutils.SetupTestDbConn("testdb")
-				defer accessExclusiveLockConn.Close()
-
-				// Query to see if gpbackup's AccessShareLock request on pg_catalog.pg_trigger is blocked
-				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'pg_catalog' AND c.relname = 'pg_trigger' AND l.granted = 'f' AND l.mode = 'AccessShareLock'`
-
-				// Wait up to 10 seconds for gpbackup to block
-				var gpbackupBlockedLockCount int
-				iterations := 100
-				for iterations > 0 {
-					_ = accessExclusiveLockConn.Get(&gpbackupBlockedLockCount, checkLockQuery)
-					if gpbackupBlockedLockCount < 1 {
-						time.Sleep(100 * time.Millisecond)
-						iterations--
-					} else {
-						break
-					}
-				}
-
-				// Queue an AccessExclusiveLock request on a test table which will later
-				// result in a detected deadlock during the gpbackup data dump section.
-				accessExclusiveLockConn.MustExec(fmt.Sprintf(`BEGIN; LOCK TABLE %s IN ACCESS EXCLUSIVE MODE; COMMIT`, dataTable))
-			}(dataTable)
-		}
-
-		// Concurrently wait for all AccessExclusiveLock requests on all 9 test tables to block.
-		// Once that happens, release the AccessExclusiveLock on pg_catalog.pg_trigger to unblock
-		// gpbackup and let gpbackup move forward to the data dump section.
-		var accessExclBlockedLockCount int
-		go func() {
-			// Query to check for ungranted AccessExclusiveLock requests on our test tables
-			checkLockQuery := `SELECT count(*) FROM pg_locks WHERE granted = 'f' AND mode = 'AccessExclusiveLock'`
-
-			// Wait up to 10 seconds
-			iterations := 100
-			for iterations > 0 {
-				_ = backupConn.Get(&accessExclBlockedLockCount, checkLockQuery)
-				if accessExclBlockedLockCount < 9 {
-					time.Sleep(100 * time.Millisecond)
-					iterations--
-				} else {
-					break
-				}
+		})
+		It("runs basic gpbackup and gprestore with metadata and data-only flags", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--metadata-only")
+			timestamp2 := gpbackup(gpbackupPath, backupHelperPath,
+				"--data-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb")
+			assertDataRestored(restoreConn, map[string]int{
+				"public.foo": 0, "schema2.foo3": 0})
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+			gprestore(gprestorePath, restoreHelperPath, timestamp2,
+				"--redirect-db", "restoredb")
+	
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+		})
+		It("runs gpbackup and gprestore with metadata-only backup flag", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--metadata-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb")
+	
+			assertDataRestored(restoreConn, map[string]int{
+				"public.foo": 0, "schema2.foo3": 0})
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+		})
+		It("runs gpbackup and gprestore with data-only backup flag", func() {
+			testutils.ExecuteSQLFile(restoreConn, "resources/test_tables_ddl.sql")
+	
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--data-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb")
+	
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+		})
+		It("runs gpbackup and gprestore with the data-only restore flag", func() {
+			testutils.ExecuteSQLFile(restoreConn, "resources/test_tables_ddl.sql")
+			testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 8888, false)")
+			defer testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 100, false)")
+	
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--data-only")
+	
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+	
+			// Assert that sequence values have been properly
+			// updated as part of special sequence handling during
+			// gprestore --data-only calls
+			restoreSequenceValue := dbconn.MustSelectString(restoreConn,
+				`SELECT last_value FROM public.myseq2`)
+			Expect(restoreSequenceValue).To(Equal("8888"))
+			Expect(string(output)).To(ContainSubstring("Restoring sequence values"))
+		})
+		It("runs gpbackup and gprestore with the metadata-only restore flag", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--metadata-only")
+	
+			assertDataRestored(restoreConn, map[string]int{
+				"public.foo": 0, "schema2.foo3": 0})
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+		})
+		It("runs gpbackup and gprestore with leaf-partition-data and backupDir flags", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--leaf-partition-data",
+				"--backup-dir", backupDir)
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir)
+			Expect(string(output)).To(ContainSubstring("table 31 of 31"))
+	
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+		})
+		It("runs gpbackup and gprestore with no-compression flag", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--no-compression",
+				"--backup-dir", backupDir)
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir)
+			configFile, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
+				timestamp, "*config.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configFile).To(HaveLen(1))
+	
+			contents, err := ioutil.ReadFile(configFile[0])
+			Expect(err).ToNot(HaveOccurred())
+	
+			Expect(string(contents)).To(ContainSubstring("compressed: false"))
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+		})
+		It("runs gpbackup and gprestore with with-stats flag", func() {
+			// gpbackup before version 1.18.0 does not dump pg_class statistics correctly
+			skipIfOldBackupVersionBefore("1.18.0")
+	
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--with-stats",
+				"--backup-dir", backupDir)
+			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
+				timestamp, "*statistics.sql"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(files).To(HaveLen(1))
+	
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--with-stats",
+				"--backup-dir", backupDir)
+	
+			Expect(string(output)).To(ContainSubstring("Query planner statistics restore complete"))
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+			assertPGClassStatsRestored(backupConn, restoreConn, publicSchemaTupleCounts)
+			assertPGClassStatsRestored(backupConn, restoreConn, schema2TupleCounts)
+	
+			backupStatisticCount := dbconn.MustSelectString(backupConn,
+				`SELECT count(*) AS string FROM pg_statistic;`)
+			restoredStatisticsCount := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) AS string FROM pg_statistic;`)
+			Expect(backupStatisticCount).To(Equal(restoredStatisticsCount))
+	
+			restoredTablesAnalyzed := dbconn.MustSelectString(restoreConn,
+				`SELECT count(*) FROM pg_stat_last_operation WHERE objid IN ('public.foo'::regclass::oid, 'public.holds'::regclass::oid, 'public.sales'::regclass::oid, 'schema2.returns'::regclass::oid, 'schema2.foo2'::regclass::oid, 'schema2.foo3'::regclass::oid, 'schema2.ao1'::regclass::oid, 'schema2.ao2'::regclass::oid) AND staactionname='ANALYZE';`)
+			Expect(restoredTablesAnalyzed).To(Equal("0"))
+		})
+		It("restores statistics only for tables specified in --include-table flag when runs gprestore with with-stats flag", func() {
+			// gpbackup before version 1.18.0 does not dump pg_class statistics correctly
+			skipIfOldBackupVersionBefore("1.18.0")
+	
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE public.table_to_include_with_stats(i int)")
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO public.table_to_include_with_stats SELECT generate_series(0,9);")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP TABLE public.table_to_include_with_stats")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--with-stats",
+				"--backup-dir", backupDir)
+			statFiles, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
+				timestamp, "*statistics.sql"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(statFiles).To(HaveLen(1))
+	
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--with-stats",
+				"--backup-dir", backupDir,
+				"--include-table", "public.table_to_include_with_stats")
+	
+			includeTableTupleCounts := map[string]int{
+				"public.table_to_include_with_stats": 10,
 			}
-
-			// Unblock gpbackup by releasing AccessExclusiveLock on pg_catalog.pg_trigger
-			anotherConn.MustExec("COMMIT")
-		}()
-
-		// gpbackup has finished
-		output, _ := cmd.CombinedOutput()
-		stdout := string(output)
-
-		// Sanity check that 9 deadlock traps were placed during the test
-		Expect(accessExclBlockedLockCount).To(Equal(9))
-		Expect(stdout).To(ContainSubstring("All copy queue workers terminated due to lock issues. Falling back to single main worker."))
-		// No non-main worker should have been able to run COPY due to deadlock detection
-		for i := 1; i < 2; i++ {
-			expectedLockString := fmt.Sprintf("[DEBUG]:-Worker %d: LOCK TABLE ", i)
-			Expect(stdout).To(ContainSubstring(expectedLockString))
-
-			expectedWarnString := fmt.Sprintf("[WARNING]:-Worker %d could not acquire AccessShareLock for table", i)
-			Expect(stdout).To(ContainSubstring(expectedWarnString))
-
-			unexpectedCopyString := fmt.Sprintf("[DEBUG]:-Worker %d: COPY ", i)
-			Expect(stdout).ToNot(ContainSubstring(unexpectedCopyString))
-
-			expectedLockString = fmt.Sprintf(`Locks held on table %s`, dataTables[i])
-			Expect(stdout).To(ContainSubstring(expectedLockString))
-
-			Expect(stdout).To(ContainSubstring(`"Mode":"AccessExclusiveLock"`))
-		}
-
-		// Only the main worker thread, worker 0, will run COPY on all the test tables
-		for _, dataTable := range dataTables {
-			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s TO PROGRAM `, dataTable)
-			Expect(stdout).To(ContainSubstring(expectedString))
-		}
-
-		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
-	})
-	It("successfully backs up foreign tables", func() {
-		if backupConn.Version.Before("6") {
-			Skip("Test does not apply for GPDB versions before 6")
-		}
-		testhelper.AssertQueryRuns(backupConn,
-			"CREATE FOREIGN DATA WRAPPER foreigndatawrapper;")
-		defer testhelper.AssertQueryRuns(backupConn,
-			"DROP FOREIGN DATA WRAPPER foreigndatawrapper CASCADE;")
-		testhelper.AssertQueryRuns(backupConn,
-			"CREATE SERVER sc FOREIGN DATA WRAPPER foreigndatawrapper;")
-		testhelper.AssertQueryRuns(backupConn,
-			"CREATE FOREIGN TABLE public.ft1 (field1 text) SERVER sc")
-		testhelper.AssertQueryRuns(backupConn,
-			"CREATE FOREIGN TABLE public.ft2 (field1 text) SERVER sc")
-		args := []string{
-			"--dbname", "testdb",
-			"--backup-dir", backupDir,
-			"--jobs", "4",
-			"--verbose"}
-		cmd := exec.Command(gpbackupPath, args...)
-		output, _ := cmd.CombinedOutput()
-		stdout := string(output)
-		Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-		Expect(stdout).To(ContainSubstring("Skipping data backup of table public.ft1"))
-		Expect(stdout).To(ContainSubstring("Skipping data backup of table public.ft2"))
-		Expect(stdout).To(ContainSubstring("Skipped data backup of 2 external/foreign table(s)"))
-	})
-	It("runs gpbackup with --version flag", func() {
-		if useOldBackupVersion {
-			Skip("This test is not needed for old backup versions")
-		}
-		command := exec.Command(gpbackupPath, "--version")
-		output := mustRunCommand(command)
-		Expect(string(output)).To(MatchRegexp(`gpbackup version \w+`))
-	})
-	It("runs gprestore with --version flag", func() {
-		command := exec.Command(gprestorePath, "--version")
-		output := mustRunCommand(command)
-		Expect(string(output)).To(MatchRegexp(`gprestore version \w+`))
-	})
-	It(`successfully backs up precise real data types`, func() {
-		// Versions before 1.13.0 do not set the extra_float_digits GUC
-		skipIfOldBackupVersionBefore("1.13.0")
-
-		tableName := "public.test_real_precision"
-		tableNameCopy := "public.test_real_precision_copy"
-		testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s (val real)`, tableName))
-		defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableName))
-		testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO %s VALUES (0.100001216)`, tableName))
-		testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s AS SELECT * FROM %s`, tableNameCopy, tableName))
-		defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableNameCopy))
-
-		// We use --jobs flag to make sure all parallel connections have the GUC set properly
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--backup-dir", backupDir,
-			"--dbname", "testdb", "--jobs", "2",
-			"--include-table", fmt.Sprintf("%s", tableName),
-			"--include-table", fmt.Sprintf("%s", tableNameCopy))
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--backup-dir", backupDir)
-		tableCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableName))
-		Expect(tableCount).To(Equal(strconv.Itoa(1)))
-		tableCopyCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableNameCopy))
-		Expect(tableCopyCount).To(Equal(strconv.Itoa(1)))
-	})
-	It("backup and restore all data when NOT VALID option on constraints is specified", func() {
-		testutils.SkipIfBefore6(backupConn)
-		testhelper.AssertQueryRuns(backupConn,
-			"CREATE TABLE legacy_table_violate_constraints (a int)")
-		defer testhelper.AssertQueryRuns(backupConn,
-			"DROP TABLE legacy_table_violate_constraints")
-		testhelper.AssertQueryRuns(backupConn,
-			"INSERT INTO legacy_table_violate_constraints values (0), (1), (2), (3), (4), (5), (6), (7)")
-		testhelper.AssertQueryRuns(backupConn,
-			"ALTER TABLE legacy_table_violate_constraints ADD CONSTRAINT new_constraint_not_valid CHECK (a > 4) NOT VALID")
-		defer testhelper.AssertQueryRuns(backupConn,
-			"ALTER TABLE legacy_table_violate_constraints DROP CONSTRAINT new_constraint_not_valid")
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--backup-dir", backupDir)
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--backup-dir", backupDir)
-
-		legacySchemaTupleCounts := map[string]int{
-			`public."legacy_table_violate_constraints"`: 8,
-		}
-		assertDataRestored(restoreConn, legacySchemaTupleCounts)
-
-		isConstraintHere := dbconn.MustSelectString(restoreConn,
-			"SELECT count(*) FROM pg_constraint WHERE conname='new_constraint_not_valid'")
-		Expect(isConstraintHere).To(Equal(strconv.Itoa(1)))
-
-		_, err := restoreConn.Exec("INSERT INTO legacy_table_violate_constraints VALUES (1)")
-		Expect(err).To(HaveOccurred())
-		assertArtifactsCleaned(restoreConn, timestamp)
-	})
-	It("runs gpbackup and gprestore to backup tables depending on functions", func() {
-		skipIfOldBackupVersionBefore("1.19.0")
-		testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + 1; END; $$ LANGUAGE PLPGSQL;;")
-		defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
-
-		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
-		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
-		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
-		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (2);")
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath)
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb")
-
-		assertRelationsCreated(restoreConn, TOTAL_RELATIONS+1) // for new table
-		assertDataRestored(restoreConn, schema2TupleCounts)
-		assertDataRestored(restoreConn, map[string]int{
-			"public.foo":                      40000,
-			"public.holds":                    50000,
-			"public.sales":                    13,
-			"public.test_depends_on_function": 2})
-		assertArtifactsCleaned(restoreConn, timestamp)
-	})
-	It("runs gpbackup and gprestore to backup functions depending on tables", func() {
-		skipIfOldBackupVersionBefore("1.19.0")
-
-		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE to_use_for_function (n int);")
-		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE to_use_for_function;")
-
-		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  to_use_for_function values (1);")
-		testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + (SELECT n FROM to_use_for_function); END; $$ LANGUAGE PLPGSQL;;")
-
-		defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
-
-		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
-		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
-		testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath)
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb")
-
-		assertRelationsCreated(restoreConn, TOTAL_RELATIONS+2) // for 2 new tables
-		assertDataRestored(restoreConn, schema2TupleCounts)
-		assertDataRestored(restoreConn, map[string]int{
-			"public.foo":                      40000,
-			"public.holds":                    50000,
-			"public.sales":                    13,
-			"public.to_use_for_function":      1,
-			"public.test_depends_on_function": 1})
-
-		assertArtifactsCleaned(restoreConn, timestamp)
-	})
-	It("runs gprestore with --include-schema and --exclude-table flag", func() {
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--metadata-only")
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb",
-			"--include-schema", "schema2",
-			"--exclude-table", "schema2.returns",
-			"--metadata-only")
-		assertRelationsCreated(restoreConn, 4)
-	})
-	It("runs gprestore with jobs flag and postdata has metadata", func() {
-		if useOldBackupVersion {
-			Skip("This test is not needed for old backup versions")
-		}
-
-		if backupConn.Version.Before("6") {
-			testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
-		} else {
-			testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir';")
-		}
-		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLESPACE test_tablespace;")
-
-		// Store everything in this test schema for easy test cleanup.
-		testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA postdata_metadata;")
-		defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA postdata_metadata CASCADE;")
-		defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA postdata_metadata CASCADE;")
-
-		// Create a table and indexes. Currently for indexes, there are 4 possible pieces
-		// of metadata: TABLESPACE, CLUSTER, REPLICA IDENTITY, and COMMENT.
-		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE postdata_metadata.foobar (a int NOT NULL);")
-		testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx1 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
-		testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx2 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
-		testhelper.AssertQueryRuns(backupConn, "CREATE UNIQUE INDEX fooidx3 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
-		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx1 IS 'hello';")
-		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx2 IS 'hello';")
-		testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx3 IS 'hello';")
-		testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar CLUSTER ON fooidx3;")
-		if backupConn.Version.AtLeast("6") {
-			testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar REPLICA IDENTITY USING INDEX fooidx3")
-		}
-
-		// Create a rule. Currently for rules, the only metadata is COMMENT.
-		testhelper.AssertQueryRuns(backupConn, "CREATE RULE postdata_rule AS ON UPDATE TO postdata_metadata.foobar DO SELECT * FROM postdata_metadata.foobar;")
-		testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule IS 'hello';")
-
-		// Create a trigger. Currently for triggers, the only metadata is COMMENT.
-		testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
-		testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
-
-		// Create an event trigger. Currently for event triggers, there are 2 possible
-		// pieces of metadata: ENABLE and COMMENT.
-		if backupConn.Version.AtLeast("6") {
-			testhelper.AssertQueryRuns(backupConn, "CREATE OR REPLACE FUNCTION postdata_metadata.postdata_eventtrigger_func() RETURNS event_trigger AS $$ BEGIN END $$ LANGUAGE plpgsql;")
-			testhelper.AssertQueryRuns(backupConn, "CREATE EVENT TRIGGER postdata_eventtrigger ON sql_drop EXECUTE PROCEDURE postdata_metadata.postdata_eventtrigger_func();")
-			testhelper.AssertQueryRuns(backupConn, "ALTER EVENT TRIGGER postdata_eventtrigger DISABLE;")
-			testhelper.AssertQueryRuns(backupConn, "COMMENT ON EVENT TRIGGER postdata_eventtrigger IS 'hello'")
-		}
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
-			"--metadata-only")
-		output := gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "restoredb", "--jobs", "8", "--verbose")
-
-		// The gprestore parallel postdata restore should have succeeded without a CRITICAL error.
-		stdout := string(output)
-		Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-		Expect(stdout).To(Not(ContainSubstring("Error encountered when executing statement")))
-	})
-	It("Can restore xml with xmloption set to document", func() {
-		testutils.SkipIfBefore6(backupConn)
-		// Set up the XML table that contains XML content
-		testhelper.AssertQueryRuns(backupConn, "CREATE TABLE xml_test AS SELECT xml 'fooxml'")
-		defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE xml_test")
-
-		// Set up database that has xmloption default to document instead of content
-		testhelper.AssertQueryRuns(backupConn, "CREATE DATABASE document_db")
-		defer testhelper.AssertQueryRuns(backupConn, "DROP DATABASE document_db")
-		testhelper.AssertQueryRuns(backupConn, "ALTER DATABASE document_db SET xmloption TO document")
-
-		timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-table", "public.xml_test")
-
-		gprestore(gprestorePath, restoreHelperPath, timestamp,
-			"--redirect-db", "document_db")
-	})
-	It("does not hold lock on gp_segment_configuration when backup is in progress", func() {
-		if useOldBackupVersion {
-			Skip("This test is not needed for old backup versions")
-		}
-		// Block on pg_trigger, which gpbackup queries after gp_segment_configuration
-		backupConn.MustExec("BEGIN; LOCK TABLE pg_trigger IN ACCESS EXCLUSIVE MODE")
-
-		args := []string{
-			"--dbname", "testdb",
-			"--backup-dir", backupDir,
-			"--verbose"}
-		cmd := exec.Command(gpbackupPath, args...)
-
-		backupConn.MustExec("COMMIT")
-		anotherConn := testutils.SetupTestDbConn("testdb")
-		defer anotherConn.Close()
-		var lockCount int
-		go func() {
-			gpSegConfigQuery := `SELECT * FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND c.relname = 'gp_segment_configuration';`
-			_ = anotherConn.Get(&lockCount, gpSegConfigQuery)
-		}()
-
-		Expect(lockCount).To(Equal(0))
-
-		output, _ := cmd.CombinedOutput()
-		stdout := string(output)
-		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
-	})
-	It("properly handles various implicit casts on pg_catalog.text", func() {
-		if useOldBackupVersion {
-			Skip("This test is not needed for old backup versions")
-		}
-		// casts already exist on 4X
-		if backupConn.Version.AtLeast("5") {
-			testutils.ExecuteSQLFile(backupConn, "resources/implicit_casts.sql")
-		}
-
-		args := []string{
-			"--dbname", "testdb",
-			"--backup-dir", backupDir,
-			"--verbose"}
-		cmd := exec.Command(gpbackupPath, args...)
-
-		output, _ := cmd.CombinedOutput()
-		stdout := string(output)
-		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
+			assertDataRestored(backupConn, includeTableTupleCounts)
+			assertPGClassStatsRestored(backupConn, restoreConn, includeTableTupleCounts)
+	
+			rawCount := dbconn.MustSelectString(restoreConn,
+				"SELECT count(*) FROM pg_statistic WHERE starelid = 'public.table_to_include_with_stats'::regclass::oid;")
+			Expect(rawCount).To(Equal(strconv.Itoa(1)))
+	
+			restoreTableCount := dbconn.MustSelectString(restoreConn,
+				"SELECT count(*) FROM pg_class WHERE oid >= 16384 AND relnamespace in (SELECT oid from pg_namespace WHERE nspname in ('public', 'schema2'));")
+			Expect(restoreTableCount).To(Equal(strconv.Itoa(1)))
+		})
+		It("runs gpbackup and gprestore with jobs flag", func() {
+			skipIfOldBackupVersionBefore("1.3.0")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--jobs", "4")
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir,
+				"--jobs", "4",
+				"--verbose")
+	
+			expectedString := fmt.Sprintf("table %d of %d", TOTAL_CREATE_STATEMENTS, TOTAL_CREATE_STATEMENTS)
+			Expect(string(output)).To(ContainSubstring(expectedString))
+			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
+			assertDataRestored(restoreConn, schema2TupleCounts)
+			assertDataRestored(restoreConn, publicSchemaTupleCounts)
+		})
+		It("runs gpbackup with --version flag", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			command := exec.Command(gpbackupPath, "--version")
+			output := mustRunCommand(command)
+			Expect(string(output)).To(MatchRegexp(`gpbackup version \w+`))
+		})
+		It("runs gprestore with --version flag", func() {
+			command := exec.Command(gprestorePath, "--version")
+			output := mustRunCommand(command)
+			Expect(string(output)).To(MatchRegexp(`gprestore version \w+`))
+		})
+		It("runs gprestore with --include-schema and --exclude-table flag", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--metadata-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--include-schema", "schema2",
+				"--exclude-table", "schema2.returns",
+				"--metadata-only")
+			assertRelationsCreated(restoreConn, 4)
+		})
+		It("runs gprestore with jobs flag and postdata has metadata", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+	
+			if backupConn.Version.Before("6") {
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
+			} else {
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir';")
+			}
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLESPACE test_tablespace;")
+	
+			// Store everything in this test schema for easy test cleanup.
+			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA postdata_metadata;")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA postdata_metadata CASCADE;")
+			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA postdata_metadata CASCADE;")
+	
+			// Create a table and indexes. Currently for indexes, there are 4 possible pieces
+			// of metadata: TABLESPACE, CLUSTER, REPLICA IDENTITY, and COMMENT.
+			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE postdata_metadata.foobar (a int NOT NULL);")
+			testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx1 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+			testhelper.AssertQueryRuns(backupConn, "CREATE INDEX fooidx2 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+			testhelper.AssertQueryRuns(backupConn, "CREATE UNIQUE INDEX fooidx3 ON postdata_metadata.foobar USING btree(a) TABLESPACE test_tablespace;")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx1 IS 'hello';")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx2 IS 'hello';")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON INDEX postdata_metadata.fooidx3 IS 'hello';")
+			testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar CLUSTER ON fooidx3;")
+			if backupConn.Version.AtLeast("6") {
+				testhelper.AssertQueryRuns(backupConn, "ALTER TABLE postdata_metadata.foobar REPLICA IDENTITY USING INDEX fooidx3")
+			}
+	
+			// Create a rule. Currently for rules, the only metadata is COMMENT.
+			testhelper.AssertQueryRuns(backupConn, "CREATE RULE postdata_rule AS ON UPDATE TO postdata_metadata.foobar DO SELECT * FROM postdata_metadata.foobar;")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule IS 'hello';")
+	
+			// Create a trigger. Currently for triggers, the only metadata is COMMENT.
+			testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
+	
+			// Create an event trigger. Currently for event triggers, there are 2 possible
+			// pieces of metadata: ENABLE and COMMENT.
+			if backupConn.Version.AtLeast("6") {
+				testhelper.AssertQueryRuns(backupConn, "CREATE OR REPLACE FUNCTION postdata_metadata.postdata_eventtrigger_func() RETURNS event_trigger AS $$ BEGIN END $$ LANGUAGE plpgsql;")
+				testhelper.AssertQueryRuns(backupConn, "CREATE EVENT TRIGGER postdata_eventtrigger ON sql_drop EXECUTE PROCEDURE postdata_metadata.postdata_eventtrigger_func();")
+				testhelper.AssertQueryRuns(backupConn, "ALTER EVENT TRIGGER postdata_eventtrigger DISABLE;")
+				testhelper.AssertQueryRuns(backupConn, "COMMENT ON EVENT TRIGGER postdata_eventtrigger IS 'hello'")
+			}
+	
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--metadata-only")
+			output := gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb", "--jobs", "8", "--verbose")
+	
+			// The gprestore parallel postdata restore should have succeeded without a CRITICAL error.
+			stdout := string(output)
+			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			Expect(stdout).To(Not(ContainSubstring("Error encountered when executing statement")))
+		})
+		Describe("Edge case tests", func() {
+			It(`successfully backs up precise real data types`, func() {
+				// Versions before 1.13.0 do not set the extra_float_digits GUC
+				skipIfOldBackupVersionBefore("1.13.0")
+		
+				tableName := "public.test_real_precision"
+				tableNameCopy := "public.test_real_precision_copy"
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s (val real)`, tableName))
+				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableName))
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO %s VALUES (0.100001216)`, tableName))
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s AS SELECT * FROM %s`, tableNameCopy, tableName))
+				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableNameCopy))
+		
+				// We use --jobs flag to make sure all parallel connections have the GUC set properly
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--backup-dir", backupDir,
+					"--dbname", "testdb", "--jobs", "2",
+					"--include-table", fmt.Sprintf("%s", tableName),
+					"--include-table", fmt.Sprintf("%s", tableNameCopy))
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir)
+				tableCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableName))
+				Expect(tableCount).To(Equal(strconv.Itoa(1)))
+				tableCopyCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableNameCopy))
+				Expect(tableCopyCount).To(Equal(strconv.Itoa(1)))
+			})
+			It("backup and restore all data when NOT VALID option on constraints is specified", func() {
+				testutils.SkipIfBefore6(backupConn)
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE legacy_table_violate_constraints (a int)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP TABLE legacy_table_violate_constraints")
+				testhelper.AssertQueryRuns(backupConn,
+					"INSERT INTO legacy_table_violate_constraints values (0), (1), (2), (3), (4), (5), (6), (7)")
+				testhelper.AssertQueryRuns(backupConn,
+					"ALTER TABLE legacy_table_violate_constraints ADD CONSTRAINT new_constraint_not_valid CHECK (a > 4) NOT VALID")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"ALTER TABLE legacy_table_violate_constraints DROP CONSTRAINT new_constraint_not_valid")
+		
+				timestamp := gpbackup(gpbackupPath, backupHelperPath,
+					"--backup-dir", backupDir)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir)
+		
+				legacySchemaTupleCounts := map[string]int{
+					`public."legacy_table_violate_constraints"`: 8,
+				}
+				assertDataRestored(restoreConn, legacySchemaTupleCounts)
+		
+				isConstraintHere := dbconn.MustSelectString(restoreConn,
+					"SELECT count(*) FROM pg_constraint WHERE conname='new_constraint_not_valid'")
+				Expect(isConstraintHere).To(Equal(strconv.Itoa(1)))
+		
+				_, err := restoreConn.Exec("INSERT INTO legacy_table_violate_constraints VALUES (1)")
+				Expect(err).To(HaveOccurred())
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
+			It("runs gpbackup and gprestore to backup tables depending on functions", func() {
+				skipIfOldBackupVersionBefore("1.19.0")
+				testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + 1; END; $$ LANGUAGE PLPGSQL;;")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
+		
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
+				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
+				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (2);")
+		
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb")
+		
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS+1) // for new table
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertDataRestored(restoreConn, map[string]int{
+					"public.foo":                      40000,
+					"public.holds":                    50000,
+					"public.sales":                    13,
+					"public.test_depends_on_function": 2})
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
+			It("runs gpbackup and gprestore to backup functions depending on tables", func() {
+				skipIfOldBackupVersionBefore("1.19.0")
+		
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE to_use_for_function (n int);")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE to_use_for_function;")
+		
+				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  to_use_for_function values (1);")
+				testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + (SELECT n FROM to_use_for_function); END; $$ LANGUAGE PLPGSQL;;")
+		
+				defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
+		
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
+				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
+		
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb")
+		
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS+2) // for 2 new tables
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertDataRestored(restoreConn, map[string]int{
+					"public.foo":                      40000,
+					"public.holds":                    50000,
+					"public.sales":                    13,
+					"public.to_use_for_function":      1,
+					"public.test_depends_on_function": 1})
+		
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
+			It("Can restore xml with xmloption set to document", func() {
+				testutils.SkipIfBefore6(backupConn)
+				// Set up the XML table that contains XML content
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE xml_test AS SELECT xml 'fooxml'")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE xml_test")
+		
+				// Set up database that has xmloption default to document instead of content
+				testhelper.AssertQueryRuns(backupConn, "CREATE DATABASE document_db")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP DATABASE document_db")
+				testhelper.AssertQueryRuns(backupConn, "ALTER DATABASE document_db SET xmloption TO document")
+		
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-table", "public.xml_test")
+		
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "document_db")
+			})
+			It("does not hold lock on gp_segment_configuration when backup is in progress", func() {
+				if useOldBackupVersion {
+					Skip("This test is not needed for old backup versions")
+				}
+				// Block on pg_trigger, which gpbackup queries after gp_segment_configuration
+				backupConn.MustExec("BEGIN; LOCK TABLE pg_trigger IN ACCESS EXCLUSIVE MODE")
+		
+				args := []string{
+					"--dbname", "testdb",
+					"--backup-dir", backupDir,
+					"--verbose"}
+				cmd := exec.Command(gpbackupPath, args...)
+		
+				backupConn.MustExec("COMMIT")
+				anotherConn := testutils.SetupTestDbConn("testdb")
+				defer anotherConn.Close()
+				var lockCount int
+				go func() {
+					gpSegConfigQuery := `SELECT * FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND c.relname = 'gp_segment_configuration';`
+					_ = anotherConn.Get(&lockCount, gpSegConfigQuery)
+				}()
+		
+				Expect(lockCount).To(Equal(0))
+		
+				output, _ := cmd.CombinedOutput()
+				stdout := string(output)
+				Expect(stdout).To(ContainSubstring("Backup completed successfully"))
+			})
+			It("properly handles various implicit casts on pg_catalog.text", func() {
+				if useOldBackupVersion {
+					Skip("This test is not needed for old backup versions")
+				}
+				// casts already exist on 4X
+				if backupConn.Version.AtLeast("5") {
+					testutils.ExecuteSQLFile(backupConn, "resources/implicit_casts.sql")
+				}
+		
+				args := []string{
+					"--dbname", "testdb",
+					"--backup-dir", backupDir,
+					"--verbose"}
+				cmd := exec.Command(gpbackupPath, args...)
+		
+				output, _ := cmd.CombinedOutput()
+				stdout := string(output)
+				Expect(stdout).To(ContainSubstring("Backup completed successfully"))
+			})
+		})
 	})
 })

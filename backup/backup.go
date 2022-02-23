@@ -289,12 +289,7 @@ func backupData(tables []Table) {
 			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated, initialPipes)
 	}
 	gplog.Info("Writing data to file")
-	var rowsCopiedMaps []map[uint32]int64
-	if FlagChanged(options.COPY_QUEUE_SIZE) {
-		rowsCopiedMaps = backupDataForAllTablesCopyQueue(tables)
-	} else {
-		rowsCopiedMaps = backupDataForAllTables(tables)
-	}
+	rowsCopiedMaps := backupDataForAllTables(tables)
 	AddTableDataEntriesToTOC(tables, rowsCopiedMaps)
 	if MustGetFlagBool(options.SINGLE_DATA_FILE) && MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
@@ -601,6 +596,5 @@ func getTableLocks(table Table) []TableLocks {
 func logTableLocks(table Table, whichConn int) {
 	locks := getTableLocks(table)
 	jsonData, _ := json.Marshal(&locks)
-	gplog.Warn("Worker %d could not acquire AccessShareLock for table %s. Terminating worker and deferring table to main worker thread.",	whichConn,table.FQN())
 	gplog.Warn("Locks held on table %s: %s", table.FQN(), jsonData)
 }
