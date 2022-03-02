@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -170,7 +169,6 @@ func getOidListFromFile() ([]int, error) {
 		num, _ := strconv.Atoi(oid)
 		oidList[i] = num
 	}
-	sort.Ints(oidList)
 	return oidList, nil
 }
 
