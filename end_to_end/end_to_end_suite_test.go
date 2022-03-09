@@ -1906,4 +1906,32 @@ var _ = Describe("backup and restore end to end tests", func() {
 		gprestore(gprestorePath, restoreHelperPath, timestamp,
 			"--redirect-db", "document_db")
 	})
+	It("does not hold lock on gp_segment_configuration when backup is in progress", func() {
+		if useOldBackupVersion {
+			Skip("This test is not needed for old backup versions")
+		}
+		// Block on pg_trigger, which occurs after we query gp_segment_configuration
+		backupConn.MustExec("BEGIN; LOCK TABLE pg_trigger IN ACCESS EXCLUSIVE MODE")
+
+		args := []string{
+			"--dbname", "testdb",
+			"--backup-dir", backupDir,
+			"--verbose"}
+		cmd := exec.Command(gpbackupPath, args...)
+
+		anotherConn := testutils.SetupTestDbConn("testdb")
+		defer anotherConn.Close()
+		var lockCount int
+		go func() {
+			gpSegConfigQuery := `SELECT * FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND c.relname = 'gp_segment_configuration';`
+			_ = anotherConn.Get(&lockCount, gpSegConfigQuery)
+		}()
+
+		Expect(lockCount).To(Equal(0))
+		backupConn.MustExec("COMMIT")
+
+		output, _ := cmd.CombinedOutput()
+		stdout := string(output)
+		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
+	})
 })

@@ -61,9 +61,14 @@ func DoSetup() {
 	err = opts.ExpandIncludesForPartitions(connectionPool, cmdFlags)
 	gplog.FatalOnError(err)
 
-	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
+	clusterConfigConn := dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
+	clusterConfigConn.MustConnect(1)
+
+	segConfig := cluster.MustGetSegmentConfiguration(clusterConfigConn)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := filepath.GetSegPrefix(connectionPool)
+	segPrefix := filepath.GetSegPrefix(clusterConfigConn)
+	clusterConfigConn.Close()
+
 	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, segPrefix)
 	if MustGetFlagBool(options.METADATA_ONLY) {
 		_, err = globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(-1)))
