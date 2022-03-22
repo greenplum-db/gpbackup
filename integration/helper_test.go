@@ -10,11 +10,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/klauspost/compress/zstd"
+	"golang.org/x/sys/unix"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -83,7 +83,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		err = os.MkdirAll(pluginDir, 0777)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = syscall.Mkfifo(fmt.Sprintf("%s_%d", pipeFile, 1), 0777)
+		err = unix.Mkfifo(fmt.Sprintf("%s_%d", pipeFile, 1), 0777)
 		if err != nil {
 			Fail(fmt.Sprintf("%v", err))
 		}
@@ -151,7 +151,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		It("Generates error file when backup agent interrupted", func() {
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "0", "--data-file", dataFileFullPath)
 			waitForPipeCreation()
-			err := helperCmd.Process.Signal(os.Interrupt)
+			err := helperCmd.Process.Signal(unix.SIGINT)
 			Expect(err).ToNot(HaveOccurred())
 			err = helperCmd.Wait()
 			Expect(err).To(HaveOccurred())
@@ -235,7 +235,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			setupRestoreFiles("gzip", false)
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".gz")
 			waitForPipeCreation()
-			err := helperCmd.Process.Signal(os.Interrupt)
+			err := helperCmd.Process.Signal(unix.SIGINT)
 			Expect(err).ToNot(HaveOccurred())
 			err = helperCmd.Wait()
 			Expect(err).To(HaveOccurred())

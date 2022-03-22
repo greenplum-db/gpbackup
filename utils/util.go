@@ -11,13 +11,13 @@ import (
 	"os/signal"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/unix"
 )
 
 const MINIMUM_GPDB4_VERSION = "4.3.17"
@@ -134,15 +134,19 @@ func ValidateCompressionTypeAndLevel(compressionType string, compressionLevel in
 
 func InitializeSignalHandler(cleanupFunc func(bool), procDesc string, termFlag *bool) {
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signalChan, unix.SIGINT, unix.SIGTERM)
 	go func() {
-		for range signalChan {
-			fmt.Println() // Add newline after "^C" is printed
-			gplog.Warn("Received a termination signal, aborting %s", procDesc)
-			*termFlag = true
-			cleanupFunc(true)
-			os.Exit(2)
+		sig := <-signalChan
+		fmt.Println() // Add newline after "^C" is printed
+		switch sig {
+		case unix.SIGINT:
+				gplog.Warn("Received an interrupt signal, aborting %s", procDesc)
+		case unix.SIGTERM:
+				gplog.Warn("Received a termination signal, aborting %s", procDesc)
 		}
+		*termFlag = true
+		cleanupFunc(true)
+		os.Exit(2)
 	}()
 }
 

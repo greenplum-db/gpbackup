@@ -9,13 +9,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/unix"
 )
 
 /*
@@ -125,7 +125,7 @@ func doRestoreAgent() error {
 		for {
 			writer, writeHandle, err = getRestorePipeWriter(currentPipe)
 			if err != nil {
-				if errors.Is(err, syscall.ENXIO) {
+				if errors.Is(err, unix.ENXIO) {
 					// COPY (the pipe reader) has not tried to access the pipe yet so our restore_helper
 					// process will get ENXIO error on its nonblocking open call on the pipe. We loop in
 					// here while looking to see if gprestore has created a skip file for this restore entry.
@@ -153,7 +153,7 @@ func doRestoreAgent() error {
 				// the writer for the pipe. To avoid having to write complex buffer
 				// logic for when os.write() returns EAGAIN due to full buffer, set
 				// the file descriptor to block on IO.
-				syscall.SetNonblock(int(writeHandle.Fd()), false)
+				unix.SetNonblock(int(writeHandle.Fd()), false)
 				break
 			}
 		}
@@ -265,7 +265,7 @@ func getRestoreDataReader(toc *toc.SegmentTOC, oidList []int) (*RestoreReader, e
 }
 
 func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File, error) {
-	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
+	fileHandle, err := os.OpenFile(currentPipe, os.O_WRONLY|unix.O_NONBLOCK, os.ModeNamedPipe)
 	if err != nil {
 		return nil, nil, err
 	}

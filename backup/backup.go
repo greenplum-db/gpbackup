@@ -429,11 +429,15 @@ func DoCleanup(backupFailed bool) {
 		if err := recover(); err != nil {
 			gplog.Warn("Encountered error during cleanup: %v", err)
 		}
+		connectionPool.Close()
 		gplog.Verbose("Cleanup complete")
 		CleanupGroup.Done()
 	}()
 
 	gplog.Verbose("Beginning cleanup")
+	if connectionPool != nil {
+		cancelBlockedQueries(globalFPInfo.Timestamp)
+	}
 	if globalFPInfo.Timestamp != "" {
 		if MustGetFlagBool(options.SINGLE_DATA_FILE) {
 			// Copy sessions must be terminated before cleaning up gpbackup_helper processes to avoid a potential deadlock
@@ -453,10 +457,6 @@ func DoCleanup(backupFailed bool) {
 	err := backupLockFile.Unlock()
 	if err != nil && backupLockFile != "" {
 		gplog.Warn("Failed to remove lock file %s.", backupLockFile)
-	}
-	if connectionPool != nil {
-		cancelBlockedQueries(globalFPInfo.Timestamp)
-		connectionPool.Close()
 	}
 }
 
