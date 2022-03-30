@@ -1656,6 +1656,11 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 			unexpectedCopyString := fmt.Sprintf("[DEBUG]:-Worker %d: COPY ", i)
 			Expect(stdout).ToNot(ContainSubstring(unexpectedCopyString))
+
+			expectedLockString = fmt.Sprintf(`Locks held on table %s`, dataTables[i])
+			Expect(stdout).To(ContainSubstring(expectedLockString))
+
+			Expect(stdout).To(ContainSubstring(`"Mode":"AccessExclusiveLock"`))
 		}
 
 		// Only the main worker thread, worker 0, will run COPY on all the test tables

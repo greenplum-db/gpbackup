@@ -27,7 +27,7 @@ The `build` target will put the `gpbackup` and `gprestore` binaries in `$HOME/go
 
 This will also attempt to copy `gpbackup_helper` to the greenplum segments (retrieving hostnames from `gp_segment_configuration`). Pay attention to the output as it will indicate whether this operation was successful.
 
-`make build_linux` and `make build_mac` are for cross compiling between macOS and Linux
+`make build_linux` is for cross compiling on macOS, and the target is Linux.
 
 `make install` will scp the `gpbackup_helper` binary (used with -single-data-file flag) to all hosts
 

@@ -24,7 +24,9 @@ cat <<SCRIPT > /tmp/run_tests.bash
 
   set -ex
   source env.sh
-
+  if [[ -f /opt/gcc_env.sh ]]; then
+      source /opt/gcc_env.sh
+  fi
   cd \${GOPATH}/src/github.com/greenplum-db/gpbackup
   export OLD_BACKUP_VERSION="${GPBACKUP_VERSION}"
 

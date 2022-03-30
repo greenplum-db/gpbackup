@@ -59,9 +59,6 @@ gpbackup_manager display-report \$timestamp
 echo "## Performing single-data-file, --no-compression, --copy-queue-size 2 restore for copy queue test ##"
 time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --redirect-db copyqueuerestore2 --copy-queue-size 2
 
-echo "## Performing single-data-file, --no-compression, --copy-queue-size 4 restore for copy queue test ##"
-time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --redirect-db copyqueuerestore4 --copy-queue-size 4
-
 echo "## Performing single-data-file, --no-compression, --copy-queue-size 8 restore for copy queue test ##"
 time gprestore --timestamp "\$timestamp" --backup-dir /data/gpdata/ --create-db --redirect-db copyqueuerestore8 --copy-queue-size 8
 
