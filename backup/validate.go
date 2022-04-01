@@ -144,7 +144,7 @@ func validateFromTimestamp(fromTimestamp string) {
 
 	if !matchesIncrementalFlags(fromBackupConfig, &backupReport.BackupConfig) {
 		gplog.Fatal(errors.Errorf("The flags of the backup with timestamp = %s does not match "+
-			"that of the current one. Please refer to the report to view the flags supplied for the"+
+			"that of the current one. Please refer to the report to view the flags supplied for the "+
 			"previous backup.", fromTimestampFPInfo.Timestamp), "")
 	}
 }
