@@ -419,6 +419,50 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 				Fail("Role 'role1inf' or 'role1neginf' was not found")
 			}
 		})
+		It("returns roles when implicit cast of timestamp to text exists", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1 SUPERUSER NOINHERIT")
+
+			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION pg_catalog.text(timestamp without time zone) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(timestamp_out($1));';`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE CAST (timestamp without time zone AS text) WITH FUNCTION pg_catalog.text(timestamp without time zone) AS IMPLICIT;`)
+
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1")
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP FUNCTION pg_catalog.text(timestamp without time zone) CASCADE`)
+			results := backup.GetRoles(connectionPool)
+
+			roleOid := testutils.OidFromObjectName(connectionPool, "", "role1", backup.TYPE_ROLE)
+			expectedRole := backup.Role{
+				Oid:             roleOid,
+				Name:            "role1",
+				Super:           true,
+				Inherit:         false,
+				CreateRole:      false,
+				CreateDB:        false,
+				CanLogin:        false,
+				Replication:     false,
+				ConnectionLimit: -1,
+				Password:        "",
+				ValidUntil:      "",
+				ResQueue:        "pg_default",
+				ResGroup:        "admin_group",
+				Createrexthttp:  false,
+				Createrextgpfd:  false,
+				Createwextgpfd:  false,
+				Createrexthdfs:  false,
+				Createwexthdfs:  false,
+				TimeConstraints: nil,
+			}
+			if connectionPool.Version.Before("5") {
+				expectedRole.ResGroup = ""
+			}
+			for _, role := range results {
+				if role.Name == "role1" {
+					structmatcher.ExpectStructsToMatch(&expectedRole, role)
+					return
+				}
+			}
+			Fail("Role 'role1' was not found")
+
+		})
 	})
 	Describe("GetRoleMembers", func() {
 		BeforeEach(func() {
