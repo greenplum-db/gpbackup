@@ -422,11 +422,15 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 		It("returns roles when implicit cast of timestamp to text exists", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1 SUPERUSER NOINHERIT")
 
-			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION pg_catalog.text(timestamp without time zone) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(timestamp_out($1));';`)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE CAST (timestamp without time zone AS text) WITH FUNCTION pg_catalog.text(timestamp without time zone) AS IMPLICIT;`)
+			// Function and cast already exist on 4x
+			if connectionPool.Version.AtLeast("5") {
+				testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(timestamp without time zone) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(timestamp_out($1));';")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (timestamp without time zone AS text) WITH FUNCTION pg_catalog.text(timestamp without time zone) AS IMPLICIT;")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(timestamp without time zone) CASCADE;")
+			}
 
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1")
-			defer testhelper.AssertQueryRuns(connectionPool, `DROP FUNCTION pg_catalog.text(timestamp without time zone) CASCADE`)
+
 			results := backup.GetRoles(connectionPool)
 
 			roleOid := testutils.OidFromObjectName(connectionPool, "", "role1", backup.TYPE_ROLE)

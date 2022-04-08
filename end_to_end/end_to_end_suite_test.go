@@ -1910,7 +1910,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 		if useOldBackupVersion {
 			Skip("This test is not needed for old backup versions")
 		}
-		// Block on pg_trigger, which occurs after we query gp_segment_configuration
+		// Block on pg_trigger, which gpbackup queries after gp_segment_configuration
 		backupConn.MustExec("BEGIN; LOCK TABLE pg_trigger IN ACCESS EXCLUSIVE MODE")
 
 		args := []string{
@@ -1919,6 +1919,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			"--verbose"}
 		cmd := exec.Command(gpbackupPath, args...)
 
+		backupConn.MustExec("COMMIT")
 		anotherConn := testutils.SetupTestDbConn("testdb")
 		defer anotherConn.Close()
 		var lockCount int
@@ -1928,7 +1929,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 		}()
 
 		Expect(lockCount).To(Equal(0))
-		backupConn.MustExec("COMMIT")
 
 		output, _ := cmd.CombinedOutput()
 		stdout := string(output)
