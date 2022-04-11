@@ -507,16 +507,24 @@ func (rm RoleMember) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
-	query := `
+	var caseClause string
+	if connectionPool.Version.AtLeast("5") {
+		caseClause = `
+		WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor::regclass||')'
+		THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))`
+	} else {
+		caseClause = `
+		WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
+		THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))`
+	}
+	query := fmt.Sprintf(`
 	SELECT quote_ident(pg_get_userbyid(pga.roleid)) AS role,
 		quote_ident(pg_get_userbyid(pga.member)) AS member,
-		CASE
-			WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
-			THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))
+		CASE %s
 		END AS grantor,
 		admin_option AS isadmin
 	FROM pg_auth_members pga
-	ORDER BY roleid, member`
+	ORDER BY roleid, member`, caseClause)
 
 	results := make([]RoleMember, 0)
 	err := connectionPool.Select(&results, query)
@@ -564,7 +572,7 @@ func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {
 	query := `
 	SELECT oid,
 		quote_ident(spcname) AS tablespace,
-		'''' || pg_catalog.pg_tablespace_location(oid) || '''' AS filelocation,
+		'''' || pg_catalog.pg_tablespace_location(oid)::text || '''' AS filelocation,
 		coalesce(array_to_string(spcoptions, ', '), '') AS options
 	FROM pg_tablespace
 	WHERE spcname != 'pg_default'
@@ -586,7 +594,7 @@ func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {
 
 func GetSegmentTablespaces(connectionPool *dbconn.DBConn, Oid uint32) []string {
 	query := fmt.Sprintf(`
-	SELECT 'content' || gp_segment_id || '=''' || tblspc_loc || '''' AS string
+	SELECT 'content'::text || gp_segment_id::text || '=''' || tblspc_loc || '''' AS string
 	FROM gp_tablespace_segment_location(%d)
 	WHERE tblspc_loc != pg_tablespace_location(%d)
 	ORDER BY gp_segment_id;`, Oid, Oid)

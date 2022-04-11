@@ -419,7 +419,7 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 				Fail("Role 'role1inf' or 'role1neginf' was not found")
 			}
 		})
-		It("returns roles when implicit cast of timestamp to text exists", func() {
+		It("handles implicit cast of timestamp to text", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1 SUPERUSER NOINHERIT")
 
 			// Function and cast already exist on 4x
@@ -541,6 +541,26 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 			Expect(len(roleMember)).To(Equal(1))
 			structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember[0])
 		})
+		It("handles implicit cast of oid to text", func() {
+			// Function and cast already exist on 4x
+			if connectionPool.Version.AtLeast("5") {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(oid) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(oidout($1));';")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (oid AS text) WITH FUNCTION pg_catalog.text(oid) AS IMPLICIT;")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(oid) CASCADE;")
+			}
+			testhelper.AssertQueryRuns(connectionPool, "GRANT usergroup TO testuser")
+			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: false}
+
+			roleMembers := backup.GetRoleMembers(connectionPool)
+
+			for _, roleMember := range roleMembers {
+				if roleMember.Role == "usergroup" {
+					structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember)
+					return
+				}
+			}
+			Fail("Role 'testuser' is not a member of role 'usergroup'")
+		})
 	})
 	Describe("GetRoleGUCs", func() {
 		It("returns a slice of values for user level GUCs", func() {
@@ -613,6 +633,31 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 			}
 
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
+
+			resultTablespaces := backup.GetTablespaces(connectionPool)
+
+			for _, tablespace := range resultTablespaces {
+				if tablespace.Tablespace == "test_tablespace" {
+					structmatcher.ExpectStructsToMatchExcluding(&expectedTablespace, &tablespace, "Oid")
+					return
+				}
+			}
+			Fail("Tablespace 'test_tablespace' was not created")
+		})
+		It("handles implicit cast of oid to text", func() {
+			testutils.SkipIfBefore6(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir' WITH (content0='/tmp/test_dir1', seq_page_cost=123)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(oid) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(oidout($1));';")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (oid AS text) WITH FUNCTION pg_catalog.text(oid) AS IMPLICIT;")
+			expectedTablespace := backup.Tablespace{
+				Oid: 0, Tablespace: "test_tablespace", FileLocation: "'/tmp/test_dir'",
+				SegmentLocations: []string{"content0='/tmp/test_dir1'"},
+				Options:          "seq_page_cost=123",
+			}
+
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(oid) CASCADE;")
 
 			resultTablespaces := backup.GetTablespaces(connectionPool)
 

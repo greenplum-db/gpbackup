@@ -1934,4 +1934,23 @@ var _ = Describe("backup and restore end to end tests", func() {
 		stdout := string(output)
 		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
 	})
+	It("properly handles various implicit casts on pg_catalog.text", func() {
+		if useOldBackupVersion {
+			Skip("This test is not needed for old backup versions")
+		}
+		// casts already exist on 4X
+		if backupConn.Version.AtLeast("5") {
+			testutils.ExecuteSQLFile(backupConn, "resources/implicit_casts.sql")
+		}
+
+		args := []string{
+			"--dbname", "testdb",
+			"--backup-dir", backupDir,
+			"--verbose"}
+		cmd := exec.Command(gpbackupPath, args...)
+
+		output, _ := cmd.CombinedOutput()
+		stdout := string(output)
+		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
+	})
 })

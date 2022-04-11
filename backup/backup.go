@@ -549,7 +549,7 @@ func getTableLocks(table Table) []TableLocks {
 		query = fmt.Sprintf(`
 		SELECT c.oid as oid,
 		coalesce(a.datname, '') as database,
-		n.nspname || '.' || l.relation as relation,
+		n.nspname || '.' || c.relname as relation,
 		l.mode,
 		l.GRANTED as granted,
 		coalesce(a.application_name, '') as application,
@@ -569,7 +569,7 @@ func getTableLocks(table Table) []TableLocks {
 		query = fmt.Sprintf(`
 		SELECT c.oid as oid,
 		coalesce(a.datname, '') as database,
-		n.nspname || '.' || l.relation relation,
+		n.nspname || '.' || c.relname relation,
 		l.mode,
 		l.GRANTED as granted,
 		coalesce(a.application_name, '') as application,
