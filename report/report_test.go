@@ -66,6 +66,7 @@ var _ = Describe("utils/report tests", func() {
 			BackupVersion:   "0.1.0",
 			DatabaseName:    "testdb",
 			DatabaseVersion: "5.0.0 build test",
+			SegmentCount:    3,
 		}
 		backupReport := &report.Report{}
 		objectCounts := map[string]int{"tables": 42, "sequences": 1, "types": 1000}
@@ -114,6 +115,7 @@ duration:              4:03:02
 backup status:         Success
 
 database size:         42 MB
+segment count:         3
 
 count of database objects in backup:
 sequences   1
@@ -144,6 +146,7 @@ backup status:         Failure
 backup error:          Cannot access /tmp/backups: Permission denied
 
 database size:         42 MB
+segment count:         3
 
 count of database objects in backup:
 sequences   1
@@ -172,6 +175,8 @@ end time:              Sun Jan 01 2017 05:04:03
 duration:              4:03:02
 
 backup status:         Success
+
+segment count:         3
 
 count of database objects in backup:
 sequences   1
@@ -239,58 +244,64 @@ incremental backup set:
 
 		It("writes a report for a failed restore", func() {
 			gplog.SetErrorCode(2)
-			report.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "Cannot access /tmp/backups: Permission denied")
+			report.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, 3, 4, "Cannot access /tmp/backups: Permission denied")
 			Expect(buffer).To(Say(`Greenplum Database Restore Report
 
-timestamp key:       20170101010101
-gpdb version:        5\.0\.0 build test
-gprestore version:   0\.1\.0
+timestamp key:           20170101010101
+gpdb version:            5\.0\.0 build test
+gprestore version:       0\.1\.0
 
-database name:       testdb
-command line:        .*
+database name:           testdb
+command line:            .*
 
-start time:          Sun Jan 01 2017 01:01:02
-end time:            Sun Jan 01 2017 05:04:03
-duration:            4:03:01
+backup segment count:    3
+restore segment count:   4
+start time:              Sun Jan 01 2017 01:01:02
+end time:                Sun Jan 01 2017 05:04:03
+duration:                4:03:01
 
-restore status:      Failure
-restore error:       Cannot access /tmp/backups: Permission denied`))
+restore status:          Failure
+restore error:           Cannot access /tmp/backups: Permission denied`))
 		})
 		It("writes a report for a successful restore", func() {
 			gplog.SetErrorCode(0)
-			report.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
+			report.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, 3, 3, "")
 			Expect(buffer).To(Say(`Greenplum Database Restore Report
 
-timestamp key:       20170101010101
-gpdb version:        5\.0\.0 build test
-gprestore version:   0\.1\.0
+timestamp key:           20170101010101
+gpdb version:            5\.0\.0 build test
+gprestore version:       0\.1\.0
 
-database name:       testdb
-command line:        .*
+database name:           testdb
+command line:            .*
 
-start time:          Sun Jan 01 2017 01:01:02
-end time:            Sun Jan 01 2017 05:04:03
-duration:            4:03:01
+backup segment count:    3
+restore segment count:   3
+start time:              Sun Jan 01 2017 01:01:02
+end time:                Sun Jan 01 2017 05:04:03
+duration:                4:03:01
 
-restore status:      Success`))
+restore status:          Success`))
 		})
 		It("writes a report for a successful restore with errors", func() {
 			gplog.SetErrorCode(1)
-			report.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, "")
+			report.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, 3, 3, "")
 			Expect(buffer).To(Say(`Greenplum Database Restore Report
 
-timestamp key:       20170101010101
-gpdb version:        5\.0\.0 build test
-gprestore version:   0\.1\.0
+timestamp key:           20170101010101
+gpdb version:            5\.0\.0 build test
+gprestore version:       0\.1\.0
 
-database name:       testdb
-command line:        .*
+database name:           testdb
+command line:            .*
 
-start time:          Sun Jan 01 2017 01:01:02
-end time:            Sun Jan 01 2017 05:04:03
-duration:            4:03:01
+backup segment count:    3
+restore segment count:   3
+start time:              Sun Jan 01 2017 01:01:02
+end time:                Sun Jan 01 2017 05:04:03
+duration:                4:03:01
 
-restore status:      Success but non-fatal errors occurred. See log file .+ for details.`))
+restore status:          Success but non-fatal errors occurred. See log file .+ for details.`))
 		})
 	})
 	Describe("SetBackupParamFromFlags", func() {

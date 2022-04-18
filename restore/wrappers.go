@@ -73,6 +73,7 @@ func CreateConnectionPool(unquotedDBName string) {
 
 func InitializeConnectionPool(backupTimestamp string, restoreTimestamp string, unquotedDBName string) {
 	CreateConnectionPool(unquotedDBName)
+	resizeRestore := MustGetFlagBool(options.RESIZE_CLUSTER)
 	setupQuery := fmt.Sprintf("SET application_name TO 'gprestore_%s_%s';", backupTimestamp, restoreTimestamp)
 	setupQuery += `
 SET search_path TO pg_catalog;
@@ -83,6 +84,7 @@ SET client_min_messages = error;
 SET standard_conforming_strings = on;
 SET default_with_oids = off;
 `
+
 	if connectionPool.Version.Is("4") {
 		setupQuery += "SET gp_strict_xml_parse = off;\n"
 	}
@@ -92,6 +94,7 @@ SET default_with_oids = off;
 	if connectionPool.Version.Before("6") {
 		setupQuery += "SET allow_system_table_mods = 'DML';\n"
 	}
+
 	if connectionPool.Version.AtLeast("6") {
 		setupQuery += "SET allow_system_table_mods = true;\n"
 		setupQuery += "SET lock_timeout = 0;\n"
@@ -100,15 +103,25 @@ SET default_with_oids = off;
 
 		// If the backup is from a GPDB version less than 6.0,
 		// we need to use legacy hash operators when restoring
-		// the tables.
+		// the tables, unless we're restoring to a cluster of
+		// a different size since in that case the data will be
+		// redistributed during the restore process.
 		backupConfigMajorVer, _ := strconv.Atoi(strings.Split(backupConfig.DatabaseVersion, ".")[0])
-		if backupConfigMajorVer < 6 {
+		if backupConfigMajorVer < 6 && !resizeRestore {
 			setupQuery += "SET gp_use_legacy_hashops = on;\n"
 			gplog.Warn("This backup set was taken on a version of Greenplum prior to 6.x. This restore will use the legacy hash operators when loading data.")
 			gplog.Warn("To use the new Greenplum 6.x default hash operators, these tables will need to be redistributed.")
 			gplog.Warn("For more information, refer to the migration guide located as https://docs.greenplum.org/latest/install_guide/migrate.html.")
 		}
 	}
+
+	// If we're restoring to a different-sized cluster, disable the
+	// distribution key check because the data won't necessarily
+	// match initially and will be redistributed after the restore.
+	if resizeRestore {
+		setupQuery += "SET gp_enable_segment_copy_checking TO off;\n"
+	}
+
 	setupQuery += SetMaxCsvLineLengthQuery(connectionPool)
 
 	// Always disable gp_autostats_mode to prevent automatic ANALYZE
@@ -217,7 +230,10 @@ func RecoverMetadataFilesUsingPlugin() {
 	for _, fpInfo := range fpInfoList {
 		pluginConfig.MustRestoreFile(fpInfo.GetTOCFilePath())
 		if backupConfig.SingleDataFile {
-			pluginConfig.RestoreSegmentTOCs(globalCluster, fpInfo)
+			isResizeRestore := MustGetFlagBool(options.RESIZE_CLUSTER)
+			origSize := backupConfig.SegmentCount
+			destSize := len(globalCluster.ContentIDs) - 1
+			pluginConfig.RestoreSegmentTOCs(globalCluster, fpInfo, isResizeRestore, origSize, destSize)
 		}
 	}
 }

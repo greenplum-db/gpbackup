@@ -1,0 +1,42 @@
+ table_schema | table_name | seg_id | row_count 
+--------------+------------+--------+-----------
+ schemaone    | tablefour  |      0 |      1704
+ schemaone    | tablefour  |      1 |      1694
+ schemaone    | tablefour  |      2 |      1723
+ schemaone    | tablefour  |      3 |      1619
+ schemaone    | tablefour  |      4 |      1618
+ schemaone    | tablefour  |      5 |      1642
+ schemaone    | tableone   |      4 |         1
+ schemaone    | tablethree |      0 |       172
+ schemaone    | tablethree |      1 |       163
+ schemaone    | tablethree |      2 |       182
+ schemaone    | tablethree |      3 |       164
+ schemaone    | tablethree |      4 |       168
+ schemaone    | tablethree |      5 |       151
+ schemaone    | tabletwo   |      0 |        21
+ schemaone    | tabletwo   |      1 |        18
+ schemaone    | tabletwo   |      2 |        12
+ schemaone    | tabletwo   |      3 |        15
+ schemaone    | tabletwo   |      4 |        18
+ schemaone    | tabletwo   |      5 |        16
+ schematwo    | tablefour  |      0 |      1704
+ schematwo    | tablefour  |      1 |      1694
+ schematwo    | tablefour  |      2 |      1723
+ schematwo    | tablefour  |      3 |      1619
+ schematwo    | tablefour  |      4 |      1618
+ schematwo    | tablefour  |      5 |      1642
+ schematwo    | tableone   |      4 |         1
+ schematwo    | tablethree |      0 |       172
+ schematwo    | tablethree |      1 |       163
+ schematwo    | tablethree |      2 |       182
+ schematwo    | tablethree |      3 |       164
+ schematwo    | tablethree |      4 |       168
+ schematwo    | tablethree |      5 |       151
+ schematwo    | tabletwo   |      0 |        21
+ schematwo    | tabletwo   |      1 |        18
+ schematwo    | tabletwo   |      2 |        12
+ schematwo    | tabletwo   |      3 |        15
+ schematwo    | tabletwo   |      4 |        18
+ schematwo    | tabletwo   |      5 |        16
+(38 rows)
+

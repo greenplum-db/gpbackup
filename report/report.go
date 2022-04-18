@@ -151,11 +151,13 @@ func (report *Report) WriteBackupReportFile(reportFilename string, timestamp str
 			LineInfo{},
 			LineInfo{Key: "backup status:", Value: history.BackupStatusSucceed})
 	}
+	reportInfo = append(reportInfo, LineInfo{})
 	if report.DatabaseSize != "" {
 		reportInfo = append(reportInfo,
-			LineInfo{},
 			LineInfo{Key: "database size:", Value: strings.ToUpper(report.DatabaseSize)})
 	}
+	reportInfo = append(reportInfo,
+		LineInfo{Key: "segment count:", Value: fmt.Sprintf("%d", report.SegmentCount)})
 
 	_, err = fmt.Fprint(reportFile, "Greenplum Database Backup Report\n\n")
 	if err != nil {
@@ -172,7 +174,7 @@ func (report *Report) WriteBackupReportFile(reportFilename string, timestamp str
 	_ = operating.System.Chmod(reportFilename, 0444)
 }
 
-func WriteRestoreReportFile(reportFilename string, backupTimestamp string, startTimestamp string, connectionPool *dbconn.DBConn, restoreVersion string, errMsg string) {
+func WriteRestoreReportFile(reportFilename string, backupTimestamp string, startTimestamp string, connectionPool *dbconn.DBConn, restoreVersion string, origSize int, destSize int, errMsg string) {
 	reportFile, err := iohelper.OpenFileForWriting(reportFilename)
 	if err != nil {
 		gplog.Error("Unable to open restore report file %s", reportFilename)
@@ -191,6 +193,8 @@ func WriteRestoreReportFile(reportFilename string, backupTimestamp string, start
 		LineInfo{Key: "gprestore version:", Value: fmt.Sprintf("%s\n", restoreVersion)},
 		LineInfo{Key: "database name:", Value: connectionPool.DBName},
 		LineInfo{Key: "command line:", Value: fmt.Sprintf("%s\n", gprestoreCommandLine)},
+		LineInfo{Key: "backup segment count:", Value: fmt.Sprintf("%d", origSize)},
+		LineInfo{Key: "restore segment count:", Value: fmt.Sprintf("%d", destSize)},
 		LineInfo{Key: "start time:", Value: start},
 		LineInfo{Key: "end time:", Value: end},
 		LineInfo{Key: "duration:", Value: duration},

@@ -52,7 +52,7 @@ here is some data
 )
 
 func gpbackupHelper(helperPath string, args ...string) *exec.Cmd {
-	args = append([]string{"--toc-file", tocFile, "--oid-file", oidFile, "--pipe-file", pipeFile, "--content", "1"}, args...)
+	args = append([]string{"--toc-file", tocFile, "--oid-file", oidFile, "--pipe-file", pipeFile, "--content", "1", "--single-data-file"}, args...)
 	command := exec.Command(helperPath, args...)
 	err := command.Start()
 	Expect(err).ToNot(HaveOccurred())
@@ -233,7 +233,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		})
 		It("Generates error file when restore agent interrupted", func() {
 			setupRestoreFiles("gzip", false)
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".gz")
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".gz", "--single-data-file")
 			waitForPipeCreation()
 			err := helperCmd.Process.Signal(unix.SIGINT)
 			Expect(err).ToNot(HaveOccurred())

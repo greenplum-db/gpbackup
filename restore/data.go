@@ -22,7 +22,9 @@ import (
 )
 
 var (
-	tableDelim = ","
+	tableDelim       = ","
+	resizeBatchMap   map[int]map[int]int
+	resizeContentMap map[int]int
 )
 
 func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttributes string, destinationToRead string, singleDataFile bool, whichConn int) (int64, error) {
@@ -31,7 +33,9 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	readFromDestinationCommand := "cat"
 	customPipeThroughCommand := utils.GetPipeThroughProgram().InputCommand
 
-	if singleDataFile {
+	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
+
+	if singleDataFile || resizeCluster {
 		//helper.go handles compression, so we don't want to set it here
 		customPipeThroughCommand = "cat -"
 	} else if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
@@ -41,29 +45,50 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	copyCommand = fmt.Sprintf("PROGRAM '%s %s | %s'", readFromDestinationCommand, destinationToRead, customPipeThroughCommand)
 
 	query := fmt.Sprintf("COPY %s%s FROM %s WITH CSV DELIMITER '%s' ON SEGMENT;", tableName, tableAttributes, copyCommand, tableDelim)
-	gplog.Verbose(query)
-	result, err := connectionPool.Exec(query, whichConn)
-	if err != nil {
-		errStr := fmt.Sprintf("Error loading data into table %s", tableName)
 
-		// The COPY ON SEGMENT error might contain useful CONTEXT output
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Where != "" {
-			errStr = fmt.Sprintf("%s: %s", errStr, pgErr.Where)
+	var numRows int64
+	var err error
+
+	// During a larger-to-smaller restore, we need multiple COPY passes to load all the data.
+	// One pass is sufficient for smaller-to-larger and normal restores.
+	batches := 1
+	destSize := len(globalCluster.ContentIDs) - 1
+	origSize := backupConfig.SegmentCount
+	if resizeCluster && origSize > destSize {
+		batches = origSize / destSize
+		if origSize%destSize != 0 {
+			batches += 1
 		}
-
-		return 0, errors.Wrap(err, errStr)
 	}
-	numRows, _ := result.RowsAffected()
+	for i := 0; i < batches; i++ {
+		gplog.Verbose(`Executing "%s" on master`, query)
+		result, err := connectionPool.Exec(query, whichConn)
+		if err != nil {
+			errStr := fmt.Sprintf("Error loading data into table %s", tableName)
+
+			// The COPY ON SEGMENT error might contain useful CONTEXT output
+			if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Where != "" {
+				errStr = fmt.Sprintf("%s: %s", errStr, pgErr.Where)
+			}
+
+			return 0, errors.Wrap(err, errStr)
+		}
+		rowsLoaded, _ := result.RowsAffected()
+		numRows += rowsLoaded
+	}
+
 	return numRows, err
 }
 
 func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.MasterDataEntry, tableName string, whichConn int) error {
+	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
 	destinationToRead := ""
-	if backupConfig.SingleDataFile {
+	if backupConfig.SingleDataFile || resizeCluster {
 		destinationToRead = fmt.Sprintf("%s_%d", fpInfo.GetSegmentPipePathForCopyCommand(), entry.Oid)
 	} else {
 		destinationToRead = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, utils.GetPipeThroughProgram().Extension, backupConfig.SingleDataFile)
 	}
+	gplog.Debug("Reading from %s", destinationToRead)
 	numRowsRestored, err := CopyTableIn(connectionPool, tableName, entry.AttributeString, destinationToRead, backupConfig.SingleDataFile, whichConn)
 	if err != nil {
 		return err
@@ -73,7 +98,11 @@ func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.MasterDataE
 	if err != nil {
 		return err
 	}
-	return nil
+	if resizeCluster {
+		gplog.Debug("Redistributing data for %s", tableName)
+		err = RedistributeTableData(tableName, whichConn)
+	}
+	return err
 }
 
 func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string) error {
@@ -84,6 +113,12 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 	return nil
 }
 
+func RedistributeTableData(tableName string, whichConn int) error {
+	query := fmt.Sprintf("ALTER TABLE %s SET WITH (REORGANIZE=true)", tableName)
+	_, err := connectionPool.Exec(query, whichConn)
+	return err
+}
+
 func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.MasterDataEntry,
 	gucStatements []toc.StatementWithType, dataProgressBar utils.ProgressBar) int32 {
 	totalTables := len(dataEntries)
@@ -92,15 +127,27 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		return 0
 	}
 
-	if backupConfig.SingleDataFile {
-		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for single data file restore")
+	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
+	if backupConfig.SingleDataFile || resizeCluster {
+		msg := ""
+		if backupConfig.SingleDataFile {
+			msg += "single data file "
+		}
+		origSize := 0
+		destSize := 0
+		if resizeCluster {
+			msg += "resize "
+			origSize = backupConfig.SegmentCount
+			destSize = len(globalCluster.ContentIDs) - 1
+		}
+		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for %srestore", msg)
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		oidList := make([]string, totalTables)
 		for i, entry := range dataEntries {
 			oidList[i] = fmt.Sprintf("%d", entry.Oid)
 		}
 		utils.WriteOidListToSegments(oidList, globalCluster, fpInfo)
-		initialPipes := CreateInitialSegmentPipes(oidList, globalCluster, connectionPool,fpInfo)
+		initialPipes := CreateInitialSegmentPipes(oidList, globalCluster, connectionPool, fpInfo)
 		if wasTerminated {
 			return 0
 		}
@@ -108,7 +155,13 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		if len(opts.IncludedRelations) > 0 || len(opts.ExcludedRelations) > 0 || len(opts.IncludedSchemas) > 0 || len(opts.ExcludedSchemas) > 0 {
 			isFilter = true
 		}
-		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(options.PLUGIN_CONFIG), "", MustGetFlagBool(options.ON_ERROR_CONTINUE), isFilter, &wasTerminated, initialPipes)
+		compressStr := " --compression-type %s "
+		if !backupConfig.Compressed {
+			compressStr = fmt.Sprintf(compressStr, "none")
+		} else {
+			compressStr = fmt.Sprintf(compressStr, utils.GetPipeThroughProgram().Name)
+		}
+		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(options.PLUGIN_CONFIG), compressStr, MustGetFlagBool(options.ON_ERROR_CONTINUE), isFilter, &wasTerminated, initialPipes, backupConfig.SingleDataFile, origSize, destSize)
 	}
 	/*
 	 * We break when an interrupt is received and rely on

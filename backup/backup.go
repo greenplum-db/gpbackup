@@ -284,9 +284,9 @@ func backupData(tables []Table) {
 			compressStr = " --compression-level 0"
 		}
 		initialPipes := CreateInitialSegmentPipes(oidList, globalCluster, connectionPool, globalFPInfo)
-		// Do not pass through the --on-error-continue flag because it does not apply to gpbackup
+		// Do not pass through the --on-error-continue flag or the resizeClusterMap because neither apply to gpbackup
 		utils.StartGpbackupHelpers(globalCluster, globalFPInfo, "--backup-agent",
-			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated, initialPipes)
+			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated, initialPipes, true, 0, 0)
 	}
 	gplog.Info("Writing data to file")
 	rowsCopiedMaps := backupDataForAllTables(tables)
@@ -388,6 +388,7 @@ func DoTeardown() {
 				backupReport.BackupConfig.Status = history.BackupStatusSucceed
 			}
 			backupReport.ConstructBackupParamsString()
+			backupReport.BackupConfig.SegmentCount = len(globalCluster.ContentIDs) - 1
 			err := history.WriteBackupHistory(historyFilename, &backupReport.BackupConfig)
 			if err != nil {
 				gplog.Error(fmt.Sprintf("%v", err))

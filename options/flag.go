@@ -49,6 +49,7 @@ const (
 	REDIRECT_SCHEMA       = "redirect-schema"
 	TRUNCATE_TABLE        = "truncate-table"
 	WITHOUT_GLOBALS       = "without-globals"
+	RESIZE_CLUSTER        = "resize-cluster"
 )
 
 func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
@@ -114,6 +115,7 @@ func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(WITH_STATS, false, "Restore query plan statistics")
 	flagSet.Bool(LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
 	flagSet.Bool(RUN_ANALYZE, false, "Run ANALYZE on restored tables")
+	flagSet.Bool(RESIZE_CLUSTER, false, "Restore a backup taken on a cluster with more or fewer segments than the cluster to which it will be restored")
 	_ = flagSet.MarkHidden(LEAF_PARTITION_DATA)
 }
 

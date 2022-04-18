@@ -52,6 +52,9 @@ var (
 	tocFile          *string
 	isFiltered       *bool
 	copyQueue        *int
+	singleDataFile   *bool
+	origSize         *int
+	destSize         *int
 )
 
 func DoHelper() {
@@ -88,7 +91,7 @@ func InitializeGlobals() {
 	backupAgent = flag.Bool("backup-agent", false, "Use gpbackup_helper as an agent for backup")
 	content = flag.Int("content", -2, "Content ID of the corresponding segment")
 	compressionLevel = flag.Int("compression-level", 0, "The level of compression. O indicates no compression. Range of valid values depends on compression type")
-	compressionType = flag.String("compression-type", "gzip", "The type of compression. Valid values are 'gzip', 'zstd'")
+	compressionType = flag.String("compression-type", "gzip", "The type of compression. Valid values are 'gzip', 'zstd', 'none'")
 	dataFile = flag.String("data-file", "", "Absolute path to the data file")
 	oidFile = flag.String("oid-file", "", "Absolute path to the file containing a list of oids to restore")
 	onErrorContinue = flag.Bool("on-error-continue", false, "Continue restore even when encountering an error")
@@ -99,9 +102,16 @@ func InitializeGlobals() {
 	tocFile = flag.String("toc-file", "", "Absolute path to the table of contents file")
 	isFiltered = flag.Bool("with-filters", false, "Used with table/schema filters")
 	copyQueue = flag.Int("copy-queue-size", 1, "Used to know how many COPIES are being queued up")
+	singleDataFile = flag.Bool("single-data-file", false, "Used with single data file restore.")
+	origSize = flag.Int("orig-seg-count", 0, "Used with resize restore.  Gives the segment count of the backup.")
+	destSize = flag.Int("dest-seg-count", 0, "Used with resize restore.  Gives the segment count of the current cluster.")
 
 	if *onErrorContinue && !*restoreAgent {
 		fmt.Printf("--on-error-continue flag can only be used with --restore-agent flag")
+		os.Exit(1)
+	}
+	if (*origSize > 0 && *destSize == 0) || (*destSize > 0 && *origSize == 0) {
+		fmt.Printf("Both --orig-seg-count and --dest-seg-count must be used during a resize restore")
 		os.Exit(1)
 	}
 	flag.Parse()
@@ -122,7 +132,7 @@ func InitializeSignalHandler() {
 		go func() {
 			sig := <-signalChan
 			fmt.Println() // Add newline after "^C" is printed
-			switch sig	{
+			switch sig {
 			case unix.SIGINT:
 				gplog.Warn("Received an interrupt signal on segment %d: aborting", *content)
 				terminatedChan <- true
@@ -151,6 +161,7 @@ func InitializeSignalHandler() {
 		}
 	}
 }
+
 /*
  * Shared functions
  */

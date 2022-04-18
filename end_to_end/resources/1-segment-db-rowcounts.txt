@@ -1,0 +1,13 @@
+ table_schema | table_name | seg_id | row_count 
+--------------+------------+--------+-----------
+ schemaone    | tablefour  |      0 |     10000
+ schemaone    | tableone   |      0 |         1
+ schemaone    | tablethree |      0 |      1000
+ schemaone    | tabletwo   |      0 |       100
+ schemathree  | tableone   |      0 |    100000
+ schematwo    | tablefour  |      0 |     10000
+ schematwo    | tableone   |      0 |         1
+ schematwo    | tablethree |      0 |      1000
+ schematwo    | tabletwo   |      0 |       100
+(9 rows)
+

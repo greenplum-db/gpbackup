@@ -428,19 +428,34 @@ func (plugin *PluginConfig) BackupSegmentTOCs(c *cluster.Cluster, fpInfo filepat
 	})
 }
 
-func (plugin *PluginConfig) RestoreSegmentTOCs(c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
+func (plugin *PluginConfig) RestoreSegmentTOCs(c *cluster.Cluster, fpInfo filepath.FilePathInfo, isResizeRestore bool, origSize int, destSize int) {
 	var command string
-	remoteOutput := c.GenerateAndExecuteCommand("Processing segment TOC files with plugin", cluster.ON_SEGMENTS, func(contentID int) string {
-		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
-		command = fmt.Sprintf("mkdir -p %s && source %s/greenplum_path.sh && %s restore_file %s %s",
-			fpInfo.GetDirForContent(contentID), operating.System.Getenv("GPHOME"),
-			plugin.ExecutablePath, plugin.ConfigPath, tocFile)
-		return command
-	})
-	gplog.Debug("%s", command)
-	c.CheckClusterError(remoteOutput, "Unable to process segment TOC files using plugin", func(contentID int) string {
-		return fmt.Sprintf("Unable to process segment TOC files using plugin")
-	})
+	batches := 1
+	if isResizeRestore {
+		batches = origSize / destSize
+		if origSize%destSize != 0 {
+			batches += 1
+		}
+	}
+	for b := 0; b < batches; b++ {
+		remoteOutput := c.GenerateAndExecuteCommand("Processing segment TOC files with plugin", cluster.ON_SEGMENTS, func(contentID int) string {
+			origContent := contentID + b*destSize
+			if origContent >= origSize { // Don't try to restore files for contents that aren't part of the backup set
+				return ""
+			}
+			tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
+			// Restore the filename with the origin content to the directory with the destination content
+			tocFile = strings.ReplaceAll(tocFile, fmt.Sprintf("gpbackup_%d", contentID), fmt.Sprintf("gpbackup_%d", origContent))
+			command = fmt.Sprintf("mkdir -p %s && source %s/greenplum_path.sh && %s restore_file %s %s",
+				fpInfo.GetDirForContent(contentID), operating.System.Getenv("GPHOME"),
+				plugin.ExecutablePath, plugin.ConfigPath, tocFile)
+			return command
+		})
+		gplog.Debug("%s", command)
+		c.CheckClusterError(remoteOutput, "Unable to process segment TOC files using plugin", func(contentID int) string {
+			return fmt.Sprintf("Unable to process segment TOC files using plugin")
+		})
+	}
 }
 
 func (plugin *PluginConfig) UsesEncryption() bool {

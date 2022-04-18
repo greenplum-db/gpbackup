@@ -1,0 +1,30 @@
+ table_schema | table_name | seg_id | row_count 
+--------------+------------+--------+-----------
+ schemaone    | tablefour  |      0 |      2524
+ schemaone    | tablefour  |      1 |      2544
+ schemaone    | tablefour  |      2 |      2489
+ schemaone    | tablefour  |      3 |      2443
+ schemaone    | tableone   |      1 |         1
+ schemaone    | tablethree |      0 |       257
+ schemaone    | tablethree |      1 |       251
+ schemaone    | tablethree |      2 |       252
+ schemaone    | tablethree |      3 |       240
+ schemaone    | tabletwo   |      0 |        28
+ schemaone    | tabletwo   |      1 |        30
+ schemaone    | tabletwo   |      2 |        16
+ schemaone    | tabletwo   |      3 |        26
+ schematwo    | tablefour  |      0 |      2524
+ schematwo    | tablefour  |      1 |      2544
+ schematwo    | tablefour  |      2 |      2489
+ schematwo    | tablefour  |      3 |      2443
+ schematwo    | tableone   |      1 |         1
+ schematwo    | tablethree |      0 |       257
+ schematwo    | tablethree |      1 |       251
+ schematwo    | tablethree |      2 |       252
+ schematwo    | tablethree |      3 |       240
+ schematwo    | tabletwo   |      0 |        28
+ schematwo    | tabletwo   |      1 |        30
+ schematwo    | tabletwo   |      2 |        16
+ schematwo    | tabletwo   |      3 |        26
+(26 rows)
+
