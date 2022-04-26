@@ -37,6 +37,7 @@ expect eof
 EOD
 
   sudo mkdir /data/gpdata/dd_dir
+  sudo chown -R gpadmin:gpadmin /data/gpdata/dd_dir
   sudo /opt/emc/boostfs/bin/boostfs mount /data/gpdata/dd_dir -d ${DD_SOURCE_HOST} -s gpdb_boostfs -o allow-others=true
 SCRIPT
 chmod +x /tmp/script.sh

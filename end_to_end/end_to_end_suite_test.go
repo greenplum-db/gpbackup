@@ -33,6 +33,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/format"
 
 	"gopkg.in/yaml.v2"
 )
@@ -296,6 +297,7 @@ func saveHistory(myCluster *cluster.Cluster) {
 }
 
 func TestEndToEnd(t *testing.T) {
+	format.MaxLength = 0
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "EndToEnd Suite")
 }
