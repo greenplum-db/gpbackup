@@ -7,7 +7,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -109,8 +109,8 @@ var _ = Describe("backup/dependencies tests", func() {
 			}
 			objects = []backup.Sortable{
 				backup.Function{Oid: 1, Schema: "public", Name: "function", FunctionBody: "SELECT $1 + $2",
-					Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					Arguments:  sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true}, Language: "sql"},
 				backup.BaseType{Oid: 2, Schema: "public", Name: "base", Input: "typin", Output: "typout", Category: "U"},
 				backup.CompositeType{Oid: 3, Schema: "public", Name: "composite", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}},

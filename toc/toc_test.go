@@ -7,14 +7,14 @@ import (
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/toc"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gbytes"
 )
 
 var (
-	buffer      *Buffer
-	tocfile     *toc.TOC
+	buffer  *Buffer
+	tocfile *toc.TOC
 )
 
 func TestTOC(t *testing.T) {

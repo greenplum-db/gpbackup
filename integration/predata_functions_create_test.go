@@ -8,7 +8,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -26,7 +26,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				addFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: 0, Language: "sql", ExecLocation: "a",
 				}
@@ -46,7 +46,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				appendFunction := backup.Function{
 					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "SETOF record", Valid: true},
 					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql", ExecLocation: "a",
 				}
@@ -65,7 +65,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				dupFunction := backup.Function{
 					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer", Valid: true},
 					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql", ExecLocation: "a",
 				}
@@ -90,7 +90,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				addFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
@@ -112,7 +112,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				appendFunction := backup.Function{
 					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "SETOF record", Valid: true},
 					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO 'pg_temp'", Cost: 200,
 					NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
@@ -133,7 +133,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				dupFunction := backup.Function{
 					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer", Valid: true},
 					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
@@ -159,7 +159,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				windowFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: true, ExecLocation: "m",
@@ -179,7 +179,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				segmentFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "s",
@@ -199,7 +199,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				leakProofFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsLeakProof: true, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "a",

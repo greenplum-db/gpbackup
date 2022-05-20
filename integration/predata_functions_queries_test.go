@@ -9,7 +9,7 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -43,14 +43,14 @@ MODIFIES SQL DATA
 			addFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
 				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
@@ -74,7 +74,7 @@ LANGUAGE SQL`)
 			addFunction := backup.Function{
 				Schema: "testschema", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a"}
@@ -96,7 +96,7 @@ LANGUAGE SQL WINDOW`)
 			windowFunction := backup.Function{
 				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: true, ExecLocation: "a"}
@@ -122,14 +122,14 @@ EXECUTE ON ALL SEGMENTS;`)
 			srfOnMasterFunction := backup.Function{
 				Schema: "public", Name: "srf_on_master", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: true, ExecLocation: "m"}
 			srfOnAllSegmentsFunction := backup.Function{
 				Schema: "public", Name: "srf_on_all_segments", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: true, ExecLocation: "s"}
@@ -184,7 +184,7 @@ MODIFIES SQL DATA
 			appendFunction := backup.Function{
 				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
 				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
@@ -225,7 +225,7 @@ MODIFIES SQL DATA
 		return current_setting('work_mem');
 	end `,
 				BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer", Valid: true},
 				ResultType: sql.NullString{String: "text", Valid: true},
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "SET work_mem TO '1MB'", Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
@@ -260,7 +260,7 @@ MODIFIES SQL DATA
         return current_setting('work_mem');
     end `,
 				BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
-				IdentArgs: sql.NullString{String: "integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer", Valid: true},
 				ResultType: sql.NullString{String: "text", Valid: true},
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: `SET search_path TO '$user', 'public', 'abc"def'`, Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
@@ -371,7 +371,7 @@ SORTOP = ~>~ );`)
 			resultAggregates := backup.GetAggregates(connectionPool)
 			aggregateDef := backup.Aggregate{
 				Schema: "public", Name: "ascii_max", Arguments: sql.NullString{String: "character", Valid: true},
-				IdentArgs: sql.NullString{String: "character", Valid: true},
+				IdentArgs:          sql.NullString{String: "character", Valid: true},
 				TransitionFunction: transitionOid, FinalFunction: 0, SortOperator: "~>~", SortOperatorSchema: "pg_catalog", TransitionDataType: "character",
 				InitialValue: "", InitValIsNull: true, MInitValIsNull: true, IsOrdered: false,
 			}

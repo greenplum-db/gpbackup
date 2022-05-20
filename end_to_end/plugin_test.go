@@ -13,7 +13,7 @@ import (
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 )
 
 func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {

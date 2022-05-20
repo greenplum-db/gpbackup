@@ -6,7 +6,7 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -544,9 +544,9 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 		It("handles implicit cast of oid to text", func() {
 			// Function and cast already exist on 4x
 			if connectionPool.Version.AtLeast("5") {
-			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(oid) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(oidout($1));';")
-			testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (oid AS text) WITH FUNCTION pg_catalog.text(oid) AS IMPLICIT;")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(oid) CASCADE;")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(oid) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(oidout($1));';")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (oid AS text) WITH FUNCTION pg_catalog.text(oid) AS IMPLICIT;")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(oid) CASCADE;")
 			}
 			testhelper.AssertQueryRuns(connectionPool, "GRANT usergroup TO testuser")
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: false}

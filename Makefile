@@ -9,8 +9,7 @@ BACKUP=gpbackup
 RESTORE=gprestore
 HELPER=gpbackup_helper
 BIN_DIR=$(shell echo $${GOPATH:-~/go} | awk -F':' '{ print $$1 "/bin"}')
-GINKGO_FLAGS := -r -keepGoing -randomizeSuites -randomizeAllSpecs -noisySkippings=false
-
+GINKGO_FLAGS := -r --keep-going --randomize-suites --randomize-all --no-color
 GIT_VERSION := $(shell git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/')
 BACKUP_VERSION_STR=github.com/greenplum-db/gpbackup/backup.version=$(GIT_VERSION)
 RESTORE_VERSION_STR=github.com/greenplum-db/gpbackup/restore.version=$(GIT_VERSION)
@@ -32,7 +31,7 @@ depend :
 	go mod download
 
 $(GINKGO) : # v1.14.0 is compatible with centos6 default gcc version
-	go install github.com/onsi/ginkgo/ginkgo@v1.14.0
+	go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
 $(GOIMPORTS) :
 	go install golang.org/x/tools/cmd/goimports@latest
@@ -65,7 +64,7 @@ integration : $(GINKGO)
 test : build unit integration
 
 end_to_end : $(GINKGO)
-	ginkgo $(GINKGO_FLAGS) -slowSpecThreshold=10 end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
+	ginkgo $(GINKGO_FLAGS) --slow-spec-threshold=10s end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
 
 coverage :
 		@./show_coverage.sh

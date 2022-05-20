@@ -32,10 +32,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/format"
+	. "github.com/onsi/gomega/gexec"
 
 	"gopkg.in/yaml.v2"
 )
@@ -613,10 +613,10 @@ var _ = Describe("backup and restore end to end tests", func() {
 				if useOldBackupVersion {
 					Skip("This test is not needed for old backup versions")
 				}
-	
+
 				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
 				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-	
+
 				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
 				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
 				args := []string{
@@ -624,7 +624,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 					"--backup-dir", backupDir,
 					"--verbose"}
 				cmd := exec.Command(gpbackupPath, args...)
-	
+
 				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
 				// Once blocked, we send a SIGINT to cancel gpbackup.
 				var beforeLockCount int
@@ -643,14 +643,14 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				Expect(beforeLockCount).To(Equal(1))
-	
+
 				// After gpbackup has been canceled, we should no longer see a blocked SQL
 				// session trying to acquire AccessShareLock on foo2.
 				var afterLockCount int
 				_ = backupConn.Get(&afterLockCount, checkLockQuery)
 				Expect(afterLockCount).To(Equal(0))
 				backupConn.MustExec("ROLLBACK")
-	
+
 				stdout := string(output)
 				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
 				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
@@ -661,10 +661,10 @@ var _ = Describe("backup and restore end to end tests", func() {
 				if useOldBackupVersion {
 					Skip("This test is not needed for old backup versions")
 				}
-	
+
 				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
 				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-	
+
 				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
 				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
 				args := []string{
@@ -673,7 +673,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 					"--single-data-file",
 					"--verbose"}
 				cmd := exec.Command(gpbackupPath, args...)
-	
+
 				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
 				// Once blocked, we send a SIGINT to cancel gpbackup.
 				var beforeLockCount int
@@ -692,14 +692,14 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				Expect(beforeLockCount).To(Equal(1))
-	
+
 				// After gpbackup has been canceled, we should no longer see a blocked SQL
 				// session trying to acquire AccessShareLock on foo2.
 				var afterLockCount int
 				_ = backupConn.Get(&afterLockCount, checkLockQuery)
 				Expect(afterLockCount).To(Equal(0))
 				backupConn.MustExec("ROLLBACK")
-	
+
 				stdout := string(output)
 				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
 				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
@@ -803,10 +803,10 @@ var _ = Describe("backup and restore end to end tests", func() {
 				if useOldBackupVersion {
 					Skip("This test is not needed for old backup versions")
 				}
-	
+
 				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
 				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-	
+
 				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
 				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
 				args := []string{
@@ -814,7 +814,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 					"--backup-dir", backupDir,
 					"--verbose"}
 				cmd := exec.Command(gpbackupPath, args...)
-	
+
 				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
 				// Once blocked, we send a SIGTERM to cancel gpbackup.
 				var beforeLockCount int
@@ -833,14 +833,14 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				Expect(beforeLockCount).To(Equal(1))
-	
+
 				// After gpbackup has been canceled, we should no longer see a blocked SQL
 				// session trying to acquire AccessShareLock on foo2.
 				var afterLockCount int
 				_ = backupConn.Get(&afterLockCount, checkLockQuery)
 				Expect(afterLockCount).To(Equal(0))
 				backupConn.MustExec("ROLLBACK")
-	
+
 				stdout := string(output)
 				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
 				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
@@ -851,10 +851,10 @@ var _ = Describe("backup and restore end to end tests", func() {
 				if useOldBackupVersion {
 					Skip("This test is not needed for old backup versions")
 				}
-	
+
 				// Query to see if gpbackup lock acquire on schema2.foo2 is blocked
 				checkLockQuery := `SELECT count(*) FROM pg_locks l, pg_class c, pg_namespace n WHERE l.relation = c.oid AND n.oid = c.relnamespace AND n.nspname = 'schema2' AND c.relname = 'foo2' AND l.granted = 'f'`
-	
+
 				// Acquire AccessExclusiveLock on schema2.foo2 to prevent gpbackup from acquiring AccessShareLock
 				backupConn.MustExec("BEGIN; LOCK TABLE schema2.foo2 IN ACCESS EXCLUSIVE MODE")
 				args := []string{
@@ -863,7 +863,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 					"--single-data-file",
 					"--verbose"}
 				cmd := exec.Command(gpbackupPath, args...)
-	
+
 				// Wait up to 5 seconds for gpbackup to block on acquiring AccessShareLock.
 				// Once blocked, we send a SIGTERM to cancel gpbackup.
 				var beforeLockCount int
@@ -882,14 +882,14 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				Expect(beforeLockCount).To(Equal(1))
-	
+
 				// After gpbackup has been canceled, we should no longer see a blocked SQL
 				// session trying to acquire AccessShareLock on foo2.
 				var afterLockCount int
 				_ = backupConn.Get(&afterLockCount, checkLockQuery)
 				Expect(afterLockCount).To(Equal(0))
 				backupConn.MustExec("ROLLBACK")
-	
+
 				stdout := string(output)
 				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
 				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
@@ -1016,7 +1016,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"public.good_table1":   10,
 				"public.good_table2":   10})
 		})
-		It(`Creates skip file on segments for corrupted table for helpers to discover the file and skip it with --single-data-file and --on-error-continue`, func(){
+		It(`Creates skip file on segments for corrupted table for helpers to discover the file and skip it with --single-data-file and --on-error-continue`, func() {
 			if useOldBackupVersion {
 				Skip("This test is not needed for old backup versions")
 			} else if restoreConn.Version.Before("6") {
@@ -1297,11 +1297,11 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-schema", "schema3")
 
 			expectedSchema3TupleCounts := map[string]int{
-				"schema3.returns": 6,
-				"schema3.foo2":    0,
-				"schema3.foo3":    100,
-				"schema3.ao1":     1000,
-				"schema3.ao2":     1000,
+				"schema3.returns":          6,
+				"schema3.foo2":             0,
+				"schema3.foo3":             100,
+				"schema3.ao1":              1000,
+				"schema3.ao2":              1000,
 				"schema3.redirected_table": 0,
 			}
 			assertDataRestored(restoreConn, expectedSchema3TupleCounts)
