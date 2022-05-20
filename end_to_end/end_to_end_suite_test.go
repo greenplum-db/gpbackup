@@ -208,7 +208,7 @@ func assertRelationsExistForIncremental(conn *dbconn.DBConn, expectedNumTables i
 func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 	cmdStr := fmt.Sprintf("ps -ef | grep -v grep | grep -E gpbackup_helper.*%s || true", timestamp)
 	output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
-	Eventually(func() string { return strings.TrimSpace(string(output)) }, 5*time.Second, 100*time.Millisecond).Should(Equal(""))
+	Eventually(func() string { return strings.TrimSpace(string(output)) }, 10*time.Second, 100*time.Millisecond).Should(Equal(""))
 
 	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, filepath.GetSegPrefix(conn))
 	description := "Checking if helper files are cleaned up properly"
@@ -299,9 +299,17 @@ func saveHistory(myCluster *cluster.Cluster) {
 }
 
 // Parse backup timestamp from gpbackup log string
-func getBackupTimestamp(output string) string {
-	r := regexp.MustCompile(`Backup Timestamp = (\d{14})`)
-	return r.FindStringSubmatch(output)[1]
+func getBackupTimestamp(output string) (string, error) {
+	r, err := regexp.Compile(`Backup Timestamp = (\d{14})`)
+	if err != nil {
+		return "", err
+	}
+	matches := r.FindStringSubmatch(output)
+	if len(matches) < 2 {
+		return "", errors.Errorf("unable to parse backup timestamp")
+	} else {
+		return r.FindStringSubmatch(output)[1], nil
+	}
 }
 
 func TestEndToEnd(t *testing.T) {
@@ -545,7 +553,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(tocStruct.GlobalEntries[0].ObjectType).To(Equal("SESSION GUCS"))
 		})
 	})
-	Describe("Signal handler tests", func() {
+	Describe("Signal handler tests", FlakeAttempts(3), func() {
 		BeforeEach(func() {
 			testhelper.AssertQueryRuns(backupConn, "CREATE table bigtable(id int unique); INSERT INTO bigtable SELECT generate_series(1,10000000)")
 		})
@@ -575,7 +583,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
 				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
@@ -603,7 +613,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleaning up segment agent processes"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
@@ -652,7 +664,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				backupConn.MustExec("ROLLBACK")
 
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
 				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
@@ -701,7 +715,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				backupConn.MustExec("ROLLBACK")
 
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
 				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
@@ -794,7 +810,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
 				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
@@ -842,7 +860,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				backupConn.MustExec("ROLLBACK")
 
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
 				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
@@ -891,7 +911,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				backupConn.MustExec("ROLLBACK")
 
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
 				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
@@ -919,7 +941,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				}()
 				output, _ := cmd.CombinedOutput()
 				stdout := string(output)
-				assertArtifactsCleaned(backupConn, getBackupTimestamp(stdout))
+				timestamp, err := getBackupTimestamp(stdout)
+				Expect(err).ToNot(HaveOccurred())
+				assertArtifactsCleaned(backupConn, timestamp)
 				Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
 				Expect(stdout).To(ContainSubstring("Cleanup complete"))
 				Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
