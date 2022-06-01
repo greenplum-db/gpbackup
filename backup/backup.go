@@ -429,7 +429,9 @@ func DoCleanup(backupFailed bool) {
 		if err := recover(); err != nil {
 			gplog.Warn("Encountered error during cleanup: %v", err)
 		}
-		connectionPool.Close()
+		if connectionPool != nil {
+			connectionPool.Close()
+		}
 		gplog.Verbose("Cleanup complete")
 		CleanupGroup.Done()
 	}()
