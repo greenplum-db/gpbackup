@@ -399,7 +399,13 @@ func GetBackupDataSet(tables []Table) ([]Table, int64) {
 // Acquire AccessShareLock on a table with NOWAIT option. If we are unable to acquire
 // the lock, the call will fail instead of block. Return the failure for handling.
 func LockTableNoWait(dataTable Table, connNum int) error {
-	query := fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE NOWAIT;", dataTable.FQN())
+	var lockMode string
+	if connectionPool.Version.AtLeast("6.21.0") {
+		lockMode = `IN ACCESS SHARE MODE NOWAIT MASTER ONLY`
+	} else {
+		lockMode = `IN ACCESS SHARE MODE NOWAIT`
+	}
+	query := fmt.Sprintf("LOCK TABLE %s %s;", dataTable.FQN(), lockMode)
 	gplog.Verbose("Worker %d: %s", connNum, query)
 	_, err := connectionPool.Exec(query, connNum)
 	if err != nil {

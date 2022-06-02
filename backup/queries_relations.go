@@ -370,17 +370,21 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 
 	progressBar := utils.NewProgressBar(len(tables), "Locks acquired: ", utils.PB_VERBOSE)
 	progressBar.Start()
-
+	var lockMode string
 	const batchSize = 100
 	lastBatchSize := len(tables) % batchSize
 	tableBatches := GenerateTableBatches(tables, batchSize)
 	currentBatchSize := batchSize
-
+	if connectionPool.Version.AtLeast("6.21.0") {
+		lockMode = `IN ACCESS SHARE MODE MASTER ONLY`
+	} else {
+		lockMode = `IN ACCESS SHARE MODE`
+	}
 	// The LOCK TABLE query could block if someone else is holding an
 	// AccessExclusiveLock on the table.  In the case gpbackup is interrupted,
 	// cancelBlockedQueries() will cancel these queries during cleanup.
 	for i, currentBatch := range tableBatches {
-		_, err := connectionPool.Exec(fmt.Sprintf("LOCK TABLE %s IN ACCESS SHARE MODE", currentBatch))
+		_, err := connectionPool.Exec(fmt.Sprintf("LOCK TABLE %s %s", currentBatch, lockMode))
 		if err != nil {
 			if wasTerminated {
 				gplog.Warn("Interrupt received while acquiring ACCESS SHARE locks on tables")
