@@ -56,13 +56,13 @@ func WriteOidListToSegments(oidList []string, c *cluster.Cluster, fpInfo filepat
 		hostname := c.GetHostForContent(contentID)
 		dest := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
 
-		return fmt.Sprintf(`scp %s %s:%s`, sourceFile, hostname, dest)
+		return fmt.Sprintf(`rsync -e ssh %s %s:%s`, sourceFile, hostname, dest)
 	}
-	remoteOutput := c.GenerateAndExecuteCommand("Scp oid file to segments", cluster.ON_LOCAL|cluster.ON_SEGMENTS, generateScpCmd)
+	remoteOutput := c.GenerateAndExecuteCommand("rsync oid file to segments", cluster.ON_LOCAL|cluster.ON_SEGMENTS, generateScpCmd)
 
-	errMsg := "Failed to scp oid file"
+	errMsg := "Failed to rsync oid file"
 	errFunc := func(contentID int) string {
-		return "Failed to run scp"
+		return "Failed to run rsync"
 	}
 	c.CheckClusterError(remoteOutput, errMsg, errFunc, false)
 }

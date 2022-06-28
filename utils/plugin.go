@@ -305,7 +305,7 @@ func (plugin *PluginConfig) CopyPluginConfigToAllHosts(c *cluster.Cluster) {
 		cluster.ON_LOCAL|cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
 		func(contentIDForSegmentOnHost int) string {
 			hostConfigFile := plugin.createHostPluginConfig(contentIDForSegmentOnHost, c)
-			command = fmt.Sprintf("scp %[1]s %s:%s; rm %[1]s", hostConfigFile,
+			command = fmt.Sprintf("rsync -e ssh %[1]s %s:%s; rm %[1]s", hostConfigFile,
 				c.GetHostForContent(contentIDForSegmentOnHost), plugin.ConfigPath)
 			return command
 		})
