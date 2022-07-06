@@ -26,6 +26,13 @@ func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, toc *toc.T
 	for _, constraint := range constraints {
 		if constraint.ConType == "f" {
 			allFkConstraints = append(allFkConstraints, constraint)
+		} else if constraint.ConType == "t" {
+			/*
+			* Trigger constraints are added as triggers in backupPostdata.
+			* We do not need to add them here also.
+			* Further, the ALTER TABLE ADD CONSTRAINT syntax does not support adding triggers
+			 */
+			continue
 		} else {
 			allConstraints = append(allConstraints, constraint)
 		}
