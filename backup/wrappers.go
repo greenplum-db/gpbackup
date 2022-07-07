@@ -38,25 +38,42 @@ func SetLoggerVerbosity() {
 }
 
 func initializeConnectionPool(timestamp string) {
-	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
 	var numConns int
+	var err error
+	connectionPool = dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
+	/*
+	 * The additional connection is used to hold the locks and process any deferred
+	 * tables while not being assigned any tables up front. The benefit is that the
+	 * connection holding the locks won't be overburdened by processing an assigned
+	 * set of tables and any extra deferred tables, at the cost of making one
+	 * additional connection to the database.
+	*/
 	switch true {
 	case FlagChanged(options.COPY_QUEUE_SIZE):
-		// Connection 0 is reserved for deferred worker, initialize 1 additional connection.
 		numConns = MustGetFlagInt(options.COPY_QUEUE_SIZE) + 1
 	case FlagChanged(options.JOBS):
-		numConns = MustGetFlagInt(options.JOBS)
+		numConns = MustGetFlagInt(options.JOBS) + 1
 	default:
-		numConns = 1
+		numConns = 2
 	}
-	gplog.Verbose(fmt.Sprintf("Initializing %d worker connections", numConns))
+
+	gplog.Verbose(fmt.Sprintf("Initializing %d database connections", numConns))
 	connectionPool.MustConnect(numConns)
+
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 	InitializeMetadataParams(connectionPool)
+	// Begin transactions, initialize the synchronized snapshot, and set session GUCs
 	for connNum := 0; connNum < connectionPool.NumConns; connNum++ {
 		connectionPool.MustExec(fmt.Sprintf("SET application_name TO 'gpbackup_%s'", timestamp), connNum)
-		// BEGIN TRANSACTION
+		// Begins transaction in repeatable read
 		connectionPool.MustBegin(connNum)
+		if connectionPool.Version.AtLeast(SNAPSHOT_GPDB_MIN_VERSION) && backupSnapshot == "" {
+			backupSnapshot, err = GetSynchronizedSnapshot(connectionPool)
+			if err != nil {
+				gplog.FatalOnError(err)
+			}
+		}
+
 		SetSessionGUCs(connNum)
 	}
 }

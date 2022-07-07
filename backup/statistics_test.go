@@ -7,7 +7,7 @@ import (
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/lib/pq"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -66,21 +66,21 @@ var _ = Describe("backup/statistics tests", func() {
 			insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5 := getStatInsertReplace(0, 0)
 
 			expected := []string{
-`UPDATE pg_class
+				`UPDATE pg_class
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real
 WHERE oid = 'testschema.testtable1'::regclass::oid;`,
 
-`UPDATE pg_class
+				`UPDATE pg_class
 SET
 	relpages = 0::int,
 	reltuples = 0.000000::real
 WHERE oid = 'testschema.testtable2'::regclass::oid;`,
 
-`DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable2'::regclass::oid AND staattnum = 0;`,
+				`DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable2'::regclass::oid AND staattnum = 0;`,
 
-fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
+				fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
 	'testschema.testtable2'::regclass::oid,
 	0::smallint,%[1]s
 	0.000000::real,
@@ -103,9 +103,9 @@ fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
 	NULL,%[5]s
 	NULL);`, insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5),
 
-`DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable2'::regclass::oid AND staattnum = 3;`,
+				`DELETE FROM pg_statistic WHERE starelid = 'testschema.testtable2'::regclass::oid AND staattnum = 3;`,
 
-fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
+				fmt.Sprintf(`INSERT INTO pg_statistic VALUES (
 	'testschema.testtable2'::regclass::oid,
 	3::smallint,%[1]s
 	0.400000::real,

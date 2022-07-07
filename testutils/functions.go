@@ -2,14 +2,15 @@ package testutils
 
 import (
 	"fmt"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
@@ -23,7 +24,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/sergi/go-diff/diffmatchpatch"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gbytes"
 )
@@ -84,7 +85,7 @@ func SetupTestDBConnSegment(dbname string, port int) *dbconn.DBConn {
 	conn := &dbconn.DBConn{
 		ConnPool: nil,
 		NumConns: 0,
-		Driver:   dbconn.GPDBDriver{},
+		Driver:   &dbconn.GPDBDriver{},
 		User:     username,
 		DBName:   dbname,
 		Host:     host,

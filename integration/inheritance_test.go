@@ -6,7 +6,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -27,7 +27,7 @@ CREATE TABLE public.parent_inh_test (
 CREATE TABLE public.child_inh_test (
     a integer NOT NULL,
     b integer NOT NULL
-) 
+)
 INHERITS (public.parent_inh_test) DISTRIBUTED BY (a, b);
 
 INSERT into public.child_inh_test values(1,1);

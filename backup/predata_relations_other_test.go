@@ -12,7 +12,7 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -23,7 +23,7 @@ var _ = Describe("backup/predata_relations tests", func() {
 	Describe("PrintCreateSequenceStatements", func() {
 		baseSequence := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "seq_name"}
 		seqDefault := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, IsCycled: false, IsCalled: true}}
-		seqNegIncr := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 7, Increment: -1, MaxVal: -1, MinVal: math.MinInt64, CacheVal: 5,IsCycled: false, IsCalled: true}}
+		seqNegIncr := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 7, Increment: -1, MaxVal: -1, MinVal: math.MinInt64, CacheVal: 5, IsCycled: false, IsCalled: true}}
 		seqMaxPos := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: 100, MinVal: 1, CacheVal: 5, IsCycled: false, IsCalled: true}}
 		seqMinPos := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 10, CacheVal: 5, IsCycled: false, IsCalled: true}}
 		seqMaxNeg := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 7, Increment: -1, MaxVal: -10, MinVal: math.MinInt64, CacheVal: 5, IsCycled: false, IsCalled: true}}
@@ -32,7 +32,7 @@ var _ = Describe("backup/predata_relations tests", func() {
 		seqStart := backup.Sequence{Relation: baseSequence, Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, IsCycled: false, IsCalled: false}}
 		emptySequenceMetadataMap := backup.MetadataMap{}
 
-		getSeqDefReplace := func() (string) {
+		getSeqDefReplace := func() string {
 			seqDefReplace := ""
 			if connectionPool.Version.AtLeast("6") {
 				seqDefReplace = `
@@ -162,7 +162,7 @@ SELECT pg_catalog.setval('public.seq_''name', 7, true);`, getSeqDefReplace()))
 				keywordReplace = `SEQUENCE`
 			}
 
-			expectedEntries := []string{ fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
+			expectedEntries := []string{fmt.Sprintf(`CREATE SEQUENCE public.seq_name%s
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE

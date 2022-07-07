@@ -10,7 +10,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgconn"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

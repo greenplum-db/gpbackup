@@ -61,9 +61,14 @@ func DoSetup() {
 	err = opts.ExpandIncludesForPartitions(connectionPool, cmdFlags)
 	gplog.FatalOnError(err)
 
-	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
+	clusterConfigConn := dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))
+	clusterConfigConn.MustConnect(1)
+
+	segConfig := cluster.MustGetSegmentConfiguration(clusterConfigConn)
 	globalCluster = cluster.NewCluster(segConfig)
-	segPrefix := filepath.GetSegPrefix(connectionPool)
+	segPrefix := filepath.GetSegPrefix(clusterConfigConn)
+	clusterConfigConn.Close()
+
 	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, segPrefix)
 	if MustGetFlagBool(options.METADATA_ONLY) {
 		_, err = globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(-1)))
@@ -284,12 +289,7 @@ func backupData(tables []Table) {
 			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated, initialPipes)
 	}
 	gplog.Info("Writing data to file")
-	var rowsCopiedMaps []map[uint32]int64
-	if FlagChanged(options.COPY_QUEUE_SIZE) {
-		rowsCopiedMaps = backupDataForAllTablesCopyQueue(tables)
-	} else {
-		rowsCopiedMaps = backupDataForAllTables(tables)
-	}
+	rowsCopiedMaps := backupDataForAllTables(tables)
 	AddTableDataEntriesToTOC(tables, rowsCopiedMaps)
 	if MustGetFlagBool(options.SINGLE_DATA_FILE) && MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		pluginConfig.BackupSegmentTOCs(globalCluster, globalFPInfo)
@@ -424,11 +424,17 @@ func DoCleanup(backupFailed bool) {
 		if err := recover(); err != nil {
 			gplog.Warn("Encountered error during cleanup: %v", err)
 		}
+		if connectionPool != nil {
+			connectionPool.Close()
+		}
 		gplog.Verbose("Cleanup complete")
 		CleanupGroup.Done()
 	}()
 
 	gplog.Verbose("Beginning cleanup")
+	if connectionPool != nil {
+		cancelBlockedQueries(globalFPInfo.Timestamp)
+	}
 	if globalFPInfo.Timestamp != "" {
 		if MustGetFlagBool(options.SINGLE_DATA_FILE) {
 			// Copy sessions must be terminated before cleaning up gpbackup_helper processes to avoid a potential deadlock
@@ -448,10 +454,6 @@ func DoCleanup(backupFailed bool) {
 	err := backupLockFile.Unlock()
 	if err != nil && backupLockFile != "" {
 		gplog.Warn("Failed to remove lock file %s.", backupLockFile)
-	}
-	if connectionPool != nil {
-		cancelBlockedQueries(globalFPInfo.Timestamp)
-		connectionPool.Close()
 	}
 }
 
@@ -544,7 +546,7 @@ func getTableLocks(table Table) []TableLocks {
 		query = fmt.Sprintf(`
 		SELECT c.oid as oid,
 		coalesce(a.datname, '') as database,
-		n.nspname || '.' || l.relation as relation,
+		n.nspname || '.' || c.relname as relation,
 		l.mode,
 		l.GRANTED as granted,
 		coalesce(a.application_name, '') as application,
@@ -564,7 +566,7 @@ func getTableLocks(table Table) []TableLocks {
 		query = fmt.Sprintf(`
 		SELECT c.oid as oid,
 		coalesce(a.datname, '') as database,
-		n.nspname || '.' || l.relation relation,
+		n.nspname || '.' || c.relname relation,
 		l.mode,
 		l.GRANTED as granted,
 		coalesce(a.application_name, '') as application,
@@ -594,6 +596,5 @@ func getTableLocks(table Table) []TableLocks {
 func logTableLocks(table Table, whichConn int) {
 	locks := getTableLocks(table)
 	jsonData, _ := json.Marshal(&locks)
-	gplog.Warn("Worker %d could not acquire AccessShareLock for table %s. Terminating worker and deferring table to main worker thread.",	whichConn,table.FQN())
 	gplog.Warn("Locks held on table %s: %s", table.FQN(), jsonData)
 }

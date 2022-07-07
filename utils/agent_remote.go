@@ -188,7 +188,7 @@ func CleanUpSegmentHelperProcesses(c *cluster.Cluster, fpInfo filepath.FilePathI
 		 * as it's possible that all gpbackup_helper processes have finished by
 		 * the time DoCleanup is called.
 		 */
-		return fmt.Sprintf("PIDS=`ps ux | grep \"%s\" | grep -v grep | awk '{print $2}'`; if [[ ! -z \"$PIDS\" ]]; then kill $PIDS; fi", procPattern)
+		return fmt.Sprintf("PIDS=`ps ux | grep \"%s\" | grep -v grep | awk '{print $2}'`; if [[ ! -z \"$PIDS\" ]]; then kill -USR1 $PIDS; fi", procPattern)
 	})
 	c.CheckClusterError(remoteOutput, "Unable to clean up agent processes", func(contentID int) string {
 		return "Unable to clean up agent process"
