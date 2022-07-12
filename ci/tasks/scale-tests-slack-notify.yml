@@ -1,0 +1,17 @@
+platform: linux
+
+image_resource:
+  type: registry-image
+
+inputs:
+- name: gpbackup
+
+params:
+  RESULTS_DATABASE_HOST: 
+  RESULTS_DATABASE_USER:
+  RESULTS_DATABASE_NAME:
+  RESULTS_DATABASE_PASSWORD:
+  SLACK_WEBHOOK_URL:
+
+run:
+  path: gpbackup/ci/scripts/scale_test_slack_notify.bash

@@ -1,0 +1,24 @@
+VERSION: 1.0.0.1
+DATABASE: scaletestdb
+USER: gpadmin
+HOST: mdw
+GPLOAD:
+   INPUT:
+    - SOURCE:
+         FILE: 
+           - /home/gpadmin/bucket/tpcdata/supplier*
+    - COLUMNS:
+           - S_SUPPKEY: INT
+           - S_NAME: CHAR(25)
+           - S_ADDRESS: VARCHAR(40)
+           - S_NATIONKEY: INTEGER
+           - S_PHONE: CHAR(15)
+           - S_ACCTBAL: DECIMAL(15,2)
+           - S_COMMENT: VARCHAR(101)
+    - FORMAT: text
+    - DELIMITER: '|'
+    - ERROR_LIMIT: 25
+    - LOG_ERRORS: True
+   OUTPUT:
+    - TABLE: big.supplier
+    - MODE: INSERT

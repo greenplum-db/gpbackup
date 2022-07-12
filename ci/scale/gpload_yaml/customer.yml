@@ -1,0 +1,25 @@
+VERSION: 1.0.0.1
+DATABASE: scaletestdb
+USER: gpadmin
+HOST: mdw
+GPLOAD:
+   INPUT:
+    - SOURCE:
+         FILE: 
+           - /home/gpadmin/bucket/tpcdata/customer*
+    - COLUMNS:
+           - C_CUSTKEY: INT
+           - C_NAME: VARCHAR(25)
+           - C_ADDRESS: VARCHAR(40)
+           - C_NATIONKEY: INTEGER
+           - C_PHONE: CHAR(15)
+           - C_ACCTBAL: DECIMAL(15,2)
+           - C_MKTSEGMENT: CHAR(10)
+           - C_COMMENT: VARCHAR(117)
+    - FORMAT: text
+    - DELIMITER: '|'
+    - ERROR_LIMIT: 25
+    - LOG_ERRORS: True
+   OUTPUT:
+    - TABLE: big.customer
+    - MODE: INSERT
