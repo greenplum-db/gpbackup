@@ -3,8 +3,8 @@ platform: linux
 image_resource:
   type: registry-image
   source:
-    repository: gcr.io/data-gpdb-public-images/golang
-    tag: 1.17.6
+    repository: gcr.io/data-gpdb-public-images/gpdb6-centos7-build
+    tag: latest
 
 inputs:
 - name: gpbackup

@@ -8,6 +8,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"regexp"
 	"strings"
@@ -26,6 +27,11 @@ const MINIMUM_GPDB5_VERSION = "5.1.0"
 /*
  * General helper functions
  */
+
+func CommandExists(cmd string) bool {
+	_, err := exec.LookPath(cmd)
+	return err == nil
+}
 
 func FileExists(filename string) bool {
 	_, err := os.Stat(filename)

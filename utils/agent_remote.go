@@ -40,6 +40,11 @@ func CreateSegmentPipeOnAllHosts(oid string, c *cluster.Cluster, fpInfo filepath
 }
 
 func WriteOidListToSegments(oidList []string, c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
+	rsync_exists := CommandExists("rsync")
+	if !rsync_exists {
+		gplog.Fatal(errors.New("Failed to find rsync on PATH. Please ensure rsync is installed."), "")
+	}
+
 	localOidFile, err := operating.System.TempFile("", "gpbackup-oids")
 	gplog.FatalOnError(err, "Cannot open temporary file to write oids")
 	defer func() {

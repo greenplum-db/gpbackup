@@ -300,6 +300,10 @@ func (plugin *PluginConfig) CopyPluginConfigToAllHosts(c *cluster.Cluster) {
 	// an environmental var, at which time the code to write *specific* config files per segment
 	// can be removed
 	var command string
+	rsync_exists := CommandExists("rsync")
+	if !rsync_exists {
+		gplog.Fatal(errors.New("Failed to find rsync on PATH. Please ensure rsync is installed."), "")
+	}
 	remoteOutput := c.GenerateAndExecuteCommand(
 		"Copying plugin config to all hosts",
 		cluster.ON_LOCAL|cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
