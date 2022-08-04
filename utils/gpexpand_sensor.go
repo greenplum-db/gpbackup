@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -53,10 +54,12 @@ func NewGpexpandSensor(myfs vfs.Filesystem, conn *dbconn.DBConn) GpexpandSensor 
 func (sensor GpexpandSensor) IsGpexpandRunning() (bool, error) {
 	err := validateConnection(sensor.postgresConn)
 	if err != nil {
+		gplog.Error(fmt.Sprintf("Error encountered validating db connection: %v", err))
 		return false, err
 	}
 	masterDataDir, err := dbconn.SelectString(sensor.postgresConn, MasterDataDirQuery)
 	if err != nil {
+		gplog.Error(fmt.Sprintf("Error encountered retrieving master data directory: %v", err))
 		return false, err
 	}
 
@@ -73,6 +76,7 @@ func (sensor GpexpandSensor) IsGpexpandRunning() (bool, error) {
 		var tableName string
 		tableName, err = dbconn.SelectString(sensor.postgresConn, GpexpandStatusTableExistsQuery)
 		if err != nil {
+			gplog.Error(fmt.Sprintf("Error encountered retrieving gpexpand status: %v", err))
 			return false, err
 		}
 		if len(tableName) <= 0 {
@@ -83,6 +87,7 @@ func (sensor GpexpandSensor) IsGpexpandRunning() (bool, error) {
 		var status string
 		status, err = dbconn.SelectString(sensor.postgresConn, GpexpandTemporaryTableStatusQuery)
 		if err != nil {
+			gplog.Error(fmt.Sprintf("Error encountered retrieving gpexpand status: %v", err))
 			return false, err
 		}
 

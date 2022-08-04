@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -75,7 +74,7 @@ func DoHelper() {
 		err = doRestoreAgent()
 	}
 	if err != nil {
-		logError(fmt.Sprintf("%v: %s", err, debug.Stack()))
+		// error logging handled in doBackupAgent and doRestoreAgent
 		handle, _ := utils.OpenFileForWrite(fmt.Sprintf("%s_error", *pipeFile))
 		_ = handle.Close()
 	}
@@ -187,6 +186,7 @@ func preloadCreatedPipes(oidList []int, queuedPipeCount int) {
 func getOidListFromFile() ([]int, error) {
 	oidStr, err := operating.System.ReadFile(*oidFile)
 	if err != nil {
+		logError(fmt.Sprintf("Error encountered reading oid list from file: %v", err))
 		return nil, err
 	}
 	oidStrList := strings.Split(strings.TrimSpace(fmt.Sprintf("%s", oidStr)), "\n")
@@ -199,20 +199,24 @@ func getOidListFromFile() ([]int, error) {
 	return oidList, nil
 }
 
-func flushAndCloseRestoreWriter() error {
+func flushAndCloseRestoreWriter(pipeName string, oid int) error {
 	if writer != nil {
 		err := writer.Flush()
 		if err != nil {
+			logError("Oid %d: Failed to flush pipe %s", oid, pipeName)
 			return err
 		}
 		writer = nil
+		log("Oid %d: Successfully flushed pipe %s", oid, pipeName)
 	}
 	if writeHandle != nil {
 		err := writeHandle.Close()
 		if err != nil {
+			logError("Oid %d: Failed to close pipe handle", oid)
 			return err
 		}
 		writeHandle = nil
+		log("Oid %d: Successfully closed pipe handle", oid)
 	}
 	return nil
 }
@@ -232,7 +236,7 @@ func DoCleanup() {
 		handle, _ := utils.OpenFileForWrite(fmt.Sprintf("%s_error", *pipeFile))
 		_ = handle.Close()
 	}
-	err := flushAndCloseRestoreWriter()
+	err := flushAndCloseRestoreWriter("Current writer pipe on cleanup", 0)
 	if err != nil {
 		log("Encountered error during cleanup: %v", err)
 	}

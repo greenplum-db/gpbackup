@@ -552,7 +552,7 @@ func DoTeardown() {
 			gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
 			gplog.SetErrorCode(2)
 		} else {
-			errStr = fmt.Sprintf("%v", err)
+			errStr = fmt.Sprintf("%+v", err)
 		}
 		restoreFailed = true
 	}
@@ -631,7 +631,7 @@ func writeErrorTables(isMetadata bool) {
 func DoCleanup(restoreFailed bool) {
 	defer func() {
 		if err := recover(); err != nil {
-			gplog.Warn("Encountered error during cleanup: %v", err)
+			gplog.Warn("Encountered error during cleanup: %+v", err)
 		}
 		gplog.Verbose("Cleanup complete")
 		CleanupGroup.Done()

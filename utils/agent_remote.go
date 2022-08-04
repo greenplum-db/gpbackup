@@ -89,6 +89,7 @@ func WriteOids(writer io.Writer, oidList []string) error {
 	for _, oid := range oidList {
 		_, err = writer.Write([]byte(oid + "\n"))
 		if err != nil {
+			// error logging handled in calling functions
 			return err
 		}
 	}

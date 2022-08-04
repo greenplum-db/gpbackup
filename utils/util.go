@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	path "path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -39,37 +40,53 @@ func FileExists(filename string) bool {
 }
 
 func RemoveFileIfExists(filename string) error {
+	baseFilename := path.Base(filename)
 	if FileExists(filename) {
+		gplog.Debug("File %s: Exists, Attempting Removal", baseFilename)
 		err := os.Remove(filename)
 		if err != nil {
+			gplog.Error("File %s: Failed to remove. Error %s", baseFilename, err.Error())
 			return err
 		}
+		gplog.Debug("File %s: Successfully removed", baseFilename)
+	} else {
+		gplog.Debug("File %s: Does not exist. No removal needed", baseFilename)
 	}
 	return nil
 }
 
 func OpenFileForWrite(filename string) (*os.File, error) {
-	return os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	baseFilename := path.Base(filename)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		gplog.Error("File %s: Failed to open. Error %s", baseFilename, err.Error())
+	}
+	return file, err
 }
 
 func WriteToFileAndMakeReadOnly(filename string, contents []byte) error {
+	baseFilename := path.Base(filename)
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
+		gplog.Error("File %s: Failed to open. Error %s", baseFilename, err.Error())
 		return err
 	}
 
 	_, err = file.Write(contents)
 	if err != nil {
+		gplog.Error("File %s: Could not write to file. Error %s", baseFilename, err.Error())
 		return err
 	}
 
 	err = file.Chmod(0444)
 	if err != nil {
+		gplog.Error("File %s: Could not chmod. Error %s", baseFilename, err.Error())
 		return err
 	}
 
 	err = file.Sync()
 	if err != nil {
+		gplog.Error("File %s: Could not sync. Error %s", baseFilename, err.Error())
 		return err
 	}
 

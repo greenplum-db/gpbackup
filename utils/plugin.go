@@ -364,12 +364,14 @@ func (plugin *PluginConfig) createHostPluginConfig(contentIDForSegmentOnHost int
 		if err != nil {
 			_, _ = fmt.Fprintf(operating.System.Stdout, err.Error())
 			gplog.Fatal(nil, err.Error())
+			// AJR -- why are we not printing the error message here?
 		}
 
 		secret, err := GetSecretKey(pluginName, c.GetDirForContent(-1))
 		if err != nil {
 			_, _ = fmt.Fprintf(operating.System.Stdout, err.Error())
 			gplog.Fatal(nil, err.Error())
+			// AJR -- why are we not printing the error message here?
 		}
 		plugin.Options[pluginName] = secret
 	}
