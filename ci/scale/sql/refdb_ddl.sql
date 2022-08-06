@@ -21,7 +21,11 @@ VALUES
     (9, 'gpb_scale_single_data_file_zstd'),
     (10, 'gpr_scale_single_data_file_zstd'),
     (11, 'gpb_scale_metadata'),
-    (12, 'gpr_scale_metadata')
+    (12, 'gpr_scale_metadata'),
+    (13, 'gpb_distr_snap_edit_data'),
+    (14, 'gpr_distr_snap_edit_data'),
+    (15, 'gpb_distr_snap_high_conc'),
+    (16, 'gpr_distr_snap_high_conc')
 ;
 
 CREATE TABLE IF NOT EXISTS prod.test_stats (

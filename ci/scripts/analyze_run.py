@@ -103,7 +103,7 @@ def get_stats(test_name):
 
     return stats_dict
 
-def analyze_stats(run_stats, summary_stats):
+def analyze_stats(run_stats, summary_stats, test_name):
     """
     Possible result values are: "pass" "fail" "report"
     """
@@ -112,11 +112,11 @@ def analyze_stats(run_stats, summary_stats):
 
     if (
         summary_stats.get('test_runs_included', 0) >= 10
-        and run_stats.get('runtime') >= summary_stats.get('test_limit_fail')
+        and run_stats.get('test_runtime') >= summary_stats.get('test_limit_fail')
         ):
         run_stats['was_failed'] = "true"
 
-    if run_stats.get('was_failed'):
+    if run_stats.get('was_failed') == "true":
         result_string = "Failed"
     else:
         result_string = "Passed"
@@ -129,8 +129,8 @@ def analyze_stats(run_stats, summary_stats):
     Comparison result: {comp_result}
     ############################################################
     """.format(
-        test_name = summary_stats.get('test_name'),
-        run_time = run_stats.get('runtime'),
+        test_name = test_name,
+        run_time = run_stats.get('test_runtime'),
         summary_stats = summary_stats,
         comp_result = result_string
     )
@@ -178,7 +178,7 @@ def main():
         run_stats = parse_log()
         test_id = get_test_id(TEST_NAME)
         summary_stats = get_stats(TEST_NAME)
-        analyze_stats(run_stats, summary_stats)
+        analyze_stats(run_stats, summary_stats, TEST_NAME)
         store_stats(run_stats, test_id, TEST_NAME)
         return
     except Exception as e:

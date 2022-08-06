@@ -12,6 +12,7 @@ scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg mdw:/home/gpadmi
 scp gpbackup/ci/scripts/analyze_run.py mdw:/home/gpadmin/analyze_run.py
 scp gpbackup/ci/scale/sql/scaletestdb_bigschema_ddl.sql mdw:/home/gpadmin/scaletestdb_bigschema_ddl.sql
 scp gpbackup/ci/scale/sql/scaletestdb_wideschema_ddl.sql mdw:/home/gpadmin/scaletestdb_wideschema_ddl.sql
+scp gpbackup/ci/scale/sql/etl_job.sql mdw:/home/gpadmin/etl_job.sql
 scp gpbackup/ci/scale/sql/pull_rowcount.sql mdw:/home/gpadmin/pull_rowcount.sql
 scp gpbackup/ci/scale/sql/valid_metadata.sql mdw:/home/gpadmin/valid_metadata.sql
 scp -r gpbackup/ci/scale/gpload_yaml mdw:/home/gpadmin/gpload_yaml
@@ -279,6 +280,177 @@ python /home/gpadmin/analyze_run.py gpr_scale_single_data_file_zstd
 # clean out redirected database before proceeding further
 yes y | gpbackup_manager delete-backup "\$timestamp"
 dropdb scalesinglefilezstd
+#####################################################################
+#####################################################################
+
+#####################################################################
+##################################################################### 
+# TEST GPBACKUP UNDER VARIOUS PRESSURES
+#####################################################################
+##################################################################### 
+
+#####################################################################
+#####################################################################
+echo "## Performing backup with moderate number of jobs while database is being edited ##"
+# BACKUP
+rm -f $RESULTS_LOG_FILE
+echo "RESULTS_LOG_FILE: \$RESULTS_LOG_FILE"
+(time gpbackup --dbname scaletestdb --include-schema big --backup-dir /data/gpdata --jobs=16 ) > \$RESULTS_LOG_FILE 2>&1 &
+echo "Backup initiated in the background."
+# check log for lock acquisition before proceeding
+set +e # turn off exit on error so grep doesn't kill the whole script
+TIMEOUT_COUNTER=0
+while true
+do
+    sleep 1
+    LOCKSGREP=\$(grep "Locks acquired: .* 100\.00\%" \$RESULTS_LOG_FILE)
+    if [ "\$LOCKSGREP" != "" ]; then
+        echo "All locks acquired.  Proceeding with ETL job."
+        break
+    fi
+
+    if ((\$TIMEOUT_COUNTER > 100)); then
+        echo "Test timed out waiting for lock acquisition"
+        exit 1
+    fi
+    echo "\$TIMEOUT_COUNTER"
+    ((TIMEOUT_COUNTER=\$TIMEOUT_COUNTER+1))
+done
+
+# begin ETL job
+psql -d scaletestdb -f /home/gpadmin/etl_job.sql > /dev/null
+
+# check log for backup completion before proceeding
+TIMEOUT_COUNTER=0
+while true
+do
+    sleep 1
+    COMPGREP=\$(grep "Backup completed successfully" \$RESULTS_LOG_FILE)
+    if [ "\$COMPGREP" != "" ]; then
+        break
+    fi
+
+    if ((\$TIMEOUT_COUNTER > 10000)); then
+        echo "Test timed out waiting for backup completion"
+        exit 1
+    fi
+    ((TIMEOUT_COUNTER=\$TIMEOUT_COUNTER+1))
+done
+set -e
+
+timestamp=\$(head -10 "\$RESULTS_LOG_FILE" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+echo "gpb_distr_snap_edit_data timestamp backed up: \$timestamp"
+
+# conduct runtime analysis
+python /home/gpadmin/analyze_run.py gpb_distr_snap_edit_data
+#####################################################################
+
+#####################################################################
+echo "## Performing restore with moderate number of jobs on backup done while database is edited ##"
+# RESTORE
+rm -f $RESULTS_LOG_FILE
+dropdb scaletestdb
+(time gprestore --timestamp "\$timestamp" --include-schema big --backup-dir /data/gpdata --create-db --redirect-db newscaletestdb --jobs=16) > \$RESULTS_LOG_FILE 2>&1
+echo "gpr_distr_snap_edit_data timestamp restored: \$timestamp"
+
+# compare round-trip row counts
+psql -d newscaletestdb -f /home/gpadmin/pull_rowcount.sql -o /home/gpadmin/rowcounts_gpr_distr_snap_edit_data.txt
+ROWCOUNTS_DIFF=\$(diff -w /home/gpadmin/rowcounts_orig.txt /home/gpadmin/rowcounts_gpr_distr_snap_edit_data.txt)
+if [ "\$ROWCOUNTS_DIFF" != "" ] 
+then
+  echo "Failed result from gpr_distr_snap_edit_data -- mismatched row counts.  Exiting early with failure code."
+  fusermount -u /home/gpadmin/bucket
+  exit 1
+fi
+
+# conduct runtime analysis
+python /home/gpadmin/analyze_run.py gpr_distr_snap_edit_data
+
+# clean out redirected database before proceeding further
+yes y | gpbackup_manager delete-backup "\$timestamp"
+#####################################################################
+#####################################################################
+
+#####################################################################
+##################################################################### 
+echo "## Performing backup with high number of jobs on cluster with high-concurrency load ##"
+# BACKUP
+rm -f $RESULTS_LOG_FILE
+(time gpbackup --dbname newscaletestdb --include-schema big --backup-dir /data/gpdata --jobs=32 ) > \$RESULTS_LOG_FILE 2>&1 &
+# check log for lock acquisition before proceeding
+set +e set +e # turn off exit on error so grep doesn't kill the whole script
+TIMEOUT_COUNTER=0
+while true
+do
+    sleep 1
+    LOCKSGREP=\$(grep "Locks acquired: .* 100\.00\%" \$RESULTS_LOG_FILE)
+    if [ "\$LOCKSGREP" != "" ]; then
+        echo "All locks acquired.  Proceeding with data load"
+        break
+    fi
+
+    if ((\$TIMEOUT_COUNTER > 100)); then
+        echo "Test timed out waiting for lock acquisition"
+        exit 1
+    fi
+    ((TIMEOUT_COUNTER=\$TIMEOUT_COUNTER+1))
+done
+
+# load data into a separate database to apply high concurrent load to cluster
+createdb scaletestdb
+psql -d scaletestdb -q -f scaletestdb_bigschema_ddl.sql
+gpload -f /home/gpadmin/gpload_yaml/lineitem.yml
+gpload -f /home/gpadmin/gpload_yaml/orders_3.yml
+
+# check log for backup completion before proceeding
+TIMEOUT_COUNTER=0
+while true
+do
+    sleep 1
+    COMPGREP=\$(grep "Backup completed successfully" \$RESULTS_LOG_FILE)
+    if [ "\$COMPGREP" != "" ]; then
+        break
+    fi
+
+    if ((\$TIMEOUT_COUNTER > 10000)); then
+        echo "Test timed out waiting for backup completion"
+        exit 1
+    fi
+    ((TIMEOUT_COUNTER=\$TIMEOUT_COUNTER+1))
+done
+set -e
+
+timestamp=\$(head -10 "\$RESULTS_LOG_FILE" | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")
+echo "gpb_distr_snap_high_conc timestamp backed up: \$timestamp"
+
+# conduct runtime analysis
+python /home/gpadmin/analyze_run.py gpb_distr_snap_high_conc
+#####################################################################
+
+#####################################################################
+echo "## Performing restore with high number of jobs on backup done while cluster had high-concurrency load ##"
+# RESTORE
+rm -f $RESULTS_LOG_FILE
+dropdb scaletestdb
+(time gprestore --timestamp "\$timestamp" --include-schema big --backup-dir /data/gpdata --create-db --redirect-db scaletestdb --jobs=32) > \$RESULTS_LOG_FILE 2>&1
+echo "gpr_distr_snap_high_conc timestamp restored: \$timestamp"
+
+# compare round-trip row counts
+psql -d scaletestdb -f /home/gpadmin/pull_rowcount.sql -o /home/gpadmin/rowcounts_gpr_distr_snap_high_conc.txt
+ROWCOUNTS_DIFF=\$(diff -w /home/gpadmin/rowcounts_orig.txt /home/gpadmin/rowcounts_gpr_distr_snap_high_conc.txt)
+if [ "\$ROWCOUNTS_DIFF" != "" ] 
+then
+  echo "Failed result from gpb_distr_snap_high_conc -- mismatched row counts.  Exiting early with failure code."
+  fusermount -u /home/gpadmin/bucket
+  exit 1
+fi
+
+# conduct runtime analysis
+python /home/gpadmin/analyze_run.py gpr_distr_snap_high_conc
+
+# clean out redirected database before proceeding further
+yes y | gpbackup_manager delete-backup "\$timestamp"
+dropdb newscaletestdb
 #####################################################################
 #####################################################################
 
