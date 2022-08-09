@@ -71,8 +71,10 @@ def create_pipeline(args):
 
     if args.is_prod:
         default_output_filename = "%s-generated.yml" % args.pipeline_name
+        pipeline_yml = pipeline_yml.replace("$$DEV_PROD$$", "prod")
     else:
         default_output_filename = "%s-dev-generated.yml" % args.pipeline_name
+        pipeline_yml = pipeline_yml.replace("$$DEV_PROD$$", "dev")
 
     with open(default_output_filename, 'w') as output:
         header = render_template('pipeline_header.yml', context)
@@ -86,12 +88,9 @@ def print_output_message(args):
     if not args.is_prod:
         if git_branch == "master":
             print "\n[WARNING] You are generating a dev pipeline pointed to the master branch!\n"
-        cmd = "fly -t dp set-pipeline  -p dev:%s_%s \
+        cmd = """fly -t dp set-pipeline  -p dev:%s_%s \
 -c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-dev-generated.yml \
--l ~/workspace/gp-continuous-integration/secrets/gpdb_common-ci-secrets.yml \
--l ~/workspace/gp-continuous-integration/secrets/ccp_ci_secrets_dp.yml \
--l ~/workspace/gp-continuous-integration/secrets/gpbackup.dev.yml \
--v gpbackup-git-branch=%s" % (args.pipeline_name, git_branch, args.pipeline_name, git_branch)
+-v gpbackup-git-branch=%s""" % (args.pipeline_name, git_branch, args.pipeline_name, git_branch)
         print "To set this pipeline on dev, run: \n%s" % (cmd)
         join = raw_input('Would you like to run the pipeline now? [yN]: ')
         if join.lower() == 'yes' or join.lower() == 'y':
@@ -105,14 +104,10 @@ def print_output_message(args):
         if git_branch != "master":
             print "\n[WARNING] You are generating a prod pipeline, but are not on the master branch!\n"
         cmd1 = "fly -t gpdb-prod set-pipeline -p %s \
--c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml \
--l ~/workspace/gp-continuous-integration/secrets/gpdb_common-ci-secrets.yml \
--l ~/workspace/gp-continuous-integration/secrets/gpbackup.prod.yml" % (args.pipeline_name, args.pipeline_name)
+-c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml" % (args.pipeline_name, args.pipeline_name)
         args.pipeline_name = "gpbackup"
         cmd2 = "fly -t gpdb-prod set-pipeline -p %s \
--c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml \
--l ~/workspace/gp-continuous-integration/secrets/gpdb_common-ci-secrets.yml \
--l ~/workspace/gp-continuous-integration/secrets/gpbackup.prod.yml" % (args.pipeline_name, args.pipeline_name)
+-c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml" % (args.pipeline_name, args.pipeline_name)
         print "To set these pipelines (gpbackup / gpbackup-release) on prod, run: \n%s\n%s" % (cmd2, cmd1)
 
 def main():
