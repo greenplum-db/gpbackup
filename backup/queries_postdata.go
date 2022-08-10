@@ -48,6 +48,8 @@ type IndexDefinition struct {
 	IsClustered        bool
 	SupportsConstraint bool
 	IsReplicaIdentity  bool
+	StatisticsColumns  string
+	StatisticsValues   string
 }
 
 func (i IndexDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -123,7 +125,9 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		CASE
 			WHEN conindid > 0 THEN 't'
 			ELSE 'f'
-		END as supportsconstraint
+		END as supportsconstraint,
+		coalesce(array_to_string((SELECT pg_catalog.array_agg(attnum ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticscolumns,
+		coalesce(array_to_string((SELECT pg_catalog.array_agg(attstattarget ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticsvalues
 	FROM pg_index i
 		JOIN pg_class ic ON ic.oid = i.indexrelid
 		JOIN pg_namespace n ON ic.relnamespace = n.oid

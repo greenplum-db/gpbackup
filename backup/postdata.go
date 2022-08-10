@@ -7,8 +7,12 @@ package backup
  */
 
 import (
+	"strings"
+
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/pkg/errors"
 )
 
 func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
@@ -39,6 +43,18 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER TABLE %s REPLICA IDENTITY USING INDEX %s;", tableFQN, index.Name)
 				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			}
+			if index.StatisticsColumns != "" && index.StatisticsValues != ""{
+				cols := strings.Split(index.StatisticsColumns, ",")
+				vals := strings.Split(index.StatisticsValues, ",")
+				if(len(cols) != len(vals)) {
+					gplog.Fatal(errors.Errorf("Index StatisticsColumns(%d) and StatisticsValues(%d) count don't match\n", len(cols), len(vals)), "")
+				}
+				for i := 0; i < len(cols); i++ {
+					start := metadataFile.ByteCount
+					metadataFile.MustPrintf("\nALTER INDEX %s ALTER COLUMN %s SET STATISTICS %s;", index.FQN(), cols[i], vals[i])
+					toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				}
 			}
 		}
 		PrintObjectMetadata(metadataFile, toc, indexMetadata[index.GetUniqueID()], index, "")

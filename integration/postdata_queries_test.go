@@ -201,6 +201,23 @@ PARTITION BY RANGE (date)
 
 			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
+		It("returns a slice of an index with statistics on expression columns", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int, j int, k int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx1 ON public.simple_table(i, (i+100), (j * 8))")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER INDEX public.simple_table_idx1 ALTER COLUMN 2 SET STATISTICS 400")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER INDEX public.simple_table_idx1 ALTER COLUMN 3 SET STATISTICS 500")
+
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx1 ON public.simple_table USING btree (i, ((i + 100)), ((j * 8)))", Valid: true}, StatisticsColumns: "2,3", StatisticsValues: "400,500"}
+
+			results := backup.GetIndexes(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			results[0].Oid = testutils.OidFromObjectName(connectionPool, "", "simple_table_idx1", backup.TYPE_INDEX)
+
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+		})
 	})
 	Describe("GetRules", func() {
 		var (

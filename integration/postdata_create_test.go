@@ -115,6 +115,21 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultIndex := resultIndexes[0]
 			structmatcher.ExpectStructsToMatchExcluding(&resultIndex, &index, "Oid")
 		})
+		It("creates an index with statistics on expression columns", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			indexes := []backup.IndexDefinition{{Oid: 0, Name: "testtable_index", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE INDEX testtable_index ON public.testtable USING btree (i, ((i + 1)), ((j * 2)))", Valid: true}, StatisticsColumns: "2,3", StatisticsValues: "5000,600"}}
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
+
+			//Create table whose columns we can index
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(i int, j int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable")
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			resultIndexes := backup.GetIndexes(connectionPool)
+			Expect(resultIndexes).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&resultIndexes[0], &indexes[0], "Oid")
+		})
 	})
 	Describe("PrintCreateRuleStatements", func() {
 		var (
