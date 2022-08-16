@@ -107,15 +107,17 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 		metadataFile.MustPrintf("\n%s", funcDef.Config)
 	}
 
-	switch funcDef.Parallel {
-	case "u":
-		metadataFile.MustPrintf(" PARALLEL UNSAFE")
-	case "s":
-		metadataFile.MustPrintf(" PARALLEL SAFE")
-	case "r":
-		metadataFile.MustPrintf(" PARALLEL RESTRICTED")
-	default:
-		gplog.Fatal(fmt.Errorf("unrecognized proparallel value for function %s", funcDef.FQN()), "")
+	if connectionPool.Version.AtLeast("7") {
+		switch funcDef.Parallel {
+		case "u":
+			metadataFile.MustPrintf(" PARALLEL UNSAFE")
+		case "s":
+			metadataFile.MustPrintf(" PARALLEL SAFE")
+		case "r":
+			metadataFile.MustPrintf(" PARALLEL RESTRICTED")
+		default:
+			gplog.Fatal(fmt.Errorf("unrecognized proparallel value for function %s", funcDef.FQN()), "")
+		}
 	}
 }
 
