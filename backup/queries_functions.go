@@ -393,7 +393,8 @@ type Aggregate struct {
 	FinalFuncExtra             bool
 	SortOperator               string
 	SortOperatorSchema         string
-	Hypothetical               bool
+	Hypothetical               bool   // GPDB < 7
+	Kind                       string // GPDB7+
 	TransitionDataType         string
 	TransitionDataSize         int `db:"aggtransspace"`
 	InitialValue               string
@@ -407,6 +408,9 @@ type Aggregate struct {
 	MFinalFuncExtra            bool
 	MInitialValue              string
 	MInitValIsNull             bool
+	Finalmodify                string // GPDB7+
+	Mfinalmodify               string // GPDB7+
+	Parallel                   string // GPDB7+
 }
 
 func (a Aggregate) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -487,7 +491,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		AND %s`,
 		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
-	masterQuery := fmt.Sprintf(`
+	version6query := fmt.Sprintf(`
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		p.proname AS name,
@@ -523,14 +527,54 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		AND %s`,
 		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
+	version7Query := fmt.Sprintf(`
+	SELECT p.oid,
+		quote_ident(n.nspname) AS schema,
+		p.proname AS name,
+		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+		a.aggtransfn::regproc::oid,
+		a.aggcombinefn::regproc::oid,
+		a.aggserialfn::regproc::oid,
+		a.aggdeserialfn::regproc::oid,
+		a.aggfinalfn::regproc::oid,
+		a.aggfinalextra AS finalfuncextra,
+		coalesce(o.oprname, '') AS sortoperator,
+		coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema, 
+		aggkind AS kind,
+		format_type(a.aggtranstype, NULL) as transitiondatatype,
+		aggtransspace,
+		coalesce(a.agginitval, '') AS initialvalue,
+		(a.agginitval IS NULL) AS initvalisnull,
+		a.aggmtransfn::regproc::oid,
+		a.aggminvtransfn::regproc::oid,
+		a.aggmfinalfn::regproc::oid,
+		a.aggmfinalextra AS mfinalfuncextra,
+		format_type(a.aggmtranstype, NULL) as mtransitiondatatype,
+		aggmtransspace,
+		(a.aggminitval IS NULL) AS minitvalisnull,
+		coalesce(a.aggminitval, '') AS minitialvalue,
+		a.aggfinalmodify AS finalmodify,
+		a.aggmfinalmodify AS mfinalmodify,
+	FROM pg_aggregate a
+		LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
+		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+		LEFT JOIN pg_operator o ON a.aggsortop = o.oid
+		LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
+	WHERE %s
+		AND %s`,
+		SchemaFilterClause("n"), ExtensionFilterClause("p"))
+
 	aggregates := make([]Aggregate, 0)
 	query := ""
 	if connectionPool.Version.Before("5") {
 		query = version4query
 	} else if connectionPool.Version.Before("6") {
 		query = version5query
+	} else if connectionPool.Version.Before("7"){
+		query = version6query
 	} else {
-		query = masterQuery
+		query = version7Query
 	}
 	err := connectionPool.Select(&aggregates, query)
 	gplog.FatalOnError(err)

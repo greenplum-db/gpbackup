@@ -11,6 +11,7 @@ import (
 
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 )
 
 func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
@@ -114,7 +115,7 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	case "r":
 		metadataFile.MustPrintf(" PARALLEL RESTRICTED")
 	default:
-		gplog.Fatal(errors.Errorf("unrecognized proparallel value for function %s", funcDef.FQN()), "")
+		gplog.Fatal(fmt.Errorf("unrecognized proparallel value for function %s", funcDef.FQN()), "")
 	}
 }
 
@@ -160,8 +161,14 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	if aggDef.SortOperator != "" {
 		metadataFile.MustPrintf(",\n\tSORTOP = %s.\"%s\"", aggDef.SortOperatorSchema, aggDef.SortOperator)
 	}
-	if aggDef.Hypothetical {
-		metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+	if connectionPool.Version.Before("7") {
+		if aggDef.Hypothetical {
+			metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+		}
+	} else {
+		if aggDef.Kind == "h" {
+			metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+		}
 	}
 	if aggDef.MTransitionFunction != 0 {
 		metadataFile.MustPrintf(",\n\tMSFUNC = %s", funcInfoMap[aggDef.MTransitionFunction].QualifiedName)
@@ -184,6 +191,56 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	if !aggDef.MInitValIsNull {
 		metadataFile.MustPrintf(",\n\tMINITCOND = '%s'", aggDef.MInitialValue)
 	}
+
+	if connectionPool.Version.AtLeast("7") {
+		var defaultFinalModify string
+		if aggDef.Kind == "n" {
+			defaultFinalModify = "r"
+		} else {
+			defaultFinalModify = "w"
+		}
+		if aggDef.Finalmodify == "" {
+			aggDef.Finalmodify = defaultFinalModify
+		}
+		if aggDef.Mfinalmodify == "" {
+			aggDef.Mfinalmodify = defaultFinalModify
+		}
+		if aggDef.Finalmodify != defaultFinalModify {
+			if aggDef.Finalmodify == "r" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_ONLY")
+			} else if aggDef.Finalmodify == "s" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = SHARABLE")
+			} else if aggDef.Finalmodify == "w" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_WRITE")
+			} else {
+				gplog.Fatal(fmt.Errorf("invalid aggfinalmodify value: expected 'r', 's' or 'w', got '%s'", aggDef.Finalmodify), "")
+			}
+		}
+		if aggDef.Mfinalmodify != defaultFinalModify {
+			if aggDef.Mfinalmodify == "r" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_ONLY")
+			} else if aggDef.Mfinalmodify == "s" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = SHARABLE")
+			} else if aggDef.Mfinalmodify == "w" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_WRITE")
+			} else {
+				gplog.Fatal(fmt.Errorf("invalid aggmfinalmodify value: expected 'r', 's' or 'w', got '%s'", aggDef.Mfinalmodify), "")
+			}
+		}
+	}
+	if aggDef.Parallel != "" {
+		switch aggDef.Parallel {
+		case "u":
+			metadataFile.MustPrintf(",\n\tPARALLEL = UNSAFE")
+		case "s":
+			metadataFile.MustPrintf(",\n\tPARALLEL = SAFE")
+		case "r":
+			metadataFile.MustPrintf(",\n\tPARALLEL = RESTRICTED")
+		default:
+			gplog.Fatal(fmt.Errorf("unrecognized proparallel value for function %s", aggDef.Parallel), "")
+		}
+	}
+
 	metadataFile.MustPrintln("\n);")
 
 	section, entry := aggDef.GetMetadataEntry()
