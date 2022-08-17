@@ -596,6 +596,16 @@ $_$`)
 				"SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(*) IS 'unclassified';"}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
+		It("prints an aggregate definition with parallel safe modifier", func() {
+			aggDefinition.Parallel = "s"
+			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggDefinition, funcInfoMap, emptyMetadata)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "agg_name(integer, integer)", "AGGREGATE")
+			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE AGGREGATE public.agg_name(integer, integer) (
+	SFUNC = public.mysfunc,
+	STYPE = integer,
+	PARALLEL = SAFE
+);`)
+		})
 		DescribeTable("prints aggregate with aggfinalmodify or aggmfinalmodify",
 			func(kind string, finalMod string, mfinalMod string, expected string) {
 				testutils.SkipIfBefore7(connectionPool)

@@ -531,6 +531,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		p.proname AS name,
+		p.proparallel as parallel,
 		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
 		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
 		a.aggtransfn::regproc::oid,
