@@ -119,6 +119,7 @@ SEGMENT REJECT LIMIT 10 PERCENT
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &result, "Oid")
 		})
 		It("returns a slice for a complex external table definition TEXT format delimiter", func() {
+			// TODO -- server-side bug in population pg_exttable.options field. Reached out to server team, waiting on response
 			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `CREATE EXTERNAL TABLE public.ext_table (
     i int

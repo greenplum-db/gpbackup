@@ -89,7 +89,20 @@ func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	if comment := metadata.GetCommentStatement(obj.FQN(), entry.ObjectType, owningTable); comment != "" {
 		statements = append(statements, strings.TrimSpace(comment))
 	}
-	if owner := metadata.GetOwnerStatement(obj.FQN(), entry.ObjectType); owner != "" {
+
+	objectType := entry.ObjectType
+	if connectionPool.Version.AtLeast("7") {
+		switch object := obj.(type) {
+		case Function:
+			if object.Kind == "p" {
+				// Procedures are handled as a kind of function but with different syntax and capabilities.
+				// Distinction made when printing here
+				objectType = "PROCEDURE"
+			}
+		}
+	}
+
+	if owner := metadata.GetOwnerStatement(obj.FQN(), objectType); owner != "" {
 		if !(connectionPool.Version.Before("5") && entry.ObjectType == "LANGUAGE") {
 			// Languages have implicit owners in 4.3, but do not support ALTER OWNER
 			statements = append(statements, strings.TrimSpace(owner))

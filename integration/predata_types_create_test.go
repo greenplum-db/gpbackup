@@ -214,7 +214,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic collation", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			collation := backup.Collation{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}
-			if(connectionPool.Version.AtLeast("7")) {
+			if connectionPool.Version.AtLeast("7") {
 				collation.IsDeterministic = "true"
 				collation.Provider = "c"
 			}
@@ -231,7 +231,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a basic collation with comment and owner", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			collation := backup.Collation{Oid: 1, Schema: "public", Name: "testcollation", Collate: "POSIX", Ctype: "POSIX"}
-			if(connectionPool.Version.AtLeast("7")) {
+			if connectionPool.Version.AtLeast("7") {
 				collation.IsDeterministic = "true"
 				collation.Provider = "c"
 			}

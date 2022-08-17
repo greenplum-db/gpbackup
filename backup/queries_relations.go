@@ -170,6 +170,7 @@ type Sequence struct {
 	OwningTableSchema       string
 	OwningTable             string
 	OwningColumn            string
+	UnqualifiedOwningColumn string
 	OwningColumnAttIdentity string
 	IsIdentity              bool
 	Definition              SequenceDefinition
@@ -213,6 +214,7 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 			coalesce(quote_ident(t.relname), '') AS owningtable,
 			coalesce(quote_ident(a.attname), '') AS owningcolumn,
 			coalesce(a.attidentity, '') AS owningcolumnattidentity,
+			coalesce(quote_ident(a.attname), '') AS unqualifiedowningcolumn,
 			CASE
 				WHEN d.deptype IS NULL THEN false
 				ELSE d.deptype = 'i'

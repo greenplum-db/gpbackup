@@ -23,8 +23,8 @@ var _ = Describe("backup/predata_relations tests", func() {
 	Describe("PrintIdentityColumns", func() {
 		mySequence := backup.Relation{SchemaOid: 0, Oid: 10, Schema: "public", Name: "mytable_mycol_seq"}
 		otherRandomSeq := backup.Relation{SchemaOid: 0, Oid: 40, Schema: "public", Name: "random_seq"}
-		seqIdentity := backup.Sequence{Relation: mySequence, IsIdentity: true, OwningTableSchema: "public", OwningTableOid: "20", OwningTable: "mytable", OwningColumn: "mycol", OwningColumnAttIdentity: "d", Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, IsCycled: false, IsCalled: true}}
-		seqRandom := backup.Sequence{Relation: otherRandomSeq, IsIdentity: false, OwningTableSchema: "public", OwningTableOid: "30", OwningTable: "another_table", OwningColumn: "another_column", OwningColumnAttIdentity: "", Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, IsCycled: false, IsCalled: true}}
+		seqIdentity := backup.Sequence{Relation: mySequence, IsIdentity: true, OwningTableSchema: "public", OwningTableOid: "20", OwningTable: "public.mytable", OwningColumn: "public.mytable.mycol", UnqualifiedOwningColumn: "mycol", OwningColumnAttIdentity: "d", Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, IsCycled: false, IsCalled: true}}
+		seqRandom := backup.Sequence{Relation: otherRandomSeq, IsIdentity: false, OwningTableSchema: "public", OwningTableOid: "30", OwningTable: "public.another_table", OwningColumn: "public.another_table.another_column", UnqualifiedOwningColumn: "another_column", OwningColumnAttIdentity: "", Definition: backup.SequenceDefinition{LastVal: 7, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 5, IsCycled: false, IsCalled: true}}
 
 		getSeqDefReplace := func() string {
 			seqDefReplace := ""

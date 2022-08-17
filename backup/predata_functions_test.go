@@ -13,30 +13,22 @@ import (
 )
 
 var _ = Describe("backup/predata_functions tests", func() {
-	var funcDefault backup.Function
-	var DEFAULT_PARALLEL string
 	BeforeEach(func() {
 		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
-		funcDefault = backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
-		if connectionPool.Version.AtLeast("7") {
-			funcDefault.Parallel = "u"
-			funcDefault.PlannerSupport = "-"
-			DEFAULT_PARALLEL = " PARALLEL UNSAFE"
-		}
 	})
 	Describe("Functions involved in printing CREATE FUNCTION statements", func() {
 		var funcDef backup.Function
-		getPlannerSupport := func() string {
-			plannerSupportReplace := ""
-			if connectionPool.Version.AtLeast("7") {
-				plannerSupportReplace = "-"
-			}
-			return plannerSupportReplace
-		}
-		funcDefault := backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
+		var DEFAULT_PARALLEL string
 		BeforeEach(func() {
-			funcDef = funcDefault
-			funcDef.PlannerSupport = getPlannerSupport()
+			funcDef = backup.Function{Oid: 1, Schema: "public", Name: "func_name", ReturnsSet: false, FunctionBody: "add_two_ints", BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, ResultType: sql.NullString{String: "integer", Valid: true}, Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: float32(1), NumRows: float32(0), DataAccess: "", Language: "internal", ExecLocation: "a"}
+			funcDef.Parallel = ""
+			funcDef.PlannerSupport = ""
+			DEFAULT_PARALLEL = ""
+			if connectionPool.Version.AtLeast("7") {
+				funcDef.Parallel = "u"
+				funcDef.PlannerSupport = "-"
+				DEFAULT_PARALLEL = " PARALLEL UNSAFE"
+			}
 		})
 
 		Describe("PrintCreateFunctionStatement", func() {
@@ -79,15 +71,12 @@ GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`,
 			It("prints a function definition for a stored procedure", func() {
 				testutils.SkipIfBefore7(connectionPool)
 				procDef := backup.Function{Oid: 1, Schema: "public", Name: "my_procedure", Kind: "p", ReturnsSet: false, FunctionBody: "do_something", BinaryPath: "", Arguments: sql.NullString{String: "", Valid: true}, IdentArgs: sql.NullString{String: "", Valid: true}, ResultType: sql.NullString{String: "", Valid: false}, Volatility: "", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: float32(0), DataAccess: "", Language: "SQL", ExecLocation: "a"}
-				if connectionPool.Version.AtLeast("7") {
-					procDef.Parallel = "u"
-					procDef.PlannerSupport = getPlannerSupport()
-				}
+				procDef.PlannerSupport = "-"
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, procDef, funcMetadata)
-				testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "my_procedure()", "PROCEDURE")
-				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE PROCEDURE public.my_procedure() AS
+				testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "my_procedure()", "FUNCTION")
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROCEDURE public.my_procedure() AS
 $$do_something$$
-LANGUAGE SQL%s;`, DEFAULT_PARALLEL))
+LANGUAGE SQL;`)
 			})
 		})
 		Describe("PrintFunctionBodyOrPath", func() {
@@ -271,7 +260,7 @@ $_$`)
 					funcDef.Cost = 100
 					funcDef.Language = "sql"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
-					Expect(buffer.Contents()).To(Equal([]byte{}))
+					testhelper.NotExpectRegexp(buffer, "COST 100")
 				})
 			})
 			Context("NumRows cases", func() {

@@ -178,15 +178,17 @@ var _ = Describe("backup integration create statement tests", func() {
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", ExecLocation: "m",
-				}
+					Language: "sql", ExecLocation: "m", IsWindow: true}
 				if connectionPool.Version.AtLeast("7") {
 					windowFunction.PlannerSupport = "-"
 					windowFunction.Kind = "w"
 					windowFunction.Parallel = "u"
 					windowFunction.ExecLocation = "c"
-				} else {
-					windowFunction.IsWindow = true
+
+					// GPDB7 only allows set-returning functions to execute on coordinator
+					windowFunction.ReturnsSet = true
+					windowFunction.NumRows = 1000
+					windowFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, windowFunction, funcMetadata)
@@ -212,6 +214,11 @@ var _ = Describe("backup integration create statement tests", func() {
 					segmentFunction.PlannerSupport = "-"
 					segmentFunction.Kind = "f"
 					segmentFunction.Parallel = "u"
+
+					// GPDB7 only allows set-returning functions to execute on master
+					segmentFunction.ReturnsSet = true
+					segmentFunction.NumRows = 1000
+					segmentFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, segmentFunction, funcMetadata)
@@ -613,6 +620,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		var funcInfoMap map[uint32]backup.FunctionInfo
 
 		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
 			fromSQLFuncOid = testutils.OidFromObjectName(connectionPool, "pg_catalog", "numeric_support", backup.TYPE_FUNCTION)
 			toSQLFuncOid = testutils.OidFromObjectName(connectionPool, "pg_catalog", "int2recv", backup.TYPE_FUNCTION)
 
@@ -623,7 +631,6 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 
 		DescribeTable("creates transforms", func(fromSql func() uint32, toSql func() uint32) {
-			testutils.SkipIfBefore7(connectionPool)
 			transform := backup.Transform{Oid: 1, TypeNamespace: "pg_catalog", TypeName: "int2", LanguageName: "c", FromSQLFunc: fromSql(), ToSQLFunc: toSql()}
 			transforms := []backup.Transform{transform}
 			transMetadataMap := testutils.DefaultMetadataMap("TRANSFORM", false, false, true, false)

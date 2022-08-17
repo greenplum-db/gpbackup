@@ -293,7 +293,7 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.with_sequence(a int, b char(20))")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.with_sequence")
 			testhelper.AssertQueryRuns(connectionPool,
-				"CREATE SEQUENCE public.my_sequence INCREMENT BY 5 MINVALUE 20 MAXVALUE 1000 START 100 OWNED BY public.with_sequence.a")
+				"CREATE SEQUENCE public.my_sequence INCREMENT BY 5 MINVALUE 20 MAXVALUE 1000 START 100 OWNED BY public.with_sequence.a CACHE 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 			testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.with_sequence VALUES (nextval('public.my_sequence'), 'acme')")
 			testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.with_sequence VALUES (nextval('public.my_sequence'), 'beta')")
@@ -303,12 +303,6 @@ PARTITION BY LIST (gender)
 			expectedSequence := backup.SequenceDefinition{LastVal: 105, Type: dataType, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
 			if connectionPool.Version.AtLeast("6") {
 				expectedSequence.StartVal = 100
-			}
-			if connectionPool.Version.AtLeast("7") {
-				// In GPDB 7+, default cache value is 20
-				expectedSequence.CacheVal = 20
-				// last_value goes from 100 -> 195 -> 295 due to increment_by and cache_value
-				expectedSequence.LastVal = 295
 			}
 
 			structmatcher.ExpectStructsToMatch(&expectedSequence, &resultSequenceDef)

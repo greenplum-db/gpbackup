@@ -64,7 +64,7 @@ func SetupTestDbConn(dbname string) *dbconn.DBConn {
 }
 
 // Connects to specific segment in utility mode
-func SetupTestDBConnSegment(dbname string, port int) *dbconn.DBConn {
+func SetupTestDBConnSegment(dbname string, port int, gpVersion dbconn.GPDBVersion) *dbconn.DBConn {
 
 	if dbname == "" {
 		gplog.Fatal(errors.New("No database provided"), "")
@@ -94,7 +94,14 @@ func SetupTestDBConnSegment(dbname string, port int) *dbconn.DBConn {
 		Version:  dbconn.GPDBVersion{},
 	}
 
-	connStr := fmt.Sprintf("postgres://%s@%s:%d/%s?sslmode=disable&statement_cache_capacity=0&gp_session_role=utility", conn.User, conn.Host, conn.Port, conn.DBName)
+	var gpRoleGuc string
+	if gpVersion.Before("7") {
+		gpRoleGuc = "gp_session_role"
+	} else {
+		gpRoleGuc = "gp_role"
+	}
+
+	connStr := fmt.Sprintf("postgres://%s@%s:%d/%s?sslmode=disable&statement_cache_capacity=0&%s=utility", conn.User, conn.Host, conn.Port, conn.DBName, gpRoleGuc)
 
 	segConn, err := conn.Driver.Connect("pgx", connStr)
 	if err != nil {
@@ -442,7 +449,7 @@ func ExpectEntry(entries []toc.MetadataEntry, index int, schema, referenceObject
 	structmatcher.ExpectStructsToMatchExcluding(entries[index], toc.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
 }
 
-func ExpectEntryCount(entries []toc.MetadataEntry, index int,){
+func ExpectEntryCount(entries []toc.MetadataEntry, index int) {
 	Expect(len(entries)).To(BeNumerically("==", index))
 }
 

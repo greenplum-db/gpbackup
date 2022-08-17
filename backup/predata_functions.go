@@ -109,7 +109,8 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 		metadataFile.MustPrintf("\n%s", funcDef.Config)
 	}
 
-	if connectionPool.Version.AtLeast("7") {
+	// Stored procedures do not permit parallelism declarations
+	if connectionPool.Version.AtLeast("7") && funcDef.Kind != "p" {
 		switch funcDef.Parallel {
 		case "u":
 			metadataFile.MustPrintf(" PARALLEL UNSAFE")

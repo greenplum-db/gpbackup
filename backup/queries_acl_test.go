@@ -44,7 +44,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 		'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
-		quote_ident(name) AS name,
+		coalesce(quote_ident(name),'') AS name,
 		'' AS kind,
 		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
@@ -63,7 +63,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 	SELECT 'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
-		quote_ident(name) AS name,
+		coalesce(quote_ident(name),'') AS name,
 		'' AS kind,
 		coalesce(quote_ident(n.nspname),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,
@@ -96,7 +96,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 	SELECT 'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
-		quote_ident(name) AS name,
+		coalesce(quote_ident(name),'') AS name,
 		CASE
 			WHEN acl IS NULL THEN ''
 			WHEN array_upper(acl, 1) = 0 THEN 'Empty'
@@ -120,7 +120,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 	SELECT 'RELATION' AS objecttype,
 		'table'::regclass::oid AS classid,
 		o.oid,
-		quote_ident(name) AS name,
+		coalesce(quote_ident(name),'') AS name,
 		'' AS kind,
 		coalesce(quote_ident(''),'') AS schema,
 		quote_ident(pg_get_userbyid(owner)) AS owner,

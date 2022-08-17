@@ -60,13 +60,14 @@ var _ = Describe("backup/postdata tests", func() {
 		})
 		It("can print an index of a partition that is attached to a parent partition index", func() {
 			testutils.SkipIfBefore7(connectionPool)
+
 			parentIndex := backup.IndexDefinition{Oid: 2, Name: "parenttestindex", OwningSchema: "public", OwningTable: "parenttesttable", Def: sql.NullString{String: "CREATE INDEX parenttestindex ON public.parenttesttable USING btree(i)", Valid: true}}
 			index.ParentIndexFQN = "public.parenttestindex"
 			indexes := []backup.IndexDefinition{parentIndex, index}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, emptyMetadataMap)
 			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.parenttesttable", "parenttestindex", "INDEX")
 			testutils.ExpectEntry(tocfile.PostdataEntries, 1, "public", "public.testtable", "testindex", "INDEX")
-			testutils.ExpectEntry(tocfile.PostdataEntries, 2, "public", "public.testtable", "testindex", "INDEX")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 2, "public", "public.testindex", "testindex", "INDEX METADATA")
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer,
 				"CREATE INDEX parenttestindex ON public.parenttesttable USING btree(i);",
 				"CREATE INDEX testindex ON public.testtable USING btree(i);",

@@ -185,7 +185,7 @@ func unMarshalRowCounts(filepath string) map[string]int {
 func assertSegmentDataRestored(contentID int, tableName string, rows int) {
 	segment := backupCluster.ByContent[contentID]
 	port := segment[0].Port
-	segConn := testutils.SetupTestDBConnSegment("restoredb", port)
+	segConn := testutils.SetupTestDBConnSegment("restoredb", port, backupConn.Version)
 	defer segConn.Close()
 	assertDataRestored(segConn, map[string]int{tableName: rows})
 }
@@ -388,6 +388,10 @@ var _ = BeforeSuite(func() {
 	backup.SetFilterRelationClause("")
 	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_ddl.sql")
 	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_data.sql")
+
+	// default GUC setting varies between versions so set it explicitly
+	testhelper.AssertQueryRuns(backupConn, "SET gp_autostats_mode='on_no_stats'")
+
 	if useOldBackupVersion {
 		oldBackupSemVer = semver.MustParse(os.Getenv("OLD_BACKUP_VERSION"))
 		oldBackupVersionStr := os.Getenv("OLD_BACKUP_VERSION")
@@ -648,7 +652,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			// ok. Connect in utility mode to seg1.
 			segmentOne := backupCluster.ByContent[1]
 			port := segmentOne[0].Port
-			segConn := testutils.SetupTestDBConnSegment("restoredb", port)
+			segConn := testutils.SetupTestDBConnSegment("restoredb", port, backupConn.Version)
 			defer segConn.Close()
 
 			// Take ACCESS EXCLUSIVE LOCK on public.corrupt_table which will
@@ -1260,6 +1264,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"CREATE TABLE public.table_to_include_with_stats(i int)")
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO public.table_to_include_with_stats SELECT generate_series(0,9);")
+
 			defer testhelper.AssertQueryRuns(backupConn,
 				"DROP TABLE public.table_to_include_with_stats")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1363,11 +1368,16 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 			// Create a rule. Currently for rules, the only metadata is COMMENT.
 			testhelper.AssertQueryRuns(backupConn, "CREATE RULE postdata_rule AS ON UPDATE TO postdata_metadata.foobar DO SELECT * FROM postdata_metadata.foobar;")
-			testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule IS 'hello';")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule ON postdata_metadata.foobar IS 'hello';")
+
+			if backupConn.Version.Before("7") {
+				// TODO: Remove this once support is added
+				// Triggers on statements not yet supported in GPDB7, per src/backend/parser/gram.y:39460,39488
 
 			// Create a trigger. Currently for triggers, the only metadata is COMMENT.
 			testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
 			testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
+			}
 
 			// Create an event trigger. Currently for event triggers, there are 2 possible
 			// pieces of metadata: ENABLE and COMMENT.
@@ -1416,6 +1426,10 @@ var _ = Describe("backup and restore end to end tests", func() {
 				Expect(tableCopyCount).To(Equal(strconv.Itoa(1)))
 			})
 			It("does not retrieve trigger constraints  with the rest of the constraints", func() {
+				if backupConn.Version.Is("7") {
+					// TODO: Remove this once support is added
+					Skip("Triggers on statements not yet supported in GPDB7, per src/backend/parser/gram.y:39460,39488")
+				}
 				testutils.SkipIfBefore6(backupConn)
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE TABLE table_multiple_constraints (a int)")

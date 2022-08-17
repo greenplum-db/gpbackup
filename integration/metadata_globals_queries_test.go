@@ -59,8 +59,8 @@ var _ = Describe("backup integration tests", func() {
 				 * These values are slightly different between mac and linux
 				 * so we use a regexp to match them
 				 */
-				Expect(result.Collate).To(MatchRegexp("en_US.utf-?8"))
-				Expect(result.CType).To(MatchRegexp("en_US.utf-?8"))
+				Expect(result.Collate).To(MatchRegexp("en_US.(utf|UTF)-?8"))
+				Expect(result.CType).To(MatchRegexp("en_US.(utf|UTF)-?8"))
 			}
 		})
 	})

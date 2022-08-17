@@ -99,9 +99,16 @@ LANGUAGE SQL`)
 		})
 		It("returns a window function", func() {
 			testutils.SkipIfBefore6(connectionPool)
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW`)
+			} else {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW`)
+			}
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
@@ -109,12 +116,12 @@ LANGUAGE SQL WINDOW`)
 			var windowFunction backup.Function
 			if connectionPool.Version.AtLeast("7") {
 				windowFunction = backup.Function{
-					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					Schema: "public", Name: "add", ReturnsSet: true, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "integer", Valid: true},
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", Kind: "w", ExecLocation: "a", Parallel: proparallelValue}
+					ResultType: sql.NullString{String: "SETOF integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
+					Language: "sql", Kind: "w", ExecLocation: "a", Parallel: proparallelValue, IsWindow: true}
 			} else {
 				windowFunction = backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -130,34 +137,36 @@ LANGUAGE SQL WINDOW`)
 		})
 		It("returns a function to execute on master and all segments", func() {
 			testutils.SkipIfBefore6(connectionPool)
+
 			if connectionPool.Version.Is("6") {
 				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON MASTER;`)
-			} else {
-				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
-AS 'SELECT $1 + $2'
-LANGUAGE SQL WINDOW
-EXECUTE ON COORDINATOR;`)
-			}
-
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_master(integer, integer)")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_all_segments(integer, integer) RETURNS integer
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_all_segments(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON ALL SEGMENTS;`)
+			} else {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON COORDINATOR;`)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_all_segments(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON ALL SEGMENTS;`)
+			}
+
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_master(integer, integer)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_all_segments(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
 			var prokindValue string
-			var isWindowValue bool
 			if connectionPool.Version.AtLeast("7") {
 				prokindValue = "w"
-				isWindowValue = false
 			} else {
 				prokindValue = ""
-				isWindowValue = true
 			}
 
 			srfOnMasterFunction := backup.Function{
@@ -167,9 +176,14 @@ EXECUTE ON ALL SEGMENTS;`)
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: isWindowValue, ExecLocation: "m", Parallel: proparallelValue}
+				Language: "sql", IsWindow: true, ExecLocation: "m", Parallel: proparallelValue}
 			if connectionPool.Version.AtLeast("7") {
 				srfOnMasterFunction.ExecLocation = "c"
+
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				srfOnMasterFunction.ReturnsSet = true
+				srfOnMasterFunction.NumRows = 1000
+				srfOnMasterFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
 			}
 			srfOnAllSegmentsFunction := backup.Function{
 				Schema: "public", Name: "srf_on_all_segments", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -178,7 +192,13 @@ EXECUTE ON ALL SEGMENTS;`)
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: isWindowValue, ExecLocation: "s", Parallel: proparallelValue}
+				Language: "sql", IsWindow: true, ExecLocation: "s", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on all segments
+				srfOnAllSegmentsFunction.ReturnsSet = true
+				srfOnAllSegmentsFunction.NumRows = 1000
+				srfOnAllSegmentsFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
+			}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
@@ -189,22 +209,43 @@ EXECUTE ON ALL SEGMENTS;`)
 				Skip("Test only applicable to GPDB6.5 and above")
 			}
 
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_initplan(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON INITPLAN;`)
+			} else {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_initplan(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON INITPLAN;`)
+			}
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_initplan(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
 
-			srfOnInitplan := backup.Function{
+			var srfOnInitplan backup.Function
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				srfOnInitplan = backup.Function{
+					Schema: "public", Name: "srf_on_initplan", ReturnsSet: true, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "SETOF integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
+					PlannerSupport: plannerSupportValue, Language: "sql", IsWindow: true, ExecLocation: "i",
+					Parallel: proparallelValue, Kind: "w"}
+			} else {
+				srfOnInitplan = backup.Function{
 				Schema: "public", Name: "srf_on_initplan", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "i"}
-
+					PlannerSupport: plannerSupportValue, Language: "sql", IsWindow: true, ExecLocation: "i",
+					Parallel: proparallelValue}
+			}
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnInitplan, "Oid")
 		})

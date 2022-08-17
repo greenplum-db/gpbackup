@@ -350,11 +350,11 @@ func PrintIdentityColumns(metadataFile *utils.FileWithByteCount, toc *toc.TOC, s
 				gplog.Fatal(errors.Errorf("Invalid Owning Column Attribute came for Identity sequence: expected 'a' or 'd', got '%s'\n", seq.OwningColumnAttIdentity), "")
 			}
 
-			metadataFile.MustPrintf("ALTER TABLE %s.%s\nALTER COLUMN %s ADD GENERATED %s AS IDENTITY (",
-				seq.OwningTableSchema, seq.OwningTable, seq.OwningColumn, attrIdentityStr)
+			metadataFile.MustPrintf("ALTER TABLE %s\nALTER COLUMN %s ADD GENERATED %s AS IDENTITY (",
+				seq.OwningTable, seq.UnqualifiedOwningColumn, attrIdentityStr)
 			metadataFile.MustPrintf("\n\tSEQUENCE NAME %s", seq.FQN())
 			seqDefStatement := generateSequenceDefinitionStatement(seq)
-			metadataFile.MustPrintf("%s);", seqDefStatement)
+			metadataFile.MustPrintf("%s);\n", seqDefStatement)
 			section, entry := seq.GetMetadataEntry()
 			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		}

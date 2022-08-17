@@ -187,12 +187,18 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	err = PostProcessFunctionConfigs(results)
 	gplog.FatalOnError(err)
 
+	// Process kind value for GPDB7+ window functions, to ensure window
+	// attribute is correctly set.
 	// Remove all functions that have NULL arguments, NULL identity
 	// arguments, or NULL result type. This can happen if the query
 	// above is run and a concurrent function drop happens just
 	// before the pg_get_function_* functions execute.
 	verifiedResults := make([]Function, 0)
 	for _, result := range results {
+		if connectionPool.Version.AtLeast("7") && result.Kind == "w" {
+			result.IsWindow = true
+		}
+
 		if result.Arguments.Valid && result.IdentArgs.Valid && result.ResultType.Valid {
 			verifiedResults = append(verifiedResults, result)
 		} else if connectionPool.Version.AtLeast("7") && result.Kind == "p" && !result.ResultType.Valid { // GPDB7+ stored procedure

@@ -339,6 +339,7 @@ PARTITION BY RANGE (date)
 			})
 		})
 		It("returns a constraint array for a table with PRIMARY KEY constraint that includes non-key columns", func() {
+			testutils.SkipIfBefore7(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.table_with_constr (a int NOT NULL, b int NOT NULL, c int, d int) DISTRIBUTED BY (a);")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.table_with_constr")
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.table_with_constr ADD CONSTRAINT table_with_constr_pkey PRIMARY KEY (a, b) INCLUDE (c, d);")

@@ -106,13 +106,6 @@ var _ = Describe("backup/dependencies tests", func() {
 			parallelValue       string
 			DEFAULT_PARALLEL    string
 		)
-		getPlannerSupport := func() string {
-			plannerSupportReplace := ""
-			if connectionPool.Version.AtLeast("7") {
-				plannerSupportReplace = "-"
-			}
-			return plannerSupportReplace
-		}
 		BeforeEach(func() {
 			plannerSupportValue = ""
 			parallelValue = ""
@@ -130,7 +123,7 @@ var _ = Describe("backup/dependencies tests", func() {
 					Arguments:  sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
-					Language:   "sql", PlannerSupport: getPlannerSupport(), Parallel: parallelValue},
+					Language:   "sql", PlannerSupport: plannerSupportValue, Parallel: parallelValue},
 				backup.BaseType{Oid: 2, Schema: "public", Name: "base", Input: "typin", Output: "typout", Category: "U"},
 				backup.CompositeType{Oid: 3, Schema: "public", Name: "composite", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}},
 				backup.Domain{Oid: 4, Schema: "public", Name: "domain", BaseType: "numeric"},

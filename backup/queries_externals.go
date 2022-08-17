@@ -57,7 +57,11 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 				'error_log_persistent=true' = any(e.options) AS logerrpersist,`
 	} else {
 		errorHandling = `logerrors,
-				'error_log_persistent=true' = any(e.options) AS logerrpersist,`
+				'error_log_persistent=t' = any(e.options) AS logerrpersist,`
+
+		// TODO -- server-side bug in population pg_exttable.options field. Reached out to server team, waiting on response
+		errorHandling = `logerrors,
+				coalesce('error_log_persistent=t' = any(e.options), false) AS logerrpersist,`
 	}
 
 	query := fmt.Sprintf(`
