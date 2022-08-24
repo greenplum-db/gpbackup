@@ -226,10 +226,10 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 	objects := make([]Sortable, 0)
 	metadataMap := make(MetadataMap)
 
+	objects = append(objects, convertToSortableSlice(tables)...)
 	if !tableOnly {
 		functions, funcInfoMap = retrieveFunctions(&objects, metadataMap)
 	}
-	objects = append(objects, convertToSortableSlice(tables)...)
 	relationMetadata := GetMetadataForObjectType(connectionPool, TYPE_RELATION)
 	addToMetadataMap(relationMetadata, metadataMap)
 

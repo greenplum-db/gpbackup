@@ -1445,6 +1445,31 @@ var _ = Describe("backup and restore end to end tests", func() {
 		
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
+			It("runs gpbackup and gprestore to backup functions depending on table row's type", func() {
+				skipIfOldBackupVersionBefore("1.19.0")
+
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE table_provides_type (n int);")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_provides_type;")
+
+				testhelper.AssertQueryRuns(backupConn, "INSERT INTO table_provides_type values (1);")
+				testhelper.AssertQueryRuns(backupConn, "CREATE OR REPLACE FUNCTION func_depends_on_row_type(arg table_provides_type[]) RETURNS void AS $$ BEGIN; SELECT NULL; END; $$ LANGUAGE SQL;")
+
+				defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func_depends_on_row_type(arg table_provides_type[]);")
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb")
+
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS+1) // for 1 new table
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertDataRestored(restoreConn, map[string]int{
+					"public.foo":                 40000,
+					"public.holds":               50000,
+					"public.sales":               13,
+					"public.table_provides_type": 1})
+
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
 			It("Can restore xml with xmloption set to document", func() {
 				testutils.SkipIfBefore6(backupConn)
 				// Set up the XML table that contains XML content
