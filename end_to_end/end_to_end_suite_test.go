@@ -61,6 +61,7 @@ var (
 	publicSchemaTupleCounts map[string]int
 	schema2TupleCounts      map[string]int
 	backupDir               string
+	segmentCount            int
 )
 
 const (
@@ -398,6 +399,8 @@ var _ = BeforeSuite(func() {
 	if os.IsNotExist(err) {
 		Fail(fmt.Sprintf("Custom backup directory %s does not exist.", customBackupDir))
 	}
+	// capture cluster size for resize tests
+	segmentCount = len(backupCluster.Segments) - 1
 
 })
 
@@ -552,6 +555,10 @@ var _ = Describe("backup and restore end to end tests", func() {
 	})
 	Describe(`On Error Continue`, func() {
 		It(`gprestore continues when encountering errors during data load with --single-data-file and --on-error-continue`, func() {
+			if segmentCount != 3 {
+				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
+			}
+
 			// This backup is corrupt because the data for a single row on
 			// segment0 was changed so that the value stored in the row is
 			// 9 instead of 1.  This will cause an issue when COPY FROM
@@ -582,6 +589,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 				Skip("This test is not needed for old backup versions")
 			} else if restoreConn.Version.Before("6") {
 				Skip("This test does not apply to GPDB versions before 6X")
+			} else if segmentCount != 3 {
+				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
 			}
 
 			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
@@ -636,6 +645,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 		It(`ensure gprestore on corrupt backup with --on-error-continue logs error tables`, func() {
+			if segmentCount != 3 {
+				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
+			}
 			command := exec.Command("tar", "-xzf",
 				"resources/corrupt-db.tar.gz", "-C", backupDir)
 			mustRunCommand(command)

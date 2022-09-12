@@ -19,7 +19,7 @@ fi
 source gpdb_src/concourse/scripts/common.bash
 time install_gpdb
 time ./gpdb_src/concourse/scripts/setup_gpadmin_user.bash
-time make_cluster
+time NUM_PRIMARY_MIRROR_PAIRS=${LOCAL_CLUSTER_SIZE} make_cluster
 
 cat <<SCRIPT > /tmp/run_tests.bash
 #!/bin/bash

@@ -17,6 +17,7 @@ groups:
   - 5X-head-gpbackup-fixed-test
 {% endif %}
   - GPDB6
+  - GPDB6-7-seg-cluster
   - s3_plugin_tests
   - backward-compatibility
   - ddboost_plugin_and_boostfs_tests_6x
@@ -55,6 +56,7 @@ groups:
 - name: GPDB6
   jobs:
   - GPDB6
+  - GPDB6-7-seg-cluster
 {% if is_prod or "gpbackup-release" == pipeline_name %}
   - GPDB6-ubuntu
   - scale-6x
@@ -1323,6 +1325,60 @@ jobs:
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
+        OS: ubuntu
+      input_mapping:
+        bin_gpdb: bin_gpdb_6x_stable_ubuntu
+{% endif %}
+  on_failure:
+    *slack_alert
+
+- name: GPDB6-7-seg-cluster
+  plan:
+  - in_parallel:
+    - get: centos6-image
+    - get: centos7-image
+{% if is_prod or "gpbackup-release" == pipeline_name %}
+    - get: ubuntu-debian-test-image
+    - get: bin_gpdb_6x_stable_ubuntu
+{% endif %}
+    - get: gpbackup
+      passed: [build_gppkgs]
+    - get: bin_gpdb_6x_stable_centos6
+{% if "gpbackup-release" != pipeline_name %}
+      trigger: true
+{% endif %}
+    - get: bin_gpdb_6x_stable_centos7
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: dummy_seclabel
+      resource: dummy_seclabel_linux_gpdb6
+    - get: gppkgs
+      trigger: true
+      passed: [build_gppkgs]
+  - in_parallel:
+    - task: run-tests-locally-centos6
+      image: centos6-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+        LOCAL_CLUSTER_SIZE: 7
+      input_mapping:
+        bin_gpdb: bin_gpdb_6x_stable_centos6
+    - task: run-tests-locally-centos7
+      image: centos7-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+        LOCAL_CLUSTER_SIZE: 7
+      input_mapping:
+        bin_gpdb: bin_gpdb_6x_stable_centos7
+{% if is_prod or "gpbackup-release" == pipeline_name %}
+    - task: run-tests-locally-ubuntu-debian
+      image: ubuntu-debian-test-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+        LOCAL_CLUSTER_SIZE: 7
         OS: ubuntu
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_ubuntu
