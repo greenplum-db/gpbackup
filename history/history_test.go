@@ -134,9 +134,13 @@ var _ = Describe("backup/history tests", func() {
 			err = historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 
-			resultHistory, err := history.NewHistory(historyFilePath)
+			fileHash, err := utils.GetFileHash(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(historyWithEntries).To(structmatcher.MatchStruct(resultHistory))
+			Expect(fileHash).To(Equal(historyHash))
 		})
 		It("writes file when file exists and is readonly ", func() {
 			err := ioutil.WriteFile(historyFilePath, []byte{}, 0444)
@@ -145,9 +149,14 @@ var _ = Describe("backup/history tests", func() {
 			err = historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 
-			resultHistory, err := history.NewHistory(historyFilePath)
+			fileHash, err := utils.GetFileHash(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+
+			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(historyWithEntries).To(structmatcher.MatchStruct(resultHistory))
+			Expect(fileHash).To(Equal(historyHash))
 		})
 	})
 	Describe("NewHistory", func() {
@@ -163,10 +172,13 @@ var _ = Describe("backup/history tests", func() {
 			err = fileHandle.Close()
 			Expect(err).ToNot(HaveOccurred())
 
-			resultHistory, err := history.NewHistory(historyFilePath)
+			fileHash, err := utils.GetFileHash(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 
+			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(historyWithEntries).To(structmatcher.MatchStruct(resultHistory))
+			Expect(fileHash).To(Equal(historyHash))
 		})
 		Context("fatals when", func() {
 			BeforeEach(func() {
@@ -179,14 +191,14 @@ var _ = Describe("backup/history tests", func() {
 			It("gpbackup_history.yaml can't be read", func() {
 				operating.System.ReadFile = func(string) ([]byte, error) { return nil, errors.New("read error") }
 
-				_, err := history.NewHistory("/tempfile")
+				_, _, err := history.NewHistory("/tempfile")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("read error"))
 			})
 			It("gpbackup_history.yaml is an invalid format", func() {
 				operating.System.ReadFile = func(string) ([]byte, error) { return []byte("not yaml"), nil }
 
-				_, err := history.NewHistory("/tempfile")
+				_, _, err := history.NewHistory("/tempfile")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("not yaml"))
 			})
@@ -195,7 +207,7 @@ var _ = Describe("backup/history tests", func() {
 				backup.SetReport(&report.Report{})
 				operating.System.ReadFile = func(string) ([]byte, error) { return []byte(""), nil }
 
-				contents, err := history.NewHistory("/tempfile")
+				contents, _, err := history.NewHistory("/tempfile")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(contents).To(Equal(&history.History{BackupConfigs: make([]history.BackupConfig, 0)}))
 			})
@@ -235,8 +247,13 @@ var _ = Describe("backup/history tests", func() {
 			err = history.WriteBackupHistory(historyFilePath, &testConfig3)
 			Expect(err).ToNot(HaveOccurred())
 
-			resultHistory, err := history.NewHistory(historyFilePath)
+			fileHash, err := utils.GetFileHash(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
+
+			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fileHash).To(Equal(historyHash))
+
 			testConfig3.EndTime = simulatedEndTime.Format("20060102150405")
 			expectedHistory := history.History{
 				BackupConfigs: []history.BackupConfig{testConfig3, testConfig2, testConfig1},
@@ -252,8 +269,13 @@ var _ = Describe("backup/history tests", func() {
 			err := history.WriteBackupHistory(historyFilePath, &testConfig3)
 			Expect(err).ToNot(HaveOccurred())
 
-			resultHistory, err := history.NewHistory(historyFilePath)
+			fileHash, err := utils.GetFileHash(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
+
+			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fileHash).To(Equal(historyHash))
+
 			expectedHistory := history.History{BackupConfigs: []history.BackupConfig{testConfig3}}
 			Expect(expectedHistory).To(structmatcher.MatchStruct(resultHistory))
 			Expect(testLogfile).To(Say("No existing backups found. Creating new backup history file."))
@@ -265,21 +287,21 @@ var _ = Describe("backup/history tests", func() {
 		BeforeEach(func() {
 			err := history.WriteBackupHistory(historyFilePath, &testConfig1)
 			Expect(err).ToNot(HaveOccurred())
-			resultHistory, err = history.NewHistory(historyFilePath)
+			resultHistory, _, err = history.NewHistory(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 			err = history.WriteBackupHistory(historyFilePath, &testConfig2)
 			Expect(err).ToNot(HaveOccurred())
-			resultHistory, err = history.NewHistory(historyFilePath)
+			resultHistory, _, err = history.NewHistory(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 			err = history.WriteBackupHistory(historyFilePath, &testConfig3)
 			Expect(err).ToNot(HaveOccurred())
 			err = history.WriteBackupHistory(historyFilePath, &testConfigSucceed)
 			Expect(err).ToNot(HaveOccurred())
-			resultHistory, err = history.NewHistory(historyFilePath)
+			resultHistory, _, err = history.NewHistory(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 			err = history.WriteBackupHistory(historyFilePath, &testConfigFailed)
 			Expect(err).ToNot(HaveOccurred())
-			resultHistory, err = history.NewHistory(historyFilePath)
+			resultHistory, _, err = history.NewHistory(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("finds a backup config for the given timestamp", func() {

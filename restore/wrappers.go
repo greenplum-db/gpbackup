@@ -230,7 +230,7 @@ func FindHistoricalPluginVersion(timestamp string) string {
 	// adapted from incremental GetLatestMatchingBackupTimestamp
 	var historicalPluginVersion string
 	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		hist, err := history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+		hist, _, err := history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
 		gplog.FatalOnError(err)
 		foundBackupConfig := hist.FindBackupConfig(timestamp)
 		if foundBackupConfig != nil {

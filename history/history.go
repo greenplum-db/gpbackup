@@ -1,6 +1,7 @@
 package history
 
 import (
+	"crypto/sha256"
 	"io"
 	"io/ioutil"
 	"os"
@@ -79,17 +80,21 @@ type History struct {
 	BackupConfigs []BackupConfig
 }
 
-func NewHistory(filename string) (*History, error) {
+func NewHistory(filename string) (*History, [32]byte, error) {
 	history := &History{BackupConfigs: make([]BackupConfig, 0)}
 	contents, err := operating.System.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return nil, [32]byte{}, err
+	}
+	fileHash := sha256.Sum256(contents)
+	if err != nil {
+		return nil, [32]byte{}, err
 	}
 	err = yaml.Unmarshal(contents, history)
 	if err != nil {
-		return nil, err
+		return nil, [32]byte{}, err
 	}
-	return history, nil
+	return history, fileHash, nil
 }
 
 func (history *History) AddBackupConfig(backupConfig *BackupConfig) {
@@ -127,7 +132,7 @@ func WriteBackupHistory(historyFilePath string, currentBackupConfig *BackupConfi
 	_, err = os.Stat(historyFilePath)
 	oldHistoryFileExists := err == nil
 	if oldHistoryFileExists {
-		oldHistoryLock = lockHistoryFile()
+		oldHistoryLock = LockHistoryFile()
 		oldHistoryFile, err := os.Open(historyFilePath)
 		if err != nil {
 			return err
@@ -167,7 +172,7 @@ func WriteBackupHistory(historyFilePath string, currentBackupConfig *BackupConfi
 }
 
 func (history *History) RewriteHistoryFile(historyFilePath string) error {
-	lock := lockHistoryFile()
+	lock := LockHistoryFile()
 	defer func() {
 		_ = lock.Unlock()
 	}()
@@ -176,7 +181,7 @@ func (history *History) RewriteHistoryFile(historyFilePath string) error {
 	return err
 }
 
-func lockHistoryFile() lockfile.Lockfile {
+func LockHistoryFile() lockfile.Lockfile {
 	lock, err := lockfile.New("/tmp/gpbackup_history.yaml.lck")
 	gplog.FatalOnError(err)
 	err = lock.TryLock()

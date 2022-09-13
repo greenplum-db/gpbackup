@@ -6,6 +6,7 @@ package utils
  */
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
@@ -258,4 +260,18 @@ func SliceToQuotedString(slice []string) string {
 
 func EscapeSingleQuotes(str string) string {
 	return strings.Replace(str, "'", "''", -1)
+}
+
+func GetFileHash(filename string) ([32]byte, error) {
+	contents, err := operating.System.ReadFile(filename)
+	if err != nil {
+		gplog.Error("Failed to read contents of file %s: %v", filename, err)
+		return [32]byte{}, err
+	}
+	filehash := sha256.Sum256(contents)
+	if err != nil {
+		gplog.Error("Failed to hash contents of file %s: %v", filename, err)
+		return [32]byte{}, err
+	}
+	return filehash, nil
 }

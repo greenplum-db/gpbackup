@@ -47,7 +47,7 @@ func GetLatestMatchingBackupTimestamp() string {
 	var latestMatchingBackupHistoryEntry *history.BackupConfig
 	var err error
 	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		contents, err = history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
+		contents, _, err = history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
 		gplog.FatalOnError(err)
 		latestMatchingBackupHistoryEntry = GetLatestMatchingBackupConfig(contents, &backupReport.BackupConfig)
 	}
