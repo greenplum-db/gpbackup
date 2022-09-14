@@ -275,3 +275,4 @@ func GetFileHash(filename string) ([32]byte, error) {
 	}
 	return filehash, nil
 }
+
