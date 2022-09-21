@@ -137,6 +137,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 	WHERE %s
 		AND %s
 		AND c.relname IS NOT NULL
+		AND contype != 'p'
 		AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
 		AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
 	GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)

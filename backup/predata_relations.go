@@ -164,6 +164,9 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 		if column.NotNull {
 			line += " NOT NULL"
 		}
+		if column.PrimaryKey {
+			line += " PRIMARY KEY"
+		}
 		if column.Encoding != "" {
 			line += fmt.Sprintf(" ENCODING (%s)", column.Encoding)
 		}

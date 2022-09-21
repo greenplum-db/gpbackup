@@ -170,6 +170,7 @@ type ColumnDefinition struct {
 	Oid                   uint32 `db:"attrelid"`
 	Num                   int    `db:"attnum"`
 	Name                  string
+	PrimaryKey			  bool
 	NotNull               bool `db:"attnotnull"`
 	HasDefault            bool `db:"atthasdef"`
 	Type                  string
@@ -204,6 +205,7 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
     SELECT a.attrelid,
 		a.attnum,
 		quote_ident(a.attname) AS name,
+		CASE WHEN cstr.oid IS NULL THEN false ELSE true END AS primarykey,
 		a.attnotnull,
 		a.atthasdef,
 		pg_catalog.format_type(t.oid,a.atttypmod) AS type,
@@ -219,7 +221,8 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		LEFT JOIN pg_catalog.pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
 		LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
 		LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
-		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum`
+		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum
+		LEFT JOIN pg_constraint cstr ON cstr.conrelid = a.attrelid AND cstr.contype = 'p' AND left(replace(pg_get_constraintdef(cstr.oid, TRUE), 'PRIMARY KEY (', ''), -1) = a.attname`
 	whereClause := `
 	WHERE ` + relationAndSchemaFilterClause() + `
 		AND NOT EXISTS (SELECT 1 FROM 
