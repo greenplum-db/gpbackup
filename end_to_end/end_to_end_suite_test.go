@@ -1372,6 +1372,60 @@ var _ = Describe("backup and restore end to end tests", func() {
 				tableCopyCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableNameCopy))
 				Expect(tableCopyCount).To(Equal(strconv.Itoa(1)))
 			})
+			It("does not retrieve trigger constraints  with the rest of the constraints", func() {
+				testutils.SkipIfBefore6(backupConn)
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE table_multiple_constraints (a int)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP TABLE IF EXISTS table_multiple_constraints CASCADE;")
+
+				// Add a trigger constraint
+				testhelper.AssertQueryRuns(backupConn, `CREATE FUNCTION public.no_op_trig_fn() RETURNS trigger AS
+$$begin RETURN NULL; end$$
+LANGUAGE plpgsql NO SQL;`)
+				defer testhelper.AssertQueryRuns(backupConn, `DROP FUNCTION IF EXISTS public.no_op_trig_fn() CASCADE`)
+				testhelper.AssertQueryRuns(backupConn, "CREATE TRIGGER  test_trigger AFTER INSERT  ON public.table_multiple_constraints EXECUTE PROCEDURE public.no_op_trig_fn();")
+
+				// Add a non-trigger constraint
+				testhelper.AssertQueryRuns(backupConn,
+					"ALTER TABLE public.table_multiple_constraints ADD CONSTRAINT alter_table_with_primary_key_pkey PRIMARY KEY (a);")
+
+				// retrieve constraints, assert that only one is retrieved
+				constraintsRetrieved := backup.GetConstraints(backupConn)
+				Expect(len(constraintsRetrieved)).To(Equal(1))
+
+				// assert that the single retrieved constraint is the non-trigger constraint
+				constraintRetrieved := constraintsRetrieved[0]
+				Expect(constraintRetrieved.ConType).To(Equal("p"))
+			})
+			It("correctly distinguishes between domain and non-domain constraints", func() {
+				testutils.SkipIfBefore6(backupConn)
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE table_multiple_constraints (a int)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP TABLE IF EXISTS table_multiple_constraints CASCADE;")
+
+				// Add a domain with a constraint
+				testhelper.AssertQueryRuns(backupConn, "CREATE DOMAIN public.const_domain1 AS text CONSTRAINT cons_check1 CHECK (char_length(VALUE) = 5);")
+				defer testhelper.AssertQueryRuns(backupConn, `DROP DOMAIN IF EXISTS public.const_domain1;`)
+
+				// Add a non-trigger constraint
+				testhelper.AssertQueryRuns(backupConn,
+					"ALTER TABLE public.table_multiple_constraints ADD CONSTRAINT alter_table_with_primary_key_pkey PRIMARY KEY (a);")
+
+				// retrieve constraints, assert that two are retrieved, assert that the domain constraint is correctly categorized
+				constraintsRetrieved := backup.GetConstraints(backupConn)
+				Expect(len(constraintsRetrieved)).To(Equal(2))
+				for _, constr := range constraintsRetrieved {
+					if constr.Name == "cons_check1" {
+						Expect(constr.IsDomainConstraint).To(Equal(true))
+					} else if constr.Name == "alter_table_with_primary_key_pkey" {
+						Expect(constr.IsDomainConstraint).To(Equal(false))
+					} else {
+						Fail("Unrecognized constraint in end-to-end test database")
+					}
+				}
+			})
 			It("backup and restore all data when NOT VALID option on constraints is specified", func() {
 				testutils.SkipIfBefore6(backupConn)
 				testhelper.AssertQueryRuns(backupConn,

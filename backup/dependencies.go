@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -73,7 +72,7 @@ var (
 	PG_TYPE_OID                 uint32 = 1247
 	PG_USER_MAPPING_OID         uint32 = 1418
 
-	FIRST_NORMAL_OBJECT_ID      uint32 = 16384
+	FIRST_NORMAL_OBJECT_ID uint32 = 16384
 )
 
 /*
@@ -145,7 +144,7 @@ type UniqueID struct {
 
 // This function only returns dependencies that are referenced in the backup set
 func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool) DependencyMap {
-	query := fmt.Sprintf(`SELECT
+	query := `SELECT
 	coalesce(id1.refclassid, d.classid) AS classid,
 	coalesce(id1.refobjid, d.objid) AS objid,
 	coalesce(id2.refclassid, d.refclassid) AS refclassid,
@@ -167,7 +166,7 @@ SELECT
 FROM pg_depend d
 JOIN pg_type t ON d.refobjid = t.oid
 WHERE d.classid = 'pg_proc'::regclass::oid
-AND typelem != 0`)
+AND typelem != 0`
 
 	pgDependDeps := make([]struct {
 		ClassID    uint32
@@ -225,10 +224,10 @@ func breakCircularDependencies(depMap DependencyMap) {
 	}
 }
 
-func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, objects []Sortable, metadataMap MetadataMap, constraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
-	conMap := make(map[string][]Constraint)
-	for _, constraint := range constraints {
-		conMap[constraint.OwningObject] = append(conMap[constraint.OwningObject], constraint)
+func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, objects []Sortable, metadataMap MetadataMap, domainConstraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
+	domainConMap := make(map[string][]Constraint)
+	for _, constraint := range domainConstraints {
+		domainConMap[constraint.OwningObject] = append(domainConMap[constraint.OwningObject], constraint)
 	}
 	for _, object := range objects {
 		objMetadata := metadataMap[object.GetUniqueID()]
@@ -238,7 +237,7 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 		case CompositeType:
 			PrintCreateCompositeTypeStatement(metadataFile, toc, obj, objMetadata)
 		case Domain:
-			PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, conMap[obj.FQN()])
+			PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, domainConMap[obj.FQN()])
 		case RangeType:
 			PrintCreateRangeTypeStatement(metadataFile, toc, obj, objMetadata)
 		case Function:
@@ -271,6 +270,8 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 			PrintCreateServerStatement(metadataFile, toc, obj, objMetadata)
 		case UserMapping:
 			PrintCreateUserMappingStatement(metadataFile, toc, obj)
+		case Constraint:
+			PrintConstraintStatement(metadataFile, toc, obj, objMetadata)
 		}
 		// Remove ACLs from metadataMap for the current object since they have been processed
 		delete(metadataMap, object.GetUniqueID())

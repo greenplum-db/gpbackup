@@ -85,7 +85,13 @@ type Constraint struct {
 }
 
 func (c Constraint) GetMetadataEntry() (string, toc.MetadataEntry) {
-	return "postdata",
+	var tocSection string
+	if c.ConDef.Valid && !strings.Contains(strings.ToUpper(c.ConDef.String), "NOT VALID") {
+		tocSection = "predata"
+	} else {
+		tocSection = "postdata"
+	}
+	return tocSection,
 		toc.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
@@ -137,6 +143,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 	WHERE %s
 		AND %s
 		AND c.relname IS NOT NULL
+		AND contype != 't'
 		AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
 		AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
 	GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)

@@ -54,14 +54,14 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&schemas[0], &resultSchemas[0])
 		})
 	})
-	Describe("PrintConstraintStatements", func() {
+	Describe("PrintConstraintStatement", func() {
 		var (
 			uniqueConstraint         backup.Constraint
 			pkConstraint             backup.Constraint
 			fkConstraint             backup.Constraint
 			checkConstraint          backup.Constraint
 			partitionCheckConstraint backup.Constraint
-			conMetadataMap           backup.MetadataMap
+			objectMetadata    		 backup.ObjectMetadata
 		)
 		BeforeEach(func() {
 			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
@@ -70,7 +70,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (a <> 42)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
 			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (id <> 0)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(a int, b text) DISTRIBUTED BY (b)")
-			conMetadataMap = backup.MetadataMap{}
+			objectMetadata = testutils.DefaultMetadata("CONSTRAINT", false, false, false, false)
 
 			if connectionPool.Version.AtLeast("6") {
 				uniqueConstraint.ConIsLocal = true
@@ -84,8 +84,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testtable CASCADE")
 		})
 		It("creates a unique constraint", func() {
-			constraints := []backup.Constraint{uniqueConstraint}
-			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
+			backup.PrintConstraintStatement(backupfile, tocfile, uniqueConstraint, objectMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -95,8 +94,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates a primary key constraint", func() {
-			constraints := []backup.Constraint{pkConstraint}
-			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
+			backup.PrintConstraintStatement(backupfile, tocfile, pkConstraint, objectMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_other_table(b text)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_other_table CASCADE")
@@ -108,8 +106,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&pkConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates a foreign key constraint", func() {
-			constraints := []backup.Constraint{fkConstraint}
-			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
+			backup.PrintConstraintStatement(backupfile, tocfile, fkConstraint, objectMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_other_table(b text PRIMARY KEY)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_other_table CASCADE")
@@ -122,8 +119,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[1], "Oid")
 		})
 		It("creates a check constraint", func() {
-			constraints := []backup.Constraint{checkConstraint}
-			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
+			backup.PrintConstraintStatement(backupfile, tocfile, checkConstraint, objectMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 
@@ -133,8 +129,9 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&checkConstraint, &resultConstraints[0], "Oid")
 		})
 		It("creates multiple constraints on one table", func() {
-			constraints := []backup.Constraint{checkConstraint, uniqueConstraint, fkConstraint}
-			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
+			backup.PrintConstraintStatement(backupfile, tocfile, checkConstraint, objectMetadata)
+			backup.PrintConstraintStatement(backupfile, tocfile, uniqueConstraint, objectMetadata)
+			backup.PrintConstraintStatement(backupfile, tocfile, fkConstraint, objectMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_other_table(b text PRIMARY KEY)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_other_table CASCADE")
@@ -148,18 +145,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&fkConstraint, &resultConstraints[2], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&uniqueConstraint, &resultConstraints[3], "Oid")
 		})
-		It("doesn't create a check constraint on a domain", func() {
-			testhelper.AssertQueryRuns(connectionPool, "CREATE DOMAIN public.domain1 AS numeric")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP DOMAIN public.domain1")
-			domainCheckConstraint := backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (VALUE <> 42::numeric)", Valid: true}, OwningObject: "public.domain1", IsDomainConstraint: true, IsPartitionParent: false}
-			constraints := []backup.Constraint{domainCheckConstraint}
-			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
-
-			Expect(buffer.String()).To(Equal(""))
-		})
 		It("creates a check constraint on a parent partition table", func() {
-			constraints := []backup.Constraint{partitionCheckConstraint}
-			backup.PrintConstraintStatements(backupfile, tocfile, constraints, conMetadataMap)
+			backup.PrintConstraintStatement(backupfile, tocfile, partitionCheckConstraint, objectMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part (id int, year int)
 DISTRIBUTED BY (id)

@@ -246,11 +246,26 @@ func retrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]
 	addToMetadataMap(typeMetadata, metadataMap)
 }
 
-func retrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
+func retrieveConstraints(sortables *[]Sortable, metadataMap MetadataMap, tables ...Relation) []Constraint {
 	gplog.Verbose("Retrieving constraints")
 	constraints := GetConstraints(connectionPool, tables...)
+
+	//split into domain constraints and all others, as they are handled differently downstream
+	domainConstraints := make([]Constraint, 0)
+	nonDomainConstraints := make([]Constraint, 0)
+	for _, con := range constraints {
+		if con.IsDomainConstraint {
+			domainConstraints = append(domainConstraints, con)
+		} else {
+			nonDomainConstraints = append(nonDomainConstraints, con)
+		}
+	}
+
+	objectCounts["Constraints"] = len(nonDomainConstraints)
 	conMetadata := GetCommentsForObjectType(connectionPool, TYPE_CONSTRAINT)
-	return constraints, conMetadata
+	*sortables = append(*sortables, convertToSortableSlice(nonDomainConstraints)...)
+	addToMetadataMap(conMetadata, metadataMap)
+	return domainConstraints
 }
 
 func retrieveAndBackupSequences(metadataFile *utils.FileWithByteCount,
@@ -561,7 +576,7 @@ func addToMetadataMap(newMetadata MetadataMap, metadataMap MetadataMap) {
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
 func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Table,
-	protocols []ExternalProtocol, filteredMetadata MetadataMap, constraints []Constraint,
+	protocols []ExternalProtocol, filteredMetadata MetadataMap, domainConstraints []Constraint,
 	sortables []Sortable, sequences []Sequence, funcInfoMap map[uint32]FunctionInfo, tableOnly bool) {
 
 	gplog.Verbose("Writing CREATE statements for dependent objects to metadata file")
@@ -573,7 +588,7 @@ func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 	}
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
-	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, constraints, funcInfoMap)
+	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, domainConstraints, funcInfoMap)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
 	if len(extPartInfo) > 0 {
@@ -622,12 +637,6 @@ func backupExtensions(metadataFile *utils.FileWithByteCount) {
 	objectCounts["Extensions"] = len(extensions)
 	extensionMetadata := GetCommentsForObjectType(connectionPool, TYPE_EXTENSION)
 	PrintCreateExtensionStatements(metadataFile, globalTOC, extensions, extensionMetadata)
-}
-
-func backupConstraints(metadataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
-	gplog.Verbose("Writing ADD CONSTRAINT statements to metadata file")
-	objectCounts["Constraints"] = len(constraints)
-	PrintConstraintStatements(metadataFile, globalTOC, constraints, conMetadata)
 }
 
 /*

@@ -442,6 +442,10 @@ func ExpectEntry(entries []toc.MetadataEntry, index int, schema, referenceObject
 	structmatcher.ExpectStructsToMatchExcluding(entries[index], toc.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
 }
 
+func ExpectEntryCount(entries []toc.MetadataEntry, index int,){
+	Expect(len(entries)).To(BeNumerically("==", index))
+}
+
 func ExecuteSQLFile(connectionPool *dbconn.DBConn, filename string) {
 	connStr := []string{
 		"-U", connectionPool.User,
