@@ -1566,12 +1566,12 @@ var _ = Describe("backup and restore end to end tests", func() {
 		})
 	})
 	Describe("Restore to a different-sized cluster", func() {
-		testutils.SkipIfBefore6(backupConn)
 		if useOldBackupVersion {
 			Skip("This test is not needed for old backup versions")
 		}
 		// The backups for these tests were taken on GPDB version 6.20.3+dev.4.g9a08259bd1 build dev.
 		BeforeEach(func() {
+			testutils.SkipIfBefore6(backupConn)
 			testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole;")
 		})
 		AfterEach(func() {
@@ -1664,7 +1664,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 						"-d", "restoredb",
 						"-c", "select * from cnt_rows();",
 						"-o", rowcountsFilename).Run()
-					expectedIncrRowMap := unMarshalRowCounts("resources/3-segment-db-incremental-rowcounts.txt")
+					expectedIncrRowMap := unMarshalRowCounts(fmt.Sprintf("resources/%d-segment-db-incremental-rowcounts.txt", segmentCount))
 					actualIncrRowMap := unMarshalRowCounts(rowcountsFilename)
 
 					Expect(err).To(Not(HaveOccurred()))
