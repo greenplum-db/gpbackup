@@ -104,7 +104,8 @@ func doRestoreAgent() error {
 
 	var bytesRead int64
 	var lastError error
-	var reader *RestoreReader
+
+	readers := make(map[int]*RestoreReader)
 
 	oidList, err := getOidListFromFile()
 	if err != nil {
@@ -126,20 +127,32 @@ func doRestoreAgent() error {
 	}
 
 	if *singleDataFile {
-		c := *content
+		contentToRestore := *content
 		segmentTOC = make(map[int]*toc.SegmentTOC)
 		tocEntries = make(map[int]map[uint]toc.SegmentDataEntry)
 		start = make(map[int]uint64)
 		end = make(map[int]uint64)
 		lastByte = make(map[int]uint64)
 		for b := 0; b < batches; b++ {
-			if isResizeRestore && c >= *origSize {
+			// When performing a resize restore, if the content of the file we're being asked to read from
+			// is higher than any backup content, then no such file exists and we shouldn't try to open it.
+			if isResizeRestore && contentToRestore >= *origSize {
 				break
 			}
-			tocFileForContent := replaceContentInFilename(*tocFile, c)
-			segmentTOC[c] = toc.NewSegmentTOC(tocFileForContent)
-			tocEntries[c] = segmentTOC[c].DataEntries
-			c += *destSize
+			tocFileForContent := replaceContentInFilename(*tocFile, contentToRestore)
+			segmentTOC[contentToRestore] = toc.NewSegmentTOC(tocFileForContent)
+			tocEntries[contentToRestore] = segmentTOC[contentToRestore].DataEntries
+
+			filename := replaceContentInFilename(*dataFile, contentToRestore)
+			readers[contentToRestore], err = getRestoreDataReader(filename, segmentTOC[contentToRestore], oidList)
+
+			if err != nil {
+				logError(fmt.Sprintf("Error encountered getting restore data reader for single data file: %v", err))
+				return err
+			}
+			log(fmt.Sprintf("Using reader type: %s", readers[contentToRestore].readerType))
+
+			contentToRestore += *destSize
 		}
 	}
 
@@ -172,35 +185,24 @@ func doRestoreAgent() error {
 		contentToRestore := *content
 
 		for b := 0; b < batches; b++ {
-			if isResizeRestore {
-				// When performing a resize restore, if the content of the file we're being asked to read from
-				// is higher than any backup content, then no such file exists and we shouldn't try to open it.
+			if *singleDataFile {
+				start[contentToRestore] = tocEntries[contentToRestore][uint(oid)].StartByte
+				end[contentToRestore] = tocEntries[contentToRestore][uint(oid)].EndByte
+			} else if isResizeRestore {
 				if contentToRestore < *origSize {
 					// We can only pass one filename to the helper, so we still pass in the single-data-file-style
 					// filename in a non-SDF resize case, then add the oid manually and set up the reader for that.
-					filename := *dataFile
-					if *singleDataFile {
-						filename = replaceContentInFilename(*dataFile, contentToRestore)
-						start[contentToRestore] = tocEntries[contentToRestore][uint(oid)].StartByte
-						end[contentToRestore] = tocEntries[contentToRestore][uint(oid)].EndByte
-					} else {
-						filename = constructSingleTableFilename(*dataFile, contentToRestore, oid)
-					}
-					reader, err = getRestoreDataReader(filename, nil, nil)
+					filename := constructSingleTableFilename(*dataFile, contentToRestore, oid)
+
+					// We pre-create readers above for the sake of not re-opening SDF readers.  For MDF we can't 
+					// re-use them but still having them in a map simplifies overall code flow.  We repeatedly assign  
+					// to a map entry here intentionally.
+					readers[contentToRestore], err = getRestoreDataReader(filename, nil, nil)
 					if err != nil {
 						logError(fmt.Sprintf("Error encountered getting restore data reader: %v", err))
 						return err
 					}
 				}
-			} else if *singleDataFile {
-				reader, err = getRestoreDataReader(replaceContentInFilename(*dataFile, contentToRestore), segmentTOC[contentToRestore], oidList)
-				if err != nil {
-					logError(fmt.Sprintf("Error encountered getting restore data reader for single data file: %v", err))
-					return err
-				}
-				log(fmt.Sprintf("Using reader type: %s", reader.readerType))
-				start[contentToRestore] = tocEntries[contentToRestore][uint(oid)].StartByte
-				end[contentToRestore] = tocEntries[contentToRestore][uint(oid)].EndByte
 			}
 
 			log(fmt.Sprintf("Oid %d: Opening pipe %s", oid, currentPipe))
@@ -242,9 +244,12 @@ func doRestoreAgent() error {
 				}
 			}
 
-			if *singleDataFile {
-				log(fmt.Sprintf("Oid %d: Data Reader - Start Byte: %d; End Byte: %d; Last Byte: %d", oid, start, end, lastByte))
-				err = reader.positionReader(start[contentToRestore], oid)
+			// Only position reader in case of SDF.  MDF case reads entire file, and does not need positioning.
+			// Further, in SDF case, map entries for contents that were not part of original backup will be nil,
+			// and calling methods on them errors silently.
+			if *singleDataFile && !(isResizeRestore && contentToRestore >= *origSize){
+				log(fmt.Sprintf("Oid %d: Data Reader - Start Byte: %d; End Byte: %d; Last Byte: %d", oid, start[contentToRestore], end[contentToRestore], lastByte[contentToRestore]))
+				err = readers[contentToRestore].positionReader(start[contentToRestore] - lastByte[contentToRestore], oid)
 				if err != nil {
 					logError(fmt.Sprint("Oid %d: Error reading from pipe: %v", oid, err))
 					return err
@@ -255,9 +260,9 @@ func doRestoreAgent() error {
 			if isResizeRestore {
 				if contentToRestore < *origSize {
 					if *singleDataFile {
-						bytesRead, err = reader.copyData(int64(end[contentToRestore] - start[contentToRestore]))
+						bytesRead, err = readers[contentToRestore].copyData(int64(end[contentToRestore] - start[contentToRestore]))
 					} else {
-						bytesRead, err = reader.copyAllData()
+						bytesRead, err = readers[contentToRestore].copyAllData()
 					}
 				} else {
 					// Write "empty" data to the pipe for COPY ON SEGMENT to read.
@@ -265,7 +270,7 @@ func doRestoreAgent() error {
 					writer.Write([]byte{})
 				}
 			} else {
-				bytesRead, err = reader.copyData(int64(end[contentToRestore] - start[contentToRestore]))
+				bytesRead, err = readers[contentToRestore].copyData(int64(end[contentToRestore] - start[contentToRestore]))
 			}
 			if err != nil {
 				// In case COPY FROM or copyN fails in the middle of a load. We

@@ -31,7 +31,7 @@ depend :
 	go mod download
 
 $(GINKGO) : # v1.14.0 is compatible with centos6 default gcc version
-	go install github.com/onsi/ginkgo/v2/ginkgo@latest
+	go install github.com/onsi/ginkgo/v2/ginkgo@v2.2.0
 
 $(GOIMPORTS) :
 	go install golang.org/x/tools/cmd/goimports@latest
