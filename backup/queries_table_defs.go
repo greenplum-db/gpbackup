@@ -630,7 +630,7 @@ func GetAttachPartitionInfo(connectionPool *dbconn.DBConn) map[uint32]AttachPart
 		c.oid,
 		quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS relname,
 		quote_ident(rn.nspname) || '.' || quote_ident(rc.relname) AS parent,
-		pg_get_expr(c.relpartbound, c.oid) AS expr
+		coalesce(pg_get_expr(c.relpartbound, c.oid), '') AS expr
 	FROM pg_class c
 		JOIN pg_namespace n ON c.relnamespace = n.oid
 		JOIN pg_class rc ON pg_partition_root(c.oid) = rc.oid

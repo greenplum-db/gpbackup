@@ -115,10 +115,6 @@ func (c Constraint) FQN() string {
 }
 
 func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []Constraint {
-	// TODO: fix for gpdb7 partitioning
-	if connectionPool.Version.AtLeast("7") {
-		return []Constraint{}
-	}
 
 	// ConIsLocal should always return true from GetConstraints because we
 	// filter out constraints that are inherited using the INHERITS clause, or
@@ -126,11 +122,9 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 	// reflects constraints in GPDB6+ because check constraints on parent
 	// tables must propogate to children. For GPDB versions 5 or lower, this
 	// field will default to false.
-	var selectConIsLocal string
-	var groupByConIsLocal string
+	conIsLocal := ""
 	if connectionPool.Version.AtLeast("6") {
-		selectConIsLocal = `conislocal,`
-		groupByConIsLocal = `con.conislocal,`
+		conIsLocal = `con.conislocal,`
 	}
 	// This query is adapted from the queries underlying \d in psql.
 	tableQuery := ""
@@ -158,14 +152,14 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 			AND contype != 't'
 			AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
 			AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
-		GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)
+		GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, conIsLocal, "%s", ExtensionFilterClause("c"), conIsLocal)
 	} else {
 		tableQuery = fmt.Sprintf(`
 		SELECT con.oid,
 			quote_ident(n.nspname) AS schema,
 			quote_ident(conname) AS name,
 			contype,
-			%s
+			con.conislocal,
 			pg_get_constraintdef(con.oid, TRUE) AS condef,
 			quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
 			'f' AS isdomainconstraint,
@@ -181,9 +175,9 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 			AND %s
 			AND c.relname IS NOT NULL
 			AND contype != 't'
-			AND c.relispartition IS FALSE
+			AND (c.relispartition IS FALSE OR conislocal IS TRUE)
 			AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
-		GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.partrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)
+		GROUP BY con.oid, conname, contype, c.relname, n.nspname, con.conislocal, pt.partrelid`, "%s", ExtensionFilterClause("c"))
 	}
 
 	nonTableQuery := fmt.Sprintf(`
@@ -203,7 +197,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		AND %s
 		AND t.typname IS NOT NULL
 	GROUP BY con.oid, conname, contype, n.nspname, %s t.typname
-	ORDER BY name`, selectConIsLocal, SchemaFilterClause("n"), ExtensionFilterClause("con"), groupByConIsLocal)
+	ORDER BY name`, conIsLocal, SchemaFilterClause("n"), ExtensionFilterClause("con"), conIsLocal)
 
 	query := ""
 	if len(includeTables) > 0 {
