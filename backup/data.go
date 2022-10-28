@@ -76,7 +76,14 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 
 	copyCommand := fmt.Sprintf("PROGRAM '%s%s %s %s'", checkPipeExistsCommand, customPipeThroughCommand, sendToDestinationCommand, destinationToWrite)
 
-	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.FQN(), copyCommand, tableDelim)
+	columnNames := ""
+	if connectionPool.Version.AtLeast("7") {
+		// process column names to exclude generated columns from data copy out
+		// will return empty string if there are no generated columns to avoid performance penalty of copy having to process all columns individually
+		columnNames = processColumnNamesForCopy(table)
+	}
+
+	query := fmt.Sprintf("COPY %s %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.FQN(), columnNames, copyCommand, tableDelim)
 	gplog.Verbose("Worker %d: %s", connNum, query)
 	result, err := connectionPool.Exec(query, connNum)
 	if err != nil {
@@ -84,6 +91,25 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 	}
 	numRows, _ := result.RowsAffected()
 	return numRows, nil
+}
+
+func processColumnNamesForCopy(table Table) string {
+	colDefsArray := make([]string, 0)
+	haveGeneratedColumn := false
+
+	for _, col := range table.ColumnDefs {
+		if col.AttGenerated == "" {
+			colDefsArray = append(colDefsArray, col.Name)
+		} else {
+			haveGeneratedColumn = true
+		}
+	}
+
+	if !haveGeneratedColumn {
+		return ""
+	}
+
+	return fmt.Sprintf("(%s)", strings.Join(colDefsArray, ", "))
 }
 
 func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters *BackupProgressCounters, whichConn int) error {
