@@ -217,7 +217,8 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 
 			stack = append(stack, currIndex.Oid)
 			visited[currIndex.Oid] = seen
-			if currIndex.ParentIndex == 0 {
+			_, parentIsPresent := indexMap[currIndex.ParentIndex]
+			if currIndex.ParentIndex == 0 || !parentIsPresent {
 				break // exit DFS if index has no parent.
 			} else {
 				currIndex = indexMap[currIndex.ParentIndex]
@@ -230,7 +231,12 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 			popIndex := indexMap[indexOid]
 			if popIndex.ParentIndex != 0 {
 				// Preprocess parent index FQN for GPDB 7+ partition indexes
-				popIndex.ParentIndexFQN = indexMap[popIndex.ParentIndex].FQN()
+				// TODO -- delete this and uncomment the packed version below
+				parentIndex := popIndex.ParentIndex
+				mapEntry := indexMap[parentIndex]
+				parentFQN := mapEntry.FQN()
+				popIndex.ParentIndexFQN = parentFQN
+				// popIndex.ParentIndexFQN = indexMap[popIndex.ParentIndex].FQN()
 			}
 			sortedIndexes = append(sortedIndexes, popIndex)
 		}
@@ -452,7 +458,6 @@ func GetPolicies(connectionPool *dbconn.DBConn) []RLSPolicy {
 	FROM pg_catalog.pg_policy p
 		JOIN pg_catalog.pg_class c ON p.polrelid = c.oid
 	ORDER BY p.polname`)
-
 
 	results := make([]RLSPolicy, 0)
 	err := connectionPool.Select(&results, query)
