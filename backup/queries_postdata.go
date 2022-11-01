@@ -166,7 +166,6 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 			LEFT JOIN pg_constraint con ON i.indexrelid = con.conindid
 			LEFT JOIN pg_catalog.pg_inherits inh ON inh.inhrelid = i.indexrelid
 		WHERE %s
-			AND i.indisvalid
 			AND i.indisready
 			AND i.indisprimary = 'f'
 			AND i.indexrelid >= %d
@@ -217,11 +216,11 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 
 			stack = append(stack, currIndex.Oid)
 			visited[currIndex.Oid] = seen
-			_, parentIsPresent := indexMap[currIndex.ParentIndex]
+			parentIndex, parentIsPresent := indexMap[currIndex.ParentIndex]
 			if currIndex.ParentIndex == 0 || !parentIsPresent {
 				break // exit DFS if index has no parent.
 			} else {
-				currIndex = indexMap[currIndex.ParentIndex]
+				currIndex = parentIndex
 			}
 		}
 
@@ -231,12 +230,7 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 			popIndex := indexMap[indexOid]
 			if popIndex.ParentIndex != 0 {
 				// Preprocess parent index FQN for GPDB 7+ partition indexes
-				// TODO -- delete this and uncomment the packed version below
-				parentIndex := popIndex.ParentIndex
-				mapEntry := indexMap[parentIndex]
-				parentFQN := mapEntry.FQN()
-				popIndex.ParentIndexFQN = parentFQN
-				// popIndex.ParentIndexFQN = indexMap[popIndex.ParentIndex].FQN()
+				popIndex.ParentIndexFQN = indexMap[popIndex.ParentIndex].FQN()
 			}
 			sortedIndexes = append(sortedIndexes, popIndex)
 		}
