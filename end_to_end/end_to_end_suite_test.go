@@ -315,7 +315,7 @@ func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
 	}
 }
 
-// fileSuffix should be config.yaml, metadata.sql, or toc.yaml, or report
+// fileSuffix should be one of: config.yaml, metadata.sql, toc.yaml, or report
 func getMetdataFileContents(backupDir string, timestamp string, fileSuffix string) []byte {
 	file, err := path.Glob(path.Join(backupDir, "*-1/backups", timestamp[:8], timestamp, fmt.Sprintf("gpbackup_%s_%s", timestamp, fileSuffix)))
 	Expect(err).ToNot(HaveOccurred())
@@ -1855,5 +1855,60 @@ LANGUAGE plpgsql NO SQL;`)
 			Expect(err).To(HaveOccurred())
 			Expect(string(output)).To(ContainSubstring(fmt.Sprintf("Cannot restore a backup taken on a cluster with 5 segments to a cluster with %d segments unless the --resize-cluster flag is used.", segmentCount)))
 		})
+	})
+	Describe("Backup and restore multi-layer and external partitions", func() {
+		It("Will correctly handle external partitions on multiple versions of GPDB", func() {
+			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA testchema;")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
+			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE testchema.multipartition (a int,b date,c text,d int)
+                   DISTRIBUTED BY (a)
+                   PARTITION BY RANGE (b)
+                   SUBPARTITION BY LIST (c)
+                   SUBPARTITION TEMPLATE
+                   (SUBPARTITION usa values ('usa'),
+                   SUBPARTITION apj values ('apj'),
+                   SUBPARTITION eur values ('eur'))
+                   (PARTITION Jan16 START (date '2016-01-01') INCLUSIVE ,
+                     PARTITION Feb16 START (date '2016-02-01') INCLUSIVE ,
+                     PARTITION Mar16 START (date '2016-03-01') INCLUSIVE ,
+                     PARTITION Apr16 START (date '2016-04-01') INCLUSIVE ,
+                     PARTITION May16 START (date '2016-05-01') INCLUSIVE ,
+                     PARTITION Jun16 START (date '2016-06-01') INCLUSIVE ,
+                     PARTITION Jul16 START (date '2016-07-01') INCLUSIVE ,
+                     PARTITION Aug16 START (date '2016-08-01') INCLUSIVE ,
+                     PARTITION Sep16 START (date '2016-09-01') INCLUSIVE ,
+                     PARTITION Oct16 START (date '2016-10-01') INCLUSIVE ,
+                     PARTITION Nov16 START (date '2016-11-01') INCLUSIVE ,
+                     PARTITION Dec16 START (date '2016-12-01') INCLUSIVE
+                                     END (date '2017-01-01') EXCLUSIVE);
+                   CREATE EXTERNAL TABLE testchema.external_apj (a INT,b DATE,c TEXT,d INT) LOCATION ('gpfdist://127.0.0.1/apj') format 'text';
+                   ALTER TABLE testchema.multipartition ALTER PARTITION Dec16 EXCHANGE PARTITION apj WITH TABLE testchema.external_apj WITHOUT VALIDATION;
+                   `)
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+			Expect(metadataFileContents).ToNot(BeEmpty())
+
+			if backupConn.Version.AtLeast("7") {
+				//GPDB7+ has new "attach table" partition syntax, does not require exchanging for external partitions
+				Expect(string(metadataFileContents)).To(ContainSubstring("CREATE READABLE EXTERNAL TABLE testchema.multipartition_1_prt_dec16_2_prt_apj ("))
+				Expect(string(metadataFileContents)).To(ContainSubstring("ALTER TABLE ONLY testchema.multipartition_1_prt_dec16 ATTACH PARTITION testchema.multipartition_1_prt_dec16_2_prt_apj FOR VALUES IN ('apj');"))
+			} else {
+				// GPDB5/6 use legacy GPDB syntax, and need an exchange to have an external partition
+				Expect(string(metadataFileContents)).To(ContainSubstring("CREATE READABLE EXTERNAL TABLE testchema.multipartition_1_prt_dec16_2_prt_apj_ext_part_ ("))
+				Expect(string(metadataFileContents)).To(ContainSubstring("ALTER TABLE testchema.multipartition ALTER PARTITION dec16 EXCHANGE PARTITION apj WITH TABLE testchema.multipartition_1_prt_dec16_2_prt_apj_ext_part_ WITHOUT VALIDATION;"))
+			}
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+
 	})
 })
