@@ -306,7 +306,7 @@ resources:
   type: git
   icon: github-circle
   source:
-    branch: master
+    branch: main
     private_key: ((dp/$$DEV_PROD$$/gp-backup-manager-remote-deploy-key))
     uri: ((dp/gp-backup-manager-git-remote))
 {% if "gpbackup-release" == pipeline_name %}
@@ -374,7 +374,7 @@ resources:
   icon: github-circle
   source:
     uri: https://github.com/greenplum-db/gpdb
-    branch: master
+    branch: main
 
 - name: bin_gpdb_master_centos7
   type: gcs
@@ -616,7 +616,7 @@ resources:
     owner: greenplum-db
     repository: gpbackup
     access_token: ((dp/$$DEV_PROD$$/gpbackup-git-access-token))
-    release: ((dp/$$DEV_PROD$$/enable-release))
+    release: true
 {% endif %}
 
 {% if "gpbackup-release" == pipeline_name %}
@@ -624,12 +624,12 @@ resources:
   type: pivnet
   source:
     api_token: ((dp/$$DEV_PROD$$/pivnet_api_token))
-    product_slug: ((dp/$$DEV_PROD$$/pivnet_product_slug))
-    endpoint: ((dp/$$DEV_PROD$$/pivnet_endpoint))
-    bucket: ((dp/$$DEV_PROD$$/pivnet_bucket_name))
+    product_slug: pivotal-gpdb-backup-restore
+    endpoint: "https://network.tanzu.vmware.com"
+    bucket: gpbackup-pivotal-network
     access_key_id: ((dp/$$DEV_PROD$$/pivnet_bucket_access_key_id))
     secret_access_key: ((dp/$$DEV_PROD$$/pivnet_bucket_secret_access_key))
-    region: ((dp/$$DEV_PROD$$/pivnet_aws_region))
+    region: us-west-2
     copy_metadata: true
     sort_by: semver
 {% endif %}

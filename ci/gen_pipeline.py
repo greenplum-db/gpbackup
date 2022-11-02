@@ -86,8 +86,8 @@ def create_pipeline(args):
 def print_output_message(args):
     git_branch = suggested_git_branch()
     if not args.is_prod:
-        if git_branch == "master":
-            print "\n[WARNING] You are generating a dev pipeline pointed to the master branch!\n"
+        if git_branch == "main":
+            print "\n[WARNING] You are generating a dev pipeline pointed to the main branch!\n"
         cmd = """fly -t dp set-pipeline  -p dev:%s_%s \
 -c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-dev-generated.yml \
 -v gpbackup-git-branch=%s""" % (args.pipeline_name, git_branch, args.pipeline_name, git_branch)
@@ -101,8 +101,8 @@ def print_output_message(args):
             print "bailing out"
 
     if args.is_prod:
-        if git_branch != "master":
-            print "\n[WARNING] You are generating a prod pipeline, but are not on the master branch!\n"
+        if git_branch != "main":
+            print "\n[WARNING] You are generating a prod pipeline, but are not on the main branch!\n"
         cmd1 = "fly -t gpdb-prod set-pipeline -p %s \
 -c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml" % (args.pipeline_name, args.pipeline_name)
         args.pipeline_name = "gpbackup"
