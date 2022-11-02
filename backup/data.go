@@ -31,8 +31,8 @@ func ConstructTableAttributesList(columnDefs []ColumnDefinition) string {
 	for _, col := range columnDefs {
 		// data in generated columns should not be backed up or restored.
 		if col.AttGenerated == "" {
-		names = append(names, col.Name)
-	}
+			names = append(names, col.Name)
+		}
 	}
 	if len(names) > 0 {
 		return fmt.Sprintf("(%s)", strings.Join(names, ","))
@@ -125,18 +125,18 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 
 /*
 * Iterate through tables, backup data from each table in set.
-* If supported by the database, a synchronized database snapshot is used to sync 
+* If supported by the database, a synchronized database snapshot is used to sync
 * all parallel workers' view of the database and ensure data consistency across workers.
-* In each worker, we try to acquire a ACCESS SHARE lock on each table in NOWAIT mode, 
-* to avoid potential deadlocks with queued DDL operations that requested ACCESS EXCLUSIVE 
-* locks on the same tables (for eg concurrent ALTER TABLE operations). If worker is unable to 
+* In each worker, we try to acquire a ACCESS SHARE lock on each table in NOWAIT mode,
+* to avoid potential deadlocks with queued DDL operations that requested ACCESS EXCLUSIVE
+* locks on the same tables (for eg concurrent ALTER TABLE operations). If worker is unable to
 * acquire a lock, defer table to worker 0, which holds all ACCESS SHARE locks for the backup set.
 * If synchronized snapshot is not supported and worker is unable to acquire a lock, the
 * worker must be terminated because the session no longer has a valid distributed snapshot
 *
 * FIXME: Simplify backupDataForAllTables by having one function for snapshot workflow and
 * another without, then extract common portions into their own functions.
-*/
+ */
 func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables))}
 	counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
@@ -158,13 +158,13 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 		tasks <- table
 	}
 
-/*
-* Worker 0 is a special database connection that
-* 	1) Exports the database snapshot if the feature is supported 
-* 	2) Does not have tables pre-assigned to it.
-* 	3) Processes tables only in the event that the other workers encounter locking issues.
-* Worker 0 already has all locks on the tables so it will not run into locking issues.
-*/
+	/*
+	 * Worker 0 is a special database connection that
+	 * 	1) Exports the database snapshot if the feature is supported
+	 * 	2) Does not have tables pre-assigned to it.
+	 * 	3) Processes tables only in the event that the other workers encounter locking issues.
+	 * Worker 0 already has all locks on the tables so it will not run into locking issues.
+	 */
 	rowsCopiedMaps[0] = make(map[uint32]int64)
 	for connNum := 1; connNum < connectionPool.NumConns; connNum++ {
 		rowsCopiedMaps[connNum] = make(map[uint32]int64)
@@ -211,7 +211,7 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 						// the following WARN message is nicely outputted.
 						fmt.Printf("\n")
 					}
-					gplog.Warn("Worker %d could not acquire AccessShareLock for table %s.",	whichConn, table.FQN())
+					gplog.Warn("Worker %d could not acquire AccessShareLock for table %s.", whichConn, table.FQN())
 					logTableLocks(table, whichConn)
 					// rollback transaction and defer table
 					err = connectionPool.Rollback(whichConn)
