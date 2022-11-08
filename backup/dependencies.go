@@ -274,6 +274,8 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 			PrintCreateUserMappingStatement(metadataFile, toc, obj)
 		case Constraint:
 			PrintConstraintStatement(metadataFile, toc, obj, objMetadata)
+		case Transform:
+			PrintCreateTransformStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
 		}
 		// Remove ACLs from metadataMap for the current object since they have been processed
 		delete(metadataMap, object.GetUniqueID())

@@ -282,6 +282,40 @@ var _ = Describe("backup integration create statement tests", func() {
 				Expect(resultFunctions).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&ParallelFunction, &resultFunctions[0], "Oid")
 			})
+			It("creates a function with TRANSFORM FOR TYPE", func() {
+				TransformFunction := backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + 1",
+					BinaryPath: "", Arguments: sql.NullString{String: "hstore", Valid: true},
+					IdentArgs:  sql.NullString{String: "hstore", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "plperl", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "u",
+					TransformTypes: "FOR TYPE pg_catalog.hstore",
+				}
+				backup.PrintCreateFunctionStatement(backupfile, tocfile, TransformFunction, funcMetadata)
+
+				// set up types and transforms needed
+				testhelper.AssertQueryRuns(connectionPool, "CREATE EXTENSION hstore;")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION hstore CASCADE;")
+
+				testhelper.AssertQueryRuns(connectionPool, "CREATE EXTENSION plperl;")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION plperl CASCADE;")
+
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION hstore_to_plperl(val internal) RETURNS internal 
+						AS '$libdir/hstore_plperl.so'  LANGUAGE C STRICT IMMUTABLE;`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION hstore_to_plperl CASCADE;")
+
+				testhelper.AssertQueryRuns(connectionPool, "CREATE TRANSFORM FOR hstore LANGUAGE plperl (FROM SQL WITH FUNCTION hstore_to_plperl(internal))")
+
+				// create and assess function
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(hstore)")
+
+				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+
+				Expect(resultFunctions).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&TransformFunction, &resultFunctions[0], "Oid")
+			})
 		})
 	})
 	Describe("PrintCreateAggregateStatement", func() {
@@ -632,9 +666,8 @@ var _ = Describe("backup integration create statement tests", func() {
 
 		DescribeTable("creates transforms", func(fromSql func() uint32, toSql func() uint32) {
 			transform := backup.Transform{Oid: 1, TypeNamespace: "pg_catalog", TypeName: "int2", LanguageName: "c", FromSQLFunc: fromSql(), ToSQLFunc: toSql()}
-			transforms := []backup.Transform{transform}
-			transMetadataMap := testutils.DefaultMetadataMap("TRANSFORM", false, false, true, false)
-			backup.PrintCreateTransformStatements(backupfile, tocfile, transforms, transMetadataMap, funcInfoMap)
+			transMetadata := testutils.DefaultMetadata("TRANSFORM", false, false, false, false)
+			backup.PrintCreateTransformStatement(backupfile, tocfile, transform, funcInfoMap, transMetadata)
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRANSFORM FOR int2 LANGUAGE c")
 

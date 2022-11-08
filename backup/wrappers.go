@@ -222,6 +222,16 @@ func retrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap) ([]Functi
 	return functions, funcInfoMap
 }
 
+func retrieveTransforms(sortables *[]Sortable) {
+	if connectionPool.Version.Before("7") {
+		return
+	}
+	gplog.Verbose("Retrieving transform information")
+	transforms := GetTransforms(connectionPool)
+	objectCounts["Transforms"] = len(transforms)
+	*sortables = append(*sortables, convertToSortableSlice(transforms)...)
+}
+
 func retrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving type information")
 	shells := GetShellTypes(connectionPool)
@@ -532,17 +542,6 @@ func backupProceduralLanguages(metadataFile *utils.FileWithByteCount,
 	}
 	procLangMetadata := GetMetadataForObjectType(connectionPool, TYPE_PROCLANGUAGE)
 	PrintCreateLanguageStatements(metadataFile, globalTOC, procLangs, funcInfoMap, procLangMetadata)
-}
-
-func backupTransforms(metadataFile *utils.FileWithByteCount, funcInfoMap map[uint32]FunctionInfo) {
-	if connectionPool.Version.Before("7") {
-		return
-	}
-	gplog.Verbose("Writing CREATE TRANSFORM statements to metadata file")
-	transforms := GetTransforms(connectionPool)
-	objectCounts["Transforms"] = len(transforms)
-	transformMetadata := GetMetadataForObjectType(connectionPool, TYPE_TRANSFORM)
-	PrintCreateTransformStatements(metadataFile, globalTOC, transforms, transformMetadata, funcInfoMap)
 }
 
 func backupShellTypes(metadataFile *utils.FileWithByteCount, shellTypes []ShellType, baseTypes []BaseType, rangeTypes []RangeType) {

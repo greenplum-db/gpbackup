@@ -92,7 +92,9 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 		metadataFile.MustPrintf(" SECURITY DEFINER")
 	}
 	if connectionPool.Version.AtLeast("7") {
-		// TODO: TRANSFORM
+		if funcDef.TransformTypes != "" {
+			metadataFile.MustPrintf("\nTRANSFORM %s\n", funcDef.TransformTypes)
+		}
 		if funcDef.PlannerSupport != "-" {
 			metadataFile.MustPrintf("\nSUPPORT %s", funcDef.PlannerSupport)
 		}
@@ -368,38 +370,36 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *t
 	}
 }
 
-func PrintCreateTransformStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, transforms []Transform, transformMetadata MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
-	for _, transform := range transforms {
-		fromSQLFunc, fromSQLIsDefined := funcInfoMap[transform.FromSQLFunc]
-		toSQLFunc, toSQLIsDefined := funcInfoMap[transform.ToSQLFunc]
-		TypeFQN := fmt.Sprintf("%s.%s", transform.TypeNamespace, transform.TypeName)
+func PrintCreateTransformStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, transform Transform, funcInfoMap map[uint32]FunctionInfo, transformMetadata ObjectMetadata) {
+	fromSQLFunc, fromSQLIsDefined := funcInfoMap[transform.FromSQLFunc]
+	toSQLFunc, toSQLIsDefined := funcInfoMap[transform.ToSQLFunc]
+	TypeFQN := fmt.Sprintf("%s.%s", transform.TypeNamespace, transform.TypeName)
 
-		if !fromSQLIsDefined && !toSQLIsDefined {
-			gplog.Warn(fmt.Sprintf("Skipping invalid transform object for type %s and language %s; At least one of FROM and TO functions should be specified.", TypeFQN, transform.LanguageName))
-			continue
-		}
-		start := metadataFile.ByteCount
-		statement := fmt.Sprintf("\n\nCREATE TRANSFORM FOR %s LANGUAGE %s (", TypeFQN, transform.LanguageName)
-		if fromSQLIsDefined {
-			statement += fmt.Sprintf("FROM SQL WITH FUNCTION %s", fromSQLFunc.FQN())
-		} else {
-			gplog.Warn(fmt.Sprintf("No FROM function found for transform object with type %s and language %s\n", TypeFQN, transform.LanguageName))
-		}
-
-		if toSQLIsDefined {
-			if fromSQLIsDefined {
-				statement += ", "
-			}
-			statement += fmt.Sprintf("TO SQL WITH FUNCTION %s", toSQLFunc.FQN())
-		} else {
-			gplog.Warn(fmt.Sprintf("No TO function found for transform object with type %s and language %s\n", TypeFQN, transform.LanguageName))
-		}
-		statement += ");"
-		metadataFile.MustPrintf(statement)
-		section, entry := transform.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, transformMetadata[transform.GetUniqueID()], transform, "")
+	if !fromSQLIsDefined && !toSQLIsDefined {
+		gplog.Warn(fmt.Sprintf("Skipping invalid transform object for type %s and language %s; At least one of FROM and TO functions should be specified.", TypeFQN, transform.LanguageName))
+		return
 	}
+	start := metadataFile.ByteCount
+	statement := fmt.Sprintf("\n\nCREATE TRANSFORM FOR %s LANGUAGE %s (", TypeFQN, transform.LanguageName)
+	if fromSQLIsDefined {
+		statement += fmt.Sprintf("FROM SQL WITH FUNCTION %s", fromSQLFunc.FQN())
+	} else {
+		gplog.Warn(fmt.Sprintf("No FROM function found for transform object with type %s and language %s\n", TypeFQN, transform.LanguageName))
+	}
+
+	if toSQLIsDefined {
+		if fromSQLIsDefined {
+			statement += ", "
+		}
+		statement += fmt.Sprintf("TO SQL WITH FUNCTION %s", toSQLFunc.FQN())
+	} else {
+		gplog.Warn(fmt.Sprintf("No TO function found for transform object with type %s and language %s\n", TypeFQN, transform.LanguageName))
+	}
+	statement += ");"
+	metadataFile.MustPrintf(statement)
+	section, entry := transform.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+	PrintObjectMetadata(metadataFile, toc, transformMetadata, transform, "")
 }
 
 func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, conversions []Conversion, conversionMetadata MetadataMap) {

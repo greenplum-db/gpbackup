@@ -41,6 +41,7 @@ type Function struct {
 	IsWindow          bool   `db:"proiswindow"` // before 7
 	ExecLocation      string `db:"proexeclocation"`
 	Parallel          string `db:"proparallel"` // GPDB 7+
+	TransformTypes    string // GPDB 7+
 }
 
 func (f Function) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -102,9 +103,9 @@ func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
 
 func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	excludeImplicitFunctionsClause := ""
-	masterAtts := "'a' AS proexeclocation,"
+	locationAtts := "'a' AS proexeclocation,"
 	if connectionPool.Version.AtLeast("6") {
-		masterAtts = "proiswindow,proexeclocation,proleakproof,"
+		locationAtts = "proiswindow,proexeclocation,proleakproof,"
 		// This excludes implicitly created functions. Currently this is only range type functions
 		excludeImplicitFunctionsClause = `
 	AND NOT EXISTS (
@@ -114,11 +115,11 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	}
 	var query string
 	if connectionPool.Version.AtLeast("7") {
-		masterAtts = "proexeclocation,proleakproof,proparallel,"
+		locationAtts = "proexeclocation,proleakproof,proparallel,"
 		query = fmt.Sprintf(`
 		SELECT p.oid,
 			quote_ident(nspname) AS schema,
-			quote_ident(proname) AS name,
+			quote_ident(p.proname) AS name,
 			proretset,
 			coalesce(prosrc, '') AS functionbody,
 			coalesce(probin, '') AS binarypath,
@@ -136,14 +137,22 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 			prodataaccess,
 			prokind,
 			prosupport,
-			l.lanname AS language
+			l.lanname AS language,
+            coalesce(array_to_string(ARRAY(SELECT 'FOR TYPE ' || nm.nspname || '.' || typ.typname
+                from
+                    unnest(p.protrftypes) as trf_unnest
+                    left join pg_type typ
+                         on trf_unnest = typ.oid
+					left join pg_namespace nm
+						on typ.typnamespace = nm.oid
+                ), ', '), '') AS transformtypes
 		FROM pg_proc p
 			JOIN pg_catalog.pg_language l ON p.prolang = l.oid
 			LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
 		WHERE %s
 			AND prokind <> 'a'
 			AND %s%s
-		ORDER BY nspname, proname, identargs`, masterAtts,
+		ORDER BY nspname, proname, identargs`, locationAtts,
 			SchemaFilterClause("n"),
 			ExtensionFilterClause("p"),
 			excludeImplicitFunctionsClause)
@@ -174,7 +183,7 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 		WHERE %s
 			AND proisagg = 'f'
 			AND %s%s
-		ORDER BY nspname, proname, identargs`, masterAtts,
+		ORDER BY nspname, proname, identargs`, locationAtts,
 			SchemaFilterClause("n"),
 			ExtensionFilterClause("p"),
 			excludeImplicitFunctionsClause)

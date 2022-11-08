@@ -506,14 +506,27 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 				Expect(dataTableNames).To(Equal(expectedDataTables))
 			})
 			It("adds a suffix to external partition tables", func() {
+				tableShortName := "part_parent1_prt_1"
+				tableLongName := "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame"
+
+				var expectedShortName string
+				var expectedLongName string
+				if connectionPool.Version.Before("7") {
+					expectedShortName = "part_parent1_prt_1_ext_part_"
+					expectedLongName = "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_ext_part_"
+				} else {
+					expectedShortName = tableShortName
+					expectedLongName = tableLongName
+				}
+
 				includeList = []string{}
 				tables = []backup.Table{
 					{
-						Relation:        backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1_prt_1"},
+						Relation:        backup.Relation{Oid: 1, Schema: "public", Name: tableShortName},
 						TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "l"}, IsExternal: true},
 					},
 					{
-						Relation:        backup.Relation{Oid: 2, Schema: "public", Name: "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame"},
+						Relation:        backup.Relation{Oid: 2, Schema: "public", Name: tableLongName},
 						TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "l"}, IsExternal: true},
 					},
 				}
@@ -523,11 +536,11 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 
 				expectedTables := []backup.Table{
 					{
-						Relation:        backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1_prt_1_ext_part_"},
+						Relation:        backup.Relation{Oid: 1, Schema: "public", Name: expectedShortName},
 						TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "l"}, IsExternal: true},
 					},
 					{
-						Relation:        backup.Relation{Oid: 2, Schema: "public", Name: "long_naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_ext_part_"},
+						Relation:        backup.Relation{Oid: 2, Schema: "public", Name: expectedLongName},
 						TableDefinition: backup.TableDefinition{PartitionLevelInfo: backup.PartitionLevelInfo{Level: "l"}, IsExternal: true},
 					},
 				}

@@ -181,8 +181,13 @@ $_$`)
 				backup.PrintFunctionModifiers(backupfile, funcDef)
 				testhelper.ExpectRegexp(buffer, "WINDOW")
 			})
-			// TODO: TRANSFORM for stored procedures
-			It("print 'SUPPORT' if PlanerSupport is set", func() {
+			It("print 'TRANSFORM' block if transforms are present", func() {
+				testutils.SkipIfBefore7(connectionPool)
+				funcDef.TransformTypes = "FOR TYPE public.hstore, FOR TYPE pg_catalog.jsonb"
+				backup.PrintFunctionModifiers(backupfile, funcDef)
+				Expect(string(buffer.Contents())).To(ContainSubstring("TRANSFORM FOR TYPE public.hstore, FOR TYPE pg_catalog.jsonb"))
+			})
+			It("print 'SUPPORT' if PlannerSupport is set", func() {
 				testutils.SkipIfBefore7(connectionPool)
 				funcDef.PlannerSupport = "my_planner_support"
 				backup.PrintFunctionModifiers(backupfile, funcDef)
@@ -851,7 +856,7 @@ GRANT ALL ON LANGUAGE plperl TO testrole;`,
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 	})
-	Describe("PrintCreateTransformStatements", func() {
+	Describe("PrintCreateTransformStatement", func() {
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "somenamespace.from_sql_f", IdentArgs: sql.NullString{String: "internal", Valid: true}},
 			2: {QualifiedName: "somenamespace.to_sql_f", IdentArgs: sql.NullString{String: "internal", Valid: true}},
@@ -860,9 +865,8 @@ GRANT ALL ON LANGUAGE plperl TO testrole;`,
 		DescribeTable("prints transform statements with at least one transform function", func(fromSql uint32, toSql uint32, expected string) {
 			testutils.SkipIfBefore7(connectionPool)
 			transform := backup.Transform{Oid: 1, TypeNamespace: "mynamespace", TypeName: "mytype", LanguageName: "somelang", FromSQLFunc: fromSql, ToSQLFunc: toSql}
-			transforms := []backup.Transform{transform}
-			transMetadataMap := testutils.DefaultMetadataMap("TRANSFORM", false, false, true, false)
-			backup.PrintCreateTransformStatements(backupfile, tocfile, transforms, transMetadataMap, funcInfoMap)
+			transMetadata := testutils.DefaultMetadata("TRANSFORM", false, false, false, false)
+			backup.PrintCreateTransformStatement(backupfile, tocfile, transform, funcInfoMap, transMetadata)
 			expectedStatements := []string{fmt.Sprintf(`CREATE TRANSFORM FOR mynamespace.mytype LANGUAGE somelang %s;`, expected)}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		},
@@ -874,9 +878,8 @@ GRANT ALL ON LANGUAGE plperl TO testrole;`,
 			testutils.SkipIfBefore7(connectionPool)
 			_, _, logfile = testhelper.SetupTestLogger()
 			transform := backup.Transform{Oid: 1, TypeNamespace: "mynamespace", TypeName: "mycustomtype", LanguageName: "someproclanguage", FromSQLFunc: 0, ToSQLFunc: 0}
-			transforms := []backup.Transform{transform}
-			transMetadataMap := testutils.DefaultMetadataMap("TRANSFORM", false, false, true, false)
-			backup.PrintCreateTransformStatements(backupfile, tocfile, transforms, transMetadataMap, funcInfoMap)
+			transMetadata := testutils.DefaultMetadata("TRANSFORM", false, false, false, false)
+			backup.PrintCreateTransformStatement(backupfile, tocfile, transform, funcInfoMap, transMetadata)
 			testhelper.ExpectRegexp(logfile, "[WARNING]:-Skipping invalid transform object for type mynamespace.mycustomtype and language someproclanguage; At least one of FROM and TO functions should be specified")
 		})
 	})
