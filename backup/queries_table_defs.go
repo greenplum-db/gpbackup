@@ -260,13 +260,14 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
 		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum`
 
-	// TODO: fix for gpdb7 partitioning
 	partitionRuleExcludeClause := ""
 	if connectionPool.Version.Before("7") {
+		// In GPDB7+ we do not want to exclude child partitions, they function as separate tables.
 		partitionRuleExcludeClause = `
-		AND NOT EXISTS (SELECT 1 FROM 
-			(SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable)
-			par WHERE par.parchildrelid = c.oid)`
+		AND NOT EXISTS (
+			SELECT 1 FROM 
+				(SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable) par 
+			WHERE par.parchildrelid = c.oid)`
 	}
 	whereClause := fmt.Sprintf(`
 	WHERE %s

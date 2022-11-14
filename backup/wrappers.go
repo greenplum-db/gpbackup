@@ -608,10 +608,11 @@ func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 	gplog.Verbose("Writing CREATE statements for dependent objects to metadata file")
 
 	backupSet := createBackupSet(sortables)
-	relevantDeps := GetDependencies(connectionPool, backupSet)
+	relevantDeps := GetDependencies(connectionPool, backupSet, tables)
 	if connectionPool.Version.Is("4") && !tableOnly {
 		AddProtocolDependenciesForGPDB4(relevantDeps, tables, protocols)
 	}
+
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
 	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, domainConstraints, funcInfoMap)

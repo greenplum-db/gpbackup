@@ -79,10 +79,10 @@ func (r Relation) GetUniqueID() UniqueID {
  * it is currently much simpler than the include case.
  */
 func getUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
-	// TODO: fix for gpdb7 partitioning
 	childPartitionFilter := ""
 	if !MustGetFlagBool(options.LEAF_PARTITION_DATA) && connectionPool.Version.Before("7") {
-		//Filter out non-external child partitions
+		// Filter out non-external child partitions in GPDB6 and earlier.
+		// In GPDB7+ we do not want to exclude child partitions, they function as separate tables.
 		childPartitionFilter = `
 	AND c.oid NOT IN (
 		SELECT p.parchildrelid

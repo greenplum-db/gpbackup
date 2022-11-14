@@ -1374,9 +1374,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 				// TODO: Remove this once support is added
 				// Triggers on statements not yet supported in GPDB7, per src/backend/parser/gram.y:39460,39488
 
-			// Create a trigger. Currently for triggers, the only metadata is COMMENT.
-			testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
-			testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
+				// Create a trigger. Currently for triggers, the only metadata is COMMENT.
+				testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
+				testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
 			}
 
 			// Create an event trigger. Currently for event triggers, there are 2 possible
@@ -1856,8 +1856,9 @@ LANGUAGE plpgsql NO SQL;`)
 			Expect(string(output)).To(ContainSubstring(fmt.Sprintf("Cannot restore a backup taken on a cluster with 5 segments to a cluster with %d segments unless the --resize-cluster flag is used.", segmentCount)))
 		})
 	})
-	Describe("Backup and restore multi-layer and external partitions", func() {
+	Describe("Backup and restore external partitions", func() {
 		It("Will correctly handle external partitions on multiple versions of GPDB", func() {
+			testutils.SkipIfBefore6(backupConn)
 			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA testchema;")
 			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
 			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
@@ -1909,6 +1910,100 @@ LANGUAGE plpgsql NO SQL;`)
 			Expect(err).ToNot(HaveOccurred())
 
 		})
+	})
+	Describe("Backup and restore multi-layer leaf-partition backups filtered to parent or child tables with intermediate partitions on GPDB7+", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(backupConn)
+			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA schemaone;")
+			// load up two tables with some test data each, to confirm that only one is backed up and restored
+			testhelper.AssertQueryRuns(backupConn, `
+                      DROP TABLE IF EXISTS schemaone.measurement CASCADE;
+                      CREATE TABLE schemaone.measurement (
+                          city_id         int not null,
+                          logdate         date not null,
+                          peaktemp        int,
+                          unitsales       int default 42
+                      ) PARTITION BY RANGE (logdate);
 
+                      ALTER TABLE schemaone.measurement ADD CONSTRAINT parent_city_id_unique UNIQUE (city_id, logdate, peaktemp, unitsales);
+
+                      CREATE TABLE schemaone.measurement_y2006m02 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2006-02-01') TO ('2006-03-01')
+                          PARTITION BY RANGE (peaktemp);
+
+                      ALTER TABLE schemaone.measurement_y2006m02 ADD CONSTRAINT intermediate_check CHECK (peaktemp < 1000);
+
+                      CREATE TABLE schemaone.measurement_peaktemp_0_100 PARTITION OF schemaone.measurement_y2006m02
+                          FOR VALUES FROM (0) TO (100)
+                          PARTITION BY RANGE (unitsales);
+
+                      CREATE TABLE schemaone.measurement_peaktemp_catchall PARTITION OF schemaone.measurement_peaktemp_0_100
+                          FOR VALUES FROM (1) TO (100);
+
+                      CREATE TABLE schemaone.measurement_default PARTITION OF schemaone.measurement_y2006m02 DEFAULT;
+
+                      CREATE TABLE schemaone.measurement_y2006m03 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2006-03-01') TO ('2006-04-01');
+
+                      CREATE TABLE schemaone.measurement_y2007m11 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2007-11-01') TO ('2007-12-01');
+
+                      CREATE TABLE schemaone.measurement_y2007m12 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2007-12-01') TO ('2008-01-01');
+
+                      CREATE TABLE schemaone.measurement_y2008m01 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2008-01-01') TO ('2008-02-01');
+
+                      ALTER TABLE schemaone.measurement_y2008m01 ADD CONSTRAINT city_id_unique UNIQUE (city_id);
+
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-02-22', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-03-05', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-12-22', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-12-20', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-11-20', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-02-01', 75, 99);
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-02-22', 75, 60);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-11-15', 75, 80);
+                   `)
+			defer testhelper.AssertQueryRuns(backupConn, "")
+		})
+
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schemaone CASCADE;")
+			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schemaone CASCADE;")
+		})
+		DescribeTable("",
+			func(includeTableName string, secondaryIncludeTableName string, expectedTableCount string, expectedRootRowCount string, expectedLeafRowCount string) {
+				var timestamp string
+				if secondaryIncludeTableName != "" {
+					timestamp = gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--leaf-partition-data",
+						"--include-table", includeTableName,
+						"--include-table", secondaryIncludeTableName)
+				} else {
+					timestamp = gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--leaf-partition-data", "--include-table", includeTableName)
+				}
+				testhelper.AssertQueryRuns(restoreConn, "CREATE SCHEMA schemaone;")
+
+				gprestoreArgs := []string{
+					"--timestamp", timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir}
+				gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+				_, err := gprestoreCmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred())
+
+				tableCount := dbconn.MustSelectString(restoreConn, "SELECT count(*) FROM information_schema.tables where table_schema = 'schemaone';")
+				Expect(tableCount).To(Equal(expectedTableCount))
+
+				rootRowCount := dbconn.MustSelectString(restoreConn, "SELECT count(*) FROM schemaone.measurement;")
+				Expect(rootRowCount).To(Equal(expectedRootRowCount))
+
+				leafRowCount := dbconn.MustSelectString(restoreConn, "SELECT count(*) FROM schemaone.measurement_peaktemp_catchall;")
+				Expect(leafRowCount).To(Equal(expectedLeafRowCount))
+			},
+			Entry("Will correctly handle filtering on child table", "schemaone.measurement_peaktemp_catchall", "", "4", "3", "3"),
+			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "", "9", "8", "3"),
+			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "schemaone.measurement_peaktemp_catchall", "9", "8", "3"),
+		)
 	})
 })

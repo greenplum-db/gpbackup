@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -144,8 +145,15 @@ type UniqueID struct {
 	Oid     uint32
 }
 
+type SortableDependency struct {
+	ClassID    uint32
+	ObjID      uint32
+	RefClassID uint32
+	RefObjID   uint32
+}
+
 // This function only returns dependencies that are referenced in the backup set
-func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool) DependencyMap {
+func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool, tables []Table) DependencyMap {
 	query := `SELECT
 	coalesce(id1.refclassid, d.classid) AS classid,
 	coalesce(id1.refobjid, d.objid) AS objid,
@@ -170,15 +178,54 @@ JOIN pg_type t ON d.refobjid = t.oid
 WHERE d.classid = 'pg_proc'::regclass::oid
 AND typelem != 0`
 
-	pgDependDeps := make([]struct {
-		ClassID    uint32
-		ObjID      uint32
-		RefClassID uint32
-		RefObjID   uint32
-	}, 0)
-
+	pgDependDeps := make([]SortableDependency, 0)
 	err := connectionPool.Select(&pgDependDeps, query)
 	gplog.FatalOnError(err)
+
+	// In GP7 restoring a child table to a parent when the parent already has a
+	// constraint applied will error.  Our solution is to add additional
+	// "synthetic" dependencies to the backup, requiring all child tables to be
+	// attached to the parent before the constraints are applied.
+	if connectionPool.Version.AtLeast("7") && len(tables) > 0 {
+		tableOids := make([]string, len(tables))
+		for idx, table := range tables {
+			tableOids[idx] = fmt.Sprintf("%d", table.Oid)
+		}
+		syntheticConstraintDeps := make([]SortableDependency, 0)
+		synthConstrDepQuery := fmt.Sprintf(`
+			WITH constr_cte AS (
+                SELECT
+                    dep.refobjid,
+                    con.conname,
+                    con.connamespace
+                FROM
+                    pg_depend dep
+                    INNER JOIN pg_constraint con ON dep.objid = con.oid
+					INNER JOIN pg_class cls ON dep.refobjid = cls.oid
+                WHERE
+                    dep.refobjid IN (%s)
+					AND cls.relkind in ('r','p', 'f')
+					AND dep.deptype = 'n'
+                )
+              SELECT
+                  'pg_constraint'::regclass::oid AS ClassID,
+                  con.oid AS ObjID,
+                  'pg_class'::regclass::oid AS RefClassID,
+                  constr_cte.refobjid AS RefObjID
+              FROM
+                  pg_constraint con
+                  INNER JOIN constr_cte
+					ON con.conname = constr_cte.conname
+					AND con.connamespace = constr_cte.connamespace
+              WHERE
+                  con.conislocal = true;`, strings.Join(tableOids, ", "))
+		err := connectionPool.Select(&syntheticConstraintDeps, synthConstrDepQuery)
+		gplog.FatalOnError(err)
+
+		if len(syntheticConstraintDeps) > 0 {
+			pgDependDeps = append(pgDependDeps, syntheticConstraintDeps...)
+		}
+	}
 
 	dependencyMap := make(DependencyMap)
 	for _, dep := range pgDependDeps {
