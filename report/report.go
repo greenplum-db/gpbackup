@@ -15,6 +15,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
+	"github.com/greenplum-db/gpbackup/arenadata"
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
@@ -293,6 +294,14 @@ func PrintObjectCounts(reportFile io.WriteCloser, objectCounts map[string]int) {
  * users will never use a +dev version in production.
  */
 func EnsureBackupVersionCompatibility(backupVersion string, restoreVersion string) {
+	if strings.Index(restoreVersion, "_arenadata") != -1 {
+		// arenadata build
+		if strings.Index(backupVersion, "_arenadata") != -1 {
+			arenadata.EnsureAdVersionCompatibility(backupVersion, restoreVersion)
+			backupVersion = arenadata.GetOriginalVersion(backupVersion)
+		}
+		restoreVersion = arenadata.GetOriginalVersion(restoreVersion)
+	}
 	backupSemVer, err := semver.Make(backupVersion)
 	gplog.FatalOnError(err)
 	restoreSemVer, err := semver.Make(restoreVersion)

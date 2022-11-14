@@ -302,43 +302,54 @@ func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbcon
 	}
 
 	query := fmt.Sprintf(`
-SELECT
-	n.nspname AS schemaname,
-	c.relname AS tablename
-FROM pg_class c
-JOIN pg_namespace n
-	ON c.relnamespace = n.oid
-WHERE %s
-AND (
-	-- Get tables in the include list
-	c.oid IN (%s)
-	-- Get parent partition tables whose children are in the include list
-	OR c.oid IN (
+SELECT schemaname, tablename FROM (
+	SELECT c.oid AS oid,
+		n.nspname AS schemaname,
+		c.relname AS tablename,
+		coalesce(prt.pages, c.relpages) AS pages
+	FROM pg_class c
+	JOIN pg_namespace n ON c.relnamespace = n.oid
+	LEFT JOIN (
 		SELECT
-			p.parrelid
-		FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		WHERE p.paristemplate = false
-		AND r.parchildrelid IN (%s)
-	)
-	-- Get external partition tables whose siblings are in the include list
-	OR c.oid IN (
-		SELECT
-			r.parchildrelid
-		FROM pg_partition_rule r
-		JOIN pg_exttable e ON r.parchildrelid = e.reloid
-		WHERE r.paroid IN (
+			p.parrelid,
+			sum(pc.relpages) AS pages
+		FROM pg_partition_rule AS pr
+		JOIN pg_partition AS p ON pr.paroid = p.oid
+		JOIN pg_class AS pc ON pr.parchildrelid = pc.oid
+		GROUP BY p.parrelid
+	) AS prt ON prt.parrelid = c.oid
+	WHERE %s
+	AND (
+		-- Get tables in the include list
+		c.oid IN (%s)
+		-- Get parent partition tables whose children are in the include list
+		OR c.oid IN (
 			SELECT
-				pr.paroid
-			FROM pg_partition_rule pr
-			WHERE pr.parchildrelid IN (%s)
+				p.parrelid
+			FROM pg_partition p
+			JOIN pg_partition_rule r ON p.oid = r.paroid
+			WHERE p.paristemplate = false
+			AND r.parchildrelid IN (%s)
 		)
+		-- Get external partition tables whose siblings are in the include list
+		OR c.oid IN (
+			SELECT
+				r.parchildrelid
+			FROM pg_partition_rule r
+			JOIN pg_exttable e ON r.parchildrelid = e.reloid
+			WHERE r.paroid IN (
+				SELECT
+					pr.paroid
+				FROM pg_partition_rule pr
+				WHERE pr.parchildrelid IN (%s)
+			)
+		)
+		%s
 	)
-	%s
-)
-AND (relkind = 'r' OR relkind = 'f')
-AND %s
-ORDER BY c.oid;`, o.schemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter, ExtensionFilterClause("c"))
+	AND (relkind = 'r' OR relkind = 'f')
+	AND %s
+) res
+ORDER BY pages DESC, oid;`, o.schemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter, ExtensionFilterClause("c"))
 
 	results := make([]FqnStruct, 0)
 	err = connectionPool.Select(&results, query)

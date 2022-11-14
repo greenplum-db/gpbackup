@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -83,6 +84,24 @@ var (
 type Sortable interface {
 	FQN() string
 	GetUniqueID() UniqueID
+}
+
+type Sortables []Sortable
+
+func (s Sortables) Len() int {
+	return len(s)
+}
+func (s Sortables) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s Sortables) Less(i, j int) bool {
+	return s[i].GetUniqueID().Oid < s[j].GetUniqueID().Oid
+}
+
+func SortByOid(sortables []Sortable) []Sortable {
+	s := Sortables(sortables)
+	sort.Sort(s)
+	return []Sortable(s)
 }
 
 func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
