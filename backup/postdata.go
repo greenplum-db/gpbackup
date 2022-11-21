@@ -48,10 +48,10 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 				metadataFile.MustPrintf("\nALTER TABLE %s REPLICA IDENTITY USING INDEX %s;", tableFQN, index.Name)
 				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 			}
-			if index.StatisticsColumns != "" && index.StatisticsValues != ""{
+			if index.StatisticsColumns != "" && index.StatisticsValues != "" {
 				cols := strings.Split(index.StatisticsColumns, ",")
 				vals := strings.Split(index.StatisticsValues, ",")
-				if(len(cols) != len(vals)) {
+				if len(cols) != len(vals) {
 					gplog.Fatal(errors.Errorf("Index StatisticsColumns(%d) and StatisticsValues(%d) count don't match\n", len(cols), len(vals)), "")
 				}
 				for i := 0; i < len(cols); i++ {
@@ -139,7 +139,7 @@ func PrintCreatePolicyStatements(metadataFile *utils.FileWithByteCount, toc *toc
 
 		permissiveOption := ""
 		if policy.Permissive == "false" {
-			permissiveOption =  " AS RESTRICTIVE"
+			permissiveOption = " AS RESTRICTIVE"
 		}
 		cmdOption := ""
 		if policy.Cmd != "" {

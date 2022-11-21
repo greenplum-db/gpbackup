@@ -34,7 +34,11 @@ func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, 
 		includeSet := utils.NewSet(includeList)
 		for _, table := range tables {
 			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
-				table.Name = AppendExtPartSuffix(table.Name)
+				if connectionPool.Version.Before("7") {
+					// GPDB7+ has different conventions for external partitions
+					// and does not need the suffix added
+					table.Name = AppendExtPartSuffix(table.Name)
+				}
 				metadataTables = append(metadataTables, table)
 			}
 			partType := table.PartitionLevelInfo.Level
@@ -69,14 +73,6 @@ func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, 
 
 		for _, table := range tables {
 			// In GPDB 7+, we need to filter out leaf and intermediate subroot partitions
-			// since the COPY will be called on the top-most root partition. It just so
-			// happens that those particular partition types will always have an
-			// AttachPartitionInfo initialized.
-			if table.AttachPartitionInfo == (AttachPartitionInfo{}) {
-				dataTables = append(dataTables, table)
-			}
-
-			// In GPDB 7+, we need to filter out leaf and intermediate subroot partitions
 			// from being added to the metadata table list if their root partition parent
 			// is in the exclude list. This is to prevent ATTACH PARTITION statements
 			// against nonexistant root partitions from being printed to the metadata file.
@@ -86,16 +82,25 @@ func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, 
 				continue
 			}
 
-			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
+			if connectionPool.Version.Before("7") && table.IsExternal && table.PartitionLevelInfo.Level == "l" {
 				table.Name = AppendExtPartSuffix(table.Name)
 			}
+
 			metadataTables = append(metadataTables, table)
+			// In GPDB 7+, we need to filter out leaf and intermediate subroot partitions
+			// since the COPY will be called on the top-most root partition. It just so
+			// happens that those particular partition types will always have an
+			// AttachPartitionInfo initialized.
+			if table.AttachPartitionInfo == (AttachPartitionInfo{}) {
+				dataTables = append(dataTables, table)
+			}
 		}
 	}
 	return metadataTables, dataTables
 }
 
 func AppendExtPartSuffix(name string) string {
+	// Do not call this function for GPDB7+
 	const SUFFIX = "_ext_part_"
 	const MAX_LEN = 63                 // MAX_DATA_LEN - 1 is the maximum length of a relation name
 	const QUOTED_MAX_LEN = MAX_LEN + 2 // We add 2 to account for a double quote on each end

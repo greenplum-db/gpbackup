@@ -574,11 +574,11 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 
 	aggregates := make([]Aggregate, 0)
 	query := ""
-	if connectionPool.Version.Before("5") {
+	if connectionPool.Version.Is("4") {
 		query = version4query
-	} else if connectionPool.Version.Before("6") {
+	} else if connectionPool.Version.Is("5") {
 		query = version5query
-	} else if connectionPool.Version.Before("7"){
+	} else if connectionPool.Version.Is("7") {
 		query = version6query
 	} else {
 		query = version7Query

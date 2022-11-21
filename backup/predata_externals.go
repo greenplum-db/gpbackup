@@ -265,7 +265,7 @@ func generateLogErrorStatement(extTableDef ExternalTableDefinition) string {
 		} else {
 			logErrorStatement += "\nLOG ERRORS"
 		}
-	} else if extTableDef.ErrTableName != ""  && extTableDef.ErrTableSchema != "" {
+	} else if extTableDef.ErrTableName != "" && extTableDef.ErrTableSchema != "" {
 		errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
 		logErrorStatement += fmt.Sprintf("\nLOG ERRORS INTO %s", errTableFQN)
 	}

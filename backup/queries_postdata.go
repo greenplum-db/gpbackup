@@ -423,15 +423,15 @@ func GetEventTriggers(connectionPool *dbconn.DBConn) []EventTrigger {
 }
 
 type RLSPolicy struct {
-	Oid         uint32
-	Name        string
-	Cmd         string
-	Permissive  string
-	Schema      string
-	Table       string
-	Roles       string
-	Qual        string
-	WithCheck   string
+	Oid        uint32
+	Name       string
+	Cmd        string
+	Permissive string
+	Schema     string
+	Table      string
+	Roles      string
+	Qual       string
+	WithCheck  string
 }
 
 func GetPolicies(connectionPool *dbconn.DBConn) []RLSPolicy {

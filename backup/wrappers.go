@@ -47,7 +47,7 @@ func initializeConnectionPool(timestamp string) {
 	 * connection holding the locks won't be overburdened by processing an assigned
 	 * set of tables and any extra deferred tables, at the cost of making one
 	 * additional connection to the database.
-	*/
+	 */
 	switch true {
 	case FlagChanged(options.COPY_QUEUE_SIZE):
 		numConns = MustGetFlagInt(options.COPY_QUEUE_SIZE) + 1
@@ -103,6 +103,7 @@ func SetSessionGUCs(connNum int) {
 	}
 
 	if connectionPool.Version.AtLeast("7") {
+		// This is a GPDB7+ GUC that can terminate sessions with open transactions that have been idle for too long, so we disable it.
 		connectionPool.MustExec("SET idle_in_transaction_session_timeout = 0", connNum)
 	}
 }

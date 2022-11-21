@@ -120,7 +120,7 @@ func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 // Only print grant statements for any functions that belong to extensions
 func printExtensionFunctionACLs(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	metadataMap MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
-	type objectInfo struct{
+	type objectInfo struct {
 		FunctionInfo
 		ObjectMetadata
 	}

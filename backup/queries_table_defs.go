@@ -396,6 +396,11 @@ func GetTableReplicaIdentity(connectionPool *dbconn.DBConn) map[uint32]string {
 
 func GetPartitionDetails(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint32]string) {
 	if connectionPool.Version.AtLeast("7") {
+		// GPDB7 reworked partition tables significantly, to match
+		// how upstream handles them.  These separate details are no
+		// longer needed, and instead partition tables are handled as
+		// true tables and their information is retrieved during "normal"
+		// table queries.
 		return make(map[uint32]string), make(map[uint32]string)
 	}
 

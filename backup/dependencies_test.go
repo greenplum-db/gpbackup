@@ -104,15 +104,16 @@ var _ = Describe("backup/dependencies tests", func() {
 			funcInfoMap         map[uint32]backup.FunctionInfo
 			plannerSupportValue string
 			parallelValue       string
-			DEFAULT_PARALLEL    string
+			default_parallel    string
 		)
 		BeforeEach(func() {
 			plannerSupportValue = ""
 			parallelValue = ""
+			default_parallel = ""
 			if connectionPool.Version.AtLeast("7") {
 				plannerSupportValue = "-"
 				parallelValue = "u"
-				DEFAULT_PARALLEL = " PARALLEL UNSAFE"
+				default_parallel = " PARALLEL UNSAFE"
 			}
 			funcInfoMap = map[uint32]backup.FunctionInfo{
 				1: {QualifiedName: "public.write_to_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
@@ -191,7 +192,7 @@ CREATE TRUSTED PROTOCOL ext_protocol (readfunc = public.read_from_s3, writefunc 
 
 
 COMMENT ON PROTOCOL ext_protocol IS 'protocol';
-`, DEFAULT_PARALLEL))
+`, default_parallel))
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (no domain constraint)", func() {
 			constraints := make([]backup.Constraint, 0)
@@ -237,7 +238,7 @@ CREATE TRUSTED PROTOCOL ext_protocol (readfunc = public.read_from_s3, writefunc 
 
 
 COMMENT ON PROTOCOL ext_protocol IS 'protocol';
-`, DEFAULT_PARALLEL))
+`, default_parallel))
 		})
 	})
 })
