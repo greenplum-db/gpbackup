@@ -9,9 +9,9 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 )
 
 func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
@@ -199,10 +199,10 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 
 	if connectionPool.Version.AtLeast("7") {
 		var defaultFinalModify string
-		if aggDef.Kind == "n" {
-			defaultFinalModify = "r"
-		} else {
+		if aggDef.Kind == "o" {
 			defaultFinalModify = "w"
+		} else {
+			defaultFinalModify = "r"
 		}
 		if aggDef.Finalmodify == "" {
 			aggDef.Finalmodify = defaultFinalModify
@@ -214,7 +214,7 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 			if aggDef.Finalmodify == "r" {
 				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_ONLY")
 			} else if aggDef.Finalmodify == "s" {
-				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = SHARABLE")
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = SHAREABLE")
 			} else if aggDef.Finalmodify == "w" {
 				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_WRITE")
 			} else {
@@ -225,7 +225,7 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 			if aggDef.Mfinalmodify == "r" {
 				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_ONLY")
 			} else if aggDef.Mfinalmodify == "s" {
-				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = SHARABLE")
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = SHAREABLE")
 			} else if aggDef.Mfinalmodify == "w" {
 				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_WRITE")
 			} else {

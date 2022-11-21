@@ -1,8 +1,8 @@
 package backup_test
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -614,17 +614,17 @@ $_$`)
 				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 			},
 			Entry("kind: n, aggfinalmodify: r", "n", "r", "", ""), // default, don't print
-			Entry("kind: n, aggfinalmodify: s", "n", "s", "", ",\n\tFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: n, aggfinalmodify: s", "n", "s", "", ",\n\tFINALFUNC_MODIFY = SHAREABLE"),
 			Entry("kind: n, aggfinalmodify: w", "n", "w", "", ",\n\tFINALFUNC_MODIFY = READ_WRITE"),
 			Entry("kind: o or h, aggfinalmodify: r", "o", "r", "", ",\n\tFINALFUNC_MODIFY = READ_ONLY"),
-			Entry("kind: o or h, aggfinalmodify: s", "o", "s", "", ",\n\tFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: o or h, aggfinalmodify: s", "o", "s", "", ",\n\tFINALFUNC_MODIFY = SHAREABLE"),
 			Entry("kind: o or h, aggfinalmodify: w", "o", "w", "", ""), // default, don't print
 
 			Entry("kind: n, aggmfinalmodify: r", "n", "", "r", ""), // default, don't print
-			Entry("kind: n, aggmfinalmodify: s", "n", "", "s", ",\n\tMFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: n, aggmfinalmodify: s", "n", "", "s", ",\n\tMFINALFUNC_MODIFY = SHAREABLE"),
 			Entry("kind: n, aggmfinalmodify: w", "n", "", "w", ",\n\tMFINALFUNC_MODIFY = READ_WRITE"),
 			Entry("kind: o or h, aggmfinalmodify: r", "o", "", "r", ",\n\tMFINALFUNC_MODIFY = READ_ONLY"),
-			Entry("kind: o or h, aggmfinalmodify: s", "o", "", "s", ",\n\tMFINALFUNC_MODIFY = SHARABLE"),
+			Entry("kind: o or h, aggmfinalmodify: s", "o", "", "s", ",\n\tMFINALFUNC_MODIFY = SHAREABLE"),
 			Entry("kind: o or h, aggmfinalmodify: w", "o", "", "w", ""), // default, don't print
 		)
 	})
