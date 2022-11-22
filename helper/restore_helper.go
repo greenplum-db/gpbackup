@@ -104,10 +104,11 @@ func doRestoreAgent() error {
 
 	var bytesRead int64
 	var lastError error
+	var replicatedTables map[int]bool
 
 	readers := make(map[int]*RestoreReader)
 
-	oidList, err := getOidListFromFile()
+	oidList, err := getOidListFromFile(*oidFile)
 	if err != nil {
 		return err
 	}
@@ -156,6 +157,23 @@ func doRestoreAgent() error {
 		}
 	}
 
+	if isResizeRestore && batches > 1 && utils.FileExists(*replicationFile) {
+		// in the case of a larger to smaller restore, note all replicated tables
+		// so that they do not get restored to the same segment multiple times
+
+		// if no replicated tables were present in toc, the file is not written so
+		// this step is skipped
+		replicatedOidList, err := getOidListFromFile(*replicationFile)
+		if err != nil {
+			return err
+		}
+
+		replicatedTables = make(map[int]bool, len(replicatedOidList))
+		for _, oid := range replicatedOidList {
+			replicatedTables[oid] = true
+		}
+	}
+
 	preloadCreatedPipes(oidList, *copyQueue)
 
 	var currentPipe string
@@ -185,6 +203,17 @@ func doRestoreAgent() error {
 		contentToRestore := *content
 
 		for b := 0; b < batches; b++ {
+			if replicatedTables != nil {
+				tableIsNotYetRestored, tableIsPresent := replicatedTables[oid]
+				if tableIsPresent && tableIsNotYetRestored {
+					// this is the first batch encountering this replicated table.
+					// restore it and mark it for no further restoration
+					replicatedTables[oid] = false
+				} else if !tableIsNotYetRestored {
+					// table was already restored to this segment in a previous batch
+					continue
+				}
+			}
 			if *singleDataFile {
 				start[contentToRestore] = tocEntries[contentToRestore][uint(oid)].StartByte
 				end[contentToRestore] = tocEntries[contentToRestore][uint(oid)].EndByte

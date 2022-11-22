@@ -48,7 +48,7 @@ var _ = Describe("agent remote", func() {
 	//			this file is not used throughout the unit tests below, and it is cleaned up with the method: `operating.System.Remove`
 	Describe("WriteOidListToSegments()", func() {
 		It("generates the correct rsync commands to copy oid file to segments", func() {
-			utils.WriteOidListToSegments(oidList, testCluster, fpInfo)
+			utils.WriteOidListToSegments(oidList, testCluster, fpInfo, "oid")
 
 			Expect(testExecutor.NumExecutions).To(Equal(1))
 			cc := testExecutor.ClusterCommands[0]
@@ -71,7 +71,7 @@ var _ = Describe("agent remote", func() {
 				},
 			}
 
-			Expect(func() { utils.WriteOidListToSegments(oidList, testCluster, fpInfo) }).To(Panic())
+			Expect(func() { utils.WriteOidListToSegments(oidList, testCluster, fpInfo, "oid") }).To(Panic())
 
 			Expect(testExecutor.NumExecutions).To(Equal(1))
 			Expect(string(logfile.Contents())).To(ContainSubstring(`[CRITICAL]:-Failed to rsync oid file on 1 segment. See gbytes.Buffer for a complete list of errors.`))

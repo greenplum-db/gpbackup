@@ -25,7 +25,7 @@ var _ = Describe("agent remote", func() {
 	})
 	Describe("WriteOidListToSegments()", func() {
 		It("writes oids to a temp file and copies it to all segments", func() {
-			utils.WriteOidListToSegments(oidList, testCluster, filePath)
+			utils.WriteOidListToSegments(oidList, testCluster, filePath, "oid")
 
 			remoteOutput := testCluster.GenerateAndExecuteCommand("ensure oid file was written to segments", cluster.ON_SEGMENTS, func(contentID int) string {
 				remoteOidFile := filePath.GetSegmentHelperFilePath(contentID, "oid")

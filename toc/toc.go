@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"regexp"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -41,6 +42,7 @@ type MasterDataEntry struct {
 	AttributeString string
 	RowsCopied      int64
 	PartitionRoot   string
+	IsReplicated    bool
 }
 
 type SegmentDataEntry struct {
@@ -274,8 +276,9 @@ func (toc *TOC) AddMetadataEntry(section string, entry MetadataEntry, start, end
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
 }
 
-func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string) {
-	toc.DataEntries = append(toc.DataEntries, MasterDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot})
+func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string, distPolicy string) {
+	isReplicated := strings.Contains(distPolicy, "REPLICATED")
+	toc.DataEntries = append(toc.DataEntries, MasterDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot, isReplicated})
 }
 
 func (toc *SegmentTOC) AddSegmentDataEntry(oid uint, startByte uint64, endByte uint64) {

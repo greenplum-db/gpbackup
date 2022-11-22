@@ -80,7 +80,7 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	return numRows, err
 }
 
-func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.MasterDataEntry, tableName string, whichConn int) error {
+func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.MasterDataEntry, tableName string, whichConn int, origSize int, destSize int) error {
 	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
 	destinationToRead := ""
 	if backupConfig.SingleDataFile || resizeCluster {
@@ -94,15 +94,53 @@ func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.MasterDataE
 		return err
 	}
 	numRowsBackedUp := entry.RowsCopied
+
+	// For replicated tables, we don't restore second and subsequent batches of data in the larger-to-smaller case,
+	// as that would duplicate data, so we have to "scale down" the values to determine whether the correct number
+	// of rows was restored
+	if entry.IsReplicated && origSize > destSize {
+		numRowsBackedUp /= int64(origSize)
+		numRowsRestored /= int64(destSize)
+	}
+
 	err = CheckRowsRestored(numRowsRestored, numRowsBackedUp, tableName)
 	if err != nil {
 		return err
 	}
+
 	if resizeCluster {
-		gplog.Debug("Redistributing data for %s", tableName)
-		err = RedistributeTableData(tableName, whichConn)
+		// replicated tables cannot be redistributed, so instead expand them if needed
+		if entry.IsReplicated && (origSize < destSize) {
+			err = ExpandReplicatedTable(origSize, tableName, whichConn)
+		} else {
+			err = RedistributeTableData(tableName, whichConn)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	return err
+}
+
+func ExpandReplicatedTable(origSize int, tableName string, whichConn int) error {
+	// Replicated tables will only be initially restored to the segments backup was run from, and
+	// redistributing does not cause the data to be replicated to the new segments.
+	// To work around this, update the distribution policy entry for those tables to the original cluster size
+	// and then explicitly expand them to cause the data to be replicated to all new segments.
+	gplog.Debug("Distributing replicated data for %s", tableName)
+	alterDistPolQuery := fmt.Sprintf("UPDATE gp_distribution_policy SET numsegments=%d WHERE localoid = '%s'::regclass::oid", origSize, tableName)
+	_, err := connectionPool.Exec(alterDistPolQuery, whichConn)
+	if err != nil {
+		return err
+	}
+
+	expandTableQuery := fmt.Sprintf("ALTER TABLE %s EXPAND TABLE;", tableName)
+	_, err = connectionPool.Exec(expandTableQuery, whichConn)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string) error {
@@ -114,6 +152,7 @@ func CheckRowsRestored(rowsRestored int64, rowsBackedUp int64, tableName string)
 }
 
 func RedistributeTableData(tableName string, whichConn int) error {
+	gplog.Debug("Redistributing data for %s", tableName)
 	query := fmt.Sprintf("ALTER TABLE %s SET WITH (REORGANIZE=true)", tableName)
 	_, err := connectionPool.Exec(query, whichConn)
 	return err
@@ -127,14 +166,17 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		return 0
 	}
 
+	// populate these only in the case of resize-cluster.  needed to conditionally
+	// call expand in cases of smaller-to-larger restores
+	origSize := 0
+	destSize := 0
+
 	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
 	if backupConfig.SingleDataFile || resizeCluster {
 		msg := ""
 		if backupConfig.SingleDataFile {
 			msg += "single data file "
 		}
-		origSize := 0
-		destSize := 0
 		if resizeCluster {
 			msg += "resize "
 			origSize = backupConfig.SegmentCount
@@ -143,10 +185,18 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for %srestore", msg)
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
 		oidList := make([]string, totalTables)
+		replicatedOidList := make([]string, 0)
 		for i, entry := range dataEntries {
-			oidList[i] = fmt.Sprintf("%d", entry.Oid)
+			oidString := fmt.Sprintf("%d", entry.Oid)
+			oidList[i] = oidString
+			if entry.IsReplicated {
+				replicatedOidList = append(replicatedOidList, oidString)
+			}
 		}
-		utils.WriteOidListToSegments(oidList, globalCluster, fpInfo)
+		utils.WriteOidListToSegments(oidList, globalCluster, fpInfo, "oid")
+		if len(replicatedOidList) > 0 {
+			utils.WriteOidListToSegments(replicatedOidList, globalCluster, fpInfo, "replicated_oid")
+		}
 		initialPipes := CreateInitialSegmentPipes(oidList, globalCluster, connectionPool, fpInfo)
 		if wasTerminated {
 			return 0
@@ -193,7 +243,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 					err = TruncateTable(tableName, whichConn)
 				}
 				if err == nil {
-					err = restoreSingleTableData(&fpInfo, entry, tableName, whichConn)
+					err = restoreSingleTableData(&fpInfo, entry, tableName, whichConn, origSize, destSize)
 
 					if gplog.GetVerbosity() > gplog.LOGINFO {
 						// No progress bar at this log level, so we note table count here

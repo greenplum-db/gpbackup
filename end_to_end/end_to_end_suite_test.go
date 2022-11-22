@@ -1757,6 +1757,72 @@ LANGUAGE plpgsql NO SQL;`)
 			Entry("Can backup a 1-segment cluster and restore to current cluster with a filter", "20220908150804", "", "1-segment-db-filter", false, true, false),
 			Entry("Can backup a 3-segment cluster and restore to current cluster", "20220909094828", "", "3-segment-db", false, false, false),
 		)
+
+		Describe("Restore from various-sized clusters with a replicated table", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			// The backups for these tests were taken on GPDB version 6.20.3+dev.4.g9a08259bd1 build dev.
+			DescribeTable("",
+				func(fullTimestamp string, tarBaseName string) {
+
+					testutils.SkipIfBefore6(backupConn)
+					if useOldBackupVersion {
+						Skip("Resize-cluster was only added in version 1.25")
+					}
+					extractDirectory := path.Join(backupDir, tarBaseName)
+					os.Mkdir(extractDirectory, 0777)
+					command := exec.Command("tar", "-xzf", fmt.Sprintf("resources/%s.tar.gz", tarBaseName), "-C", extractDirectory)
+					mustRunCommand(command)
+					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
+
+					// Move extracted data files to the proper directory for a larger-to-smaller restore, if necessary
+					// Assumes all saved backups have a name in the format "N-segment-db-..." where N is the original cluster size
+					re := regexp.MustCompile("^([0-9]+)-.*")
+					origSize, _ := strconv.Atoi(re.FindStringSubmatch(tarBaseName)[1])
+					if origSize > segmentCount {
+						for i := segmentCount; i < origSize; i++ {
+							dataFilePath := fmt.Sprintf("%s/demoDataDir%s/backups/%s/%s/%s", extractDirectory, "%d", fullTimestamp[0:8], fullTimestamp, "%s")
+							files, _ := path.Glob(fmt.Sprintf(dataFilePath, i, "*"))
+							for _, dataFile := range files {
+								os.Rename(dataFile, fmt.Sprintf(dataFilePath, i%segmentCount, path.Base(dataFile)))
+							}
+						}
+					}
+
+					gprestoreArgs := []string{
+						"--timestamp", fullTimestamp,
+						"--redirect-db", "restoredb",
+						"--backup-dir", extractDirectory,
+						"--resize-cluster",
+						"--on-error-continue"}
+
+					gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+					output, err := gprestoreCmd.CombinedOutput()
+					fmt.Println(string(output))
+					Expect(err).ToNot(HaveOccurred())
+
+					// check row counts on each segment and on master, expecting 1 table with 100 rows, replicated across all
+					for _, seg := range backupCluster.Segments {
+						if seg.ContentID != -1 {
+							assertSegmentDataRestored(seg.ContentID, "schemaone.test_table", 100)
+						}
+					}
+					assertDataRestored(restoreConn, map[string]int{
+						"schemaone.test_table": 100,
+					})
+
+					// check check gp_distribution_policy at end of test to ensure it's set to destSize
+					numSegments := dbconn.MustSelectString(restoreConn, "SELECT numsegments FROM gp_distribution_policy where localoid = 'schemaone.test_table'::regclass::oid")
+					Expect(numSegments).To(Equal(strconv.Itoa(segmentCount)))
+
+				},
+				Entry("Can backup a 1-segment cluster and restore to current cluster with replicated tables", "20221104023842", "1-segment-db-replicated"),
+				Entry("Can backup a 3-segment cluster and restore to current cluster with replicated tables", "20221104023611", "3-segment-db-replicated"),
+				Entry("Can backup a 9-segment cluster and restore to current cluster with replicated tables", "20221104025347", "9-segment-db-replicated"),
+			)
+		})
+
 		It("Will not restore to a different-size cluster if the SegmentCount of the backup is unknown", func() {
 			if useOldBackupVersion {
 				Skip("This test is not needed for old backup versions")

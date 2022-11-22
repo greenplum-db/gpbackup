@@ -26,7 +26,7 @@ func doBackupAgent() error {
 	tocfile := &toc.SegmentTOC{}
 	tocfile.DataEntries = make(map[uint]toc.SegmentDataEntry)
 
-	oidList, err := getOidListFromFile()
+	oidList, err := getOidListFromFile(*oidFile)
 	if err != nil {
 		// error logging handled in getOidListFromFile
 		return err

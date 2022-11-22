@@ -55,6 +55,7 @@ var (
 	singleDataFile   *bool
 	origSize         *int
 	destSize         *int
+	replicationFile  *string
 )
 
 func DoHelper() {
@@ -105,6 +106,7 @@ func InitializeGlobals() {
 	singleDataFile = flag.Bool("single-data-file", false, "Used with single data file restore.")
 	origSize = flag.Int("orig-seg-count", 0, "Used with resize restore.  Gives the segment count of the backup.")
 	destSize = flag.Int("dest-seg-count", 0, "Used with resize restore.  Gives the segment count of the current cluster.")
+	replicationFile = flag.String("replication-file", "", "Used with resize restore.  Gives the list of replicated tables.")
 
 	if *onErrorContinue && !*restoreAgent {
 		fmt.Printf("--on-error-continue flag can only be used with --restore-agent flag")
@@ -194,8 +196,8 @@ func preloadCreatedPipes(oidList []int, queuedPipeCount int) {
 	}
 }
 
-func getOidListFromFile() ([]int, error) {
-	oidStr, err := operating.System.ReadFile(*oidFile)
+func getOidListFromFile(oidFileName string) ([]int, error) {
+	oidStr, err := operating.System.ReadFile(oidFileName)
 	if err != nil {
 		logError(fmt.Sprintf("Error encountered reading oid list from file: %v", err))
 		return nil, err
