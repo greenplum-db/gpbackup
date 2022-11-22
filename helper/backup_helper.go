@@ -28,6 +28,7 @@ func doBackupAgent() error {
 
 	oidList, err := getOidListFromFile()
 	if err != nil {
+		// error logging handled in getOidListFromFile
 		return err
 	}
 
@@ -41,41 +42,47 @@ func doBackupAgent() error {
 	for i, oid := range oidList {
 		currentPipe = fmt.Sprintf("%s_%d", *pipeFile, oidList[i])
 		if wasTerminated {
+			logError("Terminated due to user request")
 			return errors.New("Terminated due to user request")
 		}
 		if i < len(oidList)-*copyQueue {
-			log(fmt.Sprintf("Creating pipe for oid %d\n", oidList[i+*copyQueue]))
 			nextPipeToCreate := fmt.Sprintf("%s_%d", *pipeFile, oidList[i+*copyQueue])
+			log(fmt.Sprintf("Oid %d: Creating pipe %s\n", oidList[i+*copyQueue], nextPipeToCreate))
 			err := createPipe(nextPipeToCreate)
 			if err != nil {
+				logError(fmt.Sprintf("Oid %d: Failed to create pipe %s\n", oidList[i+*copyQueue], nextPipeToCreate))
 				return err
 			}
 		}
 
-		log(fmt.Sprintf("Opening pipe for oid %d\n", oid))
+		log(fmt.Sprintf("Oid %d: Opening pipe %s", oid, currentPipe))
 		reader, readHandle, err := getBackupPipeReader(currentPipe)
 		if err != nil {
+			logError(fmt.Sprintf("Oid %d: Error encountered getting backup pipe reader: %v", oid, err))
 			return err
 		}
 		if i == 0 {
 			pipeWriter, writeCmd, err = getBackupPipeWriter()
 			if err != nil {
+				logError(fmt.Sprintf("Oid %d: Error encountered getting backup pipe writer: %v", oid, err))
 				return err
 			}
 		}
 
-		log(fmt.Sprintf("Backing up table with oid %d\n", oid))
+		log(fmt.Sprintf("Oid %d: Backing up table with pipe %s", oid, currentPipe))
 		numBytes, err := io.Copy(pipeWriter, reader)
 		if err != nil {
+			logError(fmt.Sprintf("Oid %d: Error encountered copying bytes from pipeWriter to reader: %v", oid, err))
 			return errors.Wrap(err, strings.Trim(errBuf.String(), "\x00"))
 		}
-		log(fmt.Sprintf("Read %d bytes\n", numBytes))
+		log(fmt.Sprintf("Oid %d: Read %d bytes\n", oid, numBytes))
 
 		lastProcessed := lastRead + uint64(numBytes)
 		tocfile.AddSegmentDataEntry(uint(oid), lastRead, lastProcessed)
 		lastRead = lastProcessed
 
 		_ = readHandle.Close()
+		log(fmt.Sprintf("Oid %d: Deleting pipe: %s\n", oid, currentPipe))
 		deletePipe(currentPipe)
 	}
 
@@ -91,11 +98,13 @@ func doBackupAgent() error {
 		log("Uploading remaining data to plugin destination")
 		err := writeCmd.Wait()
 		if err != nil {
+			logError(fmt.Sprintf("Error encountered writing either TOC file or error file: %v", err))
 			return errors.Wrap(err, strings.Trim(errBuf.String(), "\x00"))
 		}
 	}
 	err = tocfile.WriteToFileAndMakeReadOnly(*tocFile)
 	if err != nil {
+		// error logging handled in util.go
 		return err
 	}
 	log("Finished writing segment TOC")
@@ -105,6 +114,7 @@ func doBackupAgent() error {
 func getBackupPipeReader(currentPipe string) (io.Reader, io.ReadCloser, error) {
 	readHandle, err := os.OpenFile(currentPipe, os.O_RDONLY, os.ModeNamedPipe)
 	if err != nil {
+		// error logging handled by calling functions
 		return nil, nil, err
 	}
 	// This is a workaround for https://github.com/golang/go/issues/24164.
@@ -122,6 +132,7 @@ func getBackupPipeWriter() (pipe BackupPipeWriterCloser, writeCmd *exec.Cmd, err
 		writeHandle, err = os.Create(*dataFile)
 	}
 	if err != nil {
+		// error logging handled by calling functions
 		return nil, nil, err
 	}
 
@@ -140,12 +151,14 @@ func getBackupPipeWriter() (pipe BackupPipeWriterCloser, writeCmd *exec.Cmd, err
 	}
 
 	writeHandle.Close()
+	// error logging handled by calling functions
 	return nil, nil, fmt.Errorf("unknown compression type '%s' (compression level %d)", *compressionType, *compressionLevel)
 }
 
 func startBackupPluginCommand() (*exec.Cmd, io.WriteCloser, error) {
 	pluginConfig, err := utils.ReadPluginConfig(*pluginConfigFile)
 	if err != nil {
+		// error logging handled by calling functions
 		return nil, nil, err
 	}
 	cmdStr := fmt.Sprintf("%s backup_data %s %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath, *dataFile)
@@ -153,11 +166,13 @@ func startBackupPluginCommand() (*exec.Cmd, io.WriteCloser, error) {
 
 	writeHandle, err := writeCmd.StdinPipe()
 	if err != nil {
+		// error logging handled by calling functions
 		return nil, nil, err
 	}
 	writeCmd.Stderr = &errBuf
 	err = writeCmd.Start()
 	if err != nil {
+		// error logging handled by calling functions
 		return nil, nil, err
 	}
 	return writeCmd, writeHandle, nil

@@ -83,6 +83,8 @@ func DoSetup() {
 		InitializeBackupConfig()
 	}
 
+	ValidateSafeToResizeCluster()
+
 	gplog.Info("gpbackup version = %s", backupConfig.BackupVersion)
 	gplog.Info("gprestore version = %s", GetVersion())
 	gplog.Info("Greenplum Database Version = %s", connectionPool.Version.VersionString)
@@ -138,6 +140,7 @@ func DoRestore() {
 	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY)
 	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(options.METADATA_ONLY)
 	isIncremental := MustGetFlagBool(options.INCREMENTAL)
+	isClusterResize := MustGetFlagBool(options.RESIZE_CLUSTER)
 
 	if isIncremental {
 		verifyIncrementalState()
@@ -159,7 +162,9 @@ func DoRestore() {
 			if !backupConfig.SingleDataFile {
 				backupFileCount = len(globalTOC.DataEntries)
 			}
-			VerifyBackupFileCountOnSegments(backupFileCount)
+			if !isClusterResize {
+				VerifyBackupFileCountOnSegments(backupFileCount)
+			}
 		}
 		totalTablesRestored, filteredDataEntries = restoreData()
 	}
@@ -552,7 +557,7 @@ func DoTeardown() {
 			gplog.Error(fmt.Sprintf("%v: %s", err, debug.Stack()))
 			gplog.SetErrorCode(2)
 		} else {
-			errStr = fmt.Sprintf("%v", err)
+			errStr = fmt.Sprintf("%+v", err)
 		}
 		restoreFailed = true
 	}
@@ -578,7 +583,9 @@ func DoTeardown() {
 			return
 		}
 		reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
-		report.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, errMsg)
+		origSize := backupConfig.SegmentCount
+		destSize := len(globalCluster.Segments) - 1
+		report.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, origSize, destSize, errMsg)
 		report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore", !restoreFailed)
 		if pluginConfig != nil {
 			pluginConfig.CleanupPluginForRestore(globalCluster, globalFPInfo)
@@ -631,7 +638,7 @@ func writeErrorTables(isMetadata bool) {
 func DoCleanup(restoreFailed bool) {
 	defer func() {
 		if err := recover(); err != nil {
-			gplog.Warn("Encountered error during cleanup: %v", err)
+			gplog.Warn("Encountered error during cleanup: %+v", err)
 		}
 		gplog.Verbose("Cleanup complete")
 		CleanupGroup.Done()

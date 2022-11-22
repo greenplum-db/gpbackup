@@ -59,6 +59,8 @@ cat <<SCRIPT > /tmp/run_tests.bash
   # NOTE: This is a temporary hotfix intended to skip these tests when running on CCP cluster
   #       because the backup artifact that these tests are using only works on local clusters.
   sed -i 's|\tIt\(.*\)\(--on-error-continue\)|\tPIt\1\2|' end_to_end/end_to_end_suite_test.go
+  sed -i 's|\tEntry\(.*\)\(-segment cluster\)|\tPEntry\1\2|' end_to_end/end_to_end_suite_test.go
+  sed -i 's|\tIt\(.*\)\(different-size cluster\)|\tPIt\1\2|' end_to_end/end_to_end_suite_test.go
   make end_to_end
 SCRIPT
 

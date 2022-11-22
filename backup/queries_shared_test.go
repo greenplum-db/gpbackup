@@ -16,7 +16,7 @@ var _ = Describe("backup/queries_shared tests", func() {
 	Describe("GetConstraints", func() {
 		It("GetConstraints properly handles NULL constraint definitions", func() {
 			if connectionPool.Version.AtLeast("6") {
-				Skip("Test does not apply for GPDB versions after 6")
+				Skip("Test does not apply for GPDB versions after 5")
 			}
 
 			header := []string{"oid", "schema", "name", "contype", "condef", "conislocal", "owningobject", "isdomainconstraint", "ispartitionparent"}

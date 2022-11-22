@@ -1,0 +1,26 @@
+VERSION: 1.0.0.1
+DATABASE: scaletestdb
+USER: gpadmin
+HOST: mdw
+GPLOAD:
+   INPUT:
+    - SOURCE:
+         FILE: 
+           - /home/gpadmin/bucket/tpcdata/part.*
+    - COLUMNS:
+           - P_PARTKEY: INT
+           - P_NAME: VARCHAR(55)
+           - P_MFGR: CHAR(25)
+           - P_BRAND: CHAR(10)
+           - P_TYPE: VARCHAR(25)
+           - P_SIZE: INTEGER
+           - P_CONTAINER: CHAR(10)
+           - P_RETAILPRICE: DECIMAL(15,2)
+           - P_COMMENT: VARCHAR(23)
+    - FORMAT: text
+    - DELIMITER: '|'
+    - ERROR_LIMIT: 25
+    - LOG_ERRORS: True
+   OUTPUT:
+    - TABLE: big.part
+    - MODE: INSERT

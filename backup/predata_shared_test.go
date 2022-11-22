@@ -22,6 +22,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 			primaryComposite backup.Constraint
 			foreignOne       backup.Constraint
 			foreignTwo       backup.Constraint
+			trigger          backup.Constraint
 			emptyMetadataMap backup.MetadataMap
 		)
 		BeforeEach(func() {
@@ -31,6 +32,7 @@ var _ = Describe("backup/predata_shared tests", func() {
 			primaryComposite = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (i, j)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
 			foreignOne = backup.Constraint{Oid: 0, Name: "tablename_i_fkey", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (i) REFERENCES other_tablename(a)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
 			foreignTwo = backup.Constraint{Oid: 0, Name: "tablename_j_fkey", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (j) REFERENCES other_tablename(b)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			trigger = backup.Constraint{Oid: 1, Name: "tablename_t_key", ConType: "t", ConDef: sql.NullString{String: "TRIGGER", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
 			emptyMetadataMap = backup.MetadataMap{}
 		})
 
@@ -38,6 +40,14 @@ var _ = Describe("backup/predata_shared tests", func() {
 			It("doesn't print anything", func() {
 				constraints := make([]backup.Constraint, 0)
 				backup.PrintConstraintStatements(backupfile, tocfile, constraints, emptyMetadataMap)
+				testhelper.NotExpectRegexp(buffer, `CONSTRAINT`)
+			})
+		})
+		Context("Trigger constraints", func() {
+			It("doesn't print the trigger constraint", func() {
+				constraints := []backup.Constraint{trigger}
+				constraintMetadataMap := testutils.DefaultMetadataMap("CONSTRAINT", false, false, true, false)
+				backup.PrintConstraintStatements(backupfile, tocfile, constraints, constraintMetadataMap)
 				testhelper.NotExpectRegexp(buffer, `CONSTRAINT`)
 			})
 		})

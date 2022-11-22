@@ -92,10 +92,11 @@ func CopyFile(src, dest string) error {
 		var content []byte
 		content, err = ioutil.ReadFile(src)
 		if err != nil {
+			gplog.Error(fmt.Sprintf("Error: %v, encountered when reading file: %s", err, src))
 			return err
 		}
 		return ioutil.WriteFile(dest, content, info.Mode())
 	}
-
+	gplog.Error(fmt.Sprintf("Error: %v, encountered when trying to stat file: %s", err, src))
 	return err
 }

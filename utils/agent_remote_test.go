@@ -47,16 +47,16 @@ var _ = Describe("agent remote", func() {
 	// note: technically the file system is written to during the call `operating.System.TempFile`
 	//			this file is not used throughout the unit tests below, and it is cleaned up with the method: `operating.System.Remove`
 	Describe("WriteOidListToSegments()", func() {
-		It("generates the correct scp commands to copy oid file to segments", func() {
+		It("generates the correct rsync commands to copy oid file to segments", func() {
 			utils.WriteOidListToSegments(oidList, testCluster, fpInfo)
 
 			Expect(testExecutor.NumExecutions).To(Equal(1))
 			cc := testExecutor.ClusterCommands[0]
 			Expect(len(cc)).To(Equal(2))
-			Expect(cc[0].CommandString).To(MatchRegexp("scp .*/gpbackup-oids.* localhost:/data/gpseg0/gpbackup_0_11112233445566_oid_.*"))
-			Expect(cc[1].CommandString).To(MatchRegexp("scp .*/gpbackup-oids.* remotehost1:/data/gpseg1/gpbackup_1_11112233445566_oid_.*"))
+			Expect(cc[0].CommandString).To(MatchRegexp("rsync -e ssh .*/gpbackup-oids.* localhost:/data/gpseg0/gpbackup_0_11112233445566_oid_.*"))
+			Expect(cc[1].CommandString).To(MatchRegexp("rsync -e ssh .*/gpbackup-oids.* remotehost1:/data/gpseg1/gpbackup_1_11112233445566_oid_.*"))
 		})
-		It("panics if any scp commands fail and outputs correct err messages", func() {
+		It("panics if any rsync commands fail and outputs correct err messages", func() {
 			testExecutor.ErrorOnExecNum = 1
 			remoteOutput.NumErrors = 1
 			remoteOutput.Scope = cluster.ON_LOCAL & cluster.ON_SEGMENTS
@@ -65,7 +65,7 @@ var _ = Describe("agent remote", func() {
 				cluster.ShellCommand{Content: 0},
 				cluster.ShellCommand{
 					Content:       1,
-					CommandString: "scp fake_master fake_host",
+					CommandString: "rsync -e ssh fake_master fake_host",
 					Stderr:        "stderr content 1",
 					Error:         errors.New("test error 1"),
 				},
@@ -74,7 +74,7 @@ var _ = Describe("agent remote", func() {
 			Expect(func() { utils.WriteOidListToSegments(oidList, testCluster, fpInfo) }).To(Panic())
 
 			Expect(testExecutor.NumExecutions).To(Equal(1))
-			Expect(string(logfile.Contents())).To(ContainSubstring(`[CRITICAL]:-Failed to scp oid file on 1 segment. See gbytes.Buffer for a complete list of errors.`))
+			Expect(string(logfile.Contents())).To(ContainSubstring(`[CRITICAL]:-Failed to rsync oid file on 1 segment. See gbytes.Buffer for a complete list of errors.`))
 		})
 	})
 	Describe("WriteOidsToFile()", func() {
@@ -126,14 +126,14 @@ var _ = Describe("agent remote", func() {
 	Describe("StartGpbackupHelpers()", func() {
 		It("Correctly propagates --on-error-continue flag to gpbackup_helper", func() {
 			wasTerminated := false
-			utils.StartGpbackupHelpers(testCluster, fpInfo, "operation", "/tmp/pluginConfigFile.yml", " compressStr", true, false, &wasTerminated, 1)
+			utils.StartGpbackupHelpers(testCluster, fpInfo, "operation", "/tmp/pluginConfigFile.yml", " compressStr", true, false, &wasTerminated, 1, true, 0, 0)
 
 			cc := testExecutor.ClusterCommands[0]
 			Expect(cc[1].CommandString).To(ContainSubstring(" --on-error-continue"))
 		})
 		It("Correctly propagates --copy-queue-size value to gpbackup_helper", func() {
 			wasTerminated := false
-			utils.StartGpbackupHelpers(testCluster, fpInfo, "operation", "/tmp/pluginConfigFile.yml", " compressStr", false, false, &wasTerminated, 4)
+			utils.StartGpbackupHelpers(testCluster, fpInfo, "operation", "/tmp/pluginConfigFile.yml", " compressStr", false, false, &wasTerminated, 4, true, 0, 0)
 
 			cc := testExecutor.ClusterCommands[0]
 			Expect(cc[1].CommandString).To(ContainSubstring(" --copy-queue-size 4"))

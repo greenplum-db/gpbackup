@@ -1,0 +1,26 @@
+VERSION: 1.0.0.1
+DATABASE: scaletestdb
+USER: gpadmin
+HOST: mdw
+GPLOAD:
+   INPUT:
+    - SOURCE:
+         FILE: 
+           - /home/gpadmin/bucket/tpcdata/orders*
+    - COLUMNS:
+           - O_ORDERKEY: BIGINT
+           - O_CUSTKEY: INT
+           - O_ORDERSTATUS: CHAR(1)
+           - O_TOTALPRICE: DECIMAL(15,2)
+           - O_ORDERDATE: DATE
+           - O_ORDERPRIORITY: CHAR(15)
+           - O_CLERK:  CHAR(15)
+           - O_SHIPPRIORITY: INTEGER
+           - O_COMMENT: VARCHAR(79)
+    - FORMAT: text
+    - DELIMITER: '|'
+    - ERROR_LIMIT: 25
+    - LOG_ERRORS: True
+   OUTPUT:
+    - TABLE: big.orders_3
+    - MODE: INSERT

@@ -1,0 +1,21 @@
+VERSION: 1.0.0.1
+DATABASE: scaletestdb
+USER: gpadmin
+HOST: mdw
+GPLOAD:
+   INPUT:
+    - SOURCE:
+         FILE: 
+           - /home/gpadmin/bucket/tpcdata/nation*
+    - COLUMNS:
+           - N_NATIONKEY: INTEGER
+           - N_NAME: CHAR(25)
+           - N_REGIONKEY: INTEGER
+           - N_COMMENT: VARCHAR(152)
+    - FORMAT: text
+    - DELIMITER: '|'
+    - ERROR_LIMIT: 25
+    - LOG_ERRORS: True
+   OUTPUT:
+    - TABLE: big.nation
+    - MODE: INSERT

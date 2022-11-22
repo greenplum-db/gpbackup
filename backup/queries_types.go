@@ -285,12 +285,12 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 			LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
 		WHERE t.typtype = 'c'
 			AND c.relkind = 'c'
+			AND a.attisdropped = false
 		ORDER BY t.oid, a.attnum`
 	}
 
 	results := make([]Attribute, 0)
-	var err error
-	err = connectionPool.Select(&results, compositeAttributeQuery)
+	err := connectionPool.Select(&results, compositeAttributeQuery)
 	gplog.FatalOnError(err)
 
 	attributeMap := make(map[uint32][]Attribute)

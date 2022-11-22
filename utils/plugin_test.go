@@ -119,19 +119,19 @@ options:
 			cc := executor.ClusterCommands[0]
 			Expect(len(cc)).To(Equal(3))
 			Expect(cc[0].Content).To(Equal(-1))
-			Expect(cc[0].CommandString).To(MatchRegexp(`scp .*-1 master:\/tmp\/my_plugin_config\.yaml; rm .*-1`))
+			Expect(cc[0].CommandString).To(MatchRegexp(`rsync -e ssh .*-1 master:\/tmp\/my_plugin_config\.yaml; rm .*-1`))
 			Expect(cc[1].Content).To(Equal(0))
-			Expect(cc[1].CommandString).To(MatchRegexp(`scp .*0 segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`))
+			Expect(cc[1].CommandString).To(MatchRegexp(`rsync -e ssh .*0 segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`))
 			Expect(cc[2].Content).To(Equal(1))
-			Expect(cc[2].CommandString).To(MatchRegexp(`scp .*1 segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`))
+			Expect(cc[2].CommandString).To(MatchRegexp(`rsync -e ssh .*1 segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`))
 
-			rgx := regexp.MustCompile(`scp (.*-1) master:\/tmp\/my_plugin_config\.yaml; rm .*-1`)
+			rgx := regexp.MustCompile(`rsync -e ssh (.*-1) master:\/tmp\/my_plugin_config\.yaml; rm .*-1`)
 			rs := rgx.FindStringSubmatch(cc[0].CommandString)
 			masterConfigPath := rs[1]
-			rgx = regexp.MustCompile(`scp (.*0) segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`)
+			rgx = regexp.MustCompile(`rsync -e ssh (.*0) segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`)
 			rs = rgx.FindStringSubmatch(cc[1].CommandString)
 			segmentOneConfigPath := rs[1]
-			rgx = regexp.MustCompile(`scp (.*1) segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`)
+			rgx = regexp.MustCompile(`rsync -e ssh (.*1) segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`)
 			rs = rgx.FindStringSubmatch(cc[2].CommandString)
 			segmentTwoConfigPath := rs[1]
 
@@ -170,13 +170,13 @@ options:
 
 				// check contents
 				cc := executor.ClusterCommands[0]
-				rgx := regexp.MustCompile(`scp (.*-1) master:\/tmp\/my_plugin_config\.yaml; rm .*-1`)
+				rgx := regexp.MustCompile(`rsync -e ssh (.*-1) master:\/tmp\/my_plugin_config\.yaml; rm .*-1`)
 				rs := rgx.FindStringSubmatch(cc[0].CommandString)
 				masterConfigPath := rs[1]
-				rgx = regexp.MustCompile(`scp (.*0) segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`)
+				rgx = regexp.MustCompile(`rsync -e ssh (.*0) segment1:\/tmp\/my_plugin_config\.yaml; rm .*0`)
 				rs = rgx.FindStringSubmatch(cc[1].CommandString)
 				segmentOneConfigPath := rs[1]
-				rgx = regexp.MustCompile(`scp (.*1) segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`)
+				rgx = regexp.MustCompile(`rsync -e ssh (.*1) segment2:\/tmp\/my_plugin_config\.yaml; rm .*1`)
 				rs = rgx.FindStringSubmatch(cc[2].CommandString)
 				segmentTwoConfigPath := rs[1]
 

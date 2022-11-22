@@ -14,6 +14,7 @@ inputs:
 params:
   REQUIRES_DUMMY_SEC:
   OS: RHEL
+  LOCAL_CLUSTER_SIZE: 3
 
 run:
   path: gpbackup/ci/scripts/test-on-local-cluster.bash

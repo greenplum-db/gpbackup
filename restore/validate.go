@@ -287,3 +287,29 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	}
 	options.CheckExclusiveFlags(flags, options.RUN_ANALYZE, options.WITH_STATS)
 }
+
+func ValidateSafeToResizeCluster() {
+	// If SegmentCount is 0, the backup was taken before the SegmentCount parameter was added, in which case we won't
+	// allow a restore to a different-size cluster.  Any backups that do have a SegmentCount will have that checked
+	// when attempting a normal restore, so that the user doesn't accidentally restore a different-size backup without
+	// using the --resize-cluster flag.
+	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
+	origSize := backupConfig.SegmentCount
+	destSize := len(globalCluster.ContentIDs) - 1
+
+	if resizeCluster {
+		if origSize == 0 {
+			timestamp := MustGetFlagString(options.TIMESTAMP)
+			gplog.Fatal(errors.Errorf("Segment count for backup with timestamp %s is unknown, cannot restore using --resize-cluster flag.", timestamp), "")
+		} else if origSize == destSize {
+			cmdFlags.Set(options.RESIZE_CLUSTER, "false")
+			gplog.Warn("Backup segment count matches restore segment count; the --resize-cluster flag is not needed.  Proceeding with a normal restore.")
+		} else {
+			gplog.Info("Resize restore specified, will restore a backup set from a %d-segment cluster to a %d-segment cluster", origSize, destSize)
+		}
+	} else {
+		if origSize != 0 && origSize != destSize {
+			gplog.Fatal(errors.New(fmt.Sprintf("Cannot restore a backup taken on a cluster with %d segments to a cluster with %d segments unless the --resize-cluster flag is used.", origSize, destSize)), "")
+		}
+	}
+}

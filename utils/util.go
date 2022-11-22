@@ -6,15 +6,19 @@ package utils
  */
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	path "path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
@@ -27,43 +31,64 @@ const MINIMUM_GPDB5_VERSION = "5.1.0"
  * General helper functions
  */
 
+func CommandExists(cmd string) bool {
+	_, err := exec.LookPath(cmd)
+	return err == nil
+}
+
 func FileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
 }
 
 func RemoveFileIfExists(filename string) error {
+	baseFilename := path.Base(filename)
 	if FileExists(filename) {
+		gplog.Debug("File %s: Exists, Attempting Removal", baseFilename)
 		err := os.Remove(filename)
 		if err != nil {
+			gplog.Error("File %s: Failed to remove. Error %s", baseFilename, err.Error())
 			return err
 		}
+		gplog.Debug("File %s: Successfully removed", baseFilename)
+	} else {
+		gplog.Debug("File %s: Does not exist. No removal needed", baseFilename)
 	}
 	return nil
 }
 
 func OpenFileForWrite(filename string) (*os.File, error) {
-	return os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	baseFilename := path.Base(filename)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		gplog.Error("File %s: Failed to open. Error %s", baseFilename, err.Error())
+	}
+	return file, err
 }
 
 func WriteToFileAndMakeReadOnly(filename string, contents []byte) error {
+	baseFilename := path.Base(filename)
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
+		gplog.Error("File %s: Failed to open. Error %s", baseFilename, err.Error())
 		return err
 	}
 
 	_, err = file.Write(contents)
 	if err != nil {
+		gplog.Error("File %s: Could not write to file. Error %s", baseFilename, err.Error())
 		return err
 	}
 
 	err = file.Chmod(0444)
 	if err != nil {
+		gplog.Error("File %s: Could not chmod. Error %s", baseFilename, err.Error())
 		return err
 	}
 
 	err = file.Sync()
 	if err != nil {
+		gplog.Error("File %s: Could not sync. Error %s", baseFilename, err.Error())
 		return err
 	}
 
@@ -236,3 +261,18 @@ func SliceToQuotedString(slice []string) string {
 func EscapeSingleQuotes(str string) string {
 	return strings.Replace(str, "'", "''", -1)
 }
+
+func GetFileHash(filename string) ([32]byte, error) {
+	contents, err := operating.System.ReadFile(filename)
+	if err != nil {
+		gplog.Error("Failed to read contents of file %s: %v", filename, err)
+		return [32]byte{}, err
+	}
+	filehash := sha256.Sum256(contents)
+	if err != nil {
+		gplog.Error("Failed to hash contents of file %s: %v", filename, err)
+		return [32]byte{}, err
+	}
+	return filehash, nil
+}
+

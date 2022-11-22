@@ -1,0 +1,36 @@
+ table_schema | table_name | seg_id | row_count 
+--------------+------------+--------+-----------
+ schemaone    | tablefour  |      0 |      2047
+ schemaone    | tablefour  |      1 |      2032
+ schemaone    | tablefour  |      2 |      2028
+ schemaone    | tablefour  |      3 |      1943
+ schemaone    | tablefour  |      4 |      1950
+ schemaone    | tableone   |      4 |         1
+ schemaone    | tablethree |      0 |       211
+ schemaone    | tablethree |      1 |       195
+ schemaone    | tablethree |      2 |       204
+ schemaone    | tablethree |      3 |       195
+ schemaone    | tablethree |      4 |       195
+ schemaone    | tabletwo   |      0 |        24
+ schemaone    | tabletwo   |      1 |        20
+ schemaone    | tabletwo   |      2 |        13
+ schemaone    | tabletwo   |      3 |        22
+ schemaone    | tabletwo   |      4 |        21
+ schematwo    | tablefour  |      0 |      2047
+ schematwo    | tablefour  |      1 |      2032
+ schematwo    | tablefour  |      2 |      2028
+ schematwo    | tablefour  |      3 |      1943
+ schematwo    | tablefour  |      4 |      1950
+ schematwo    | tableone   |      4 |         1
+ schematwo    | tablethree |      0 |       211
+ schematwo    | tablethree |      1 |       195
+ schematwo    | tablethree |      2 |       204
+ schematwo    | tablethree |      3 |       195
+ schematwo    | tablethree |      4 |       195
+ schematwo    | tabletwo   |      0 |        24
+ schematwo    | tabletwo   |      1 |        20
+ schematwo    | tabletwo   |      2 |        13
+ schematwo    | tabletwo   |      3 |        22
+ schematwo    | tabletwo   |      4 |        21
+(32 rows)
+

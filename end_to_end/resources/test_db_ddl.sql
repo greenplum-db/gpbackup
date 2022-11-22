@@ -1,0 +1,21 @@
+DROP SCHEMA IF EXISTS schemaone CASCADE;
+DROP SCHEMA IF EXISTS schematwo CASCADE;
+
+CREATE SCHEMA schemaone;
+CREATE SCHEMA schematwo;
+CREATE TABLE schemaone.tableone (i int) DISTRIBUTED BY (i);
+CREATE TABLE schemaone.tabletwo (i int) DISTRIBUTED BY (i);
+CREATE TABLE schemaone.tablethree (i int) DISTRIBUTED BY (i);
+CREATE TABLE schemaone.tablefour (i int) DISTRIBUTED BY (i);
+CREATE TABLE schematwo.tableone (i int) DISTRIBUTED BY (i);
+CREATE TABLE schematwo.tabletwo (i int) DISTRIBUTED BY (i);
+CREATE TABLE schematwo.tablethree (i int) DISTRIBUTED BY (i);
+CREATE TABLE schematwo.tablefour (i int) DISTRIBUTED BY (i);
+INSERT INTO schemaone.tableone SELECT generate_series(1,1);
+INSERT INTO schemaone.tabletwo SELECT generate_series(1,100);
+INSERT INTO schemaone.tablethree SELECT generate_series(1,1000);
+INSERT INTO schemaone.tablefour SELECT generate_series(1,10000);
+INSERT INTO schematwo.tableone SELECT generate_series(1,1);
+INSERT INTO schematwo.tabletwo SELECT generate_series(1,100);
+INSERT INTO schematwo.tablethree SELECT generate_series(1,1000);
+INSERT INTO schematwo.tablefour SELECT generate_series(1,10000);

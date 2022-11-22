@@ -1,0 +1,22 @@
+VERSION: 1.0.0.1
+DATABASE: scaletestdb
+USER: gpadmin
+HOST: mdw
+GPLOAD:
+   INPUT:
+    - SOURCE:
+         FILE: 
+           - /home/gpadmin/bucket/tpcdata/partsupp*
+    - COLUMNS:
+           - PS_PARTKEY: INT
+           - PS_SUPPKEY: INT
+           - PS_AVAILQTY: INTEGER
+           - PS_SUPPLYCOST: DECIMAL(15,2)
+           - PS_COMMENT: VARCHAR(199)
+    - FORMAT: text
+    - DELIMITER: '|'
+    - ERROR_LIMIT: 25
+    - LOG_ERRORS: True
+   OUTPUT:
+    - TABLE: big.partsupp
+    - MODE: INSERT

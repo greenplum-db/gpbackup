@@ -20,7 +20,17 @@ func VerifyBackupDirectoriesExistOnAllHosts() {
 	_, err := globalCluster.ExecuteLocalCommand(fmt.Sprintf("test -d %s", globalFPInfo.GetDirForContent(-1)))
 	gplog.FatalOnError(err, "Backup directory %s missing or inaccessible", globalFPInfo.GetDirForContent(-1))
 	if MustGetFlagString(options.PLUGIN_CONFIG) == "" || backupConfig.SingleDataFile {
+		isResizeRestore := MustGetFlagBool(options.RESIZE_CLUSTER)
+		origSize := len(globalCluster.ContentIDs) - 1
+		destSize := backupConfig.SegmentCount
+
 		remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup directories exist", cluster.ON_SEGMENTS, func(contentID int) string {
+			if isResizeRestore { // Map origin content to destination content to find where the original files have been placed
+				if contentID >= origSize { // Don't check for directories for contents that aren't part of the backup set
+					return ""
+				}
+				contentID = contentID % destSize
+			}
 			return fmt.Sprintf("test -d %s", globalFPInfo.GetDirForContent(contentID))
 		})
 		globalCluster.CheckClusterError(remoteOutput, "Backup directories missing or inaccessible", func(contentID int) string {
