@@ -578,7 +578,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		query = version4query
 	} else if connectionPool.Version.Is("5") {
 		query = version5query
-	} else if connectionPool.Version.Is("7") {
+	} else if connectionPool.Version.Is("6") {
 		query = version6query
 	} else {
 		query = version7Query
