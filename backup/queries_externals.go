@@ -14,14 +14,14 @@ import (
 func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]ExternalTableDefinition {
 	gplog.Verbose("Retrieving external table information")
 
-		// In GPDB 4.3, we need to get the error table's fully-qualified name
-		// if `LOG ERRORS INTO <err_table_name>` was used. If `LOG ERRORS` was
-		// used, we can just simply check if reloid = fmterrtbl and avoid trying
-		// to get the FQN of a nonexistant error table.
+	// In GPDB 4.3, we need to get the error table's fully-qualified name
+	// if `LOG ERRORS INTO <err_table_name>` was used. If `LOG ERRORS` was
+	// used, we can just check if reloid = fmterrtbl and avoid trying
+	// to get the FQN of a nonexistant error table.
 	version4Query := `
 	SELECT reloid AS oid,
-		CASE WHEN split_part(e.location[1], ':', 1) NOT IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'") THEN unnest(e.location) ELSE '' END AS location,
-		CASE WHEN split_part(e.location[1], ':', 1) IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'") THEN unnest(e.location) ELSE 'ALL_SEGMENTS' END AS execlocation,
+		CASE WHEN split_part(e.location[1], ':', 1) NOT IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS') THEN unnest(e.location) ELSE '' END AS location,
+		CASE WHEN split_part(e.location[1], ':', 1) IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS') THEN unnest(e.location) ELSE 'ALL_SEGMENTS' END AS execlocation,
 		e.fmttype AS formattype,
 		e.fmtopts AS formatopts,
 		coalesce(e.command, '') AS command,
@@ -56,6 +56,8 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		e.writable
 	FROM pg_exttable e`
 
+	// In GPDB 6, the logerrors field was added directly onto pg_exttable,
+	// so it is no longer necessary to derive it using the fmterrtable field
 	version6Query := `
 	SELECT e.reloid AS oid,
 		CASE WHEN e.urilocation IS NOT NULL THEN unnest(urilocation) ELSE '' END AS location,
@@ -66,7 +68,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		coalesce(e.rejectlimit, 0) AS rejectlimit,
 		coalesce(e.rejectlimittype, '') AS rejectlimittype,
 		e.logerrors,
-		'error_log_persistent=t' = any(e.options) AS logerrpersist,
+		'error_log_persistent=true' = any(e.options) AS logerrpersist,
 		pg_encoding_to_char(e.encoding) AS encoding,
 		e.writable
 	FROM pg_exttable e`
@@ -84,10 +86,11 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		coalesce(e.rejectlimit, 0) AS rejectlimit,
 		coalesce(e.rejectlimittype, '') AS rejectlimittype,
 		e.logerrors,
-		coalesce('error_log_persistent=t' = any(e.options), false) AS logerrpersist,
+		coalesce('log_errors=p' = any(ft.ftoptions), false) AS logerrpersist,
 		pg_encoding_to_char(e.encoding) AS encoding,
 		e.writable
 	FROM pg_exttable e
+		LEFT JOIN pg_foreign_table ft ON e.reloid = ft.ftrelid
 		LEFT JOIN LATERAL unnest(urilocation) ljl_unnest ON urilocation IS NOT NULL`
 
 	var query string
