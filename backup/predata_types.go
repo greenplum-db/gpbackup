@@ -55,7 +55,7 @@ func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *toc.
 		metadataFile.MustPrintf(" NOT NULL")
 	}
 	for _, constraint := range constraints {
-		metadataFile.MustPrintf("\n\tCONSTRAINT %s %s", constraint.Name, constraint.ConDef.String)
+		metadataFile.MustPrintf("\n\tCONSTRAINT %s %s", constraint.Name, constraint.Def.String)
 	}
 	metadataFile.MustPrintln(";")
 
@@ -226,7 +226,6 @@ func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, toc *
 			metadataFile.MustPrintf(", DETERMINISTIC = 'false'")
 		}
 		metadataFile.MustPrintf(");")
-
 
 		section, entry := collation.GetMetadataEntry()
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

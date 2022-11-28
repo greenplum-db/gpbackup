@@ -90,13 +90,13 @@ var _ = Describe("backup integration tests", func() {
 		)
 
 		BeforeEach(func() {
-			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
-			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (b) REFERENCES public.constraints_table(b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
-			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
-			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (a <> 42)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
-			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (id <> 0)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
-			domainConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (VALUE <> 42)", Valid: true}, OwningObject: "public.constraint_domain", IsDomainConstraint: true, IsPartitionParent: false}
-			constraintInSchema = backup.Constraint{Oid: 0, Schema: "testschema", Name: "uniq2", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "testschema.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", Def: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (b) REFERENCES public.constraints_table(b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
+			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", Def: sql.NullString{String: "CHECK (a <> 42)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", Def: sql.NullString{String: "CHECK (id <> 0)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
+			domainConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", Def: sql.NullString{String: "CHECK (VALUE <> 42)", Valid: true}, OwningObject: "public.constraint_domain", IsDomainConstraint: true, IsPartitionParent: false}
+			constraintInSchema = backup.Constraint{Oid: 0, Schema: "testschema", Name: "uniq2", ConType: "u", Def: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "testschema.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
 
 			if connectionPool.Version.AtLeast("6") {
 				uniqueConstraint.ConIsLocal = true
@@ -324,13 +324,13 @@ PARTITION BY RANGE (date)
 				Expect(constraints).To(HaveLen(4))
 				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
 
-				fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (a, b) REFERENCES public.constraints_table(a, b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
+				fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (a, b) REFERENCES public.constraints_table(a, b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
 				if connectionPool.Version.AtLeast("6") {
 					fkConstraint.ConIsLocal = true
 				}
 				structmatcher.ExpectStructsToMatchExcluding(&constraints[1], &fkConstraint, "Oid")
 
-				pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+				pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
 				if connectionPool.Version.AtLeast("6") {
 					pkConstraint.ConIsLocal = true
 				}
@@ -345,7 +345,7 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.table_with_constr ADD CONSTRAINT table_with_constr_pkey PRIMARY KEY (a, b) INCLUDE (c, d);")
 
 			constraints := backup.GetConstraints(connectionPool)
-			expectedConstraint := backup.Constraint{Oid: 0, Schema: "public", Name: "table_with_constr_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (a, b) INCLUDE (c, d)", Valid: true}, ConIsLocal: true, OwningObject: "public.table_with_constr", IsDomainConstraint: false, IsPartitionParent: false}
+			expectedConstraint := backup.Constraint{Oid: 0, Schema: "public", Name: "table_with_constr_pkey", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b) INCLUDE (c, d)", Valid: true}, ConIsLocal: true, OwningObject: "public.table_with_constr", IsDomainConstraint: false, IsPartitionParent: false}
 
 			Expect(constraints).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &expectedConstraint, "Oid")

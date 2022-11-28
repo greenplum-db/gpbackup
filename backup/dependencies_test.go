@@ -147,7 +147,7 @@ var _ = Describe("backup/dependencies tests", func() {
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (domain has a constraint)", func() {
 			constraints := []backup.Constraint{
-				{Name: "check_constraint", ConDef: sql.NullString{String: "CHECK (VALUE > 2)", Valid: true}, OwningObject: "public.domain"},
+				{Name: "check_constraint", Def: sql.NullString{String: "CHECK (VALUE > 2)", Valid: true}, OwningObject: "public.domain"},
 			}
 			backup.PrintDependentObjectStatements(backupfile, tocfile, objects, metadataMap, constraints, funcInfoMap)
 			testhelper.ExpectRegexp(buffer, fmt.Sprintf(`

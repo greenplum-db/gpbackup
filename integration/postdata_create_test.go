@@ -2,6 +2,7 @@ package integration
 
 import (
 	"database/sql"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -342,6 +343,52 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&extStats[0], &results[0], "Oid")
+		})
+	})
+	Describe("PrintExchangedPartitionIndexes", func() {
+		BeforeEach(func() {
+			if !connectionPool.Version.Is("6") {
+				Skip("Test only applicable to GPDB6")
+			}
+			testhelper.AssertQueryRuns(connectionPool, `CREATE SCHEMA schemaone;`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(connectionPool, `DROP SCHEMA schemaone CASCADE;`)
+		})
+
+		It("creates exchanged partition table indexes correctly", func() {
+			testhelper.AssertQueryRuns(connectionPool, `
+                    CREATE TABLE schemaone.pt_heap_tab(a INT, b TEXT, c INT , d INT, e NUMERIC, success BOOL) WITH (appendonly=false)
+                    DISTRIBUTED BY (a)
+                    PARTITION BY list(b)
+                    (
+                             PARTITION abc VALUES ('abc','abc1','abc2') WITH (appendonly=false),
+                             PARTITION def VALUES ('def','def1','def3') WITH (appendonly=true, compresslevel=1), 
+                             PARTITION ghi VALUES ('ghi','ghi1','ghi2') WITH (appendonly=true),
+                             default partition dft
+                    );
+
+					CREATE INDEX heap_idx1 ON schemaone.pt_heap_tab(a) WHERE c > 10;
+					ALTER TABLE schemaone.pt_heap_tab DROP default partition;
+
+					CREATE TABLE schemaone.heap_can(LIKE schemaone.pt_heap_tab INCLUDING INDEXES);
+
+					ALTER TABLE schemaone.pt_heap_tab ADD PARTITION pqr VALUES ('pqr','pqr1','pqr2') WITH (appendonly=true, orientation=column, compresslevel=5);
+					ALTER TABLE schemaone.pt_heap_tab EXCHANGE PARTITION FOR ('pqr') WITH table schemaone.heap_can;`)
+
+			indexes := backup.GetIndexes(connectionPool)
+			backup.RenameExchangedPartitionIndexes(connectionPool, &indexes)
+			indexesMetadataMap := backup.MetadataMap{}
+			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexesMetadataMap)
+
+			// Automatically-generated index names end in "_idx" in 6+ and "_key" in earlier versions.
+			if connectionPool.Version.AtLeast("6") {
+				Expect(strings.Contains(buffer.String(), `CREATE INDEX heap_can_a_idx`)).To(BeTrue())
+				Expect(strings.Contains(buffer.String(), `CREATE INDEX pt_heap_tab_1_prt_pqr_a_idx`)).To(BeFalse())
+			} else {
+				Expect(strings.Contains(buffer.String(), `CREATE INDEX heap_can_a_key`)).To(BeTrue())
+				Expect(strings.Contains(buffer.String(), `CREATE INDEX pt_heap_tab_1_prt_pqr_a_key`)).To(BeFalse())
+			}
 		})
 	})
 })

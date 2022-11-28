@@ -264,6 +264,9 @@ func retrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]
 func retrieveConstraints(sortables *[]Sortable, metadataMap MetadataMap, tables ...Relation) []Constraint {
 	gplog.Verbose("Retrieving constraints")
 	constraints := GetConstraints(connectionPool, tables...)
+	if len(constraints) > 0 && connectionPool.Version.AtLeast("7") {
+		RenameExchangedPartitionConstraints(connectionPool, &constraints)
+	}
 
 	//split into domain constraints and all others, as they are handled differently downstream
 	domainConstraints := make([]Constraint, 0)
@@ -675,6 +678,11 @@ func backupIndexes(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE INDEX statements to metadata file")
 	indexes := GetIndexes(connectionPool)
 	objectCounts["Indexes"] = len(indexes)
+	if objectCounts["Indexes"] > 0 && connectionPool.Version.Is("6") {
+		// This bug is not addressed in versions prior to GPDB6
+		// New partition exchange syntax in GPDB7+ obviates the need for this renaming
+		RenameExchangedPartitionIndexes(connectionPool, &indexes)
+	}
 	indexMetadata := GetCommentsForObjectType(connectionPool, TYPE_INDEX)
 	PrintCreateIndexStatements(metadataFile, globalTOC, indexes, indexMetadata)
 }

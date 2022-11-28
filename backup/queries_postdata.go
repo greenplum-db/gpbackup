@@ -8,6 +8,7 @@ package backup
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -238,6 +239,70 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 	}
 
 	return sortedIndexes
+}
+
+func GetRenameExchangedPartitionQuery(connection *dbconn.DBConn) string {
+	// In the case of exchanged partition tables, restoring index constraints with system-generated
+	// will cause a name collision in GPDB7+.  Rename those constraints to match their new owning
+	// tables.  In GPDB6 and below this renaming was done automatically by server code.
+	cteClause := ""
+	if connectionPool.Version.Before("7") {
+		cteClause = `SELECT DISTINCT cl.relname
+            FROM pg_class cl
+                INNER JOIN pg_partitions pts
+					ON cl.relname = pts.partitiontablename
+					AND cl.relname != pts.tablename
+            WHERE cl.relkind IN ('r', 'f')`
+	} else {
+		cteClause = `SELECT DISTINCT cl.relname
+             FROM pg_class cl
+             WHERE
+                cl.relkind IN ('r', 'f')
+                AND cl.relispartition = true
+                AND cl.relhassubclass = false`
+	}
+	query := fmt.Sprintf(`
+        WITH table_cte AS (%s)
+        SELECT
+            ic.relname AS origname,
+            rc.relname || SUBSTRING(ic.relname, LENGTH(ch.relname)+1, LENGTH(ch.relname)) AS newname
+        FROM
+            pg_index i
+            JOIN pg_class ic ON i.indexrelid = ic.oid
+            JOIN pg_class rc
+                ON i.indrelid = rc.oid
+                AND rc.relname != SUBSTRING(ic.relname, 1, LENGTH(rc.relname))
+            JOIN pg_namespace n ON rc.relnamespace = n.oid
+            INNER JOIN table_cte ch
+                ON SUBSTRING(ic.relname, 1, LENGTH(ch.relname)) = ch.relname
+                AND rc.relname != ch.relname
+        WHERE %s;`, cteClause, SchemaFilterClause("n"))
+	return query
+}
+
+func RenameExchangedPartitionIndexes(connectionPool *dbconn.DBConn, indexes *[]IndexDefinition) {
+	query := GetRenameExchangedPartitionQuery(connectionPool)
+	names := make([]ExchangedPartitionName, 0)
+	err := connectionPool.Select(&names, query)
+	gplog.FatalOnError(err)
+
+	nameMap := make(map[string]string)
+	for _, name := range names {
+		nameMap[name.OrigName] = name.NewName
+	}
+
+	for idx := range *indexes {
+		newName, hasNewName := nameMap[(*indexes)[idx].Name]
+		if hasNewName {
+			(*indexes)[idx].Def.String = strings.Replace((*indexes)[idx].Def.String, (*indexes)[idx].Name, newName, 1)
+			(*indexes)[idx].Name = newName
+		}
+	}
+}
+
+type ExchangedPartitionName struct {
+	OrigName string
+	NewName  string
 }
 
 type RuleDefinition struct {

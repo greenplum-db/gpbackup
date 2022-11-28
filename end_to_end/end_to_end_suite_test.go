@@ -1856,6 +1856,66 @@ LANGUAGE plpgsql NO SQL;`)
 			Expect(string(output)).To(ContainSubstring(fmt.Sprintf("Cannot restore a backup taken on a cluster with 5 segments to a cluster with %d segments unless the --resize-cluster flag is used.", segmentCount)))
 		})
 	})
+	Describe("Restore indexes and constraints on exchanged partition tables", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore6(backupConn)
+			testhelper.AssertQueryRuns(backupConn, `
+                    CREATE SCHEMA schemaone;
+                    CREATE TABLE schemaone.part_table_for_upgrade (a INT, b INT) DISTRIBUTED BY (b) PARTITION BY RANGE(b) (PARTITION alpha  END (3), PARTITION beta START (3));
+					CREATE INDEX upgrade_idx1 ON schemaone.part_table_for_upgrade(a) WHERE b > 10;
+					ALTER TABLE schemaone.part_table_for_upgrade ADD PRIMARY KEY(a, b);
+
+					CREATE TABLE schemaone.like_table (like schemaone.part_table_for_upgrade INCLUDING CONSTRAINTS INCLUDING INDEXES) DISTRIBUTED BY (b);
+                    ALTER TABLE schemaone.part_table_for_upgrade EXCHANGE PARTITION beta WITH TABLE schemaone.like_table;`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA schemaone CASCADE;")
+			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA schemaone CASCADE;")
+		})
+
+		It("Automatically updates index names correctly", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+
+			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+
+			// Indexes do not need to be renamed on partition exchange in GPDB7+ due to new syntax.
+			expectedValue := false
+			indexSuffix := "idx"
+			if backupConn.Version.Is("6") {
+				// In GPDB6 and below, indexes are automatically cascaded down and so in exchange case they must be renamed to avoid name collision breaking restore
+				expectedValue = true
+			}
+			Expect(strings.Contains(string(metadataFileContents), fmt.Sprintf("CREATE INDEX like_table_a_%s ON schemaone.like_table USING btree (a) WHERE (b > 10);",
+				indexSuffix))).To(Equal(expectedValue))
+			Expect(strings.Contains(string(metadataFileContents), fmt.Sprintf("CREATE INDEX part_table_for_upgrade_1_prt_beta_a_%s ON schemaone.like_table USING btree (a) WHERE (b > 10);",
+				indexSuffix))).ToNot(Equal(expectedValue))
+		})
+
+		It("Automatically updates constraint names correctly", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+
+			// assert constraint names are what we expect
+			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+			Expect(strings.Contains(string(metadataFileContents), "ALTER TABLE ONLY schemaone.like_table ADD CONSTRAINT like_table_pkey PRIMARY KEY (a, b);")).To(BeTrue())
+			Expect(strings.Contains(string(metadataFileContents), "ALTER TABLE ONLY schemaone.like_table ADD CONSTRAINT part_table_for_upgrade_pkey PRIMARY KEY (a, b);")).ToNot(BeTrue())
+
+		})
+	})
 	Describe("Backup and restore external partitions", func() {
 		It("Will correctly handle external partitions on multiple versions of GPDB", func() {
 			testutils.SkipIfBefore6(backupConn)

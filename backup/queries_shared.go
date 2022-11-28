@@ -77,7 +77,7 @@ type Constraint struct {
 	Schema             string
 	Name               string
 	ConType            string
-	ConDef             sql.NullString
+	Def                sql.NullString
 	ConIsLocal         bool
 	OwningObject       string
 	IsDomainConstraint bool
@@ -86,7 +86,7 @@ type Constraint struct {
 
 func (c Constraint) GetMetadataEntry() (string, toc.MetadataEntry) {
 	var tocSection string
-	if c.ConDef.Valid && !strings.Contains(strings.ToUpper(c.ConDef.String), "NOT VALID") {
+	if c.Def.Valid && !strings.Contains(strings.ToUpper(c.Def.String), "NOT VALID") {
 		tocSection = "predata"
 	} else {
 		tocSection = "postdata"
@@ -135,7 +135,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 			quote_ident(conname) AS name,
 			contype,
 			%s
-			pg_get_constraintdef(con.oid, TRUE) AS condef,
+			pg_get_constraintdef(con.oid, TRUE) AS def,
 			quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
 			'f' AS isdomainconstraint,
 			CASE
@@ -160,7 +160,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 			quote_ident(conname) AS name,
 			contype,
 			con.conislocal,
-			pg_get_constraintdef(con.oid, TRUE) AS condef,
+			pg_get_constraintdef(con.oid, TRUE) AS def,
 			quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
 			'f' AS isdomainconstraint,
 			CASE
@@ -186,7 +186,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		quote_ident(conname) AS name,
 		contype,
 		%s
-		pg_get_constraintdef(con.oid, TRUE) AS condef,
+		pg_get_constraintdef(con.oid, TRUE) AS def,
 		quote_ident(n.nspname) || '.' || quote_ident(t.typname) AS owningobject,
 		't' AS isdomainconstraint,
 		'f' AS ispartitionparent
@@ -224,7 +224,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		// only GPDB 5 since 4.3 will get a cache error on the query).
 		verifiedResults := make([]Constraint, 0)
 		for _, result := range results {
-			if result.ConDef.Valid {
+			if result.Def.Valid {
 				verifiedResults = append(verifiedResults, result)
 			} else {
 				gplog.Warn("Constraint '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
@@ -233,6 +233,26 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		return verifiedResults
 	} else {
 		return results
+	}
+}
+
+func RenameExchangedPartitionConstraints(connectionPool *dbconn.DBConn, indexes *[]Constraint) {
+	query := GetRenameExchangedPartitionQuery(connectionPool)
+	names := make([]ExchangedPartitionName, 0)
+	err := connectionPool.Select(&names, query)
+	gplog.FatalOnError(err)
+
+	nameMap := make(map[string]string)
+	for _, name := range names {
+		nameMap[name.OrigName] = name.NewName
+	}
+
+	for idx := range *indexes {
+		newName, hasNewName := nameMap[(*indexes)[idx].Name]
+		if hasNewName {
+			(*indexes)[idx].Def.String = strings.Replace((*indexes)[idx].Def.String, (*indexes)[idx].Name, newName, 1)
+			(*indexes)[idx].Name = newName
+		}
 	}
 }
 

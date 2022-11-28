@@ -36,6 +36,46 @@ var _ = Describe("backup/queries_postdata tests", func() {
 			structmatcher.ExpectStructsToMatch(&expectedResult[0], &result[0])
 		})
 	})
+	Describe("RenameExchangedPartitionIndexes", func() {
+		It("RenameExchangedPartitionIndexes properly renames exchanged indexes to match their owning tables", func() {
+			if !connectionPool.Version.Is("6") {
+				Skip("Test only applies to GPDB version 6")
+			}
+			indexes := []backup.IndexDefinition{
+				{Oid: 1, Name: "mock_index", OwningSchema: "mock_schema", OwningTable: "mock_table",
+					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX mock_index ON mock_schema.mock_table", Valid: true}, IsClustered: false,
+					SupportsConstraint: false, IsReplicaIdentity: false},
+				{Oid: 2, Name: "pt_heap_tab_1_prt_pqr_a_idx", OwningSchema: "mock_schema", OwningTable: "mock_table",
+					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX pt_heap_tab_1_prt_pqr_a_idx ON mock_schema.mock_table", Valid: true}, IsClustered: false,
+					SupportsConstraint: false, IsReplicaIdentity: false},
+				{Oid: 3, Name: "___c_idx", OwningSchema: "mock_schema", OwningTable: "mock_table",
+					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX ___c_idx ON mock_schema.mock_table", Valid: true}, IsClustered: false,
+					SupportsConstraint: false, IsReplicaIdentity: false}}
+			header := []string{"origname", "newname"}
+			rowOne := []driver.Value{"pt_heap_tab_1_prt_pqr_a_idx", "heap_can_a_idx"}
+			rowTwo := []driver.Value{"___c_idx", "realTableName_c_idx"}
+			fakeRows := sqlmock.NewRows(header).AddRow(rowOne...).AddRow(rowTwo...)
+			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeRows)
+			backup.RenameExchangedPartitionIndexes(connectionPool, &indexes)
+
+			Expect(indexes).To(HaveLen(3))
+			for _, idx := range indexes {
+				switch idx.Oid {
+				case 1:
+					Expect(idx.Name).To(Equal("mock_index"))
+					Expect(idx.Def.String).To(Equal("CREATE INDEX mock_index ON mock_schema.mock_table"))
+				case 2:
+					Expect(idx.Name).To(Equal("heap_can_a_idx"))
+					Expect(idx.Def.String).To(Equal("CREATE INDEX heap_can_a_idx ON mock_schema.mock_table"))
+				case 3:
+					Expect(idx.Name).To(Equal("realTableName_c_idx"))
+					Expect(idx.Def.String).To(Equal("CREATE INDEX realTableName_c_idx ON mock_schema.mock_table"))
+				default:
+					Fail("Unexpected index OID found")
+				}
+			}
+		})
+	})
 	Describe("GetRules", func() {
 		It("GetRules properly handles NULL rule definitions", func() {
 			header := []string{"oid", "name", "owningschema", "owningtable", "def"}

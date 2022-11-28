@@ -56,25 +56,25 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintConstraintStatement", func() {
 		var (
-			uniqueConstraint         backup.Constraint
-			pkConstraint             backup.Constraint
-			fkConstraint             backup.Constraint
-			checkConstraint          backup.Constraint
-			partitionCheckConstraint backup.Constraint
+			uniqueConstraint          backup.Constraint
+			pkConstraint              backup.Constraint
+			fkConstraint              backup.Constraint
+			checkConstraint           backup.Constraint
+			partitionCheckConstraint  backup.Constraint
 			partitionChildConstraint  backup.Constraint
 			partitionIntmdConstraint  backup.Constraint
 			partitionParentConstraint backup.Constraint
-			objectMetadata    		 backup.ObjectMetadata
+			objectMetadata            backup.ObjectMetadata
 		)
 		BeforeEach(func() {
-			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
-			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "constraints_other_table_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
-			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (b) REFERENCES public.constraints_other_table(b)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
-			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (a <> 42)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
-			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (id <> 0)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
-			partitionIntmdConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "id_unique", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (id)", Valid: true}, OwningObject: "public.part_one", IsDomainConstraint: false, IsPartitionParent: true}
-			partitionChildConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "id_unique", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (id)", Valid: true}, OwningObject: "public.part_one", IsDomainConstraint: false, IsPartitionParent: false}
-			partitionParentConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check_year", ConType: "c", ConDef: sql.NullString{String: "CHECK (year < 3000)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
+			uniqueConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "uniq2", ConType: "u", Def: sql.NullString{String: "UNIQUE (a, b)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
+			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "constraints_other_table_pkey", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
+			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (b) REFERENCES public.constraints_other_table(b)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
+			checkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", Def: sql.NullString{String: "CHECK (a <> 42)", Valid: true}, OwningObject: "public.testtable", IsDomainConstraint: false, IsPartitionParent: false}
+			partitionCheckConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check1", ConType: "c", Def: sql.NullString{String: "CHECK (id <> 0)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
+			partitionIntmdConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "id_unique", ConType: "u", Def: sql.NullString{String: "UNIQUE (id)", Valid: true}, OwningObject: "public.part_one", IsDomainConstraint: false, IsPartitionParent: true}
+			partitionChildConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "id_unique", ConType: "u", Def: sql.NullString{String: "UNIQUE (id)", Valid: true}, OwningObject: "public.part_one", IsDomainConstraint: false, IsPartitionParent: false}
+			partitionParentConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check_year", ConType: "c", Def: sql.NullString{String: "CHECK (year < 3000)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(a int, b text) DISTRIBUTED BY (b)")
 			objectMetadata = testutils.DefaultMetadata("CONSTRAINT", false, false, false, false)
 

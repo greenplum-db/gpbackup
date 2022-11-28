@@ -24,17 +24,17 @@ var _ = Describe("backup/predata_shared tests", func() {
 			foreignTwo       backup.Constraint
 			checkConstraint  backup.Constraint
 
-			objectMetadata    backup.ObjectMetadata
+			objectMetadata backup.ObjectMetadata
 		)
 		BeforeEach(func() {
-			uniqueOne = backup.Constraint{Oid: 1, Name: "tablename_i_key", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (i)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			uniqueTwo = backup.Constraint{Oid: 0, Name: "tablename_j_key", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (j)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			uniqueNotValid = backup.Constraint{Oid: 1, Name: "tablename_k_key", ConType: "u", ConDef: sql.NullString{String: "UNIQUE (k) NOT VALID", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			primarySingle = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (i)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			primaryComposite = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", ConDef: sql.NullString{String: "PRIMARY KEY (i, j)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			foreignOne = backup.Constraint{Oid: 0, Name: "tablename_i_fkey", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (i) REFERENCES other_tablename(a)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			foreignTwo = backup.Constraint{Oid: 0, Name: "tablename_j_fkey", ConType: "f", ConDef: sql.NullString{String: "FOREIGN KEY (j) REFERENCES other_tablename(b)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
-			checkConstraint = backup.Constraint{Oid: 0, Name: "check1", ConType: "c", ConDef: sql.NullString{String: "CHECK (VALUE <> 42::numeric)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false, ConIsLocal: true}
+			uniqueOne = backup.Constraint{Oid: 1, Name: "tablename_i_key", ConType: "u", Def: sql.NullString{String: "UNIQUE (i)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			uniqueTwo = backup.Constraint{Oid: 0, Name: "tablename_j_key", ConType: "u", Def: sql.NullString{String: "UNIQUE (j)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			uniqueNotValid = backup.Constraint{Oid: 1, Name: "tablename_k_key", ConType: "u", Def: sql.NullString{String: "UNIQUE (k) NOT VALID", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			primarySingle = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (i)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			primaryComposite = backup.Constraint{Oid: 0, Name: "tablename_pkey", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (i, j)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			foreignOne = backup.Constraint{Oid: 0, Name: "tablename_i_fkey", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (i) REFERENCES other_tablename(a)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			foreignTwo = backup.Constraint{Oid: 0, Name: "tablename_j_fkey", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (j) REFERENCES other_tablename(b)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
+			checkConstraint = backup.Constraint{Oid: 0, Name: "check1", ConType: "c", Def: sql.NullString{String: "CHECK (VALUE <> 42::numeric)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false, ConIsLocal: true}
 
 			objectMetadata = testutils.DefaultMetadata("CONSTRAINT", false, false, false, false)
 		})
@@ -44,8 +44,8 @@ var _ = Describe("backup/predata_shared tests", func() {
 				withCommentMetadata := testutils.DefaultMetadata("CONSTRAINT", false, false, true, false)
 				backup.PrintConstraintStatement(backupfile, tocfile, uniqueOne, withCommentMetadata)
 				testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "public.tablename", "tablename_i_key", "CONSTRAINT")
-				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, 
-					"ALTER TABLE ONLY public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);", 
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer,
+					"ALTER TABLE ONLY public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);",
 					"COMMENT ON CONSTRAINT tablename_i_key ON public.tablename IS 'This is a constraint comment.';")
 			})
 			It("prints an ADD CONSTRAINT statement for one UNIQUE constraint", func() {
