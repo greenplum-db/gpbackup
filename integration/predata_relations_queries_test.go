@@ -461,11 +461,11 @@ PARTITION BY LIST (gender)
 			if connectionPool.Version.Before("6.2") {
 				Skip("test only applicable to GPDB 6.2 and above")
 			}
-			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview AS SELECT 1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview AS SELECT 1 AS a DISTRIBUTED BY (a)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, IsMaterialized: true}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
@@ -474,11 +474,11 @@ PARTITION BY LIST (gender)
 			if connectionPool.Version.Before("6.2") {
 				Skip("test only applicable to GPDB 6.2 and above")
 			}
-			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview WITH (fillfactor=50, autovacuum_enabled=false) AS SELECT 1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview WITH (fillfactor=50, autovacuum_enabled=false) AS SELECT 1 AS a DISTRIBUTED BY (a)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Options: " WITH (fillfactor=50, autovacuum_enabled=false)", IsMaterialized: true}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Options: " WITH (fillfactor=50, autovacuum_enabled=false)", IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
@@ -489,11 +489,11 @@ PARTITION BY LIST (gender)
 			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
-			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview TABLESPACE test_tablespace AS SELECT 1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview TABLESPACE test_tablespace AS SELECT 1 AS a DISTRIBUTED BY (a)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Tablespace: "test_tablespace", IsMaterialized: true}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Tablespace: "test_tablespace", IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")

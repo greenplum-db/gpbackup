@@ -327,6 +327,7 @@ type View struct {
 	Definition     sql.NullString
 	Tablespace     string
 	IsMaterialized bool
+	DistPolicy     string
 }
 
 func (v View) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -398,6 +399,8 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
+	distPolicies := GetDistributionPolicies(connectionPool)
+
 	// Remove all views that have NULL definitions. This can happen
 	// if the query above is run and a concurrent view drop happens
 	// just before the pg_get_viewdef function execute. Also, error
@@ -411,12 +414,18 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 			if strings.Contains(result.Definition.String, "::anyarray") {
 				gplog.Fatal(errors.Errorf("Detected anyarray type cast in view definition for View '%s'", result.FQN()),
 					"Drop the view or recreate the view without explicit array type casts.")
-			} else {
-				verifiedResults = append(verifiedResults, result)
 			}
 		} else {
+			// do not append views with invalid definitions
 			gplog.Warn("View '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
+			continue
 		}
+
+		if result.IsMaterialized {
+			result.DistPolicy = distPolicies[result.Oid]
+		}
+		verifiedResults = append(verifiedResults, result)
+
 	}
 
 	return verifiedResults

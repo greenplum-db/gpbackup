@@ -585,7 +585,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 			if connectionPool.Version.Before("6.2.0") {
 				Skip("Test only applicable to GPDB 6.2.0 and above")
 			}
-			mview = backup.View{Oid: 1, Schema: "schema1", Name: "mview1", Definition: sql.NullString{String: "SELECT count(*) FROM pg_tables;", Valid: true}, IsMaterialized: true}
+			mview = backup.View{Oid: 1, Schema: "schema1", Name: "mview1", Definition: sql.NullString{String: "SELECT count(*) FROM pg_tables;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (tablename)"}
 			emptyMetadata = backup.ObjectMetadata{}
 		})
 		It("can print a basic materialized view", func() {
@@ -593,13 +593,15 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "mview1", "MATERIALIZED VIEW")
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer,
 				`CREATE MATERIALIZED VIEW schema1.mview1 AS SELECT count(*) FROM pg_tables
-WITH NO DATA;`)
+WITH NO DATA
+DISTRIBUTED BY (tablename);`)
 		})
 		It("can print a view with privileges, an owner, and a comment", func() {
 			mviewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, false)
 			backup.PrintCreateViewStatement(backupfile, tocfile, mview, mviewMetadata)
 			expectedEntries := []string{`CREATE MATERIALIZED VIEW schema1.mview1 AS SELECT count(*) FROM pg_tables
-WITH NO DATA;`,
+WITH NO DATA
+DISTRIBUTED BY (tablename);`,
 				"COMMENT ON MATERIALIZED VIEW schema1.mview1 IS 'This is a materialized view comment.';",
 				"ALTER MATERIALIZED VIEW schema1.mview1 OWNER TO testrole;",
 				`REVOKE ALL ON schema1.mview1 FROM PUBLIC;
@@ -614,7 +616,8 @@ GRANT ALL ON schema1.mview1 TO testrole;`}
 			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "mview1", "MATERIALIZED VIEW")
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer,
 				`CREATE MATERIALIZED VIEW schema1.mview1 WITH (security_barrier=true) TABLESPACE myTablespace AS SELECT count(*) FROM pg_tables
-WITH NO DATA;`)
+WITH NO DATA
+DISTRIBUTED BY (tablename);`)
 		})
 	})
 })
