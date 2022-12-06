@@ -293,9 +293,7 @@ func ValidateSafeToResizeCluster() {
 	// allow a restore to a different-size cluster.  Any backups that do have a SegmentCount will have that checked
 	// when attempting a normal restore, so that the user doesn't accidentally restore a different-size backup without
 	// using the --resize-cluster flag.
-	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
-	origSize := backupConfig.SegmentCount
-	destSize := len(globalCluster.ContentIDs) - 1
+	origSize, destSize, resizeCluster := GetResizeClusterInfo()
 
 	if resizeCluster {
 		if origSize == 0 {

@@ -22,9 +22,7 @@ import (
 )
 
 var (
-	tableDelim       = ","
-	resizeBatchMap   map[int]map[int]int
-	resizeContentMap map[int]int
+	tableDelim = ","
 )
 
 func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttributes string, destinationToRead string, singleDataFile bool, whichConn int) (int64, error) {
@@ -32,8 +30,7 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	copyCommand := ""
 	readFromDestinationCommand := "cat"
 	customPipeThroughCommand := utils.GetPipeThroughProgram().InputCommand
-
-	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
+	origSize, destSize, resizeCluster := GetResizeClusterInfo()
 
 	if singleDataFile || resizeCluster {
 		//helper.go handles compression, so we don't want to set it here
@@ -52,8 +49,6 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	// During a larger-to-smaller restore, we need multiple COPY passes to load all the data.
 	// One pass is sufficient for smaller-to-larger and normal restores.
 	batches := 1
-	destSize := len(globalCluster.ContentIDs) - 1
-	origSize := backupConfig.SegmentCount
 	if resizeCluster && origSize > destSize {
 		batches = origSize / destSize
 		if origSize%destSize != 0 {
@@ -166,12 +161,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		return 0
 	}
 
-	// populate these only in the case of resize-cluster.  needed to conditionally
-	// call expand in cases of smaller-to-larger restores
-	origSize := 0
-	destSize := 0
-
-	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
+	origSize, destSize, resizeCluster := GetResizeClusterInfo()
 	if backupConfig.SingleDataFile || resizeCluster {
 		msg := ""
 		if backupConfig.SingleDataFile {
@@ -179,8 +169,6 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		}
 		if resizeCluster {
 			msg += "resize "
-			origSize = backupConfig.SegmentCount
-			destSize = len(globalCluster.ContentIDs) - 1
 		}
 		gplog.Verbose("Initializing pipes and gpbackup_helper on segments for %srestore", msg)
 		utils.VerifyHelperVersionOnSegments(version, globalCluster)
@@ -209,7 +197,7 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 		if backupConfig.Compressed {
 			compressStr = fmt.Sprintf(" --compression-type %s ", utils.GetPipeThroughProgram().Name)
 		}
-		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(options.PLUGIN_CONFIG), compressStr, MustGetFlagBool(options.ON_ERROR_CONTINUE), isFilter, &wasTerminated, initialPipes, backupConfig.SingleDataFile, origSize, destSize)
+		utils.StartGpbackupHelpers(globalCluster, fpInfo, "--restore-agent", MustGetFlagString(options.PLUGIN_CONFIG), compressStr, MustGetFlagBool(options.ON_ERROR_CONTINUE), isFilter, &wasTerminated, initialPipes, backupConfig.SingleDataFile, resizeCluster, origSize, destSize)
 	}
 	/*
 	 * We break when an interrupt is received and rely on

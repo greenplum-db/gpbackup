@@ -140,7 +140,6 @@ func DoRestore() {
 	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY)
 	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(options.METADATA_ONLY)
 	isIncremental := MustGetFlagBool(options.INCREMENTAL)
-	isClusterResize := MustGetFlagBool(options.RESIZE_CLUSTER)
 
 	if isIncremental {
 		verifyIncrementalState()
@@ -158,13 +157,7 @@ func DoRestore() {
 	totalTablesRestored := 0
 	if !isMetadataOnly {
 		if MustGetFlagString(options.PLUGIN_CONFIG) == "" {
-			backupFileCount := 2 // 1 for the actual data file, 1 for the segment TOC file
-			if !backupConfig.SingleDataFile {
-				backupFileCount = len(globalTOC.DataEntries)
-			}
-			if !isClusterResize {
-				VerifyBackupFileCountOnSegments(backupFileCount)
-			}
+			VerifyBackupFileCountOnSegments()
 		}
 		totalTablesRestored, filteredDataEntries = restoreData()
 	}
@@ -595,8 +588,7 @@ func DoTeardown() {
 			return
 		}
 		reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
-		origSize := backupConfig.SegmentCount
-		destSize := len(globalCluster.Segments) - 1
+		origSize, destSize, _ := GetResizeClusterInfo()
 		report.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, origSize, destSize, errMsg)
 		report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore", !restoreFailed)
 		if pluginConfig != nil {

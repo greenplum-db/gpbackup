@@ -230,9 +230,7 @@ func RecoverMetadataFilesUsingPlugin() {
 	for _, fpInfo := range fpInfoList {
 		pluginConfig.MustRestoreFile(fpInfo.GetTOCFilePath())
 		if backupConfig.SingleDataFile {
-			isResizeRestore := MustGetFlagBool(options.RESIZE_CLUSTER)
-			origSize := backupConfig.SegmentCount
-			destSize := len(globalCluster.ContentIDs) - 1
+			origSize, destSize, isResizeRestore := GetResizeClusterInfo()
 			pluginConfig.RestoreSegmentTOCs(globalCluster, fpInfo, isResizeRestore, origSize, destSize)
 		}
 	}

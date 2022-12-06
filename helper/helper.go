@@ -53,6 +53,7 @@ var (
 	isFiltered       *bool
 	copyQueue        *int
 	singleDataFile   *bool
+	isResizeRestore  *bool
 	origSize         *int
 	destSize         *int
 	replicationFile  *string
@@ -104,6 +105,7 @@ func InitializeGlobals() {
 	isFiltered = flag.Bool("with-filters", false, "Used with table/schema filters")
 	copyQueue = flag.Int("copy-queue-size", 1, "Used to know how many COPIES are being queued up")
 	singleDataFile = flag.Bool("single-data-file", false, "Used with single data file restore.")
+	isResizeRestore = flag.Bool("resize-cluster", false, "Used with resize cluster restore.")
 	origSize = flag.Int("orig-seg-count", 0, "Used with resize restore.  Gives the segment count of the backup.")
 	destSize = flag.Int("dest-seg-count", 0, "Used with resize restore.  Gives the segment count of the current cluster.")
 	replicationFile = flag.String("replication-file", "", "Used with resize restore.  Gives the list of replicated tables.")
