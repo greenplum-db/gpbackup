@@ -1,7 +1,7 @@
 release:
   version: <TILE_RELEASE_VERSION>
   release_type: <RELEASE_TYPE>
-  eula_slug: vmware_eula
+  eula_slug: vmware_general_terms
   description: |
         The VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION> release contains the following versions of binaries for use with the VMware Tanzu™ Greenplum® Server:
         - gpbackup <GPBAR_VERSION>
