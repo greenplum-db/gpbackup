@@ -282,7 +282,9 @@ var _ = Describe("backup integration create statement tests", func() {
 				Expect(resultFunctions).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&ParallelFunction, &resultFunctions[0], "Oid")
 			})
-			It("creates a function with TRANSFORM FOR TYPE", func() {
+			// This test is pended because getting the DLL for hstore_plperl compiled and working in our CI is proving very difficult.
+			// TODO: get this working in CI, and un-pend it then.
+			PIt("creates a function with TRANSFORM FOR TYPE", func() {
 				TransformFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + 1",
 					BinaryPath: "", Arguments: sql.NullString{String: "hstore", Valid: true},

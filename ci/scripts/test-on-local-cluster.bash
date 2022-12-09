@@ -10,6 +10,11 @@ if ! command -v go &> /dev/null || ! $(go version | grep -q ${GO_VERSION}); then
   rm -rf /usr/local/go && tar -xzf go${GO_VERSION}.linux-amd64.tar.gz -C /usr/local
 fi
 
+# Add locale for locale tests
+localedef -c -i de_DE -f UTF-8 de_DE
+echo LANG=\"de_DE\" >> /etc/locale.conf
+source /etc/locale.conf
+
 mkdir /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
 
@@ -28,12 +33,11 @@ set -ex
 
 # use "temp build dir" of parent shell
 export GOPATH=\${HOME}/go
-export PATH=/usr/local/go/bin:\$PATH:\${GOPATH}/bin
+export PATH=/usr/local/go/bin:\$PATH:\${GOPATH}/bin:/opt/rh/devtoolset-7/root/usr/bin/
 if [[ -f /opt/gcc_env.sh ]]; then
     source /opt/gcc_env.sh
 fi
 mkdir -p \${GOPATH}/bin \${GOPATH}/src/github.com/greenplum-db
-
 cp -R $(pwd)/gpbackup \${GOPATH}/src/github.com/greenplum-db/
 
 # Install dependencies before sourcing greenplum path. Using the GPDB curl is causing issues.
@@ -44,9 +48,10 @@ popd
 source /usr/local/greenplum-db-devel/greenplum_path.sh
 source $(pwd)/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
 
+mkdir -p "\${GPHOME}/postgresql"
+
 if [ ${REQUIRES_DUMMY_SEC} ]; then
   # dummy security label: copy library from bucket to correct location
-  mkdir -p "\${GPHOME}/postgresql"
   install -m 755 -T $(pwd)/dummy_seclabel/dummy_seclabel*.so "\${GPHOME}/lib/postgresql/dummy_seclabel.so"
   gpconfig -c shared_preload_libraries -v dummy_seclabel
   gpstop -ra

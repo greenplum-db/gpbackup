@@ -12,12 +12,21 @@ groups:
   - ddboost_plugin_and_boostfs_tests_43
   - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
+{% if is_prod and "gpbackup-release" != pipeline_name %}
+  - scale-43
+  - scale-5x
+  - scale-6x
+  - scale-GPDB7
+  - s3_plugin_perf
+  - ddboost_plugin_perf
+{% endif %}
   - gpbackup-manager-tests
 {% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
 {% endif %}
   - GPDB6
   - GPDB6-7-seg-cluster
+  - GPDB7
   - s3_plugin_tests
   - backward-compatibility
   - ddboost_plugin_and_boostfs_tests_6x
@@ -27,7 +36,6 @@ groups:
   - push-to-pivnet
 {% endif %}
 {% if "gpbackup-release" != pipeline_name %}
-  - master
   - final_gate
 {% endif %}
 
@@ -35,8 +43,10 @@ groups:
   jobs:
   - GPDB4.3
 {% if is_prod or "gpbackup-release" == pipeline_name %}
-  - scale-43
   - ddboost_plugin_and_boostfs_tests_43
+{% endif %}
+{% if is_prod and "gpbackup-release" != pipeline_name %}
+  - scale-43
 {% endif %}
 
 - name: GPDB5
@@ -44,8 +54,10 @@ groups:
   - GPDB5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
   - GPDB5-sles11
-  - scale-5x
   - ddboost_plugin_and_boostfs_tests_5x
+{% endif %}
+{% if is_prod and "gpbackup-release" != pipeline_name %}
+  - scale-5x
 {% endif %}
 {% if "gpbackup-release" != pipeline_name %}
   - 5X-head-gpbackup-fixed-test
@@ -59,30 +71,30 @@ groups:
   - GPDB6-7-seg-cluster
 {% if is_prod or "gpbackup-release" == pipeline_name %}
   - GPDB6-ubuntu
+{% endif %}
+{% if is_prod and "gpbackup-release" != pipeline_name %}
   - scale-6x
 {% endif %}
   - ddboost_plugin_and_boostfs_tests_6x
   - s3_plugin_perf
   - ddboost_plugin_perf
 
-{% if "gpbackup-release" != pipeline_name %}
-- name: Master
+- name: GPDB7
   jobs:
-  - master
-  - scale-master
+  - GPDB7
+{% if is_prod and "gpbackup-release" != pipeline_name %}
+  - scale-GPDB7
 {% endif %}
 
+{% if is_prod and "gpbackup-release" != pipeline_name %}
 - name: Scale
   jobs:
-{% if is_prod or "gpbackup-release" == pipeline_name %}
   - scale-43
   - scale-5x
   - scale-6x
+  - scale-GPDB7
   - s3_plugin_perf
   - ddboost_plugin_perf
-{% endif %}
-{% if "gpbackup-release" != pipeline_name %}
-  - scale-master
 {% endif %}
 
 {% if "gpbackup-release" == pipeline_name %}
@@ -231,6 +243,12 @@ resources:
     repository: gcr.io/data-gpdb-public-images/gpdb5-centos7-build-test
     tag: latest
 
+- name: centos7-gpdb7-image
+  type: registry-image
+  source:
+    repository: gcr.io/data-gpdb-public-images/gpdb7-centos7-test
+    tag: latest
+
 - name: centos6-image
   type: registry-image
   source:
@@ -366,17 +384,25 @@ resources:
     bucket: ((dp/$$DEV_PROD$$/gcs-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
     regexp: server/published/gpdb6/server-rc-(.*)-ubuntu18.04_x86_64((dp/$$DEV_PROD$$/rc-build-type-gcs)).tar.gz
+
+- name: bin_gpdb_rhel8
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/$$DEV_PROD$$/gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/main/server-rc-(.*)-rhel8_x86_64.tar.gz
 {% endif %}
 
 {% if "gpbackup-release" != pipeline_name %}
-- name: gpdb_master_src
+- name: gpdb_main_src
   type: git
   icon: github-circle
   source:
     uri: https://github.com/greenplum-db/gpdb
     branch: main
 
-- name: bin_gpdb_master_centos7
+- name: bin_gpdb_main_centos7
   type: gcs
   icon: google
   source:
@@ -441,7 +467,7 @@ resources:
     regexp: dummy_seclabel_gpdb6-v(.*).so
 
 {% if "gpbackup-release" != pipeline_name %}
-- name: dummy_seclabel_linux_master
+- name: dummy_seclabel_linux_main
   type: gcs
   icon: google
   source:
@@ -1201,32 +1227,30 @@ jobs:
     <<: *set_failed
 {% endif %}
 
-{% if "gpbackup-release" != pipeline_name %}
-- name: master
+- name: GPDB7
   plan:
   - in_parallel:
-    - get: centos7-image
+    - get: centos7-gpdb7-image
     - get: gpbackup
       passed: [build_gppkgs]
-    - get: bin_gpdb_master_centos7
+    - get: bin_gpdb_main_centos7
       trigger: true
     - get: gpdb_src
-      resource: gpdb_master_src
+      resource: gpdb_main_src
     - get: dummy_seclabel
-      resource: dummy_seclabel_linux_master
+      resource: dummy_seclabel_linux_main
     - get: gppkgs
       trigger: true
       passed: [build_gppkgs]
   - task: run-tests-locally-centos7
-    image: centos7-image
+    image: centos7-gpdb7-image
     file: gpbackup/ci/tasks/test-on-local-cluster.yml
     params:
       REQUIRES_DUMMY_SEC: true
     input_mapping:
-      bin_gpdb: bin_gpdb_master_centos7
+      bin_gpdb: bin_gpdb_main_centos7
   on_failure:
     *slack_alert
-{% endif %}
 
 - name: GPDB4.3
   plan:
@@ -1463,18 +1487,18 @@ jobs:
       GPBACKUP_VERSION: "1.12.1"
 {% endif %}
 
-{% if "gpbackup-release" != pipeline_name %}
-- name: scale-master
+{% if is_prod and "gpbackup-release" != pipeline_name %}
+- name: scale-GPDB7
   plan:
   - in_parallel:
-    - get: centos7-image
+    - get: centos7-gpdb7-image
     - get: gpbackup
       passed: [build_gppkgs]
     - get: gpdb_binary
-      resource: bin_gpdb_master_centos7
+      resource: bin_gpdb_rhel8
     - get: ccp_src
     - get: gpdb_src
-      resource: gpdb_master_src
+      resource: gpdb_main_src
     - get: scale_schema
 {% if nightly_trigger %}
     - get: nightly-trigger
@@ -1491,19 +1515,21 @@ jobs:
       terraform_source: ccp_src/google-nvme-block-device/
       vars:
         instance_type: n1-standard-8
-        PLATFORM: centos7
+        PLATFORM: rhel8-gpdb7
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
-      PLATFORM: centos7
+      PLATFORM: rhel8-gpdb7
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
-    image: centos7-image
+    image: centos7-gpdb7-image
+    params:
+      default_ami_user: rhel
     file: gpbackup/ci/tasks/setup-centos-env.yml
   - task: scale-tests
-    image: centos7-image
+    image: centos7-gpdb7-image
     file: gpbackup/ci/tasks/scale-tests.yml
   on_success:
     <<: *ccp_destroy_nvme
@@ -1511,9 +1537,7 @@ jobs:
     *slack_alert
   ensure:
     <<: *set_failed
-{% endif %}
 
-{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: scale-6x
   plan:
   - in_parallel:
@@ -1753,7 +1777,7 @@ jobs:
         - GPDB4.3
         - GPDB5
         - GPDB6
-        - master
+        - GPDB7
         - s3_plugin_tests
         - backward-compatibility
         - 5X-head-gpbackup-fixed-test

@@ -1246,10 +1246,10 @@ var _ = Describe("backup and restore end to end tests", func() {
 			assertPGClassStatsRestored(backupConn, restoreConn, publicSchemaTupleCounts)
 			assertPGClassStatsRestored(backupConn, restoreConn, schema2TupleCounts)
 
-			backupStatisticCount := dbconn.MustSelectString(backupConn,
-				`SELECT count(*) AS string FROM pg_statistic;`)
-			restoredStatisticsCount := dbconn.MustSelectString(restoreConn,
-				`SELECT count(*) AS string FROM pg_statistic;`)
+			statsQuery := fmt.Sprintf(`SELECT count(*) AS string FROM pg_statistic st left join pg_class cl on st.starelid = cl.oid left join pg_namespace nm on cl.relnamespace = nm.oid where %s;`, backup.SchemaFilterClause("nm"))
+			backupStatisticCount := dbconn.MustSelectString(backupConn, statsQuery)
+			restoredStatisticsCount := dbconn.MustSelectString(restoreConn, statsQuery)
+
 			Expect(backupStatisticCount).To(Equal(restoredStatisticsCount))
 
 			restoredTablesAnalyzed := dbconn.MustSelectString(restoreConn,
@@ -1688,8 +1688,8 @@ LANGUAGE plpgsql NO SQL;`)
 				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
 				go func() {
 					// No test run has been observed to take more than a few minutes without a hang,
-					// so loop 10 times and check for success after 1 minute each
-					for i := 0; i < 10; i++ {
+					// so loop 5 times and check for success after 1 minute each
+					for i := 0; i < 5; i++ {
 						select {
 						case <-completed:
 							return

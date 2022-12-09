@@ -1,0 +1,20 @@
+platform: linux
+
+image_resource:
+  type: registry-image
+
+inputs:
+- name: gpbackup
+- name: ccp_src
+- name: cluster_env_files
+- name: gppkgs
+- name: icw_dump
+- name: diffdb_src
+
+
+params:
+  OS: RHEL
+  LOCAL_CLUSTER_SIZE: 3
+
+run:
+  path: gpbackup/ci/scripts/icw-roundtrip.bash

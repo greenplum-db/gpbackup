@@ -1,0 +1,453 @@
+# USAGE: fly -t dp set-pipeline  -p regression -c ~/workspace/gpbackup/ci/regression/regression_pipeline.yml -v gpbackup-git-branch=BRANCH_NAME
+---
+groups:
+- name: Regression
+  jobs:
+  - build_binaries
+  - build_gppkgs
+  - regdb-GPDB6
+  - regdb-GPDB7
+
+resource_types:
+- name: terraform
+  type: registry-image
+  source:
+    repository: ljfranklin/terraform-resource
+    tag: 0.11.14
+
+- name: slack-notification
+  type: registry-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+- name: gcs
+  type: registry-image
+  source:
+    repository: frodenas/gcs-resource
+
+- name: pivnet
+  type: registry-image
+  source:
+    repository: pivotalcf/pivnet-resource
+    tag: latest-final
+
+## ======================================================================
+##  _ __ ___  ___  ___  _   _ _ __ ___ ___  ___
+## | '__/ _ \/ __|/ _ \| | | | '__/ __/ _ \/ __|
+## | | |  __/\__ \ (_) | |_| | | | (_|  __/\__ \
+## |_|  \___||___/\___/ \__,_|_|  \___\___||___/
+## ======================================================================
+
+resources:
+##### Docker Images #####  
+- name: centos7-image
+  type: registry-image
+  source:
+    repository: gcr.io/data-gpdb-public-images/gpdb5-centos7-build-test
+    tag: latest
+
+- name: rocky8-gpdb7-image
+  type: registry-image
+  source:
+    repository: gcr.io/data-gpdb-public-images/gpdb7-rocky8-test
+    tag: latest
+
+##### Source Code ####
+- name: gpbackup
+  type: git
+  icon: github-circle
+  source:
+    uri: https://github.com/greenplum-db/gpbackup
+    branch: ((gpbackup-git-branch))
+
+- name: diffdb_src
+  type: git
+  icon: github-circle
+  source:
+    uri: https://github.com/AJR-VMware/diffdb
+    branch: main
+
+- name: gpdb6_src
+  type: git
+  icon: github-circle
+  source:
+    uri: https://github.com/greenplum-db/gpdb
+    branch: 6X_STABLE
+
+- name: gpdb_main_src
+  type: git
+  icon: github-circle
+  source:
+    uri: https://github.com/greenplum-db/gpdb
+    branch: main
+
+- name: gpbackup_manager_src
+  type: git
+  icon: github-circle
+  source:
+    branch: main
+    private_key: ((dp/dev/gp-backup-manager-remote-deploy-key))
+    uri: ((dp/gp-backup-manager-git-remote))
+
+- name: gpbackup_s3_plugin
+  type: git
+  icon: github-circle
+  source:
+    branch: ((dp/dev/gpbackup-s3-plugin-git-branch))
+    uri: https://github.com/greenplum-db/gpbackup-s3-plugin
+
+- name: gpbackup_ddboost_plugin
+  type: git
+  icon: github-circle
+  source:
+    branch: ((dp/gpbackup-ddboost-plugin-branch)) 
+    private_key: ((dp/gpbackup-ddboost-plugin-remote-key))
+    uri: ((dp/gpbackup-ddboost-plugin-git-remote))
+
+#### Binaries ####
+- name: bin_gpdb_6x_stable_centos7
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/prod/gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64((dp/dev/rc-build-type-gcs)).tar.gz
+
+- name: bin_gpdb_rhel8
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/prod/gcs-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/main/server-rc-(.*)-rhel8_x86_64.tar.gz
+    
+#### Misc Other ####
+- name: gpbackup-release-license
+  type: gcs
+  icon: google
+  source:
+    bucket: gpbackup-release-licenses
+    json_key: ((dp/dev/gcp_svc_acct_key))
+    regexp: open_source_license_VMware_Tanzu_Greenplum_Backup_and_Restore_(.*)_.*.txt
+
+- name: icw_dump_GPDB6
+  type: gcs
+  source:
+    bucket: pivotal-gpdb-concourse-resources-intermediates-prod
+    json_key: ((concourse-gcs-resources-service-account-key))
+    versioned_file: 6X_STABLE_without_asserts/icw_planner_centos6_dump/dump.sql.xz
+
+- name: icw_dump_GPDB7
+  type: gcs
+  source:
+    bucket: pivotal-gpdb-concourse-resources-intermediates-prod
+    json_key: ((concourse-gcs-resources-service-account-key))
+    versioned_file: gpdb_main/icw_planner_rhel8_dump/dump.sql.xz
+
+- name: pivnet_release_cache
+  type: s3
+  icon: amazon
+  source:
+    access_key_id: ((aws-bucket-access-key-id))
+    bucket: ((dp/dev/pivnet_bucket_name))
+    region_name: ((dp/aws-region))
+    secret_access_key: ((aws-bucket-secret-access-key))
+    regexp: pivnet_release_version/v-(.*)
+    
+- name: terraform
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
+      AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
+      GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
+    vars:
+      project_id: ((dp/dev/google-project-id))
+    storage:
+      access_key_id: ((tf-machine-access-key-id))
+      secret_access_key: ((tf-machine-secret-access-key))
+      region_name: ((dp/aws-region))
+      bucket: ((dp/tf-bucket-name))
+      bucket_path: clusters-google/
+
+# - name: slack-alert
+#   type: slack-notification
+#   source:
+#     url: ((dp/webhook_url))
+#     disable: false
+
+- name: gpbackup-go-components
+  type: s3
+  icon: amazon
+  source:
+    access_key_id: ((aws-bucket-access-key-id))
+    bucket: ((dp/dev/gpdb-stable-bucket-name))
+    region_name: ((dp/aws-region))
+    secret_access_key: ((aws-bucket-secret-access-key))
+    versioned_file: gpbackup-go-components/go_components.tar.gz
+
+- name: gppkgs
+  type: s3
+  icon: amazon
+  source:
+    access_key_id: ((aws-bucket-access-key-id))
+    bucket: ((dp/dev/gpdb-stable-bucket-name))
+    region_name: ((dp/aws-region))
+    secret_access_key: ((aws-bucket-secret-access-key))
+    versioned_file: gppkgs/intermediates/gpbackup-gppkgs.tar.gz
+
+- name: ccp_src
+  type: git
+  icon: github-circle
+  source:
+    branch: ((dp/ccp-git-branch))
+    private_key: ((gp-concourse-cluster-provisioner-git-key))
+    uri: ((dp/ccp-git-remote))
+
+- name: terraform.d
+  type: s3
+  icon: amazon
+  source:
+    access_key_id: ((aws-bucket-access-key-id))
+    bucket: ccp-terraform-provider-plugins
+    region_name: ((dp/aws-region))
+    secret_access_key: ((aws-bucket-secret-access-key))
+    versioned_file: plugin-cache-all.tgz
+
+## ======================================================================
+##                   _
+##   __ _ _ __   ___| |__   ___  _ __ ___
+##  / _` | '_ \ / __| '_ \ / _ \| '__/ __|
+## | (_| | | | | (__| | | | (_) | |  \__ \
+##  \__,_|_| |_|\___|_| |_|\___/|_|  |___/
+## ======================================================================
+
+anchors:
+- &ccp_default_params
+  action: create
+  delete_on_failure: true
+  generate_random_name: true
+  plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
+  terraform_source: ccp_src/google/
+
+- &ccp_gen_cluster_default_params
+  AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
+  AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
+  AWS_DEFAULT_REGION: ((dp/aws-region))
+  BUCKET_PATH: clusters-google/
+  BUCKET_NAME: ((dp/tf-bucket-name))
+  CLOUD_PROVIDER: google
+
+- &destroy_params
+  action: destroy
+  plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
+  terraform_source: ccp_src/google/
+  env_name_file: terraform/name
+  vars:
+    aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
+    aws_ebs_volume_type: standard
+
+- &ccp_destroy
+  put: terraform
+  params:
+    <<: *destroy_params
+  get_params:
+    action: destroy
+
+- &ccp_destroy_nvme
+  put: terraform
+  params:
+    <<: *destroy_params
+    terraform_source: ccp_src/google-nvme-block-device/
+  get_params:
+    action: destroy
+
+- &terraform_cluster
+  type: terraform
+  source:
+    env:
+      AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
+      AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
+      GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
+    vars:
+      project_id: ((dp/dev/google-service-account))
+    storage:
+      access_key_id: ((tf-machine-access-key-id))
+      secret_access_key: ((tf-machine-secret-access-key))
+      region_name: ((dp/aws-region))
+      # This is not parameterized, on purpose. All tfstates will go to this spot,
+      # and different teams will place there clusters' tfstate files under different paths
+      bucket: gpdb5-pipeline-dynamic-terraform
+      bucket_path: clusters-google/
+
+
+- &slack_alert
+  put: slack-alert
+  params:
+    text: |
+      [gpbackup/$BUILD_JOB_NAME] failed:
+      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+
+## ======================================================================
+##    _       _
+##   (_) ___ | |__  ___
+##   | |/ _ \| '_ \/ __|
+##   | | (_) | |_) \__ \
+##  _/ |\___/|_.__/|___/
+## |__/
+## ======================================================================
+
+jobs:
+- name: build_binaries
+  plan:
+  - in_parallel:
+    - get: gpbackup_s3_plugin
+      trigger: true
+    - get: gpbackup_manager_src
+      trigger: true
+    - get: gpbackup
+      trigger: true
+    - get: pivnet_release_cache
+  - task: build-go-binaries
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+  - put: gpbackup-go-components
+    params:
+      file: go_components/go_components.tar.gz
+  
+- name: build_gppkgs
+  plan:
+  - in_parallel:
+    - get: centos7-image
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: gpbackup-go-components
+      trigger: true
+      passed: [build_binaries]
+    - get: bin_gpdb_6x_stable_centos7
+    - get: gpbackup
+      passed: [build_binaries]
+    - get: gpbackup_ddboost_plugin
+      trigger: true
+    - get: pivnet_release_cache
+    - get: gpbackup-release-license
+  - task: gpbackup-tools-versions
+    image: centos7-image
+    file: gpbackup/ci/tasks/gpbackup-tools-versions.yml
+  - in_parallel:
+    - do:
+      - task: build-ddboost-RHEL
+        image: centos7-image
+        file: gpbackup/ci/tasks/build-ddboost.yml
+        input_mapping:
+          bin_gpdb: bin_gpdb_6x_stable_centos7
+      - task: tar-binaries-RHEL
+        image: centos7-image
+        file: gpbackup/ci/tasks/build-os-tars.yml
+      - task: build_gppkgs-RHEL
+        image: centos7-image
+        file: gpbackup/ci/tasks/build-gppkg.yml
+        input_mapping:
+          bin_gpdb: bin_gpdb_6x_stable_centos7
+        output_mapping:
+          gppkgs: rhel-gppkg
+        params:
+          OS: RHEL
+  - task: tar-gppkgs
+    image: centos7-image
+    file: gpbackup/ci/tasks/tar-gppkgs.yml
+  - put: gppkgs
+    params:
+      file: gppkgs/gpbackup-gppkgs.tar.gz
+
+- name: regdb-GPDB6
+  plan:
+  - in_parallel:
+    - get: centos7-image
+    - get: gpbackup
+      passed: [build_gppkgs]
+    - get: diffdb_src
+    - get: gpdb_binary
+      resource: bin_gpdb_6x_stable_centos7
+    - get: ccp_src
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: gppkgs
+      trigger: true
+      passed: [build_gppkgs]
+    - get: icw_dump
+      resource: icw_dump_GPDB6
+    - get: terraform.d
+      params:
+        unpack: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        PLATFORM: centos7
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: centos7
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    image: centos7-image
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: icw-roundtrip
+    image: centos7-image
+    file: gpbackup/ci/tasks/icw-roundtrip.yml
+  on_success:
+    <<: *ccp_destroy_nvme
+  on_failure:
+    *slack_alert
+      
+- name: regdb-GPDB7
+  plan:
+  - in_parallel:
+    - get: rocky8-gpdb7-image
+    - get: gpbackup
+      passed: [build_gppkgs]
+    - get: gpdb_binary
+      resource: bin_gpdb_rhel8
+    - get: ccp_src
+    - get: gpdb_src
+      resource: gpdb_main_src
+    - get: gppkgs
+      trigger: true
+      passed: [build_gppkgs]
+    - get: diffdb_src
+    - get: icw_dump
+      resource: icw_dump_GPDB7
+    - get: terraform.d
+      params:
+        unpack: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google-nvme-block-device/
+      vars:
+        instance_type: n1-standard-8
+        PLATFORM: rhel8-gpdb7
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: rhel8-gpdb7
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-centos-env
+    image: rocky8-gpdb7-image
+    file: gpbackup/ci/tasks/setup-centos-env.yml
+    params:
+      default_ami_user: rhel
+  - task: icw-roundtrip
+    image: rocky8-gpdb7-image
+    file: gpbackup/ci/tasks/icw-roundtrip.yml
+  on_success:
+    <<: *ccp_destroy_nvme
+  on_failure:
+    *slack_alert

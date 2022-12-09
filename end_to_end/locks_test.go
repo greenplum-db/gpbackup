@@ -278,14 +278,14 @@ var _ = Describe("Deadlock handling", func() {
 
 		// Only the main worker thread, worker 0, will run COPY on all the test tables
 		for _, dataTable := range dataTables {
-			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s TO PROGRAM `, dataTable)
+			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s`, dataTable)
 			Expect(stdout).To(ContainSubstring(expectedString))
 		}
 
 		Expect(stdout).To(ContainSubstring("Backup completed successfully"))
 	})
 	It("runs gpbackup and defers 2 deadlocked tables to main worker", func() {
-		if useOldBackupVersion || backupConn.Version.Before(backup.SNAPSHOT_GPDB_MIN_VERSION){
+		if useOldBackupVersion || backupConn.Version.Before(backup.SNAPSHOT_GPDB_MIN_VERSION) {
 			Skip(fmt.Sprintf("This test is not needed for old backup versions or GPDB versions < %s", backup.SNAPSHOT_GPDB_MIN_VERSION))
 		}
 		// Acquire AccessExclusiveLock on public.foo to block gpbackup when it attempts
@@ -333,7 +333,7 @@ var _ = Describe("Deadlock handling", func() {
 		// see gpbackup blocked, request AccessExclusiveLock (to imitate a TRUNCATE or VACUUM
 		// FULL) on two of the test tables.
 		dataTables := []string{"public.holds", "public.sales", "public.bigtable",
-		"schema2.ao1", "schema2.ao2", "schema2.foo2", "schema2.foo3", "schema2.returns"}
+			"schema2.ao1", "schema2.ao2", "schema2.foo2", "schema2.foo3", "schema2.returns"}
 		lockedTables := []string{`public."FOObar"`, "public.foo"}
 		for _, lockedTable := range lockedTables {
 			go func(lockedTable string) {
@@ -405,11 +405,11 @@ var _ = Describe("Deadlock handling", func() {
 
 		// Only the main worker thread, worker 0, will run COPY on the 2 locked test tables
 		for _, lockedTable := range lockedTables {
-			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s TO PROGRAM `, lockedTable)
+			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s`, lockedTable)
 			Expect(stdout).To(ContainSubstring(expectedString))
 		}
 		for _, dataTable := range dataTables {
-			unexpectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s TO PROGRAM `, dataTable)
+			unexpectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s`, dataTable)
 			Expect(stdout).ToNot(ContainSubstring(unexpectedString))
 		}
 		Expect(stdout).To(ContainSubstring("Backup completed successfully"))

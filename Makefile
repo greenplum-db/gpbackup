@@ -64,7 +64,7 @@ integration : $(GINKGO)
 test : build unit integration
 
 end_to_end : $(GINKGO)
-	ginkgo $(GINKGO_FLAGS) --slow-spec-threshold=10s end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
+	ginkgo $(GINKGO_FLAGS) --timeout=3h --slow-spec-threshold=10s end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
 
 coverage :
 		@./show_coverage.sh
