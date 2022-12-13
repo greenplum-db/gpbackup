@@ -236,7 +236,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 	}
 }
 
-func RenameExchangedPartitionConstraints(connectionPool *dbconn.DBConn, indexes *[]Constraint) {
+func RenameExchangedPartitionConstraints(connectionPool *dbconn.DBConn, constraints *[]Constraint) {
 	query := GetRenameExchangedPartitionQuery(connectionPool)
 	names := make([]ExchangedPartitionName, 0)
 	err := connectionPool.Select(&names, query)
@@ -247,11 +247,11 @@ func RenameExchangedPartitionConstraints(connectionPool *dbconn.DBConn, indexes 
 		nameMap[name.OrigName] = name.NewName
 	}
 
-	for idx := range *indexes {
-		newName, hasNewName := nameMap[(*indexes)[idx].Name]
+	for idx := range *constraints {
+		newName, hasNewName := nameMap[(*constraints)[idx].Name]
 		if hasNewName {
-			(*indexes)[idx].Def.String = strings.Replace((*indexes)[idx].Def.String, (*indexes)[idx].Name, newName, 1)
-			(*indexes)[idx].Name = newName
+			(*constraints)[idx].Def.String = strings.Replace((*constraints)[idx].Def.String, (*constraints)[idx].Name, newName, 1)
+			(*constraints)[idx].Name = newName
 		}
 	}
 }
