@@ -13,7 +13,7 @@ import (
 )
 
 var _ = Describe("utils/compression tests", func() {
-	masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
+	coordinatorSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
 	localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
 	remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
 	var (
@@ -25,7 +25,7 @@ var _ = Describe("utils/compression tests", func() {
 		operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
 		operating.System.Hostname = func() (string, error) { return "testHost", nil }
 		testExecutor = &testhelper.TestExecutor{}
-		testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
+		testCluster = cluster.NewCluster([]cluster.SegConfig{coordinatorSeg, localSegOne, remoteSegOne})
 		testCluster.Executor = testExecutor
 	})
 

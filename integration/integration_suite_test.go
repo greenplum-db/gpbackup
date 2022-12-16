@@ -76,7 +76,7 @@ var _ = BeforeSuite(func() {
 
 		remoteOutput := testCluster.GenerateAndExecuteCommand(
 			"Creating filespace test directories on all hosts",
-			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 			func(contentID int) string {
 				return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
 			})
@@ -117,7 +117,7 @@ var _ = AfterSuite(func() {
 	} else {
 		remoteOutput := testCluster.GenerateAndExecuteCommand(
 			"Removing /tmp/test_dir* directories on all hosts",
-			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 			func(contentID int) string {
 				return fmt.Sprintf("rm -rf /tmp/test_dir*")
 			})

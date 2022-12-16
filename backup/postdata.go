@@ -2,7 +2,7 @@ package backup
 
 /*
  * This file contains structs and functions related to backing up "post-data" metadata
- * on the master, which is any metadata that needs to be restored after data is
+ * on the coordinator, which is any metadata that needs to be restored after data is
  * restored, such as indexes and rules.
  */
 

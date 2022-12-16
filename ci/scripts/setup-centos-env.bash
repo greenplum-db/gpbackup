@@ -32,6 +32,7 @@ set -ex
     export GOPATH=/home/gpadmin/go
     source ${GPHOME}/greenplum_path.sh
     export PGPORT=5432
+    export COORDINATOR_DATA_DIRECTORY=/data/gpdata/coordinator/gpseg-1
     export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
     export PATH=\\\${GOPATH}/bin:/usr/local/go/bin:\\\${PATH}
     if [[ -f /opt/gcc_env.sh ]]; then

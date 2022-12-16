@@ -15,7 +15,7 @@ cat <<SCRIPT > /tmp/run_tests.bash
 
 source env.sh
 
-# Double the vmem protect limit default on the master segment to
+# Double the vmem protect limit default on the coordinator segment to
 # prevent query cancels on large table creations (e.g. scale_db1.sql)
 gpconfig -c gp_vmem_protect_limit -v 16384 --masteronly
 gpstop -air

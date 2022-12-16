@@ -131,7 +131,7 @@ func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
 		AND ut.oid IS NULL
 		AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	masterQuery := fmt.Sprintf(`
+	coordinatorQuery := fmt.Sprintf(`
 	SELECT t.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(t.typname) AS name,
@@ -172,7 +172,7 @@ func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
 	} else if connectionPool.Version.Is("5") {
 		err = connectionPool.Select(&results, version5query)
 	} else {
-		err = connectionPool.Select(&results, masterQuery)
+		err = connectionPool.Select(&results, coordinatorQuery)
 	}
 	gplog.FatalOnError(err)
 	/*
@@ -347,7 +347,7 @@ func GetDomainTypes(connectionPool *dbconn.DBConn) []Domain {
 		AND %s
 	ORDER BY n.nspname, t.typname`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	masterQuery := fmt.Sprintf(`
+	coordinatorQuery := fmt.Sprintf(`
 	SELECT t.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(t.typname) AS name,
@@ -373,7 +373,7 @@ func GetDomainTypes(connectionPool *dbconn.DBConn) []Domain {
 	if connectionPool.Version.Before("6") {
 		err = connectionPool.Select(&results, before6query)
 	} else {
-		err = connectionPool.Select(&results, masterQuery)
+		err = connectionPool.Select(&results, coordinatorQuery)
 	}
 
 	gplog.FatalOnError(err)

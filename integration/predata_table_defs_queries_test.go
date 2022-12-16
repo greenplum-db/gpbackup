@@ -111,7 +111,7 @@ PARTITION BY RANGE (year)
 
 			Expect(tableAtts).To(BeEmpty())
 		})
-		It("returns table attributes with options only applicable to master", func() {
+		It("returns table attributes with options only applicable to coordinator", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")

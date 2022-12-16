@@ -17,7 +17,7 @@ import (
 )
 
 var _ = Describe("restore/remote tests", func() {
-	masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
+	coordinatorSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
 	localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
 	remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
 	var (
@@ -30,7 +30,7 @@ var _ = Describe("restore/remote tests", func() {
 		operating.System.CurrentUser = func() (*user.User, error) { return &user.User{Username: "testUser", HomeDir: "testDir"}, nil }
 		operating.System.Hostname = func() (string, error) { return "testHost", nil }
 		testExecutor = &testhelper.TestExecutor{}
-		testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
+		testCluster = cluster.NewCluster([]cluster.SegConfig{coordinatorSeg, localSegOne, remoteSegOne})
 		testCluster.Executor = testExecutor
 		testFPInfo = filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
 		restore.SetFPInfo(testFPInfo)
@@ -39,9 +39,9 @@ var _ = Describe("restore/remote tests", func() {
 		BeforeEach(func() {
 			restore.SetBackupConfig(&history.BackupConfig{SingleDataFile: true})
 
-			dataEntryOne := toc.MasterDataEntry{}
-			dataEntryTwo := toc.MasterDataEntry{}
-			globalDataEntries := []toc.MasterDataEntry{dataEntryOne, dataEntryTwo}
+			dataEntryOne := toc.CoordinatorDataEntry{}
+			dataEntryTwo := toc.CoordinatorDataEntry{}
+			globalDataEntries := []toc.CoordinatorDataEntry{dataEntryOne, dataEntryTwo}
 			restore.SetTOC(&toc.TOC{DataEntries: globalDataEntries})
 		})
 		It("successfully verifies that all backup file counts", func() {

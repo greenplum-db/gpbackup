@@ -18,7 +18,7 @@ type TOC struct {
 	PredataEntries      []MetadataEntry
 	PostdataEntries     []MetadataEntry
 	StatisticsEntries   []MetadataEntry
-	DataEntries         []MasterDataEntry
+	DataEntries         []CoordinatorDataEntry
 	IncrementalMetadata IncrementalEntries
 }
 
@@ -35,7 +35,7 @@ type MetadataEntry struct {
 	EndByte         uint64
 }
 
-type MasterDataEntry struct {
+type CoordinatorDataEntry struct {
 	Schema          string
 	Name            string
 	Oid             uint32
@@ -100,7 +100,7 @@ type StatementWithType struct {
 	Statement       string
 }
 
-func GetIncludedPartitionRoots(tocDataEntries []MasterDataEntry, includeRelations []string) []string {
+func GetIncludedPartitionRoots(tocDataEntries []CoordinatorDataEntry, includeRelations []string) []string {
 	if len(includeRelations) == 0 {
 		return []string{}
 	}
@@ -179,7 +179,7 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *utils.FilterSet, sch
 	return shouldIncludeObject && shouldIncludeSchema && shouldIncludeRelation
 }
 
-func getLeafPartitions(tableFQNs []string, tocDataEntries []MasterDataEntry) (leafPartitions []string) {
+func getLeafPartitions(tableFQNs []string, tocDataEntries []CoordinatorDataEntry) (leafPartitions []string) {
 	tableSet := utils.NewSet(tableFQNs)
 
 	for _, entry := range tocDataEntries {
@@ -197,7 +197,7 @@ func getLeafPartitions(tableFQNs []string, tocDataEntries []MasterDataEntry) (le
 }
 
 func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas []string,
-	includeTableFQNs []string, excludeTableFQNs []string, restorePlanTableFQNs []string) []MasterDataEntry {
+	includeTableFQNs []string, excludeTableFQNs []string, restorePlanTableFQNs []string) []CoordinatorDataEntry {
 
 	schemaSet := utils.NewIncludeSet([]string{})
 	if len(includeSchemas) > 0 {
@@ -217,7 +217,7 @@ func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas [
 
 	restorePlanTableSet := utils.NewSet(restorePlanTableFQNs)
 
-	matchingEntries := make([]MasterDataEntry, 0)
+	matchingEntries := make([]CoordinatorDataEntry, 0)
 	for _, entry := range toc.DataEntries {
 		tableFQN := utils.MakeFQN(entry.Schema, entry.Name)
 
@@ -276,9 +276,9 @@ func (toc *TOC) AddMetadataEntry(section string, entry MetadataEntry, start, end
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
 }
 
-func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string, distPolicy string) {
+func (toc *TOC) AddCoordinatorDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string, distPolicy string) {
 	isReplicated := strings.Contains(distPolicy, "REPLICATED")
-	toc.DataEntries = append(toc.DataEntries, MasterDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot, isReplicated})
+	toc.DataEntries = append(toc.DataEntries, CoordinatorDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot, isReplicated})
 }
 
 func (toc *SegmentTOC) AddSegmentDataEntry(oid uint, startByte uint64, endByte uint64) {

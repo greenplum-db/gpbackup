@@ -135,7 +135,7 @@ func DoSetup() {
 }
 
 func DoRestore() {
-	var filteredDataEntries map[string][]toc.MasterDataEntry
+	var filteredDataEntries map[string][]toc.CoordinatorDataEntry
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
 	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY)
 	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(options.METADATA_ONLY)
@@ -371,7 +371,7 @@ func editStatementsRedirectSchema(statements []toc.StatementWithType, redirectSc
 	}
 }
 
-func restoreData() (int, map[string][]toc.MasterDataEntry) {
+func restoreData() (int, map[string][]toc.CoordinatorDataEntry) {
 	if wasTerminated {
 		return -1, nil
 	}
@@ -387,7 +387,7 @@ func restoreData() (int, map[string][]toc.MasterDataEntry) {
 	}
 
 	totalTables := 0
-	filteredDataEntries := make(map[string][]toc.MasterDataEntry)
+	filteredDataEntries := make(map[string][]toc.CoordinatorDataEntry)
 	for _, entry := range restorePlanEntries {
 		fpInfo := GetBackupFPInfoForTimestamp(entry.Timestamp)
 		tocfile := toc.NewTOC(fpInfo.GetTOCFilePath())
@@ -467,7 +467,7 @@ func restoreStatistics() {
 	}
 }
 
-func runAnalyze(filteredDataEntries map[string][]toc.MasterDataEntry) {
+func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 	if wasTerminated {
 		return
 	}

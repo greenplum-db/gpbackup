@@ -238,7 +238,7 @@ func RecoverMetadataFilesUsingPlugin() {
 
 func FindHistoricalPluginVersion(timestamp string) string {
 	// in order for plugins to implement backwards compatibility,
-	// first, read history from master and provide the historical version
+	// first, read history from coordinator and provide the historical version
 	// of the plugin that was used to create the original backup
 
 	// adapted from incremental GetLatestMatchingBackupTimestamp

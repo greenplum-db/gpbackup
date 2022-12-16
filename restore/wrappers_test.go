@@ -103,7 +103,7 @@ var _ = Describe("wrapper tests", func() {
 		legacyBackupConfig := history.BackupConfig{}
 		legacyBackupConfig.RestorePlan = nil
 		legacyBackupTOC := toc.TOC{
-			DataEntries: []toc.MasterDataEntry{
+			DataEntries: []toc.CoordinatorDataEntry{
 				{Schema: "schema1", Name: "table1"},
 				{Schema: "schema2", Name: "table2"},
 			},

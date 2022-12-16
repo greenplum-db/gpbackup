@@ -2,7 +2,7 @@
 
 We warmly welcome and greatly appreciate contributions from the
 community. By participating you agree to the [code of
-conduct](https://github.com/greenplum-db/gpbackup/blob/master/CODE-OF-CONDUCT.md).
+conduct](https://github.com/greenplum-db/gpbackup/blob/main/CODE-OF-CONDUCT.md).
 Overall, we follow GPDB's comprehensive contribution policy. Please
 refer to it [here](https://github.com/greenplum-db/gpdb#contributing)
 for details.
@@ -22,7 +22,7 @@ for details.
 * Try and follow similar coding styles as found throughout the code
   base.
 * Make commits as logical units for ease of reviewing.
-* Rebase with master often to stay in sync with upstream.
+* Rebase with main often to stay in sync with upstream.
 * Add new tests to cover your code. We use
   [Ginkgo](http://onsi.github.io/ginkgo/) and
   [Gomega](https://onsi.github.io/gomega/) for testing.
@@ -44,9 +44,9 @@ git commit --fixup <commit SHA>
   -- or --
 git commit --squash <commit SHA>
 ```
-* Once approved, before merging into master squash your fixups with:
+* Once approved, before merging into main squash your fixups with:
 ```
-git rebase -i --autosquash origin/master
+git rebase -i --autosquash origin/main
 git push --force-with-lease $USER <my-feature-branch>
 ```
 

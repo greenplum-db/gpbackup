@@ -446,7 +446,9 @@ func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	lastBatchSize := len(tables) % batchSize
 	tableBatches := GenerateTableBatches(tables, batchSize)
 	currentBatchSize := batchSize
-	if connectionPool.Version.AtLeast("6.21.0") {
+	if connectionPool.Version.AtLeast("7") {
+		lockMode = `IN ACCESS SHARE MODE COORDINATOR ONLY`
+	} else if connectionPool.Version.AtLeast("6.21.0") {
 		lockMode = `IN ACCESS SHARE MODE MASTER ONLY`
 	} else {
 		lockMode = `IN ACCESS SHARE MODE`

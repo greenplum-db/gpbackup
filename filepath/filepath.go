@@ -112,8 +112,8 @@ func (backupFPInfo *FilePathInfo) GetBackupFilePath(filetype string) string {
 }
 
 func (backupFPInfo *FilePathInfo) GetBackupHistoryFilePath() string {
-	masterDataDirectoryPath := backupFPInfo.SegDirMap[-1]
-	return path.Join(masterDataDirectoryPath, "gpbackup_history.yaml")
+	coordinatorDataDirectoryPath := backupFPInfo.SegDirMap[-1]
+	return path.Join(coordinatorDataDirectoryPath, "gpbackup_history.yaml")
 }
 
 func (backupFPInfo *FilePathInfo) GetMetadataFilePath() string {
@@ -194,18 +194,18 @@ func ParseSegPrefix(backupDir string) (string, error) {
 		return "", nil
 	}
 
-	backupDirForMaster, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups", backupDir))
+	backupDirForCoordinator, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups", backupDir))
 	if err != nil {
-		return "", fmt.Errorf("Failure while trying to locate master backup directory in %s. Error: %s", backupDir, err.Error())
+		return "", fmt.Errorf("Failure while trying to locate backup directory in %s. Error: %s", backupDir, err.Error())
 	}
-	if len(backupDirForMaster) == 0 {
-		return "", fmt.Errorf("Master backup directory in %s missing", backupDir)
+	if len(backupDirForCoordinator) == 0 {
+		return "", fmt.Errorf("Backup directory in %s missing", backupDir)
 	}
-	if len(backupDirForMaster) != 1 {
-		return "", fmt.Errorf("Multiple master backup directories in %s", backupDir)
+	if len(backupDirForCoordinator) != 1 {
+		return "", fmt.Errorf("Multiple backup directories in %s", backupDir)
 	}
-	indexOfBackupsSubstr := strings.LastIndex(backupDirForMaster[0], "-1/backups")
-	_, segPrefix := path.Split(backupDirForMaster[0][:indexOfBackupsSubstr])
+	indexOfBackupsSubstr := strings.LastIndex(backupDirForCoordinator[0], "-1/backups")
+	_, segPrefix := path.Split(backupDirForCoordinator[0][:indexOfBackupsSubstr])
 
 	return segPrefix, nil
 }

@@ -6,7 +6,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/blang/vfs v1.0.0
-	github.com/greenplum-db/gp-common-go-libs v1.0.8
+	github.com/greenplum-db/gp-common-go-libs v1.0.10
 	github.com/jackc/pgconn v1.10.1
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/klauspost/compress v1.14.1

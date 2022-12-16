@@ -44,7 +44,7 @@ rm -rf /home/gpadmin/bucket && mkdir /home/gpadmin/bucket
 gcsfuse --implicit-dirs dp-gpbackup-scale-test-data /home/gpadmin/bucket
 
 
-# Double the vmem protect limit default on the master segment to
+# Double the vmem protect limit default on the coordinator segment to
 # prevent query cancels on large table creations (e.g. scale_db1.sql)
 gpconfig -c gp_vmem_protect_limit -v 16384 --masteronly
 gpconfig -c client_min_messages -v error
@@ -298,7 +298,7 @@ echo "RESULTS_LOG_FILE: \$RESULTS_LOG_FILE"
 (time gpbackup --dbname scaletestdb --include-schema big --backup-dir /data/gpdata --jobs=16 ) > \$RESULTS_LOG_FILE 2>&1 &
 echo "Backup initiated in the background."
 # check log for lock acquisition before proceeding
-set +e # turn off exit on error so grep doesn't kill the whole script
+set +e # turn off exit on error so grep doesn't halt the whole script
 TIMEOUT_COUNTER=0
 while true
 do
@@ -378,7 +378,7 @@ echo "## Performing backup with high number of jobs on cluster with high-concurr
 rm -f $RESULTS_LOG_FILE
 (time gpbackup --dbname newscaletestdb --include-schema big --backup-dir /data/gpdata --jobs=32 ) > \$RESULTS_LOG_FILE 2>&1 &
 # check log for lock acquisition before proceeding
-set +e set +e # turn off exit on error so grep doesn't kill the whole script
+set +e set +e # turn off exit on error so grep doesn't halt the whole script
 TIMEOUT_COUNTER=0
 while true
 do

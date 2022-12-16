@@ -261,7 +261,7 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 
 		return fmt.Sprintf("! ls %s && ! ls %s && ! ls %s && ! ls %s*", errorFile, oidFile, scriptFile, pipeFile)
 	}
-	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS|cluster.INCLUDE_MASTER, cleanupFunc)
+	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS|cluster.INCLUDE_COORDINATOR, cleanupFunc)
 	if remoteOutput.NumErrors != 0 {
 		Fail(fmt.Sprintf("Helper files found for timestamp %s", timestamp))
 	}
@@ -426,7 +426,7 @@ var _ = BeforeSuite(func() {
 	} else {
 		remoteOutput := backupCluster.GenerateAndExecuteCommand(
 			"Creating filespace test directories on all hosts",
-			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 			func(contentID int) string {
 				return fmt.Sprintf("mkdir -p /tmp/test_dir && mkdir -p /tmp/test_dir1 && mkdir -p /tmp/test_dir2")
 			})
@@ -466,7 +466,7 @@ var _ = AfterSuite(func() {
 			"-c", "DROP TABLESPACE test_tablespace").Run()
 		remoteOutput := backupCluster.GenerateAndExecuteCommand(
 			"Removing /tmp/test_dir* directories on all hosts",
-			cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+			cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 			func(contentID int) string {
 				return fmt.Sprintf("rm -rf /tmp/test_dir*")
 			})
@@ -1649,7 +1649,7 @@ LANGUAGE plpgsql NO SQL;`)
 		// TODO: This test fails intermittently in Concourse due to issues with gpbackup_helper hanging when it is unable
 		// to open a pipe.  We've been unable to reproduce the issue on local machines, despite testing a variety of OSes
 		// and such, and the current Concourse setup makes debugging difficult and the use of dlv impossible.
-		// In order to avoid flakes, and to save resources, the current plan is to just kill gprestore with a goroutine
+		// In order to avoid flakes, and to save resources, the current plan is to just stop gprestore with a goroutine
 		// to end the test if it takes too long, treating that scenario as a skipped test and leaving actual failures alone.
 		DescribeTable("",
 			func(fullTimestamp string, incrementalTimestamp string, tarBaseName string, isIncrementalRestore bool, isFilteredRestore bool, isSingleDataFileRestore bool) {
@@ -1683,7 +1683,7 @@ LANGUAGE plpgsql NO SQL;`)
 					}
 				}
 
-				// This block kills the test if it hangs, and can be removed when the above TODO is addressed.
+				// This block stops the test if it hangs, and can be removed when the above TODO is addressed.
 				completed := make(chan bool)
 				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
 				go func() {
@@ -1697,7 +1697,7 @@ LANGUAGE plpgsql NO SQL;`)
 							time.Sleep(time.Minute)
 						}
 					}
-					// If we get here, this test is hanging, kill the processes.
+					// If we get here, this test is hanging, stop the processes.
 					// If the test succeeded or failed, we'll return before here.
 					_ = exec.Command("pkill", "-9", "gpbackup_helper").Run()
 					_ = exec.Command("pkill", "-9", "gprestore").Run()
@@ -1827,7 +1827,7 @@ LANGUAGE plpgsql NO SQL;`)
 					fmt.Println(string(output))
 					Expect(err).ToNot(HaveOccurred())
 
-					// check row counts on each segment and on master, expecting 1 table with 100 rows, replicated across all
+					// check row counts on each segment and on coordinator, expecting 1 table with 100 rows, replicated across all
 					for _, seg := range backupCluster.Segments {
 						if seg.ContentID != -1 {
 							assertSegmentDataRestored(seg.ContentID, "schemaone.test_table", 100)
@@ -1853,7 +1853,7 @@ LANGUAGE plpgsql NO SQL;`)
 				Skip("This test is not needed for old backup versions")
 			}
 			// This backup set is identical to the 5-segment-db-tar.gz backup set, except that the
-			// segmentcount parameter was removed from the config file in the master data directory.
+			// segmentcount parameter was removed from the config file in the coordinator data directory.
 			command := exec.Command("tar", "-xzf", "resources/no-segment-count-db.tar.gz", "-C", backupDir)
 			mustRunCommand(command)
 

@@ -447,7 +447,7 @@ func DoCleanup(backupFailed bool) {
 			// If the terminate query is sent via a connection with an active COPY command, and the COPY's pipe is cleaned up, the COPY query will hang.
 			// This results in the DoCleanup function passed to the signal handler to never return, blocking the os.Exit call
 			if wasTerminated {
-				// It is possible for the COPY command to become orphaned if an agent process is killed
+				// It is possible for the COPY command to become orphaned if an agent process is stopped 
 				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, fmt.Sprintf("gpbackup_%s", globalFPInfo.Timestamp))
 			}
 			if backupFailed {

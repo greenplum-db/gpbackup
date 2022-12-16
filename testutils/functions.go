@@ -121,15 +121,15 @@ func SetupTestDBConnSegment(dbname string, port int, gpVersion dbconn.GPDBVersio
 }
 
 func SetDefaultSegmentConfiguration() *cluster.Cluster {
-	configMaster := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
+	configCoordinator := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
 	configSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "gpseg0"}
 	configSegTwo := cluster.SegConfig{ContentID: 1, Hostname: "localhost", DataDir: "gpseg1"}
-	return cluster.NewCluster([]cluster.SegConfig{configMaster, configSegOne, configSegTwo})
+	return cluster.NewCluster([]cluster.SegConfig{configCoordinator, configSegOne, configSegTwo})
 }
 
 func SetupTestFilespace(connectionPool *dbconn.DBConn, testCluster *cluster.Cluster) {
 	remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directory",
-		cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+		cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 		func(contentID int) string {
 			return fmt.Sprintf("mkdir -p /tmp/test_dir")
 		})

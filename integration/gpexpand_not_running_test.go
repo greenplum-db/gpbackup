@@ -23,13 +23,13 @@ var _ = Describe("gpexpand_sensor", func() {
 	})
 
 	It("should prevent gprestore from starting when gpexpand is in phase 1", func() {
-		masterDataDir, err := dbconn.SelectString(connectionPool, utils.MasterDataDirQuery)
+		coordinatorDataDir, err := dbconn.SelectString(connectionPool, utils.CoordinatorDataDirQuery)
 		if err != nil {
-			Fail("cannot get master data dir from db")
+			Fail("cannot get coordinator data dir from db")
 		}
 
 		// SIMULATE that gpexpand is running by creating its status file
-		path := filepath.Join(masterDataDir, utils.GpexpandStatusFilename)
+		path := filepath.Join(coordinatorDataDir, utils.GpexpandStatusFilename)
 		oidFp := iohelper.MustOpenFileForWriting(path)
 		err = oidFp.Close()
 		Expect(err).ToNot(HaveOccurred())
@@ -58,13 +58,13 @@ var _ = Describe("gpexpand_sensor", func() {
 		restore.DoSetup()
 	})
 	It("should prevent gpbackup from starting when gpexpand is in phase 1", func() {
-		masterDataDir, err := dbconn.SelectString(connectionPool, utils.MasterDataDirQuery)
+		coordinatorDataDir, err := dbconn.SelectString(connectionPool, utils.CoordinatorDataDirQuery)
 		if err != nil {
-			Fail("cannot get master data dir from db")
+			Fail("cannot get coordinator data dir from db")
 		}
 
 		// SIMULATE that gpexpand is running by creating its status file
-		path := filepath.Join(masterDataDir, utils.GpexpandStatusFilename)
+		path := filepath.Join(coordinatorDataDir, utils.GpexpandStatusFilename)
 		oidFp := iohelper.MustOpenFileForWriting(path)
 		err = oidFp.Close()
 		Expect(err).ToNot(HaveOccurred())

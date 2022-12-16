@@ -51,7 +51,7 @@ func AddTableDataEntriesToTOC(tables []Table, rowsCopiedMaps []map[uint32]int64)
 				}
 			}
 			attributes := ConstructTableAttributesList(table.ColumnDefs)
-			globalTOC.AddMasterDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, table.PartitionLevelInfo.RootName, table.DistPolicy)
+			globalTOC.AddCoordinatorDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, table.PartitionLevelInfo.RootName, table.DistPolicy)
 		}
 	}
 }
@@ -144,7 +144,7 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	rowsCopiedMaps := make([]map[uint32]int64, connectionPool.NumConns)
 	/*
 	 * We break when an interrupt is received and rely on
-	 * TerminateHangingCopySessions to kill any COPY statements
+	 * TerminateHangingCopySessions to halt any COPY statements
 	 * in progress if they don't finish on their own.
 	 */
 	tasks := make(chan Table, len(tables))
@@ -337,7 +337,9 @@ func GetBackupDataSet(tables []Table) ([]Table, int64) {
 // the lock, the call will fail instead of block. Return the failure for handling.
 func LockTableNoWait(dataTable Table, connNum int) error {
 	var lockMode string
-	if connectionPool.Version.AtLeast("6.21.0") {
+	if connectionPool.Version.AtLeast("7") {
+		lockMode = `IN ACCESS SHARE MODE NOWAIT COORDINATOR ONLY`
+	} else if connectionPool.Version.AtLeast("6.21.0") {
 		lockMode = `IN ACCESS SHARE MODE NOWAIT MASTER ONLY`
 	} else {
 		lockMode = `IN ACCESS SHARE MODE NOWAIT`

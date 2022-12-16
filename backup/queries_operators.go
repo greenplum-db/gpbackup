@@ -75,7 +75,7 @@ func GetOperators(connectionPool *dbconn.DBConn) []Operator {
 		JOIN pg_namespace n on n.oid = o.oprnamespace
 	WHERE %s AND oprcode != 0`, SchemaFilterClause("n"))
 
-	masterQuery := fmt.Sprintf(`
+	coordinatorQuery := fmt.Sprintf(`
 	SELECT o.oid AS oid,
 		quote_ident(n.nspname) AS schema,
 		oprname AS name,
@@ -97,7 +97,7 @@ func GetOperators(connectionPool *dbconn.DBConn) []Operator {
 	if connectionPool.Version.Before("5") {
 		err = connectionPool.Select(&results, version4query)
 	} else {
-		err = connectionPool.Select(&results, masterQuery)
+		err = connectionPool.Select(&results, coordinatorQuery)
 	}
 	gplog.FatalOnError(err)
 	return results
@@ -208,7 +208,7 @@ func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 		JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
 	WHERE %s`, SchemaFilterClause("cls_ns"))
 
-	masterQuery := fmt.Sprintf(`
+	coordinatorQuery := fmt.Sprintf(`
 	SELECT c.oid AS oid,
 		quote_ident(cls_ns.nspname) AS schema,
 		quote_ident(opcname) AS name,
@@ -230,7 +230,7 @@ func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 	if connectionPool.Version.Before("5") {
 		err = connectionPool.Select(&results, version4query)
 	} else {
-		err = connectionPool.Select(&results, masterQuery)
+		err = connectionPool.Select(&results, coordinatorQuery)
 	}
 	gplog.FatalOnError(err)
 
@@ -275,7 +275,7 @@ func GetOperatorClassOperators(connectionPool *dbconn.DBConn) map[uint32][]Opera
 		AND classid = 'pg_catalog.pg_amop'::pg_catalog.regclass
 	ORDER BY amopstrategy`)
 
-	masterQuery := fmt.Sprintf(`
+	coordinatorQuery := fmt.Sprintf(`
 	SELECT refobjid AS classoid,
 		amopstrategy AS strategynumber,
 		amopopr::pg_catalog.regoperator AS operator,
@@ -293,7 +293,7 @@ func GetOperatorClassOperators(connectionPool *dbconn.DBConn) map[uint32][]Opera
 	} else if connectionPool.Version.Before("6") {
 		err = connectionPool.Select(&results, version5query)
 	} else {
-		err = connectionPool.Select(&results, masterQuery)
+		err = connectionPool.Select(&results, coordinatorQuery)
 	}
 	gplog.FatalOnError(err)
 
@@ -321,7 +321,7 @@ func GetOperatorClassFunctions(connectionPool *dbconn.DBConn) map[uint32][]Opera
 	FROM pg_catalog.pg_amproc
 	ORDER BY amprocnum`)
 
-	masterQuery := fmt.Sprintf(`
+	coordinatorQuery := fmt.Sprintf(`
 	SELECT refobjid AS classoid,
 		amprocnum AS supportnumber,
 		amproclefttype::regtype,
@@ -337,7 +337,7 @@ func GetOperatorClassFunctions(connectionPool *dbconn.DBConn) map[uint32][]Opera
 	if connectionPool.Version.Before("5") {
 		err = connectionPool.Select(&results, version4query)
 	} else {
-		err = connectionPool.Select(&results, masterQuery)
+		err = connectionPool.Select(&results, coordinatorQuery)
 	}
 	gplog.FatalOnError(err)
 

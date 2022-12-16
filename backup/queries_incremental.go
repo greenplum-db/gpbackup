@@ -88,7 +88,7 @@ func getAOSegTableFQNs(connectionPool *dbconn.DBConn) map[string]string {
 func getModCount(connectionPool *dbconn.DBConn, aosegtablefqn string) int64 {
 	var modCountQuery string
 	if connectionPool.Version.AtLeast("7") {
-		// In GPDB 7+, the master no longer stores AO segment data so we must
+		// In GPDB 7+, the coordinator no longer stores AO segment data so we must
 		// query the modcount from the segments. Unfortunately, this does give a
 		// false positive if a VACUUM FULL compaction happens on the AO table.
 		modCountQuery = fmt.Sprintf(`

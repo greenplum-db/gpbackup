@@ -172,10 +172,10 @@ DISTRIBUTED RANDOMLY;`)
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
-			It("prints a CREATE block for a table with EXECUTE ON MASTER", func() {
-				extTableDef.ExecLocation = "MASTER_ONLY"
+			It("prints a CREATE block for a table with EXECUTE ON COORDINATOR", func() {
+				extTableDef.ExecLocation = "COORDINATOR_ONLY"
 				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
-				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON MASTER
+				testhelper.ExpectRegexp(buffer, `EXECUTE 'hostname' ON COORDINATOR
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
@@ -231,15 +231,15 @@ ENCODING 'UTF-8'`)
 				extTableDef.URIs = []string{"file://host:port/path/file"}
 			})
 
-			It("prints a CREATE block for an S3 table with ON MASTER", func() {
+			It("prints a CREATE block for an S3 table with ON COORDINATOR", func() {
 				extTableDef.Protocol = backup.S3
 				extTableDef.Location = sql.NullString{String: "s3://s3_endpoint:port/bucket_name/s3_prefix", Valid: true}
 				extTableDef.URIs = []string{"s3://s3_endpoint:port/bucket_name/s3_prefix"}
-				extTableDef.ExecLocation = "MASTER_ONLY"
+				extTableDef.ExecLocation = "COORDINATOR_ONLY"
 				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
 				testhelper.ExpectRegexp(buffer, `LOCATION (
 	's3://s3_endpoint:port/bucket_name/s3_prefix'
-) ON MASTER
+) ON COORDINATOR
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})

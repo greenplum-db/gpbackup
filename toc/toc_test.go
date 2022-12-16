@@ -195,11 +195,11 @@ var _ = Describe("utils/toc tests", func() {
 	})
 	Describe("GetDataEntriesMatching", func() {
 		BeforeEach(func() {
-			tocfile.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0, "", "")
-			tocfile.AddMasterDataEntry("schema2", "table2", 1, "(i)", 0, "", "")
-			tocfile.AddMasterDataEntry("schema3", "table3", 1, "(i)", 0, "", "")
-			tocfile.AddMasterDataEntry("schema3", "table3_partition1", 1, "(i)", 0, "table3", "")
-			tocfile.AddMasterDataEntry("schema3", "table3_partition2", 1, "(i)", 0, "table3", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "table1", 1, "(i)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("schema2", "table2", 1, "(i)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("schema3", "table3", 1, "(i)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("schema3", "table3_partition1", 1, "(i)", 0, "table3", "")
+			tocfile.AddCoordinatorDataEntry("schema3", "table3_partition2", 1, "(i)", 0, "table3", "")
 		})
 		Context("Non-empty restore plan", func() {
 			restorePlanTableFQNs := []string{"schema1.table1", "schema2.table2", "schema3.table3", "schema3.table3_partition1", "schema3.table3_partition2"}
@@ -211,7 +211,7 @@ var _ = Describe("utils/toc tests", func() {
 					[]string{}, []string{}, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(Equal(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"},
 					},
 				))
@@ -223,7 +223,7 @@ var _ = Describe("utils/toc tests", func() {
 					[]string{}, []string{}, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(ConsistOf(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3_partition1", Oid: 1, AttributeString: "(i)", PartitionRoot: "table3"},
@@ -238,7 +238,7 @@ var _ = Describe("utils/toc tests", func() {
 					includeTables, []string{}, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(Equal(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)"},
 					},
 				))
@@ -250,7 +250,7 @@ var _ = Describe("utils/toc tests", func() {
 					[]string{}, excludeTables, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(ConsistOf(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3_partition1", Oid: 1, AttributeString: "(i)", PartitionRoot: "table3"},
@@ -263,7 +263,7 @@ var _ = Describe("utils/toc tests", func() {
 					[]string{}, []string{}, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(ConsistOf(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema2", Name: "table2", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
@@ -279,7 +279,7 @@ var _ = Describe("utils/toc tests", func() {
 					includeTables, []string{}, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(ConsistOf(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema3", Name: "table3", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3_partition1", Oid: 1, AttributeString: "(i)", PartitionRoot: "table3"},
 						{Schema: "schema3", Name: "table3_partition2", Oid: 1, AttributeString: "(i)", PartitionRoot: "table3"},
@@ -294,7 +294,7 @@ var _ = Describe("utils/toc tests", func() {
 					includeTables, []string{}, customRestorePlanTableFQNs)
 
 				Expect(matchingEntries).To(ConsistOf(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema3", Name: "table3", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3_partition1", Oid: 1, AttributeString: "(i)", PartitionRoot: "table3"},
 					},
@@ -307,7 +307,7 @@ var _ = Describe("utils/toc tests", func() {
 					[]string{}, excludeTables, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(Equal(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema2", Name: "table2", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 					},
@@ -320,7 +320,7 @@ var _ = Describe("utils/toc tests", func() {
 					[]string{}, excludeTables, restorePlanTableFQNs)
 
 				Expect(matchingEntries).To(Equal(
-					[]toc.MasterDataEntry{
+					[]toc.CoordinatorDataEntry{
 						{Schema: "schema1", Name: "table1", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema2", Name: "table2", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
 						{Schema: "schema3", Name: "table3", Oid: 1, AttributeString: "(i)", PartitionRoot: ""},
@@ -400,22 +400,22 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 	})
 	Describe("GetIncludedPartitionRoots", func() {
 		It("does not return anything if relations are not leaf partitions", func() {
-			tocfile.AddMasterDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
-			tocfile.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
 			roots := toc.GetIncludedPartitionRoots(tocfile.DataEntries, []string{"schema0.name0", "schema1.name1"})
 			Expect(roots).To(BeEmpty())
 		})
 		It("returns root parition of leaf partitions", func() {
-			tocfile.AddMasterDataEntry("schema0", "name0", 2, "attribute0", 1, "root0", "")
-			tocfile.AddMasterDataEntry("schema1", "name1", 3, "attribute0", 1, "root1", "")
+			tocfile.AddCoordinatorDataEntry("schema0", "name0", 2, "attribute0", 1, "root0", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "name1", 3, "attribute0", 1, "root1", "")
 			roots := toc.GetIncludedPartitionRoots(tocfile.DataEntries, []string{"schema0.name0", "schema1.name1"})
 			Expect(roots).To(ConsistOf("schema0.root0", "schema1.root1"))
 		})
 		It("only returns root partitions of leaf partitions", func() {
-			tocfile.AddMasterDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
-			tocfile.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
-			tocfile.AddMasterDataEntry("schema2", "name2", 2, "attribute0", 1, "root2", "")
-			tocfile.AddMasterDataEntry("schema3", "name3", 3, "attribute0", 1, "root3", "")
+			tocfile.AddCoordinatorDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema2", "name2", 2, "attribute0", 1, "root2", "")
+			tocfile.AddCoordinatorDataEntry("schema3", "name3", 3, "attribute0", 1, "root3", "")
 			roots := toc.GetIncludedPartitionRoots(tocfile.DataEntries, []string{"schema2.name2", "schema3.name3"})
 			Expect(roots).To(ConsistOf("schema2.root2", "schema3.root3"))
 		})
@@ -424,18 +424,18 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 			Expect(roots).To(BeEmpty())
 		})
 		It("returns nothing if relation is not part of TOC data entries", func() {
-			tocfile.AddMasterDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
-			tocfile.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
-			tocfile.AddMasterDataEntry("schema2", "name2", 2, "attribute0", 1, "root2", "")
-			tocfile.AddMasterDataEntry("schema3", "name3", 3, "attribute0", 1, "root3", "")
+			tocfile.AddCoordinatorDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema2", "name2", 2, "attribute0", 1, "root2", "")
+			tocfile.AddCoordinatorDataEntry("schema3", "name3", 3, "attribute0", 1, "root3", "")
 			roots := toc.GetIncludedPartitionRoots(tocfile.DataEntries, []string{"schema4.name4", "schema5.name5"})
 			Expect(roots).To(BeEmpty())
 		})
 		It("returns empty if no relations are passed in", func() {
-			tocfile.AddMasterDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
-			tocfile.AddMasterDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
-			tocfile.AddMasterDataEntry("schema2", "name2", 2, "attribute0", 1, "root2", "")
-			tocfile.AddMasterDataEntry("schema3", "name3", 3, "attribute0", 1, "root3", "")
+			tocfile.AddCoordinatorDataEntry("schema0", "name0", 0, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "name1", 1, "attribute0", 1, "", "")
+			tocfile.AddCoordinatorDataEntry("schema2", "name2", 2, "attribute0", 1, "root2", "")
+			tocfile.AddCoordinatorDataEntry("schema3", "name3", 3, "attribute0", 1, "root3", "")
 			roots := toc.GetIncludedPartitionRoots(tocfile.DataEntries, []string{})
 			Expect(roots).To(BeEmpty())
 		})

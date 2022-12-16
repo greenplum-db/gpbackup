@@ -15,7 +15,7 @@ ssh -t mdw "bash  /home/gpadmin/generate_backup_artifact.bash"
 
 scp mdw:/tmp/regression_dump.sql.xz artifacts/
 
-# combine gpbackup's separate tarballs for master and segments
+# combine gpbackup's separate tarballs for coordinator and segments
 ssh -t sdw1 "pushd /tmp ; tar czvf backup_artifact.tar.gz backup_artifact ; popd"
 mkdir /tmp/gpbackup_allsegments
 scp mdw:/tmp/backup_artifact.tar.gz  /tmp/gpbackup_allsegments/gpbackup_mdw.tar.gz

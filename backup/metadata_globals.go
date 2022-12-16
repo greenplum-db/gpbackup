@@ -12,7 +12,7 @@ import (
 
 /*
  * This file contains structs and functions related to backing up global cluster
- * metadata on the master that needs to be restored before data is restored,
+ * metadata on the coordinator that needs to be restored before data is restored,
  * such as roles and database configuration.
  */
 

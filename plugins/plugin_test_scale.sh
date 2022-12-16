@@ -46,10 +46,10 @@ test_backup_and_restore_with_plugin() {
 
     if [[ "$plugin" == *gpbackup_ddboost_plugin ]]; then
       # save the encrypt key file, if it exists
-      if [ -f "$MASTER_DATA_DIRECTORY/.encrypt" ] ; then
-          mv $MASTER_DATA_DIRECTORY/.encrypt /tmp/.encrypt_saved
+      if [ -f "$COORDINATOR_DATA_DIRECTORY/.encrypt" ] ; then
+          mv $COORDINATOR_DATA_DIRECTORY/.encrypt /tmp/.encrypt_saved
       fi
-      echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $MASTER_DATA_DIRECTORY/.encrypt
+      echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $COORDINATOR_DATA_DIRECTORY/.encrypt
     fi
 
     # Run gpbackup and get return code for error check later
@@ -113,7 +113,7 @@ test_backup_and_restore_with_plugin() {
 
     # replace the encrypt key file to its proper location
     if [ -f "/tmp/.encrypt_saved" ] ; then
-        mv /tmp/.encrypt_saved $MASTER_DATA_DIRECTORY/.encrypt
+        mv /tmp/.encrypt_saved $COORDINATOR_DATA_DIRECTORY/.encrypt
     fi
 
     # Call plugin delete_backup to clean up. This step is important so

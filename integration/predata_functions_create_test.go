@@ -171,7 +171,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testutils.SkipIfBefore6(connectionPool)
 			})
 			funcMetadata := backup.ObjectMetadata{}
-			It("creates a window function to execute on master", func() {
+			It("creates a window function to execute on coordinator", func() {
 				windowFunction := backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
@@ -215,7 +215,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					segmentFunction.Kind = "f"
 					segmentFunction.Parallel = "u"
 
-					// GPDB7 only allows set-returning functions to execute on master
+					// GPDB7 only allows set-returning functions to execute on coordinator
 					segmentFunction.ReturnsSet = true
 					segmentFunction.NumRows = 1000
 					segmentFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}

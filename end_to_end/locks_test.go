@@ -127,7 +127,7 @@ var _ = Describe("Deadlock handling", func() {
 		output, _ := cmd.CombinedOutput()
 		stdout := string(output)
 
-		// Sanity check that 10 deadlock traps were placed during the test
+		// Check that 10 deadlock traps were placed during the test
 		Expect(accessExclBlockedLockCount).To(Equal(10))
 		// No non-main worker should have been able to run COPY due to deadlock detection
 		for i := 1; i < 10; i++ {
@@ -257,7 +257,7 @@ var _ = Describe("Deadlock handling", func() {
 		output, _ := cmd.CombinedOutput()
 		stdout := string(output)
 
-		// Sanity check that 10 deadlock traps were placed during the test
+		// Check that 10 deadlock traps were placed during the test
 		Expect(accessExclBlockedLockCount).To(Equal(10))
 		// No non-main worker should have been able to run COPY due to deadlock detection
 		for i := 1; i < 2; i++ {
@@ -389,7 +389,7 @@ var _ = Describe("Deadlock handling", func() {
 		output, _ := cmd.CombinedOutput()
 		stdout := string(output)
 
-		// Sanity check that 2 deadlock traps were placed during the test
+		// Check that 2 deadlock traps were placed during the test
 		Expect(accessExclBlockedLockCount).To(Equal(2))
 		// No non-main worker should have been able to run COPY due to deadlock detection
 		for i := 1; i < backupConn.NumConns; i++ {

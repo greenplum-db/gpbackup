@@ -54,7 +54,7 @@ var _ = Describe("backup/data tests", func() {
 		It("adds an entry for a regular table to the TOC", func() {
 			tables := []backup.Table{table}
 			backup.AddTableDataEntriesToTOC(tables, rowsCopiedMaps)
-			expectedDataEntries := []toc.MasterDataEntry{{Schema: "public", Name: "table", Oid: 1, AttributeString: "(a)"}}
+			expectedDataEntries := []toc.CoordinatorDataEntry{{Schema: "public", Name: "table", Oid: 1, AttributeString: "(a)"}}
 			Expect(tocfile.DataEntries).To(Equal(expectedDataEntries))
 		})
 		It("does not add an entry for an external table to the TOC", func() {
