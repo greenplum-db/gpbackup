@@ -171,11 +171,11 @@ resources:
       bucket: ((dp/tf-bucket-name))
       bucket_path: clusters-google/
 
-# - name: slack-alert
-#   type: slack-notification
-#   source:
-#     url: ((dp/webhook_url))
-#     disable: false
+- name: slack-alert
+  type: slack-notification
+  source:
+    url: ((dp/webhook_url))
+    disable: false
 
 - name: gpbackup-go-components
   type: s3
