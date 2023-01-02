@@ -58,12 +58,12 @@ cleanup_test_dir() {
 
   testdir_to_clean=$1
 
-  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean master \"-1\"
+  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean coordinator \"-1\"
   $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment_host
   $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment \"0\"
   echo "[PASSED - CLEANUP] cleanup_plugin_for_backup"
 
-  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean master \"-1\"
+  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean coordinator \"-1\"
   $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment_host
   $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment \"0\"
   echo "[PASSED - CLEANUP] cleanup_plugin_for_restore"
@@ -99,8 +99,8 @@ echo "[PASSED] --version"
 # Setup and Backup/Restore file functions
 # ----------------------------------------------
 
-echo "[RUNNING] setup_plugin_for_backup on master"
-$plugin setup_plugin_for_backup $plugin_config $testdir master \"-1\"
+echo "[RUNNING] setup_plugin_for_backup on coordinator"
+$plugin setup_plugin_for_backup $plugin_config $testdir coordinator \"-1\"
 echo "[RUNNING] setup_plugin_for_backup on segment_host"
 $plugin setup_plugin_for_backup $plugin_config $testdir segment_host
 echo "[RUNNING] setup_plugin_for_backup on segment 0"
@@ -111,8 +111,8 @@ $plugin backup_file $plugin_config $testfile
 # plugins should leave copies of the files locally when they run backup_file
 test -f $testfile
 
-echo "[RUNNING] setup_plugin_for_restore on master"
-$plugin setup_plugin_for_restore $plugin_config $testdir master \"-1\"
+echo "[RUNNING] setup_plugin_for_restore on coordinator"
+$plugin setup_plugin_for_restore $plugin_config $testdir coordinator \"-1\"
 echo "[RUNNING] setup_plugin_for_restore on segment_host"
 $plugin setup_plugin_for_restore $plugin_config $testdir segment_host
 echo "[RUNNING] setup_plugin_for_restore on segment 0"
@@ -272,7 +272,7 @@ echo $text > $testfile_for_del2
 echo "[RUNNING] delete_backup"
 
 # first backup
-$plugin setup_plugin_for_backup $plugin_config $testdir_for_del master \"-1\"
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del coordinator \"-1\"
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment_host
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment \"0\"
 
@@ -280,7 +280,7 @@ echo $data | $plugin backup_data $plugin_config $testdata_for_del
 $plugin backup_file $plugin_config $testfile_for_del
 
 # second backup
-$plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 master \"-1\"
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 coordinator \"-1\"
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment_host
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment \"0\"
 
@@ -350,7 +350,7 @@ if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboos
     mkdir -p $testdir_for_repl
 
     echo "[RUNNING] backup_data without replication to replicate later"
-    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl master \"-1\"
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl coordinator \"-1\"
     $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment_host
     $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment \"0\"
 
@@ -415,10 +415,10 @@ test_backup_and_restore_with_plugin() {
 
     set +e
     # save the encrypt key file, if it exists
-    if [ -f "$MASTER_DATA_DIRECTORY/.encrypt" ] ; then
-        mv $MASTER_DATA_DIRECTORY/.encrypt /tmp/.encrypt_saved
+    if [ -f "$COORDINATOR_DATA_DIRECTORY/.encrypt" ] ; then
+        mv $COORDINATOR_DATA_DIRECTORY/.encrypt /tmp/.encrypt_saved
     fi
-    echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $MASTER_DATA_DIRECTORY/.encrypt
+    echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $COORDINATOR_DATA_DIRECTORY/.encrypt
 
     echo "[RUNNING] gpbackup with test database (using ${flags} ${flags_restore})"
     gpbackup --dbname $test_db --plugin-config $plugin_config $flags &> $log_file
@@ -480,7 +480,7 @@ test_backup_and_restore_with_plugin() {
     fi
     # replace the encrypt key file to its proper location
     if [ -f "/tmp/.encrypt_saved" ] ; then
-        mv /tmp/.encrypt_saved $MASTER_DATA_DIRECTORY/.encrypt
+        mv /tmp/.encrypt_saved $COORDINATOR_DATA_DIRECTORY/.encrypt
     fi
     set -e
     echo "[PASSED] gpbackup and gprestore (using ${flags})"
