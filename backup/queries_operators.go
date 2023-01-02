@@ -59,7 +59,7 @@ func (o Operator) FQN() string {
 
 func GetOperators(connectionPool *dbconn.DBConn) []Operator {
 	results := make([]Operator, 0)
-	version4query := fmt.Sprintf(`
+	before5Query := fmt.Sprintf(`
 	SELECT o.oid AS oid,
 		quote_ident(n.nspname) AS schema,
 		oprname AS name,
@@ -75,7 +75,7 @@ func GetOperators(connectionPool *dbconn.DBConn) []Operator {
 		JOIN pg_namespace n on n.oid = o.oprnamespace
 	WHERE %s AND oprcode != 0`, SchemaFilterClause("n"))
 
-	coordinatorQuery := fmt.Sprintf(`
+	atLeast5Query := fmt.Sprintf(`
 	SELECT o.oid AS oid,
 		quote_ident(n.nspname) AS schema,
 		oprname AS name,
@@ -93,12 +93,14 @@ func GetOperators(connectionPool *dbconn.DBConn) []Operator {
 	WHERE %s AND oprcode != 0
 		AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("o"))
 
-	var err error
+	query := ""
 	if connectionPool.Version.Before("5") {
-		err = connectionPool.Select(&results, version4query)
+		query = before5Query
 	} else {
-		err = connectionPool.Select(&results, coordinatorQuery)
+		query = atLeast5Query
 	}
+
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }
@@ -194,7 +196,7 @@ func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 	 * PrintCreateOperatorClassStatement to not print FAMILY if the class and
 	 * family have the same schema and name will work for both versions.
 	 */
-	version4query := fmt.Sprintf(`
+	before5Query := fmt.Sprintf(`
 	SELECT c.oid AS oid,
 		quote_ident(cls_ns.nspname) AS schema,
 		quote_ident(opcname) AS name,
@@ -208,7 +210,7 @@ func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 		JOIN pg_catalog.pg_namespace cls_ns ON cls_ns.oid = opcnamespace
 	WHERE %s`, SchemaFilterClause("cls_ns"))
 
-	coordinatorQuery := fmt.Sprintf(`
+	atLeast5Query := fmt.Sprintf(`
 	SELECT c.oid AS oid,
 		quote_ident(cls_ns.nspname) AS schema,
 		quote_ident(opcname) AS name,
@@ -226,12 +228,14 @@ func GetOperatorClasses(connectionPool *dbconn.DBConn) []OperatorClass {
 		AND %s`,
 		SchemaFilterClause("cls_ns"), ExtensionFilterClause("c"))
 
-	var err error
+	query := ""
 	if connectionPool.Version.Before("5") {
-		err = connectionPool.Select(&results, version4query)
+		query = before5Query
 	} else {
-		err = connectionPool.Select(&results, coordinatorQuery)
+		query = atLeast5Query
 	}
+
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
 	operators := GetOperatorClassOperators(connectionPool)
@@ -256,15 +260,15 @@ type OperatorClassOperator struct {
 
 func GetOperatorClassOperators(connectionPool *dbconn.DBConn) map[uint32][]OperatorClassOperator {
 	results := make([]OperatorClassOperator, 0)
-	version4query := fmt.Sprintf(`
+	before5Query := `
 	SELECT amopclaid AS classoid,
 		amopstrategy AS strategynumber,
 		amopopr::pg_catalog.regoperator AS operator,
 		amopreqcheck AS recheck
 	FROM pg_catalog.pg_amop
-	ORDER BY amopstrategy`)
+	ORDER BY amopstrategy`
 
-	version5query := fmt.Sprintf(`
+	version5Query := `
 	SELECT refobjid AS classoid,
 		amopstrategy AS strategynumber,
 		amopopr::pg_catalog.regoperator AS operator,
@@ -273,9 +277,9 @@ func GetOperatorClassOperators(connectionPool *dbconn.DBConn) map[uint32][]Opera
 		JOIN pg_catalog.pg_depend d ON d.objid = ao.oid
 	WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
 		AND classid = 'pg_catalog.pg_amop'::pg_catalog.regclass
-	ORDER BY amopstrategy`)
+	ORDER BY amopstrategy`
 
-	coordinatorQuery := fmt.Sprintf(`
+	atLeast6Query := `
 	SELECT refobjid AS classoid,
 		amopstrategy AS strategynumber,
 		amopopr::pg_catalog.regoperator AS operator,
@@ -286,15 +290,18 @@ func GetOperatorClassOperators(connectionPool *dbconn.DBConn) map[uint32][]Opera
 		LEFT JOIN pg_namespace ns ON ns.oid = opf.opfnamespace
 	WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
 		AND classid = 'pg_catalog.pg_amop'::pg_catalog.regclass
-	ORDER BY amopstrategy`)
-	var err error
+	ORDER BY amopstrategy`
+
+	query := ""
 	if connectionPool.Version.Before("5") {
-		err = connectionPool.Select(&results, version4query)
-	} else if connectionPool.Version.Before("6") {
-		err = connectionPool.Select(&results, version5query)
+		query = before5Query
+	} else if connectionPool.Version.Is("5") {
+		query = version5Query
 	} else {
-		err = connectionPool.Select(&results, coordinatorQuery)
+		query = atLeast6Query
 	}
+
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
 	operators := make(map[uint32][]OperatorClassOperator)
@@ -314,14 +321,14 @@ type OperatorClassFunction struct {
 
 func GetOperatorClassFunctions(connectionPool *dbconn.DBConn) map[uint32][]OperatorClassFunction {
 	results := make([]OperatorClassFunction, 0)
-	version4query := fmt.Sprintf(`
+	before5Query := `
 	SELECT amopclaid AS classoid,
 		amprocnum AS supportnumber,
 		amproc::regprocedure AS functionname
 	FROM pg_catalog.pg_amproc
-	ORDER BY amprocnum`)
+	ORDER BY amprocnum`
 
-	coordinatorQuery := fmt.Sprintf(`
+	atLeast5Query := `
 	SELECT refobjid AS classoid,
 		amprocnum AS supportnumber,
 		amproclefttype::regtype,
@@ -331,14 +338,16 @@ func GetOperatorClassFunctions(connectionPool *dbconn.DBConn) map[uint32][]Opera
 		JOIN pg_catalog.pg_depend d ON d.objid = ap.oid
 	WHERE refclassid = 'pg_catalog.pg_opclass'::pg_catalog.regclass
 		AND classid = 'pg_catalog.pg_amproc'::pg_catalog.regclass
-	ORDER BY amprocnum`)
+	ORDER BY amprocnum`
 
-	var err error
+	query := ""
 	if connectionPool.Version.Before("5") {
-		err = connectionPool.Select(&results, version4query)
+		query = before5Query
 	} else {
-		err = connectionPool.Select(&results, coordinatorQuery)
+		query = atLeast5Query
 	}
+
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
 	functions := make(map[uint32][]OperatorClassFunction)

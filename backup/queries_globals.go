@@ -518,8 +518,8 @@ func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 		WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
 		THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))`
 	}
-	
-	if connectionPool.Version.AtLeast("7"){
+
+	if connectionPool.Version.AtLeast("7") {
 		whereClause = fmt.Sprintf(`WHERE roleid >= %d`, FIRST_NORMAL_OBJECT_ID)
 	} else {
 		whereClause = ``
@@ -570,7 +570,7 @@ func (t Tablespace) FQN() string {
 }
 
 func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {
-	before6query := `
+	before6Query := `
 	SELECT t.oid,
 		quote_ident(t.spcname) AS tablespace,
 		quote_ident(f.fsname) AS filelocation
@@ -578,7 +578,7 @@ func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {
 		JOIN pg_filespace f ON t.spcfsoid = f.oid
 	WHERE spcname != 'pg_default'
 		AND spcname != 'pg_global'`
-	query := `
+	atLeast6Query := `
 	SELECT oid,
 		quote_ident(spcname) AS tablespace,
 		'''' || pg_catalog.pg_tablespace_location(oid)::text || '''' AS filelocation,
@@ -590,9 +590,9 @@ func GetTablespaces(connectionPool *dbconn.DBConn) []Tablespace {
 	results := make([]Tablespace, 0)
 	var err error
 	if connectionPool.Version.Before("6") {
-		err = connectionPool.Select(&results, before6query)
+		err = connectionPool.Select(&results, before6Query)
 	} else {
-		err = connectionPool.Select(&results, query)
+		err = connectionPool.Select(&results, atLeast6Query)
 		for i := 0; i < len(results); i++ {
 			results[i].SegmentLocations = GetSegmentTablespaces(connectionPool, results[i].Oid)
 		}
@@ -611,7 +611,7 @@ func GetSegmentTablespaces(connectionPool *dbconn.DBConn, Oid uint32) []string {
 	return dbconn.MustSelectStringSlice(connectionPool, query)
 }
 
-//Potentially expensive query
+// Potentially expensive query
 func GetDBSize(connectionPool *dbconn.DBConn) string {
 	size := struct{ DBSize string }{}
 	sizeQuery := fmt.Sprintf("SELECT pg_size_pretty(pg_database_size('%s')) as dbsize",

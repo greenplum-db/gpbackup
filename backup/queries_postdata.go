@@ -82,14 +82,15 @@ func (i IndexDefinition) FQN() string {
  * e.g. comments on implicitly created indexes
  */
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
-	var query string
+	implicitIndexStr := ""
 	if connectionPool.Version.Before("6") {
 		indexOidList := ConstructImplicitIndexOidList(connectionPool)
-		implicitIndexStr := ""
+
 		if indexOidList != "" {
 			implicitIndexStr = fmt.Sprintf("OR i.indexrelid IN (%s)", indexOidList)
 		}
-		query = fmt.Sprintf(`
+	}
+	before6Query := fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,
 		quote_ident(ic.relname) AS name,
 		quote_ident(n.nspname) AS owningschema,
@@ -111,10 +112,9 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 		AND %s
 	ORDER BY name`,
-			implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+		implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
-	} else if connectionPool.Version.Is("6") {
-		query = fmt.Sprintf(`
+	version6Query := fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,
 		quote_ident(ic.relname) AS name,
 		quote_ident(n.nspname) AS owningschema,
@@ -140,10 +140,9 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 		AND %s
 	ORDER BY name`,
-			relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
 
-	} else {
-		query = fmt.Sprintf(`
+	atLeast7Query := fmt.Sprintf(`
 		SELECT DISTINCT i.indexrelid AS oid,
 			coalesce(inh.inhparent, '0') AS parentindex,
 			quote_ident(ic.relname) AS name,
@@ -172,7 +171,15 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 			AND i.indexrelid >= %d
 			AND %s
 		ORDER BY name`,
-			relationAndSchemaFilterClause(), FIRST_NORMAL_OBJECT_ID, ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), FIRST_NORMAL_OBJECT_ID, ExtensionFilterClause("c"))
+
+	query := ""
+	if connectionPool.Version.Before("6") {
+		query = before6Query
+	} else if connectionPool.Version.Is("6") {
+		query = version6Query
+	} else {
+		query = atLeast7Query
 	}
 
 	resultIndexes := make([]IndexDefinition, 0)
@@ -500,7 +507,7 @@ type RLSPolicy struct {
 }
 
 func GetPolicies(connectionPool *dbconn.DBConn) []RLSPolicy {
-	query := fmt.Sprintf(`
+	query := `
 	SELECT
 		p.oid as oid,
 		quote_ident(p.polname) as name,
@@ -516,7 +523,7 @@ func GetPolicies(connectionPool *dbconn.DBConn) []RLSPolicy {
 		coalesce(pg_catalog.pg_get_expr(polwithcheck, polrelid), '') AS withcheck
 	FROM pg_catalog.pg_policy p
 		JOIN pg_catalog.pg_class c ON p.polrelid = c.oid
-	ORDER BY p.polname`)
+	ORDER BY p.polname`
 
 	results := make([]RLSPolicy, 0)
 	err := connectionPool.Select(&results, query)

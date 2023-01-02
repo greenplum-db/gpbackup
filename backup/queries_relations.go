@@ -202,9 +202,7 @@ type SequenceDefinition struct {
 }
 
 func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
-	var query string
-	if connectionPool.Version.AtLeast("7") {
-		query = fmt.Sprintf(`
+	atLeast7Query := fmt.Sprintf(`
 		SELECT n.oid AS schemaoid,
 			c.oid AS oid,
 			quote_ident(n.nspname) AS schema,
@@ -229,9 +227,9 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 			AND %s
 			AND %s
 		ORDER BY n.nspname, c.relname`,
-			relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
-	} else {
-		query = fmt.Sprintf(`
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+
+	before7Query := fmt.Sprintf(`
 		SELECT n.oid AS schemaoid,
 			c.oid AS oid,
 			quote_ident(n.nspname) AS schema,
@@ -250,8 +248,15 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 			AND %s
 			AND %s
 		ORDER BY n.nspname, c.relname`,
-			relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+
+	query := ""
+	if connectionPool.Version.Before("7") {
+		query = before7Query
+	} else {
+		query = atLeast7Query
 	}
+
 	results := make([]Sequence, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -283,9 +288,23 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 }
 
 func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) SequenceDefinition {
-	var query string
-	if connectionPool.Version.AtLeast("7") {
-		query = fmt.Sprintf(`
+	startValQuery := ""
+	if connectionPool.Version.AtLeast("6") {
+		startValQuery = "start_value AS startval,"
+	}
+
+	before7Query := fmt.Sprintf(`
+		SELECT last_value AS lastval,
+			%s
+			increment_by AS increment,
+			max_value AS maxval,
+			min_value AS minval,
+			cache_value AS cacheval,
+			is_cycled AS iscycled,
+			is_called AS iscalled
+		FROM %s`, startValQuery, seqName)
+
+	atLeast7Query := fmt.Sprintf(`
 		SELECT s.seqstart AS startval,
 			r.last_value AS lastval,
 			pg_catalog.format_type(s.seqtypid, NULL) AS type,
@@ -297,22 +316,14 @@ func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) Sequen
 			r.is_called AS iscalled
 		FROM %s r
 		JOIN pg_sequence s ON s.seqrelid = '%s'::regclass::oid;`, seqName, seqName)
+
+	query := ""
+	if connectionPool.Version.Before("7") {
+		query = before7Query
 	} else {
-		startValQuery := ""
-		if connectionPool.Version.AtLeast("6") {
-			startValQuery = "start_value AS startval,"
-		}
-		query = fmt.Sprintf(`
-		SELECT last_value AS lastval,
-			%s
-			increment_by AS increment,
-			max_value AS maxval,
-			min_value AS minval,
-			cache_value AS cacheval,
-			is_cycled AS iscycled,
-			is_called AS iscalled
-		FROM %s`, startValQuery, seqName)
+		query = atLeast7Query
 	}
+
 	result := SequenceDefinition{}
 	err := connectionPool.Get(&result, query)
 	gplog.FatalOnError(err)
@@ -358,7 +369,6 @@ func (v View) ObjectType() string {
 }
 
 // This function retrieves both regular views and materialized views.
-// Materialized views were introduced in GPDB 7 and backported to GPDB 6.2.
 func GetAllViews(connectionPool *dbconn.DBConn) []View {
 
 	// When querying the view definition using pg_get_viewdef(), the pg function
@@ -371,31 +381,45 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 		defer connectionPool.MustExec("ROLLBACK TO SAVEPOINT gpbackup_get_views")
 	}
 
-	selectClause := `
+	before6Query := fmt.Sprintf(`
 	SELECT
 		c.oid AS oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(c.relname) AS name,
-		pg_get_viewdef(c.oid) AS definition`
-	if connectionPool.Version.AtLeast("6") {
-		selectClause += `,
-		coalesce(' WITH (' || array_to_string(c.reloptions, ', ') || ')', '') AS options,
-		coalesce(quote_ident(t.spcname), '') AS tablespace,
-		c.relkind='m' AS ismaterialized`
-	}
-
-	fromClause := `
+		pg_get_viewdef(c.oid) AS definition
 	FROM pg_class c
 		LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
-		LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace`
-
-	whereClause := fmt.Sprintf(`
+		LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace
 	WHERE c.relkind IN ('m', 'v')
 		AND %s
 		AND %s`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
+	// Materialized views were introduced in GPDB 7 and backported to GPDB 6.2.
+	// Reloptions and tablespace added to pg_class in GPDB 6
+	atLeast6Query := fmt.Sprintf(`
+	SELECT
+		c.oid AS oid,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(c.relname) AS name,
+		pg_get_viewdef(c.oid) AS definition,
+		coalesce(' WITH (' || array_to_string(c.reloptions, ', ') || ')', '') AS options,
+		coalesce(quote_ident(t.spcname), '') AS tablespace,
+		c.relkind='m' AS ismaterialized
+	FROM pg_class c
+		LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
+		LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace
+	WHERE c.relkind IN ('m', 'v')
+		AND %s
+		AND %s`, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+
+	query := ""
+	if connectionPool.Version.Before("6") {
+		query = before6Query
+	} else {
+		query = atLeast6Query
+	}
+
 	results := make([]View, 0)
-	query := selectClause + fromClause + whereClause
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 

@@ -131,7 +131,7 @@ func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
 		AND ut.oid IS NULL
 		AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	coordinatorQuery := fmt.Sprintf(`
+	atLeast6Query := fmt.Sprintf(`
 	SELECT t.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(t.typname) AS name,
@@ -172,7 +172,7 @@ func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
 	} else if connectionPool.Version.Is("5") {
 		err = connectionPool.Select(&results, version5query)
 	} else {
-		err = connectionPool.Select(&results, coordinatorQuery)
+		err = connectionPool.Select(&results, atLeast6Query)
 	}
 	gplog.FatalOnError(err)
 	/*
@@ -253,7 +253,7 @@ type Attribute struct {
 func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attribute {
 	gplog.Verbose("Getting composite type attributes")
 
-	compositeAttributeQuery := `
+	before6Query := `
 	SELECT t.oid AS compositetypeoid,
 		quote_ident(a.attname) AS name,
 		pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
@@ -266,31 +266,36 @@ func getCompositeTypeAttributes(connectionPool *dbconn.DBConn) map[uint32][]Attr
 		AND c.relkind = 'c'
 	ORDER BY t.oid, a.attnum`
 
-	if connectionPool.Version.AtLeast("6") {
-		compositeAttributeQuery = `
-		SELECT t.oid AS compositetypeoid,
-			quote_ident(a.attname) AS name,
-			pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
-			coalesce(quote_literal(d.description),'') AS comment,
-			CASE
-				WHEN at.typcollation <> a.attcollation
-				THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE ''
-			END AS collation
-		FROM pg_type t
-			JOIN pg_class c ON t.typrelid = c.oid
-			JOIN pg_attribute a ON t.typrelid = a.attrelid
-			LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
-			LEFT JOIN pg_type at ON at.oid = a.atttypid
-			LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
-			LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
-		WHERE t.typtype = 'c'
-			AND c.relkind = 'c'
-			AND a.attisdropped = false
-		ORDER BY t.oid, a.attnum`
+	atLeast6Query := `
+	SELECT t.oid AS compositetypeoid,
+		quote_ident(a.attname) AS name,
+		pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
+		coalesce(quote_literal(d.description),'') AS comment,
+		CASE
+			WHEN at.typcollation <> a.attcollation
+			THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE ''
+		END AS collation
+	FROM pg_type t
+		JOIN pg_class c ON t.typrelid = c.oid
+		JOIN pg_attribute a ON t.typrelid = a.attrelid
+		LEFT JOIN pg_description d ON (d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum)
+		LEFT JOIN pg_type at ON at.oid = a.atttypid
+		LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
+		LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
+	WHERE t.typtype = 'c'
+		AND c.relkind = 'c'
+		AND a.attisdropped = false
+	ORDER BY t.oid, a.attnum`
+
+	query := ""
+	if connectionPool.Version.Before("6") {
+		query = before6Query
+	} else {
+		query = atLeast6Query
 	}
 
 	results := make([]Attribute, 0)
-	err := connectionPool.Select(&results, compositeAttributeQuery)
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
 	attributeMap := make(map[uint32][]Attribute)
@@ -347,7 +352,7 @@ func GetDomainTypes(connectionPool *dbconn.DBConn) []Domain {
 		AND %s
 	ORDER BY n.nspname, t.typname`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
 
-	coordinatorQuery := fmt.Sprintf(`
+	atLeast6Query := fmt.Sprintf(`
 	SELECT t.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(t.typname) AS name,
@@ -368,14 +373,15 @@ func GetDomainTypes(connectionPool *dbconn.DBConn) []Domain {
 		AND t.typtype = 'd'
 		AND %s
 	ORDER BY n.nspname, t.typname`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
-	var err error
 
+	query := ""
 	if connectionPool.Version.Before("6") {
-		err = connectionPool.Select(&results, before6query)
+		query = before6query
 	} else {
-		err = connectionPool.Select(&results, coordinatorQuery)
+		query = atLeast6Query
 	}
 
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }
@@ -556,29 +562,34 @@ func (c Collation) FQN() string {
 }
 
 func GetCollations(connectionPool *dbconn.DBConn) []Collation {
-	var query string
-	if connectionPool.Version.AtLeast("7") {
-		query = fmt.Sprintf(`
-	SELECT c.oid,
-		quote_ident(n.nspname) AS schema,
-		quote_ident(c.collname) AS name,
-		c.collcollate AS collate,
-		c.collctype AS ctype,
-		c.collprovider as provider,
-		c.collisdeterministic as IsDeterministic
-	FROM pg_collation c
-		JOIN pg_namespace n ON c.collnamespace = n.oid
-	WHERE %s`, SchemaFilterClause("n"))
+
+	before7Query := fmt.Sprintf(`
+        SELECT c.oid,
+        	quote_ident(n.nspname) AS schema,
+        	quote_ident(c.collname) AS name,
+        	c.collcollate AS collate,
+        	c.collctype AS ctype
+        FROM pg_collation c
+        	JOIN pg_namespace n ON c.collnamespace = n.oid
+        WHERE %s`, SchemaFilterClause("n"))
+
+	atLeast7Query := fmt.Sprintf(`
+        SELECT c.oid,
+        	quote_ident(n.nspname) AS schema,
+        	quote_ident(c.collname) AS name,
+        	c.collcollate AS collate,
+        	c.collctype AS ctype,
+        	c.collprovider as provider,
+        	c.collisdeterministic as IsDeterministic
+        FROM pg_collation c
+        	JOIN pg_namespace n ON c.collnamespace = n.oid
+        WHERE %s`, SchemaFilterClause("n"))
+
+	query := ""
+	if connectionPool.Version.Before("7") {
+		query = before7Query
 	} else {
-		query = fmt.Sprintf(`
-	SELECT c.oid,
-		quote_ident(n.nspname) AS schema,
-		quote_ident(c.collname) AS name,
-		c.collcollate AS collate,
-		c.collctype AS ctype
-	FROM pg_collation c
-		JOIN pg_namespace n ON c.collnamespace = n.oid
-	WHERE %s`, SchemaFilterClause("n"))
+		query = atLeast7Query
 	}
 
 	results := make([]Collation, 0)

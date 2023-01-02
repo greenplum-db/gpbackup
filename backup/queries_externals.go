@@ -76,7 +76,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 	// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
 	// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
 	// because the CASE unnest() logic is more performant.
-	version7Query := `
+	atLeast7Query := `
 	SELECT e.reloid AS oid,
 		ljl_unnest AS location,
 		array_to_string(e.execlocation, ',') AS execlocation,
@@ -100,8 +100,8 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		query = version5Query
 	} else if connectionPool.Version.Is("6") {
 		query = version6Query
-	} else if connectionPool.Version.Is("7") {
-		query = version7Query
+	} else if connectionPool.Version.AtLeast("7") {
+		query = atLeast7Query
 	}
 
 	results := make([]ExternalTableDefinition, 0)

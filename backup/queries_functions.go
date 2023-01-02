@@ -103,9 +103,7 @@ func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
 
 func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	excludeImplicitFunctionsClause := ""
-	locationAtts := "'a' AS proexeclocation,"
 	if connectionPool.Version.AtLeast("6") {
-		locationAtts = "proiswindow,proexeclocation,proleakproof,"
 		// This excludes implicitly created functions. Currently this is only range type functions
 		excludeImplicitFunctionsClause = `
 	AND NOT EXISTS (
@@ -113,10 +111,48 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 		WHERE classid = 'pg_proc'::regclass::oid
 			AND objid = p.oid AND deptype = 'i')`
 	}
-	var query string
-	if connectionPool.Version.AtLeast("7") {
+
+	locationAtts := ""
+	if connectionPool.Version.Before("6") {
+		locationAtts = "'a' AS proexeclocation,"
+	} else if connectionPool.Version.Is("6") {
+		locationAtts = "proiswindow,proexeclocation,proleakproof,"
+	} else {
 		locationAtts = "proexeclocation,proleakproof,proparallel,"
-		query = fmt.Sprintf(`
+	}
+
+	before7Query := fmt.Sprintf(`
+		SELECT p.oid,
+			quote_ident(nspname) AS schema,
+			quote_ident(proname) AS name,
+			proretset,
+			coalesce(prosrc, '') AS functionbody,
+			coalesce(probin, '') AS binarypath,
+			pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+			pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+			pg_catalog.pg_get_function_result(p.oid) AS resulttype,
+			provolatile,
+			proisstrict,
+			prosecdef,
+			%s
+			coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
+				FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
+			procost,
+			prorows,
+			prodataaccess,
+			l.lanname AS language
+		FROM pg_proc p
+			JOIN pg_catalog.pg_language l ON p.prolang = l.oid
+			LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+		WHERE %s
+			AND proisagg = 'f'
+			AND %s%s
+		ORDER BY nspname, proname, identargs`, locationAtts,
+		SchemaFilterClause("n"),
+		ExtensionFilterClause("p"),
+		excludeImplicitFunctionsClause)
+
+	atLeast7Query := fmt.Sprintf(`
 		SELECT p.oid,
 			quote_ident(nspname) AS schema,
 			quote_ident(p.proname) AS name,
@@ -153,40 +189,15 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 			AND prokind <> 'a'
 			AND %s%s
 		ORDER BY nspname, proname, identargs`, locationAtts,
-			SchemaFilterClause("n"),
-			ExtensionFilterClause("p"),
-			excludeImplicitFunctionsClause)
+		SchemaFilterClause("n"),
+		ExtensionFilterClause("p"),
+		excludeImplicitFunctionsClause)
+
+	query := ""
+	if connectionPool.Version.Before("7") {
+		query = before7Query
 	} else {
-		query = fmt.Sprintf(`
-		SELECT p.oid,
-			quote_ident(nspname) AS schema,
-			quote_ident(proname) AS name,
-			proretset,
-			coalesce(prosrc, '') AS functionbody,
-			coalesce(probin, '') AS binarypath,
-			pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
-			pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
-			pg_catalog.pg_get_function_result(p.oid) AS resulttype,
-			provolatile,
-			proisstrict,
-			prosecdef,
-			%s
-			coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
-				FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
-			procost,
-			prorows,
-			prodataaccess,
-			l.lanname AS language
-		FROM pg_proc p
-			JOIN pg_catalog.pg_language l ON p.prolang = l.oid
-			LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-		WHERE %s
-			AND proisagg = 'f'
-			AND %s%s
-		ORDER BY nspname, proname, identargs`, locationAtts,
-			SchemaFilterClause("n"),
-			ExtensionFilterClause("p"),
-			excludeImplicitFunctionsClause)
+		query = atLeast7Query
 	}
 
 	results := make([]Function, 0)
@@ -542,7 +553,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		AND %s`,
 		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
-	version7Query := fmt.Sprintf(`
+	atLeast7Query := fmt.Sprintf(`
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		p.proname AS name,
@@ -590,7 +601,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 	} else if connectionPool.Version.Is("6") {
 		query = version6query
 	} else {
-		query = version7Query
+		query = atLeast7Query
 	}
 	err := connectionPool.Select(&aggregates, query)
 	gplog.FatalOnError(err)
@@ -656,13 +667,13 @@ func (info FunctionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionInfo {
-	version4query := `
+	before5Query := `
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(p.proname) AS name
 	FROM pg_proc p
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid`
-	query := `
+	atLeast5Query := `
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(p.proname) AS name,
@@ -675,7 +686,7 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 	funcMap := make(map[uint32]FunctionInfo)
 	var err error
 	if connectionPool.Version.Before("5") {
-		err = connectionPool.Select(&results, version4query)
+		err = connectionPool.Select(&results, before5Query)
 		arguments, _ := GetFunctionArgsAndIdentArgs(connectionPool)
 		for i := range results {
 			results[i].Arguments.String = arguments[results[i].Oid]
@@ -684,7 +695,7 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 			results[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 		}
 	} else {
-		err = connectionPool.Select(&results, query)
+		err = connectionPool.Select(&results, atLeast5Query)
 	}
 	gplog.FatalOnError(err)
 	for _, funcInfo := range results {
@@ -867,7 +878,7 @@ func (pl ProceduralLanguage) FQN() string {
 func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage {
 	results := make([]ProceduralLanguage, 0)
 	// Languages are owned by the bootstrap superuser, OID 10
-	version4query := `
+	before5Query := `
 	SELECT oid,
 		quote_ident(l.lanname) AS name,
 		pg_get_userbyid(10) AS owner, 
@@ -879,7 +890,7 @@ func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage 
 	FROM pg_language l
 	WHERE l.lanispl='t'
 		AND l.lanname != 'plpgsql'`
-	query := fmt.Sprintf(`
+	atLeast5Query := fmt.Sprintf(`
 	SELECT oid,
 		quote_ident(l.lanname) AS name,
 		pg_get_userbyid(l.lanowner) AS owner,
@@ -892,12 +903,15 @@ func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage 
 	WHERE l.lanispl='t'
 		AND l.lanname != 'plpgsql'
 		AND %s`, ExtensionFilterClause("l"))
-	var err error
+
+	query := ""
 	if connectionPool.Version.Before("5") {
-		err = connectionPool.Select(&results, version4query)
+		query = before5Query
 	} else {
-		err = connectionPool.Select(&results, query)
+		query = atLeast5Query
 	}
+
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }
@@ -933,7 +947,7 @@ func (trf Transform) FQN() string {
 
 func GetTransforms(connectionPool *dbconn.DBConn) []Transform {
 	results := make([]Transform, 0)
-	query := fmt.Sprintf(`
+	query := `
 	SELECT trf.oid,
 		quote_ident(ns.nspname) AS typnamespace,
 		quote_ident(tp.typname) AS typname,
@@ -943,7 +957,7 @@ func GetTransforms(connectionPool *dbconn.DBConn) []Transform {
 	FROM pg_transform trf
 		JOIN pg_type tp ON trf.trftype=tp.oid
 		JOIN pg_namespace ns ON tp.typnamespace = ns.oid
-		JOIN pg_language l ON trf.trflang=l.oid;`)
+		JOIN pg_language l ON trf.trflang=l.oid;`
 
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -1177,7 +1191,7 @@ func (se StatisticExt) FQN() string {
 func GetExtendedStatistics(connectionPool *dbconn.DBConn) []StatisticExt {
 	results := make([]StatisticExt, 0)
 
-	query := fmt.Sprintf(`
+	query := `
 	SELECT 	se.oid,
 			stxname AS name,
 			regexp_replace(pg_catalog.pg_get_statisticsobjdef(se.oid), '(.* FROM ).*', '\1' || quote_ident(c.relnamespace::regnamespace::text) || '.' || quote_ident(c.relname)) AS definition,
@@ -1186,7 +1200,7 @@ func GetExtendedStatistics(connectionPool *dbconn.DBConn) []StatisticExt {
 			quote_ident(c.relnamespace::regnamespace::text) AS tableschema,
 			quote_ident(c.relname) AS tablename
 	FROM pg_catalog.pg_statistic_ext se
-	JOIN pg_catalog.pg_class c ON se.stxrelid = c.oid;`)
+	JOIN pg_catalog.pg_class c ON se.stxrelid = c.oid;`
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results

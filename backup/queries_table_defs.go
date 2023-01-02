@@ -154,23 +154,7 @@ type PartitionLevelInfo struct {
 }
 
 func GetPartitionTableMap(connectionPool *dbconn.DBConn) map[uint32]PartitionLevelInfo {
-	var query string
-	if connectionPool.Version.AtLeast("7") {
-		query = `
-		SELECT c.oid,
-			CASE WHEN p.partrelid IS NOT NULL AND c.relispartition = false THEN ''
-				ELSE rc.relname
-			END AS rootname,
-			CASE WHEN p.partrelid IS NOT NULL AND c.relispartition = false THEN 'p'
-				WHEN p.partrelid IS NOT NULL AND c.relispartition = true THEN 'i'
-				ELSE 'l'
-			END AS level
-		FROM pg_class c
-			LEFT JOIN pg_partitioned_table p ON c.oid = p.partrelid
-			LEFT JOIN pg_class rc ON pg_partition_root(c.oid) = rc.oid
-		WHERE c.relispartition = true OR c.relkind = 'p'`
-	} else {
-		query = `
+	before7Query := `
 		SELECT pc.oid AS oid,
 			'p' AS level,
 			'' AS rootname
@@ -186,6 +170,26 @@ func GetPartitionTableMap(connectionPool *dbconn.DBConn) map[uint32]PartitionLev
 			JOIN (SELECT parrelid AS relid, max(parlevel) AS pl
 				FROM pg_partition GROUP BY parrelid) AS levels ON p.parrelid = levels.relid
 		WHERE r.parchildrelid != 0`
+
+	atLeast7Query := `
+		SELECT c.oid,
+			CASE WHEN p.partrelid IS NOT NULL AND c.relispartition = false THEN ''
+				ELSE rc.relname
+			END AS rootname,
+			CASE WHEN p.partrelid IS NOT NULL AND c.relispartition = false THEN 'p'
+				WHEN p.partrelid IS NOT NULL AND c.relispartition = true THEN 'i'
+				ELSE 'l'
+			END AS level
+		FROM pg_class c
+			LEFT JOIN pg_partitioned_table p ON c.oid = p.partrelid
+			LEFT JOIN pg_class rc ON pg_partition_root(c.oid) = rc.oid
+		WHERE c.relispartition = true OR c.relkind = 'p'`
+
+	query := ""
+	if connectionPool.Version.Before("7") {
+		query = before7Query
+	} else {
+		query = atLeast7Query
 	}
 
 	results := make([]PartitionLevelInfo, 0)
@@ -239,8 +243,9 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 	// Include child partitions that are also external tables
 	gplog.Verbose("Getting column definitions")
 	results := make([]ColumnDefinition, 0)
-	selectClause := `
-    SELECT a.attrelid,
+
+	before6Query := fmt.Sprintf(`
+	SELECT a.attrelid,
 		a.attnum,
 		quote_ident(a.attname) AS name,
 		a.attnotnull,
@@ -250,54 +255,42 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		a.attstattarget,
 		CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
 		coalesce('('||pg_catalog.pg_get_expr(ad.adbin, ad.adrelid)||')', '') AS defaultval,
-		coalesce(d.description, '') AS comment`
-	fromClause := `
+		coalesce(d.description, '') AS comment
 	FROM pg_catalog.pg_attribute a
 		JOIN pg_class c ON a.attrelid = c.oid
 		JOIN pg_namespace n ON c.relnamespace = n.oid
 		LEFT JOIN pg_catalog.pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
 		LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
 		LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
-		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum`
-
-	partitionRuleExcludeClause := ""
-	if connectionPool.Version.Before("7") {
-		// In GPDB7+ we do not want to exclude child partitions, they function as separate tables.
-		partitionRuleExcludeClause = `
+		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum
+	WHERE %s
 		AND NOT EXISTS (
 			SELECT 1 FROM 
 				(SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable) par 
-			WHERE par.parchildrelid = c.oid)`
-	}
-	whereClause := fmt.Sprintf(`
-	WHERE %s
-		%s
+			WHERE par.parchildrelid = c.oid)
 		AND c.reltype <> 0
 		AND a.attnum > 0::pg_catalog.int2
 		AND a.attisdropped = 'f'
-	ORDER BY a.attrelid, a.attnum`, relationAndSchemaFilterClause(), partitionRuleExcludeClause)
+	ORDER BY a.attrelid, a.attnum`, relationAndSchemaFilterClause())
 
-	if connectionPool.Version.AtLeast("6") {
-		// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
-		// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
-		// because the CASE unnest() logic is more performant.
-		aclCols := "''"
-		aclLateralJoin := ""
-		if connectionPool.Version.AtLeast("7") {
-			aclLateralJoin =
-				`LEFT JOIN LATERAL unnest(a.attacl) ljl_unnest ON a.attacl IS NOT NULL AND array_length(a.attacl, 1) != 0`
-			aclCols = "ljl_unnest"
-			// Generated columns
-			selectClause += `, a.attgenerated`
-		} else {
-			aclCols = `CASE
-				WHEN a.attacl IS NULL THEN NULL
-				WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
-				ELSE unnest(a.attacl) END`
-		}
-
-		selectClause += fmt.Sprintf(`,
-		%s AS privileges,
+	// GPDB 6 adds multiple additional column attributes and options including fdwoptions and security labels.
+	// Add capture logic for all of these.
+	version6Query := fmt.Sprintf(`
+	SELECT a.attrelid,
+		a.attnum,
+		quote_ident(a.attname) AS name,
+		a.attnotnull,
+		a.atthasdef,
+		pg_catalog.format_type(t.oid,a.atttypmod) AS type,
+		coalesce(pg_catalog.array_to_string(e.attoptions, ','), '') AS encoding,
+		a.attstattarget,
+		CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
+		coalesce('('||pg_catalog.pg_get_expr(ad.adbin, ad.adrelid)||')', '') AS defaultval,
+		coalesce(d.description, '') AS comment,
+		CASE
+			WHEN a.attacl IS NULL THEN NULL
+			WHEN array_upper(a.attacl, 1) = 0 THEN a.attacl[0]
+			ELSE unnest(a.attacl) END AS privileges,
 		CASE
 			WHEN a.attacl IS NULL THEN ''
 			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
@@ -307,17 +300,81 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
 		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
 		coalesce(sec.provider,'') AS securitylabelprovider,
-		coalesce(sec.label,'') AS securitylabel`, aclCols)
-
-		fromClause += fmt.Sprintf(`
+		coalesce(sec.label,'') AS securitylabel
+	FROM pg_catalog.pg_attribute a
+		JOIN pg_class c ON a.attrelid = c.oid
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+		LEFT JOIN pg_catalog.pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
+		LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
+		LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
+		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum
 		LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
 		LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
-		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND
-			sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum
-		%s`, aclLateralJoin)
+		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum
+	WHERE %s
+		AND NOT EXISTS (
+			SELECT 1 FROM 
+				(SELECT parchildrelid FROM pg_partition_rule EXCEPT SELECT reloid FROM pg_exttable) par 
+			WHERE par.parchildrelid = c.oid)
+		AND c.reltype <> 0
+		AND a.attnum > 0::pg_catalog.int2
+		AND a.attisdropped = 'f'
+	ORDER BY a.attrelid, a.attnum`, relationAndSchemaFilterClause())
+
+	// In GPDB7+ we do not want to exclude child partitions, they function as separate tables.
+	// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+	// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+	// because the CASE unnest() logic is more performant.
+	atLeast7Query := fmt.Sprintf(`
+	SELECT a.attrelid,
+		a.attnum,
+		quote_ident(a.attname) AS name,
+		a.attnotnull,
+		a.atthasdef,
+		pg_catalog.format_type(t.oid,a.atttypmod) AS type,
+		coalesce(pg_catalog.array_to_string(e.attoptions, ','), '') AS encoding,
+		a.attstattarget,
+		CASE WHEN a.attstorage != t.typstorage THEN a.attstorage ELSE '' END AS storagetype,
+		coalesce('('||pg_catalog.pg_get_expr(ad.adbin, ad.adrelid)||')', '') AS defaultval,
+		coalesce(d.description, '') AS comment,
+		a.attgenerated,
+		ljl_unnest AS privileges,
+		CASE
+			WHEN a.attacl IS NULL THEN ''
+			WHEN array_upper(a.attacl, 1) = 0 THEN 'Empty'
+			ELSE ''
+		END AS kind,
+		coalesce(pg_catalog.array_to_string(a.attoptions, ','), '') AS options,
+		coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
+		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
+		coalesce(sec.provider,'') AS securitylabelprovider,
+		coalesce(sec.label,'') AS securitylabel
+	FROM pg_catalog.pg_attribute a
+		JOIN pg_class c ON a.attrelid = c.oid
+		JOIN pg_namespace n ON c.relnamespace = n.oid
+		LEFT JOIN pg_catalog.pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
+		LEFT JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
+		LEFT JOIN pg_catalog.pg_attribute_encoding e ON e.attrelid = a.attrelid AND e.attnum = a.attnum
+		LEFT JOIN pg_description d ON d.objoid = a.attrelid AND d.classoid = 'pg_class'::regclass AND d.objsubid = a.attnum
+		LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
+		LEFT JOIN pg_namespace cn ON coll.collnamespace = cn.oid
+		LEFT JOIN pg_seclabel sec ON sec.objoid = a.attrelid AND sec.classoid = 'pg_class'::regclass AND sec.objsubid = a.attnum
+		LEFT JOIN LATERAL unnest(a.attacl) ljl_unnest ON a.attacl IS NOT NULL AND array_length(a.attacl, 1) != 0
+	WHERE %s
+		AND c.reltype <> 0
+		AND a.attnum > 0::pg_catalog.int2
+		AND a.attisdropped = 'f'
+	ORDER BY a.attrelid, a.attnum`, relationAndSchemaFilterClause())
+
+	query := ``
+	if connectionPool.Version.Before("6") {
+		query = before6Query
+	} else if connectionPool.Version.Is("6") {
+		query = version6Query
+	} else {
+		query = atLeast7Query
 	}
 
-	query := fmt.Sprintf(`%s %s %s;`, selectClause, fromClause, whereClause)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	resultMap := make(map[uint32][]ColumnDefinition)
@@ -333,10 +390,9 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 
 func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 	gplog.Verbose("Getting distribution policies")
-	var query string
-	if connectionPool.Version.Before("6") {
-		// This query is adapted from the addDistributedBy() function in pg_dump.c.
-		query = `
+
+	// This query is adapted from the addDistributedBy() function in pg_dump.c.
+	before6Query := `
 		SELECT p.localoid AS oid,
 			'DISTRIBUTED BY (' || string_agg(quote_ident(a.attname) , ', ' ORDER BY index) || ')' AS value	
 		FROM (SELECT localoid, unnest(attrnums) AS attnum,
@@ -347,11 +403,18 @@ func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 		UNION ALL
 		SELECT p.localoid AS oid, 'DISTRIBUTED RANDOMLY' AS value
 		FROM gp_distribution_policy p WHERE attrnums IS NULL`
-	} else {
-		query = `
+
+	atLeast6Query := `
 		SELECT localoid AS oid, pg_catalog.pg_get_table_distributedby(localoid) AS value
 		FROM gp_distribution_policy`
+
+	query := ""
+	if connectionPool.Version.Before("6") {
+		query = before6Query
+	} else {
+		query = atLeast6Query
 	}
+
 	return selectAsOidToStringMap(connectionPool, query)
 }
 
@@ -450,7 +513,7 @@ func GetPartitionAlteredSchema(connectionPool *dbconn.DBConn) map[uint32][]Alter
 	}
 
 	gplog.Info("Getting child partitions with altered schema")
-	query := fmt.Sprintf(`
+	query := `
 	SELECT pgp.parrelid AS oid,
 		quote_ident(pgn2.nspname) AS oldschema,
 		quote_ident(pgn.nspname) AS newschema,
@@ -461,7 +524,7 @@ func GetPartitionAlteredSchema(connectionPool *dbconn.DBConn) map[uint32][]Alter
 		JOIN pg_catalog.pg_class pgc2 ON pgp.parrelid = pgc2.oid
 		JOIN pg_catalog.pg_namespace pgn ON pgc.relnamespace = pgn.oid
 		JOIN pg_catalog.pg_namespace pgn2 ON pgc2.relnamespace = pgn2.oid
-	WHERE pgc.relnamespace != pgc2.relnamespace`)
+	WHERE pgc.relnamespace != pgc2.relnamespace`
 	var results []struct {
 		Oid uint32
 		AlteredPartitionRelation
@@ -631,7 +694,7 @@ func GetAttachPartitionInfo(connectionPool *dbconn.DBConn) map[uint32]AttachPart
 		return make(map[uint32]AttachPartitionInfo, 0)
 	}
 
-	query := fmt.Sprintf(`
+	query := `
 	SELECT
 		c.oid,
 		quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS relname,
@@ -641,7 +704,7 @@ func GetAttachPartitionInfo(connectionPool *dbconn.DBConn) map[uint32]AttachPart
 		JOIN pg_namespace n ON c.relnamespace = n.oid
 		JOIN pg_class rc ON pg_partition_root(c.oid) = rc.oid
 		JOIN pg_namespace rn ON rc.relnamespace = rn.oid
-	WHERE c.relispartition = 't'`)
+	WHERE c.relispartition = 't'`
 
 	results := make([]AttachPartitionInfo, 0)
 	err := connectionPool.Select(&results, query)
