@@ -7,7 +7,7 @@ ccp_src/scripts/setup_ssh_to_cluster.sh
 GO_VERSION=1.17.6
 GPHOME=/usr/local/greenplum-db-devel
 
-ssh -t ${default_ami_user}@mdw " \
+ssh -t ${default_ami_user}@cdw " \
     sudo yum -y install git && \
     sudo wget https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz && \
     sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
@@ -17,10 +17,10 @@ ssh -t ${default_ami_user}@mdw " \
 
 ssh -t ${default_ami_user}@sdw1 "sudo yum -y install zstd"
 
-scp -r -q gpbackup mdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
+scp -r -q gpbackup cdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
 
 if test -f dummy_seclabel/dummy_seclabel*.so; then
-  scp dummy_seclabel/dummy_seclabel*.so mdw:${GPHOME}/lib/postgresql/dummy_seclabel.so
+  scp dummy_seclabel/dummy_seclabel*.so cdw:${GPHOME}/lib/postgresql/dummy_seclabel.so
   scp dummy_seclabel/dummy_seclabel*.so sdw1:${GPHOME}/lib/postgresql/dummy_seclabel.so
 fi
 
@@ -32,9 +32,8 @@ set -ex
     export GOPATH=/home/gpadmin/go
     source ${GPHOME}/greenplum_path.sh
     export PGPORT=5432
-    # NOTE: this path is not set to coordinator by common script yet.  breaking GP7 CI
-    export COORDINATOR_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
-    export MASTER_DATA_DIRECTORY=/data/gpdata/master/gpseg-1
+    export COORDINATOR_DATA_DIRECTORY=/data/gpdata/coordinator/gpseg-1
+    export MASTER_DATA_DIRECTORY=/data/gpdata/coordinator/gpseg-1
     export PATH=\\\${GOPATH}/bin:/usr/local/go/bin:\\\${PATH}
     if [[ -f /opt/gcc_env.sh ]]; then
         source /opt/gcc_env.sh
@@ -53,5 +52,5 @@ gpstop -ar
 SCRIPT
 
 chmod +x /tmp/setup_env.bash
-scp /tmp/setup_env.bash mdw:/home/gpadmin/setup_env.bash
-ssh -t mdw "/home/gpadmin/setup_env.bash"
+scp /tmp/setup_env.bash cdw:/home/gpadmin/setup_env.bash
+ssh -t cdw "/home/gpadmin/setup_env.bash"

@@ -4,19 +4,19 @@ set -ex
 
 # setup cluster and install gpbackup tools using gppkg
 ccp_src/scripts/setup_ssh_to_cluster.sh
-out=$(ssh -t mdw 'source env.sh && psql postgres -c "select version();"')
+out=$(ssh -t cdw 'source env.sh && psql postgres -c "select version();"')
 TEST_GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9].[0-9]\+.[0-9]\+\).*/\1/p')
 GPDB_VERSION=$(echo ${TEST_GPDB_VERSION} | head -c 1)
 mkdir -p /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg mdw:/home/gpadmin
-ssh -t mdw "source env.sh; gppkg -q gpbackup*gp*.gppkg | grep 'is installed' || gppkg -i gpbackup_tools*.gppkg"
+scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg cdw:/home/gpadmin
+ssh -t cdw "source env.sh; gppkg -q gpbackup*gp*.gppkg | grep 'is installed' || gppkg -i gpbackup_tools*.gppkg"
 
 # place correct tarballs in gpbackup dir for consumption
 if [[ -f "bin_gpbackup_1.0.0_and_1.7.1/gpbackup_bins_1.0.0_and_1.7.1.tar.gz" ]] && \
    [[ "${GPBACKUP_VERSION}" != "" ]] ; then
   tar -xzf bin_gpbackup_1.0.0_and_1.7.1/gpbackup_bins_1.0.0_and_1.7.1.tar.gz -C /tmp/
-  scp -r /tmp/${GPBACKUP_VERSION} mdw:/tmp
+  scp -r /tmp/${GPBACKUP_VERSION} cdw:/tmp
 fi
 
 cat <<SCRIPT > /tmp/run_tests.bash
@@ -48,5 +48,5 @@ cat <<SCRIPT > /tmp/run_tests.bash
 SCRIPT
 
 chmod +x /tmp/run_tests.bash
-scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
-ssh -t mdw "/home/gpadmin/run_tests.bash"
+scp /tmp/run_tests.bash cdw:/home/gpadmin/run_tests.bash
+ssh -t cdw "/home/gpadmin/run_tests.bash"

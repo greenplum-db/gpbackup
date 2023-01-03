@@ -5,16 +5,16 @@ set -ex
 ccp_src/scripts/setup_ssh_to_cluster.sh
 
 # Install ddboost dependencies
-scp -r gpbackup_ddboost_plugin mdw:/home/gpadmin/gpbackup_ddboost_plugin
-ssh -t centos@mdw "sudo yum install -y autoconf automake libtool"
+scp -r gpbackup_ddboost_plugin cdw:/home/gpadmin/gpbackup_ddboost_plugin
+ssh -t centos@cdw "sudo yum install -y autoconf automake libtool"
 
 if test -f pgcrypto43/pgcrypto*; then
-  scp -r pgcrypto43/pgcrypto*.gppkg mdw:.
-  ssh -t gpadmin@mdw "source env.sh; \
+  scp -r pgcrypto43/pgcrypto*.gppkg cdw:.
+  ssh -t gpadmin@cdw "source env.sh; \
     gppkg -i pgcrypto*.gppkg && \
     psql -d postgres -f \${GPHOME}/share/postgresql/contrib/pgcrypto.sql"
 else
-  ssh -t gpadmin@mdw "source env.sh; \
+  ssh -t gpadmin@cdw "source env.sh; \
     psql -d postgres -c 'CREATE EXTENSION pgcrypto;'"
 fi
 

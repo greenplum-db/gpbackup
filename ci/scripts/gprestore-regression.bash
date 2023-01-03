@@ -8,20 +8,20 @@ cp -r regression_dump/* /tmp
 
 pushd /tmp
   tar -zxf gpbackup_all.tar.gz
-  scp gpbackup_allsegments/gpbackup_mdw.tar.gz mdw:/tmp
+  scp gpbackup_allsegments/gpbackup_cdw.tar.gz cdw:/tmp
   scp gpbackup_allsegments/gpbackup_sdw1.tar.gz sdw1:/tmp
 popd
 ssh -t sdw1 'pushd /tmp ; tar -xzf gpbackup_sdw1.tar.gz ; popd'
-ssh -t mdw 'pushd /tmp ; tar -xzf gpbackup_mdw.tar.gz ; popd'
+ssh -t cdw 'pushd /tmp ; tar -xzf gpbackup_cdw.tar.gz ; popd'
 
 # restore the backedup data to a new cluster and generate a pg_dump.
 # do not fail here because might be possible for gpbackup to fail but still produce the same dump diff
-scp gpbackup/ci/scripts/gprestore_and_dump.bash mdw:/home/gpadmin/gprestore_and_dump.bash
+scp gpbackup/ci/scripts/gprestore_and_dump.bash cdw:/home/gpadmin/gprestore_and_dump.bash
 set +e
-  ssh -t mdw "bash /home/gpadmin/gprestore_and_dump.bash"
+  ssh -t cdw "bash /home/gpadmin/gprestore_and_dump.bash"
 set -e
 
-scp mdw:/tmp/post_regression_dump.sql.xz /tmp/
+scp cdw:/tmp/post_regression_dump.sql.xz /tmp/
 
 # Compare sqldump resource and the pg_dump that was newly generated
 

@@ -59,6 +59,6 @@ popd
 SCRIPT
 
 chmod +x /tmp/run_perf.bash
-scp /tmp/run_perf.bash mdw:
-ssh -t mdw "/home/gpadmin/run_perf.bash"
-ssh -t mdw "source env.sh && dropdb tpchdb"
+scp /tmp/run_perf.bash cdw:
+ssh -t cdw "/home/gpadmin/run_perf.bash"
+ssh -t cdw "source env.sh && dropdb tpchdb"

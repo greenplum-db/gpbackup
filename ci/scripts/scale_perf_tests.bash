@@ -4,24 +4,24 @@ set -ex
 
 # setup cluster and install gpbackup tools using gppkg
 ccp_src/scripts/setup_ssh_to_cluster.sh
-out=$(ssh -t mdw 'source env.sh && psql postgres -c "select version();"')
+out=$(ssh -t cdw 'source env.sh && psql postgres -c "select version();"')
 GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
 mkdir -p /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg mdw:/home/gpadmin
-scp gpbackup/ci/scripts/analyze_run.py mdw:/home/gpadmin/analyze_run.py
-scp gpbackup/ci/scale/sql/scaletestdb_bigschema_ddl.sql mdw:/home/gpadmin/scaletestdb_bigschema_ddl.sql
-scp gpbackup/ci/scale/sql/scaletestdb_wideschema_ddl.sql mdw:/home/gpadmin/scaletestdb_wideschema_ddl.sql
-scp gpbackup/ci/scale/sql/etl_job.sql mdw:/home/gpadmin/etl_job.sql
-scp gpbackup/ci/scale/sql/pull_rowcount.sql mdw:/home/gpadmin/pull_rowcount.sql
-scp gpbackup/ci/scale/sql/valid_metadata.sql mdw:/home/gpadmin/valid_metadata.sql
-scp -r gpbackup/ci/scale/gpload_yaml mdw:/home/gpadmin/gpload_yaml
+scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg cdw:/home/gpadmin
+scp gpbackup/ci/scripts/analyze_run.py cdw:/home/gpadmin/analyze_run.py
+scp gpbackup/ci/scale/sql/scaletestdb_bigschema_ddl.sql cdw:/home/gpadmin/scaletestdb_bigschema_ddl.sql
+scp gpbackup/ci/scale/sql/scaletestdb_wideschema_ddl.sql cdw:/home/gpadmin/scaletestdb_wideschema_ddl.sql
+scp gpbackup/ci/scale/sql/etl_job.sql cdw:/home/gpadmin/etl_job.sql
+scp gpbackup/ci/scale/sql/pull_rowcount.sql cdw:/home/gpadmin/pull_rowcount.sql
+scp gpbackup/ci/scale/sql/valid_metadata.sql cdw:/home/gpadmin/valid_metadata.sql
+scp -r gpbackup/ci/scale/gpload_yaml cdw:/home/gpadmin/gpload_yaml
 
 set +x
 printf "%s" "${GOOGLE_CREDENTIALS}" > "/tmp/keyfile.json"
 set -x
 
-scp /tmp/keyfile.json mdw:/home/gpadmin/keyfile.json && rm -f /tmp/keyfile.json
+scp /tmp/keyfile.json cdw:/home/gpadmin/keyfile.json && rm -f /tmp/keyfile.json
 
 cat <<SCRIPT > /tmp/run_tests.bash
 #!/bin/bash
@@ -521,5 +521,5 @@ yes y | gpbackup_manager delete-backup "\$timestamp"
 SCRIPT
 
 chmod +x /tmp/run_tests.bash
-scp /tmp/run_tests.bash mdw:/home/gpadmin/run_tests.bash
-ssh -t mdw "/home/gpadmin/run_tests.bash"
+scp /tmp/run_tests.bash cdw:/home/gpadmin/run_tests.bash
+ssh -t cdw "/home/gpadmin/run_tests.bash"
