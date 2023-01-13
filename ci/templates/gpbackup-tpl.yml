@@ -527,6 +527,7 @@ resources:
     branch: ((dp/ccp-git-branch))
     private_key: ((gp-concourse-cluster-provisioner-git-key))
     uri: ((dp/ccp-git-remote))
+    tag: v2.6.0
 
 - name: terraform
   <<: *terraform_cluster
