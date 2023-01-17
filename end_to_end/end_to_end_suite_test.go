@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -185,7 +186,8 @@ func unMarshalRowCounts(filepath string) map[string]int {
 func assertSegmentDataRestored(contentID int, tableName string, rows int) {
 	segment := backupCluster.ByContent[contentID]
 	port := segment[0].Port
-	segConn := testutils.SetupTestDBConnSegment("restoredb", port, backupConn.Version)
+	host := segment[0].Hostname
+	segConn := testutils.SetupTestDBConnSegment("restoredb", port, host, backupConn.Version)
 	defer segConn.Close()
 	assertDataRestored(segConn, map[string]int{tableName: rows})
 }
@@ -350,6 +352,66 @@ func getBackupTimestamp(output string) (string, error) {
 		return "", errors.Errorf("unable to parse backup timestamp")
 	} else {
 		return r.FindStringSubmatch(output)[1], nil
+	}
+}
+
+// Helper function to extract saved backups and check that their permissions are correctly set
+// Leaving the coordinator metadata files read-only causes problems with DataDomain tests,
+// so developers should make them writable before saving a backup, and this check ensures
+// that that is caught during local testing.
+func extractSavedTarFile(backupDir string, tarBaseName string) string {
+	extractDirectory := path.Join(backupDir, tarBaseName)
+	os.Mkdir(extractDirectory, 0777)
+	command := exec.Command("tar", "-xzf", fmt.Sprintf("resources/%s.tar.gz", tarBaseName), "-C", extractDirectory)
+	mustRunCommand(command)
+
+	defer GinkgoRecover() // needed if calling Fail in a function such as Walk that uses goroutines
+
+	// Traverse the master data directory and check that the user write bit is set for all files
+	path.Walk(fmt.Sprintf("%s/demoDataDir-1", extractDirectory), func(p string, info fs.FileInfo, err error) error {
+		if info != nil && !info.IsDir() && info.Mode()&0200 != 0200 {
+			Fail(fmt.Sprintf("File %s is not user-writable (mode is %v); please make it writable before checking in this tar file.", p, info.Mode()))
+		}
+		return path.SkipDir
+	})
+
+	return extractDirectory
+}
+
+// Move extracted data files to the proper directory for a larger-to-smaller restore, if necessary
+// Assumes all saved backups have a name in the format "N-segment-db-..." where N is the original cluster size
+func moveSegmentBackupFiles(tarBaseName string, extractDirectory string, isMultiNode bool, timestamps ...string) {
+	re := regexp.MustCompile("^([0-9]+)-.*")
+	origSize, _ := strconv.Atoi(re.FindStringSubmatch(tarBaseName)[1])
+	for _, ts := range timestamps {
+		if ts != "" {
+			baseDir := fmt.Sprintf("%s/demoDataDir%s/backups/%s/%s", extractDirectory, "%d", ts[0:8], ts)
+			if isMultiNode {
+				remoteOutput := backupCluster.GenerateAndExecuteCommand("Create backup directories on segments", cluster.ON_SEGMENTS, func(contentID int) string {
+					return fmt.Sprintf("mkdir -p %s", fmt.Sprintf(baseDir, contentID))
+				})
+				backupCluster.CheckClusterError(remoteOutput, "Unable to create directories", func(contentID int) string {
+					return ""
+				})
+				for i := 0; i < origSize; i++ {
+					origDir := fmt.Sprintf(baseDir, i)
+					destDir := fmt.Sprintf(baseDir, i%segmentCount)
+					_, err := backupCluster.ExecuteLocalCommand(fmt.Sprintf(`rsync -r -e ssh %s/ %s:%s`, origDir, backupCluster.GetHostForContent(i%segmentCount), destDir))
+					if err != nil {
+						Fail(fmt.Sprintf("Could not copy %s to %s: %v", origDir, destDir, err))
+					}
+				}
+			} else {
+				for i := segmentCount; i < origSize; i++ {
+					origDir := fmt.Sprintf(baseDir, i)
+					destDir := fmt.Sprintf(baseDir, i%segmentCount)
+					files, _ := path.Glob(fmt.Sprintf("%s/*", origDir))
+					for _, dataFile := range files {
+						os.Rename(dataFile, fmt.Sprintf("%s/%s", destDir, path.Base(dataFile)))
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -613,13 +675,12 @@ var _ = Describe("backup and restore end to end tests", func() {
 			// stating it belongs to a different segment. This backup was
 			// taken with gpbackup version 1.12.1 and GPDB version 4.3.33.2
 
-			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
-			mustRunCommand(command)
+			extractDirectory := extractSavedTarFile(backupDir, "corrupt-db")
 
 			gprestoreCmd := exec.Command(gprestorePath,
 				"--timestamp", "20190809230424",
 				"--redirect-db", "restoredb",
-				"--backup-dir", path.Join(backupDir, "corrupt-db"),
+				"--backup-dir", extractDirectory,
 				"--on-error-continue")
 			_, err := gprestoreCmd.CombinedOutput()
 			Expect(err).To(HaveOccurred())
@@ -640,8 +701,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
 			}
 
-			command := exec.Command("tar", "-xzf", "resources/corrupt-db.tar.gz", "-C", backupDir)
-			mustRunCommand(command)
+			extractDirectory := extractSavedTarFile(backupDir, "corrupt-db")
 
 			testhelper.AssertQueryRuns(restoreConn,
 				"CREATE TABLE public.corrupt_table (i integer);")
@@ -652,7 +712,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			// ok. Connect in utility mode to seg1.
 			segmentOne := backupCluster.ByContent[1]
 			port := segmentOne[0].Port
-			segConn := testutils.SetupTestDBConnSegment("restoredb", port, backupConn.Version)
+			segConn := testutils.SetupTestDBConnSegment("restoredb", port, "", backupConn.Version)
 			defer segConn.Close()
 
 			// Take ACCESS EXCLUSIVE LOCK on public.corrupt_table which will
@@ -666,7 +726,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			gprestoreCmd := exec.Command(gprestorePath,
 				"--timestamp", "20190809230424",
 				"--redirect-db", "restoredb",
-				"--backup-dir", path.Join(backupDir, "corrupt-db"),
+				"--backup-dir", extractDirectory,
 				"--data-only", "--on-error-continue",
 				"--include-table", "public.corrupt_table")
 			_, err := gprestoreCmd.CombinedOutput()
@@ -695,9 +755,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			if segmentCount != 3 {
 				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
 			}
-			command := exec.Command("tar", "-xzf",
-				"resources/corrupt-db.tar.gz", "-C", backupDir)
-			mustRunCommand(command)
+			extractDirectory := extractSavedTarFile(backupDir, "corrupt-db")
 
 			// Restore command with data error
 			// Metadata errors due to invalid alter ownership
@@ -707,11 +765,11 @@ var _ = Describe("backup and restore end to end tests", func() {
 			gprestoreCmd := exec.Command(gprestorePath,
 				"--timestamp", "20190809230424",
 				"--redirect-db", "restoredb",
-				"--backup-dir", path.Join(backupDir, "corrupt-db"),
+				"--backup-dir", extractDirectory,
 				"--on-error-continue")
 			_, _ = gprestoreCmd.CombinedOutput()
 
-			files, _ := path.Glob(path.Join(backupDir, "/corrupt-db/", "*-1/backups/*",
+			files, _ := path.Glob(path.Join(extractDirectory, "/*-1/backups/*",
 				"20190809230424", "*error_tables*"))
 			Expect(files).To(HaveLen(2))
 
@@ -1651,32 +1709,14 @@ LANGUAGE plpgsql NO SQL;`)
 				if isSingleDataFileRestore && segmentCount != 3 {
 					Skip("Single data file resize restores currently require a 3-segment cluster to test.")
 				}
-				extractDirectory := path.Join(backupDir, tarBaseName)
-				os.Mkdir(extractDirectory, 0777)
-				command := exec.Command("tar", "-xzf", fmt.Sprintf("resources/%s.tar.gz", tarBaseName), "-C", extractDirectory)
-				mustRunCommand(command)
+				extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schematwo CASCADE;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemathree CASCADE;`)
 
-				// Move extracted data files to the proper directory for a larger-to-smaller restore, if necessary
-				// Assumes all saved backups have a name in the format "N-segment-db-..." where N is the original cluster size
-				re := regexp.MustCompile("^([0-9]+)-.*")
-				origSize, _ := strconv.Atoi(re.FindStringSubmatch(tarBaseName)[1])
-				timestamps := []string{fullTimestamp, incrementalTimestamp}
-				if origSize > segmentCount {
-					for i := segmentCount; i < origSize; i++ {
-						for _, ts := range timestamps {
-							if ts != "" {
-								dataFilePath := fmt.Sprintf("%s/demoDataDir%s/backups/%s/%s/%s", extractDirectory, "%d", ts[0:8], ts, "%s")
-								files, _ := path.Glob(fmt.Sprintf(dataFilePath, i, "*"))
-								for _, dataFile := range files {
-									os.Rename(dataFile, fmt.Sprintf(dataFilePath, i%segmentCount, path.Base(dataFile)))
-								}
-							}
-						}
-					}
-				}
+
+				isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
+				moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp, incrementalTimestamp)
 
 				// This block stops the test if it hangs.  It was introduced to prevent hangs causing timeout failures in Concourse CI.
 				// Those flakes have stop being observed, and can no longer be reproduced.  Some changes have since been made
@@ -1719,6 +1759,7 @@ LANGUAGE plpgsql NO SQL;`)
 				// check row counts
 				testutils.ExecuteSQLFile(restoreConn, "resources/test_rowcount_ddl.sql")
 				rowcountsFilename := fmt.Sprintf("/tmp/%s-rowcounts.txt", tarBaseName)
+				defer os.Remove(rowcountsFilename)
 				_ = exec.Command("psql",
 					"-d", "restoredb",
 					"-c", "select * from cnt_rows();",
@@ -1765,9 +1806,12 @@ LANGUAGE plpgsql NO SQL;`)
 					}
 				}
 			},
-			Entry("Can backup a 9-segment cluster and restore to current cluster", "20220909090738", "", "9-segment-db", false, false, false),
-			Entry("Can backup a 9-segment cluster and restore to current cluster with single data file", "20220909090827", "", "9-segment-db-single-data-file", false, false, true),
-			Entry("Can backup a 9-segment cluster and restore to current cluster with incremental backups", "20220909150254", "20220909150353", "9-segment-db-incremental", true, false, false),
+			// Currently, the 9-segment tests are hanging due to the same pipe-related CI issues mentioned above.
+			// These tests can be un-pended when that is solved; in the meantime, the 7-segment tests give us larger-to-smaller restore coverage.
+			PEntry("Can backup a 9-segment cluster and restore to current cluster", "20220909090738", "", "9-segment-db", false, false, false),
+			PEntry("Can backup a 9-segment cluster and restore to current cluster with single data file", "20220909090827", "", "9-segment-db-single-data-file", false, false, true),
+			PEntry("Can backup a 9-segment cluster and restore to current cluster with incremental backups", "20220909150254", "20220909150353", "9-segment-db-incremental", true, false, false),
+
 			Entry("Can backup a 7-segment cluster and restore to to current cluster", "20220908145504", "", "7-segment-db", false, false, false),
 			Entry("Can backup a 7-segment cluster and restore to current cluster single data file", "20220912101931", "", "7-segment-db-single-data-file", false, false, true),
 			Entry("Can backup a 7-segment cluster and restore to current cluster with a filter", "20220908145645", "", "7-segment-db-filter", false, true, false),
@@ -1794,25 +1838,12 @@ LANGUAGE plpgsql NO SQL;`)
 					if useOldBackupVersion {
 						Skip("Resize-cluster was only added in version 1.25")
 					}
-					extractDirectory := path.Join(backupDir, tarBaseName)
-					os.Mkdir(extractDirectory, 0777)
-					command := exec.Command("tar", "-xzf", fmt.Sprintf("resources/%s.tar.gz", tarBaseName), "-C", extractDirectory)
-					mustRunCommand(command)
+					extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
 					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
 
-					// Move extracted data files to the proper directory for a larger-to-smaller restore, if necessary
-					// Assumes all saved backups have a name in the format "N-segment-db-..." where N is the original cluster size
-					re := regexp.MustCompile("^([0-9]+)-.*")
-					origSize, _ := strconv.Atoi(re.FindStringSubmatch(tarBaseName)[1])
-					if origSize > segmentCount {
-						for i := segmentCount; i < origSize; i++ {
-							dataFilePath := fmt.Sprintf("%s/demoDataDir%s/backups/%s/%s/%s", extractDirectory, "%d", fullTimestamp[0:8], fullTimestamp, "%s")
-							files, _ := path.Glob(fmt.Sprintf(dataFilePath, i, "*"))
-							for _, dataFile := range files {
-								os.Rename(dataFile, fmt.Sprintf(dataFilePath, i%segmentCount, path.Base(dataFile)))
-							}
-						}
-					}
+
+					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
+					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp)
 
 					gprestoreArgs := []string{
 						"--timestamp", fullTimestamp,
