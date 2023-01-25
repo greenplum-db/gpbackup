@@ -202,12 +202,14 @@ anchors:
   DD_DEST_HOST: ((dp/$$DEV_PROD$$/datadomain_dest_host_gcp))
   DD_ENCRYPTED_PW: ((dp/$$DEV_PROD$$/encrypted_datadomain_password_gcp))
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - &slack_alert
   put: slack-alert
   params:
     text: |
       [gpbackup/$BUILD_JOB_NAME] failed:
       https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+{% endif %}
 
 resource_types:
 - name: terraform
@@ -608,11 +610,13 @@ resources:
     secret_access_key: ((gpdb4-bucket-secret-access-key))
     versioned_file: DDBoostFS-1.1.0.1-565598.rhel.x86_64.rpm
 
+{% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: slack-alert
   type: slack-notification
   source:
     url: ((dp/webhook_url))
     disable: ((dp/$$DEV_PROD$$/disable_slack_alert))
+{% endif %}
 
 - name: pivnet_release_cache
   type: s3
@@ -885,8 +889,10 @@ jobs:
       BUCKET: ((dp/$$DEV_PROD$$/gpbackup-s3-plugin-test-bucket))
   on_success:
     <<: *ccp_destroy
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   on_failure:
     *slack_alert
+{% endif %}
   ensure:
     <<: *set_failed
 
@@ -940,8 +946,10 @@ jobs:
       SCALE_FACTOR: 1
   on_success:
     <<: *ccp_destroy
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   on_failure:
     *slack_alert
+{% endif %}
   ensure:
     <<: *set_failed
 
@@ -1308,8 +1316,10 @@ jobs:
           REQUIRES_DUMMY_SEC: true
         input_mapping:
           bin_gpdb: bin_gpdb_7x_rhel8
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   on_failure:
     *slack_alert
+{% endif %}
 
 - name: GPDB4.3
   plan:
@@ -1330,8 +1340,10 @@ jobs:
   - task: run-tests-locally-centos6
     image: centos6-gpdb5-image
     file: gpbackup/ci/tasks/test-on-local-cluster.yml
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   on_failure:
     *slack_alert
+{% endif %}
 
 - name: GPDB5
   plan:
@@ -1361,8 +1373,10 @@ jobs:
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       input_mapping:
         bin_gpdb: bin_gpdb_5x_stable_centos7
+{% if is_prod or "gpbackup-release" == pipeline_name %}
   on_failure:
     *slack_alert
+{% endif %}
 
 - name: GPDB6
   plan:
@@ -1412,9 +1426,9 @@ jobs:
         OS: ubuntu
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_ubuntu
-{% endif %}
   on_failure:
     *slack_alert
+{% endif %}
 
 - name: GPDB6-7-seg-cluster
   plan:
@@ -1467,9 +1481,9 @@ jobs:
         OS: ubuntu
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_ubuntu
-{% endif %}
   on_failure:
     *slack_alert
+{% endif %}
 
 - name: backward-compatibility
   plan:
