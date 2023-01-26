@@ -80,14 +80,21 @@ func (r Relation) GetUniqueID() UniqueID {
  */
 func getUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 	childPartitionFilter := ""
-	if !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
-		//Filter out non-external child partitions
+	if !MustGetFlagBool(options.LEAF_PARTITION_DATA) && connectionPool.Version.Before("7") {
+		// Filter out non-external child partitions in GPDB6 and earlier.
+		// In GPDB7+ we do not want to exclude child partitions, they function as separate tables.
 		childPartitionFilter = `
 	AND c.oid NOT IN (
 		SELECT p.parchildrelid
 		FROM pg_partition_rule p
 			LEFT JOIN pg_exttable e ON p.parchildrelid = e.reloid
 		WHERE e.reloid IS NULL)`
+	}
+
+	// In GPDB 7+, root partitions are marked as relkind 'p'.
+	relkindFilter := `'r'`
+	if connectionPool.Version.AtLeast("7") {
+		relkindFilter = `'r', 'p'`
 	}
 
 	query := fmt.Sprintf(`
@@ -110,11 +117,11 @@ func getUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 		) AS prt ON prt.parrelid = c.oid
 		WHERE %s
 			%s
-			AND relkind = 'r'
+			AND relkind IN (%s)
 			AND %s
 	) res
 	ORDER BY pages DESC, oid`,
-		relationAndSchemaFilterClause(), childPartitionFilter, ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), childPartitionFilter, relkindFilter, ExtensionFilterClause("c"))
 
 	results := make([]Relation, 0)
 	err := connectionPool.Select(&results, query)
@@ -124,6 +131,12 @@ func getUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 }
 
 func getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
+	// In GPDB 7+, root partitions are marked as relkind 'p'.
+	relkindFilter := `'r'`
+	if connectionPool.Version.AtLeast("7") {
+		relkindFilter = `'r', 'p'`
+	}
+
 	includeOids := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	oidStr := strings.Join(includeOids, ", ")
 	query := fmt.Sprintf(`
@@ -145,9 +158,9 @@ func getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, in
 			GROUP BY p.parrelid
 		) AS prt ON prt.parrelid = c.oid
 		WHERE c.oid IN (%s)
-		AND (relkind = 'r')
+		AND relkind IN (%s)
 	) res
-	ORDER BY pages DESC, oid`, oidStr)
+	ORDER BY pages DESC, oid`, oidStr, relkindFilter)
 
 	results := make([]Relation, 0)
 	err := connectionPool.Select(&results, query)
@@ -177,11 +190,14 @@ func GetForeignTableRelations(connectionPool *dbconn.DBConn) []Relation {
 
 type Sequence struct {
 	Relation
-	OwningTableOid    string
-	OwningTableSchema string
-	OwningTable       string
-	OwningColumn      string
-	Definition        SequenceDefinition
+	OwningTableOid          string
+	OwningTableSchema       string
+	OwningTable             string
+	OwningColumn            string
+	UnqualifiedOwningColumn string
+	OwningColumnAttIdentity string
+	IsIdentity              bool
+	Definition              SequenceDefinition
 }
 
 func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -198,6 +214,7 @@ func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
 
 type SequenceDefinition struct {
 	LastVal     int64
+	Type        string
 	StartVal    int64
 	Increment   int64
 	MaxVal      int64
@@ -209,27 +226,56 @@ type SequenceDefinition struct {
 }
 
 func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
-	query := fmt.Sprintf(`
-	SELECT n.oid AS schemaoid,
-		c.oid AS oid,
-		quote_ident(n.nspname) AS schema,
-		quote_ident(c.relname) AS name,
-        coalesce(d.refobjid::text, '') AS owningtableoid,
-		coalesce(quote_ident(m.nspname), '') AS owningtableschema,
-		coalesce(quote_ident(t.relname), '') AS owningtable,
-		coalesce(quote_ident(a.attname), '') AS owningcolumn
-	FROM pg_class c 
-		JOIN pg_namespace n ON n.oid = c.relnamespace
-		LEFT JOIN pg_depend d ON c.oid = d.objid AND d.deptype = 'a'
-		LEFT JOIN pg_class t ON t.oid = d.refobjid
-		LEFT JOIN pg_namespace m ON m.oid = t.relnamespace
-		LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
-	WHERE c.relkind = 'S'
-		AND %s
-		AND %s
-	ORDER BY n.nspname, c.relname`,
-		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
-
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		query = fmt.Sprintf(`
+		SELECT n.oid AS schemaoid,
+			c.oid AS oid,
+			quote_ident(n.nspname) AS schema,
+			quote_ident(c.relname) AS name,
+			coalesce(d.refobjid::text, '') AS owningtableoid,
+			coalesce(quote_ident(m.nspname), '') AS owningtableschema,
+			coalesce(quote_ident(t.relname), '') AS owningtable,
+			coalesce(quote_ident(a.attname), '') AS owningcolumn,
+			coalesce(a.attidentity, '') AS owningcolumnattidentity,
+			coalesce(quote_ident(a.attname), '') AS unqualifiedowningcolumn,
+			CASE
+				WHEN d.deptype IS NULL THEN false
+				ELSE d.deptype = 'i'
+			END AS isidentity
+		FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			LEFT JOIN pg_depend d ON c.oid = d.objid AND d.deptype in ('a', 'i')
+			LEFT JOIN pg_class t ON t.oid = d.refobjid
+			LEFT JOIN pg_namespace m ON m.oid = t.relnamespace
+			LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+		WHERE c.relkind = 'S'
+			AND %s
+			AND %s
+		ORDER BY n.nspname, c.relname`,
+			relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+	} else {
+		query = fmt.Sprintf(`
+		SELECT n.oid AS schemaoid,
+			c.oid AS oid,
+			quote_ident(n.nspname) AS schema,
+			quote_ident(c.relname) AS name,
+			coalesce(d.refobjid::text, '') AS owningtableoid,
+			coalesce(quote_ident(m.nspname), '') AS owningtableschema,
+			coalesce(quote_ident(t.relname), '') AS owningtable,
+			coalesce(quote_ident(a.attname), '') AS owningcolumn
+		FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			LEFT JOIN pg_depend d ON c.oid = d.objid AND d.deptype = 'a'
+			LEFT JOIN pg_class t ON t.oid = d.refobjid
+			LEFT JOIN pg_namespace m ON m.oid = t.relnamespace
+			LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+		WHERE c.relkind = 'S'
+			AND %s
+			AND %s
+		ORDER BY n.nspname, c.relname`,
+			relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+	}
 	results := make([]Sequence, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -261,20 +307,36 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 }
 
 func GetSequenceDefinition(connectionPool *dbconn.DBConn, seqName string) SequenceDefinition {
-	startValQuery := ""
-	if connectionPool.Version.AtLeast("6") {
-		startValQuery = "start_value AS startval,"
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		query = fmt.Sprintf(`
+		SELECT s.seqstart AS startval,
+			r.last_value AS lastval,
+			pg_catalog.format_type(s.seqtypid, NULL) AS type,
+			s.seqincrement AS increment,
+			s.seqmax AS maxval,
+			s.seqmin AS minval,
+			s.seqcache AS cacheval,
+			s.seqcycle AS iscycled,
+			r.is_called AS iscalled
+		FROM %s r
+		JOIN pg_sequence s ON s.seqrelid = '%s'::regclass::oid;`, seqName, seqName)
+	} else {
+		startValQuery := ""
+		if connectionPool.Version.AtLeast("6") {
+			startValQuery = "start_value AS startval,"
+		}
+		query = fmt.Sprintf(`
+		SELECT last_value AS lastval,
+			%s
+			increment_by AS increment,
+			max_value AS maxval,
+			min_value AS minval,
+			cache_value AS cacheval,
+			is_cycled AS iscycled,
+			is_called AS iscalled
+		FROM %s`, startValQuery, seqName)
 	}
-	query := fmt.Sprintf(`
-	SELECT last_value AS lastval,
-		%s
-		increment_by AS increment,
-		max_value AS maxval,
-		min_value AS minval,
-		cache_value AS cacheval,
-		is_cycled AS iscycled,
-		is_called AS iscalled
-	FROM %s`, startValQuery, seqName)
 	result := SequenceDefinition{}
 	err := connectionPool.Get(&result, query)
 	gplog.FatalOnError(err)
@@ -289,6 +351,7 @@ type View struct {
 	Definition     sql.NullString
 	Tablespace     string
 	IsMaterialized bool
+	DistPolicy     string
 }
 
 func (v View) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -360,6 +423,8 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
+	distPolicies := GetDistributionPolicies(connectionPool)
+
 	// Remove all views that have NULL definitions. This can happen
 	// if the query above is run and a concurrent view drop happens
 	// just before the pg_get_viewdef function execute. Also, error
@@ -373,12 +438,18 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 			if strings.Contains(result.Definition.String, "::anyarray") {
 				gplog.Fatal(errors.Errorf("Detected anyarray type cast in view definition for View '%s'", result.FQN()),
 					"Drop the view or recreate the view without explicit array type casts.")
-			} else {
-				verifiedResults = append(verifiedResults, result)
 			}
 		} else {
+			// do not append views with invalid definitions
 			gplog.Warn("View '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
+			continue
 		}
+
+		if result.IsMaterialized {
+			result.DistPolicy = distPolicies[result.Oid]
+		}
+		verifiedResults = append(verifiedResults, result)
+
 	}
 
 	return verifiedResults

@@ -143,7 +143,7 @@ var _ = Describe("Deadlock handling", func() {
 
 		// Only the main worker thread, worker 0, will run COPY on all the test tables
 		for _, dataTable := range dataTables {
-			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s TO PROGRAM `, dataTable)
+			expectedString := fmt.Sprintf(`[DEBUG]:-Worker 0: COPY %s`, dataTable)
 			Expect(stdout).To(ContainSubstring(expectedString))
 		}
 

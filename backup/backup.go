@@ -242,6 +242,7 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 {
 			backupProceduralLanguages(metadataFile, functions, funcInfoMap, metadataMap)
+			retrieveTransforms(&objects)
 			retrieveFDWObjects(&objects, metadataMap)
 		}
 
@@ -250,16 +251,16 @@ func backupPredata(metadataFile *utils.FileWithByteCount, tables []Table, tableO
 		retrieveOperatorObjects(&objects, metadataMap)
 		retrieveAggregates(&objects, metadataMap)
 		retrieveCasts(&objects, metadataMap)
+		backupAccessMethods(metadataFile)
 	}
 
 	retrieveViews(&objects)
 	sequences := retrieveAndBackupSequences(metadataFile, relationMetadata)
-	constraints, conMetadata := retrieveConstraints()
+	domainConstraints := retrieveConstraints(&objects, metadataMap)
 
-	backupDependentObjects(metadataFile, tables, protocols, metadataMap, constraints, objects, sequences, funcInfoMap, tableOnly)
+	backupDependentObjects(metadataFile, tables, protocols, metadataMap, domainConstraints, objects, sequences, funcInfoMap, tableOnly)
 
 	backupConversions(metadataFile)
-	backupConstraints(metadataFile, constraints, conMetadata)
 
 	logCompletionMessage("Pre-data metadata metadata backup")
 }
@@ -278,7 +279,7 @@ func backupData(tables []Table) {
 		for _, table := range tables {
 			oidList = append(oidList, fmt.Sprintf("%d", table.Oid))
 		}
-		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo)
+		utils.WriteOidListToSegments(oidList, globalCluster, globalFPInfo, "oid")
 		compressStr := fmt.Sprintf(" --compression-level %d --compression-type %s", MustGetFlagInt(options.COMPRESSION_LEVEL), MustGetFlagString(options.COMPRESSION_TYPE))
 		if MustGetFlagBool(options.NO_COMPRESSION) {
 			compressStr = " --compression-level 0"
@@ -286,7 +287,7 @@ func backupData(tables []Table) {
 		initialPipes := CreateInitialSegmentPipes(oidList, globalCluster, connectionPool, globalFPInfo)
 		// Do not pass through the --on-error-continue flag or the resizeClusterMap because neither apply to gpbackup
 		utils.StartGpbackupHelpers(globalCluster, globalFPInfo, "--backup-agent",
-			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated, initialPipes, true, 0, 0)
+			MustGetFlagString(options.PLUGIN_CONFIG), compressStr, false, false, &wasTerminated, initialPipes, true, false, 0, 0)
 	}
 	gplog.Info("Writing data to file")
 	rowsCopiedMaps := backupDataForAllTables(tables)
@@ -311,6 +312,10 @@ func backupPostdata(metadataFile *utils.FileWithByteCount) {
 		if len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 {
 			backupEventTriggers(metadataFile)
 		}
+	}
+	if connectionPool.Version.AtLeast("7") {
+		backupRowLevelSecurityPolicies(metadataFile)
+		backupExtendedStatistic(metadataFile)
 	}
 
 	logCompletionMessage("Post-data metadata backup")
@@ -466,9 +471,14 @@ func cancelBlockedQueries(timestamp string) {
 
 	// Query for all blocked queries
 	pids := make([]int64, 0)
-	findBlockedQuery := fmt.Sprintf("SELECT procpid from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND waiting_reason='lock';", timestamp)
-	if conn.Version.AtLeast("6") {
+	var findBlockedQuery string
+	if conn.Version.Before("6") {
+		findBlockedQuery = fmt.Sprintf("SELECT procpid from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND waiting_reason='lock';", timestamp)
+	}
+	if conn.Version.Is("6") {
 		findBlockedQuery = fmt.Sprintf("SELECT pid from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND waiting_reason='lock';", timestamp)
+	} else if conn.Version.AtLeast("7") {
+		findBlockedQuery = fmt.Sprintf("SELECT pid from pg_stat_activity WHERE application_name='gpbackup_%s' AND wait_event_type='Lock';", timestamp)
 	}
 	err := conn.Select(&pids, findBlockedQuery)
 	gplog.FatalOnError(err)
@@ -490,6 +500,9 @@ func cancelBlockedQueries(timestamp string) {
 		select {
 		case <-tickerCheckCanceled.C:
 			blockedQueryCount := fmt.Sprintf("SELECT count(*) from pg_stat_activity WHERE application_name='gpbackup_%s' AND waiting='t' AND  waiting_reason='lock';", timestamp)
+			if conn.Version.AtLeast("7") {
+				blockedQueryCount = fmt.Sprintf("SELECT count(*) from pg_stat_activity WHERE application_name='gpbackup_%s' AND wait_event_type='Lock';", timestamp)
+			}
 			count = dbconn.MustSelectString(conn, blockedQueryCount)
 			if count == "0" {
 				return

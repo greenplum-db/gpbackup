@@ -21,7 +21,7 @@ type Function struct {
 	Oid               uint32
 	Schema            string
 	Name              string
-	ReturnsSet        bool    `db:"proretset"`
+	ReturnsSet        bool `db:"proretset"`
 	FunctionBody      string
 	BinaryPath        string
 	Arguments         sql.NullString
@@ -36,8 +36,12 @@ type Function struct {
 	NumRows           float32 `db:"prorows"`
 	DataAccess        string  `db:"prodataaccess"`
 	Language          string
-	IsWindow          bool    `db:"proiswindow"`
-	ExecLocation      string  `db:"proexeclocation"`
+	Kind              string `db:"prokind"`     // GPDB 7+
+	PlannerSupport    string `db:"prosupport"`  // GPDB 7+
+	IsWindow          bool   `db:"proiswindow"` // before 7
+	ExecLocation      string `db:"proexeclocation"`
+	Parallel          string `db:"proparallel"` // GPDB 7+
+	TransformTypes    string // GPDB 7+
 }
 
 func (f Function) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -99,9 +103,9 @@ func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
 
 func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	excludeImplicitFunctionsClause := ""
-	masterAtts := "'a' AS proexeclocation,"
+	locationAtts := "'a' AS proexeclocation,"
 	if connectionPool.Version.AtLeast("6") {
-		masterAtts = "proiswindow,proexeclocation,proleakproof,"
+		locationAtts = "proiswindow,proexeclocation,proleakproof,"
 		// This excludes implicitly created functions. Currently this is only range type functions
 		excludeImplicitFunctionsClause = `
 	AND NOT EXISTS (
@@ -109,36 +113,81 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 		WHERE classid = 'pg_proc'::regclass::oid
 			AND objid = p.oid AND deptype = 'i')`
 	}
-	query := fmt.Sprintf(`
-	SELECT p.oid,
-		quote_ident(nspname) AS schema,
-		quote_ident(proname) AS name,
-		proretset,
-		coalesce(prosrc, '') AS functionbody,
-		coalesce(probin, '') AS binarypath,
-		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
-		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
-		pg_catalog.pg_get_function_result(p.oid) AS resulttype,
-		provolatile,
-		proisstrict,
-		prosecdef,
-		%s
-		coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
-			FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
-		procost,
-		prorows,
-		prodataaccess,
-		l.lanname AS language
-	FROM pg_proc p
-		JOIN pg_catalog.pg_language l ON p.prolang = l.oid
-		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-	WHERE %s
-		AND proisagg = 'f'
-		AND %s%s
-	ORDER BY nspname, proname, identargs`, masterAtts,
-		SchemaFilterClause("n"),
-		ExtensionFilterClause("p"),
-		excludeImplicitFunctionsClause)
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		locationAtts = "proexeclocation,proleakproof,proparallel,"
+		query = fmt.Sprintf(`
+		SELECT p.oid,
+			quote_ident(nspname) AS schema,
+			quote_ident(p.proname) AS name,
+			proretset,
+			coalesce(prosrc, '') AS functionbody,
+			coalesce(probin, '') AS binarypath,
+			pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+			pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+			pg_catalog.pg_get_function_result(p.oid) AS resulttype,
+			provolatile,
+			proisstrict,
+			prosecdef,
+			%s
+			coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
+				FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
+			procost,
+			prorows,
+			prodataaccess,
+			prokind,
+			prosupport,
+			l.lanname AS language,
+            coalesce(array_to_string(ARRAY(SELECT 'FOR TYPE ' || nm.nspname || '.' || typ.typname
+                from
+                    unnest(p.protrftypes) as trf_unnest
+                    left join pg_type typ
+                         on trf_unnest = typ.oid
+					left join pg_namespace nm
+						on typ.typnamespace = nm.oid
+                ), ', '), '') AS transformtypes
+		FROM pg_proc p
+			JOIN pg_catalog.pg_language l ON p.prolang = l.oid
+			LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+		WHERE %s
+			AND prokind <> 'a'
+			AND %s%s
+		ORDER BY nspname, proname, identargs`, locationAtts,
+			SchemaFilterClause("n"),
+			ExtensionFilterClause("p"),
+			excludeImplicitFunctionsClause)
+	} else {
+		query = fmt.Sprintf(`
+		SELECT p.oid,
+			quote_ident(nspname) AS schema,
+			quote_ident(proname) AS name,
+			proretset,
+			coalesce(prosrc, '') AS functionbody,
+			coalesce(probin, '') AS binarypath,
+			pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+			pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+			pg_catalog.pg_get_function_result(p.oid) AS resulttype,
+			provolatile,
+			proisstrict,
+			prosecdef,
+			%s
+			coalesce(array_to_string(ARRAY(SELECT 'SET ' || option_name || ' TO ' || option_value
+				FROM pg_options_to_table(proconfig)), ' '), '') AS proconfig,
+			procost,
+			prorows,
+			prodataaccess,
+			l.lanname AS language
+		FROM pg_proc p
+			JOIN pg_catalog.pg_language l ON p.prolang = l.oid
+			LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+		WHERE %s
+			AND proisagg = 'f'
+			AND %s%s
+		ORDER BY nspname, proname, identargs`, locationAtts,
+			SchemaFilterClause("n"),
+			ExtensionFilterClause("p"),
+			excludeImplicitFunctionsClause)
+	}
 
 	results := make([]Function, 0)
 	err := connectionPool.Select(&results, query)
@@ -147,13 +196,21 @@ func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	err = PostProcessFunctionConfigs(results)
 	gplog.FatalOnError(err)
 
+	// Process kind value for GPDB7+ window functions, to ensure window
+	// attribute is correctly set.
 	// Remove all functions that have NULL arguments, NULL identity
 	// arguments, or NULL result type. This can happen if the query
 	// above is run and a concurrent function drop happens just
 	// before the pg_get_function_* functions execute.
 	verifiedResults := make([]Function, 0)
 	for _, result := range results {
+		if connectionPool.Version.AtLeast("7") && result.Kind == "w" {
+			result.IsWindow = true
+		}
+
 		if result.Arguments.Valid && result.IdentArgs.Valid && result.ResultType.Valid {
+			verifiedResults = append(verifiedResults, result)
+		} else if connectionPool.Version.AtLeast("7") && result.Kind == "p" && !result.ResultType.Valid { // GPDB7+ stored procedure
 			verifiedResults = append(verifiedResults, result)
 		} else {
 			gplog.Warn("Function '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
@@ -351,9 +408,10 @@ type Aggregate struct {
 	FinalFuncExtra             bool
 	SortOperator               string
 	SortOperatorSchema         string
-	Hypothetical               bool
+	Hypothetical               bool   // GPDB < 7
+	Kind                       string // GPDB7+
 	TransitionDataType         string
-	TransitionDataSize         int    `db:"aggtransspace"`
+	TransitionDataSize         int `db:"aggtransspace"`
 	InitialValue               string
 	InitValIsNull              bool
 	IsOrdered                  bool   `db:"aggordered"`
@@ -365,6 +423,9 @@ type Aggregate struct {
 	MFinalFuncExtra            bool
 	MInitialValue              string
 	MInitValIsNull             bool
+	Finalmodify                string // GPDB7+
+	Mfinalmodify               string // GPDB7+
+	Parallel                   string // GPDB7+
 }
 
 func (a Aggregate) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -445,7 +506,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		AND %s`,
 		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
-	masterQuery := fmt.Sprintf(`
+	version6query := fmt.Sprintf(`
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		p.proname AS name,
@@ -481,14 +542,55 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		AND %s`,
 		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
+	version7Query := fmt.Sprintf(`
+	SELECT p.oid,
+		quote_ident(n.nspname) AS schema,
+		p.proname AS name,
+		p.proparallel as parallel,
+		pg_catalog.pg_get_function_arguments(p.oid) AS arguments,
+		pg_catalog.pg_get_function_identity_arguments(p.oid) AS identargs,
+		a.aggtransfn::regproc::oid,
+		a.aggcombinefn::regproc::oid,
+		a.aggserialfn::regproc::oid,
+		a.aggdeserialfn::regproc::oid,
+		a.aggfinalfn::regproc::oid,
+		a.aggfinalextra AS finalfuncextra,
+		coalesce(o.oprname, '') AS sortoperator,
+		coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema, 
+		aggkind AS kind,
+		format_type(a.aggtranstype, NULL) as transitiondatatype,
+		aggtransspace,
+		coalesce(a.agginitval, '') AS initialvalue,
+		(a.agginitval IS NULL) AS initvalisnull,
+		a.aggmtransfn::regproc::oid,
+		a.aggminvtransfn::regproc::oid,
+		a.aggmfinalfn::regproc::oid,
+		a.aggmfinalextra AS mfinalfuncextra,
+		format_type(a.aggmtranstype, NULL) as mtransitiondatatype,
+		aggmtransspace,
+		(a.aggminitval IS NULL) AS minitvalisnull,
+		coalesce(a.aggminitval, '') AS minitialvalue,
+		a.aggfinalmodify AS finalmodify,
+		a.aggmfinalmodify AS mfinalmodify
+	FROM pg_aggregate a
+		LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
+		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
+		LEFT JOIN pg_operator o ON a.aggsortop = o.oid
+		LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
+	WHERE %s
+		AND %s`,
+		SchemaFilterClause("n"), ExtensionFilterClause("p"))
+
 	aggregates := make([]Aggregate, 0)
 	query := ""
-	if connectionPool.Version.Before("5") {
+	if connectionPool.Version.Is("4") {
 		query = version4query
-	} else if connectionPool.Version.Before("6") {
+	} else if connectionPool.Version.Is("5") {
 		query = version5query
+	} else if connectionPool.Version.Is("6") {
+		query = version6query
 	} else {
-		query = masterQuery
+		query = version7Query
 	}
 	err := connectionPool.Select(&aggregates, query)
 	gplog.FatalOnError(err)
@@ -502,9 +604,9 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 		for i := range aggregates {
 			oid := aggregates[i].Oid
 			aggregates[i].Arguments.String = arguments[oid]
-			aggregates[i].Arguments.Valid = true  // Hardcode for GPDB 4.3 to fit sql.NullString
+			aggregates[i].Arguments.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 			aggregates[i].IdentArgs.String = arguments[oid]
-			aggregates[i].IdentArgs.Valid = true  // Hardcode for GPDB 4.3 to fit sql.NullString
+			aggregates[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
 		}
 
 		return aggregates
@@ -800,6 +902,54 @@ func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage 
 	return results
 }
 
+type Transform struct {
+	Oid           uint32
+	TypeNamespace string `db:"typnamespace"`
+	TypeName      string `db:"typname"`
+	LanguageName  string `db:"lanname"`
+	FromSQLFunc   uint32 `db:"trffromsql"`
+	ToSQLFunc     uint32 `db:"trftosql"`
+}
+
+func (trf Transform) GetMetadataEntry() (string, toc.MetadataEntry) {
+	return "predata",
+		toc.MetadataEntry{
+			Schema:          "",
+			Name:            "",
+			ObjectType:      "TRANSFORM",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (trf Transform) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TRANSFORM_OID, Oid: trf.Oid}
+}
+
+func (trf Transform) FQN() string {
+	return fmt.Sprintf("FOR %s.%s LANGUAGE %s", trf.TypeNamespace, trf.TypeName, trf.LanguageName)
+}
+
+func GetTransforms(connectionPool *dbconn.DBConn) []Transform {
+	results := make([]Transform, 0)
+	query := fmt.Sprintf(`
+	SELECT trf.oid,
+		quote_ident(ns.nspname) AS typnamespace,
+		quote_ident(tp.typname) AS typname,
+		l.lanname,
+		trf.trffromsql::oid,
+		trf.trftosql::oid
+	FROM pg_transform trf
+		JOIN pg_type tp ON trf.trftype=tp.oid
+		JOIN pg_namespace ns ON tp.typnamespace = ns.oid
+		JOIN pg_language l ON trf.trflang=l.oid;`)
+
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}
+
 type Conversion struct {
 	Oid                uint32
 	Schema             string
@@ -989,6 +1139,54 @@ func GetUserMappings(connectionPool *dbconn.DBConn) []UserMapping {
 	ORDER by um.usename`
 
 	results := make([]UserMapping, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}
+
+type StatisticExt struct {
+	Oid         uint32
+	Name        string
+	Namespace   string // namespace that statistics object belongs to
+	Owner       string
+	TableSchema string // schema that table covered by statistics belongs to
+	TableName   string // table covered by statistics
+	Definition  string
+}
+
+func (se StatisticExt) GetMetadataEntry() (string, toc.MetadataEntry) {
+	return "postdata",
+		toc.MetadataEntry{
+			Schema:          se.Namespace,
+			Name:            se.Name,
+			ObjectType:      "STATISTICS",
+			ReferenceObject: utils.MakeFQN(se.TableSchema, se.TableName),
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (se StatisticExt) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_STATISTIC_EXT_OID, Oid: se.Oid}
+}
+
+func (se StatisticExt) FQN() string {
+	return fmt.Sprintf("%s.%s", se.Namespace, se.Name)
+}
+
+func GetExtendedStatistics(connectionPool *dbconn.DBConn) []StatisticExt {
+	results := make([]StatisticExt, 0)
+
+	query := fmt.Sprintf(`
+	SELECT 	se.oid,
+			stxname AS name,
+			regexp_replace(pg_catalog.pg_get_statisticsobjdef(se.oid), '(.* FROM ).*', '\1' || quote_ident(c.relnamespace::regnamespace::text) || '.' || quote_ident(c.relname)) AS definition,
+			quote_ident(se.stxnamespace::regnamespace::text) AS namespace,
+			se.stxowner::regrole AS owner,
+			quote_ident(c.relnamespace::regnamespace::text) AS tableschema,
+			quote_ident(c.relname) AS tablename
+	FROM pg_catalog.pg_statistic_ext se
+	JOIN pg_catalog.pg_class c ON se.stxrelid = c.oid;`)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results

@@ -7,6 +7,7 @@ package backup
  */
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -32,7 +33,7 @@ type ExternalTableDefinition struct {
 	Oid             uint32
 	Type            int
 	Protocol        int
-	Location        string
+	Location        sql.NullString
 	ExecLocation    string
 	FormatType      string
 	FormatOpts      string
@@ -76,7 +77,8 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 	isWritable := extTableDef.Writable
 	var tableType int
 	tableProtocol := -1
-	if extTableDef.Location == "" { // EXTERNAL WEB tables may have EXECUTE instead of LOCATION
+	if !extTableDef.Location.Valid ||
+		extTableDef.Location.String == "" { // EXTERNAL WEB tables may have EXECUTE instead of LOCATION
 		tableProtocol = HTTP
 		if isWritable {
 			tableType = WRITABLE_WEB
@@ -88,7 +90,7 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 		 * All data sources must use the same protocol, so we can use Location to determine
 		 * the table's protocol even though it only holds one data source URI.
 		 */
-		isWeb := strings.HasPrefix(extTableDef.Location, "http")
+		isWeb := strings.HasPrefix(extTableDef.Location.String, "http")
 		if isWeb && isWritable {
 			tableType = WRITABLE_WEB
 		} else if isWeb && !isWritable {
@@ -98,7 +100,7 @@ func DetermineExternalTableCharacteristics(extTableDef ExternalTableDefinition) 
 		} else {
 			tableType = READABLE
 		}
-		prefix := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
+		prefix := extTableDef.Location.String[0:strings.Index(extTableDef.Location.String, "://")]
 		switch prefix {
 		case "file":
 			tableProtocol = FILE
@@ -131,6 +133,8 @@ func generateExecuteStatement(extTableDef ExternalTableDefinition) string {
 		executeStatement += fmt.Sprintf(" ON HOST '%s'", execType[1])
 	case "MASTER_ONLY":
 		executeStatement += " ON MASTER"
+	case "COORDINATOR_ONLY":
+		executeStatement += " ON COORDINATOR"
 	case "PER_HOST":
 		executeStatement += " ON HOST"
 	case "SEGMENT_ID":
@@ -261,7 +265,7 @@ func generateLogErrorStatement(extTableDef ExternalTableDefinition) string {
 		} else {
 			logErrorStatement += "\nLOG ERRORS"
 		}
-	} else if extTableDef.ErrTableName != ""  && extTableDef.ErrTableSchema != "" {
+	} else if extTableDef.ErrTableName != "" && extTableDef.ErrTableSchema != "" {
 		errTableFQN := utils.MakeFQN(extTableDef.ErrTableSchema, extTableDef.ErrTableName)
 		logErrorStatement += fmt.Sprintf("\nLOG ERRORS INTO %s", errTableFQN)
 	}
@@ -287,6 +291,8 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 	if extTableDef.Type == READABLE || (extTableDef.Type == WRITABLE_WEB && extTableDef.Protocol == S3) {
 		if extTableDef.ExecLocation == "MASTER_ONLY" {
 			metadataFile.MustPrintf(" ON MASTER")
+		} else if extTableDef.ExecLocation == "COORDINATOR_ONLY" {
+			metadataFile.MustPrintf(" ON COORDINATOR")
 		}
 	}
 	if extTableDef.Type == READABLE_WEB || extTableDef.Type == WRITABLE_WEB {

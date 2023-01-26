@@ -140,7 +140,6 @@ func DoRestore() {
 	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY)
 	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(options.METADATA_ONLY)
 	isIncremental := MustGetFlagBool(options.INCREMENTAL)
-	isClusterResize := MustGetFlagBool(options.RESIZE_CLUSTER)
 
 	if isIncremental {
 		verifyIncrementalState()
@@ -158,13 +157,7 @@ func DoRestore() {
 	totalTablesRestored := 0
 	if !isMetadataOnly {
 		if MustGetFlagString(options.PLUGIN_CONFIG) == "" {
-			backupFileCount := 2 // 1 for the actual data file, 1 for the segment TOC file
-			if !backupConfig.SingleDataFile {
-				backupFileCount = len(globalTOC.DataEntries)
-			}
-			if !isClusterResize {
-				VerifyBackupFileCountOnSegments(backupFileCount)
-			}
+			VerifyBackupFileCountOnSegments()
 		}
 		totalTablesRestored, filteredDataEntries = restoreData()
 	}
@@ -359,6 +352,18 @@ func editStatementsRedirectSchema(statements []toc.StatementWithType, redirectSc
 		newSchema := fmt.Sprintf("%s.", redirectSchema)
 		statements[i].Schema = redirectSchema
 		statements[i].Statement = strings.Replace(statement.Statement, oldSchema, newSchema, 1)
+
+		// ALTER TABLE schema.root ATTACH PARTITION schema.leaf needs two schema replacements
+		if connectionPool.Version.AtLeast("7") && statement.ObjectType == "TABLE" && statement.ReferenceObject != "" {
+			alterTableAttachPart := strings.Split(statements[i].Statement, " ATTACH PARTITION ")
+
+			if len(alterTableAttachPart) == 2 {
+				statements[i].Statement = fmt.Sprintf(`%s ATTACH PARTITION %s`,
+					alterTableAttachPart[0],
+					strings.Replace(alterTableAttachPart[1], oldSchema, newSchema, 1))
+			}
+		}
+
 		// only postdata will have a reference object
 		if statement.ReferenceObject != "" {
 			statements[i].ReferenceObject = strings.Replace(statement.ReferenceObject, oldSchema, newSchema, 1)
@@ -583,8 +588,7 @@ func DoTeardown() {
 			return
 		}
 		reportFilename := globalFPInfo.GetRestoreReportFilePath(restoreStartTime)
-		origSize := backupConfig.SegmentCount
-		destSize := len(globalCluster.Segments) - 1
+		origSize, destSize, _ := GetResizeClusterInfo()
 		report.WriteRestoreReportFile(reportFilename, globalFPInfo.Timestamp, restoreStartTime, connectionPool, version, origSize, destSize, errMsg)
 		report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gprestore", !restoreFailed)
 		if pluginConfig != nil {

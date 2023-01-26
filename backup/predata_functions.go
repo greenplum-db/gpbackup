@@ -9,6 +9,7 @@ package backup
 import (
 	"fmt"
 
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 )
@@ -16,8 +17,12 @@ import (
 func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	funcFQN := utils.MakeFQN(funcDef.Schema, funcDef.Name)
-	metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS ", funcFQN, funcDef.Arguments.String)
-	metadataFile.MustPrintf("%s AS", funcDef.ResultType.String)
+
+	if connectionPool.Version.AtLeast("7") && funcDef.Kind == "p" {
+		metadataFile.MustPrintf("\n\nCREATE PROCEDURE %s(%s) AS", funcFQN, funcDef.Arguments.String)
+	} else {
+		metadataFile.MustPrintf("\n\nCREATE FUNCTION %s(%s) RETURNS %s AS", funcFQN, funcDef.Arguments.String, funcDef.ResultType.String)
+	}
 	PrintFunctionBodyOrPath(metadataFile, funcDef)
 	metadataFile.MustPrintf("LANGUAGE %s", funcDef.Language)
 	PrintFunctionModifiers(metadataFile, funcDef)
@@ -66,13 +71,15 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	switch funcDef.ExecLocation {
 	case "m":
 		metadataFile.MustPrintf(" EXECUTE ON MASTER")
+	case "c":
+		metadataFile.MustPrintf(" EXECUTE ON COORDINATOR")
 	case "s":
 		metadataFile.MustPrintf(" EXECUTE ON ALL SEGMENTS")
 	case "i":
 		metadataFile.MustPrintf(" EXECUTE ON INITPLAN")
 	case "a": // Default case, don't print anything else
 	}
-	if funcDef.IsWindow {
+	if funcDef.IsWindow || funcDef.Kind == "w" {
 		metadataFile.MustPrintf(" WINDOW")
 	}
 	if funcDef.IsStrict {
@@ -84,6 +91,14 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	if funcDef.IsSecurityDefiner {
 		metadataFile.MustPrintf(" SECURITY DEFINER")
 	}
+	if connectionPool.Version.AtLeast("7") {
+		if funcDef.TransformTypes != "" {
+			metadataFile.MustPrintf("\nTRANSFORM %s\n", funcDef.TransformTypes)
+		}
+		if funcDef.PlannerSupport != "-" {
+			metadataFile.MustPrintf("\nSUPPORT %s", funcDef.PlannerSupport)
+		}
+	}
 	// Default cost is 1 for C and internal functions or 100 for functions in other languages
 	isInternalOrC := funcDef.Language == "c" || funcDef.Language == "internal"
 	if !((!isInternalOrC && funcDef.Cost == 100) || (isInternalOrC && funcDef.Cost == 1) || funcDef.Cost == 0) {
@@ -94,6 +109,20 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	}
 	if funcDef.Config != "" {
 		metadataFile.MustPrintf("\n%s", funcDef.Config)
+	}
+
+	// Stored procedures do not permit parallelism declarations
+	if connectionPool.Version.AtLeast("7") && funcDef.Kind != "p" {
+		switch funcDef.Parallel {
+		case "u":
+			metadataFile.MustPrintf(" PARALLEL UNSAFE")
+		case "s":
+			metadataFile.MustPrintf(" PARALLEL SAFE")
+		case "r":
+			metadataFile.MustPrintf(" PARALLEL RESTRICTED")
+		default:
+			gplog.Fatal(fmt.Errorf("unrecognized proparallel value for function %s", funcDef.FQN()), "")
+		}
 	}
 }
 
@@ -139,8 +168,14 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	if aggDef.SortOperator != "" {
 		metadataFile.MustPrintf(",\n\tSORTOP = %s.\"%s\"", aggDef.SortOperatorSchema, aggDef.SortOperator)
 	}
-	if aggDef.Hypothetical {
-		metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+	if connectionPool.Version.Before("7") {
+		if aggDef.Hypothetical {
+			metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+		}
+	} else {
+		if aggDef.Kind == "h" {
+			metadataFile.MustPrintf(",\n\tHYPOTHETICAL")
+		}
 	}
 	if aggDef.MTransitionFunction != 0 {
 		metadataFile.MustPrintf(",\n\tMSFUNC = %s", funcInfoMap[aggDef.MTransitionFunction].QualifiedName)
@@ -163,6 +198,56 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	if !aggDef.MInitValIsNull {
 		metadataFile.MustPrintf(",\n\tMINITCOND = '%s'", aggDef.MInitialValue)
 	}
+
+	if connectionPool.Version.AtLeast("7") {
+		var defaultFinalModify string
+		if aggDef.Kind == "o" {
+			defaultFinalModify = "w"
+		} else {
+			defaultFinalModify = "r"
+		}
+		if aggDef.Finalmodify == "" {
+			aggDef.Finalmodify = defaultFinalModify
+		}
+		if aggDef.Mfinalmodify == "" {
+			aggDef.Mfinalmodify = defaultFinalModify
+		}
+		if aggDef.Finalmodify != defaultFinalModify {
+			if aggDef.Finalmodify == "r" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_ONLY")
+			} else if aggDef.Finalmodify == "s" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = SHAREABLE")
+			} else if aggDef.Finalmodify == "w" {
+				metadataFile.MustPrintf(",\n\tFINALFUNC_MODIFY = READ_WRITE")
+			} else {
+				gplog.Fatal(fmt.Errorf("invalid aggfinalmodify value: expected 'r', 's' or 'w', got '%s'", aggDef.Finalmodify), "")
+			}
+		}
+		if aggDef.Mfinalmodify != defaultFinalModify {
+			if aggDef.Mfinalmodify == "r" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_ONLY")
+			} else if aggDef.Mfinalmodify == "s" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = SHAREABLE")
+			} else if aggDef.Mfinalmodify == "w" {
+				metadataFile.MustPrintf(",\n\tMFINALFUNC_MODIFY = READ_WRITE")
+			} else {
+				gplog.Fatal(fmt.Errorf("invalid aggmfinalmodify value: expected 'r', 's' or 'w', got '%s'", aggDef.Mfinalmodify), "")
+			}
+		}
+	}
+	if aggDef.Parallel != "" {
+		switch aggDef.Parallel {
+		case "u":
+			metadataFile.MustPrintf(",\n\tPARALLEL = UNSAFE")
+		case "s":
+			metadataFile.MustPrintf(",\n\tPARALLEL = SAFE")
+		case "r":
+			metadataFile.MustPrintf(",\n\tPARALLEL = RESTRICTED")
+		default:
+			gplog.Fatal(fmt.Errorf("unrecognized proparallel value for function %s", aggDef.Parallel), "")
+		}
+	}
+
 	metadataFile.MustPrintln("\n);")
 
 	section, entry := aggDef.GetMetadataEntry()
@@ -283,6 +368,38 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *t
 
 		PrintObjectMetadata(metadataFile, toc, procLangMetadata[procLang.GetUniqueID()], procLang, "")
 	}
+}
+
+func PrintCreateTransformStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, transform Transform, funcInfoMap map[uint32]FunctionInfo, transformMetadata ObjectMetadata) {
+	fromSQLFunc, fromSQLIsDefined := funcInfoMap[transform.FromSQLFunc]
+	toSQLFunc, toSQLIsDefined := funcInfoMap[transform.ToSQLFunc]
+	TypeFQN := fmt.Sprintf("%s.%s", transform.TypeNamespace, transform.TypeName)
+
+	if !fromSQLIsDefined && !toSQLIsDefined {
+		gplog.Warn(fmt.Sprintf("Skipping invalid transform object for type %s and language %s; At least one of FROM and TO functions should be specified.", TypeFQN, transform.LanguageName))
+		return
+	}
+	start := metadataFile.ByteCount
+	statement := fmt.Sprintf("\n\nCREATE TRANSFORM FOR %s LANGUAGE %s (", TypeFQN, transform.LanguageName)
+	if fromSQLIsDefined {
+		statement += fmt.Sprintf("FROM SQL WITH FUNCTION %s", fromSQLFunc.FQN())
+	} else {
+		gplog.Warn(fmt.Sprintf("No FROM function found for transform object with type %s and language %s\n", TypeFQN, transform.LanguageName))
+	}
+
+	if toSQLIsDefined {
+		if fromSQLIsDefined {
+			statement += ", "
+		}
+		statement += fmt.Sprintf("TO SQL WITH FUNCTION %s", toSQLFunc.FQN())
+	} else {
+		gplog.Warn(fmt.Sprintf("No TO function found for transform object with type %s and language %s\n", TypeFQN, transform.LanguageName))
+	}
+	statement += ");"
+	metadataFile.MustPrintf(statement)
+	section, entry := transform.GetMetadataEntry()
+	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+	PrintObjectMetadata(metadataFile, toc, transformMetadata, transform, "")
 }
 
 func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, conversions []Conversion, conversionMetadata MetadataMap) {

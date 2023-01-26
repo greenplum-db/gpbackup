@@ -2,6 +2,7 @@ package backup_test
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
@@ -98,11 +99,22 @@ var _ = Describe("backup/dependencies tests", func() {
 	})
 	Describe("PrintDependentObjectStatements", func() {
 		var (
-			objects     []backup.Sortable
-			metadataMap backup.MetadataMap
-			funcInfoMap map[uint32]backup.FunctionInfo
+			objects             []backup.Sortable
+			metadataMap         backup.MetadataMap
+			funcInfoMap         map[uint32]backup.FunctionInfo
+			plannerSupportValue string
+			parallelValue       string
+			default_parallel    string
 		)
 		BeforeEach(func() {
+			plannerSupportValue = ""
+			parallelValue = ""
+			default_parallel = ""
+			if connectionPool.Version.AtLeast("7") {
+				plannerSupportValue = "-"
+				parallelValue = "u"
+				default_parallel = " PARALLEL UNSAFE"
+			}
 			funcInfoMap = map[uint32]backup.FunctionInfo{
 				1: {QualifiedName: "public.write_to_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
 				2: {QualifiedName: "public.read_from_s3", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: false},
@@ -111,7 +123,8 @@ var _ = Describe("backup/dependencies tests", func() {
 				backup.Function{Oid: 1, Schema: "public", Name: "function", FunctionBody: "SELECT $1 + $2",
 					Arguments:  sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "integer", Valid: true}, Language: "sql"},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Language:   "sql", PlannerSupport: plannerSupportValue, Parallel: parallelValue},
 				backup.BaseType{Oid: 2, Schema: "public", Name: "base", Input: "typin", Output: "typout", Category: "U"},
 				backup.CompositeType{Oid: 3, Schema: "public", Name: "composite", Attributes: []backup.Attribute{{Name: "foo", Type: "integer"}}},
 				backup.Domain{Oid: 4, Schema: "public", Name: "domain", BaseType: "numeric"},
@@ -134,13 +147,13 @@ var _ = Describe("backup/dependencies tests", func() {
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (domain has a constraint)", func() {
 			constraints := []backup.Constraint{
-				{Name: "check_constraint", ConDef: sql.NullString{String: "CHECK (VALUE > 2)", Valid: true}, OwningObject: "public.domain"},
+				{Name: "check_constraint", Def: sql.NullString{String: "CHECK (VALUE > 2)", Valid: true}, OwningObject: "public.domain"},
 			}
 			backup.PrintDependentObjectStatements(backupfile, tocfile, objects, metadataMap, constraints, funcInfoMap)
-			testhelper.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, fmt.Sprintf(`
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
-LANGUAGE sql;
+LANGUAGE sql%s;
 
 
 COMMENT ON FUNCTION public.function(integer, integer) IS 'function';
@@ -179,15 +192,15 @@ CREATE TRUSTED PROTOCOL ext_protocol (readfunc = public.read_from_s3, writefunc 
 
 
 COMMENT ON PROTOCOL ext_protocol IS 'protocol';
-`)
+`, default_parallel))
 		})
 		It("prints create statements for dependent types, functions, protocols, and tables (no domain constraint)", func() {
 			constraints := make([]backup.Constraint, 0)
 			backup.PrintDependentObjectStatements(backupfile, tocfile, objects, metadataMap, constraints, funcInfoMap)
-			testhelper.ExpectRegexp(buffer, `
+			testhelper.ExpectRegexp(buffer, fmt.Sprintf(`
 CREATE FUNCTION public.function(integer, integer) RETURNS integer AS
 $_$SELECT $1 + $2$_$
-LANGUAGE sql;
+LANGUAGE sql%s;
 
 
 COMMENT ON FUNCTION public.function(integer, integer) IS 'function';
@@ -225,7 +238,7 @@ CREATE TRUSTED PROTOCOL ext_protocol (readfunc = public.read_from_s3, writefunc 
 
 
 COMMENT ON PROTOCOL ext_protocol IS 'protocol';
-`)
+`, default_parallel))
 		})
 	})
 })

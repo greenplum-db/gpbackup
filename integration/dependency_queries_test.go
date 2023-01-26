@@ -22,8 +22,9 @@ var _ = Describe("backup integration tests", func() {
 			fooEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: oidFoo}
 			barEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: oidBar}
 			backupSet := map[backup.UniqueID]bool{fooEntry: true, barEntry: true}
+			tables := make([]backup.Table, 0)
 
-			deps := backup.GetDependencies(connectionPool, backupSet)
+			deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 			Expect(deps).To(HaveLen(1))
 			Expect(deps[barEntry]).To(HaveLen(1))
@@ -53,8 +54,9 @@ var _ = Describe("backup integration tests", func() {
 			protocolEntry := backup.UniqueID{ClassID: backup.PG_EXTPROTOCOL_OID, Oid: protocolOid}
 			functionEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: functionOid}
 			backupSet := map[backup.UniqueID]bool{tableEntry: true, protocolEntry: true, functionEntry: true}
+			tables := make([]backup.Table, 0)
 
-			deps := backup.GetDependencies(connectionPool, backupSet)
+			deps := backup.GetDependencies(connectionPool, backupSet, tables)
 			if connectionPool.Version.Is("4") {
 				tableRelations := backup.GetIncludedUserTableRelations(connectionPool, []string{})
 				tables := backup.ConstructDefinitionsForTables(connectionPool, tableRelations)
@@ -84,8 +86,9 @@ var _ = Describe("backup integration tests", func() {
 			parent2Entry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: parent2Oid}
 			childEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: childOid}
 			backupSet := map[backup.UniqueID]bool{parent1Entry: true, parent2Entry: true, childEntry: true}
+			tables := make([]backup.Table, 0)
 
-			deps := backup.GetDependencies(connectionPool, backupSet)
+			deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 			Expect(deps).To(HaveLen(1))
 			Expect(deps[childEntry]).To(HaveLen(2))
@@ -111,8 +114,9 @@ var _ = Describe("backup integration tests", func() {
 			parent2Entry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: parent2Oid}
 			childEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: childOid}
 			backupSet := map[backup.UniqueID]bool{parent1Entry: true, parent2Entry: true, childEntry: true}
+			tables := make([]backup.Table, 0)
 
-			deps := backup.GetDependencies(connectionPool, backupSet)
+			deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 			Expect(deps).To(HaveLen(1))
 			Expect(deps[childEntry]).To(HaveLen(2))
@@ -134,8 +138,9 @@ object-relational database management system');`)
 			configID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testconfig", backup.TYPE_TSCONFIGURATION)
 			viewID := testutils.UniqueIDFromObjectName(connectionPool, "public", "ts_config_view", backup.TYPE_RELATION)
 			backupSet := map[backup.UniqueID]bool{parserID: true, configID: true, viewID: true}
+			tables := make([]backup.Table, 0)
 
-			deps := backup.GetDependencies(connectionPool, backupSet)
+			deps := backup.GetDependencies(connectionPool, backupSet, tables)
 			Expect(deps).To(HaveLen(2))
 			Expect(deps[configID]).To(HaveLen(1))
 			Expect(deps[configID]).To(HaveKey(parserID))
@@ -159,8 +164,9 @@ object-relational database management system');`)
 				functionOid := testutils.OidFromObjectName(connectionPool, "public", "add", backup.TYPE_FUNCTION)
 				funcEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: functionOid}
 				backupSet := map[backup.UniqueID]bool{funcEntry: true, compositeEntry: true}
+				tables := make([]backup.Table, 0)
 
-				functionDeps := backup.GetDependencies(connectionPool, backupSet)
+				functionDeps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(functionDeps).To(HaveLen(1))
 				Expect(functionDeps[funcEntry]).To(HaveLen(1))
@@ -173,8 +179,9 @@ object-relational database management system');`)
 				functionOid := testutils.OidFromObjectName(connectionPool, "public", "compose", backup.TYPE_FUNCTION)
 				funcEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: functionOid}
 				backupSet := map[backup.UniqueID]bool{funcEntry: true, compositeEntry: true}
+				tables := make([]backup.Table, 0)
 
-				functionDeps := backup.GetDependencies(connectionPool, backupSet)
+				functionDeps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(functionDeps).To(HaveLen(1))
 				Expect(functionDeps[funcEntry]).To(HaveLen(1))
@@ -194,8 +201,9 @@ object-relational database management system');`)
 				baseOid := testutils.OidFromObjectName(connectionPool, "public", "base_type", backup.TYPE_TYPE)
 				baseEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: baseOid}
 				backupSet := map[backup.UniqueID]bool{funcEntry: true, compositeEntry: true, baseEntry: true}
+				tables := make([]backup.Table, 0)
 
-				functionDeps := backup.GetDependencies(connectionPool, backupSet)
+				functionDeps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(functionDeps).To(HaveLen(1))
 				Expect(functionDeps[funcEntry]).To(HaveLen(2))
@@ -232,8 +240,9 @@ object-relational database management system');`)
 				domainEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: domainOid}
 				domain2Entry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: domain2Oid}
 				backupSet := map[backup.UniqueID]bool{domainEntry: true, domain2Entry: true}
+				tables := make([]backup.Table, 0)
 
-				deps := backup.GetDependencies(connectionPool, backupSet)
+				deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(deps).To(HaveLen(1))
 				Expect(deps[domain2Entry]).To(HaveLen(1))
@@ -247,8 +256,9 @@ object-relational database management system');`)
 				baseInEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: baseInOid}
 				baseOutEntry := backup.UniqueID{ClassID: backup.PG_PROC_OID, Oid: baseOutOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, baseInEntry: true, baseOutEntry: true}
+				tables := make([]backup.Table, 0)
 
-				deps := backup.GetDependencies(connectionPool, backupSet)
+				deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(deps).To(HaveLen(1))
 				Expect(deps[baseEntry]).To(HaveLen(2))
@@ -262,8 +272,9 @@ object-relational database management system');`)
 				compositeOid := testutils.OidFromObjectName(connectionPool, "public", "comp_type", backup.TYPE_TYPE)
 				compositeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: compositeOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, compositeEntry: true}
+				tables := make([]backup.Table, 0)
 
-				deps := backup.GetDependencies(connectionPool, backupSet)
+				deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(deps).To(HaveLen(1))
 				Expect(deps[compositeEntry]).To(HaveLen(1))
@@ -284,8 +295,9 @@ object-relational database management system');`)
 				compositeOid := testutils.OidFromObjectName(connectionPool, "public", "comp_type", backup.TYPE_TYPE)
 				compositeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: compositeOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, base2Entry: true, compositeEntry: true}
+				tables := make([]backup.Table, 0)
 
-				deps := backup.GetDependencies(connectionPool, backupSet)
+				deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(deps).To(HaveLen(1))
 				Expect(deps[compositeEntry]).To(HaveLen(2))
@@ -299,8 +311,9 @@ object-relational database management system');`)
 				compositeOid := testutils.OidFromObjectName(connectionPool, "public", "comp_type", backup.TYPE_TYPE)
 				compositeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: compositeOid}
 				backupSet := map[backup.UniqueID]bool{baseEntry: true, compositeEntry: true}
+				tables := make([]backup.Table, 0)
 
-				deps := backup.GetDependencies(connectionPool, backupSet)
+				deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(deps).To(HaveLen(1))
 				Expect(deps[compositeEntry]).To(HaveLen(1))
@@ -318,8 +331,9 @@ object-relational database management system');`)
 				tableEntry := backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: tableOid}
 				typeEntry := backup.UniqueID{ClassID: backup.PG_TYPE_OID, Oid: typeOid}
 				backupSet := map[backup.UniqueID]bool{tableEntry: true, typeEntry: true}
+				tables := make([]backup.Table, 0)
 
-				deps := backup.GetDependencies(connectionPool, backupSet)
+				deps := backup.GetDependencies(connectionPool, backupSet, tables)
 
 				Expect(deps).To(HaveLen(1))
 				Expect(deps[typeEntry]).To(HaveLen(1))

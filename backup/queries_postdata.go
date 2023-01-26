@@ -8,6 +8,7 @@ package backup
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -48,6 +49,10 @@ type IndexDefinition struct {
 	IsClustered        bool
 	SupportsConstraint bool
 	IsReplicaIdentity  bool
+	StatisticsColumns  string
+	StatisticsValues   string
+	ParentIndex        uint32
+	ParentIndexFQN     string
 }
 
 func (i IndexDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -77,14 +82,14 @@ func (i IndexDefinition) FQN() string {
  * e.g. comments on implicitly created indexes
  */
 func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
-	resultIndexes := make([]IndexDefinition, 0)
+	var query string
 	if connectionPool.Version.Before("6") {
 		indexOidList := ConstructImplicitIndexOidList(connectionPool)
 		implicitIndexStr := ""
 		if indexOidList != "" {
 			implicitIndexStr = fmt.Sprintf("OR i.indexrelid IN (%s)", indexOidList)
 		}
-		query := fmt.Sprintf(`
+		query = fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,
 		quote_ident(ic.relname) AS name,
 		quote_ident(n.nspname) AS owningschema,
@@ -106,12 +111,10 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 		AND %s
 	ORDER BY name`,
-	implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+			implicitIndexStr, relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
-		err := connectionPool.Select(&resultIndexes, query)
-		gplog.FatalOnError(err)
-	} else {
-		query := fmt.Sprintf(`
+	} else if connectionPool.Version.Is("6") {
+		query = fmt.Sprintf(`
 	SELECT DISTINCT i.indexrelid AS oid,
 		quote_ident(ic.relname) AS name,
 		quote_ident(n.nspname) AS owningschema,
@@ -137,25 +140,169 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 		AND NOT EXISTS (SELECT 1 FROM pg_partition_rule r WHERE r.parchildrelid = c.oid)
 		AND %s
 	ORDER BY name`,
-	relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
-		err := connectionPool.Select(&resultIndexes, query)
-		gplog.FatalOnError(err)
+			relationAndSchemaFilterClause(), ExtensionFilterClause("c")) // The index itself does not have a dependency on the extension, but the index's table does
+
+	} else {
+		query = fmt.Sprintf(`
+		SELECT DISTINCT i.indexrelid AS oid,
+			coalesce(inh.inhparent, '0') AS parentindex,
+			quote_ident(ic.relname) AS name,
+			quote_ident(n.nspname) AS owningschema,
+			quote_ident(c.relname) AS owningtable,
+			coalesce(quote_ident(s.spcname), '') AS tablespace,
+			pg_get_indexdef(i.indexrelid) AS def,
+			i.indisclustered AS isclustered,
+			i.indisreplident AS isreplicaidentity,
+			CASE
+				WHEN conindid > 0 THEN 't'
+				ELSE 'f'
+			END as supportsconstraint,
+			coalesce(array_to_string((SELECT pg_catalog.array_agg(attnum ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticscolumns,
+			coalesce(array_to_string((SELECT pg_catalog.array_agg(attstattarget ORDER BY attnum) FROM pg_catalog.pg_attribute WHERE attrelid = i.indexrelid AND attstattarget >= 0), ','), '') as statisticsvalues	
+		FROM pg_index i
+			JOIN pg_class ic ON ic.oid = i.indexrelid
+			JOIN pg_namespace n ON ic.relnamespace = n.oid
+			JOIN pg_class c ON c.oid = i.indrelid
+			LEFT JOIN pg_tablespace s ON ic.reltablespace = s.oid
+			LEFT JOIN pg_constraint con ON i.indexrelid = con.conindid
+			LEFT JOIN pg_catalog.pg_inherits inh ON inh.inhrelid = i.indexrelid
+		WHERE %s
+			AND i.indisready
+			AND i.indisprimary = 'f'
+			AND i.indexrelid >= %d
+			AND %s
+		ORDER BY name`,
+			relationAndSchemaFilterClause(), FIRST_NORMAL_OBJECT_ID, ExtensionFilterClause("c"))
 	}
+
+	resultIndexes := make([]IndexDefinition, 0)
+	err := connectionPool.Select(&resultIndexes, query)
+	gplog.FatalOnError(err)
 
 	// Remove all indexes that have NULL definitions. This can happen
 	// if a concurrent index drop happens before the associated table
 	// lock is acquired earlier during gpbackup execution.
 	verifiedResultIndexes := make([]IndexDefinition, 0)
-	for _, resultIndex := range resultIndexes {
-		if resultIndex.Def.Valid {
-			verifiedResultIndexes = append(verifiedResultIndexes, resultIndex)
+	indexMap := make(map[uint32]IndexDefinition, 0)
+	for _, index := range resultIndexes {
+		if index.Def.Valid {
+			verifiedResultIndexes = append(verifiedResultIndexes, index)
+			if connectionPool.Version.AtLeast("7") {
+				indexMap[index.Oid] = index // hash index for topological sort
+			}
 		} else {
 			gplog.Warn("Index '%s' on table '%s.%s' not backed up, most likely dropped after gpbackup had begun.",
-				resultIndex.Name, resultIndex.OwningSchema, resultIndex.OwningTable)
+				index.Name, index.OwningSchema, index.OwningTable)
 		}
 	}
 
-	return verifiedResultIndexes
+	if connectionPool.Version.Before("7") {
+		return verifiedResultIndexes
+	}
+
+	// Since GPDB 7+ partition indexes can now be ALTERED to attach to a parent
+	// index. Topological sort indexes to ensure parent indexes are printed
+	// before their child indexes.
+	visited := make(map[uint32]struct{})
+	sortedIndexes := make([]IndexDefinition, 0)
+	stack := make([]uint32, 0)
+	var seen struct{}
+	for _, index := range verifiedResultIndexes {
+		currIndex := index
+		// Depth-first search loop. Store visited indexes to a stack
+		for {
+			if _, indexWasVisited := visited[currIndex.Oid]; indexWasVisited {
+				break // exit DFS if a visited index is found.
+			}
+
+			stack = append(stack, currIndex.Oid)
+			visited[currIndex.Oid] = seen
+			parentIndex, parentIsPresent := indexMap[currIndex.ParentIndex]
+			if currIndex.ParentIndex == 0 || !parentIsPresent {
+				break // exit DFS if index has no parent.
+			} else {
+				currIndex = parentIndex
+			}
+		}
+
+		// "Pop" indexes found by DFS
+		for i := len(stack) - 1; i >= 0; i-- {
+			indexOid := stack[i]
+			popIndex := indexMap[indexOid]
+			if popIndex.ParentIndex != 0 {
+				// Preprocess parent index FQN for GPDB 7+ partition indexes
+				popIndex.ParentIndexFQN = indexMap[popIndex.ParentIndex].FQN()
+			}
+			sortedIndexes = append(sortedIndexes, popIndex)
+		}
+		stack = stack[:0] // empty slice but keep memory allocation
+	}
+
+	return sortedIndexes
+}
+
+func GetRenameExchangedPartitionQuery(connection *dbconn.DBConn) string {
+	// In the case of exchanged partition tables, restoring index constraints with system-generated
+	// will cause a name collision in GPDB7+.  Rename those constraints to match their new owning
+	// tables.  In GPDB6 and below this renaming was done automatically by server code.
+	cteClause := ""
+	if connectionPool.Version.Before("7") {
+		cteClause = `SELECT DISTINCT cl.relname
+            FROM pg_class cl
+                INNER JOIN pg_partitions pts
+					ON cl.relname = pts.partitiontablename
+					AND cl.relname != pts.tablename
+            WHERE cl.relkind IN ('r', 'f')`
+	} else {
+		cteClause = `SELECT DISTINCT cl.relname
+             FROM pg_class cl
+             WHERE
+                cl.relkind IN ('r', 'f')
+                AND cl.relispartition = true
+                AND cl.relhassubclass = false`
+	}
+	query := fmt.Sprintf(`
+        WITH table_cte AS (%s)
+        SELECT
+            ic.relname AS origname,
+            rc.relname || SUBSTRING(ic.relname, LENGTH(ch.relname)+1, LENGTH(ch.relname)) AS newname
+        FROM
+            pg_index i
+            JOIN pg_class ic ON i.indexrelid = ic.oid
+            JOIN pg_class rc
+                ON i.indrelid = rc.oid
+                AND rc.relname != SUBSTRING(ic.relname, 1, LENGTH(rc.relname))
+            JOIN pg_namespace n ON rc.relnamespace = n.oid
+            INNER JOIN table_cte ch
+                ON SUBSTRING(ic.relname, 1, LENGTH(ch.relname)) = ch.relname
+                AND rc.relname != ch.relname
+        WHERE %s;`, cteClause, SchemaFilterClause("n"))
+	return query
+}
+
+func RenameExchangedPartitionIndexes(connectionPool *dbconn.DBConn, indexes *[]IndexDefinition) {
+	query := GetRenameExchangedPartitionQuery(connectionPool)
+	names := make([]ExchangedPartitionName, 0)
+	err := connectionPool.Select(&names, query)
+	gplog.FatalOnError(err)
+
+	nameMap := make(map[string]string)
+	for _, name := range names {
+		nameMap[name.OrigName] = name.NewName
+	}
+
+	for idx := range *indexes {
+		newName, hasNewName := nameMap[(*indexes)[idx].Name]
+		if hasNewName {
+			(*indexes)[idx].Def.String = strings.Replace((*indexes)[idx].Def.String, (*indexes)[idx].Name, newName, 1)
+			(*indexes)[idx].Name = newName
+		}
+	}
+}
+
+type ExchangedPartitionName struct {
+	OrigName string
+	NewName  string
 }
 
 type RuleDefinition struct {
@@ -207,7 +354,7 @@ func GetRules(connectionPool *dbconn.DBConn) []RuleDefinition {
 		AND rulename NOT LIKE 'pg_%%'
 		AND %s
 	ORDER BY rulename`,
-	relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), ExtensionFilterClause("c"))
 
 	results := make([]RuleDefinition, 0)
 	err := connectionPool.Select(&results, query)
@@ -271,7 +418,7 @@ func GetTriggers(connectionPool *dbconn.DBConn) []TriggerDefinition {
 		AND %s
 		AND %s
 	ORDER BY tgname`,
-	relationAndSchemaFilterClause(), constraintClause, ExtensionFilterClause("c"))
+		relationAndSchemaFilterClause(), constraintClause, ExtensionFilterClause("c"))
 
 	results := make([]TriggerDefinition, 0)
 	err := connectionPool.Select(&results, query)
@@ -338,4 +485,62 @@ func GetEventTriggers(connectionPool *dbconn.DBConn) []EventTrigger {
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
+}
+
+type RLSPolicy struct {
+	Oid        uint32
+	Name       string
+	Cmd        string
+	Permissive string
+	Schema     string
+	Table      string
+	Roles      string
+	Qual       string
+	WithCheck  string
+}
+
+func GetPolicies(connectionPool *dbconn.DBConn) []RLSPolicy {
+	query := fmt.Sprintf(`
+	SELECT
+		p.oid as oid,
+		quote_ident(p.polname) as name,
+		p.polcmd as cmd,
+		p.polpermissive as permissive,
+		quote_ident(c.relnamespace::regnamespace::text) as schema,
+		quote_ident(c.relname) as table,
+		CASE
+			WHEN polroles = '{0}' THEN ''
+			ELSE coalesce(pg_catalog.array_to_string(ARRAY(SELECT pg_catalog.quote_ident(rolname) from pg_catalog.pg_roles WHERE oid = ANY(polroles)), ', '), '')
+		END AS roles,
+		coalesce(pg_catalog.pg_get_expr(polqual, polrelid), '') AS qual,
+		coalesce(pg_catalog.pg_get_expr(polwithcheck, polrelid), '') AS withcheck
+	FROM pg_catalog.pg_policy p
+		JOIN pg_catalog.pg_class c ON p.polrelid = c.oid
+	ORDER BY p.polname`)
+
+	results := make([]RLSPolicy, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
+}
+
+func (p RLSPolicy) GetMetadataEntry() (string, toc.MetadataEntry) {
+	tableFQN := utils.MakeFQN(p.Schema, p.Table)
+	return "postdata",
+		toc.MetadataEntry{
+			Schema:          p.Schema,
+			Name:            p.Table,
+			ObjectType:      "POLICY",
+			ReferenceObject: tableFQN,
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (p RLSPolicy) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_REWRITE_OID, Oid: p.Oid}
+}
+
+func (p RLSPolicy) FQN() string {
+	return p.Name
 }

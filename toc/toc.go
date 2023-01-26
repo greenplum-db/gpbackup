@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"regexp"
+	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -41,6 +42,7 @@ type MasterDataEntry struct {
 	AttributeString string
 	RowsCopied      int64
 	PartitionRoot   string
+	IsReplicated    bool
 }
 
 type SegmentDataEntry struct {
@@ -160,8 +162,17 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *utils.FilterSet, sch
 	shouldIncludeObject := objectSet.MatchesFilter(entry.ObjectType)
 	shouldIncludeSchema := schemaSet.MatchesFilter(entry.Schema)
 	relationFQN := utils.MakeFQN(entry.Schema, entry.Name)
+
+	// In GPDB 7+, leaf partitions have the reference object set to their
+	// upper-most root. If that root is in the exclude set, then we need
+	// to prevent the leaf partition from being included.
+	includeLeafPartition := true
+	if relationSet.IsExclude && entry.ReferenceObject != "" && !relationSet.MatchesFilter(entry.ReferenceObject) {
+		includeLeafPartition = false
+	}
+
 	shouldIncludeRelation := (relationSet.IsExclude && entry.ObjectType != "TABLE" && entry.ObjectType != "VIEW" && entry.ObjectType != "MATERIALIZED VIEW" && entry.ObjectType != "SEQUENCE" && entry.ObjectType != "STATISTICS" && entry.ReferenceObject == "") ||
-		((entry.ObjectType == "TABLE" || entry.ObjectType == "VIEW" || entry.ObjectType == "MATERIALIZED VIEW" || entry.ObjectType == "SEQUENCE" || entry.ObjectType == "STATISTICS") && relationSet.MatchesFilter(relationFQN) && entry.ReferenceObject == "") || // Relations should match the filter
+		((entry.ObjectType == "TABLE" || entry.ObjectType == "VIEW" || entry.ObjectType == "MATERIALIZED VIEW" || entry.ObjectType == "SEQUENCE" || entry.ObjectType == "STATISTICS") && relationSet.MatchesFilter(relationFQN) && includeLeafPartition) || // Relations should match the filter
 		(entry.ObjectType != "SEQUENCE OWNER" && entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) || // Include relations that filtered tables depend on
 		(entry.ObjectType == "SEQUENCE OWNER" && relationSet.MatchesFilter(relationFQN) && relationSet.MatchesFilter(entry.ReferenceObject)) //Include sequence owners if both table and sequence are being restored
 
@@ -265,8 +276,9 @@ func (toc *TOC) AddMetadataEntry(section string, entry MetadataEntry, start, end
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
 }
 
-func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string) {
-	toc.DataEntries = append(toc.DataEntries, MasterDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot})
+func (toc *TOC) AddMasterDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string, distPolicy string) {
+	isReplicated := strings.Contains(distPolicy, "REPLICATED")
+	toc.DataEntries = append(toc.DataEntries, MasterDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot, isReplicated})
 }
 
 func (toc *SegmentTOC) AddSegmentDataEntry(oid uint, startByte uint64, endByte uint64) {

@@ -34,6 +34,7 @@ type MetadataQueryParams struct {
 }
 
 var (
+	TYPE_ACCESS_METHOD      MetadataQueryParams
 	TYPE_AGGREGATE          MetadataQueryParams
 	TYPE_CAST               MetadataQueryParams
 	TYPE_COLLATION          MetadataQueryParams
@@ -47,6 +48,7 @@ var (
 	TYPE_FUNCTION           MetadataQueryParams
 	TYPE_INDEX              MetadataQueryParams
 	TYPE_PROCLANGUAGE       MetadataQueryParams
+	TYPE_TRANSFORM          MetadataQueryParams
 	TYPE_OPERATOR           MetadataQueryParams
 	TYPE_OPERATORCLASS      MetadataQueryParams
 	TYPE_OPERATORFAMILY     MetadataQueryParams
@@ -57,6 +59,7 @@ var (
 	TYPE_ROLE               MetadataQueryParams
 	TYPE_RULE               MetadataQueryParams
 	TYPE_SCHEMA             MetadataQueryParams
+	TYPE_STATISTIC_EXT      MetadataQueryParams
 	TYPE_TABLESPACE         MetadataQueryParams
 	TYPE_TSCONFIGURATION    MetadataQueryParams
 	TYPE_TSDICTIONARY       MetadataQueryParams
@@ -64,10 +67,17 @@ var (
 	TYPE_TSTEMPLATE         MetadataQueryParams
 	TYPE_TRIGGER            MetadataQueryParams
 	TYPE_TYPE               MetadataQueryParams
+	TYPE_POLICY             MetadataQueryParams
 )
 
 func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
-	TYPE_AGGREGATE = MetadataQueryParams{ObjectType: "AGGREGATE", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc", FilterClause: "proisagg = 't'"}
+	TYPE_ACCESS_METHOD = MetadataQueryParams{ObjectType: "ACCESS METHOD", NameField: "amname", OidField: "oid", CatalogTable: "pg_am"}
+	TYPE_AGGREGATE = MetadataQueryParams{ObjectType: "AGGREGATE", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
+	if connectionPool.Version.AtLeast("7") {
+		TYPE_AGGREGATE.FilterClause = "prokind = 'a'"
+	} else {
+		TYPE_AGGREGATE.FilterClause = "proisagg = 't'"
+	}
 	TYPE_CAST = MetadataQueryParams{ObjectType: "CAST", NameField: "typname", OidField: "oid", OidTable: "pg_type", CatalogTable: "pg_cast"}
 	TYPE_COLLATION = MetadataQueryParams{ObjectType: "COLLATION", NameField: "collname", OidField: "oid", SchemaField: "collnamespace", OwnerField: "collowner", CatalogTable: "pg_collation"}
 	TYPE_CONSTRAINT = MetadataQueryParams{ObjectType: "CONSTRAINT", NameField: "conname", SchemaField: "connamespace", OidField: "oid", CatalogTable: "pg_constraint"}
@@ -77,7 +87,12 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	TYPE_EXTENSION = MetadataQueryParams{ObjectType: "EXTENSION", NameField: "extname", OidField: "oid", CatalogTable: "pg_extension"}
 	TYPE_FOREIGNDATAWRAPPER = MetadataQueryParams{ObjectType: "FOREIGN DATA WRAPPER", NameField: "fdwname", ACLField: "fdwacl", OwnerField: "fdwowner", CatalogTable: "pg_foreign_data_wrapper"}
 	TYPE_FOREIGNSERVER = MetadataQueryParams{ObjectType: "SERVER", NameField: "srvname", ACLField: "srvacl", OwnerField: "srvowner", CatalogTable: "pg_foreign_server"}
-	TYPE_FUNCTION = MetadataQueryParams{ObjectType: "FUNCTION", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc", FilterClause: "proisagg = 'f'"}
+	TYPE_FUNCTION = MetadataQueryParams{ObjectType: "FUNCTION", NameField: "proname", SchemaField: "pronamespace", ACLField: "proacl", OwnerField: "proowner", CatalogTable: "pg_proc"}
+	if connectionPool.Version.AtLeast("7") {
+		TYPE_FUNCTION.FilterClause = "prokind <> 'a'"
+	} else {
+		TYPE_FUNCTION.FilterClause = "proisagg = 'f'"
+	}
 	TYPE_INDEX = MetadataQueryParams{ObjectType: "INDEX", NameField: "relname", OidField: "indexrelid", OidTable: "pg_class", CommentTable: "pg_class", CatalogTable: "pg_index"}
 	TYPE_PROCLANGUAGE = MetadataQueryParams{ObjectType: "LANGUAGE", NameField: "lanname", ACLField: "lanacl", CatalogTable: "pg_language"}
 	if connectionPool.Version.Before("5") {
@@ -95,7 +110,9 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	TYPE_ROLE = MetadataQueryParams{ObjectType: "ROLE", NameField: "rolname", OidField: "oid", CatalogTable: "pg_authid", Shared: true}
 	TYPE_RULE = MetadataQueryParams{ObjectType: "RULE", NameField: "rulename", OidField: "oid", CatalogTable: "pg_rewrite"}
 	TYPE_SCHEMA = MetadataQueryParams{ObjectType: "SCHEMA", NameField: "nspname", ACLField: "nspacl", OwnerField: "nspowner", CatalogTable: "pg_namespace"}
+	TYPE_STATISTIC_EXT = MetadataQueryParams{ObjectType: "STATISTIC_EXT", NameField: "stxname", OwnerField: "stxowner", CatalogTable: "pg_statistic_ext"}
 	TYPE_TABLESPACE = MetadataQueryParams{ObjectType: "TABLESPACE", NameField: "spcname", ACLField: "spcacl", OwnerField: "spcowner", CatalogTable: "pg_tablespace", Shared: true}
+	TYPE_TRANSFORM = MetadataQueryParams{ObjectType: "TRANSFORM", CatalogTable: "pg_transform"}
 	TYPE_TSCONFIGURATION = MetadataQueryParams{ObjectType: "TEXT SEARCH CONFIGURATION", NameField: "cfgname", OidField: "oid", SchemaField: "cfgnamespace", OwnerField: "cfgowner", CatalogTable: "pg_ts_config"}
 	TYPE_TSDICTIONARY = MetadataQueryParams{ObjectType: "TEXT SEARCH DICTIONARY", NameField: "dictname", OidField: "oid", SchemaField: "dictnamespace", OwnerField: "dictowner", CatalogTable: "pg_ts_dict"}
 	TYPE_TSPARSER = MetadataQueryParams{ObjectType: "TEXT SEARCH PARSER", NameField: "prsname", OidField: "oid", SchemaField: "prsnamespace", CatalogTable: "pg_ts_parser"}
@@ -124,14 +141,28 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 	gplog.Verbose("Getting object type metadata from " + params.CatalogTable)
 
 	tableName := params.CatalogTable
-	nameCol := params.NameField
+	nameCol := "''"
+	if params.NameField != "" {
+		nameCol = params.NameField
+	}
 	aclCols := "''"
 	kindCol := "''"
+	aclLateralJoin := ""
 	if params.ACLField != "" {
-		aclCols = fmt.Sprintf(`CASE
-		WHEN %[1]s IS NULL THEN NULL
-		WHEN array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
-		ELSE unnest(%[1]s) END`, params.ACLField)
+		// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+		// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+		// because the CASE unnest() logic is more performant.
+		if connectionPool.Version.AtLeast("7") {
+			aclLateralJoin = fmt.Sprintf(
+				`LEFT JOIN LATERAL unnest(o.%[1]s) ljl_unnest ON o.%[1]s IS NOT NULL AND array_length(o.%[1]s, 1) != 0`, params.ACLField)
+			aclCols = "ljl_unnest"
+		} else {
+			aclCols = fmt.Sprintf(`CASE
+			WHEN %[1]s IS NULL THEN NULL
+			WHEN array_upper(%[1]s, 1) = 0 THEN %[1]s[0]
+			ELSE unnest(%[1]s) END`, params.ACLField)
+		}
+
 		kindCol = fmt.Sprintf(`CASE
 		WHEN %[1]s IS NULL THEN ''
 		WHEN array_upper(%[1]s, 1) = 0 THEN 'Empty'
@@ -177,7 +208,7 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 		'%s' AS objecttype,
 		'%s'::regclass::oid AS classid,
 		o.oid,
-		quote_ident(%s) AS name,
+		coalesce(quote_ident(%s),'') AS name,
 		%s AS kind,
 		coalesce(quote_ident(%s),'') AS schema,
 		%s AS owner,
@@ -186,10 +217,11 @@ func GetMetadataForObjectType(connectionPool *dbconn.DBConn, params MetadataQuer
 		coalesce(description,'') AS comment
 	FROM %s o LEFT JOIN %s d ON (d.objoid = o.oid AND d.classoid = '%s'::regclass%s)
 		%s
+		%s
 	WHERE %s
 	ORDER BY o.oid`,
 		params.ObjectType, tableName, nameCol, kindCol, schemaCol, ownerCol, aclCols, secCols,
-		tableName, descTable, tableName, subidFilter, joinClause, filterClause)
+		tableName, descTable, tableName, subidFilter, joinClause, aclLateralJoin, filterClause)
 	results := make([]MetadataQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
@@ -289,15 +321,27 @@ func (dp DefaultPrivileges) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
-	query := `
+	// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+	// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+	// because the CASE unnest() logic is more performant.
+	aclCols := "''"
+	aclLateralJoin := ""
+	if connectionPool.Version.AtLeast("7") {
+		aclLateralJoin =
+			`LEFT JOIN LATERAL unnest(a.defaclacl) ljl_unnest ON a.defaclacl IS NOT NULL AND array_length(a.defaclacl, 1) != 0`
+		aclCols = "ljl_unnest"
+	} else {
+		aclCols = `CASE
+			WHEN a.defaclacl IS NULL THEN NULL
+			WHEN array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
+			ELSE unnest(a.defaclacl) END`
+	}
+
+	query := fmt.Sprintf(`
 	SELECT a.oid,
 		quote_ident(r.rolname) AS owner,
 		coalesce(quote_ident(n.nspname),'') AS schema,
-		CASE
-			WHEN a.defaclacl IS NULL THEN NULL
-			WHEN array_upper(a.defaclacl, 1) = 0 THEN a.defaclacl[0]
-			ELSE unnest(a.defaclacl)
-		END AS privileges,
+		%s AS privileges,
 		CASE
 			WHEN a.defaclacl IS NULL THEN ''
 			WHEN array_upper(a.defaclacl, 1) = 0 THEN 'Empty'
@@ -307,7 +351,9 @@ func GetDefaultPrivileges(connectionPool *dbconn.DBConn) []DefaultPrivileges {
 	FROM pg_default_acl a
 		JOIN pg_roles r ON r.oid = a.defaclrole
 		LEFT JOIN pg_namespace n ON n.oid = a.defaclnamespace
-	ORDER BY n.nspname, a.defaclobjtype, r.rolname`
+		%s
+	ORDER BY n.nspname, a.defaclobjtype, r.rolname`,
+		aclCols, aclLateralJoin)
 	results := make([]DefaultPrivilegesQueryStruct, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)

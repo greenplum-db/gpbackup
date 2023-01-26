@@ -185,7 +185,7 @@ func unMarshalRowCounts(filepath string) map[string]int {
 func assertSegmentDataRestored(contentID int, tableName string, rows int) {
 	segment := backupCluster.ByContent[contentID]
 	port := segment[0].Port
-	segConn := testutils.SetupTestDBConnSegment("restoredb", port)
+	segConn := testutils.SetupTestDBConnSegment("restoredb", port, backupConn.Version)
 	defer segConn.Close()
 	assertDataRestored(segConn, map[string]int{tableName: rows})
 }
@@ -223,7 +223,7 @@ func assertSchemasExist(conn *dbconn.DBConn, expectedNumSchemas int) {
 }
 
 func assertRelationsCreated(conn *dbconn.DBConn, expectedNumTables int) {
-	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname IN ('public', 'schema2');`
+	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r','p') AND n.nspname IN ('public', 'schema2');`
 	actualTableCount := dbconn.MustSelectString(conn, countQuery)
 	if strconv.Itoa(expectedNumTables) != actualTableCount {
 		Fail(fmt.Sprintf("Expected:\n\t%s relations to have been created\nActual:\n\t%s relations were created", strconv.Itoa(expectedNumTables), actualTableCount))
@@ -231,7 +231,7 @@ func assertRelationsCreated(conn *dbconn.DBConn, expectedNumTables int) {
 }
 
 func assertRelationsCreatedInSchema(conn *dbconn.DBConn, schema string, expectedNumTables int) {
-	countQuery := fmt.Sprintf(`SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname = '%s'`, schema)
+	countQuery := fmt.Sprintf(`SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r','p') AND n.nspname = '%s'`, schema)
 	actualTableCount := dbconn.MustSelectString(conn, countQuery)
 	if strconv.Itoa(expectedNumTables) != actualTableCount {
 		Fail(fmt.Sprintf("Expected:\n\t%s relations to have been created\nActual:\n\t%s relations were created", strconv.Itoa(expectedNumTables), actualTableCount))
@@ -239,7 +239,7 @@ func assertRelationsCreatedInSchema(conn *dbconn.DBConn, schema string, expected
 }
 
 func assertRelationsExistForIncremental(conn *dbconn.DBConn, expectedNumTables int) {
-	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r') AND n.nspname IN ('old_schema', 'new_schema');`
+	countQuery := `SELECT count(*) AS string FROM pg_class c LEFT JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('S','v','r','p') AND n.nspname IN ('old_schema', 'new_schema');`
 	actualTableCount := dbconn.MustSelectString(conn, countQuery)
 	if strconv.Itoa(expectedNumTables) != actualTableCount {
 		Fail(fmt.Sprintf("Expected:\n\t%s relations to exist in old_schema and new_schema\nActual:\n\t%s relations are present", strconv.Itoa(expectedNumTables), actualTableCount))
@@ -315,7 +315,7 @@ func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
 	}
 }
 
-// fileSuffix should be config.yaml, metadata.sql, or toc.yaml, or report
+// fileSuffix should be one of: config.yaml, metadata.sql, toc.yaml, or report
 func getMetdataFileContents(backupDir string, timestamp string, fileSuffix string) []byte {
 	file, err := path.Glob(path.Join(backupDir, "*-1/backups", timestamp[:8], timestamp, fmt.Sprintf("gpbackup_%s_%s", timestamp, fileSuffix)))
 	Expect(err).ToNot(HaveOccurred())
@@ -388,6 +388,10 @@ var _ = BeforeSuite(func() {
 	backup.SetFilterRelationClause("")
 	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_ddl.sql")
 	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_data.sql")
+
+	// default GUC setting varies between versions so set it explicitly
+	testhelper.AssertQueryRuns(backupConn, "SET gp_autostats_mode='on_no_stats'")
+
 	if useOldBackupVersion {
 		oldBackupSemVer = semver.MustParse(os.Getenv("OLD_BACKUP_VERSION"))
 		oldBackupVersionStr := os.Getenv("OLD_BACKUP_VERSION")
@@ -648,7 +652,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			// ok. Connect in utility mode to seg1.
 			segmentOne := backupCluster.ByContent[1]
 			port := segmentOne[0].Port
-			segConn := testutils.SetupTestDBConnSegment("restoredb", port)
+			segConn := testutils.SetupTestDBConnSegment("restoredb", port, backupConn.Version)
 			defer segConn.Close()
 
 			// Take ACCESS EXCLUSIVE LOCK on public.corrupt_table which will
@@ -1260,6 +1264,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"CREATE TABLE public.table_to_include_with_stats(i int)")
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO public.table_to_include_with_stats SELECT generate_series(0,9);")
+
 			defer testhelper.AssertQueryRuns(backupConn,
 				"DROP TABLE public.table_to_include_with_stats")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1363,11 +1368,16 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 			// Create a rule. Currently for rules, the only metadata is COMMENT.
 			testhelper.AssertQueryRuns(backupConn, "CREATE RULE postdata_rule AS ON UPDATE TO postdata_metadata.foobar DO SELECT * FROM postdata_metadata.foobar;")
-			testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule IS 'hello';")
+			testhelper.AssertQueryRuns(backupConn, "COMMENT ON RULE postdata_rule ON postdata_metadata.foobar IS 'hello';")
 
-			// Create a trigger. Currently for triggers, the only metadata is COMMENT.
-			testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
-			testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
+			if backupConn.Version.Before("7") {
+				// TODO: Remove this once support is added
+				// Triggers on statements not yet supported in GPDB7, per src/backend/parser/gram.y:39460,39488
+
+				// Create a trigger. Currently for triggers, the only metadata is COMMENT.
+				testhelper.AssertQueryRuns(backupConn, `CREATE TRIGGER postdata_trigger AFTER INSERT OR DELETE OR UPDATE ON postdata_metadata.foobar FOR EACH STATEMENT EXECUTE PROCEDURE pg_catalog."RI_FKey_check_ins"();`)
+				testhelper.AssertQueryRuns(backupConn, "COMMENT ON TRIGGER postdata_trigger ON postdata_metadata.foobar IS 'hello';")
+			}
 
 			// Create an event trigger. Currently for event triggers, there are 2 possible
 			// pieces of metadata: ENABLE and COMMENT.
@@ -1414,6 +1424,64 @@ var _ = Describe("backup and restore end to end tests", func() {
 				Expect(tableCount).To(Equal(strconv.Itoa(1)))
 				tableCopyCount := dbconn.MustSelectString(restoreConn, fmt.Sprintf("SELECT count(*) FROM %s WHERE val = 0.100001216::real", tableNameCopy))
 				Expect(tableCopyCount).To(Equal(strconv.Itoa(1)))
+			})
+			It("does not retrieve trigger constraints  with the rest of the constraints", func() {
+				if backupConn.Version.Is("7") {
+					// TODO: Remove this once support is added
+					Skip("Triggers on statements not yet supported in GPDB7, per src/backend/parser/gram.y:39460,39488")
+				}
+				testutils.SkipIfBefore6(backupConn)
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE table_multiple_constraints (a int)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP TABLE IF EXISTS table_multiple_constraints CASCADE;")
+
+				// Add a trigger constraint
+				testhelper.AssertQueryRuns(backupConn, `CREATE FUNCTION public.no_op_trig_fn() RETURNS trigger AS
+$$begin RETURN NULL; end$$
+LANGUAGE plpgsql NO SQL;`)
+				defer testhelper.AssertQueryRuns(backupConn, `DROP FUNCTION IF EXISTS public.no_op_trig_fn() CASCADE`)
+				testhelper.AssertQueryRuns(backupConn, "CREATE TRIGGER  test_trigger AFTER INSERT  ON public.table_multiple_constraints EXECUTE PROCEDURE public.no_op_trig_fn();")
+
+				// Add a non-trigger constraint
+				testhelper.AssertQueryRuns(backupConn,
+					"ALTER TABLE public.table_multiple_constraints ADD CONSTRAINT alter_table_with_primary_key_pkey PRIMARY KEY (a);")
+
+				// retrieve constraints, assert that only one is retrieved
+				constraintsRetrieved := backup.GetConstraints(backupConn)
+				Expect(len(constraintsRetrieved)).To(Equal(1))
+
+				// assert that the single retrieved constraint is the non-trigger constraint
+				constraintRetrieved := constraintsRetrieved[0]
+				Expect(constraintRetrieved.ConType).To(Equal("p"))
+			})
+			It("correctly distinguishes between domain and non-domain constraints", func() {
+				testutils.SkipIfBefore6(backupConn)
+				testhelper.AssertQueryRuns(backupConn,
+					"CREATE TABLE table_multiple_constraints (a int)")
+				defer testhelper.AssertQueryRuns(backupConn,
+					"DROP TABLE IF EXISTS table_multiple_constraints CASCADE;")
+
+				// Add a domain with a constraint
+				testhelper.AssertQueryRuns(backupConn, "CREATE DOMAIN public.const_domain1 AS text CONSTRAINT cons_check1 CHECK (char_length(VALUE) = 5);")
+				defer testhelper.AssertQueryRuns(backupConn, `DROP DOMAIN IF EXISTS public.const_domain1;`)
+
+				// Add a non-trigger constraint
+				testhelper.AssertQueryRuns(backupConn,
+					"ALTER TABLE public.table_multiple_constraints ADD CONSTRAINT alter_table_with_primary_key_pkey PRIMARY KEY (a);")
+
+				// retrieve constraints, assert that two are retrieved, assert that the domain constraint is correctly categorized
+				constraintsRetrieved := backup.GetConstraints(backupConn)
+				Expect(len(constraintsRetrieved)).To(Equal(2))
+				for _, constr := range constraintsRetrieved {
+					if constr.Name == "cons_check1" {
+						Expect(constr.IsDomainConstraint).To(Equal(true))
+					} else if constr.Name == "alter_table_with_primary_key_pkey" {
+						Expect(constr.IsDomainConstraint).To(Equal(false))
+					} else {
+						Fail("Unrecognized constraint in end-to-end test database")
+					}
+				}
 			})
 			It("backup and restore all data when NOT VALID option on constraints is specified", func() {
 				testutils.SkipIfBefore6(backupConn)
@@ -1603,6 +1671,11 @@ var _ = Describe("backup and restore end to end tests", func() {
 			testhelper.AssertQueryRuns(restoreConn, fmt.Sprintf("REASSIGN OWNED BY testrole TO %s;", backupConn.User))
 			testhelper.AssertQueryRuns(restoreConn, "DROP ROLE testrole;")
 		})
+		// TODO: This test fails intermittently in Concourse due to issues with gpbackup_helper hanging when it is unable
+		// to open a pipe.  We've been unable to reproduce the issue on local machines, despite testing a variety of OSes
+		// and such, and the current Concourse setup makes debugging difficult and the use of dlv impossible.
+		// In order to avoid flakes, and to save resources, the current plan is to just kill gprestore with a goroutine
+		// to end the test if it takes too long, treating that scenario as a skipped test and leaving actual failures alone.
 		DescribeTable("",
 			func(fullTimestamp string, incrementalTimestamp string, tarBaseName string, isIncrementalRestore bool, isFilteredRestore bool, isSingleDataFileRestore bool) {
 				if isSingleDataFileRestore && segmentCount != 3 {
@@ -1634,6 +1707,26 @@ var _ = Describe("backup and restore end to end tests", func() {
 						}
 					}
 				}
+
+				// This block kills the test if it hangs, and can be removed when the above TODO is addressed.
+				completed := make(chan bool)
+				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
+				go func() {
+					// No test run has been observed to take more than a few minutes without a hang,
+					// so loop 10 times and check for success after 1 minute each
+					for i := 0; i < 10; i++ {
+						select {
+						case <-completed:
+							return
+						default:
+							time.Sleep(time.Minute)
+						}
+					}
+					// If we get here, this test is hanging, kill the processes.
+					// If the test succeeded or failed, we'll return before here.
+					_ = exec.Command("pkill", "-9", "gpbackup_helper").Run()
+					_ = exec.Command("pkill", "-9", "gprestore").Run()
+				}()
 
 				gprestoreArgs := []string{
 					"--timestamp", fullTimestamp,
@@ -1714,6 +1807,72 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Entry("Can backup a 1-segment cluster and restore to current cluster with a filter", "20220908150804", "", "1-segment-db-filter", false, true, false),
 			Entry("Can backup a 3-segment cluster and restore to current cluster", "20220909094828", "", "3-segment-db", false, false, false),
 		)
+
+		Describe("Restore from various-sized clusters with a replicated table", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			// The backups for these tests were taken on GPDB version 6.20.3+dev.4.g9a08259bd1 build dev.
+			DescribeTable("",
+				func(fullTimestamp string, tarBaseName string) {
+
+					testutils.SkipIfBefore6(backupConn)
+					if useOldBackupVersion {
+						Skip("Resize-cluster was only added in version 1.25")
+					}
+					extractDirectory := path.Join(backupDir, tarBaseName)
+					os.Mkdir(extractDirectory, 0777)
+					command := exec.Command("tar", "-xzf", fmt.Sprintf("resources/%s.tar.gz", tarBaseName), "-C", extractDirectory)
+					mustRunCommand(command)
+					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
+
+					// Move extracted data files to the proper directory for a larger-to-smaller restore, if necessary
+					// Assumes all saved backups have a name in the format "N-segment-db-..." where N is the original cluster size
+					re := regexp.MustCompile("^([0-9]+)-.*")
+					origSize, _ := strconv.Atoi(re.FindStringSubmatch(tarBaseName)[1])
+					if origSize > segmentCount {
+						for i := segmentCount; i < origSize; i++ {
+							dataFilePath := fmt.Sprintf("%s/demoDataDir%s/backups/%s/%s/%s", extractDirectory, "%d", fullTimestamp[0:8], fullTimestamp, "%s")
+							files, _ := path.Glob(fmt.Sprintf(dataFilePath, i, "*"))
+							for _, dataFile := range files {
+								os.Rename(dataFile, fmt.Sprintf(dataFilePath, i%segmentCount, path.Base(dataFile)))
+							}
+						}
+					}
+
+					gprestoreArgs := []string{
+						"--timestamp", fullTimestamp,
+						"--redirect-db", "restoredb",
+						"--backup-dir", extractDirectory,
+						"--resize-cluster",
+						"--on-error-continue"}
+
+					gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+					output, err := gprestoreCmd.CombinedOutput()
+					fmt.Println(string(output))
+					Expect(err).ToNot(HaveOccurred())
+
+					// check row counts on each segment and on master, expecting 1 table with 100 rows, replicated across all
+					for _, seg := range backupCluster.Segments {
+						if seg.ContentID != -1 {
+							assertSegmentDataRestored(seg.ContentID, "schemaone.test_table", 100)
+						}
+					}
+					assertDataRestored(restoreConn, map[string]int{
+						"schemaone.test_table": 100,
+					})
+
+					// check check gp_distribution_policy at end of test to ensure it's set to destSize
+					numSegments := dbconn.MustSelectString(restoreConn, "SELECT numsegments FROM gp_distribution_policy where localoid = 'schemaone.test_table'::regclass::oid")
+					Expect(numSegments).To(Equal(strconv.Itoa(segmentCount)))
+
+				},
+				Entry("Can backup a 1-segment cluster and restore to current cluster with replicated tables", "20221104023842", "1-segment-db-replicated"),
+				Entry("Can backup a 3-segment cluster and restore to current cluster with replicated tables", "20221104023611", "3-segment-db-replicated"),
+				Entry("Can backup a 9-segment cluster and restore to current cluster with replicated tables", "20221104025347", "9-segment-db-replicated"),
+			)
+		})
+
 		It("Will not restore to a different-size cluster if the SegmentCount of the backup is unknown", func() {
 			if useOldBackupVersion {
 				Skip("This test is not needed for old backup versions")
@@ -1746,5 +1905,215 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(string(output)).To(ContainSubstring(fmt.Sprintf("Cannot restore a backup taken on a cluster with 5 segments to a cluster with %d segments unless the --resize-cluster flag is used.", segmentCount)))
 		})
+	})
+	Describe("Restore indexes and constraints on exchanged partition tables", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore6(backupConn)
+			testhelper.AssertQueryRuns(backupConn, `
+                    CREATE SCHEMA schemaone;
+                    CREATE TABLE schemaone.part_table_for_upgrade (a INT, b INT) DISTRIBUTED BY (b) PARTITION BY RANGE(b) (PARTITION alpha  END (3), PARTITION beta START (3));
+					CREATE INDEX upgrade_idx1 ON schemaone.part_table_for_upgrade(a) WHERE b > 10;
+					ALTER TABLE schemaone.part_table_for_upgrade ADD PRIMARY KEY(a, b);
+
+					CREATE TABLE schemaone.like_table (like schemaone.part_table_for_upgrade INCLUDING CONSTRAINTS INCLUDING INDEXES) DISTRIBUTED BY (b);
+                    ALTER TABLE schemaone.part_table_for_upgrade EXCHANGE PARTITION beta WITH TABLE schemaone.like_table;`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA schemaone CASCADE;")
+			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA schemaone CASCADE;")
+		})
+
+		It("Automatically updates index names correctly", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+
+			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+
+			// Indexes do not need to be renamed on partition exchange in GPDB7+ due to new syntax.
+			expectedValue := false
+			indexSuffix := "idx"
+			if backupConn.Version.Is("6") {
+				// In GPDB6 and below, indexes are automatically cascaded down and so in exchange case they must be renamed to avoid name collision breaking restore
+				expectedValue = true
+			}
+			Expect(strings.Contains(string(metadataFileContents), fmt.Sprintf("CREATE INDEX like_table_a_%s ON schemaone.like_table USING btree (a) WHERE (b > 10);",
+				indexSuffix))).To(Equal(expectedValue))
+			Expect(strings.Contains(string(metadataFileContents), fmt.Sprintf("CREATE INDEX part_table_for_upgrade_1_prt_beta_a_%s ON schemaone.like_table USING btree (a) WHERE (b > 10);",
+				indexSuffix))).ToNot(Equal(expectedValue))
+		})
+
+		It("Automatically updates constraint names correctly", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+
+			// assert constraint names are what we expect
+			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+			Expect(strings.Contains(string(metadataFileContents), "ALTER TABLE ONLY schemaone.like_table ADD CONSTRAINT like_table_pkey PRIMARY KEY (a, b);")).To(BeTrue())
+			Expect(strings.Contains(string(metadataFileContents), "ALTER TABLE ONLY schemaone.like_table ADD CONSTRAINT part_table_for_upgrade_pkey PRIMARY KEY (a, b);")).ToNot(BeTrue())
+
+		})
+	})
+	Describe("Backup and restore external partitions", func() {
+		It("Will correctly handle external partitions on multiple versions of GPDB", func() {
+			testutils.SkipIfBefore6(backupConn)
+			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA testchema;")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
+			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE testchema.multipartition (a int,b date,c text,d int)
+                   DISTRIBUTED BY (a)
+                   PARTITION BY RANGE (b)
+                   SUBPARTITION BY LIST (c)
+                   SUBPARTITION TEMPLATE
+                   (SUBPARTITION usa values ('usa'),
+                   SUBPARTITION apj values ('apj'),
+                   SUBPARTITION eur values ('eur'))
+                   (PARTITION Jan16 START (date '2016-01-01') INCLUSIVE ,
+                     PARTITION Feb16 START (date '2016-02-01') INCLUSIVE ,
+                     PARTITION Mar16 START (date '2016-03-01') INCLUSIVE ,
+                     PARTITION Apr16 START (date '2016-04-01') INCLUSIVE ,
+                     PARTITION May16 START (date '2016-05-01') INCLUSIVE ,
+                     PARTITION Jun16 START (date '2016-06-01') INCLUSIVE ,
+                     PARTITION Jul16 START (date '2016-07-01') INCLUSIVE ,
+                     PARTITION Aug16 START (date '2016-08-01') INCLUSIVE ,
+                     PARTITION Sep16 START (date '2016-09-01') INCLUSIVE ,
+                     PARTITION Oct16 START (date '2016-10-01') INCLUSIVE ,
+                     PARTITION Nov16 START (date '2016-11-01') INCLUSIVE ,
+                     PARTITION Dec16 START (date '2016-12-01') INCLUSIVE
+                                     END (date '2017-01-01') EXCLUSIVE);
+                   CREATE EXTERNAL TABLE testchema.external_apj (a INT,b DATE,c TEXT,d INT) LOCATION ('gpfdist://127.0.0.1/apj') format 'text';
+                   ALTER TABLE testchema.multipartition ALTER PARTITION Dec16 EXCHANGE PARTITION apj WITH TABLE testchema.external_apj WITHOUT VALIDATION;
+                   `)
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
+			Expect(metadataFileContents).ToNot(BeEmpty())
+
+			if backupConn.Version.AtLeast("7") {
+				//GPDB7+ has new "attach table" partition syntax, does not require exchanging for external partitions
+				Expect(string(metadataFileContents)).To(ContainSubstring("CREATE READABLE EXTERNAL TABLE testchema.multipartition_1_prt_dec16_2_prt_apj ("))
+				Expect(string(metadataFileContents)).To(ContainSubstring("ALTER TABLE ONLY testchema.multipartition_1_prt_dec16 ATTACH PARTITION testchema.multipartition_1_prt_dec16_2_prt_apj FOR VALUES IN ('apj');"))
+			} else {
+				// GPDB5/6 use legacy GPDB syntax, and need an exchange to have an external partition
+				Expect(string(metadataFileContents)).To(ContainSubstring("CREATE READABLE EXTERNAL TABLE testchema.multipartition_1_prt_dec16_2_prt_apj_ext_part_ ("))
+				Expect(string(metadataFileContents)).To(ContainSubstring("ALTER TABLE testchema.multipartition ALTER PARTITION dec16 EXCHANGE PARTITION apj WITH TABLE testchema.multipartition_1_prt_dec16_2_prt_apj_ext_part_ WITHOUT VALIDATION;"))
+			}
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+	})
+	Describe("Backup and restore multi-layer leaf-partition backups filtered to parent or child tables with intermediate partitions on GPDB7+", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(backupConn)
+			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA schemaone;")
+			// load up two tables with some test data each, to confirm that only one is backed up and restored
+			testhelper.AssertQueryRuns(backupConn, `
+                      DROP TABLE IF EXISTS schemaone.measurement CASCADE;
+                      CREATE TABLE schemaone.measurement (
+                          city_id         int not null,
+                          logdate         date not null,
+                          peaktemp        int,
+                          unitsales       int default 42
+                      ) PARTITION BY RANGE (logdate);
+
+                      ALTER TABLE schemaone.measurement ADD CONSTRAINT parent_city_id_unique UNIQUE (city_id, logdate, peaktemp, unitsales);
+
+                      CREATE TABLE schemaone.measurement_y2006m02 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2006-02-01') TO ('2006-03-01')
+                          PARTITION BY RANGE (peaktemp);
+
+                      ALTER TABLE schemaone.measurement_y2006m02 ADD CONSTRAINT intermediate_check CHECK (peaktemp < 1000);
+
+                      CREATE TABLE schemaone.measurement_peaktemp_0_100 PARTITION OF schemaone.measurement_y2006m02
+                          FOR VALUES FROM (0) TO (100)
+                          PARTITION BY RANGE (unitsales);
+
+                      CREATE TABLE schemaone.measurement_peaktemp_catchall PARTITION OF schemaone.measurement_peaktemp_0_100
+                          FOR VALUES FROM (1) TO (100);
+
+                      CREATE TABLE schemaone.measurement_default PARTITION OF schemaone.measurement_y2006m02 DEFAULT;
+
+                      CREATE TABLE schemaone.measurement_y2006m03 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2006-03-01') TO ('2006-04-01');
+
+                      CREATE TABLE schemaone.measurement_y2007m11 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2007-11-01') TO ('2007-12-01');
+
+                      CREATE TABLE schemaone.measurement_y2007m12 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2007-12-01') TO ('2008-01-01');
+
+                      CREATE TABLE schemaone.measurement_y2008m01 PARTITION OF schemaone.measurement
+                          FOR VALUES FROM ('2008-01-01') TO ('2008-02-01');
+
+                      ALTER TABLE schemaone.measurement_y2008m01 ADD CONSTRAINT city_id_unique UNIQUE (city_id);
+
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-02-22', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-03-05', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-12-22', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-12-20', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-11-20', 75, 80);
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-02-01', 75, 99);
+                      INSERT INTO schemaone.measurement VALUES (42, '2006-02-22', 75, 60);
+                      INSERT INTO schemaone.measurement VALUES (42, '2007-11-15', 75, 80);
+                   `)
+			defer testhelper.AssertQueryRuns(backupConn, "")
+		})
+
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS schemaone CASCADE;")
+			testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schemaone CASCADE;")
+		})
+		DescribeTable("",
+			func(includeTableName string, secondaryIncludeTableName string, expectedTableCount string, expectedRootRowCount string, expectedLeafRowCount string) {
+				var timestamp string
+				if secondaryIncludeTableName != "" {
+					timestamp = gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--leaf-partition-data",
+						"--include-table", includeTableName,
+						"--include-table", secondaryIncludeTableName)
+				} else {
+					timestamp = gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--leaf-partition-data", "--include-table", includeTableName)
+				}
+				testhelper.AssertQueryRuns(restoreConn, "CREATE SCHEMA schemaone;")
+
+				gprestoreArgs := []string{
+					"--timestamp", timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir}
+				gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+				_, err := gprestoreCmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred())
+
+				tableCount := dbconn.MustSelectString(restoreConn, "SELECT count(*) FROM information_schema.tables where table_schema = 'schemaone';")
+				Expect(tableCount).To(Equal(expectedTableCount))
+
+				rootRowCount := dbconn.MustSelectString(restoreConn, "SELECT count(*) FROM schemaone.measurement;")
+				Expect(rootRowCount).To(Equal(expectedRootRowCount))
+
+				leafRowCount := dbconn.MustSelectString(restoreConn, "SELECT count(*) FROM schemaone.measurement_peaktemp_catchall;")
+				Expect(leafRowCount).To(Equal(expectedLeafRowCount))
+			},
+			Entry("Will correctly handle filtering on child table", "schemaone.measurement_peaktemp_catchall", "", "4", "3", "3"),
+			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "", "9", "8", "3"),
+			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "schemaone.measurement_peaktemp_catchall", "9", "8", "3"),
+		)
 	})
 })

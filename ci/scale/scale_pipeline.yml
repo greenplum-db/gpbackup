@@ -77,7 +77,7 @@ resources:
   type: git
   icon: github-circle
   source:
-    branch: master
+    branch: main
     private_key: ((dp/dev/gp-backup-manager-remote-deploy-key))
     uri: ((dp/gp-backup-manager-git-remote))
 

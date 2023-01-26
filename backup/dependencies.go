@@ -28,8 +28,8 @@ func AddProtocolDependenciesForGPDB4(depMap DependencyMap, tables []Table, proto
 	}
 	for _, table := range tables {
 		extTableDef := table.ExtTableDef
-		if extTableDef.Location != "" {
-			protocolName := extTableDef.Location[0:strings.Index(extTableDef.Location, "://")]
+		if extTableDef.Location.Valid && extTableDef.Location.String != "" {
+			protocolName := extTableDef.Location.String[0:strings.Index(extTableDef.Location.String, "://")]
 			if protocolEntry, ok := protocolMap[protocolName]; ok {
 				tableEntry := table.GetUniqueID()
 				if _, ok := depMap[tableEntry]; !ok {
@@ -57,6 +57,7 @@ var (
 	PG_FOREIGN_SERVER_OID       uint32 = 1417
 	PG_INDEX_OID                uint32 = 2610
 	PG_LANGUAGE_OID             uint32 = 2612
+	PG_TRANSFORM_OID            uint32 = 3576
 	PG_NAMESPACE_OID            uint32 = 2615
 	PG_OPCLASS_OID              uint32 = 2616
 	PG_OPERATOR_OID             uint32 = 2617
@@ -65,6 +66,7 @@ var (
 	PG_RESGROUP_OID             uint32 = 6436
 	PG_RESQUEUE_OID             uint32 = 6026
 	PG_REWRITE_OID              uint32 = 2618
+	PG_STATISTIC_EXT_OID        uint32 = 3381
 	PG_TABLESPACE_OID           uint32 = 1213
 	PG_TRIGGER_OID              uint32 = 2620
 	PG_TS_CONFIG_OID            uint32 = 3602
@@ -74,7 +76,7 @@ var (
 	PG_TYPE_OID                 uint32 = 1247
 	PG_USER_MAPPING_OID         uint32 = 1418
 
-	FIRST_NORMAL_OBJECT_ID      uint32 = 16384
+	FIRST_NORMAL_OBJECT_ID uint32 = 16384
 )
 
 /*
@@ -162,9 +164,16 @@ type UniqueID struct {
 	Oid     uint32
 }
 
+type SortableDependency struct {
+	ClassID    uint32
+	ObjID      uint32
+	RefClassID uint32
+	RefObjID   uint32
+}
+
 // This function only returns dependencies that are referenced in the backup set
-func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool) DependencyMap {
-	query := fmt.Sprintf(`SELECT
+func GetDependencies(connectionPool *dbconn.DBConn, backupSet map[UniqueID]bool, tables []Table) DependencyMap {
+	query := `SELECT
 	coalesce(id1.refclassid, d.classid) AS classid,
 	coalesce(id1.refobjid, d.objid) AS objid,
 	coalesce(id2.refclassid, d.refclassid) AS refclassid,
@@ -186,17 +195,56 @@ SELECT
 FROM pg_depend d
 JOIN pg_type t ON d.refobjid = t.oid
 WHERE d.classid = 'pg_proc'::regclass::oid
-AND typelem != 0`)
+AND typelem != 0`
 
-	pgDependDeps := make([]struct {
-		ClassID    uint32
-		ObjID      uint32
-		RefClassID uint32
-		RefObjID   uint32
-	}, 0)
-
+	pgDependDeps := make([]SortableDependency, 0)
 	err := connectionPool.Select(&pgDependDeps, query)
 	gplog.FatalOnError(err)
+
+	// In GP7 restoring a child table to a parent when the parent already has a
+	// constraint applied will error.  Our solution is to add additional
+	// "synthetic" dependencies to the backup, requiring all child tables to be
+	// attached to the parent before the constraints are applied.
+	if connectionPool.Version.AtLeast("7") && len(tables) > 0 {
+		tableOids := make([]string, len(tables))
+		for idx, table := range tables {
+			tableOids[idx] = fmt.Sprintf("%d", table.Oid)
+		}
+		syntheticConstraintDeps := make([]SortableDependency, 0)
+		synthConstrDepQuery := fmt.Sprintf(`
+			WITH constr_cte AS (
+                SELECT
+                    dep.refobjid,
+                    con.conname,
+                    con.connamespace
+                FROM
+                    pg_depend dep
+                    INNER JOIN pg_constraint con ON dep.objid = con.oid
+					INNER JOIN pg_class cls ON dep.refobjid = cls.oid
+                WHERE
+                    dep.refobjid IN (%s)
+					AND cls.relkind in ('r','p', 'f')
+					AND dep.deptype = 'n'
+                )
+              SELECT
+                  'pg_constraint'::regclass::oid AS ClassID,
+                  con.oid AS ObjID,
+                  'pg_class'::regclass::oid AS RefClassID,
+                  constr_cte.refobjid AS RefObjID
+              FROM
+                  pg_constraint con
+                  INNER JOIN constr_cte
+					ON con.conname = constr_cte.conname
+					AND con.connamespace = constr_cte.connamespace
+              WHERE
+                  con.conislocal = true;`, strings.Join(tableOids, ", "))
+		err := connectionPool.Select(&syntheticConstraintDeps, synthConstrDepQuery)
+		gplog.FatalOnError(err)
+
+		if len(syntheticConstraintDeps) > 0 {
+			pgDependDeps = append(pgDependDeps, syntheticConstraintDeps...)
+		}
+	}
 
 	dependencyMap := make(DependencyMap)
 	for _, dep := range pgDependDeps {
@@ -244,10 +292,10 @@ func breakCircularDependencies(depMap DependencyMap) {
 	}
 }
 
-func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, objects []Sortable, metadataMap MetadataMap, constraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
-	conMap := make(map[string][]Constraint)
-	for _, constraint := range constraints {
-		conMap[constraint.OwningObject] = append(conMap[constraint.OwningObject], constraint)
+func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, objects []Sortable, metadataMap MetadataMap, domainConstraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
+	domainConMap := make(map[string][]Constraint)
+	for _, constraint := range domainConstraints {
+		domainConMap[constraint.OwningObject] = append(domainConMap[constraint.OwningObject], constraint)
 	}
 	for _, object := range objects {
 		objMetadata := metadataMap[object.GetUniqueID()]
@@ -257,7 +305,7 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 		case CompositeType:
 			PrintCreateCompositeTypeStatement(metadataFile, toc, obj, objMetadata)
 		case Domain:
-			PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, conMap[obj.FQN()])
+			PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, domainConMap[obj.FQN()])
 		case RangeType:
 			PrintCreateRangeTypeStatement(metadataFile, toc, obj, objMetadata)
 		case Function:
@@ -290,6 +338,10 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 			PrintCreateServerStatement(metadataFile, toc, obj, objMetadata)
 		case UserMapping:
 			PrintCreateUserMappingStatement(metadataFile, toc, obj)
+		case Constraint:
+			PrintConstraintStatement(metadataFile, toc, obj, objMetadata)
+		case Transform:
+			PrintCreateTransformStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
 		}
 		// Remove ACLs from metadataMap for the current object since they have been processed
 		delete(metadataMap, object.GetUniqueID())

@@ -78,7 +78,7 @@ PARTITION BY RANGE (year)
 
 			columnA := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "double precision", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "att comment"}
 			columnC := backup.ColumnDefinition{Oid: 0, Num: 3, Name: "c", NotNull: true, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", Privileges: privileges}
-			columnD := backup.ColumnDefinition{Oid: 0, Num: 4, Name: "d", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "5", Comment: "", Privileges: privileges}
+			columnD := backup.ColumnDefinition{Oid: 0, Num: 4, Name: "d", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "(5)", Comment: "", Privileges: privileges}
 			columnE := backup.ColumnDefinition{Oid: 0, Num: 5, Name: "e", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "PLAIN", DefaultVal: "", Comment: ""}
 
 			Expect(tableAtts).To(HaveLen(4))
@@ -297,6 +297,11 @@ CREATE TABLE public.test_tsvector (
 	Describe("GetPartitionDefinitions", func() {
 		var partitionPartFalseExpectation = "false "
 		BeforeEach(func() {
+			// GPDB 7+ does not have pg_get_partition_def()
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+
 			if connectionPool.Version.AtLeast("6") {
 				partitionPartFalseExpectation = "'false'"
 			}
@@ -408,6 +413,12 @@ PARTITION BY LIST (gender)
 		})
 	})
 	Describe("GetPartitionTemplates", func() {
+		BeforeEach(func() {
+			// GPDB 7+ does not have pg_get_partition_template_def()
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+		})
 		It("returns empty string when no partition definition template exists", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
@@ -707,7 +718,12 @@ SET SUBPARTITION TEMPLATE
 
 			_, result := backup.GetTableStorage(connectionPool)
 
-			Expect(result[oid]).To(Equal("appendonly=true"))
+			if connectionPool.Version.Before("7") {
+				Expect(result[oid]).To(Equal("appendonly=true"))
+			} else {
+				// For GPDB 7+, storage options no longer contain appendonly and orientation
+				Expect(result[oid]).To(Equal(""))
+			}
 		})
 	})
 	Describe("GetTableInheritance", func() {
@@ -859,6 +875,12 @@ SET SUBPARTITION TEMPLATE
 		})
 	})
 	Describe("GetPartitionAlteredSchema", func() {
+		BeforeEach(func() {
+			// For GPDB 7+, leaf partitions have their own DDL which will have the correct namespace
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+		})
 		It("Returns a map of table oid to array of child partitions with different schemas", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
@@ -876,6 +898,24 @@ SET SUBPARTITION TEMPLATE
 			}
 
 			Expect(result[oid]).To(ConsistOf(expectedAlteredPartitions))
+		})
+	})
+	Describe("GetAttachedPartitionInfo", func() {
+		It("Returns a map of table oid to attach partition info", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foopart(a integer, b integer) PARTITION BY RANGE (b) DISTRIBUTED BY (a)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.foopart_1_prt_1 (a integer, b integer) DISTRIBUTED BY (a)")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY testschema.foopart ATTACH PARTITION testschema.foopart_1_prt_1 FOR VALUES FROM (1) TO (2)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.foopart")
+
+			oid := testutils.OidFromObjectName(connectionPool, "testschema", "foopart_1_prt_1", backup.TYPE_RELATION)
+			result := backup.GetAttachPartitionInfo(connectionPool)
+
+			expectedAttachPartitionInfo := backup.AttachPartitionInfo{Oid: oid, Relname: "testschema.foopart_1_prt_1", Parent: "testschema.foopart", Expr: "FOR VALUES FROM (1) TO (2)"}
+
+			structmatcher.ExpectStructsToMatch(result[oid], &expectedAttachPartitionInfo)
 		})
 	})
 })

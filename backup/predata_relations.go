@@ -10,6 +10,8 @@ import (
 	"math"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/toc"
@@ -32,34 +34,73 @@ func SplitTablesByPartitionType(tables []Table, includeList []string) ([]Table, 
 		includeSet := utils.NewSet(includeList)
 		for _, table := range tables {
 			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
-				table.Name = AppendExtPartSuffix(table.Name)
+				if connectionPool.Version.Before("7") {
+					// GPDB7+ has different conventions for external partitions
+					// and does not need the suffix added
+					table.Name = AppendExtPartSuffix(table.Name)
+				}
 				metadataTables = append(metadataTables, table)
 			}
 			partType := table.PartitionLevelInfo.Level
-			if partType != "l" && partType != "i" {
+			if connectionPool.Version.AtLeast("7") {
+				// In GPDB 7+, we need to dump out the leaf partition DDL along with their
+				// ALTER TABLE ATTACH PARTITION commands to construct the partition table
+				metadataTables = append(metadataTables, table)
+			} else if partType != "l" && partType != "i" {
 				metadataTables = append(metadataTables, table)
 			}
 			if MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 				if partType != "p" && partType != "i" {
 					dataTables = append(dataTables, table)
 				}
+			} else if connectionPool.Version.AtLeast("7") &&
+				table.AttachPartitionInfo != (AttachPartitionInfo{}) {
+				// For GPDB 7+ and without --leaf-partition-data, we must exclude the
+				// leaf partitions from dumping data. The COPY will be called on the
+				// top-most root partition.
+				continue
 			} else if includeSet.MatchesFilter(table.FQN()) {
 				dataTables = append(dataTables, table)
 			}
 		}
 	} else {
+		var excludeList *utils.FilterSet
+		if connectionPool.Version.AtLeast("7") {
+			excludeList = utils.NewExcludeSet(MustGetFlagStringArray(options.EXCLUDE_RELATION))
+		} else {
+			excludeList = utils.NewExcludeSet([]string{})
+		}
+
 		for _, table := range tables {
-			if table.IsExternal && table.PartitionLevelInfo.Level == "l" {
+			// In GPDB 7+, we need to filter out leaf and intermediate subroot partitions
+			// from being added to the metadata table list if their root partition parent
+			// is in the exclude list. This is to prevent ATTACH PARTITION statements
+			// against nonexistant root partitions from being printed to the metadata file.
+			if connectionPool.Version.AtLeast("7") &&
+				table.AttachPartitionInfo != (AttachPartitionInfo{}) &&
+				!excludeList.MatchesFilter(table.AttachPartitionInfo.Parent) {
+				continue
+			}
+
+			if connectionPool.Version.Before("7") && table.IsExternal && table.PartitionLevelInfo.Level == "l" {
 				table.Name = AppendExtPartSuffix(table.Name)
 			}
+
 			metadataTables = append(metadataTables, table)
+			// In GPDB 7+, we need to filter out leaf and intermediate subroot partitions
+			// since the COPY will be called on the top-most root partition. It just so
+			// happens that those particular partition types will always have an
+			// AttachPartitionInfo initialized.
+			if table.AttachPartitionInfo == (AttachPartitionInfo{}) {
+				dataTables = append(dataTables, table)
+			}
 		}
-		dataTables = tables
 	}
 	return metadataTables, dataTables
 }
 
 func AppendExtPartSuffix(name string) string {
+	// Do not call this function for GPDB7+
 	const SUFFIX = "_ext_part_"
 	const MAX_LEN = 63                 // MAX_DATA_LEN - 1 is the maximum length of a relation name
 	const QUOTED_MAX_LEN = MAX_LEN + 2 // We add 2 to account for a double quote on each end
@@ -114,7 +155,10 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 
 	printColumnDefinitions(metadataFile, table.ColumnDefs, table.TableType)
 	metadataFile.MustPrintf(") ")
-	if len(table.Inherits) != 0 {
+	if table.PartitionKeyDef != "" {
+		metadataFile.MustPrintf("PARTITION BY %s ", table.PartitionKeyDef)
+	}
+	if len(table.Inherits) != 0 && table.AttachPartitionInfo == (AttachPartitionInfo{}) {
 		dependencyList := strings.Join(table.Inherits, ", ")
 		metadataFile.MustPrintf("INHERITS (%s) ", dependencyList)
 	}
@@ -123,6 +167,9 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, toc
 		if table.ForeignDef.Options != "" {
 			metadataFile.MustPrintf("OPTIONS (%s) ", table.ForeignDef.Options)
 		}
+	}
+	if table.AccessMethodName != "" {
+		metadataFile.MustPrintf("USING %s ", table.AccessMethodName)
 	}
 	if table.StorageOpts != "" {
 		metadataFile.MustPrintf("WITH (%s) ", table.StorageOpts)
@@ -159,7 +206,11 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 			line += fmt.Sprintf(" COLLATE %s", column.Collation)
 		}
 		if column.HasDefault {
-			line += fmt.Sprintf(" DEFAULT %s", column.DefaultVal)
+			if column.AttGenerated != "" {
+				line += fmt.Sprintf(" GENERATED ALWAYS AS %s %s", column.DefaultVal, column.AttGenerated)
+			} else {
+				line += fmt.Sprintf(" DEFAULT %s", column.DefaultVal)
+			}
 		}
 		if column.NotNull {
 			line += " NOT NULL"
@@ -230,7 +281,89 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 				utils.MakeFQN(alteredPartitionRelation.OldSchema, alteredPartitionRelation.Name), alteredPartitionRelation.NewSchema))
 	}
 
+	if connectionPool.Version.AtLeast("7") {
+		attachInfo := table.AttachPartitionInfo
+		if (attachInfo != AttachPartitionInfo{}) {
+			statements = append(statements,
+				fmt.Sprintf("ALTER TABLE ONLY %s ATTACH PARTITION %s %s;", table.Inherits[0], attachInfo.Relname, attachInfo.Expr))
+		}
+
+		if table.ForceRowSecurity {
+			statements = append(statements, fmt.Sprintf("ALTER TABLE ONLY %s FORCE ROW LEVEL SECURITY;", table.FQN()))
+		}
+	}
+
 	PrintStatements(metadataFile, toc, table, statements)
+}
+
+func generateSequenceDefinitionStatement(sequence Sequence) string {
+	statement := ""
+	definition := sequence.Definition
+	maxVal := int64(math.MaxInt64)
+	minVal := int64(math.MinInt64)
+
+	// Identity columns cannot be defined with `AS smallint/integer`
+	if connectionPool.Version.AtLeast("7") && sequence.OwningColumnAttIdentity == "" {
+		if definition.Type != "bigint" {
+			statement += fmt.Sprintf("\n\tAS %s", definition.Type)
+		}
+		if definition.Type == "smallint" {
+			maxVal = int64(math.MaxInt16)
+			minVal = int64(math.MinInt16)
+		} else if definition.Type == "integer" {
+			maxVal = int64(math.MaxInt32)
+			minVal = int64(math.MinInt32)
+		}
+	}
+	if connectionPool.Version.AtLeast("6") {
+		statement += fmt.Sprintf("\n\tSTART WITH %d", definition.StartVal)
+	} else if !definition.IsCalled {
+		statement += fmt.Sprintf("\n\tSTART WITH %d", definition.LastVal)
+	}
+	statement += fmt.Sprintf("\n\tINCREMENT BY %d", definition.Increment)
+
+	if !((definition.MaxVal == maxVal && definition.Increment > 0) ||
+		(definition.MaxVal == -1 && definition.Increment < 0)) {
+		statement += fmt.Sprintf("\n\tMAXVALUE %d", definition.MaxVal)
+	} else {
+		statement += "\n\tNO MAXVALUE"
+	}
+	if !((definition.MinVal == minVal && definition.Increment < 0) ||
+		(definition.MinVal == 1 && definition.Increment > 0)) {
+		statement += fmt.Sprintf("\n\tMINVALUE %d", definition.MinVal)
+	} else {
+		statement += "\n\tNO MINVALUE"
+	}
+	statement += fmt.Sprintf("\n\tCACHE %d", definition.CacheVal)
+	if definition.IsCycled {
+		statement += "\n\tCYCLE"
+	}
+	return statement
+}
+
+func PrintIdentityColumns(metadataFile *utils.FileWithByteCount, toc *toc.TOC, sequences []Sequence) {
+	for _, seq := range sequences {
+		if seq.IsIdentity {
+			start := metadataFile.ByteCount
+
+			attrIdentityStr := ""
+			if seq.OwningColumnAttIdentity == "a" {
+				attrIdentityStr = "ALWAYS"
+			} else if seq.OwningColumnAttIdentity == "d" {
+				attrIdentityStr = "BY DEFAULT"
+			} else {
+				gplog.Fatal(errors.Errorf("Invalid Owning Column Attribute came for Identity sequence: expected 'a' or 'd', got '%s'\n", seq.OwningColumnAttIdentity), "")
+			}
+
+			metadataFile.MustPrintf("ALTER TABLE %s\nALTER COLUMN %s ADD GENERATED %s AS IDENTITY (",
+				seq.OwningTable, seq.UnqualifiedOwningColumn, attrIdentityStr)
+			metadataFile.MustPrintf("\n\tSEQUENCE NAME %s", seq.FQN())
+			seqDefStatement := generateSequenceDefinitionStatement(seq)
+			metadataFile.MustPrintf("%s);\n", seqDefStatement)
+			section, entry := seq.GetMetadataEntry()
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		}
+	}
 }
 
 /*
@@ -239,36 +372,15 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
  */
 func PrintCreateSequenceStatements(metadataFile *utils.FileWithByteCount,
 	toc *toc.TOC, sequences []Sequence, sequenceMetadata MetadataMap) {
-	maxVal := int64(math.MaxInt64)
-	minVal := int64(math.MinInt64)
 	for _, sequence := range sequences {
+		if sequence.IsIdentity {
+			continue
+		}
 		start := metadataFile.ByteCount
 		definition := sequence.Definition
-		metadataFile.MustPrintln("\n\nCREATE SEQUENCE", sequence.FQN())
-		if connectionPool.Version.AtLeast("6") {
-			metadataFile.MustPrintln("\tSTART WITH", definition.StartVal)
-		} else if !definition.IsCalled {
-			metadataFile.MustPrintln("\tSTART WITH", definition.LastVal)
-		}
-		metadataFile.MustPrintln("\tINCREMENT BY", definition.Increment)
-
-		if !((definition.MaxVal == maxVal && definition.Increment > 0) ||
-			(definition.MaxVal == -1 && definition.Increment < 0)) {
-			metadataFile.MustPrintln("\tMAXVALUE", definition.MaxVal)
-		} else {
-			metadataFile.MustPrintln("\tNO MAXVALUE")
-		}
-		if !((definition.MinVal == minVal && definition.Increment < 0) ||
-			(definition.MinVal == 1 && definition.Increment > 0)) {
-			metadataFile.MustPrintln("\tMINVALUE", definition.MinVal)
-		} else {
-			metadataFile.MustPrintln("\tNO MINVALUE")
-		}
-		cycleStr := ""
-		if definition.IsCycled {
-			cycleStr = "\n\tCYCLE"
-		}
-		metadataFile.MustPrintf("\tCACHE %d%s;", definition.CacheVal, cycleStr)
+		metadataFile.MustPrintf("\n\nCREATE SEQUENCE %s", sequence.FQN())
+		seqDefStatement := generateSequenceDefinitionStatement(sequence)
+		metadataFile.MustPrint(seqDefStatement + ";")
 
 		metadataFile.MustPrintf("\n\nSELECT pg_catalog.setval('%s', %d, %v);\n",
 			utils.EscapeSingleQuotes(sequence.FQN()), definition.LastVal, definition.IsCalled)
@@ -283,15 +395,18 @@ func PrintAlterSequenceStatements(metadataFile *utils.FileWithByteCount,
 	tocfile *toc.TOC, sequences []Sequence) {
 	gplog.Verbose("Writing ALTER SEQUENCE statements to metadata file")
 	for _, sequence := range sequences {
+		if sequence.IsIdentity {
+			continue
+		}
 		seqFQN := sequence.FQN()
 		// owningColumn is quoted and doesn't need to be quoted again
 		if sequence.OwningColumn != "" {
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER SEQUENCE %s OWNED BY %s;\n", seqFQN, sequence.OwningColumn)
 			entry := toc.MetadataEntry{
-				Schema: sequence.Relation.Schema,
-				Name: sequence.Relation.Name,
-				ObjectType: "SEQUENCE OWNER",
+				Schema:          sequence.Relation.Schema,
+				Name:            sequence.Relation.Name,
+				ObjectType:      "SEQUENCE OWNER",
 				ReferenceObject: sequence.OwningTable,
 			}
 			tocfile.AddMetadataEntry("predata", entry, start, metadataFile.ByteCount)
@@ -311,8 +426,8 @@ func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, toc *toc.TO
 	if !view.IsMaterialized {
 		metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition.String)
 	} else {
-		metadataFile.MustPrintf("\n\nCREATE MATERIALIZED VIEW %s%s%s AS %s\nWITH NO DATA;\n",
-			view.FQN(), view.Options, tablespaceClause, view.Definition.String[:len(view.Definition.String)-1])
+		metadataFile.MustPrintf("\n\nCREATE MATERIALIZED VIEW %s%s%s AS %s\nWITH NO DATA\n%s;\n",
+			view.FQN(), view.Options, tablespaceClause, view.Definition.String[:len(view.Definition.String)-1], view.DistPolicy)
 	}
 	section, entry := view.GetMetadataEntry()
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

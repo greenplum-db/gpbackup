@@ -77,7 +77,7 @@ type Constraint struct {
 	Schema             string
 	Name               string
 	ConType            string
-	ConDef             sql.NullString
+	Def                sql.NullString
 	ConIsLocal         bool
 	OwningObject       string
 	IsDomainConstraint bool
@@ -85,7 +85,13 @@ type Constraint struct {
 }
 
 func (c Constraint) GetMetadataEntry() (string, toc.MetadataEntry) {
-	return "postdata",
+	var tocSection string
+	if c.Def.Valid && !strings.Contains(strings.ToUpper(c.Def.String), "NOT VALID") {
+		tocSection = "predata"
+	} else {
+		tocSection = "postdata"
+	}
+	return tocSection,
 		toc.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
@@ -109,37 +115,70 @@ func (c Constraint) FQN() string {
 }
 
 func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []Constraint {
-	// ConIsLocal should always return true from GetConstraints because we filter out constraints that are inherited using the INHERITS clause, or inherited from a parent partition table. This field only accurately reflects constraints in GPDB6+ because check constraints on parent tables must propogate to children. For GPDB versions 5 or lower, this field will default to false.
-	var selectConIsLocal string
-	var groupByConIsLocal string
+
+	// ConIsLocal should always return true from GetConstraints because we
+	// filter out constraints that are inherited using the INHERITS clause, or
+	// inherited from a parent partition table. This field only accurately
+	// reflects constraints in GPDB6+ because check constraints on parent
+	// tables must propogate to children. For GPDB versions 5 or lower, this
+	// field will default to false.
+	conIsLocal := ""
 	if connectionPool.Version.AtLeast("6") {
-		selectConIsLocal = `conislocal,`
-		groupByConIsLocal = `con.conislocal,`
+		conIsLocal = `con.conislocal,`
 	}
 	// This query is adapted from the queries underlying \d in psql.
-	tableQuery := fmt.Sprintf(`
-	SELECT con.oid,
-		quote_ident(n.nspname) AS schema,
-		quote_ident(conname) AS name,
-		contype,
-		%s
-		pg_get_constraintdef(con.oid, TRUE) AS condef,
-		quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
-		'f' AS isdomainconstraint,
-		CASE
-			WHEN pt.parrelid IS NULL THEN 'f'
-			ELSE 't'
-		END AS ispartitionparent
-	FROM pg_constraint con
-		LEFT JOIN pg_class c ON con.conrelid = c.oid
-		LEFT JOIN pg_partition pt ON con.conrelid = pt.parrelid
-		JOIN pg_namespace n ON n.oid = con.connamespace
-	WHERE %s
-		AND %s
-		AND c.relname IS NOT NULL
-		AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
-		AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
-	GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, selectConIsLocal, "%s", ExtensionFilterClause("c"), groupByConIsLocal)
+	tableQuery := ""
+	if connectionPool.Version.Before("7") {
+		tableQuery = fmt.Sprintf(`
+		SELECT con.oid,
+			quote_ident(n.nspname) AS schema,
+			quote_ident(conname) AS name,
+			contype,
+			%s
+			pg_get_constraintdef(con.oid, TRUE) AS def,
+			quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
+			'f' AS isdomainconstraint,
+			CASE
+				WHEN pt.parrelid IS NULL THEN 'f'
+				ELSE 't'
+			END AS ispartitionparent
+		FROM pg_constraint con
+			LEFT JOIN pg_class c ON con.conrelid = c.oid
+			LEFT JOIN pg_partition pt ON con.conrelid = pt.parrelid
+			JOIN pg_namespace n ON n.oid = con.connamespace
+		WHERE %s
+			AND %s
+			AND c.relname IS NOT NULL
+			AND contype != 't'
+			AND conrelid NOT IN (SELECT parchildrelid FROM pg_partition_rule)
+			AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
+		GROUP BY con.oid, conname, contype, c.relname, n.nspname, %s pt.parrelid`, conIsLocal, "%s", ExtensionFilterClause("c"), conIsLocal)
+	} else {
+		tableQuery = fmt.Sprintf(`
+		SELECT con.oid,
+			quote_ident(n.nspname) AS schema,
+			quote_ident(conname) AS name,
+			contype,
+			con.conislocal,
+			pg_get_constraintdef(con.oid, TRUE) AS def,
+			quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS owningobject,
+			'f' AS isdomainconstraint,
+			CASE
+				WHEN pt.partrelid IS NULL THEN 'f'
+				ELSE 't'
+			END AS ispartitionparent
+		FROM pg_constraint con
+			LEFT JOIN pg_class c ON con.conrelid = c.oid
+			LEFT JOIN pg_partitioned_table pt ON con.conrelid = pt.partrelid
+			JOIN pg_namespace n ON n.oid = con.connamespace
+		WHERE %s
+			AND %s
+			AND c.relname IS NOT NULL
+			AND contype != 't'
+			AND (c.relispartition IS FALSE OR conislocal IS TRUE)
+			AND (conrelid, conname) NOT IN (SELECT i.inhrelid, con.conname FROM pg_inherits i JOIN pg_constraint con ON i.inhrelid = con.conrelid JOIN pg_constraint p ON i.inhparent = p.conrelid WHERE con.conname = p.conname)
+		GROUP BY con.oid, conname, contype, c.relname, n.nspname, con.conislocal, pt.partrelid`, "%s", ExtensionFilterClause("c"))
+	}
 
 	nonTableQuery := fmt.Sprintf(`
 	SELECT con.oid,
@@ -147,7 +186,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		quote_ident(conname) AS name,
 		contype,
 		%s
-		pg_get_constraintdef(con.oid, TRUE) AS condef,
+		pg_get_constraintdef(con.oid, TRUE) AS def,
 		quote_ident(n.nspname) || '.' || quote_ident(t.typname) AS owningobject,
 		't' AS isdomainconstraint,
 		'f' AS ispartitionparent
@@ -158,7 +197,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		AND %s
 		AND t.typname IS NOT NULL
 	GROUP BY con.oid, conname, contype, n.nspname, %s t.typname
-	ORDER BY name`, selectConIsLocal, SchemaFilterClause("n"), ExtensionFilterClause("con"), groupByConIsLocal)
+	ORDER BY name`, conIsLocal, SchemaFilterClause("n"), ExtensionFilterClause("con"), conIsLocal)
 
 	query := ""
 	if len(includeTables) > 0 {
@@ -185,7 +224,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		// only GPDB 5 since 4.3 will get a cache error on the query).
 		verifiedResults := make([]Constraint, 0)
 		for _, result := range results {
-			if result.ConDef.Valid {
+			if result.Def.Valid {
 				verifiedResults = append(verifiedResults, result)
 			} else {
 				gplog.Warn("Constraint '%s.%s' not backed up, most likely dropped after gpbackup had begun.", result.Schema, result.Name)
@@ -194,6 +233,26 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		return verifiedResults
 	} else {
 		return results
+	}
+}
+
+func RenameExchangedPartitionConstraints(connectionPool *dbconn.DBConn, constraints *[]Constraint) {
+	query := GetRenameExchangedPartitionQuery(connectionPool)
+	names := make([]ExchangedPartitionName, 0)
+	err := connectionPool.Select(&names, query)
+	gplog.FatalOnError(err)
+
+	nameMap := make(map[string]string)
+	for _, name := range names {
+		nameMap[name.OrigName] = name.NewName
+	}
+
+	for idx := range *constraints {
+		newName, hasNewName := nameMap[(*constraints)[idx].Name]
+		if hasNewName {
+			(*constraints)[idx].Def.String = strings.Replace((*constraints)[idx].Def.String, (*constraints)[idx].Name, newName, 1)
+			(*constraints)[idx].Name = newName
+		}
 	}
 }
 
@@ -255,4 +314,46 @@ func ExtensionFilterClause(namespace string) string {
 	}
 
 	return fmt.Sprintf("%s NOT IN (select objid from pg_depend where deptype = 'e')", oidStr)
+}
+
+type AccessMethod struct {
+	Oid     uint32
+	Name    string
+	Handler string
+	Type    string
+}
+
+func (a AccessMethod) GetMetadataEntry() (string, toc.MetadataEntry) {
+	return "predata",
+		toc.MetadataEntry{
+			Name:            a.Name,
+			ObjectType:      "ACCESS METHOD",
+			ReferenceObject: "",
+			StartByte:       0,
+			EndByte:         0,
+		}
+}
+
+func (a AccessMethod) FQN() string {
+	return a.Name
+}
+
+func (a AccessMethod) GetUniqueID() UniqueID {
+	return UniqueID{ClassID: PG_TYPE_OID, Oid: a.Oid}
+}
+
+func GetAccessMethods(connectionPool *dbconn.DBConn) []AccessMethod {
+	results := make([]AccessMethod, 0)
+	query := fmt.Sprintf(`
+	SELECT oid,
+       quote_ident(amname) AS name,
+       amhandler::pg_catalog.regproc AS handler,
+       amtype AS type
+	FROM pg_am
+	WHERE oid > %d
+	ORDER BY oid;`, FIRST_NORMAL_OBJECT_ID)
+
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	return results
 }

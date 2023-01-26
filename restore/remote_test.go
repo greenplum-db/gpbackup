@@ -39,7 +39,7 @@ var _ = Describe("restore/remote tests", func() {
 			}
 			testCluster.Executor = testExecutor
 			restore.SetCluster(testCluster)
-			restore.VerifyBackupFileCountOnSegments(2)
+			restore.VerifyBackupFileCountOnSegments()
 			Expect((*testExecutor).NumExecutions).To(Equal(1))
 		})
 		It("panics if backup file counts do not match on all segments", func() {
@@ -52,7 +52,7 @@ var _ = Describe("restore/remote tests", func() {
 			testCluster.Executor = testExecutor
 			restore.SetCluster(testCluster)
 			defer testhelper.ShouldPanicWithMessage("Found incorrect number of backup files on 2 segments")
-			restore.VerifyBackupFileCountOnSegments(2)
+			restore.VerifyBackupFileCountOnSegments()
 		})
 		It("panics if backup file counts do not match on some segments", func() {
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
@@ -63,7 +63,7 @@ var _ = Describe("restore/remote tests", func() {
 			testCluster.Executor = testExecutor
 			restore.SetCluster(testCluster)
 			defer testhelper.ShouldPanicWithMessage("Found incorrect number of backup files on 1 segment")
-			restore.VerifyBackupFileCountOnSegments(2)
+			restore.VerifyBackupFileCountOnSegments()
 		})
 		It("panics if it cannot verify some backup file counts", func() {
 			testExecutor.ClusterOutput = &cluster.RemoteOutput{
@@ -75,7 +75,7 @@ var _ = Describe("restore/remote tests", func() {
 			testCluster.Executor = testExecutor
 			restore.SetCluster(testCluster)
 			defer testhelper.ShouldPanicWithMessage("Could not verify backup file count on 1 segment")
-			restore.VerifyBackupFileCountOnSegments(2)
+			restore.VerifyBackupFileCountOnSegments()
 		})
 	})
 })

@@ -43,6 +43,11 @@ var _ = Describe("backup internal tests", func() {
 			rowTwo := []driver.Value{"2", "mock_schema2", "mock_table2", "mock_options2", nil, "mock_tablespace2", false}
 			fakeRows := sqlmock.NewRows(header).AddRow(rowOne...).AddRow(rowTwo...)
 			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeRows)
+
+			headerDistPol := []string{"oid", "value"}
+			fakeRowsDistPol := sqlmock.NewRows(headerDistPol)
+			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeRowsDistPol)
+
 			result := backup.GetAllViews(connectionPool)
 
 			// Expect the GetAllViews function to return only the 1st row since the 2nd row has a NULL view definition

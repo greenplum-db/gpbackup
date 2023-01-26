@@ -25,7 +25,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			partitionPartFalseExpectation = "false"
 		)
 		BeforeEach(func() {
-			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: "", ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
+			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: sql.NullString{String: "", Valid: true}, ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
 				TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ExtTableDef: extTableEmpty, Inherits: []string{}},
@@ -78,8 +78,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a complex heap table", func() {
-			rowOneDefault := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "42", Comment: ""}
-			rowNotNullDefault := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: true, HasDefault: true, Type: "character varying(20)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "'bar'::text", Comment: ""}
+			rowOneDefault := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: true, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "(42)", Comment: ""}
+			rowNotNullDefault := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: true, HasDefault: true, Type: "character varying(20)", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "('bar'::text)", Comment: ""}
 			rowNonDefaultStorageAndStats := backup.ColumnDefinition{Oid: 0, Num: 3, Name: "k", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: 3, StorageType: "PLAIN", DefaultVal: "", Comment: ""}
 			if connectionPool.Version.AtLeast("6") {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
@@ -100,7 +100,27 @@ var _ = Describe("backup integration create statement tests", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "compresstype=zlib,blocksize=32768,compresslevel=1", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: false, HasDefault: false, Type: "character varying(20)", Encoding: "compresstype=zlib,blocksize=32768,compresslevel=1", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			testTable.StorageOpts = "appendonly=true, orientation=column, fillfactor=42, compresstype=zlib, blocksize=32768, compresslevel=1"
+			if connectionPool.Version.AtLeast("7") {
+				// Apparently, fillfactor is not backwards compatible with GPDB 7
+				testTable.StorageOpts = "appendonly=true, orientation=column, compresstype=zlib, blocksize=32768, compresslevel=1"
+			}
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
+
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+			if connectionPool.Version.AtLeast("7") {
+				// For GPDB 7+, the storage options no longer store the appendonly and orientation field
+				testTable.StorageOpts = "compresstype=zlib, blocksize=32768, compresslevel=1"
+				testTable.TableDefinition.AccessMethodName = "ao_column"
+			}
+			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
+		})
+		It("creates a basic GPDB 7+ append-optimized table", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testTable.TableDefinition.AccessMethodName = "ao_column"
 
 			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
 
@@ -112,12 +132,17 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates a one-level partition table", func() {
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "region", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "gender", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
-			testTable.PartDef = fmt.Sprintf(`PARTITION BY LIST(gender) `+`
+
+			if connectionPool.Version.Before("7") {
+				testTable.PartDef = fmt.Sprintf(`PARTITION BY LIST(gender) `+`
           (
           PARTITION girls VALUES('F') WITH (tablename='public.rank_1_prt_girls', appendonly=%[1]s ), `+`
           PARTITION boys VALUES('M') WITH (tablename='public.rank_1_prt_boys', appendonly=%[1]s ), `+`
           DEFAULT PARTITION other  WITH (tablename='public.rank_1_prt_other', appendonly=%[1]s )
           )`, partitionPartFalseExpectation)
+			} else {
+				testTable.PartitionKeyDef = "LIST (gender)"
+			}
 
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 			testTable.PartitionLevelInfo.Level = "p"
@@ -135,10 +160,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			 * The spacing is very specific here and is output from the postgres function
 			 * The only difference between the below statements is spacing
 			 */
-			subpartitionDef := ""
-			partTemplateDef := ""
 			if connectionPool.Version.Before("6") {
-				subpartitionDef = `PARTITION BY LIST(gender)
+				testTable.PartDef = `PARTITION BY LIST(gender)
           SUBPARTITION BY LIST(region) ` + `
           (
           PARTITION girls VALUES('F') WITH (tablename='public.rank_1_prt_girls', appendonly=false ) ` + `
@@ -163,7 +186,7 @@ var _ = Describe("backup integration create statement tests", func() {
                   DEFAULT SUBPARTITION other_regions  WITH (tablename='public.rank_1_prt_other_2_prt_other_regions', appendonly=false )
                   )
           )`
-				partTemplateDef = `ALTER TABLE public.testtable ` + `
+				testTable.PartTemplateDef = `ALTER TABLE public.testtable ` + `
 SET SUBPARTITION TEMPLATE  ` + `
           (
           SUBPARTITION usa VALUES('usa') WITH (tablename='testtable'), ` + `
@@ -172,8 +195,8 @@ SET SUBPARTITION TEMPLATE  ` + `
           DEFAULT SUBPARTITION other_regions  WITH (tablename='testtable')
           )
 `
-			} else {
-				subpartitionDef = fmt.Sprintf(`PARTITION BY LIST(gender)
+			} else if connectionPool.Version.Is("6") {
+				testTable.PartDef = fmt.Sprintf(`PARTITION BY LIST(gender)
           SUBPARTITION BY LIST(region) `+`
           (
           PARTITION girls VALUES('F') WITH (tablename='public.rank_1_prt_girls', appendonly=%[1]s )`+`
@@ -198,7 +221,7 @@ SET SUBPARTITION TEMPLATE  ` + `
                   DEFAULT SUBPARTITION other_regions  WITH (tablename='public.rank_1_prt_other_2_prt_other_regions', appendonly=%[1]s )
                   )
           )`, partitionPartFalseExpectation)
-				partTemplateDef = `ALTER TABLE public.testtable ` + `
+				testTable.PartTemplateDef = `ALTER TABLE public.testtable ` + `
 SET SUBPARTITION TEMPLATE ` + `
           (
           SUBPARTITION usa VALUES('usa') WITH (tablename='testtable'), ` + `
@@ -207,11 +230,12 @@ SET SUBPARTITION TEMPLATE ` + `
           DEFAULT SUBPARTITION other_regions  WITH (tablename='testtable')
           )
 `
+			} else {
+				testTable.PartitionKeyDef = "LIST (gender)"
 			}
+
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "region", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "gender", NotNull: false, HasDefault: false, Type: "text", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
-			testTable.PartDef = subpartitionDef
-			testTable.PartTemplateDef = partTemplateDef
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
 			testTable.PartitionLevelInfo.Level = "p"
 
@@ -223,6 +247,24 @@ SET SUBPARTITION TEMPLATE ` + `
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
 			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
 
+		})
+		It("creates a GPDB 7+ root table", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
+			testTable.PartitionKeyDef = "RANGE (b)"
+			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "a", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
+			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "b", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
+			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
+			testTable.PartitionLevelInfo.Level = "p"
+
+			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			testTable.PartitionLevelInfo.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a table with a non-default tablespace", func() {
 			if connectionPool.Version.Before("6") {
@@ -318,7 +360,7 @@ SET SUBPARTITION TEMPLATE ` + `
 	})
 	Describe("PrintPostCreateTableStatements", func() {
 		var (
-			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: "", ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
+			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: sql.NullString{String: "", Valid: true}, ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
 			tableRow      = backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			testTable     backup.Table
 			tableMetadata backup.ObjectMetadata
@@ -405,6 +447,46 @@ SET SUBPARTITION TEMPLATE ` + `
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
 			Expect(resultTable.ReplicaIdentity).To(Equal("f"))
 		})
+		It("prints a GPDB 7+ ALTER statement to ATTACH a child table to it's root", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testroottable(i int) PARTITION BY RANGE (i) DISTRIBUTED BY (i); ")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testroottable;")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testchildtable(i int) DISTRIBUTED BY (i);")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.testchildtable;")
+			tableMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, ObjectType: "RELATION"}
+			testChildTable := backup.Table{
+				Relation: backup.Relation{Schema: "public", Name: "testChildTable"},
+				TableDefinition: backup.TableDefinition{
+					DistPolicy:  "DISTRIBUTED BY (i)",
+					ColumnDefs:  []backup.ColumnDefinition{tableRow},
+					ExtTableDef: extTableEmpty,
+					Inherits:    []string{"public.testroottable"},
+					AttachPartitionInfo: backup.AttachPartitionInfo{
+						Relname: "public.testchildtable",
+						Parent:  "public.testroottable",
+						Expr:    "FOR VALUES FROM (1) TO (2)",
+					},
+				},
+			}
+
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testChildTable, tableMetadata)
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			attachPartitionInfoMap := backup.GetAttachPartitionInfo(connectionPool)
+			childTableOid := testutils.OidFromObjectName(connectionPool, "public", "testchildtable", backup.TYPE_RELATION)
+			testChildTable.AttachPartitionInfo.Oid = childTableOid
+			structmatcher.ExpectStructsToMatch(&testChildTable.AttachPartitionInfo, attachPartitionInfoMap[childTableOid])
+		})
+		It("prints an ALTER statement to force row level security on the table owner", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
+			testTable.ForceRowSecurity = true
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, tableMetadata)
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
+			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+			Expect(resultTable.ForceRowSecurity).To(Equal(true))
+		})
 	})
 	Describe("PrintCreateViewStatements", func() {
 		var viewDef sql.NullString
@@ -456,7 +538,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			}
 		})
 		It("creates a view with privileges, owner, security label, and comment", func() {
-			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Definition: sql.NullString{String: " SELECT 1;", Valid: true}, IsMaterialized: true}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 			viewMetadata := testutils.DefaultMetadata("MATERIALIZED VIEW", true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateViewStatement(backupfile, tocfile, view, viewMetadata)
@@ -474,7 +556,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
 		})
 		It("creates a materialized view with options", func() {
-			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: sql.NullString{String: " SELECT 1;", Valid: true}, IsMaterialized: true}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 
 			backup.PrintCreateViewStatement(backupfile, tocfile, view, backup.ObjectMetadata{})
 
@@ -493,18 +575,24 @@ SET SUBPARTITION TEMPLATE ` + `
 			sequenceRel         backup.Relation
 			sequence            backup.Sequence
 			sequenceMetadataMap backup.MetadataMap
+			dataType            string
 		)
 		BeforeEach(func() {
 			sequenceRel = backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}
 			sequence = backup.Sequence{Relation: sequenceRel}
 			sequenceMetadataMap = backup.MetadataMap{}
+
+			dataType = ""
+			if connectionPool.Version.AtLeast("7") {
+				dataType = "bigint"
+			}
 		})
 		It("creates a basic sequence", func() {
 			startValue := int64(0)
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -521,7 +609,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 105
 			}
-			sequence.Definition = backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 105, Type: dataType, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true, StartVal: startValue}
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -538,7 +626,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			if connectionPool.Version.AtLeast("6") {
 				startValue = 1
 			}
-			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
 			sequenceMetadata := testutils.DefaultMetadata("SEQUENCE", true, true, true, includeSecurityLabels)
 			sequenceMetadataMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = sequenceMetadata
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, sequenceMetadataMap)
@@ -556,6 +644,26 @@ SET SUBPARTITION TEMPLATE ` + `
 			structmatcher.ExpectStructsToMatch(&sequence.Definition, &resultSequences[0].Definition)
 			structmatcher.ExpectStructsToMatch(&sequenceMetadata, &resultMetadata)
 		})
+		It("doesn't create identity sequences", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			startValue := int64(0)
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, MinVal: math.MinInt64, MaxVal: math.MaxInt64, Increment: 1, CacheVal: 1, StartVal: startValue}
+
+			identitySequenceRel := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_identity_sequence"}
+			identitySequence := backup.Sequence{Relation: identitySequenceRel, IsIdentity: true}
+			identitySequence.Definition = backup.SequenceDefinition{LastVal: 1, Type: dataType, MinVal: math.MinInt64, MaxVal: math.MaxInt64, Increment: 1, CacheVal: 20, StartVal: startValue}
+
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence, identitySequence}, sequenceMetadataMap)
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
+
+			resultSequences := backup.GetAllSequences(connectionPool)
+
+			Expect(resultSequences).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&sequenceRel, &resultSequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequence.Definition, &resultSequences[0].Definition)
+		})
 	})
 	Describe("PrintAlterSequenceStatements", func() {
 		It("creates a sequence owned by a table column", func() {
@@ -567,6 +675,10 @@ SET SUBPARTITION TEMPLATE ` + `
 			sequence.OwningColumn = "public.sequence_table.a"
 
 			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: startValue}
+			if connectionPool.Version.AtLeast("7") {
+				sequence.Definition.Type = "bigint"
+			}
+
 			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence}, backup.MetadataMap{})
 			backup.PrintAlterSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence})
 
@@ -581,6 +693,27 @@ SET SUBPARTITION TEMPLATE ` + `
 			Expect(sequences).To(HaveLen(1))
 			Expect(sequences[0].OwningTable).To(Equal("public.sequence_table"))
 			Expect(sequences[0].OwningColumn).To(Equal("public.sequence_table.a"))
+		})
+		It("skips identity sequences", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			sequenceRel := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_sequence"}
+			sequence := backup.Sequence{Relation: sequenceRel}
+			sequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1, StartVal: 1, Type: "bigint"}
+
+			identitySequenceRel := backup.Relation{SchemaOid: 0, Oid: 1, Schema: "public", Name: "my_identity_sequence"}
+			identitySequence := backup.Sequence{Relation: identitySequenceRel, IsIdentity: true}
+			identitySequence.Definition = backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 20, StartVal: 1, Type: "bigint"}
+
+			backup.PrintCreateSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence, identitySequence}, backup.MetadataMap{})
+			backup.PrintAlterSequenceStatements(backupfile, tocfile, []backup.Sequence{sequence, identitySequence})
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
+
+			sequences := backup.GetAllSequences(connectionPool)
+			Expect(sequences).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&sequenceRel, &sequences[0].Relation, "SchemaOid", "Oid")
+			structmatcher.ExpectStructsToMatch(&sequence.Definition, &sequences[0].Definition)
 		})
 	})
 })

@@ -19,7 +19,7 @@ var _ = Describe("backup/predata_relations tests", func() {
 	var testTable backup.Table
 	BeforeEach(func() {
 		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
-		extTableEmpty := backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: "", ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
+		extTableEmpty := backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: sql.NullString{String: "", Valid: false}, ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
 		testTable = backup.Table{
 			Relation:        backup.Relation{Schema: "public", Name: "tablename"},
 			TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", PartDef: "", PartTemplateDef: "", StorageOpts: "", ExtTableDef: extTableEmpty},
@@ -58,6 +58,7 @@ ENCODING 'UTF-8';`)
 		colOptions := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", Options: "n_distinct=1", StatTarget: -1}
 		colStorageType := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", Type: "integer", StatTarget: -1, StorageType: "PLAIN"}
 		colWithCollation := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "c", Type: "character (8)", StatTarget: -1, Collation: "public.some_coll"}
+		rowTwoGenerated := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", HasDefault: true, Type: "integer", StatTarget: -1, DefaultVal: "(i * 2)", AttGenerated: "STORED"}
 
 		Context("No special table attributes", func() {
 			It("prints a CREATE TABLE OF type block with one attribute", func() {
@@ -179,6 +180,15 @@ ALTER TABLE ONLY public.tablename ALTER COLUMN i SET STORAGE PLAIN;`)
 ) DISTRIBUTED RANDOMLY;
 
 ALTER TABLE ONLY public.tablename ALTER COLUMN i SET (n_distinct=1);`)
+			})
+			It("prints a CREATE TABLE block with one line with regular attribute and a line with generated attribute", func() {
+				col := []backup.ColumnDefinition{rowOne, rowTwoGenerated}
+				testTable.ColumnDefs = col
+				backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TABLE public.tablename (
+	i integer,
+	j integer GENERATED ALWAYS AS (i * 2) STORED
+) DISTRIBUTED RANDOMLY;`)
 			})
 		})
 		Context("Multiple special table attributes on one column", func() {
@@ -351,6 +361,15 @@ ALTER TABLE ONLY public.tablename ALTER COLUMN i SET (n_distinct=1);`)
 	i integer,
 	j character varying(20)
 ) WITH (appendonly=true, orientation=column, fillfactor=42, compresstype=zlib, blocksize=32768, compresslevel=1) DISTRIBUTED BY (i, j);`)
+			})
+			It("is a GPDB 7+ root partition", func() {
+				testutils.SkipIfBefore7(connectionPool)
+				testTable.PartitionKeyDef = "RANGE (b)"
+				backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TABLE public.tablename (
+	i integer,
+	j character varying(20)
+) PARTITION BY RANGE (b) DISTRIBUTED RANDOMLY;`)
 			})
 		})
 		Context("Table partitioning", func() {
@@ -668,6 +687,12 @@ ALTER TABLE schema1.table1 SET SCHEMA schema2;
 
 
 ALTER TABLE schema2.table2 SET SCHEMA schema1;`)
+		})
+		It("prints force row security", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testTable.ForceRowSecurity = true
+			backup.PrintPostCreateTableStatements(backupfile, tocfile, testTable, backup.ObjectMetadata{})
+			testhelper.ExpectRegexp(buffer, `ALTER TABLE ONLY public.tablename FORCE ROW LEVEL SECURITY;`)
 		})
 	})
 })

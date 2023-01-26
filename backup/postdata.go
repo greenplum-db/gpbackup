@@ -7,8 +7,12 @@ package backup
  */
 
 import (
+	"strings"
+
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
+	"github.com/pkg/errors"
 )
 
 func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
@@ -21,12 +25,16 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 			// Start INDEX metadata
-			indexFQN := utils.MakeFQN(index.OwningSchema, index.Name)
-			entry.ReferenceObject = indexFQN
+			entry.ReferenceObject = index.FQN()
 			entry.ObjectType = "INDEX METADATA"
 			if index.Tablespace != "" {
 				start := metadataFile.ByteCount
-				metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", indexFQN, index.Tablespace)
+				metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", index.FQN(), index.Tablespace)
+				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			}
+			if index.ParentIndexFQN != "" && connectionPool.Version.AtLeast("7") {
+				start := metadataFile.ByteCount
+				metadataFile.MustPrintf("\nALTER INDEX %s ATTACH PARTITION %s;", index.ParentIndexFQN, index.FQN())
 				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 			}
 			tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
@@ -39,6 +47,18 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER TABLE %s REPLICA IDENTITY USING INDEX %s;", tableFQN, index.Name)
 				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			}
+			if index.StatisticsColumns != "" && index.StatisticsValues != "" {
+				cols := strings.Split(index.StatisticsColumns, ",")
+				vals := strings.Split(index.StatisticsValues, ",")
+				if len(cols) != len(vals) {
+					gplog.Fatal(errors.Errorf("Index StatisticsColumns(%d) and StatisticsValues(%d) count don't match\n", len(cols), len(vals)), "")
+				}
+				for i := 0; i < len(cols); i++ {
+					start := metadataFile.ByteCount
+					metadataFile.MustPrintf("\nALTER INDEX %s ALTER COLUMN %s SET STATISTICS %s;", index.FQN(), cols[i], vals[i])
+					toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				}
 			}
 		}
 		PrintObjectMetadata(metadataFile, toc, indexMetadata[index.GetUniqueID()], index, "")
@@ -78,7 +98,11 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 		if eventTrigger.EventTags != "" {
 			metadataFile.MustPrintf("\nWHEN TAG IN (%s)", eventTrigger.EventTags)
 		}
-		metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
+		if connectionPool.Version.AtLeast("7") {
+			metadataFile.MustPrintf("\nEXECUTE FUNCTION %s();", eventTrigger.FunctionName)
+		} else {
+			metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
+		}
 		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 
 		// Start EVENT TRIGGER metadata
@@ -101,5 +125,65 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
 		}
 		PrintObjectMetadata(metadataFile, toc, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger, "")
+	}
+}
+
+func PrintCreatePolicyStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, policies []RLSPolicy, policyMetadata MetadataMap) {
+	for _, policy := range policies {
+		start := metadataFile.ByteCount
+		section, entry := policy.GetMetadataEntry()
+
+		tableFQN := utils.MakeFQN(policy.Schema, policy.Table)
+		metadataFile.MustPrintf("\n\nALTER TABLE %s ENABLE ROW LEVEL SECURITY;", tableFQN)
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+
+		permissiveOption := ""
+		if policy.Permissive == "false" {
+			permissiveOption = " AS RESTRICTIVE"
+		}
+		cmdOption := ""
+		if policy.Cmd != "" {
+			switch policy.Cmd {
+			case "*":
+				cmdOption = ""
+			case "r":
+				cmdOption = " FOR SELECT"
+			case "a":
+				cmdOption = " FOR INSERT"
+			case "w":
+				cmdOption = " FOR UPDATE"
+			case "d":
+				cmdOption = " FOR DELETE"
+			default:
+				gplog.Fatal(errors.Errorf("Unexpected policy command: expected '*|r|a|w|d' got '%s'\n", policy.Cmd), "")
+			}
+		}
+		start = metadataFile.ByteCount
+		metadataFile.MustPrintf("\nCREATE POLICY %s\nON %s%s%s", policy.Name, tableFQN, permissiveOption, cmdOption)
+
+		if policy.Roles != "" {
+			metadataFile.MustPrintf("\n TO %s", policy.Roles)
+		}
+		if policy.Qual != "" {
+			metadataFile.MustPrintf("\n USING (%s)", policy.Qual)
+		}
+		if policy.WithCheck != "" {
+			metadataFile.MustPrintf("\n WITH CHECK (%s)", policy.WithCheck)
+		}
+		metadataFile.MustPrintf(";\n")
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, policyMetadata[policy.GetUniqueID()], policy, "")
+	}
+}
+
+func PrintCreateExtendedStatistics(metadataFile *utils.FileWithByteCount, toc *toc.TOC, statExtObjects []StatisticExt, statMetadata MetadataMap) {
+	for _, stat := range statExtObjects {
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintln()
+
+		metadataFile.MustPrintf("\n%s;", stat.Definition)
+		section, entry := stat.GetMetadataEntry()
+		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		PrintObjectMetadata(metadataFile, toc, statMetadata[stat.GetUniqueID()], stat, "")
 	}
 }

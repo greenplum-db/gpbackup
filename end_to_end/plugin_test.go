@@ -114,21 +114,35 @@ var _ = Describe("End to End plugin tests", func() {
 			assertArtifactsCleaned(restoreConn, timestamp)
 		})
 		It("runs gpbackup and gprestore on database with all objects", func() {
-			testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+			schemaResetStatements := "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+			testhelper.AssertQueryRuns(backupConn, schemaResetStatements)
 			defer testutils.ExecuteSQLFile(backupConn,
 				"resources/test_tables_data.sql")
 			defer testutils.ExecuteSQLFile(backupConn,
 				"resources/test_tables_ddl.sql")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
+			defer testhelper.AssertQueryRuns(backupConn, schemaResetStatements)
+			defer testhelper.AssertQueryRuns(restoreConn, schemaResetStatements)
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE ROLE testrole SUPERUSER")
 			defer testhelper.AssertQueryRuns(backupConn,
 				"DROP ROLE testrole")
+
+			// In GPDB 7+, we use plpython3u because of default python 3 support.
+			plpythonDropStatement := "DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;"
+			if backupConn.Version.AtLeast("7") {
+				plpythonDropStatement = "DROP PROCEDURAL LANGUAGE IF EXISTS plpython3u;"
+			}
+			testhelper.AssertQueryRuns(backupConn, plpythonDropStatement)
+			defer testhelper.AssertQueryRuns(backupConn, plpythonDropStatement)
+			defer testhelper.AssertQueryRuns(restoreConn, plpythonDropStatement)
+
 			testutils.ExecuteSQLFile(backupConn, "resources/gpdb4_objects.sql")
+			if backupConn.Version.Before("7") {
+				testutils.ExecuteSQLFile(backupConn, "resources/gpdb4_compatible_objects_before_gpdb7.sql")
+			} else {
+				testutils.ExecuteSQLFile(backupConn, "resources/gpdb4_compatible_objects_after_gpdb7.sql")
+			}
+
 			if backupConn.Version.AtLeast("5") {
 				testutils.ExecuteSQLFile(backupConn, "resources/gpdb5_objects.sql")
 			}

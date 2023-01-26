@@ -508,6 +508,7 @@ func (rm RoleMember) GetMetadataEntry() (string, toc.MetadataEntry) {
 
 func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 	var caseClause string
+	var whereClause string
 	if connectionPool.Version.AtLeast("5") {
 		caseClause = `
 		WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor::regclass||')'
@@ -517,6 +518,13 @@ func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 		WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
 		THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))`
 	}
+	
+	if connectionPool.Version.AtLeast("7"){
+		whereClause = fmt.Sprintf(`WHERE roleid >= %d`, FIRST_NORMAL_OBJECT_ID)
+	} else {
+		whereClause = ``
+	}
+
 	query := fmt.Sprintf(`
 	SELECT quote_ident(pg_get_userbyid(pga.roleid)) AS role,
 		quote_ident(pg_get_userbyid(pga.member)) AS member,
@@ -524,7 +532,8 @@ func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 		END AS grantor,
 		admin_option AS isadmin
 	FROM pg_auth_members pga
-	ORDER BY roleid, member`, caseClause)
+	% s
+	ORDER BY roleid, member`, caseClause, whereClause)
 
 	results := make([]RoleMember, 0)
 	err := connectionPool.Select(&results, query)

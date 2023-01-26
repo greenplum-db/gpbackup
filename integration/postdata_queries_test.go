@@ -102,6 +102,12 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&index2, &userIndex[1], "Oid")
 		})
 		It("returns a slice of indexes for only partition parent tables", func() {
+			// In GPDB 7+, all partitions will have their own CREATE INDEX statement
+			// followed by an ALTER INDEX ATTACH PARTITION statement
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test is not applicable to GPDB 7+")
+			}
+
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part (id int, date date, amt decimal(10,2)) DISTRIBUTED BY (id)
 PARTITION BY RANGE (date)
       (PARTITION Jan08 START (date '2008-01-01') INCLUSIVE ,
@@ -201,6 +207,59 @@ PARTITION BY RANGE (date)
 
 			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
 		})
+		It("returns a slice of an index with statistics on expression columns", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.simple_table(i int, j int, k int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.simple_table")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx1 ON public.simple_table(i, (i+100), (j * 8))")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER INDEX public.simple_table_idx1 ALTER COLUMN 2 SET STATISTICS 400")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER INDEX public.simple_table_idx1 ALTER COLUMN 3 SET STATISTICS 500")
+
+			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "public", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx1 ON public.simple_table USING btree (i, ((i + 100)), ((j * 8)))", Valid: true}, StatisticsColumns: "2,3", StatisticsValues: "400,500"}
+
+			results := backup.GetIndexes(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			results[0].Oid = testutils.OidFromObjectName(connectionPool, "", "simple_table_idx1", backup.TYPE_INDEX)
+
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[0], "Oid")
+		})
+		It("returns a sorted slice of partition indexes ", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foopart_new (a integer, b integer) PARTITION BY RANGE (b) DISTRIBUTED BY (a)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foopart_new")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.foopart_new_p1 (a integer, b integer) DISTRIBUTED BY (a); ALTER TABLE ONLY public.foopart_new ATTACH PARTITION public.foopart_new_p1 FOR VALUES FROM (0) TO (1);")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX fooidx ON ONLY public.foopart_new USING btree (b)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX foopart_new_p1_b_idx ON public.foopart_new_p1 USING btree (b)")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER INDEX public.fooidx ATTACH PARTITION public.foopart_new_p1_b_idx;")
+
+			index0 := backup.IndexDefinition{Oid: 0, Name: "fooidx", OwningSchema: "public", OwningTable: "foopart_new", Def: sql.NullString{String: "CREATE INDEX fooidx ON ONLY public.foopart_new USING btree (b)", Valid: true}}
+			index1 := backup.IndexDefinition{Oid: 0, Name: "foopart_new_p1_b_idx", OwningSchema: "public", OwningTable: "foopart_new_p1", Def: sql.NullString{String: "CREATE INDEX foopart_new_p1_b_idx ON public.foopart_new_p1 USING btree (b)", Valid: true}, ParentIndexFQN: "public.fooidx"}
+			index0.Oid = testutils.OidFromObjectName(connectionPool, "", "fooidx", backup.TYPE_INDEX)
+			index1.Oid = testutils.OidFromObjectName(connectionPool, "", "foopart_new_p1_b_idx", backup.TYPE_INDEX)
+			index1.ParentIndex = index0.Oid
+
+			results := backup.GetIndexes(connectionPool)
+
+			Expect(results).To(HaveLen(2))
+
+			structmatcher.ExpectStructsToMatchExcluding(&index0, &results[0])
+			structmatcher.ExpectStructsToMatchExcluding(&index1, &results[1])
+		})
+
+		It("returns a slice for an index with non-key columns included", func() {
+			testutils.SkipIfBefore7(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.table_with_index (a int, b int, c int, d int) DISTRIBUTED BY (a);")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.table_with_index")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE UNIQUE INDEX table_with_index_idx ON public.table_with_index USING btree (a, b) INCLUDE (c, d);")
+
+			expectedIndex := backup.IndexDefinition{Oid: 0, Name: "table_with_index_idx", OwningSchema: "public", OwningTable: "table_with_index", Def: sql.NullString{String: "CREATE UNIQUE INDEX table_with_index_idx ON public.table_with_index USING btree (a, b) INCLUDE (c, d)", Valid: true}, IsClustered: false}
+
+			results := backup.GetIndexes(connectionPool)
+
+			Expect(results).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedIndex, &results[0], "Oid")
+		})
 	})
 	Describe("GetRules", func() {
 		var (
@@ -285,17 +344,24 @@ PARTITION BY RANGE (date)
 			Expect(results).To(BeEmpty())
 		})
 		It("returns a slice of multiple triggers", func() {
+			triggerString1 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			triggerString2 := `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerString1 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+				triggerString2 = `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table2(j int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table2")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString1)
+			testhelper.AssertQueryRuns(connectionPool, triggerString2)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON public.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table2 ON public.trigger_table2")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
-			trigger2 := backup.TriggerDefinition{Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table2 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table2 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "public", OwningTable: "trigger_table1", Def: sql.NullString{String: triggerString1, Valid: true}}
+			trigger2 := backup.TriggerDefinition{Oid: 1, Name: "sync_trigger_table2", OwningSchema: "public", OwningTable: "trigger_table2", Def: sql.NullString{String: triggerString2, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -315,19 +381,25 @@ PARTITION BY RANGE (date)
 			Expect(results).To(BeEmpty())
 		})
 		It("returns a slice of triggers for a specific schema", func() {
+			triggerString1 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			triggerString2 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerString1 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+				triggerString2 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString1)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON public.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString2)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: triggerString2, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -335,19 +407,25 @@ PARTITION BY RANGE (date)
 			structmatcher.ExpectStructsToMatchExcluding(&trigger1, &results[0], "Oid")
 		})
 		It("returns a slice of triggers belonging to filtered tables", func() {
+			triggerString1 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			triggerString2 := `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`
+			if connectionPool.Version.AtLeast("7") {
+				triggerString1 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+				triggerString2 = `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
+			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON public.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString1)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON public.trigger_table1")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE testschema.trigger_table1(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE testschema.trigger_table1")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`)
+			testhelper.AssertQueryRuns(connectionPool, triggerString2)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.trigger_table1")
 
-			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: `CREATE TRIGGER sync_trigger_table1 AFTER INSERT OR DELETE OR UPDATE ON testschema.trigger_table1 FOR EACH STATEMENT EXECUTE PROCEDURE "RI_FKey_check_ins"()`, Valid: true}}
+			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: triggerString2, Valid: true}}
 
 			results := backup.GetTriggers(connectionPool)
 
@@ -412,4 +490,54 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 
 		})
 	})
+	Describe("GetPolicies", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
+		})
+		It("returns no results when no policies exists", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.policy_table(user_name text)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.policy_table")
+			results := backup.GetPolicies(connectionPool)
+			Expect(results).To(BeEmpty())
+		})
+		It("returns a slice of multiple policies", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.users(user_name text)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.users")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy1_user_sel ON public.users FOR SELECT USING (true)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy1_user_sel on public.users")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy2_user_mod ON public.users USING (user_name = current_user)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy2_user_mod on public.users")
+
+			results := backup.GetPolicies(connectionPool)
+
+			Expect(results).To(HaveLen(2))
+			policy1 := backup.RLSPolicy{Oid: 1, Name: "policy1_user_sel", Cmd: "r", Permissive: "true", Schema: "public", Table: "users", Qual: "true"}
+			policy2 := backup.RLSPolicy{Oid: 1, Name: "policy2_user_mod", Cmd: "*", Permissive: "true", Schema: "public", Table: "users", Qual: "(user_name = CURRENT_USER)"}
+			structmatcher.ExpectStructsToMatchExcluding(&policy1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&policy2, &results[1], "Oid")
+		})
+		It("returns a slice of multiple policies with checks", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.passwd(user_name text, shell text not null)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.passwd")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE BOB")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE BOB")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy1_bob_all ON public.passwd TO bob USING (true) WITH CHECK (true)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy1_bob_all on public.passwd")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy2_all_view ON public.passwd FOR SELECT USING (true)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy2_all_view on public.passwd")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE POLICY policy3_user_mod ON public.passwd FOR UPDATE USING (user_name = current_user) WITH CHECK (current_user = user_name AND shell IN ('/bin/bash', '/bin/sh'))")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP POLICY policy3_user_mod on public.passwd")
+
+			results := backup.GetPolicies(connectionPool)
+
+			Expect(results).To(HaveLen(3))
+			policy1 := backup.RLSPolicy{Oid: 1, Name: "policy1_bob_all", Cmd: "*", Permissive: "true", Schema: "public", Table: "passwd", Roles: "bob", Qual: "true",WithCheck:"true"}
+			policy2 := backup.RLSPolicy{Oid: 1, Name: "policy2_all_view", Cmd: "r", Permissive: "true", Schema: "public", Table: "passwd", Roles: "", Qual: "true", WithCheck:""}
+			policy3 := backup.RLSPolicy{Oid: 1, Name: "policy3_user_mod", Cmd: "w", Permissive: "true", Schema: "public", Table: "passwd", Roles: "", Qual: "(user_name = CURRENT_USER)", WithCheck: "((CURRENT_USER = user_name) AND (shell = ANY (ARRAY['/bin/bash'::text, '/bin/sh'::text])))"}
+			structmatcher.ExpectStructsToMatchExcluding(&policy1, &results[0], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&policy2, &results[1], "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&policy3, &results[2], "Oid")
+		})
+	})
+	// TODO: test GetExtendedStatistics()
 })

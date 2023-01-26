@@ -2,6 +2,7 @@ package integration
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -15,8 +16,20 @@ import (
 
 var _ = Describe("backup integration tests", func() {
 	Describe("GetFunctions", func() {
+		var prokindValue string
+		var plannerSupportValue string
+		var proparallelValue string
 		BeforeEach(func() {
 			testutils.SkipIfBefore5(connectionPool)
+			if connectionPool.Version.AtLeast("7") {
+				prokindValue = "f"
+				plannerSupportValue = "-"
+				proparallelValue = "u"
+			} else {
+				prokindValue = ""
+				plannerSupportValue = ""
+				proparallelValue = ""
+			}
 		})
 		It("returns a slice of functions", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
@@ -41,19 +54,19 @@ MODIFIES SQL DATA
 			results := backup.GetFunctions(connectionPool)
 
 			addFunction := backup.Function{
-				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "public", Name: "add", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", ExecLocation: "a"}
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0,
+				DataAccess: "c", Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
 			appendFunction := backup.Function{
-				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
+				Schema: "public", Name: "append", Kind: prokindValue, ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
-				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
-				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
+				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, PlannerSupport: plannerSupportValue, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
+				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
@@ -72,12 +85,12 @@ LANGUAGE SQL`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION testschema.add(integer, integer)")
 
 			addFunction := backup.Function{
-				Schema: "testschema", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "testschema", Name: "add", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", ExecLocation: "a"}
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 			results := backup.GetFunctions(connectionPool)
 
@@ -86,53 +99,106 @@ LANGUAGE SQL`)
 		})
 		It("returns a window function", func() {
 			testutils.SkipIfBefore6(connectionPool)
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW`)
+			} else {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW`)
+			}
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
 
-			windowFunction := backup.Function{
-				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-				ResultType: sql.NullString{String: "integer", Valid: true},
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "a"}
-
+			var windowFunction backup.Function
+			if connectionPool.Version.AtLeast("7") {
+				windowFunction = backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: true, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "SETOF integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
+					Language: "sql", Kind: "w", ExecLocation: "a", Parallel: proparallelValue, IsWindow: true}
+			} else {
+				windowFunction = backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false,
+					PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "sql", IsWindow: true, ExecLocation: "a", Parallel: proparallelValue}
+			}
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &windowFunction, "Oid")
 		})
 		It("returns a function to execute on master and all segments", func() {
 			testutils.SkipIfBefore6(connectionPool)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
+
+			if connectionPool.Version.Is("6") {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON MASTER;`)
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_master(integer, integer)")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_all_segments(integer, integer) RETURNS integer
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_all_segments(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON ALL SEGMENTS;`)
+			} else {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON COORDINATOR;`)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_all_segments(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON ALL SEGMENTS;`)
+			}
+
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_master(integer, integer)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_all_segments(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
+			var prokindValue string
+			if connectionPool.Version.AtLeast("7") {
+				prokindValue = "w"
+			} else {
+				prokindValue = ""
+			}
 
 			srfOnMasterFunction := backup.Function{
-				Schema: "public", Name: "srf_on_master", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "public", Name: "srf_on_master", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "m"}
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false,
+				PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", IsWindow: true, ExecLocation: "m", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				srfOnMasterFunction.ExecLocation = "c"
+
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				srfOnMasterFunction.ReturnsSet = true
+				srfOnMasterFunction.NumRows = 1000
+				srfOnMasterFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
+			}
 			srfOnAllSegmentsFunction := backup.Function{
-				Schema: "public", Name: "srf_on_all_segments", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				Schema: "public", Name: "srf_on_all_segments", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "s"}
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false,
+				PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", IsWindow: true, ExecLocation: "s", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on all segments
+				srfOnAllSegmentsFunction.ReturnsSet = true
+				srfOnAllSegmentsFunction.NumRows = 1000
+				srfOnAllSegmentsFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
+			}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
@@ -143,22 +209,43 @@ EXECUTE ON ALL SEGMENTS;`)
 				Skip("Test only applicable to GPDB6.5 and above")
 			}
 
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_initplan(integer, integer) RETURNS SETOF integer
+AS 'SELECT $1 + $2'
+LANGUAGE SQL WINDOW
+EXECUTE ON INITPLAN;`)
+			} else {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_initplan(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON INITPLAN;`)
+			}
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_initplan(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
 
-			srfOnInitplan := backup.Function{
+			var srfOnInitplan backup.Function
+			if connectionPool.Version.AtLeast("7") {
+				// GPDB7 only allows set-returning functions to execute on coordinator
+				srfOnInitplan = backup.Function{
+					Schema: "public", Name: "srf_on_initplan", ReturnsSet: true, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "SETOF integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
+					PlannerSupport: plannerSupportValue, Language: "sql", IsWindow: true, ExecLocation: "i",
+					Parallel: proparallelValue, Kind: "w"}
+			} else {
+				srfOnInitplan = backup.Function{
 				Schema: "public", Name: "srf_on_initplan", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-				Language: "sql", IsWindow: true, ExecLocation: "i"}
-
+					PlannerSupport: plannerSupportValue, Language: "sql", IsWindow: true, ExecLocation: "i",
+					Parallel: proparallelValue}
+			}
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnInitplan, "Oid")
 		})
@@ -182,12 +269,13 @@ MODIFIES SQL DATA
 			results := backup.GetFunctions(connectionPool)
 
 			appendFunction := backup.Function{
-				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
+				Schema: "public", Name: "append", Kind: prokindValue, ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
-				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
-				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a"}
+				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true,
+				PlannerSupport: plannerSupportValue, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
+				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
@@ -216,9 +304,8 @@ MODIFIES SQL DATA
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.myfunc(integer)")
 
 			results := backup.GetFunctions(connectionPool)
-
 			appendFunction := backup.Function{
-				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `
+				Schema: "public", Name: "myfunc", Kind: prokindValue, ReturnsSet: false, FunctionBody: `
 	begin
 		set work_mem = '2MB';
 		perform 1/$1;
@@ -227,9 +314,9 @@ MODIFIES SQL DATA
 				BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer", Valid: true},
 				ResultType: sql.NullString{String: "text", Valid: true},
-				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "SET work_mem TO '1MB'", Cost: 100,
-				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
-
+				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false,
+				PlannerSupport: plannerSupportValue, Config: "SET work_mem TO '1MB'", Cost: 100,
+				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a", Parallel: proparallelValue}
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
 		})
@@ -253,7 +340,7 @@ MODIFIES SQL DATA
 			results := backup.GetFunctions(connectionPool)
 
 			appendFunction := backup.Function{
-				Schema: "public", Name: "myfunc", ReturnsSet: false, FunctionBody: `
+				Schema: "public", Name: "myfunc", Kind: prokindValue, ReturnsSet: false, FunctionBody: `
     begin
         set work_mem = '2MB';
         perform 1/$1;
@@ -262,11 +349,63 @@ MODIFIES SQL DATA
 				BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer", Valid: true},
 				ResultType: sql.NullString{String: "text", Valid: true},
-				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: `SET search_path TO '$user', 'public', 'abc"def'`, Cost: 100,
-				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a"}
+				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false,
+				PlannerSupport: plannerSupportValue, Config: `SET search_path TO '$user', 'public', 'abc"def'`, Cost: 100,
+				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a", Parallel: proparallelValue}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
+		})
+		It("includes stored procedures in the result", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.tbl (n int);`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public.tbl;`)
+
+			testhelper.AssertQueryRuns(connectionPool, `
+CREATE PROCEDURE
+public.insert_data(a integer, b integer) LANGUAGE SQL AS $$
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+$$;`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP PROCEDURE public.insert_data(a integer, b integer);`)
+
+			testhelper.AssertQueryRuns(connectionPool, `
+CREATE PROCEDURE
+public.insert_more_data(a integer, b integer) LANGUAGE SQL AS $$
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+$$;`)
+			defer testhelper.AssertQueryRuns(connectionPool, `DROP PROCEDURE public.insert_more_data(a integer, b integer);`)
+
+			results := backup.GetFunctions(connectionPool)
+
+			firstProcedure := backup.Function{
+				Schema: "public", Name: "insert_data", Kind: "p", ReturnsSet: false, FunctionBody: `
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+`,
+				BinaryPath: "", Arguments: sql.NullString{String: "a integer, b integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "a integer, b integer", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: false},
+				Volatility: "v", IsSecurityDefiner: false, PlannerSupport: plannerSupportValue,
+				Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
+			secondProcedure := backup.Function{
+				Schema: "public", Name: "insert_more_data", Kind: "p", ReturnsSet: false, FunctionBody: `
+INSERT INTO public.tbl VALUES (a);
+INSERT INTO public.tbl VALUES (b);
+`,
+				BinaryPath: "", Arguments: sql.NullString{String: "a integer, b integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "a integer, b integer", Valid: true},
+				ResultType: sql.NullString{String: "", Valid: false},
+				Volatility: "v", IsSecurityDefiner: false, PlannerSupport: plannerSupportValue,
+				Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
+
+			Expect(results).To(HaveLen(2))
+			structmatcher.ExpectStructsToMatchExcluding(&results[0], &firstProcedure, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[1], &secondProcedure, "Oid")
 		})
 	})
 	Describe("GetFunctions4", func() {
@@ -375,6 +514,13 @@ SORTOP = ~>~ );`)
 				TransitionFunction: transitionOid, FinalFunction: 0, SortOperator: "~>~", SortOperatorSchema: "pg_catalog", TransitionDataType: "character",
 				InitialValue: "", InitValIsNull: true, MInitValIsNull: true, IsOrdered: false,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
+
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&resultAggregates[0], &aggregateDef, "Oid")
 		})
@@ -401,6 +547,12 @@ CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (
 			if connectionPool.Version.AtLeast("6") {
 				aggregateDef.PreliminaryFunction = 0
 				aggregateDef.CombineFunction = prelimOid
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -437,6 +589,12 @@ CREATE AGGREGATE testschema.agg_prefunc(numeric, numeric) (
 				aggregateDef.PreliminaryFunction = 0
 				aggregateDef.CombineFunction = prelimOid
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
 			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
 
 			result := backup.GetAggregates(connectionPool)
@@ -468,6 +626,13 @@ CREATE AGGREGATE public.agg_hypo_ord (VARIADIC "any" ORDER BY VARIADIC "any")
 				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: transitionOid,
 				FinalFunction: finalOid, TransitionDataType: "internal", InitValIsNull: true, MInitValIsNull: true, FinalFuncExtra: true, Hypothetical: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Hypothetical = false
+				aggregateDef.Kind = "h"
+				aggregateDef.Finalmodify = "w"
+				aggregateDef.Mfinalmodify = "w"
+				aggregateDef.Parallel = "u"
+			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
@@ -495,6 +660,12 @@ CREATE AGGREGATE public.agg_combinefunc(numeric, numeric) (
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", MInitValIsNull: true, IsOrdered: false,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&result[0], &aggregateDef, "Oid")
@@ -521,6 +692,12 @@ CREATE AGGREGATE public.myavg (numeric) (
 				IdentArgs: sql.NullString{String: "numeric", Valid: true}, SerialFunction: serialOid, DeserialFunction: deserialOid,
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -553,6 +730,12 @@ CREATE AGGREGATE public.moving_agg(numeric,numeric) (
 				InitValIsNull: true, MTransitionFunction: sfuncOid, MInverseTransitionFunction: sfuncOid,
 				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: sfuncOid,
 				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			Expect(result).To(HaveLen(1))
@@ -680,18 +863,23 @@ LANGUAGE SQL`)
 	})
 	Describe("GetProceduralLanguages", func() {
 		It("returns a slice of procedural languages", func() {
-			testhelper.AssertQueryRuns(connectionPool, "CREATE LANGUAGE plpythonu")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP LANGUAGE plpythonu")
+			plpythonString := "plpython"
+			if connectionPool.Version.AtLeast("7") {
+				plpythonString = "plpython3"
+			}
 
-			pythonHandlerOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "plpython_call_handler", backup.TYPE_FUNCTION)
+			testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("CREATE LANGUAGE %su", plpythonString))
+			defer testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("DROP LANGUAGE %su", plpythonString))
 
-			expectedPlpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: "testrole", IsPl: true, PlTrusted: false, Handler: pythonHandlerOid, Inline: 0, Validator: 0}
+			pythonHandlerOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", fmt.Sprintf("%s_call_handler", plpythonString), backup.TYPE_FUNCTION)
+
+			expectedPlpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: fmt.Sprintf("%su", plpythonString), Owner: "testrole", IsPl: true, PlTrusted: false, Handler: pythonHandlerOid, Inline: 0, Validator: 0}
 			if connectionPool.Version.AtLeast("5") {
-				pythonInlineOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "plpython_inline_handler", backup.TYPE_FUNCTION)
+				pythonInlineOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", fmt.Sprintf("%s_inline_handler", plpythonString), backup.TYPE_FUNCTION)
 				expectedPlpythonInfo.Inline = pythonInlineOid
 			}
 			if connectionPool.Version.AtLeast("6") {
-				expectedPlpythonInfo.Validator = testutils.OidFromObjectName(connectionPool, "pg_catalog", "plpython_validator", backup.TYPE_FUNCTION)
+				expectedPlpythonInfo.Validator = testutils.OidFromObjectName(connectionPool, "pg_catalog", fmt.Sprintf("%s_validator", plpythonString), backup.TYPE_FUNCTION)
 			}
 
 			resultProcLangs := backup.GetProceduralLanguages(connectionPool)
@@ -727,6 +915,25 @@ LANGUAGE SQL`)
 
 			Expect(resultConversions).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedConversion, &resultConversions[0], "Oid")
+		})
+	})
+	Describe("GetTransforms", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
+		})
+		It("returns a slice of transfroms", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TRANSFORM FOR pg_catalog.int4 LANGUAGE c (FROM SQL WITH FUNCTION numeric_support(internal), TO SQL WITH FUNCTION int4recv(internal));")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRANSFORM FOR int4 LANGUAGE c")
+
+			fromSQLFuncOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "numeric_support", backup.TYPE_FUNCTION)
+			toSQLFuncOid := testutils.OidFromObjectName(connectionPool, "pg_catalog", "int4recv", backup.TYPE_FUNCTION)
+
+			expectedTransforms := backup.Transform{TypeNamespace: "pg_catalog", TypeName: "int4", LanguageName: "c", FromSQLFunc: fromSQLFuncOid, ToSQLFunc: toSQLFuncOid}
+
+			resultTransforms := backup.GetTransforms(connectionPool)
+
+			Expect(resultTransforms).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&expectedTransforms, &resultTransforms[0], "Oid")
 		})
 	})
 	Describe("GetForeignDataWrappers", func() {

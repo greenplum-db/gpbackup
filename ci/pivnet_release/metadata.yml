@@ -1,7 +1,7 @@
 release:
   version: <TILE_RELEASE_VERSION>
   release_type: <RELEASE_TYPE>
-  eula_slug: vmware_eula
+  eula_slug: vmware_general_terms
   description: |
         The VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION> release contains the following versions of binaries for use with the VMware Tanzu™ Greenplum® Server:
         - gpbackup <GPBAR_VERSION>
@@ -10,7 +10,7 @@ release:
         - gpbackup_manager <BMAN_VERSION>
         - gpbackup_ddboost_plugin <DDBOOST_PLUGIN_VERSION>
         - gpbackup_s3_plugin <S3_PLUGIN_VERSION>
-  release_notes_url: http://gpdb.docs.pivotal.io/backup-restore/<REL_NOTES_VERSION>/release-notes.html
+  release_notes_url: https://docs.vmware.com/en/VMware-Tanzu-Greenplum-Backup-and-Restore/<REL_NOTES_VERSION>/tanzu-greenplum-backup-and-restore/GUID-release-notes.html
   availability: Admins Only
   controlled: false
   eccn: EAR99

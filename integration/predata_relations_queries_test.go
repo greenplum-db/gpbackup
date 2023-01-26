@@ -52,7 +52,13 @@ PARTITION BY LIST (gender)
 
 				tableRank := backup.Relation{Schema: "public", Name: "rank"}
 
-				Expect(tables).To(HaveLen(1))
+				if connectionPool.Version.Before("7") {
+					Expect(tables).To(HaveLen(1))
+				} else {
+					// For GPDB 7+, the leaf partitions have their own DDL so they need to be obtained as well
+					Expect(tables).To(HaveLen(4))
+				}
+
 				structmatcher.ExpectStructsToMatchExcluding(&tableRank, &tables[0], "SchemaOid", "Oid")
 			})
 			It("returns both parent and leaf partition tables if the leaf-partition-data flag is set and there are no include tables", func() {
@@ -257,13 +263,22 @@ PARTITION BY LIST (gender)
 		})
 	})
 	Describe("GetSequenceDefinition", func() {
+		var dataType string
+
+		BeforeEach(func() {
+			dataType = ""
+			if connectionPool.Version.AtLeast("7") {
+				dataType = "bigint"
+			}
+		})
+
 		It("returns sequence information for sequence with default values", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.my_sequence")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
-			expectedSequence := backup.SequenceDefinition{LastVal: 1, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1}
+			expectedSequence := backup.SequenceDefinition{LastVal: 1, Type: dataType, Increment: 1, MaxVal: math.MaxInt64, MinVal: 1, CacheVal: 1}
 			if connectionPool.Version.AtLeast("6") {
 				expectedSequence.StartVal = 1
 			}
@@ -278,22 +293,16 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.with_sequence(a int, b char(20))")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.with_sequence")
 			testhelper.AssertQueryRuns(connectionPool,
-				"CREATE SEQUENCE public.my_sequence INCREMENT BY 5 MINVALUE 20 MAXVALUE 1000 START 100 OWNED BY public.with_sequence.a")
+				"CREATE SEQUENCE public.my_sequence INCREMENT BY 5 MINVALUE 20 MAXVALUE 1000 START 100 OWNED BY public.with_sequence.a CACHE 1")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.my_sequence")
 			testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.with_sequence VALUES (nextval('public.my_sequence'), 'acme')")
 			testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.with_sequence VALUES (nextval('public.my_sequence'), 'beta')")
 
 			resultSequenceDef := backup.GetSequenceDefinition(connectionPool, "public.my_sequence")
 
-			expectedSequence := backup.SequenceDefinition{LastVal: 105, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
+			expectedSequence := backup.SequenceDefinition{LastVal: 105, Type: dataType, Increment: 5, MaxVal: 1000, MinVal: 20, CacheVal: 1, IsCycled: false, IsCalled: true}
 			if connectionPool.Version.AtLeast("6") {
 				expectedSequence.StartVal = 100
-			}
-			if connectionPool.Version.AtLeast("7") {
-				// In GPDB 7+, default cache value is 20
-				expectedSequence.CacheVal = 20
-				// last_value goes from 100 -> 195 -> 295 due to increment_by and cache_value
-				expectedSequence.LastVal = 295
 			}
 
 			structmatcher.ExpectStructsToMatch(&expectedSequence, &resultSequenceDef)
@@ -353,6 +362,7 @@ PARTITION BY LIST (gender)
 		})
 	})
 	Describe("GetAllSequences", func() {
+		// TODO: add test for IsIdentity field for GPDB7
 		It("returns a slice of definitions for all sequences", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SEQUENCE public.seq_one START 3")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SEQUENCE public.seq_one")
@@ -375,7 +385,9 @@ PARTITION BY LIST (gender)
 			if connectionPool.Version.AtLeast("7") {
 				// In GPDB 7+, default cache value is 20
 				seqOneDef.CacheVal = 20
+				seqOneDef.Type = "bigint"
 				seqTwoDef.CacheVal = 20
+				seqTwoDef.Type = "bigint"
 			}
 
 			results := backup.GetAllSequences(connectionPool)
@@ -449,11 +461,11 @@ PARTITION BY LIST (gender)
 			if connectionPool.Version.Before("6.2") {
 				Skip("test only applicable to GPDB 6.2 and above")
 			}
-			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview AS SELECT 1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview AS SELECT 1 AS a DISTRIBUTED BY (a)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, IsMaterialized: true}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
@@ -462,11 +474,11 @@ PARTITION BY LIST (gender)
 			if connectionPool.Version.Before("6.2") {
 				Skip("test only applicable to GPDB 6.2 and above")
 			}
-			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview WITH (fillfactor=50, autovacuum_enabled=false) AS SELECT 1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview WITH (fillfactor=50, autovacuum_enabled=false) AS SELECT 1 AS a DISTRIBUTED BY (a)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Options: " WITH (fillfactor=50, autovacuum_enabled=false)", IsMaterialized: true}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Options: " WITH (fillfactor=50, autovacuum_enabled=false)", IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")
@@ -477,11 +489,11 @@ PARTITION BY LIST (gender)
 			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir'")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLESPACE test_tablespace")
-			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview TABLESPACE test_tablespace AS SELECT 1")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE MATERIALIZED VIEW public.simplematerialview TABLESPACE test_tablespace AS SELECT 1 AS a DISTRIBUTED BY (a)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: viewDef, Tablespace: "test_tablespace", IsMaterialized: true}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Tablespace: "test_tablespace", IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid")

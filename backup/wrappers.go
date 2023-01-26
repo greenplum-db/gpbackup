@@ -47,7 +47,7 @@ func initializeConnectionPool(timestamp string) {
 	 * connection holding the locks won't be overburdened by processing an assigned
 	 * set of tables and any extra deferred tables, at the cost of making one
 	 * additional connection to the database.
-	*/
+	 */
 	switch true {
 	case FlagChanged(options.COPY_QUEUE_SIZE):
 		numConns = MustGetFlagInt(options.COPY_QUEUE_SIZE) + 1
@@ -100,6 +100,11 @@ func SetSessionGUCs(connNum int) {
 	if connectionPool.Version.AtLeast("6") {
 		connectionPool.MustExec("SET INTERVALSTYLE = POSTGRES", connNum)
 		connectionPool.MustExec("SET lock_timeout = 0", connNum)
+	}
+
+	if connectionPool.Version.AtLeast("7") {
+		// This is a GPDB7+ GUC that can terminate sessions with open transactions that have been idle for too long, so we disable it.
+		connectionPool.MustExec("SET idle_in_transaction_session_timeout = 0", connNum)
 	}
 }
 
@@ -217,6 +222,16 @@ func retrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap) ([]Functi
 	return functions, funcInfoMap
 }
 
+func retrieveTransforms(sortables *[]Sortable) {
+	if connectionPool.Version.Before("7") {
+		return
+	}
+	gplog.Verbose("Retrieving transform information")
+	transforms := GetTransforms(connectionPool)
+	objectCounts["Transforms"] = len(transforms)
+	*sortables = append(*sortables, convertToSortableSlice(transforms)...)
+}
+
 func retrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]Sortable, metadataMap MetadataMap) {
 	gplog.Verbose("Retrieving type information")
 	shells := GetShellTypes(connectionPool)
@@ -246,11 +261,29 @@ func retrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]
 	addToMetadataMap(typeMetadata, metadataMap)
 }
 
-func retrieveConstraints(tables ...Relation) ([]Constraint, MetadataMap) {
+func retrieveConstraints(sortables *[]Sortable, metadataMap MetadataMap, tables ...Relation) []Constraint {
 	gplog.Verbose("Retrieving constraints")
 	constraints := GetConstraints(connectionPool, tables...)
+	if len(constraints) > 0 && connectionPool.Version.AtLeast("7") {
+		RenameExchangedPartitionConstraints(connectionPool, &constraints)
+	}
+
+	//split into domain constraints and all others, as they are handled differently downstream
+	domainConstraints := make([]Constraint, 0)
+	nonDomainConstraints := make([]Constraint, 0)
+	for _, con := range constraints {
+		if con.IsDomainConstraint {
+			domainConstraints = append(domainConstraints, con)
+		} else {
+			nonDomainConstraints = append(nonDomainConstraints, con)
+		}
+	}
+
+	objectCounts["Constraints"] = len(nonDomainConstraints)
 	conMetadata := GetCommentsForObjectType(connectionPool, TYPE_CONSTRAINT)
-	return constraints, conMetadata
+	*sortables = append(*sortables, convertToSortableSlice(nonDomainConstraints)...)
+	addToMetadataMap(conMetadata, metadataMap)
+	return domainConstraints
 }
 
 func retrieveAndBackupSequences(metadataFile *utils.FileWithByteCount,
@@ -526,6 +559,17 @@ func backupEnumTypes(metadataFile *utils.FileWithByteCount, typeMetadata Metadat
 	PrintCreateEnumTypeStatements(metadataFile, globalTOC, enums, typeMetadata)
 }
 
+func backupAccessMethods(metadataFile *utils.FileWithByteCount) {
+	if connectionPool.Version.Before("7") {
+		return
+	}
+	gplog.Verbose("Writing CREATE ACCESS METHOD statements to metadata file")
+	accessMethods := GetAccessMethods(connectionPool)
+	objectCounts["Access Methods"] = len(accessMethods)
+	accessMethodsMetadata := GetMetadataForObjectType(connectionPool, TYPE_ACCESS_METHOD)
+	PrintAccessMethodStatements(metadataFile, globalTOC, accessMethods, accessMethodsMetadata)
+}
+
 func createBackupSet(objSlice []Sortable) (backupSet map[UniqueID]bool) {
 	backupSet = make(map[UniqueID]bool)
 	for _, obj := range objSlice {
@@ -561,23 +605,25 @@ func addToMetadataMap(newMetadata MetadataMap, metadataMap MetadataMap) {
 
 // This function is fairly unwieldy, but there's not really a good way to break it down
 func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Table,
-	protocols []ExternalProtocol, filteredMetadata MetadataMap, constraints []Constraint,
+	protocols []ExternalProtocol, filteredMetadata MetadataMap, domainConstraints []Constraint,
 	sortables []Sortable, sequences []Sequence, funcInfoMap map[uint32]FunctionInfo, tableOnly bool) {
 
 	gplog.Verbose("Writing CREATE statements for dependent objects to metadata file")
 
 	sortables = SortByOid(sortables)
 	backupSet := createBackupSet(sortables)
-	relevantDeps := GetDependencies(connectionPool, backupSet)
+	relevantDeps := GetDependencies(connectionPool, backupSet, tables)
 	if connectionPool.Version.Is("4") && !tableOnly {
 		AddProtocolDependenciesForGPDB4(relevantDeps, tables, protocols)
 	}
+
 	sortedSlice := TopologicalSort(sortables, relevantDeps)
 
-	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, constraints, funcInfoMap)
+	PrintDependentObjectStatements(metadataFile, globalTOC, sortedSlice, filteredMetadata, domainConstraints, funcInfoMap)
+	PrintIdentityColumns(metadataFile, globalTOC, sequences)
 	PrintAlterSequenceStatements(metadataFile, globalTOC, sequences)
 	extPartInfo, partInfoMap := GetExternalPartitionInfo(connectionPool)
-	if len(extPartInfo) > 0 {
+	if connectionPool.Version.Before("7") && len(extPartInfo) > 0 {
 		gplog.Verbose("Writing EXCHANGE PARTITION statements to metadata file")
 		PrintExchangeExternalPartitionStatements(metadataFile, globalTOC, extPartInfo, partInfoMap, tables)
 	}
@@ -625,12 +671,6 @@ func backupExtensions(metadataFile *utils.FileWithByteCount) {
 	PrintCreateExtensionStatements(metadataFile, globalTOC, extensions, extensionMetadata)
 }
 
-func backupConstraints(metadataFile *utils.FileWithByteCount, constraints []Constraint, conMetadata MetadataMap) {
-	gplog.Verbose("Writing ADD CONSTRAINT statements to metadata file")
-	objectCounts["Constraints"] = len(constraints)
-	PrintConstraintStatements(metadataFile, globalTOC, constraints, conMetadata)
-}
-
 /*
  * Postdata wrapper functions
  */
@@ -639,6 +679,11 @@ func backupIndexes(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing CREATE INDEX statements to metadata file")
 	indexes := GetIndexes(connectionPool)
 	objectCounts["Indexes"] = len(indexes)
+	if objectCounts["Indexes"] > 0 && connectionPool.Version.Is("6") {
+		// This bug is not addressed in versions prior to GPDB6
+		// New partition exchange syntax in GPDB7+ obviates the need for this renaming
+		RenameExchangedPartitionIndexes(connectionPool, &indexes)
+	}
 	indexMetadata := GetCommentsForObjectType(connectionPool, TYPE_INDEX)
 	PrintCreateIndexStatements(metadataFile, globalTOC, indexes, indexMetadata)
 }
@@ -667,11 +712,27 @@ func backupEventTriggers(metadataFile *utils.FileWithByteCount) {
 	PrintCreateEventTriggerStatements(metadataFile, globalTOC, eventTriggers, eventTriggerMetadata)
 }
 
+func backupRowLevelSecurityPolicies(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing CREATE POLICY statements to metadata file")
+	policies := GetPolicies(connectionPool)
+	objectCounts["Policies"] = len(policies)
+	ruleMetadata := GetCommentsForObjectType(connectionPool, TYPE_RULE)
+	PrintCreatePolicyStatements(metadataFile, globalTOC, policies, ruleMetadata)
+}
+
 func backupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing ALTER DEFAULT PRIVILEGES statements to metadata file")
 	defaultPrivileges := GetDefaultPrivileges(connectionPool)
 	objectCounts["DEFAULT PRIVILEGES"] = len(defaultPrivileges)
 	PrintDefaultPrivilegesStatements(metadataFile, globalTOC, defaultPrivileges)
+}
+
+func backupExtendedStatistic(metadataFile *utils.FileWithByteCount) {
+	gplog.Verbose("Writing CREATE STATISTICS statements to metadata file (for extended statistics)")
+	statisticsExt := GetExtendedStatistics(connectionPool)
+	objectCounts["STATISTICS EXT"] = len(statisticsExt)
+	statisticExtMetadata := GetMetadataForObjectType(connectionPool, TYPE_STATISTIC_EXT)
+	PrintCreateExtendedStatistics(metadataFile, globalTOC, statisticsExt, statisticExtMetadata)
 }
 
 /*

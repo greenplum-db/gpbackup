@@ -2,6 +2,7 @@ package integration
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -81,7 +82,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				structmatcher.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
 			})
 		})
-		Context("Tests for GPDB 5 and GPDB 6", func() {
+		Context("Tests for GPDB 5 and above", func() {
 			BeforeEach(func() {
 				testutils.SkipIfBefore5(connectionPool)
 			})
@@ -94,6 +95,11 @@ var _ = Describe("backup integration create statement tests", func() {
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
+				}
+				if connectionPool.Version.AtLeast("7") {
+					addFunction.PlannerSupport = "-"
+					addFunction.Kind = "f"
+					addFunction.Parallel = "u"
 				}
 
 				metadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
@@ -117,6 +123,11 @@ var _ = Describe("backup integration create statement tests", func() {
 					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO 'pg_temp'", Cost: 200,
 					NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
 				}
+				if connectionPool.Version.AtLeast("7") {
+					appendFunction.PlannerSupport = "-"
+					appendFunction.Kind = "f"
+					appendFunction.Parallel = "u"
+				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, appendFunction, funcMetadata)
 
@@ -137,6 +148,11 @@ var _ = Describe("backup integration create statement tests", func() {
 					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
 					Language: "sql", ExecLocation: "a",
+				}
+				if connectionPool.Version.AtLeast("7") {
+					dupFunction.PlannerSupport = "-"
+					dupFunction.Kind = "f"
+					dupFunction.Parallel = "u"
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, dupFunction, funcMetadata)
@@ -162,7 +178,17 @@ var _ = Describe("backup integration create statement tests", func() {
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", IsWindow: true, ExecLocation: "m",
+					Language: "sql", ExecLocation: "m", IsWindow: true}
+				if connectionPool.Version.AtLeast("7") {
+					windowFunction.PlannerSupport = "-"
+					windowFunction.Kind = "w"
+					windowFunction.Parallel = "u"
+					windowFunction.ExecLocation = "c"
+
+					// GPDB7 only allows set-returning functions to execute on coordinator
+					windowFunction.ReturnsSet = true
+					windowFunction.NumRows = 1000
+					windowFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, windowFunction, funcMetadata)
@@ -184,6 +210,16 @@ var _ = Describe("backup integration create statement tests", func() {
 					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "s",
 				}
+				if connectionPool.Version.AtLeast("7") {
+					segmentFunction.PlannerSupport = "-"
+					segmentFunction.Kind = "f"
+					segmentFunction.Parallel = "u"
+
+					// GPDB7 only allows set-returning functions to execute on master
+					segmentFunction.ReturnsSet = true
+					segmentFunction.NumRows = 1000
+					segmentFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
+				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, segmentFunction, funcMetadata)
 
@@ -204,6 +240,11 @@ var _ = Describe("backup integration create statement tests", func() {
 					Volatility: "v", IsStrict: false, IsLeakProof: true, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					Language: "sql", IsWindow: false, ExecLocation: "a",
 				}
+				if connectionPool.Version.AtLeast("7") {
+					leakProofFunction.PlannerSupport = "-"
+					leakProofFunction.Kind = "f"
+					leakProofFunction.Parallel = "u"
+				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, leakProofFunction, funcMetadata)
 
@@ -216,15 +257,70 @@ var _ = Describe("backup integration create statement tests", func() {
 				structmatcher.ExpectStructsToMatchExcluding(&leakProofFunction, &resultFunctions[0], "Oid")
 			})
 		})
+		Context("Tests for GPDB 7", func() {
+			BeforeEach(func() {
+				testutils.SkipIfBefore7(connectionPool)
+			})
+			funcMetadata := backup.ObjectMetadata{}
+			It("creates a function with PARALLEL RESTRICTED", func() {
+				ParallelFunction := backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "sql", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "r",
+				}
+
+				backup.PrintCreateFunctionStatement(backupfile, tocfile, ParallelFunction, funcMetadata)
+
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
+
+				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+
+				Expect(resultFunctions).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&ParallelFunction, &resultFunctions[0], "Oid")
+			})
+			It("creates a function with TRANSFORM FOR TYPE", func() {
+				TransformFunction := backup.Function{
+					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + 1",
+					BinaryPath: "", Arguments: sql.NullString{String: "hstore", Valid: true},
+					IdentArgs:  sql.NullString{String: "hstore", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Language: "plperl", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "u",
+					TransformTypes: "FOR TYPE pg_catalog.hstore",
+				}
+				backup.PrintCreateFunctionStatement(backupfile, tocfile, TransformFunction, funcMetadata)
+
+				// set up types and transforms needed
+				testhelper.AssertQueryRuns(connectionPool, "CREATE EXTENSION hstore;")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION hstore CASCADE;")
+
+				testhelper.AssertQueryRuns(connectionPool, "CREATE EXTENSION plperl;")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION plperl CASCADE;")
+
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION hstore_to_plperl(val internal) RETURNS internal 
+						AS '$libdir/hstore_plperl.so'  LANGUAGE C STRICT IMMUTABLE;`)
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION hstore_to_plperl CASCADE;")
+
+				testhelper.AssertQueryRuns(connectionPool, "CREATE TRANSFORM FOR hstore LANGUAGE plperl (FROM SQL WITH FUNCTION hstore_to_plperl(internal))")
+
+				// create and assess function
+				testhelper.AssertQueryRuns(connectionPool, buffer.String())
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(hstore)")
+
+				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+
+				Expect(resultFunctions).To(HaveLen(1))
+				structmatcher.ExpectStructsToMatchExcluding(&TransformFunction, &resultFunctions[0], "Oid")
+			})
+		})
 	})
 	Describe("PrintCreateAggregateStatement", func() {
 		emptyMetadata := backup.ObjectMetadata{}
-		basicAggregateDef := backup.Aggregate{
-			Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
-			IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: 1, PreliminaryFunction: 2,
-			TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true,
-		}
-
+		basicAggregateDef := backup.Aggregate{}
 		funcInfoMap := map[uint32]backup.FunctionInfo{
 			1: {QualifiedName: "public.mysfunc_accum", Arguments: sql.NullString{String: "numeric, numeric, numeric", Valid: true}},
 			2: {QualifiedName: "public.mypre_accum", Arguments: sql.NullString{String: "numeric, numeric", Valid: true}},
@@ -253,6 +349,18 @@ var _ = Describe("backup integration create statement tests", func() {
 			   IMMUTABLE
 			   RETURNS NULL ON NULL INPUT;
 			`)
+
+			basicAggregateDef = backup.Aggregate{
+				Oid: 1, Schema: "public", Name: "agg_prefunc", Arguments: sql.NullString{String: "numeric, numeric", Valid: true},
+				IdentArgs: sql.NullString{String: "numeric, numeric", Valid: true}, TransitionFunction: 1, PreliminaryFunction: 2,
+				TransitionDataType: "numeric", InitialValue: "0", MInitValIsNull: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				basicAggregateDef.Kind = "n"
+				basicAggregateDef.Finalmodify = "r"
+				basicAggregateDef.Mfinalmodify = "r"
+				basicAggregateDef.Parallel = "u"
+			}
 		})
 		AfterEach(func() {
 			testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
@@ -289,6 +397,13 @@ var _ = Describe("backup integration create statement tests", func() {
 				IdentArgs: sql.NullString{String: `VARIADIC "any" ORDER BY VARIADIC "any"`, Valid: true}, TransitionFunction: 3, FinalFunction: 4,
 				TransitionDataType: "internal", InitValIsNull: true, FinalFuncExtra: true, Hypothetical: true, MInitValIsNull: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				complexAggregateDef.Hypothetical = false
+				complexAggregateDef.Kind = "h"
+				complexAggregateDef.Finalmodify = "w"
+				complexAggregateDef.Mfinalmodify = "w"
+				complexAggregateDef.Parallel = "u"
+			}
 
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, complexAggregateDef, funcInfoMap, emptyMetadata)
 
@@ -306,6 +421,13 @@ var _ = Describe("backup integration create statement tests", func() {
 				SortOperator: "+", SortOperatorSchema: "pg_catalog", TransitionDataType: "numeric",
 				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
+
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -323,6 +445,13 @@ var _ = Describe("backup integration create statement tests", func() {
 				FinalFunction: 0, SortOperator: "", TransitionDataType: "numeric", TransitionDataSize: 1000,
 				InitialValue: "0", IsOrdered: false, MInitValIsNull: true,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
+
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -339,6 +468,12 @@ var _ = Describe("backup integration create statement tests", func() {
 				IdentArgs: sql.NullString{String: "numeric", Valid: true}, TransitionFunction: 8,
 				FinalFunction: 5, SerialFunction: 6, DeserialFunction: 7, TransitionDataType: "internal",
 				IsOrdered: false, InitValIsNull: true, MInitValIsNull: true,
+			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
 			}
 
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
@@ -359,6 +494,12 @@ var _ = Describe("backup integration create statement tests", func() {
 				MTransitionDataType: "numeric", MTransitionDataSize: 100, MFinalFunction: 1,
 				MFinalFuncExtra: true, MInitialValue: "0", MInitValIsNull: false,
 			}
+			if connectionPool.Version.AtLeast("7") {
+				aggregateDef.Kind = "n"
+				aggregateDef.Finalmodify = "r"
+				aggregateDef.Mfinalmodify = "r"
+				aggregateDef.Parallel = "u"
+			}
 
 			backup.PrintCreateAggregateStatement(backupfile, tocfile, aggregateDef, funcInfoMap, emptyMetadata)
 
@@ -369,6 +510,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(resultAggregates).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&aggregateDef, &resultAggregates[0], "Oid", "TransitionFunction", "MTransitionFunction", "MInverseTransitionFunction", "MFinalFunction")
 		})
+		// TODO: test for aggregate with aggfinalmodify/aggmfinalmodify (no table, just couple examples to check on query is correct)
 	})
 	Describe("PrintCreateCastStatement", func() {
 		var (
@@ -446,9 +588,14 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateLanguageStatements", func() {
 		It("creates procedural languages", func() {
+			plpythonString := "plpython"
+			if connectionPool.Version.AtLeast("7") {
+				plpythonString = "plpython3"
+			}
+
 			funcInfoMap := map[uint32]backup.FunctionInfo{
-				1: {QualifiedName: "pg_catalog.plpython_call_handler", Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
-				2: {QualifiedName: "pg_catalog.plpython_inline_handler", Arguments: sql.NullString{String: "internal", Valid: true}, IsInternal: true},
+				1: {QualifiedName: fmt.Sprintf("pg_catalog.%s_call_handler", plpythonString), Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
+				2: {QualifiedName: fmt.Sprintf("pg_catalog.%s_inline_handler", plpythonString), Arguments: sql.NullString{String: "internal", Valid: true}, IsInternal: true},
 			}
 			langOwner := ""
 			var langMetadata backup.ObjectMetadata
@@ -459,7 +606,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				langOwner = "testrole"
 				langMetadata = testutils.DefaultMetadata("LANGUAGE", false, true, true, includeSecurityLabels)
 			}
-			plpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: "plpythonu", Owner: langOwner, IsPl: true, PlTrusted: false, Handler: 1, Inline: 2}
+			plpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: fmt.Sprintf("%su", plpythonString), Owner: langOwner, IsPl: true, PlTrusted: false, Handler: 1, Inline: 2}
 
 			langMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{plpythonInfo.GetUniqueID(): langMetadata}
 			if connectionPool.Version.Before("5") {
@@ -470,12 +617,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, procLangs, funcInfoMap, langMetadataMap)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP LANGUAGE plpythonu")
+			defer testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("DROP LANGUAGE %su", plpythonString))
 
 			resultProcLangs := backup.GetProceduralLanguages(connectionPool)
 			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_PROCLANGUAGE)
 
-			plpythonInfo.Oid = testutils.OidFromObjectName(connectionPool, "", "plpythonu", backup.TYPE_PROCLANGUAGE)
+			plpythonInfo.Oid = testutils.OidFromObjectName(connectionPool, "", fmt.Sprintf("%su", plpythonString), backup.TYPE_PROCLANGUAGE)
 			Expect(resultProcLangs).To(HaveLen(1))
 			resultMetadata := resultMetadataMap[plpythonInfo.GetUniqueID()]
 			structmatcher.ExpectStructsToMatchIncluding(&plpythonInfo, &resultProcLangs[0], "Name", "IsPl", "PlTrusted")
@@ -500,6 +647,38 @@ var _ = Describe("backup integration create statement tests", func() {
 			structmatcher.ExpectStructsToMatch(&plperlExtension, &resultExtensions[0])
 			structmatcher.ExpectStructsToMatch(&extensionMetadata, &plperlMetadata)
 		})
+	})
+	Describe("PrintCreateTransformStatements", func() {
+		var fromSQLFuncOid uint32
+		var toSQLFuncOid uint32
+		var funcInfoMap map[uint32]backup.FunctionInfo
+
+		BeforeEach(func() {
+			testutils.SkipIfBefore7(connectionPool)
+			fromSQLFuncOid = testutils.OidFromObjectName(connectionPool, "pg_catalog", "numeric_support", backup.TYPE_FUNCTION)
+			toSQLFuncOid = testutils.OidFromObjectName(connectionPool, "pg_catalog", "int2recv", backup.TYPE_FUNCTION)
+
+			funcInfoMap = map[uint32]backup.FunctionInfo{
+				fromSQLFuncOid: {QualifiedName: "numeric_support", IdentArgs: sql.NullString{String: "internal", Valid: true}},
+				toSQLFuncOid:   {QualifiedName: "int2recv", IdentArgs: sql.NullString{String: "internal", Valid: true}},
+			}
+		})
+
+		DescribeTable("creates transforms", func(fromSql func() uint32, toSql func() uint32) {
+			transform := backup.Transform{Oid: 1, TypeNamespace: "pg_catalog", TypeName: "int2", LanguageName: "c", FromSQLFunc: fromSql(), ToSQLFunc: toSql()}
+			transMetadata := testutils.DefaultMetadata("TRANSFORM", false, false, false, false)
+			backup.PrintCreateTransformStatement(backupfile, tocfile, transform, funcInfoMap, transMetadata)
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRANSFORM FOR int2 LANGUAGE c")
+
+			resultTransforms := backup.GetTransforms(connectionPool)
+			Expect(resultTransforms).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&transform, &resultTransforms[0], "Oid")
+		},
+			Entry("both functions are specified", func() uint32 { return fromSQLFuncOid }, func() uint32 { return toSQLFuncOid }),
+			Entry("only fromSQL function is specified", func() uint32 { return fromSQLFuncOid }, func() uint32 { return uint32(0) }),
+			Entry("only toSql function is specified", func() uint32 { return uint32(0) }, func() uint32 { return toSQLFuncOid }),
+		)
 	})
 	Describe("PrintCreateConversionStatements", func() {
 		It("creates conversions", func() {

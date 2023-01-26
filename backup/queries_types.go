@@ -526,11 +526,13 @@ func GetShellTypes(connectionPool *dbconn.DBConn) []ShellType {
 }
 
 type Collation struct {
-	Oid     uint32
-	Schema  string
-	Name    string
-	Collate string
-	Ctype   string
+	Oid             uint32
+	Schema          string
+	Name            string
+	Collate         string
+	Ctype           string
+	Provider        string
+	IsDeterministic string
 }
 
 func (c Collation) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -554,7 +556,21 @@ func (c Collation) FQN() string {
 }
 
 func GetCollations(connectionPool *dbconn.DBConn) []Collation {
-	query := fmt.Sprintf(`
+	var query string
+	if connectionPool.Version.AtLeast("7") {
+		query = fmt.Sprintf(`
+	SELECT c.oid,
+		quote_ident(n.nspname) AS schema,
+		quote_ident(c.collname) AS name,
+		c.collcollate AS collate,
+		c.collctype AS ctype,
+		c.collprovider as provider,
+		c.collisdeterministic as IsDeterministic
+	FROM pg_collation c
+		JOIN pg_namespace n ON c.collnamespace = n.oid
+	WHERE %s`, SchemaFilterClause("n"))
+	} else {
+		query = fmt.Sprintf(`
 	SELECT c.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(c.collname) AS name,
@@ -563,6 +579,7 @@ func GetCollations(connectionPool *dbconn.DBConn) []Collation {
 	FROM pg_collation c
 		JOIN pg_namespace n ON c.collnamespace = n.oid
 	WHERE %s`, SchemaFilterClause("n"))
+	}
 
 	results := make([]Collation, 0)
 	err := connectionPool.Select(&results, query)

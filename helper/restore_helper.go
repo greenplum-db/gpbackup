@@ -104,21 +104,20 @@ func doRestoreAgent() error {
 
 	var bytesRead int64
 	var lastError error
+	var replicatedTables map[int]bool
 
 	readers := make(map[int]*RestoreReader)
 
-	oidList, err := getOidListFromFile()
+	oidList, err := getOidListFromFile(*oidFile)
 	if err != nil {
 		return err
 	}
-
-	isResizeRestore := (*origSize > 0)
 
 	// During a larger-to-smaller restore, we need to do multiple passes for each oid, so the table
 	// restore goes into another nested for loop below.  In the normal or smaller-to-larger cases,
 	// this is equivalent to doing a single loop per table.
 	batches := 1
-	if isResizeRestore && *origSize > *destSize {
+	if *isResizeRestore && *origSize > *destSize {
 		batches = *origSize / *destSize
 		// If dest doesn't divide evenly into orig, there's one more incomplete batch
 		if *origSize%*destSize != 0 {
@@ -136,7 +135,7 @@ func doRestoreAgent() error {
 		for b := 0; b < batches; b++ {
 			// When performing a resize restore, if the content of the file we're being asked to read from
 			// is higher than any backup content, then no such file exists and we shouldn't try to open it.
-			if isResizeRestore && contentToRestore >= *origSize {
+			if *isResizeRestore && contentToRestore >= *origSize {
 				break
 			}
 			tocFileForContent := replaceContentInFilename(*tocFile, contentToRestore)
@@ -153,6 +152,23 @@ func doRestoreAgent() error {
 			log(fmt.Sprintf("Using reader type: %s", readers[contentToRestore].readerType))
 
 			contentToRestore += *destSize
+		}
+	}
+
+	if *isResizeRestore && batches > 1 && utils.FileExists(*replicationFile) {
+		// in the case of a larger to smaller restore, note all replicated tables
+		// so that they do not get restored to the same segment multiple times
+
+		// if no replicated tables were present in toc, the file is not written so
+		// this step is skipped
+		replicatedOidList, err := getOidListFromFile(*replicationFile)
+		if err != nil {
+			return err
+		}
+
+		replicatedTables = make(map[int]bool, len(replicatedOidList))
+		for _, oid := range replicatedOidList {
+			replicatedTables[oid] = true
 		}
 	}
 
@@ -185,17 +201,28 @@ func doRestoreAgent() error {
 		contentToRestore := *content
 
 		for b := 0; b < batches; b++ {
+			if replicatedTables != nil {
+				tableIsNotYetRestored, tableIsPresent := replicatedTables[oid]
+				if tableIsPresent && tableIsNotYetRestored {
+					// this is the first batch encountering this replicated table.
+					// restore it and mark it for no further restoration
+					replicatedTables[oid] = false
+				} else if !tableIsNotYetRestored {
+					// table was already restored to this segment in a previous batch
+					continue
+				}
+			}
 			if *singleDataFile {
 				start[contentToRestore] = tocEntries[contentToRestore][uint(oid)].StartByte
 				end[contentToRestore] = tocEntries[contentToRestore][uint(oid)].EndByte
-			} else if isResizeRestore {
+			} else if *isResizeRestore {
 				if contentToRestore < *origSize {
 					// We can only pass one filename to the helper, so we still pass in the single-data-file-style
 					// filename in a non-SDF resize case, then add the oid manually and set up the reader for that.
 					filename := constructSingleTableFilename(*dataFile, contentToRestore, oid)
 
-					// We pre-create readers above for the sake of not re-opening SDF readers.  For MDF we can't 
-					// re-use them but still having them in a map simplifies overall code flow.  We repeatedly assign  
+					// We pre-create readers above for the sake of not re-opening SDF readers.  For MDF we can't
+					// re-use them but still having them in a map simplifies overall code flow.  We repeatedly assign
 					// to a map entry here intentionally.
 					readers[contentToRestore], err = getRestoreDataReader(filename, nil, nil)
 					if err != nil {
@@ -230,7 +257,7 @@ func doRestoreAgent() error {
 						// In the case this error is hit it means we have lost the
 						// ability to open pipes normally, so hard quit even if
 						// --on-error-continue is given
-						logError(fmt.Sprintf("Oid %d: Pipes can no longer be created. Exiting with error: %v", err))
+						logError(fmt.Sprintf("Oid %d: Pipes can no longer be created. Exiting with error: %v", oid, err))
 						return err
 					}
 				} else {
@@ -247,17 +274,17 @@ func doRestoreAgent() error {
 			// Only position reader in case of SDF.  MDF case reads entire file, and does not need positioning.
 			// Further, in SDF case, map entries for contents that were not part of original backup will be nil,
 			// and calling methods on them errors silently.
-			if *singleDataFile && !(isResizeRestore && contentToRestore >= *origSize){
+			if *singleDataFile && !(*isResizeRestore && contentToRestore >= *origSize) {
 				log(fmt.Sprintf("Oid %d: Data Reader - Start Byte: %d; End Byte: %d; Last Byte: %d", oid, start[contentToRestore], end[contentToRestore], lastByte[contentToRestore]))
-				err = readers[contentToRestore].positionReader(start[contentToRestore] - lastByte[contentToRestore], oid)
+				err = readers[contentToRestore].positionReader(start[contentToRestore]-lastByte[contentToRestore], oid)
 				if err != nil {
-					logError(fmt.Sprint("Oid %d: Error reading from pipe: %v", oid, err))
+					logError(fmt.Sprintf("Oid %d: Error reading from pipe: %v", oid, err))
 					return err
 				}
 			}
 
 			log(fmt.Sprintf("Oid %d: Start table restore", oid))
-			if isResizeRestore {
+			if *isResizeRestore {
 				if contentToRestore < *origSize {
 					if *singleDataFile {
 						bytesRead, err = readers[contentToRestore].copyData(int64(end[contentToRestore] - start[contentToRestore]))

@@ -25,9 +25,14 @@ var (
 )
 
 func ConstructTableAttributesList(columnDefs []ColumnDefinition) string {
+	// this attribute list used ONLY by CopyTableIn on the restore side
+	// columns where data should not be copied out and back in are excluded from this string.
 	names := make([]string, 0)
 	for _, col := range columnDefs {
-		names = append(names, col.Name)
+		// data in generated columns should not be backed up or restored.
+		if col.AttGenerated == "" {
+			names = append(names, col.Name)
+		}
 	}
 	if len(names) > 0 {
 		return fmt.Sprintf("(%s)", strings.Join(names, ","))
@@ -46,7 +51,7 @@ func AddTableDataEntriesToTOC(tables []Table, rowsCopiedMaps []map[uint32]int64)
 				}
 			}
 			attributes := ConstructTableAttributesList(table.ColumnDefs)
-			globalTOC.AddMasterDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, table.PartitionLevelInfo.RootName)
+			globalTOC.AddMasterDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, table.PartitionLevelInfo.RootName, table.DistPolicy)
 		}
 	}
 }
@@ -76,7 +81,13 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 
 	copyCommand := fmt.Sprintf("PROGRAM '%s%s %s %s'", checkPipeExistsCommand, customPipeThroughCommand, sendToDestinationCommand, destinationToWrite)
 
-	query := fmt.Sprintf("COPY %s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.FQN(), copyCommand, tableDelim)
+	columnNames := ""
+	if connectionPool.Version.AtLeast("7") {
+		// process column names to exclude generated columns from data copy out
+		columnNames = ConstructTableAttributesList(table.ColumnDefs)
+	}
+
+	query := fmt.Sprintf("COPY %s%s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.FQN(), columnNames, copyCommand, tableDelim)
 	gplog.Verbose("Worker %d: %s", connNum, query)
 	result, err := connectionPool.Exec(query, connNum)
 	if err != nil {

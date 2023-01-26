@@ -6,8 +6,6 @@ package backup
  */
 
 import (
-	"fmt"
-
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gpbackup/toc"
@@ -16,55 +14,95 @@ import (
 func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]ExternalTableDefinition {
 	gplog.Verbose("Retrieving external table information")
 
-	var location string
-	if connectionPool.Version.Before("5") {
-		execOptions := "'ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS'"
-		location = fmt.Sprintf(`CASE WHEN split_part(location[1], ':', 1) NOT IN (%s) THEN unnest(location) ELSE '' END AS location,
-		CASE WHEN split_part(location[1], ':', 1) IN (%s) THEN unnest(location) ELSE 'ALL_SEGMENTS' END AS execlocation,`, execOptions, execOptions)
-	} else {
-		location = `CASE WHEN urilocation IS NOT NULL THEN unnest(urilocation) ELSE '' END AS location,
-		array_to_string(execlocation, ',') AS execlocation,`
-	}
+	// In GPDB 4.3, we need to get the error table's fully-qualified name
+	// if `LOG ERRORS INTO <err_table_name>` was used. If `LOG ERRORS` was
+	// used, we can just check if reloid = fmterrtbl and avoid trying
+	// to get the FQN of a nonexistant error table.
+	version4Query := `
+	SELECT reloid AS oid,
+		CASE WHEN split_part(e.location[1], ':', 1) NOT IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS') THEN unnest(e.location) ELSE '' END AS location,
+		CASE WHEN split_part(e.location[1], ':', 1) IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS') THEN unnest(e.location) ELSE 'ALL_SEGMENTS' END AS execlocation,
+		e.fmttype AS formattype,
+		e.fmtopts AS formatopts,
+		coalesce(e.command, '') AS command,
+		coalesce(e.rejectlimit, 0) AS rejectlimit,
+		coalesce(e.rejectlimittype, '') AS rejectlimittype,
+		coalesce(quote_ident(c.relname), '') AS errtablename,
+				coalesce(quote_ident(n.nspname), '') AS errtableschema,
+		e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,
+		pg_encoding_to_char(e.encoding) AS encoding,
+		e.writable
+	FROM pg_exttable e
+		LEFT JOIN pg_class c ON e.fmterrtbl = c.oid AND e.fmterrtbl != e.reloid
+				LEFT JOIN pg_namespace n ON n.oid = c.relnamespace`
 
 	// In GPDB 4.3, users can define an error table with `LOG ERRORS
 	// INTO <err_table_name>`. In GPDB 5+, error tables were removed
 	// but internal error logging is still available using `LOG ERRORS`
 	// with an optional `PERSISTENTLY` syntax to persist the error logs.
 	// The `PERSISTENTLY` part is stored in the pg_exttable.options array.
-	var errorHandling string
-	errorHandlingJoin := ""
-	if connectionPool.Version.Before("5") {
-		// In GPDB 4.3, we need to get the error table's fully-qualified name
-		// if `LOG ERRORS INTO <err_table_name>` was used. If `LOG ERRORS` was
-		// used, we can just simply check if reloid = fmterrtbl and avoid trying
-		// to get the FQN of a nonexistant error table.
-		errorHandling = `coalesce(quote_ident(c.relname), '') AS errtablename,
-				coalesce(quote_ident(n.nspname), '') AS errtableschema,
-				e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,`
-		errorHandlingJoin = `LEFT JOIN pg_class c ON e.fmterrtbl = c.oid AND e.fmterrtbl != e.reloid
-				LEFT JOIN pg_namespace n ON n.oid = c.relnamespace`
-	} else if connectionPool.Version.Is("5") {
-		// If `LOG ERRORS` was used, we will see reloid = fmterrtbl.
-		errorHandling = `e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,
-				'error_log_persistent=true' = any(e.options) AS logerrpersist,`
-	} else {
-		errorHandling = `logerrors,
-				'error_log_persistent=true' = any(e.options) AS logerrpersist,`
-	}
+	version5Query := `
+	SELECT e.reloid AS oid,
+		CASE WHEN e.urilocation IS NOT NULL THEN unnest(e.urilocation) ELSE '' END AS location,
+		array_to_string(e.execlocation, ',') AS execlocation,
+		e.fmttype AS formattype,
+		e.fmtopts AS formatopts,
+		coalesce(e.command, '') AS command,
+		coalesce(e.rejectlimit, 0) AS rejectlimit,
+		coalesce(e.rejectlimittype, '') AS rejectlimittype,
+		e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,
+		'error_log_persistent=true' = any(e.options) AS logerrpersist,
+		pg_encoding_to_char(e.encoding) AS encoding,
+		e.writable
+	FROM pg_exttable e`
 
-	query := fmt.Sprintf(`
-	SELECT reloid AS oid,
-		%s
-		fmttype AS formattype,
-		fmtopts AS formatopts,
-		coalesce(command, '') AS command,
-		coalesce(rejectlimit, 0) AS rejectlimit,
-		coalesce(rejectlimittype, '') AS rejectlimittype,
-		%s
-		pg_encoding_to_char(encoding) AS encoding,
-		writable
+	// In GPDB 6, the logerrors field was added directly onto pg_exttable,
+	// so it is no longer necessary to derive it using the fmterrtable field
+	version6Query := `
+	SELECT e.reloid AS oid,
+		CASE WHEN e.urilocation IS NOT NULL THEN unnest(urilocation) ELSE '' END AS location,
+		array_to_string(e.execlocation, ',') AS execlocation,
+		e.fmttype AS formattype,
+		e.fmtopts AS formatopts,
+		coalesce(e.command, '') AS command,
+		coalesce(e.rejectlimit, 0) AS rejectlimit,
+		coalesce(e.rejectlimittype, '') AS rejectlimittype,
+		e.logerrors,
+		'error_log_persistent=true' = any(e.options) AS logerrpersist,
+		pg_encoding_to_char(e.encoding) AS encoding,
+		e.writable
+	FROM pg_exttable e`
+
+	// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
+	// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
+	// because the CASE unnest() logic is more performant.
+	version7Query := `
+	SELECT e.reloid AS oid,
+		ljl_unnest AS location,
+		array_to_string(e.execlocation, ',') AS execlocation,
+		e.fmttype AS formattype,
+		e.fmtopts AS formatopts,
+		coalesce(e.command, '') AS command,
+		coalesce(e.rejectlimit, 0) AS rejectlimit,
+		coalesce(e.rejectlimittype, '') AS rejectlimittype,
+		e.logerrors,
+		coalesce('log_errors=p' = any(ft.ftoptions), false) AS logerrpersist,
+		pg_encoding_to_char(e.encoding) AS encoding,
+		e.writable
 	FROM pg_exttable e
-		%s`, location, errorHandling, errorHandlingJoin)
+		LEFT JOIN pg_foreign_table ft ON e.reloid = ft.ftrelid
+		LEFT JOIN LATERAL unnest(urilocation) ljl_unnest ON urilocation IS NOT NULL`
+
+	var query string
+	if connectionPool.Version.Is("4") {
+		query = version4Query
+	} else if connectionPool.Version.Is("5") {
+		query = version5Query
+	} else if connectionPool.Version.Is("6") {
+		query = version6Query
+	} else if connectionPool.Version.Is("7") {
+		query = version7Query
+	}
 
 	results := make([]ExternalTableDefinition, 0)
 	err := connectionPool.Select(&results, query)
@@ -77,8 +115,8 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		} else {
 			extTableDef = result
 		}
-		if result.Location != "" {
-			extTableDef.URIs = append(extTableDef.URIs, result.Location)
+		if result.Location.Valid && result.Location.String != "" {
+			extTableDef.URIs = append(extTableDef.URIs, result.Location.String)
 		}
 		resultMap[result.Oid] = extTableDef
 	}
@@ -156,6 +194,12 @@ func (pi PartitionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetExternalPartitionInfo(connectionPool *dbconn.DBConn) ([]PartitionInfo, map[uint32]PartitionInfo) {
+	// For GPDB 7+, external partitions will have their own ATTACH PARTITION DDL command
+	// instead of a complicated EXCHANGE PARTITION command.
+	if connectionPool.Version.AtLeast("7") {
+		return []PartitionInfo{}, make(map[uint32]PartitionInfo, 0)
+	}
+
 	results := make([]PartitionInfo, 0)
 	query := `
 	SELECT pr1.oid AS partitionruleoid,

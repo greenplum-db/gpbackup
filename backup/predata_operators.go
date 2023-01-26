@@ -20,6 +20,12 @@ func PrintCreateOperatorStatement(metadataFile *utils.FileWithByteCount, toc *to
 	optionalFields := make([]string, 0)
 	var leftArg string
 	var rightArg string
+	var createStatementFuncRepl string
+	if connectionPool.Version.AtLeast("7") {
+		createStatementFuncRepl = "FUNCTION"
+	} else {
+		createStatementFuncRepl = "PROCEDURE"
+	}
 	if operator.LeftArgType != "-" {
 		leftArg = operator.LeftArgType
 		optionalFields = append(optionalFields, fmt.Sprintf("LEFTARG = %s", leftArg))
@@ -49,9 +55,9 @@ func PrintCreateOperatorStatement(metadataFile *utils.FileWithByteCount, toc *to
 	metadataFile.MustPrintf(`
 
 CREATE OPERATOR %s.%s (
-	PROCEDURE = %s,
+	%s = %s,
 	%s
-);`, operator.Schema, operator.Name, operator.Procedure, strings.Join(optionalFields, ",\n\t"))
+);`, operator.Schema, operator.Name, createStatementFuncRepl, operator.Procedure, strings.Join(optionalFields, ",\n\t"))
 
 	section, entry := operator.GetMetadataEntry()
 	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)

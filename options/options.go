@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
@@ -269,6 +270,77 @@ func (o *Options) QuoteExcludeRelations(conn *dbconn.DBConn) error {
 	return nil
 }
 
+// given a set of table oids, return a deduplicated set of other tables that EITHER depend
+// on them, OR that they depend on. The behavior for which is set with recurseDirection.
+func (o *Options) recurseTableDepend(conn *dbconn.DBConn, includeOids []string, recurseSource string) ([]string, error) {
+	var err error
+	var dependQuery string
+
+	expandedIncludeOids := make(map[string]bool)
+	for _, oid := range includeOids {
+		expandedIncludeOids[oid] = true
+	}
+
+	if recurseSource == "child" {
+		dependQuery = `
+			SELECT dep.refobjid
+			FROM
+				pg_depend dep
+				INNER JOIN pg_class cls ON dep.refobjid = cls.oid
+			WHERE
+				dep.objid in (%s)
+				AND cls.relkind in ('r', 'p', 'f')`
+	} else if recurseSource == "parent" {
+		dependQuery = `
+			SELECT dep.objid
+			FROM
+				pg_depend dep
+				INNER JOIN pg_class cls ON dep.objid = cls.oid
+			WHERE
+				dep.refobjid in (%s)
+				AND cls.relkind in ('r', 'p', 'f')`
+	} else {
+		gplog.Error("Please fix calling of this function recurseTableDepend. Argument recurseSource only accepts 'parent' or 'child'.")
+	}
+
+	// here we loop until no further table dependencies are found.  implemented iteratively, but functions like a recursion
+	foundDeps := true
+	loopOids := includeOids
+	for foundDeps {
+		foundDeps = false
+		depOids := make([]string, 0)
+		loopDepQuery := fmt.Sprintf(dependQuery, strings.Join(loopOids, ", "))
+		err = conn.Select(&depOids, loopDepQuery)
+		if err != nil {
+			gplog.Warn("Table dependency query failed: %s", loopDepQuery)
+			return nil, err
+		}
+
+		// confirm that any table dependencies are found
+		// save the table dependencies for both output and for next recursion
+		loopOids = loopOids[:]
+		for _, depOid := range depOids {
+			// must exclude oids already captured to avoid circular dependencies
+			// causing an infinite loop
+			if !expandedIncludeOids[depOid] {
+				foundDeps = true
+				loopOids = append(loopOids, depOid)
+				expandedIncludeOids[depOid] = true
+			}
+		}
+	}
+
+	// capture deduplicated oids from map keys, return as array
+	// done as a direct array assignment loop because it's faster and we know the length
+	expandedIncludeOidsArr := make([]string, len(expandedIncludeOids))
+	arrayIdx := 0
+	for idx := range expandedIncludeOids {
+		expandedIncludeOidsArr[arrayIdx] = idx
+		arrayIdx++
+	}
+	return expandedIncludeOidsArr, err
+}
+
 func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) ([]FqnStruct, error) {
 	includeOids, err := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	if err != nil {
@@ -277,51 +349,33 @@ func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbcon
 
 	oidStr := strings.Join(includeOids, ", ")
 	childPartitionFilter := ""
-	if o.isLeafPartitionData {
-		//Get all leaf partition tables whose parents are in the include list
-		childPartitionFilter = fmt.Sprintf(`
-	OR c.oid IN (
-		SELECT
-			r.parchildrelid
-		FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		WHERE p.paristemplate = false
-		AND p.parrelid IN (%s))`, oidStr)
-	} else {
-		//Get only external partition tables whose parents are in the include list
-		childPartitionFilter = fmt.Sprintf(`
-	OR c.oid IN (
-		SELECT
-			r.parchildrelid
-		FROM pg_partition p
-		JOIN pg_partition_rule r ON p.oid = r.paroid
-		JOIN pg_exttable e ON r.parchildrelid = e.reloid
-		WHERE p.paristemplate = false
-		AND e.reloid IS NOT NULL
-		AND p.parrelid IN (%s))`, oidStr)
-	}
+	parentAndExternalPartitionFilter := ""
+	if connectionPool.Version.Before("7") {
+		if o.isLeafPartitionData {
+			//Get all leaf partition tables whose parents are in the include list
+			childPartitionFilter = fmt.Sprintf(`
+		OR c.oid IN (
+			SELECT
+				r.parchildrelid
+			FROM pg_partition p
+			JOIN pg_partition_rule r ON p.oid = r.paroid
+			WHERE p.paristemplate = false
+			AND p.parrelid IN (%s))`, oidStr)
+		} else {
+			//Get only external partition tables whose parents are in the include list
+			childPartitionFilter = fmt.Sprintf(`
+		OR c.oid IN (
+			SELECT
+				r.parchildrelid
+			FROM pg_partition p
+			JOIN pg_partition_rule r ON p.oid = r.paroid
+			JOIN pg_exttable e ON r.parchildrelid = e.reloid
+			WHERE p.paristemplate = false
+			AND e.reloid IS NOT NULL
+			AND p.parrelid IN (%s))`, oidStr)
+		}
 
-	query := fmt.Sprintf(`
-SELECT schemaname, tablename FROM (
-	SELECT c.oid AS oid,
-		n.nspname AS schemaname,
-		c.relname AS tablename,
-		coalesce(prt.pages, c.relpages) AS pages
-	FROM pg_class c
-	JOIN pg_namespace n ON c.relnamespace = n.oid
-	LEFT JOIN (
-		SELECT
-			p.parrelid,
-			sum(pc.relpages) AS pages
-		FROM pg_partition_rule AS pr
-		JOIN pg_partition AS p ON pr.paroid = p.oid
-		JOIN pg_class AS pc ON pr.parchildrelid = pc.oid
-		GROUP BY p.parrelid
-	) AS prt ON prt.parrelid = c.oid
-	WHERE %s
-	AND (
-		-- Get tables in the include list
-		c.oid IN (%s)
+		parentAndExternalPartitionFilter = fmt.Sprintf(`
 		-- Get parent partition tables whose children are in the include list
 		OR c.oid IN (
 			SELECT
@@ -329,7 +383,7 @@ SELECT schemaname, tablename FROM (
 			FROM pg_partition p
 			JOIN pg_partition_rule r ON p.oid = r.paroid
 			WHERE p.paristemplate = false
-			AND r.parchildrelid IN (%s)
+			AND r.parchildrelid IN (%[1]s)
 		)
 		-- Get external partition tables whose siblings are in the include list
 		OR c.oid IN (
@@ -341,15 +395,48 @@ SELECT schemaname, tablename FROM (
 				SELECT
 					pr.paroid
 				FROM pg_partition_rule pr
-				WHERE pr.parchildrelid IN (%s)
+				WHERE pr.parchildrelid IN (%[1]s)
 			)
-		)
-		%s
-	)
-	AND (relkind = 'r' OR relkind = 'f')
-	AND %s
-) res
-ORDER BY pages DESC, oid;`, o.schemaFilterClause("n"), oidStr, oidStr, oidStr, childPartitionFilter, ExtensionFilterClause("c"))
+		)`, oidStr)
+	} else {
+		// GPDB7+ reworks the nature of partition tables.  It is no longer sufficient
+		// to pull parents and children in one step.  Instead we must recursively climb/descend
+		// the pg_depend ladder, filtering to only members of pg_class at each step, until the
+		// full hierarchy has been retrieved
+		childOids, err := o.recurseTableDepend(connectionPool, includeOids, "parent")
+		if err != nil {
+			return nil, err
+		}
+		if len(childOids) > 0 {
+			childPartitionFilter = fmt.Sprintf(`OR c.oid IN (%s)`, strings.Join(childOids, ", "))
+		}
+
+		parentOids, err := o.recurseTableDepend(connectionPool, includeOids, "child")
+		if err != nil {
+			return nil, err
+		}
+		if len(parentOids) > 0 {
+			parentAndExternalPartitionFilter = fmt.Sprintf(`OR c.oid IN (%s)`, strings.Join(parentOids, ", "))
+		}
+	}
+
+	query := fmt.Sprintf(`
+SELECT
+	n.nspname AS schemaname,
+	c.relname AS tablename
+FROM pg_class c
+JOIN pg_namespace n
+	ON c.relnamespace = n.oid
+WHERE %s
+AND (
+	-- Get tables in the include list
+	c.oid IN (%s)
+	%s
+	%s
+)
+AND relkind IN ('r', 'f', 'p')
+AND %s
+ORDER BY c.oid;`, o.schemaFilterClause("n"), oidStr, parentAndExternalPartitionFilter, childPartitionFilter, ExtensionFilterClause("c"))
 
 	results := make([]FqnStruct, 0)
 	err = connectionPool.Select(&results, query)

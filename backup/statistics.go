@@ -61,7 +61,11 @@ func GenerateAttributeStatisticsQueries(table Table, attStat AttributeStatistic)
 	var attributeQueries []string
 	if connectionPool.Version.AtLeast("6") {
 		inheritStr = fmt.Sprintf("\n\t%t::boolean,", attStat.Inherit)
-		attributeSlotsQueryStr = generateAttributeSlotsQueryMaster(attStat)
+		if connectionPool.Version.AtLeast("7") {
+			attributeSlotsQueryStr = generateAttributeSlotsQuery7(attStat)
+		} else {
+			attributeSlotsQueryStr = generateAttributeSlotsQuery6(attStat)
+		}
 	} else {
 		attributeSlotsQueryStr = generateAttributeSlotsQuery4(attStat)
 	}
@@ -84,8 +88,91 @@ func GenerateAttributeStatisticsQueries(table Table, attStat AttributeStatistic)
 	return attributeQueries
 }
 
+// GPDB7 introduced statistic collations
+func generateAttributeSlotsQuery7(attStat AttributeStatistic) string {
+	attributeQuery := ""
+	if len(attStat.Type) > 1 && attStat.Type[0] == '_' && attStat.Type[1] != '_' {
+		attributeQuery = `0::smallint,
+	0::smallint,
+	0::smallint,
+	0::smallint,
+	0::smallint,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	0::oid,
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL::real[],
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL`
+	} else {
+		attributeQuery = fmt.Sprintf(`%d::smallint,
+	%d::smallint,
+	%d::smallint,
+	%d::smallint,
+	%d::smallint,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%d::oid,
+	%s::real[],
+	%s::real[],
+	%s::real[],
+	%s::real[],
+	%s::real[],
+	%s,
+	%s,
+	%s,
+	%s,
+	%s`, attStat.Kind1,
+			attStat.Kind2,
+			attStat.Kind3,
+			attStat.Kind4,
+			attStat.Kind5,
+			attStat.Operator1,
+			attStat.Operator2,
+			attStat.Operator3,
+			attStat.Operator4,
+			attStat.Operator5,
+			attStat.Collation1,
+			attStat.Collation2,
+			attStat.Collation3,
+			attStat.Collation4,
+			attStat.Collation5,
+			realValues(attStat.Numbers1),
+			realValues(attStat.Numbers2),
+			realValues(attStat.Numbers3),
+			realValues(attStat.Numbers4),
+			realValues(attStat.Numbers5),
+			AnyValues(attStat.Values1, attStat.Type),
+			AnyValues(attStat.Values2, attStat.Type),
+			AnyValues(attStat.Values3, attStat.Type),
+			AnyValues(attStat.Values4, attStat.Type),
+			AnyValues(attStat.Values5, attStat.Type))
+	}
+	return attributeQuery
+}
+
 // GPDB6 introduced an additional statistic slot that we account for in this function
-func generateAttributeSlotsQueryMaster(attStat AttributeStatistic) string {
+func generateAttributeSlotsQuery6(attStat AttributeStatistic) string {
 	attributeQuery := ""
 	if len(attStat.Type) > 1 && attStat.Type[0] == '_' && attStat.Type[1] != '_' {
 		attributeQuery = `0::smallint,

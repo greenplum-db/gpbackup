@@ -20,9 +20,7 @@ func VerifyBackupDirectoriesExistOnAllHosts() {
 	_, err := globalCluster.ExecuteLocalCommand(fmt.Sprintf("test -d %s", globalFPInfo.GetDirForContent(-1)))
 	gplog.FatalOnError(err, "Backup directory %s missing or inaccessible", globalFPInfo.GetDirForContent(-1))
 	if MustGetFlagString(options.PLUGIN_CONFIG) == "" || backupConfig.SingleDataFile {
-		isResizeRestore := MustGetFlagBool(options.RESIZE_CLUSTER)
-		origSize := len(globalCluster.ContentIDs) - 1
-		destSize := backupConfig.SegmentCount
+		origSize, destSize, isResizeRestore := GetResizeClusterInfo()
 
 		remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup directories exist", cluster.ON_SEGMENTS, func(contentID int) string {
 			if isResizeRestore { // Map origin content to destination content to find where the original files have been placed
@@ -39,7 +37,7 @@ func VerifyBackupDirectoriesExistOnAllHosts() {
 	}
 }
 
-func VerifyBackupFileCountOnSegments(fileCount int) {
+func VerifyBackupFileCountOnSegments() {
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup file count", cluster.ON_SEGMENTS, func(contentID int) string {
 		return fmt.Sprintf("find %s -type f | wc -l", globalFPInfo.GetDirForContent(contentID))
 	})
@@ -47,9 +45,24 @@ func VerifyBackupFileCountOnSegments(fileCount int) {
 		return "Could not verify backup file count"
 	})
 
+	// these are the file counts for non-resize restores.
+	fileCount := 2 // 1 for the actual data file, 1 for the segment TOC file
+	if !backupConfig.SingleDataFile {
+		fileCount = len(globalTOC.DataEntries)
+	}
+
+	origSize, destSize, isResizeRestore := GetResizeClusterInfo()
+	batchMap := make(map[int]int, len(remoteOutput.Commands))
+	for i := 0; i < origSize; i++ {
+		batchMap[i%destSize] += fileCount
+	}
+
 	numIncorrect := 0
 	for contentID, cmd := range remoteOutput.Commands {
 		numFound, _ := strconv.Atoi(strings.TrimSpace(cmd.Stdout))
+		if isResizeRestore {
+			fileCount = batchMap[contentID]
+		}
 		if numFound != fileCount {
 			gplog.Verbose("Expected to find %d file(s) on segment %d on host %s, but found %d instead.", fileCount, contentID, globalCluster.GetHostForContent(contentID), numFound)
 			numIncorrect++
@@ -81,4 +94,11 @@ func VerifyMetadataFilePaths(withStats bool) {
 	if missing {
 		gplog.Fatal(errors.Errorf("One or more metadata files do not exist or are not readable."), "Cannot proceed with restore")
 	}
+}
+
+func GetResizeClusterInfo() (int, int, bool) {
+	isResizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
+	origSize := backupConfig.SegmentCount
+	destSize := len(globalCluster.ContentIDs) - 1
+	return origSize, destSize, isResizeCluster
 }
