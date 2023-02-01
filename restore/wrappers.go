@@ -9,6 +9,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
@@ -240,17 +241,26 @@ func FindHistoricalPluginVersion(timestamp string) string {
 	// in order for plugins to implement backwards compatibility,
 	// first, read history from coordinator and provide the historical version
 	// of the plugin that was used to create the original backup
-
-	// adapted from incremental GetLatestMatchingBackupTimestamp
 	var historicalPluginVersion string
-	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		hist, _, err := history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
-		gplog.FatalOnError(err)
-		foundBackupConfig := hist.FindBackupConfig(timestamp)
-		if foundBackupConfig != nil {
+
+	historyDBPath := globalFPInfo.GetBackupHistoryDatabasePath()
+	_, err := operating.System.Stat(historyDBPath)
+	if err == nil {
+		historyDB, err := history.InitializeHistoryDatabase(historyDBPath)
+		if err != nil {
+			return historicalPluginVersion
+		}
+		defer historyDB.Close()
+
+		foundBackupConfig, err := history.GetBackupConfig(timestamp, historyDB)
+		if err != nil && err.Error() != "timestamp doesn't match any existing backups" {
+			gplog.FatalOnError(err)
+		}
+		if err == nil {
 			historicalPluginVersion = foundBackupConfig.PluginVersion
 		}
 	}
+
 	return historicalPluginVersion
 }
 

@@ -1,6 +1,8 @@
 package backup_test
 
 import (
+	"os"
+
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -79,39 +81,80 @@ var _ = Describe("backup/incremental tests", func() {
 	})
 
 	Describe("GetLatestMatchingBackupConfig", func() {
-		contents := history.History{BackupConfigs: []history.BackupConfig{
-			{DatabaseName: "test2", Timestamp: "timestamp4", Status: history.BackupStatusFailed},
-			{DatabaseName: "test1", Timestamp: "timestamp3"},
-			{DatabaseName: "test2", Timestamp: "timestamp2"},
-			{DatabaseName: "test1", Timestamp: "timestamp1"},
-		}}
+		historyDBPath := "/tmp/hist.db"
+		contents := []history.BackupConfig{
+			{
+				DatabaseName:     "test2",
+				Timestamp:        "timestamp4",
+				Status:           history.BackupStatusFailed,
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{},
+			},
+			{
+				DatabaseName:     "test1",
+				Timestamp:        "timestamp3",
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{}},
+			{
+				DatabaseName:     "test2",
+				Timestamp:        "timestamp2",
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{},
+			},
+			{
+				DatabaseName:     "test1",
+				Timestamp:        "timestamp1",
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{},
+			},
+		}
+		BeforeEach(func() {
+			os.Remove(historyDBPath)
+			historyDB, _ := history.InitializeHistoryDatabase(historyDBPath)
+			for _, backupConfig := range contents {
+				history.StoreBackupHistory(historyDB, &backupConfig)
+			}
+			historyDB.Close()
+		})
+
+		AfterEach(func() {
+			os.Remove(historyDBPath)
+		})
+
 		It("Should return the latest backup's timestamp with matching Dbname", func() {
 			currentBackupConfig := history.BackupConfig{DatabaseName: "test1"}
-
-			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&contents, &currentBackupConfig)
-
-			structmatcher.ExpectStructsToMatch(contents.BackupConfigs[1], latestBackupHistoryEntry)
+			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(historyDBPath, &currentBackupConfig)
+			// endtime is set dynamically on storage, so force it to match
+			contents[1].EndTime = latestBackupHistoryEntry.EndTime
+			structmatcher.ExpectStructsToMatch(contents[1], latestBackupHistoryEntry)
 		})
 		It("Should return the latest matching backup's timestamp that did not fail", func() {
 			currentBackupConfig := history.BackupConfig{DatabaseName: "test2"}
-
-			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&contents, &currentBackupConfig)
-
-			structmatcher.ExpectStructsToMatch(contents.BackupConfigs[2], latestBackupHistoryEntry)
+			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(historyDBPath, &currentBackupConfig)
+			contents[2].EndTime = latestBackupHistoryEntry.EndTime
+			structmatcher.ExpectStructsToMatch(contents[2], latestBackupHistoryEntry)
 		})
 		It("should return nil with no matching Dbname", func() {
 			currentBackupConfig := history.BackupConfig{DatabaseName: "test3"}
-
-			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(&contents, &currentBackupConfig)
-
+			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(historyDBPath, &currentBackupConfig)
 			Expect(latestBackupHistoryEntry).To(BeNil())
 		})
 		It("should return nil with an empty history", func() {
 			currentBackupConfig := history.BackupConfig{}
-
-			latestBackupHistoryEntry := backup.
-				GetLatestMatchingBackupConfig(&history.History{BackupConfigs: []history.BackupConfig{}}, &currentBackupConfig)
-
+			os.Remove(historyDBPath)
+			latestBackupHistoryEntry := backup.GetLatestMatchingBackupConfig(historyDBPath, &currentBackupConfig)
 			Expect(latestBackupHistoryEntry).To(BeNil())
 		})
 	})

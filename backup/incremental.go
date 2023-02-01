@@ -1,10 +1,11 @@
 package backup
 
 import (
+	"fmt"
 	"path"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
-	"github.com/greenplum-db/gp-common-go-libs/iohelper"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/toc"
@@ -43,13 +44,12 @@ func GetTargetBackupTimestamp() string {
 
 func GetLatestMatchingBackupTimestamp() string {
 	latestTimestamp := ""
-	var contents *history.History
 	var latestMatchingBackupHistoryEntry *history.BackupConfig
-	var err error
-	if iohelper.FileExistsAndIsReadable(globalFPInfo.GetBackupHistoryFilePath()) {
-		contents, _, err = history.NewHistory(globalFPInfo.GetBackupHistoryFilePath())
-		gplog.FatalOnError(err)
-		latestMatchingBackupHistoryEntry = GetLatestMatchingBackupConfig(contents, &backupReport.BackupConfig)
+
+	historyDBPath := globalFPInfo.GetBackupHistoryDatabasePath()
+	_, err := operating.System.Stat(historyDBPath)
+	if err == nil {
+		latestMatchingBackupHistoryEntry = GetLatestMatchingBackupConfig(historyDBPath, &backupReport.BackupConfig)
 	}
 
 	if latestMatchingBackupHistoryEntry == nil {
@@ -62,10 +62,53 @@ func GetLatestMatchingBackupTimestamp() string {
 	return latestTimestamp
 }
 
-func GetLatestMatchingBackupConfig(history *history.History, currentBackupConfig *history.BackupConfig) *history.BackupConfig {
-	for _, backupConfig := range history.BackupConfigs {
-		if matchesIncrementalFlags(&backupConfig, currentBackupConfig) && !backupConfig.Failed() {
-			return &backupConfig
+func GetLatestMatchingBackupConfig(historyDBPath string, currentBackupConfig *history.BackupConfig) *history.BackupConfig {
+	// get list of timestamps for backups that match filterable flags, most recent first, then
+	// iterate through them querying and checking one at a time. this is necessary due to the
+	// impracticality of checking the include and exclude sets directly in a query
+
+	historyDB, _ := history.InitializeHistoryDatabase(historyDBPath)
+
+	whereClause := fmt.Sprintf(`backup_dir = '%s' AND database_name = '%s' AND leaf_partition_data = %v
+		AND plugin = '%s' AND single_data_file = %v AND compressed = %v`,
+		MustGetFlagString(options.BACKUP_DIR),
+		currentBackupConfig.DatabaseName,
+		MustGetFlagBool(options.LEAF_PARTITION_DATA),
+		currentBackupConfig.Plugin,
+		MustGetFlagBool(options.SINGLE_DATA_FILE),
+		currentBackupConfig.Compressed)
+
+	getBackupTimetampsQuery := fmt.Sprintf(`
+		SELECT timestamp
+		FROM backups
+		WHERE %s
+		ORDER BY timestamp DESC`, whereClause)
+	timestampRows, err := historyDB.Query(getBackupTimetampsQuery)
+	if err != nil {
+		gplog.Error(err.Error())
+		return nil
+	}
+	defer timestampRows.Close()
+
+	timestamps := make([]string, 0)
+	for timestampRows.Next() {
+		var timestamp string
+		err = timestampRows.Scan(&timestamp)
+		if err != nil {
+			gplog.Error(err.Error())
+			return nil
+		}
+		timestamps = append(timestamps, timestamp)
+	}
+
+	for _, ts := range timestamps {
+		backupConfig, err := history.GetBackupConfig(ts, historyDB)
+		if err != nil {
+			gplog.Error(err.Error())
+			return nil
+		}
+		if !backupConfig.Failed() && matchesIncrementalFlags(backupConfig, currentBackupConfig) {
+			return backupConfig
 		}
 	}
 

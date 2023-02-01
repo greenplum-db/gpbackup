@@ -382,7 +382,7 @@ func DoTeardown() {
 		if statErr != nil { // Even if this isn't os.IsNotExist, don't try to write a report file in case of further errors
 			return
 		}
-		historyFilename := globalFPInfo.GetBackupHistoryFilePath()
+		historyDBName := globalFPInfo.GetBackupHistoryDatabasePath()
 		reportFilename := globalFPInfo.GetBackupReportFilePath()
 		configFilename := globalFPInfo.GetConfigFilePath()
 
@@ -394,10 +394,18 @@ func DoTeardown() {
 			}
 			backupReport.ConstructBackupParamsString()
 			backupReport.BackupConfig.SegmentCount = len(globalCluster.ContentIDs) - 1
-			err := history.WriteBackupHistory(historyFilename, &backupReport.BackupConfig)
+
+			historyDB, err := history.InitializeHistoryDatabase(historyDBName)
 			if err != nil {
 				gplog.Error(fmt.Sprintf("%v", err))
+			} else {
+				err = history.StoreBackupHistory(historyDB, &backupReport.BackupConfig)
+				historyDB.Close()
+				if err != nil {
+					gplog.Error(fmt.Sprintf("%v", err))
+				}
 			}
+
 			history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
 			if backupReport.BackupConfig.EndTime == "" {
 				backupReport.BackupConfig.EndTime = history.CurrentTimestamp()
@@ -447,7 +455,7 @@ func DoCleanup(backupFailed bool) {
 			// If the terminate query is sent via a connection with an active COPY command, and the COPY's pipe is cleaned up, the COPY query will hang.
 			// This results in the DoCleanup function passed to the signal handler to never return, blocking the os.Exit call
 			if wasTerminated {
-				// It is possible for the COPY command to become orphaned if an agent process is stopped 
+				// It is possible for the COPY command to become orphaned if an agent process is stopped
 				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, fmt.Sprintf("gpbackup_%s", globalFPInfo.Timestamp))
 			}
 			if backupFailed {

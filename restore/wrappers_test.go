@@ -145,62 +145,57 @@ options:
   pgport: 1234
 `
 
-		sampleBackupHistory := `
-backupconfigs:
-- backupdir: ""
-  backupversion: 1.11.0+dev.28.g10571fd
-  compressed: false
-  databasename: plugin_test_db
-  databaseversion: 4.3.99.0+dev.18.gb29642fb22 build dev
-  dataonly: false
-  deleted: false
-  excluderelations: []
-  excludeschemafiltered: false
-  excludeschemas: []
-  excludetablefiltered: false
-  includerelations: []
-  includeschemafiltered: false
-  includeschemas: []
-  includetablefiltered: false
-  incremental: false
-  leafpartitiondata: false
-  metadataonly: false
-  plugin: /Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin
-  restoreplan:
-  - timestamp: "20170415154408"
-    tablefqns:
-    - public.test_table
-  singledatafile: false
-  timestamp: "20170415154408"
-  withstatistics: false
-- backupdir: ""
-  backupversion: 1.11.0+dev.28.g10571fd
-  compressed: false
-  databasename: plugin_test_db
-  databaseversion: 4.3.99.0+dev.18.gb29642fb22 build dev
-  dataonly: false
-  deleted: false
-  excluderelations: []
-  excludeschemafiltered: false
-  excludeschemas: []
-  excludetablefiltered: false
-  includerelations: []
-  includeschemafiltered: false
-  includeschemas: []
-  includetablefiltered: false
-  incremental: false
-  leafpartitiondata: false
-  metadataonly: false
-  plugin: /Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin
-  pluginversion: "99.99.9999"
-  restoreplan:
-  - timestamp: "20180415154238"
-    tablefqns:
-    - public.test_table
-  singledatafile: true
-  timestamp: "20180415154238"
-  withstatistics: false
-`
+		sampleBackupHistConfig1 := history.BackupConfig{
+			BackupDir:             "",
+			BackupVersion:         "1.11.0+dev.28.g10571fdxs",
+			Compressed:            false,
+			DatabaseName:          "plugin_test_db",
+			DatabaseVersion:       "4.3.99.0+dev.18.gb29642fb22 build dev",
+			DataOnly:              false,
+			DateDeleted:           "",
+			ExcludeRelations:      make([]string, 0),
+			ExcludeSchemaFiltered: false,
+			ExcludeSchemas:        make([]string, 0),
+			ExcludeTableFiltered:  false,
+			IncludeRelations:      make([]string, 0),
+			IncludeSchemaFiltered: false,
+			IncludeSchemas:        make([]string, 0),
+			IncludeTableFiltered:  false,
+			Incremental:           false,
+			LeafPartitionData:     false,
+			MetadataOnly:          false,
+			Plugin:                "/Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin",
+			RestorePlan:           []history.RestorePlanEntry{{"20170415154408", []string{"public.test_table"}}},
+			SingleDataFile:        false,
+			Timestamp:             "20170415154408",
+			WithStatistics:        false,
+		}
+		sampleBackupHistConfig2 := history.BackupConfig{
+			BackupDir:             "",
+			BackupVersion:         "1.11.0+dev.28.g10571fd",
+			Compressed:            false,
+			DatabaseName:          "plugin_test_db",
+			DatabaseVersion:       "4.3.99.0+dev.18.gb29642fb22 build dev",
+			DataOnly:              false,
+			DateDeleted:           "",
+			ExcludeRelations:      make([]string, 0),
+			ExcludeSchemaFiltered: false,
+			ExcludeSchemas:        make([]string, 0),
+			ExcludeTableFiltered:  false,
+			IncludeRelations:      make([]string, 0),
+			IncludeSchemaFiltered: false,
+			IncludeSchemas:        make([]string, 0),
+			IncludeTableFiltered:  false,
+			Incremental:           false,
+			LeafPartitionData:     false,
+			MetadataOnly:          false,
+			Plugin:                "/Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin",
+			PluginVersion:         "99.99.9999",
+			RestorePlan:           []history.RestorePlanEntry{{"20180415154238", []string{"public.test_table"}}},
+			SingleDataFile:        true,
+			Timestamp:             "20180415154238",
+			WithStatistics:        false,
+		}
 
 		sampleBackupConfig := `
 backupdir: ""
@@ -273,9 +268,14 @@ withstatistics: false
 			mdd = filepath.Join(tempDir, testCluster.GetDirForContent(-1))
 			err = os.MkdirAll(mdd, 0777)
 			Expect(err).ToNot(HaveOccurred())
-			historyPath := filepath.Join(mdd, "gpbackup_history.yaml")
+			historyPath := filepath.Join(mdd, "gpbackup_history.db")
 			_ = os.Remove(historyPath) // make sure no previous copy
-			err = ioutil.WriteFile(historyPath, []byte(sampleBackupHistory), 0777)
+			db, err := history.InitializeHistoryDatabase(historyPath)
+			Expect(err).ToNot(HaveOccurred())
+			defer db.Close()
+			err = history.StoreBackupHistory(db, &sampleBackupHistConfig1)
+			Expect(err).ToNot(HaveOccurred())
+			err = history.StoreBackupHistory(db, &sampleBackupHistConfig2)
 			Expect(err).ToNot(HaveOccurred())
 
 			// create backup config file

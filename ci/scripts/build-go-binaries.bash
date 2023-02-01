@@ -5,6 +5,8 @@ set -ex
 export GOPATH=$(pwd)/go
 export PATH=$PATH:${GOPATH}/bin
 
+yum install -y sqlite
+
 # Build gpbackup
 pushd ${GOPATH}/src/github.com/greenplum-db/gpbackup
   make depend build unit

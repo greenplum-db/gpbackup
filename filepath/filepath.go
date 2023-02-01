@@ -116,6 +116,11 @@ func (backupFPInfo *FilePathInfo) GetBackupHistoryFilePath() string {
 	return path.Join(coordinatorDataDirectoryPath, "gpbackup_history.yaml")
 }
 
+func (backupFPInfo *FilePathInfo) GetBackupHistoryDatabasePath() string {
+	coordinatorDataDirectoryPath := backupFPInfo.SegDirMap[-1]
+	return path.Join(coordinatorDataDirectoryPath, "gpbackup_history.db")
+}
+
 func (backupFPInfo *FilePathInfo) GetMetadataFilePath() string {
 	return backupFPInfo.GetBackupFilePath("metadata")
 }

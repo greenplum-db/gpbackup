@@ -1,8 +1,6 @@
 package history_test
 
 import (
-	"errors"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -10,12 +8,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
-	"github.com/greenplum-db/gpbackup/report"
-	"github.com/greenplum-db/gpbackup/utils"
-	"gopkg.in/yaml.v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,8 +29,8 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("backup/history tests", func() {
-	var testConfig1, testConfig2, testConfig3, testConfigSucceed, testConfigFailed history.BackupConfig
-	var historyFilePath = "/tmp/history_file.yaml"
+	var testConfig1, testConfig2, testConfigMalformed history.BackupConfig
+	var historyDBPath = "/tmp/history_db.db"
 
 	BeforeEach(func() {
 		testConfig1 = history.BackupConfig{
@@ -49,49 +42,29 @@ var _ = Describe("backup/history tests", func() {
 			RestorePlan:      []history.RestorePlanEntry{},
 			Timestamp:        "timestamp1",
 		}
-		testConfig2 = history.BackupConfig{
-			DatabaseName:     "testdb2",
+		testConfigMalformed = history.BackupConfig{
+			DatabaseName:     "testdb1",
 			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{"public"},
-			IncludeRelations: []string{},
+			ExcludeSchemas:   []string{},
+			IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
 			IncludeSchemas:   []string{},
-			RestorePlan:      []history.RestorePlanEntry{},
+			RestorePlan:      []history.RestorePlanEntry{{"differentTimestamp", []string{"testschema.testtable1"}}},
+			Timestamp:        "timestamp1",
+		}
+		testConfig2 = history.BackupConfig{
+			DatabaseName:     "testdb1",
+			ExcludeRelations: []string{},
+			ExcludeSchemas:   []string{},
+			IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
+			IncludeSchemas:   []string{},
+			RestorePlan:      []history.RestorePlanEntry{{"timestamp1", []string{"testschema.testtable1"}}, {"timestamp2", []string{"testschema.testtable2"}}},
 			Timestamp:        "timestamp2",
 		}
-		testConfig3 = history.BackupConfig{
-			DatabaseName:     "testdb3",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{"public"},
-			IncludeRelations: []string{},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []history.RestorePlanEntry{},
-			Timestamp:        "timestamp3",
-		}
-		testConfigSucceed = history.BackupConfig{
-			DatabaseName:     "testdb3",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{"public"},
-			IncludeRelations: []string{},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []history.RestorePlanEntry{},
-			Timestamp:        "timestampSucceed",
-			Status:           history.BackupStatusSucceed,
-		}
-		testConfigFailed = history.BackupConfig{
-			DatabaseName:     "testdb3",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{"public"},
-			IncludeRelations: []string{},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []history.RestorePlanEntry{},
-			Timestamp:        "timestampFailed",
-			Status:           history.BackupStatusFailed,
-		}
-		_ = os.Remove(historyFilePath)
+		_ = os.Remove(historyDBPath)
 	})
 
 	AfterEach(func() {
-		_ = os.Remove(historyFilePath)
+		_ = os.Remove(historyDBPath)
 	})
 	Describe("CurrentTimestamp", func() {
 		It("returns the current timestamp", func() {
@@ -101,223 +74,126 @@ var _ = Describe("backup/history tests", func() {
 			Expect(actual).To(Equal(expected))
 		})
 	})
-	Describe("WriteToFileAndMakeReadOnly", func() {
-		var fileInfo os.FileInfo
-		var historyWithEntries history.History
-		BeforeEach(func() {
-			historyWithEntries = history.History{
-				BackupConfigs: []history.BackupConfig{testConfig1, testConfig2},
+	Describe("InitializeHistoryDatabase", func() {
+		It("creates, initializes, and returns a handle to the database if none is already present", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			tablesRow, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' order by name;")
+			Expect(err).To(BeNil())
+
+			var tableNames []string
+			for tablesRow.Next() {
+				var exclSchema string
+				err = tablesRow.Scan(&exclSchema)
+				Expect(err).To(BeNil())
+				tableNames = append(tableNames, exclSchema)
 			}
+
+			Expect(tableNames[0]).To(Equal("backups"))
+			Expect(tableNames[1]).To(Equal("exclude_relations"))
+			Expect(tableNames[2]).To(Equal("exclude_schemas"))
+			Expect(tableNames[3]).To(Equal("include_relations"))
+			Expect(tableNames[4]).To(Equal("include_schemas"))
+			Expect(tableNames[5]).To(Equal("restore_plans"))
+
 		})
-		AfterEach(func() {
-			_ = os.Remove(historyFilePath)
-		})
-		It("makes the file readonly after it is written", func() {
-			err := historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
 
-			fileInfo, err = os.Stat(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(fileInfo.Mode().Perm()).To(Equal(os.FileMode(0444)))
-		})
-		It("writes file when file does not exist", func() {
-			err := historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
+		It("returns a handle to an existing database if one is already present", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			createDummyTable := "CREATE TABLE IF NOT EXISTS dummy (dummy int);"
+			_, _ = db.Exec(createDummyTable)
+			db.Close()
 
-			_, err = os.Stat(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-		})
-		It("writes file when file exists and is writeable", func() {
-			err := ioutil.WriteFile(historyFilePath, []byte{}, 0644)
-			Expect(err).ToNot(HaveOccurred())
+			sameDB, _ := history.InitializeHistoryDatabase(historyDBPath)
+			tableRow := sameDB.QueryRow("SELECT name FROM sqlite_master WHERE type='table' and name='dummy';")
 
-			err = historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
+			var tableName string
+			err := tableRow.Scan(&tableName)
+			Expect(err).To(BeNil())
+			Expect(tableName).To(Equal("dummy"))
 
-			fileHash, err := utils.GetFileHash(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-
-			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(historyWithEntries).To(structmatcher.MatchStruct(resultHistory))
-			Expect(fileHash).To(Equal(historyHash))
-		})
-		It("writes file when file exists and is readonly ", func() {
-			err := ioutil.WriteFile(historyFilePath, []byte{}, 0444)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = historyWithEntries.WriteToFileAndMakeReadOnly(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-
-			fileHash, err := utils.GetFileHash(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-
-
-			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(historyWithEntries).To(structmatcher.MatchStruct(resultHistory))
-			Expect(fileHash).To(Equal(historyHash))
 		})
 	})
-	Describe("NewHistory", func() {
-		It("creates a history object with entries from the file when history file exists", func() {
-			historyWithEntries := history.History{
-				BackupConfigs: []history.BackupConfig{testConfig1, testConfig2},
+
+	Describe("StoreBackupHistory", func() {
+		It("stores a config into the database", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			err := history.StoreBackupHistory(db, &testConfig1)
+			Expect(err).To(BeNil())
+
+			tableRow := db.QueryRow("SELECT timestamp, database_name FROM backups;")
+
+			var timestamp string
+			var dbName string
+			err = tableRow.Scan(&timestamp, &dbName)
+			Expect(err).To(BeNil())
+			Expect(timestamp).To(Equal(testConfig1.Timestamp))
+			Expect(dbName).To(Equal(testConfig1.DatabaseName))
+
+			inclRelRows, err := db.Query("SELECT timestamp, name FROM include_relations ORDER BY name")
+			Expect(err).To(BeNil())
+			var includeRelations []string
+			for inclRelRows.Next() {
+				var inclRelTS string
+				var inclRel string
+				err = inclRelRows.Scan(&inclRelTS, &inclRel)
+				Expect(err).To(BeNil())
+				Expect(inclRelTS).To(Equal(timestamp))
+				includeRelations = append(includeRelations, inclRel)
 			}
-			historyFileContents, _ := yaml.Marshal(historyWithEntries)
-			fileHandle, err := utils.OpenFileForWrite(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = fileHandle.Write(historyFileContents)
-			Expect(err).ToNot(HaveOccurred())
-			err = fileHandle.Close()
-			Expect(err).ToNot(HaveOccurred())
 
-			fileHash, err := utils.GetFileHash(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-
-			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(historyWithEntries).To(structmatcher.MatchStruct(resultHistory))
-			Expect(fileHash).To(Equal(historyHash))
+			Expect(includeRelations[0]).To(Equal("testschema.testtable1"))
+			Expect(includeRelations[1]).To(Equal("testschema.testtable2"))
 		})
-		Context("fatals when", func() {
-			BeforeEach(func() {
-				operating.System.Stat = func(string) (os.FileInfo, error) { return nil, nil }
-				operating.System.OpenFileRead = func(string, int, os.FileMode) (operating.ReadCloserAt, error) { return nil, nil }
-			})
-			AfterEach(func() {
-				operating.System = operating.InitializeSystemFunctions()
-			})
-			It("gpbackup_history.yaml can't be read", func() {
-				operating.System.ReadFile = func(string) ([]byte, error) { return nil, errors.New("read error") }
 
-				_, _, err := history.NewHistory("/tempfile")
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("read error"))
-			})
-			It("gpbackup_history.yaml is an invalid format", func() {
-				operating.System.ReadFile = func(string) ([]byte, error) { return []byte("not yaml"), nil }
+		It("refuses to store a config into the database if the timestamp is already present", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			err := history.StoreBackupHistory(db, &testConfig1)
+			Expect(err).To(BeNil())
 
-				_, _, err := history.NewHistory("/tempfile")
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("not yaml"))
-			})
-			It("NewHistory returns an empty History", func() {
-				backup.SetFPInfo(filepath.FilePathInfo{UserSpecifiedBackupDir: "/tmp", UserSpecifiedSegPrefix: "/test-prefix"})
-				backup.SetReport(&report.Report{})
-				operating.System.ReadFile = func(string) ([]byte, error) { return []byte(""), nil }
+			err = history.StoreBackupHistory(db, &testConfig1)
+			Expect(err.Error()).To(Equal("UNIQUE constraint failed: backups.timestamp"))
+		})
 
-				contents, _, err := history.NewHistory("/tempfile")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(contents).To(Equal(&history.History{BackupConfigs: make([]history.BackupConfig, 0)}))
-			})
+		It("refuses to store a config into the database if the config is malformed", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			err := history.StoreBackupHistory(db, &testConfigMalformed)
+			Expect(err.Error()).To(Equal("FOREIGN KEY constraint failed"))
 		})
 	})
-	Describe("AddBackupConfig", func() {
-		It("adds the most recent history entry and keeps the list sorted", func() {
-			testHistory := history.History{
-				BackupConfigs: []history.BackupConfig{testConfig3, testConfig1},
-			}
 
-			testHistory.AddBackupConfig(&testConfig2)
+	Describe("GetBackupConfig", func() {
+		It("gets a config from the database", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			defer db.Close()
+			err := history.StoreBackupHistory(db, &testConfig1)
+			Expect(err).To(BeNil())
 
-			expectedHistory := history.History{
-				BackupConfigs: []history.BackupConfig{testConfig3, testConfig2, testConfig1},
-			}
-			Expect(expectedHistory).To(structmatcher.MatchStruct(testHistory))
+			config, err := history.GetBackupConfig(testConfig1.Timestamp, db)
+			Expect(err).To(BeNil())
+			Expect(config).To(structmatcher.MatchStruct(testConfig1))
 		})
-	})
-	Describe("WriteBackupHistory", func() {
-		It("appends new config when file exists", func() {
-			Expect(testConfig3.EndTime).To(BeEmpty())
-			simulatedEndTime := time.Now()
-			operating.System.Now = func() time.Time {
-				return simulatedEndTime
-			}
-			historyWithEntries := history.History{
-				BackupConfigs: []history.BackupConfig{testConfig2, testConfig1},
-			}
-			historyFileContents, _ := yaml.Marshal(historyWithEntries)
-			fileHandle, err := utils.OpenFileForWrite(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = fileHandle.Write(historyFileContents)
-			Expect(err).ToNot(HaveOccurred())
-			err = fileHandle.Close()
-			Expect(err).ToNot(HaveOccurred())
-			err = history.WriteBackupHistory(historyFilePath, &testConfig3)
-			Expect(err).ToNot(HaveOccurred())
 
-			fileHash, err := utils.GetFileHash(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
+		It("refuses to get a config from the database if the timestamp is not present", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			defer db.Close()
+			err := history.StoreBackupHistory(db, &testConfig1)
+			Expect(err).To(BeNil())
 
-			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(fileHash).To(Equal(historyHash))
+			_, err = history.GetBackupConfig("timestampDNE", db)
+			Expect(err.Error()).To(Equal("timestamp doesn't match any existing backups"))
 
-			testConfig3.EndTime = simulatedEndTime.Format("20060102150405")
-			expectedHistory := history.History{
-				BackupConfigs: []history.BackupConfig{testConfig3, testConfig2, testConfig1},
-			}
-			Expect(expectedHistory).To(structmatcher.MatchStruct(resultHistory))
 		})
-		It("writes file with new config when file does not exist", func() {
-			Expect(testConfig3.EndTime).To(BeEmpty())
-			simulatedEndTime := time.Now()
-			operating.System.Now = func() time.Time {
-				return simulatedEndTime
-			}
-			err := history.WriteBackupHistory(historyFilePath, &testConfig3)
-			Expect(err).ToNot(HaveOccurred())
+		It("gets a config from the database with multiple restore plan entries", func() {
+			db, _ := history.InitializeHistoryDatabase(historyDBPath)
+			defer db.Close()
+			err := history.StoreBackupHistory(db, &testConfig1)
+			Expect(err).To(BeNil())
+			err = history.StoreBackupHistory(db, &testConfig2)
+			Expect(err).To(BeNil())
 
-			fileHash, err := utils.GetFileHash(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-
-			resultHistory, historyHash, err := history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(fileHash).To(Equal(historyHash))
-
-			expectedHistory := history.History{BackupConfigs: []history.BackupConfig{testConfig3}}
-			Expect(expectedHistory).To(structmatcher.MatchStruct(resultHistory))
-			Expect(testLogfile).To(Say("No existing backups found. Creating new backup history file."))
-			Expect(testConfig3.EndTime).To(Equal(simulatedEndTime.Format("20060102150405")))
-		})
-	})
-	Describe("FindBackupConfig", func() {
-		var resultHistory *history.History
-		BeforeEach(func() {
-			err := history.WriteBackupHistory(historyFilePath, &testConfig1)
-			Expect(err).ToNot(HaveOccurred())
-			resultHistory, _, err = history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			err = history.WriteBackupHistory(historyFilePath, &testConfig2)
-			Expect(err).ToNot(HaveOccurred())
-			resultHistory, _, err = history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			err = history.WriteBackupHistory(historyFilePath, &testConfig3)
-			Expect(err).ToNot(HaveOccurred())
-			err = history.WriteBackupHistory(historyFilePath, &testConfigSucceed)
-			Expect(err).ToNot(HaveOccurred())
-			resultHistory, _, err = history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			err = history.WriteBackupHistory(historyFilePath, &testConfigFailed)
-			Expect(err).ToNot(HaveOccurred())
-			resultHistory, _, err = history.NewHistory(historyFilePath)
-			Expect(err).ToNot(HaveOccurred())
-		})
-		It("finds a backup config for the given timestamp", func() {
-			foundConfig := resultHistory.FindBackupConfig("timestamp2")
-			Expect(foundConfig).To(Equal(&testConfig2))
-
-			foundConfig = resultHistory.FindBackupConfig("timestampSucceed")
-			Expect(foundConfig).To(Equal(&testConfigSucceed))
-		})
-		It("returns nil when timestamp not found", func() {
-			foundConfig := resultHistory.FindBackupConfig("foo")
-			Expect(foundConfig).To(BeNil())
-		})
-		It("returns nil when timestamp is there but status is failed", func() {
-			foundConfig := resultHistory.FindBackupConfig("timestampFailed")
-			Expect(foundConfig).To(BeNil())
+			config, err := history.GetBackupConfig(testConfig2.Timestamp, db)
+			Expect(err).To(BeNil())
+			Expect(config).To(structmatcher.MatchStruct(testConfig2))
 		})
 	})
 })
