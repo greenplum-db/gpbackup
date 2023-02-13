@@ -1705,18 +1705,30 @@ LANGUAGE plpgsql NO SQL;`)
 			testhelper.AssertQueryRuns(restoreConn, "DROP ROLE testrole;")
 		})
 		DescribeTable("",
-			func(fullTimestamp string, incrementalTimestamp string, tarBaseName string, isIncrementalRestore bool, isFilteredRestore bool, isSingleDataFileRestore bool) {
+			func(fullTimestamp string, incrementalTimestamp string, tarBaseName string, isIncrementalRestore bool, isFilteredRestore bool, isSingleDataFileRestore bool, testUsesPlugin bool) {
 				if isSingleDataFileRestore && segmentCount != 3 {
 					Skip("Single data file resize restores currently require a 3-segment cluster to test.")
 				}
+
+				ddboostConfigPath := "/home/gpadmin/ddboost_config_replication.yaml"
+				if testUsesPlugin {
+					// For plugin-specific tests, assume that if we can find the ddboost configuration file
+					// that we're on a CI system and should run them, otherwise skip them.
+					if !utils.FileExists(ddboostConfigPath) {
+						Skip("Plugin-specific tests require a configured plugin to be present in order to run.")
+					}
+				}
+
 				extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schematwo CASCADE;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemathree CASCADE;`)
 
 
-				isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
-				moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp, incrementalTimestamp)
+				if !testUsesPlugin { // No need to manually move files when using a plugin
+					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
+					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp, incrementalTimestamp)
+				}
 
 				// This block stops the test if it hangs.  It was introduced to prevent hangs causing timeout failures in Concourse CI.
 				// Those flakes have stop being observed, and can no longer be reproduced.  Some changes have since been made
@@ -1808,22 +1820,29 @@ LANGUAGE plpgsql NO SQL;`)
 			},
 			// Currently, the 9-segment tests are hanging due to the same pipe-related CI issues mentioned above.
 			// These tests can be un-pended when that is solved; in the meantime, the 7-segment tests give us larger-to-smaller restore coverage.
-			PEntry("Can backup a 9-segment cluster and restore to current cluster", "20220909090738", "", "9-segment-db", false, false, false),
-			PEntry("Can backup a 9-segment cluster and restore to current cluster with single data file", "20220909090827", "", "9-segment-db-single-data-file", false, false, true),
-			PEntry("Can backup a 9-segment cluster and restore to current cluster with incremental backups", "20220909150254", "20220909150353", "9-segment-db-incremental", true, false, false),
+			PEntry("Can backup a 9-segment cluster and restore to current cluster", "20220909090738", "", "9-segment-db", false, false, false, false),
+			PEntry("Can backup a 9-segment cluster and restore to current cluster with single data file", "20220909090827", "", "9-segment-db-single-data-file", false, false, true, false),
+			PEntry("Can backup a 9-segment cluster and restore to current cluster with incremental backups", "20220909150254", "20220909150353", "9-segment-db-incremental", true, false, false, false),
 
-			Entry("Can backup a 7-segment cluster and restore to to current cluster", "20220908145504", "", "7-segment-db", false, false, false),
-			Entry("Can backup a 7-segment cluster and restore to current cluster single data file", "20220912101931", "", "7-segment-db-single-data-file", false, false, true),
-			Entry("Can backup a 7-segment cluster and restore to current cluster with a filter", "20220908145645", "", "7-segment-db-filter", false, true, false),
-			Entry("Can backup a 7-segment cluster and restore to current cluster with single data file and filter", "20220912102413", "", "7-segment-db-single-data-file-filter", false, true, true),
-			Entry("Can backup a 2-segment cluster and restore to current cluster single data file and filter", "20220908150223", "", "2-segment-db-single-data-file-filter", false, true, true),
-			Entry("Can backup a 2-segment cluster and restore to current cluster single data file", "20220908150159", "", "2-segment-db-single-data-file", false, false, true),
-			Entry("Can backup a 2-segment cluster and restore to current cluster with filter", "20220908150238", "", "2-segment-db-filter", false, true, false),
-			Entry("Can backup a 2-segment cluster and restore to current cluster with incremental backups and a single data file", "20220909150612", "20220909150622", "2-segment-db-incremental", true, false, false),
-			Entry("Can backup a 1-segment cluster and restore to current cluster", "20220908150735", "", "1-segment-db", false, false, false),
-			Entry("Can backup a 1-segment cluster and restore to current cluster with single data file", "20220908150752", "", "1-segment-db-single-data-file", false, false, true),
-			Entry("Can backup a 1-segment cluster and restore to current cluster with a filter", "20220908150804", "", "1-segment-db-filter", false, true, false),
-			Entry("Can backup a 3-segment cluster and restore to current cluster", "20220909094828", "", "3-segment-db", false, false, false),
+			Entry("Can backup a 7-segment cluster and restore to current cluster", "20220908145504", "", "7-segment-db", false, false, false, false),
+			Entry("Can backup a 7-segment cluster and restore to current cluster single data file", "20220912101931", "", "7-segment-db-single-data-file", false, false, true, false),
+			Entry("Can backup a 7-segment cluster and restore to current cluster with a filter", "20220908145645", "", "7-segment-db-filter", false, true, false, false),
+			Entry("Can backup a 7-segment cluster and restore to current cluster with single data file and filter", "20220912102413", "", "7-segment-db-single-data-file-filter", false, true, true, false),
+			Entry("Can backup a 2-segment cluster and restore to current cluster single data file and filter", "20220908150223", "", "2-segment-db-single-data-file-filter", false, true, true, false),
+			Entry("Can backup a 2-segment cluster and restore to current cluster single data file", "20220908150159", "", "2-segment-db-single-data-file", false, false, true, false),
+			Entry("Can backup a 2-segment cluster and restore to current cluster with filter", "20220908150238", "", "2-segment-db-filter", false, true, false, false),
+			Entry("Can backup a 2-segment cluster and restore to current cluster with incremental backups and a single data file", "20220909150612", "20220909150622", "2-segment-db-incremental", true, false, false, false),
+			Entry("Can backup a 1-segment cluster and restore to current cluster", "20220908150735", "", "1-segment-db", false, false, false, false),
+			Entry("Can backup a 1-segment cluster and restore to current cluster with single data file", "20220908150752", "", "1-segment-db-single-data-file", false, false, true, false),
+			Entry("Can backup a 1-segment cluster and restore to current cluster with a filter", "20220908150804", "", "1-segment-db-filter", false, true, false, false),
+			Entry("Can backup a 3-segment cluster and restore to current cluster", "20220909094828", "", "3-segment-db", false, false, false, false),
+
+			// These tests will only run in CI, to avoid requiring developers to configure a plugin locally.
+			// We don't do as many combinatoric tests for resize restores using plugins, partly for storage space reasons and partly because
+			// we assume that if all of the above resize restores work and basic plugin restores work then the intersection should also work.
+			Entry("Can perform a backup and full restore of a 7-segment cluster using a plugin", "20220912101931", "", "7-segment-db-single-data-file", false, false, true, true),
+			Entry("Can perform a backup and full restore of a 2-segment cluster using a plugin", "20220908150159", "", "2-segment-db-single-data-file", false, false, true, true),
+			Entry("Can perform a backup and incremental restore of a 2-segment cluster using a plugin", "20220909150612", "20220909150622", "2-segment-db-incremental", true, false, false, true),
 		)
 
 		Describe("Restore from various-sized clusters with a replicated table", func() {
