@@ -5,13 +5,17 @@ image_resource:
 
 inputs:
 - name: gpbackup
-- name: rhel-gppkg
-- name: sles-gppkg
-  optional: true
+- name: rhel6-gppkg
+- name: rhel7-gppkg
+- name: rhel8-gppkg
 - name: ubuntu-gppkg
   optional: true
 - name: gpbackup-tools-versions
-- name: gpbackup-go-components
+- name: gpbackup-go-components-rhel6
+- name: gpbackup-go-components-rhel7
+- name: gpbackup-go-components-rhel8
+- name: gpbackup-go-components-ubuntu
+  optional: true
 
 outputs:
 - name: gppkgs

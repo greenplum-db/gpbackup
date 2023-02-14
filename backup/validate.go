@@ -133,7 +133,6 @@ func validateFlagValues() {
 	}
 }
 
-// AJR TODO -- rewrite this to use sqlite instead
 func validateFromTimestamp(fromTimestamp string) {
 	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
 		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix)

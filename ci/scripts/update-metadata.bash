@@ -92,6 +92,4 @@ popd
 
 echo ${TILE_RELEASE_VERSION} > workspace/tile_release_version
 rm workspace/files-to-upload/*_version
-# We must remove unnecessary GP7 artifacts from the pivnet upload directory
-rm workspace/files-to-upload/*-gp7-*
 ls -l workspace/files-to-upload

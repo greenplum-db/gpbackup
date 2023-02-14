@@ -15,6 +15,26 @@ localedef -c -i de_DE -f UTF-8 de_DE
 echo LANG=\"de_DE\" >> /etc/locale.conf
 source /etc/locale.conf
 
+## old versions of ld have a bug that our CGO libs exercise. update binutils to avoid it
+set +e
+OLDLDVERSION=$(ld --version | grep "2.25");
+set -e
+if [[ ${OS} == "RHEL6" ]]; then
+    ## have to use vault to update because centos6 is EOL
+    sudo yum install -y centos-release-scl
+    echo "https://vault.centos.org/6.10/os/x86_64/" > /var/cache/yum/x86_64/6/C6.10-base/mirrorlist.txt
+    echo "http://vault.centos.org/6.10/extras/x86_64/" > /var/cache/yum/x86_64/6/C6.10-extras/mirrorlist.txt
+    echo "http://vault.centos.org/6.10/updates/x86_64/" > /var/cache/yum/x86_64/6/C6.10-updates/mirrorlist.txt
+    mkdir /var/cache/yum/x86_64/6/centos-sclo-rh/
+    echo "http://vault.centos.org/6.10/sclo/x86_64/rh" > /var/cache/yum/x86_64/6/centos-sclo-rh/mirrorlist.txt
+    mkdir /var/cache/yum/x86_64/6/centos-sclo-sclo/
+    echo "http://vault.centos.org/6.10/sclo/x86_64/sclo" > /var/cache/yum/x86_64/6/centos-sclo-sclo/mirrorlist.txt
+    sudo yum install -y devtoolset-7-binutils*
+    \cp /opt/rh/devtoolset-7/root/usr/bin/ld /usr/bin/ld
+elif [[ $OLDLDVERSION != "" ]]; then
+    yum install -y binutils
+fi
+
 mkdir /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
 

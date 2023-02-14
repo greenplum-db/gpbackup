@@ -2,9 +2,6 @@ platform: linux
 
 image_resource:
   type: registry-image
-  source:
-    repository: gcr.io/data-gpdb-public-images/gpdb6-centos7-build
-    tag: latest
 
 inputs:
 - name: gpbackup
@@ -17,6 +14,9 @@ inputs:
 outputs:
 - name: output_deps
 - name: go_components
+
+params:
+    OS: RHEL8
 
 run:
   path: go/src/github.com/greenplum-db/gpbackup/ci/scripts/build-go-binaries.bash

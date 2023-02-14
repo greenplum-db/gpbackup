@@ -18,37 +18,39 @@ release:
   end_of_support_date: <END_OF_SUPPORT_DATE>
 
 product_files:
-########## SLES Gppkgs ##########
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-sles-x86_64.gppkg
+########## RHEL8 Gppkgs ##########
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp7-rhel8-x86_64.gppkg
     description:
-    upload_as: Backup and Restore for GP 6 on SLES
+    upload_as: Backup and Restore for GP 7 on RHEL8
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-sles-x86_64.gppkg
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel8-x86_64.gppkg
     description:
-    upload_as: Backup and Restore for GP 5 on SLES
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp4.3orca-sles-x86_64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 4 on SLES
+    upload_as: Backup and Restore for GP 6 on RHEL8
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
 
-########## RHEL Gppkgs ##########
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel-x86_64.gppkg
+########## RHEL7 Gppkgs ##########
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel7-x86_64.gppkg
     description:
-    upload_as: Backup and Restore for GP 6 on RHEL
+    upload_as: Backup and Restore for GP 6 on RHEL7
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel-x86_64.gppkg
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel7-x86_64.gppkg
     description:
-    upload_as: Backup and Restore for GP 5 on RHEL
+    upload_as: Backup and Restore for GP 5 on RHEL7
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp4.3orca-rhel-x86_64.gppkg
+
+########## RHEL6 Gppkgs ##########
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel6-x86_64.gppkg
     description:
-    upload_as: Backup and Restore for GP 4 on RHEL
+    upload_as: Backup and Restore for GP 6 on RHEL6
+    file_type: Software
+    file_version: <TILE_RELEASE_VERSION>
+  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel6-x86_64.gppkg
+    description:
+    upload_as: Backup and Restore for GP 5 on RHEL6
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
 
@@ -62,7 +64,7 @@ product_files:
 ########## Binary Tarball ##########
   - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>.tar.gz
     description:
-    upload_as: Backup and Restore for GP 4 / 5 / 6 compressed tarball
+    upload_as: Backup and Restore for GP 5 / 6 / 7 compressed tarball
     file_type: Software
     file_version: <TILE_RELEASE_VERSION>
 

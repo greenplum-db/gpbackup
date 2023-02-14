@@ -3,10 +3,9 @@
 set -ex
 
 cp gpbackup-tools-versions/* gppkgs/
-mv rhel-gppkg/* gppkgs/
-if [[ -d sles-gppkg ]]; then
-    mv sles-gppkg/* gppkgs/
-fi
+mv rhel6-gppkg/* gppkgs/
+mv rhel7-gppkg/* gppkgs/
+mv rhel8-gppkg/* gppkgs/
 if [[ -d ubuntu-gppkg ]]; then
     mv ubuntu-gppkg/* gppkgs/
 fi

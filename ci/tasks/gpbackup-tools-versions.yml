@@ -4,7 +4,7 @@ image_resource:
   type: registry-image
 
 inputs:
-- name: gpbackup-go-components
+- name: gpbackup-go-components-rhel8
 - name: gpbackup_ddboost_plugin
 - name: gpbackup
 - name: pivnet_release_cache

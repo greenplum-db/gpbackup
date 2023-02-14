@@ -9,7 +9,7 @@ TEST_GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9].[0-9]\+
 GPDB_VERSION=$(echo ${TEST_GPDB_VERSION} | head -c 1)
 mkdir -p /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*RHEL*.gppkg cdw:/home/gpadmin
+scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg cdw:/home/gpadmin
 ssh -t cdw "source env.sh; gppkg -q gpbackup*gp*.gppkg | grep 'is installed' || gppkg -i gpbackup_tools*.gppkg"
 
 # place correct tarballs in gpbackup dir for consumption
