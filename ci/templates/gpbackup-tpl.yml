@@ -231,12 +231,6 @@ resources:
     repository: gcr.io/data-gpdb-public-images/gpdb5-centos7-build-test
     tag: latest
 
-- name: centos7-gpdb6-image
-  type: registry-image
-  source:
-    repository: gcr.io/data-gpdb-public-images/gpdb6-centos7-test
-    tag: latest
-
 - name: centos7-gpdb6-build-image
   type: registry-image
   source:
@@ -1347,7 +1341,7 @@ jobs:
 - name: GPDB6
   plan:
   - in_parallel:
-    - get: centos7-gpdb6-image
+    - get: centos7-gpdb6-golang-image
     - get: rocky8-gpdb6-image
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: ubuntu-debian-test-image
@@ -1370,7 +1364,7 @@ jobs:
       passed: [build_gppkgs]
   - in_parallel:
     - task: run-tests-locally-centos7
-      image: centos7-gpdb6-image
+      image: centos7-gpdb6-golang-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
@@ -1401,7 +1395,7 @@ jobs:
 - name: GPDB6-7-seg-cluster
   plan:
   - in_parallel:
-    - get: centos7-gpdb6-image
+    - get: centos7-gpdb6-golang-image
     - get: rocky8-gpdb6-image
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: ubuntu-debian-test-image
@@ -1424,7 +1418,7 @@ jobs:
       passed: [build_gppkgs]
   - in_parallel:
     - task: run-tests-locally-centos7
-      image: centos7-gpdb6-image
+      image: centos7-gpdb6-golang-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true

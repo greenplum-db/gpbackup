@@ -43,7 +43,7 @@ cat <<SCRIPT > /tmp/run_tests.bash
     make end_to_end
   else
     make install helper_path=/tmp/\${OLD_BACKUP_VERSION}/gpbackup_helper
-    ginkgo -r -randomizeSuites -slowSpecThreshold=10 -noisySkippings=false -randomizeAllSpecs end_to_end -- --custom_backup_dir "/tmp" 2>&1
+    ginkgo -r --randomize-suites --poll-progress-after=0s --randomize-all --no-color end_to_end -- --custom_backup_dir "/tmp" 2>&1
   fi
 SCRIPT
 

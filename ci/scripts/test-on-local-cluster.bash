@@ -2,14 +2,6 @@
 
 set -ex
 
-GO_VERSION=1.17.6
-
-# If go is not installed or it's not the expected version, install the expected version
-if ! command -v go &> /dev/null || ! $(go version | grep -q ${GO_VERSION}); then
-  wget https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz
-  rm -rf /usr/local/go && tar -xzf go${GO_VERSION}.linux-amd64.tar.gz -C /usr/local
-fi
-
 # Add locale for locale tests
 localedef -c -i de_DE -f UTF-8 de_DE
 echo LANG=\"de_DE\" >> /etc/locale.conf

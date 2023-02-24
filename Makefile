@@ -30,8 +30,8 @@ helper_path ?= $(BIN_DIR)/$(HELPER)
 depend :
 	go mod download
 
-$(GINKGO) : # v1.14.0 is compatible with centos6 default gcc version
-	go install github.com/onsi/ginkgo/v2/ginkgo@v2.2.0
+$(GINKGO) :
+	go install github.com/onsi/ginkgo/v2/ginkgo@v2.8.4
 
 $(GOIMPORTS) :
 	go install golang.org/x/tools/cmd/goimports@latest
@@ -67,7 +67,7 @@ integration : $(GINKGO)
 test : build unit integration
 
 end_to_end : $(GINKGO)
-	ginkgo $(GINKGO_FLAGS) --timeout=3h --slow-spec-threshold=10s end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
+	ginkgo $(GINKGO_FLAGS) --timeout=3h --poll-progress-after=0s end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
 
 coverage :
 		@./show_coverage.sh
