@@ -109,10 +109,16 @@ func VerifyHelperVersionOnSegments(version string, c *cluster.Cluster) {
 
 	numIncorrect := 0
 	for contentID, cmd := range remoteOutput.Commands {
-		segVersion := strings.TrimSpace(cmd.Stdout)
-		segVersion = strings.Split(segVersion, " ")[2] // Format is "gpbackup_helper version [version string]"
-		if segVersion != version {
-			gplog.Verbose("Version mismatch for gpbackup_helper on segment %d on host %s: Expected version %s, found version %s.", contentID, c.GetHostForContent(contentID), version, segVersion)
+		parsedSegVersion := ""
+		segVersion := strings.TrimSpace(cmd.Stdout) // Expected format is "gpbackup_helper version [version string]"
+		splitSegVersion := strings.Split(segVersion, " ")
+		if len(splitSegVersion) == 3 {
+			// Array access placed inside a length guard to keep error messages nice, instead of
+			// spilling panics to the log
+			parsedSegVersion = splitSegVersion[2]
+		}
+		if parsedSegVersion != version {
+			gplog.Verbose("Version mismatch for gpbackup_helper on segment %d on host %s: Expected version %s, found version %s.", contentID, c.GetHostForContent(contentID), version, parsedSegVersion)
 			numIncorrect++
 		}
 	}
