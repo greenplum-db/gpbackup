@@ -302,6 +302,10 @@ var _ = Describe("End to End incremental tests", func() {
 
 					gpbackupPathOld, backupHelperPathOld := gpbackupPath, backupHelperPath
 					gpbackupPath, backupHelperPath, _ = buildAndInstallBinaries()
+					// TODO -- ensure that this is installed and we have a path to it?  Only called
+					// in CI currently
+					migrateCommand := exec.Command("gpbackup_manager", "migrate-history")
+					mustRunCommand(migrateCommand)
 
 					testhelper.AssertQueryRuns(backupConn,
 						"INSERT into schema2.ao1 values(1002)")
