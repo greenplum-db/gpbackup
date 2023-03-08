@@ -9,13 +9,12 @@ inputs:
 - name: release_components_rhel7
 - name: release_components_rhel8
 - name: release_components_ubuntu
-- name: gpbackup-release-license
-- name: pivnet_release_cache
-- name: gppkgs
-- name: tanzunet_client
 
 outputs:
-- name: workspace
+- name: components_untarred_rhel6
+- name: components_untarred_rhel7
+- name: components_untarred_rhel8
+- name: components_untarred_ubuntu
 
 run:
-  path: gpbackup/ci/scripts/update-metadata.bash
+  path: gpbackup/ci/scripts/prepare_release.bash

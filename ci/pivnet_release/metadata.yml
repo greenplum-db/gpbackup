@@ -17,60 +17,89 @@ release:
   license_exception: NLR
   end_of_support_date: <END_OF_SUPPORT_DATE>
 
+file_groups:
+- name: GPDB7
+  product_files:
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp7-rhel8-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 7 on RHEL8
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel8.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 7 on RHEL8 compressed tarball
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+
+- name: GPDB6
+  product_files:
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel8-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL8
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel7-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL7
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel6-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL6
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 6 on Ubuntu 18.04
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel8.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL8 compressed tarball
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel7.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL7 compressed tarball
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel6.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL6 compressed tarball
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-ubuntu.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 6 on Ubuntu 18.04 compressed tarball
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+
+- name: GPDB5
+  product_files:
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel7-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 5 on RHEL7
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel6-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 5 on RHEL6
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel7.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 5 on RHEL7 compressed tarball
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel6.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 5 on RHEL6 compressed tarball
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+
 product_files:
-########## RHEL8 Gppkgs ##########
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp7-rhel8-x86_64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 7 on RHEL8
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel8-x86_64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 6 on RHEL8
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-
-########## RHEL7 Gppkgs ##########
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel7-x86_64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 6 on RHEL7
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel7-x86_64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 5 on RHEL7
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-
-########## RHEL6 Gppkgs ##########
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel6-x86_64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 6 on RHEL6
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel6-x86_64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 5 on RHEL6
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-
-########## Ubuntu Debian Gppkgs ##########
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.gppkg
-    description:
-    upload_as: Backup and Restore for GP 6 on Ubuntu 18.04
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-
-########## Binary Tarball ##########
-  - file: workspace/files-to-upload/pivotal_greenplum_backup_restore-<TILE_RELEASE_VERSION>.tar.gz
-    description:
-    upload_as: Backup and Restore for GP 5 / 6 / 7 compressed tarball
-    file_type: Software
-    file_version: <TILE_RELEASE_VERSION>
-
-########## License ##########
-  - file: workspace/files-to-upload/<OSL_FILENAME>
-    upload_as: Open Source Licenses for VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION>
-    description: Open Source Licenses for VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION>
-    file_type: Open Source License
-    file_version: <TILE_RELEASE_VERSION>
+- file: file://<OSL_FILENAME>
+  upload_as: Open Source Licenses for VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION>
+  description: Open Source Licenses for VMware Tanzu™ Greenplum® Backup and Restore <TILE_RELEASE_VERSION>
+  file_type: Open Source License
+  file_version: <TILE_RELEASE_VERSION>

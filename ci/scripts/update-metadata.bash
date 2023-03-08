@@ -2,16 +2,40 @@
 
 set -ex
 
+export TANZUNET_REFRESH_TOKEN=${TANZUNET_REFRESH_TOKEN}
 mkdir workspace/files-to-upload
 
-# Add binary tarball to pivnet upload, excluding version strings
-cp github_release_components_rc/*.gz /tmp/
-pushd /tmp
-  mkdir untarred
-  tar xzf *.gz -C untarred
-popd
-cp /tmp/untarred/bin_gpbackup.tar.gz workspace/files-to-upload/
+##############################
+# Add binary tarballs to pivnet upload, excluding version strings
+mkdir /tmp/rhel6
+mkdir /tmp/rhel7
+mkdir /tmp/rhel8
+mkdir /tmp/ubuntu
 
+cp release_componenents_rhel6/*.gz /tmp/rhel6
+cp release_componenents_rhel7/*.gz /tmp/rhel7
+cp release_componenents_rhel8/*.gz /tmp/rhel8
+cp release_componenents_ubuntu/*.gz /tmp/ubuntu
+
+pushd /tmp
+    mkdir untarred_rhel6
+    mkdir untarred_rhel7
+    mkdir untarred_rhel8
+    mkdir untarred_ubuntu
+
+    tar xzf rhel6/*.gz -C untarred_rhel6
+    tar xzf rhel7/*.gz -C untarred_rhel7
+    tar xzf rhel8/*.gz -C untarred_rhel8
+    tar xzf ubuntu/*.gz -C untarred_ubuntu
+popd
+
+cp /tmp/untarred_rhel6/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-rhel6.tar.gz
+cp /tmp/untarred_rhel7/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-rhel7.tar.gz
+cp /tmp/untarred_rhel8/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-rhel8.tar.gz
+cp /tmp/untarred_ubuntu/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-ubuntu.tar.gz
+##############################
+
+##############################
 cp gpbackup/ci/pivnet_release/metadata.yml workspace/
 tar xzf gppkgs/gpbackup-gppkgs.tar.gz -C workspace/files-to-upload/
 GPBACKUP_VERSION=$(cat workspace/files-to-upload/gpbackup_version)
@@ -81,15 +105,34 @@ cat workspace/metadata.yml
 pushd workspace/files-to-upload
   # rename files to match the name inside metadata.yml
   for filename in *.gppkg; do
-    newFilename=$(sed -e "s/gpbackup_tools-[+0-9a-z.]*/pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}/" -e "s/RHEL/rhel/" -e "s/SLES/sles/" <<< "$filename")
+    newFilename=$(sed -e "s/gpbackup_tools-[+0-9a-z.]*/greenplum_backup_restore-${TILE_RELEASE_VERSION}/" -e "s/RHEL/rhel/" -e "s/SLES/sles/" <<< "$filename")
     if ! [ "$filename" == "$newFilename" ]; then
       mv "$filename" "$newFilename"
     fi
   done
-  # rename binary tarball
-  mv "bin_gpbackup.tar.gz" "pivotal_greenplum_backup_restore-${TILE_RELEASE_VERSION}.tar.gz"
+
+  # rename binary tarballs, to match the name inside metadata.yml
+  for filename in *.tar.gz; do
+      newFilename="${filename/bin_gpbackup/greenplum_backup_restore-${TILE_RELEASE_VERSION}}"
+      if ! [ "$filename" == "$newFilename" ]; then
+          mv "$filename" "$newFilename"
+      fi
+  done
 popd
 
 echo ${TILE_RELEASE_VERSION} > workspace/tile_release_version
 rm workspace/files-to-upload/*_version
 ls -l workspace/files-to-upload
+
+push_to_tanzunet() {
+	set -ex
+	chmod a+x tanzunet_client/gp-tanzunet-client
+	tanzunet_client/gp-tanzunet-client upload -g "${TILE_RELEASE_VERSION}"\
+                                       -m "workspace/metadata.yml" -s "workspace/files-to-upload"\
+                                       --tanzunet-endpoint "https://network.tanzu.vmware.com" --tanzunet-slug "greenplum-backup-restore"\
+                                       --debug
+}
+
+if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
+	push_to_tanzunet
+fi
