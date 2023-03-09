@@ -338,6 +338,33 @@ PARTITION BY LIST (gender)
           )`, partitionPartFalseExpectation)
 			Expect(result[oid]).To(Equal(expectedResult))
 		})
+		It("returns a value for a partition definition for a table with a negative partition value", func() {
+			// this test exercises a corner case bug that was fixed in GPDB6:
+			// https://github.com/greenplum-db/gpdb/pull/13330
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (id int)
+DISTRIBUTED BY (id)
+PARTITION BY LIST (id)
+( PARTITION negative VALUES (-1, 1),
+  PARTITION zero VALUES (0),
+  DEFAULT PARTITION other );
+			`)
+			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
+
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.part_table")
+
+			results, _ := backup.GetPartitionDetails(connectionPool)
+			Expect(results).To(HaveLen(1))
+			result := results[oid]
+
+			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table")
+
+			// ensure that the partition definition generated is valid SQL
+			newTableQuery := fmt.Sprintf(`CREATE TABLE public.part_table2 (id int)
+DISTRIBUTED BY (id)
+%s`, result)
+			testhelper.AssertQueryRuns(connectionPool, newTableQuery)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table2")
+		})
 		It("returns a value for a partition definition for a specific table", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (id int, rank int, year int, gender
 char(1), count int )
