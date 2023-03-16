@@ -338,9 +338,11 @@ PARTITION BY LIST (gender)
           )`, partitionPartFalseExpectation)
 			Expect(result[oid]).To(Equal(expectedResult))
 		})
-		It("returns a value for a partition definition for a table with a negative partition value", func() {
+		PIt("returns a value for a partition definition for a table with a negative partition value", func() {
+			// Pend test until this fix makes it into an RC
 			// this test exercises a corner case bug that was fixed in GPDB6:
 			// https://github.com/greenplum-db/gpdb/pull/13330
+			testutils.SkipIfBefore6(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (id int)
 DISTRIBUTED BY (id)
 PARTITION BY LIST (id)
