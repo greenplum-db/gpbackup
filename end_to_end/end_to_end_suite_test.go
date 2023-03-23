@@ -298,8 +298,12 @@ func createGlobalObjects(conn *dbconn.DBConn) {
 	testhelper.AssertQueryRuns(conn, "CREATE DATABASE global_db TABLESPACE test_tablespace;")
 	testhelper.AssertQueryRuns(conn, "ALTER DATABASE global_db OWNER TO global_role;")
 	testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role SET search_path TO public,pg_catalog;")
-	if conn.Version.AtLeast("5") {
+	if conn.Version.Is("5") || conn.Version.Is("6") {
 		testhelper.AssertQueryRuns(conn, "CREATE RESOURCE GROUP test_group WITH (CPU_RATE_LIMIT=1, MEMORY_LIMIT=1);")
+	} else if conn.Version.AtLeast("7") {
+		testhelper.AssertQueryRuns(conn, "CREATE RESOURCE GROUP test_group WITH (CPU_HARD_QUOTA_LIMIT=1, MEMORY_LIMIT=1);")
+	}
+	if conn.Version.AtLeast("5") {
 		testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role RESOURCE GROUP test_group;")
 	}
 }
@@ -1724,7 +1728,6 @@ LANGUAGE plpgsql NO SQL;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schematwo CASCADE;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemathree CASCADE;`)
 
-
 				if !testUsesPlugin { // No need to manually move files when using a plugin
 					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
 					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp, incrementalTimestamp)
@@ -1859,7 +1862,6 @@ LANGUAGE plpgsql NO SQL;`)
 					}
 					extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
 					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
-
 
 					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
 					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp)

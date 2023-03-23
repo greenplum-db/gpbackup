@@ -183,15 +183,10 @@ func GetResourceQueues(connectionPool *dbconn.DBConn) []ResourceQueue {
 }
 
 type ResourceGroup struct {
-	Oid               uint32
-	Name              string
-	Concurrency       string
-	CPURateLimit      string
-	MemoryLimit       string
-	MemorySharedQuota string
-	MemorySpillRatio  string
-	MemoryAuditor     string
-	Cpuset            string
+	Oid         uint32 `db:"oid"`
+	Name        string `db:"name"`
+	Concurrency string `db:"concurrency"`
+	Cpuset      string `db:"cpuset"`
 }
 
 func (rg ResourceGroup) GetMetadataEntry() (string, toc.MetadataEntry) {
@@ -214,11 +209,29 @@ func (rg ResourceGroup) FQN() string {
 	return rg.Name
 }
 
-func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
-	selectClause := ""
-	// This is when pg_dumpall was changed to use the actual values
-	if connectionPool.Version.AtLeast("5.2.0") {
-		selectClause += `
+type ResourceGroupBefore7 struct {
+	ResourceGroup            // embedded common rg fields+methods
+	CPURateLimit      string `db:"cpuratelimit"`
+	MemoryLimit       string `db:"memorylimit"`
+	MemorySharedQuota string `db:"memorysharedquota"`
+	MemorySpillRatio  string `db:"memoryspillratio"`
+	MemoryAuditor     string `db:"memoryauditor"`
+}
+
+type ResourceGroupAtLeast7 struct {
+	ResourceGroup            // embedded common rg fields+methods
+	CpuHardQuotaLimit string `db:"cpu_hard_quota_limit"`
+	CpuSoftPriority   string `db:"cpu_soft_priority"`
+}
+
+func GetResourceGroups[T ResourceGroupBefore7 | ResourceGroupAtLeast7](connectionPool *dbconn.DBConn) []T {
+	var query string
+
+	if connectionPool.Version.Before("7") {
+		before7SelectClause := ""
+		// This is when pg_dumpall was changed to use the actual values
+		if connectionPool.Version.AtLeast("5.2.0") {
+			before7SelectClause += `
 		SELECT g.oid,
 			quote_ident(g.rsgname) AS name,
 			t1.value AS concurrency,
@@ -226,8 +239,8 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 			t3.value AS memorylimit,
 			t4.value AS memorysharedquota,
 			t5.value AS memoryspillratio`
-	} else { // GPDB 5.0.0 and 5.1.0
-		selectClause += `
+		} else { // GPDB 5.0.0 and 5.1.0
+			before7SelectClause += `
 		SELECT g.oid,
 			quote_ident(g.rsgname) AS name,
 			t1.proposed AS concurrency,
@@ -235,50 +248,54 @@ func GetResourceGroups(connectionPool *dbconn.DBConn) []ResourceGroup {
 			t3.proposed AS memorylimit,
 			t4.proposed AS memorysharedquota,
 			t5.proposed AS memoryspillratio`
+		}
+
+		before7FromClause := `
+	    FROM pg_resgroup g
+	    	JOIN pg_resgroupcapability t1 ON t1.resgroupid = g.oid AND t1.reslimittype = 1
+	    	JOIN pg_resgroupcapability t2 ON t2.resgroupid = g.oid AND t2.reslimittype = 2
+	    	JOIN pg_resgroupcapability t3 ON t3.resgroupid = g.oid AND t3.reslimittype = 3
+	    	JOIN pg_resgroupcapability t4 ON t4.resgroupid = g.oid AND t4.reslimittype = 4
+	    	JOIN pg_resgroupcapability t5 ON t5.resgroupid = g.oid AND t5.reslimittype = 5`
+
+		// The reslimittype 6 (memoryauditor) was introduced in GPDB
+		// 5.8.0. Default the value to '0' (vmtracker) since there could
+		// be a resource group created before 5.8.0 which will not have
+		// this memoryauditor field defined.
+		if connectionPool.Version.AtLeast("5.8.0") {
+			before7SelectClause += `, coalesce(t6.value, '0') AS memoryauditor`
+			before7FromClause += ` LEFT JOIN pg_resgroupcapability t6 ON t6.resgroupid = g.oid AND t6.reslimittype = 6`
+		}
+
+		// The reslimittype 7 (cpuset) was introduced in GPDB
+		// 5.9.0. Default the value to '-1' since there could be a
+		// resource group created before 5.9.0 which will not have this
+		// cpuset field defined.
+		if connectionPool.Version.AtLeast("5.9.0") {
+			before7SelectClause += `, coalesce(t7.value, '-1') AS cpuset`
+			before7FromClause += ` LEFT JOIN pg_resgroupcapability t7 ON t7.resgroupid = g.oid AND t7.reslimittype = 7`
+		}
+		query = fmt.Sprintf(`%s %s;`, before7SelectClause, before7FromClause)
+	} else { // GPDB7+
+		// Resource groups were heavily reworked for GPDB7
+		// See: https://github.com/greenplum-db/gpdb/commit/483adea86b50c1759460a6265b3d8e3f4198d92e
+		query = `
+			SELECT
+				g.oid       AS oid,
+				g.rsgname   AS name,
+				t1.value    AS concurrency,
+				t2.value    AS cpu_hard_quota_limit,
+				t3.value    AS cpu_soft_priority,
+				t4.value    AS cpuset
+			FROM pg_resgroup g
+				JOIN pg_resgroupcapability t1 ON g.oid = t1.resgroupid AND t1.reslimittype = 1
+				JOIN pg_resgroupcapability t2 ON g.oid = t2.resgroupid AND t2.reslimittype = 2
+				JOIN pg_resgroupcapability t3 ON g.oid = t3.resgroupid AND t3.reslimittype = 3
+				LEFT JOIN pg_resgroupcapability t4 ON g.oid = t4.resgroupid AND t4.reslimittype = 4`
 	}
 
-	fromClause := `
-	FROM pg_resgroup g
-		JOIN pg_resgroupcapability t1 ON t1.resgroupid = g.oid
-		JOIN pg_resgroupcapability t2 ON t2.resgroupid = g.oid
-		JOIN pg_resgroupcapability t3 ON t3.resgroupid = g.oid
-		JOIN pg_resgroupcapability t4 ON t4.resgroupid = g.oid
-		JOIN pg_resgroupcapability t5 ON t5.resgroupid = g.oid`
-
-	whereClause := `
-	WHERE t1.reslimittype = 1 AND
-		t2.reslimittype = 2 AND
-		t3.reslimittype = 3 AND
-		t4.reslimittype = 4 AND
-		t5.reslimittype = 5`
-
-	// The reslimittype 6 (memoryauditor) was introduced in GPDB
-	// 5.8.0. Default the value to '0' (vmtracker) since there could
-	// be a resource group created before 5.8.0 which will not have
-	// this memoryauditor field defined.
-	if connectionPool.Version.AtLeast("5.8.0") {
-		selectClause += `,
-		coalesce(t6.value, '0') AS memoryauditor`
-
-		fromClause += `
-		LEFT JOIN pg_resgroupcapability t6 ON t6.resgroupid = g.oid AND t6.reslimittype = 6`
-	}
-
-	// The reslimittype 7 (cpuset) was introduced in GPDB
-	// 5.9.0. Default the value to '-1' since there could be a
-	// resource group created before 5.9.0 which will not have this
-	// cpuset field defined.
-	if connectionPool.Version.AtLeast("5.9.0") {
-		selectClause += `,
-		coalesce(t7.value, '-1') AS cpuset`
-
-		fromClause += `
-		LEFT JOIN pg_resgroupcapability t7 ON t7.resgroupid = g.oid AND t7.reslimittype = 7`
-	}
-
-	results := make([]ResourceGroup, 0)
-	query := fmt.Sprintf(`%s %s %s;`, selectClause, fromClause, whereClause)
-	err := connectionPool.Select(&results, query)
+	results := make([]T, 0)
+	err := connectionPool.Select(&results, query) // AJR TODO -- not sure this is smart enough to deserialize into a generic struct.  let's find out!
 	gplog.FatalOnError(err)
 	return results
 }

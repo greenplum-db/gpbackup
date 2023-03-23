@@ -106,14 +106,25 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	 * failing case is that default_group has memory_limit=100 and admin_group
 	 * has memory_limit=0, but this should not happen in real world.
 	 */
-	defSettings := []struct {
+
+	type DefSetting struct {
 		name    string
 		setting string
-	}{
-		{"admin_group", "SET CPU_RATE_LIMIT 1"},
-		{"admin_group", "SET MEMORY_LIMIT 1"},
-		{"default_group", "SET CPU_RATE_LIMIT 1"},
-		{"default_group", "SET MEMORY_LIMIT 1"},
+	}
+	defSettings := make([]DefSetting, 0)
+
+	if connectionPool.Version.Before("7") {
+		defSettings = append(defSettings, DefSetting{"admin_group", "SET CPU_RATE_LIMIT 1"})
+		defSettings = append(defSettings, DefSetting{"admin_group", "SET MEMORY_LIMIT 1"})
+		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_RATE_LIMIT 1"})
+		defSettings = append(defSettings, DefSetting{"default_group", "SET MEMORY_LIMIT 1"})
+	} else { // GPDB7+
+		defSettings = append(defSettings, DefSetting{"admin_group", "SET CPU_HARD_QUOTA_LIMIT 1"})
+		defSettings = append(defSettings, DefSetting{"admin_group", "SET CPU_SOFT_PRIORITY 100"})
+		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_HARD_QUOTA_LIMIT 1"})
+		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_SOFT_PRIORITY 100"})
+		defSettings = append(defSettings, DefSetting{"system_group", "SET CPU_HARD_QUOTA_LIMIT 1"})
+		defSettings = append(defSettings, DefSetting{"system_group", "SET CPU_SOFT_PRIORITY 100"})
 	}
 
 	for _, prepare := range defSettings {
@@ -125,7 +136,64 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 	}
 }
 
-func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, resGroups []ResourceGroup, resGroupMetadata MetadataMap) {
+func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByteCount, toc *toc.TOC, resGroups []ResourceGroupAtLeast7, resGroupMetadata MetadataMap) {
+	for _, resGroup := range resGroups {
+		var start uint64
+		section, entry := resGroup.GetMetadataEntry()
+		if resGroup.Name == "default_group" || resGroup.Name == "admin_group" || resGroup.Name == "system_group" {
+			resGroupList := []struct {
+				setting string
+				value   string
+			}{
+				{"CPU_SOFT_PRIORITY", resGroup.CpuSoftPriority},
+				{"CONCURRENCY", resGroup.Concurrency},
+			}
+			for _, property := range resGroupList {
+				start = metadataFile.ByteCount
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET %s %s;", resGroup.Name, property.setting, property.value)
+
+				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			}
+
+			/* special handling for cpu properties */
+			// TODO -- why do we handle these separately?
+			// TODO -- is this still necessary for 7?
+			start = metadataFile.ByteCount
+			if !strings.HasPrefix(resGroup.CpuHardQuotaLimit, "-") {
+				/* cpu rate mode */
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_HARD_QUOTA_LIMIT %s;", resGroup.Name, resGroup.CpuHardQuotaLimit)
+			} else {
+				/* cpuset mode */
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
+			}
+
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
+		} else {
+			start = metadataFile.ByteCount
+			attributes := make([]string, 0)
+
+			/* special handling for cpu properties */
+			// TODO -- why do we handle these separately?
+			// TODO -- is this still necessary for 7?
+			if !strings.HasPrefix(resGroup.CpuHardQuotaLimit, "-") {
+				/* cpu rate mode */
+				attributes = append(attributes, fmt.Sprintf("CPU_HARD_QUOTA_LIMIT=%s", resGroup.CpuHardQuotaLimit))
+			} else if connectionPool.Version.AtLeast("5.9.0") {
+				/* cpuset mode */
+				attributes = append(attributes, fmt.Sprintf("CPUSET='%s'", resGroup.Cpuset))
+			}
+			attributes = append(attributes, fmt.Sprintf("CPU_SOFT_PRIORITY=%s", resGroup.CpuSoftPriority))
+			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%s", resGroup.Concurrency))
+			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
+
+			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
+		}
+	}
+}
+
+func PrintCreateResourceGroupStatementsBefore7(metadataFile *utils.FileWithByteCount, toc *toc.TOC, resGroups []ResourceGroupBefore7, resGroupMetadata MetadataMap) {
 	for _, resGroup := range resGroups {
 
 		// temporarily special case for 5x resource groups #temp5xResGroup
@@ -194,9 +262,9 @@ func PrintCreateResourceGroupStatements(metadataFile *utils.FileWithByteCount, t
 			 * - "0": vmtracker (default)
 			 */
 			if resGroup.MemoryAuditor == "1" {
-				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=cgroup"))
-			} else if connectionPool.Version.AtLeast("5.8.0"){
-				attributes = append(attributes, fmt.Sprintf("MEMORY_AUDITOR=vmtracker"))
+				attributes = append(attributes, "MEMORY_AUDITOR=cgroup")
+			} else if connectionPool.Version.AtLeast("5.8.0") {
+				attributes = append(attributes, "MEMORY_AUDITOR=vmtracker")
 			}
 
 			attributes = append(attributes, fmt.Sprintf("MEMORY_LIMIT=%s", resGroup.MemoryLimit))

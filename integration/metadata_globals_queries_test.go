@@ -156,49 +156,89 @@ var _ = Describe("backup integration tests", func() {
 			testutils.SkipIfBefore5(connectionPool)
 		})
 		It("returns a slice for a resource group with everything", func() {
-			testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=15);`)
-			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP "someGroup"`)
+			if connectionPool.Version.Before("7") {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=15);`)
+				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP "someGroup"`)
 
-			results := backup.GetResourceGroups(connectionPool)
+				results := backup.GetResourceGroups[backup.ResourceGroupBefore7](connectionPool)
 
-			someGroup := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: "10", MemoryLimit: "20", Concurrency: "15", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
+				someGroup := backup.ResourceGroupBefore7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, Concurrency: "15", Cpuset: "-1"},
+					CPURateLimit: "10", MemoryLimit: "20", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0"}
 
-			for _, resultGroup := range results {
-				if resultGroup.Name == `"someGroup"` {
-					structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "Oid")
-					return
+				for _, resultGroup := range results {
+					if resultGroup.Name == `"someGroup"` {
+						structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "ResourceGroup.Oid")
+						return
+					}
+				}
+			} else { // GPDB7+
+				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP someGroup WITH (CPU_HARD_QUOTA_LIMIT=10, CPU_SOFT_PRIORITY=100, CONCURRENCY=15);`)
+				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP someGroup`)
+
+				results := backup.GetResourceGroups[backup.ResourceGroupAtLeast7](connectionPool)
+
+				someGroup := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: `somegroup`, Concurrency: "15", Cpuset: "-1"},
+					CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+
+				for _, resultGroup := range results {
+					if resultGroup.Name == `somegroup` {
+						structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "ResourceGroup.Oid")
+						return
+					}
 				}
 			}
 			Fail("Resource group 'someGroup' was not found.")
 		})
 		It("returns a slice for a resource group with memory_auditor=vmtracker", func() {
+			if connectionPool.Version.AtLeast("7") {
+				Skip("Test only applicable to GPDB6 and earlier")
+			}
 			testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=0, MEMORY_AUDITOR=vmtracker);`)
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP "someGroup"`)
 
-			results := backup.GetResourceGroups(connectionPool)
+			results := backup.GetResourceGroups[backup.ResourceGroupBefore7](connectionPool)
 
-			someGroup := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: "10", MemoryLimit: "20", Concurrency: "0", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0", Cpuset: "-1"}
+			someGroup := backup.ResourceGroupBefore7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, Concurrency: "0", Cpuset: "-1"},
+				CPURateLimit: "10", MemoryLimit: "20", MemorySharedQuota: "25", MemorySpillRatio: "30", MemoryAuditor: "0"}
 
 			for _, resultGroup := range results {
 				if resultGroup.Name == `"someGroup"` {
-					structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "Oid")
+					structmatcher.ExpectStructsToMatchExcluding(&someGroup, &resultGroup, "ResourceGroup.Oid")
 					return
 				}
 			}
 			Fail("Resource group 'someGroup' was not found.")
 		})
 		It("returns a resource group with defaults", func() {
-			testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20);`)
-			defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP "someGroup"`)
+			if connectionPool.Version.Before("7") {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20);`)
+				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP "someGroup"`)
 
-			results := backup.GetResourceGroups(connectionPool)
+				results := backup.GetResourceGroups[backup.ResourceGroupBefore7](connectionPool)
 
-			expectedDefaults := backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, CPURateLimit: "10", MemoryLimit: "20", Concurrency: concurrencyDefault, MemorySharedQuota: memSharedDefault, MemorySpillRatio: memSpillDefault, MemoryAuditor: memAuditDefault, Cpuset: cpuSetDefault}
+				expectedDefaults := backup.ResourceGroupBefore7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: `"someGroup"`, Concurrency: concurrencyDefault, Cpuset: cpuSetDefault},
+					CPURateLimit: "10", MemoryLimit: "20", MemorySharedQuota: memSharedDefault, MemorySpillRatio: memSpillDefault, MemoryAuditor: memAuditDefault}
 
-			for _, resultGroup := range results {
-				if resultGroup.Name == `"someGroup"` {
-					structmatcher.ExpectStructsToMatchExcluding(&expectedDefaults, &resultGroup, "Oid")
-					return
+				for _, resultGroup := range results {
+					if resultGroup.Name == `"someGroup"` {
+						structmatcher.ExpectStructsToMatchExcluding(&expectedDefaults, &resultGroup, "ResourceGroup.Oid")
+						return
+					}
+				}
+			} else {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP someGroup WITH (CPU_HARD_QUOTA_LIMIT=10, CPU_SOFT_PRIORITY=100);`)
+				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP someGroup`)
+
+				results := backup.GetResourceGroups[backup.ResourceGroupAtLeast7](connectionPool)
+
+				expectedDefaults := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: `somegroup`, Concurrency: concurrencyDefault, Cpuset: cpuSetDefault},
+					CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+
+				for _, resultGroup := range results {
+					if resultGroup.Name == `somegroup` {
+						structmatcher.ExpectStructsToMatchExcluding(&expectedDefaults, &resultGroup, "ResourceGroup.Oid")
+						return
+					}
 				}
 			}
 			Fail("Resource group 'someGroup' was not found.")
