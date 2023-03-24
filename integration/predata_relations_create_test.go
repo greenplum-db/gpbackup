@@ -493,8 +493,10 @@ SET SUBPARTITION TEMPLATE ` + `
 		BeforeEach(func() {
 			if connectionPool.Version.Before("6") {
 				viewDef = sql.NullString{String: "SELECT 1;", Valid: true}
-			} else {
+			} else if connectionPool.Version.Is("6") {
 				viewDef = sql.NullString{String: " SELECT 1;", Valid: true}
+			} else { // GPDB7+
+				viewDef = sql.NullString{String: " SELECT 1 AS \"?column?\";", Valid: true}
 			}
 		})
 		It("creates a view with privileges, owner, security label, and comment", func() {
