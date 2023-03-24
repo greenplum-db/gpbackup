@@ -113,13 +113,14 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
 			if connectionPool.Version.AtLeast("7") {
 				// For GPDB 7+, the storage options no longer store the appendonly and orientation field
-				testTable.StorageOpts = "compresstype=zlib, blocksize=32768, compresslevel=1"
+				testTable.TableDefinition.StorageOpts = "compresstype=zlib, blocksize=32768, compresslevel=1, checksum=true"
 				testTable.TableDefinition.AccessMethodName = "ao_column"
 			}
 			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
 		})
 		It("creates a basic GPDB 7+ append-optimized table", func() {
 			testutils.SkipIfBefore7(connectionPool)
+			testTable.TableDefinition.StorageOpts = "blocksize=32768, compresslevel=0, compresstype=none, checksum=true"
 			testTable.TableDefinition.AccessMethodName = "ao_column"
 
 			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)

@@ -750,8 +750,9 @@ SET SUBPARTITION TEMPLATE
 			if connectionPool.Version.Before("7") {
 				Expect(result[oid]).To(Equal("appendonly=true"))
 			} else {
-				// For GPDB 7+, storage options no longer contain appendonly and orientation
-				Expect(result[oid]).To(Equal(""))
+				// For GPDB 7+, storage options no longer contain appendonly and orientation,
+				// instead populates with default compression values
+				Expect(result[oid]).To(Equal("blocksize=32768, compresslevel=0, compresstype=none, checksum=true"))
 			}
 		})
 	})
