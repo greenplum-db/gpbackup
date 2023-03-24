@@ -194,7 +194,10 @@ func storeAuxTable(tx *sql.Tx, arrayValues []string, tablename string, timestamp
 }
 
 func StoreBackupHistory(db *sql.DB, currentBackupConfig *BackupConfig) error {
-	currentBackupConfig.EndTime = CurrentTimestamp()
+	if currentBackupConfig.EndTime == "" {
+		// If we're migrating in prior backup records, we don't want to overwrite pre-existing EndTime values
+		currentBackupConfig.EndTime = CurrentTimestamp()
+	}
 	tx, _ := db.Begin()
 
 	_, err := tx.Exec("INSERT INTO backups VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
