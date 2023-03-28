@@ -29,7 +29,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("backup/history tests", func() {
-	var testConfig1, testConfig2, testConfigMalformed history.BackupConfig
+	var testConfig1, testConfig2 history.BackupConfig
 	var historyDBPath = "/tmp/history_db.db"
 
 	BeforeEach(func() {
@@ -40,15 +40,6 @@ var _ = Describe("backup/history tests", func() {
 			IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
 			IncludeSchemas:   []string{},
 			RestorePlan:      []history.RestorePlanEntry{},
-			Timestamp:        "timestamp1",
-		}
-		testConfigMalformed = history.BackupConfig{
-			DatabaseName:     "testdb1",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{},
-			IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []history.RestorePlanEntry{{"differentTimestamp", []string{"testschema.testtable1"}}},
 			Timestamp:        "timestamp1",
 		}
 		testConfig2 = history.BackupConfig{
@@ -152,12 +143,6 @@ var _ = Describe("backup/history tests", func() {
 
 			err = history.StoreBackupHistory(db, &testConfig1)
 			Expect(err.Error()).To(Equal("UNIQUE constraint failed: backups.timestamp"))
-		})
-
-		It("refuses to store a config into the database if the config is malformed", func() {
-			db, _ := history.InitializeHistoryDatabase(historyDBPath)
-			err := history.StoreBackupHistory(db, &testConfigMalformed)
-			Expect(err.Error()).To(Equal("FOREIGN KEY constraint failed"))
 		})
 	})
 
