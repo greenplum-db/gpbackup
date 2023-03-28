@@ -155,13 +155,15 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
 		}
 	}
 
+	// TODO -- consider warning if restore_plan_timestamp references a backup timestamp not present
+	// in historyDB? This scenario may be caused by lack of migration of legacy files, and may cause
+	// future backup-manager functionality such as CASCADE or cleanup to perform in unexpected ways.
 	createRestorePlansTable := `
 		CREATE TABLE IF NOT EXISTS restore_plans (
 			timestamp TEXT NOT NULL,
 			restore_plan_timestamp TEXT NOT NULL,
 			table_fqn TEXT NOT NULL,
-			FOREIGN KEY(timestamp) REFERENCES backups(timestamp),
-			FOREIGN KEY(restore_plan_timestamp) REFERENCES backups(timestamp)
+			FOREIGN KEY(timestamp) REFERENCES backups(timestamp)
 		);`
 	_, err = tx.Exec(createRestorePlansTable)
 	if err != nil {
