@@ -781,28 +781,23 @@ jobs:
   plan:
   - in_parallel:
     - get: rocky8-gpdb6-image
+    - get: gpdb_src
+      resource: gpdb6_src
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: ubuntu-debian-image
     - get: ubuntu-debian-test-image
     - get: bin_gpdb_6x_stable_ubuntu
     - get: gpbackup-go-components-ubuntu
-      trigger: true
 {% endif %}
-    - get: gpdb_src
-      resource: gpdb6_src
     - get: gpbackup-go-components-rhel6
-      trigger: true
     - get: gpbackup-go-components-rhel7
-      trigger: true
     - get: gpbackup-go-components-rhel8
       trigger: true
+      passed: [build_binaries]
     - get: bin_gpdb_6x_rhel8
     - get: gpbackup
       passed: [build_binaries]
     - get: gpbackup_ddboost_plugin
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: pivnet_release_cache
     - get: gpbackup-release-license
   - task: gpbackup-tools-versions
