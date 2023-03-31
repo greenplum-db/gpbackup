@@ -8,6 +8,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
+	"github.com/greenplum-db/gpbackup/history"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -809,6 +810,140 @@ EOF1`, backupDir)
 					assertDataRestored(restoreConn, newSchemaTupleCounts)
 				})
 			})
+		})
+	})
+	Describe("Incremental restore plans in gpbackup_history", func() {
+		BeforeEach(func() {
+			skipIfOldBackupVersionBefore("1.7.0")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE SCHEMA test_schema;")
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA IF EXISTS test_schema CASCADE;")
+
+		})
+		It("Stores and retrieves expected restore plans for AO table backups in an incremental series", func() {
+			// set up initial ddl+dml
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE test_schema.new_table1 (mydata int) WITH (appendonly=true) DISTRIBUTED BY (mydata);")
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table1 SELECT generate_series(1, 30);")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE test_schema.new_table2 (mydata int) WITH (appendonly=true) DISTRIBUTED BY (mydata);")
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
+
+			// take a full backup to start out
+			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp1)
+
+			// initialize historyDB to allow us to examine the stored restore plans
+			historyDB, err := history.InitializeHistoryDatabase(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			// get restore plans for the full backup, assert expectations
+			backupConfig1, err := history.GetBackupConfig(timestamp1, historyDB)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupConfig1.RestorePlan).To(HaveLen(1))
+			Expect(backupConfig1.RestorePlan[0].TableFQNs).To(HaveLen(2))
+			Expect(backupConfig1.RestorePlan[0].Timestamp).To(Equal(timestamp1))
+
+			// add some data and take an incremental backup dependent on the full backup
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
+			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp2)
+			// get restore plans for first incremental backup, assert expectations
+			backupConfig2, err := history.GetBackupConfig(timestamp2, historyDB)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupConfig2.RestorePlan).To(HaveLen(2))
+
+			for restorePlanIdx := range backupConfig2.RestorePlan {
+				switch backupConfig2.RestorePlan[restorePlanIdx].Timestamp {
+				case timestamp1:
+					Expect(backupConfig2.RestorePlan[restorePlanIdx].TableFQNs).To(HaveLen(1))
+					Expect(backupConfig2.RestorePlan[restorePlanIdx].TableFQNs[0]).To(Equal("test_schema.new_table1"))
+				case timestamp2:
+					Expect(backupConfig2.RestorePlan[restorePlanIdx].TableFQNs).To(HaveLen(1))
+					Expect(backupConfig2.RestorePlan[restorePlanIdx].TableFQNs[0]).To(Equal("test_schema.new_table2"))
+				default:
+					Fail(fmt.Sprintf("Unexpected timestamp %s in restore plan", backupConfig2.RestorePlan[restorePlanIdx].Timestamp))
+				}
+			}
+
+			// finally, take a second incremental backup with no new data
+			timestamp3 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp3)
+
+			// get restore plans for second incremental backup, assert expectations
+			backupConfig3, err := history.GetBackupConfig(timestamp3, historyDB)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupConfig3.RestorePlan).To(HaveLen(3))
+
+			for restorePlanIdx := range backupConfig3.RestorePlan {
+				switch backupConfig3.RestorePlan[restorePlanIdx].Timestamp {
+				case timestamp1:
+					Expect(backupConfig3.RestorePlan[restorePlanIdx].TableFQNs).To(HaveLen(1))
+					Expect(backupConfig3.RestorePlan[restorePlanIdx].TableFQNs[0]).To(Equal("test_schema.new_table1"))
+				case timestamp2:
+					Expect(backupConfig3.RestorePlan[restorePlanIdx].TableFQNs).To(HaveLen(1))
+					Expect(backupConfig3.RestorePlan[restorePlanIdx].TableFQNs[0]).To(Equal("test_schema.new_table2"))
+				case timestamp3:
+					Expect(backupConfig3.RestorePlan[restorePlanIdx].TableFQNs).To(HaveLen(0))
+				default:
+					Fail(fmt.Sprintf("Unexpected timestamp %s in restore plan", backupConfig2.RestorePlan[restorePlanIdx].Timestamp))
+				}
+			}
+		})
+		It("Stores and retrieves expected restore plans for heap table backups in an incremental series", func() {
+			// set up initial ddl+dml
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE test_schema.new_table1 (mydata int) DISTRIBUTED BY (mydata);")
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table1 SELECT generate_series(1, 30);")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE test_schema.new_table2 (mydata int) DISTRIBUTED BY (mydata);")
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
+
+			// take a full backup to start out
+			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp1)
+
+			// initialize historyDB to allow us to examine the stored restore plans
+			historyDB, err := history.InitializeHistoryDatabase(historyFilePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			// get restore plans for the full backup, assert expectations
+			backupConfig1, err := history.GetBackupConfig(timestamp1, historyDB)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupConfig1.RestorePlan).To(HaveLen(1))
+			Expect(backupConfig1.RestorePlan[0].TableFQNs).To(HaveLen(2))
+			Expect(backupConfig1.RestorePlan[0].Timestamp).To(Equal(timestamp1))
+
+			// add some data and take an incremental backup dependent on the full backup
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
+			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp2)
+
+			// there is no re-use of tables from prior restore plans, so all tables will be in the
+			// newer restore plan despite no change to new_table1
+			backupConfig2, err := history.GetBackupConfig(timestamp2, historyDB)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backupConfig2.RestorePlan).To(HaveLen(2))
+
+			for restorePlanIdx := range backupConfig2.RestorePlan {
+				switch backupConfig2.RestorePlan[restorePlanIdx].Timestamp {
+				case timestamp1:
+					Expect(backupConfig2.RestorePlan[restorePlanIdx].TableFQNs).To(HaveLen(0))
+				case timestamp2:
+					Expect(backupConfig2.RestorePlan[restorePlanIdx].TableFQNs).To(HaveLen(2))
+				default:
+					Fail(fmt.Sprintf("Unexpected timestamp %s in restore plan", backupConfig2.RestorePlan[restorePlanIdx].Timestamp))
+				}
+			}
 		})
 	})
 })

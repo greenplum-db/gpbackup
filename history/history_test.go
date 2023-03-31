@@ -84,7 +84,8 @@ var _ = Describe("backup/history tests", func() {
 			Expect(tableNames[2]).To(Equal("exclude_schemas"))
 			Expect(tableNames[3]).To(Equal("include_relations"))
 			Expect(tableNames[4]).To(Equal("include_schemas"))
-			Expect(tableNames[5]).To(Equal("restore_plans"))
+			Expect(tableNames[5]).To(Equal("restore_plan_tables"))
+			Expect(tableNames[6]).To(Equal("restore_plans"))
 
 		})
 

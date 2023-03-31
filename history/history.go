@@ -162,10 +162,23 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
 		CREATE TABLE IF NOT EXISTS restore_plans (
 			timestamp TEXT NOT NULL,
 			restore_plan_timestamp TEXT NOT NULL,
-			table_fqn TEXT NOT NULL,
 			FOREIGN KEY(timestamp) REFERENCES backups(timestamp)
 		);`
 	_, err = tx.Exec(createRestorePlansTable)
+	if err != nil {
+		tx.Rollback()
+		db.Close()
+		return nil, err
+	}
+
+	createRestorePlanTablesTable := `
+		CREATE TABLE IF NOT EXISTS restore_plan_tables (
+			timestamp TEXT NOT NULL,
+			restore_plan_timestamp TEXT NOT NULL,
+			table_fqn TEXT NOT NULL,
+			FOREIGN KEY(timestamp) REFERENCES backups(timestamp)
+		);`
+	_, err = tx.Exec(createRestorePlanTablesTable)
 	if err != nil {
 		tx.Rollback()
 		db.Close()
@@ -240,8 +253,14 @@ func StoreBackupHistory(db *sql.DB, currentBackupConfig *BackupConfig) error {
 
 	// unpack and store restore plan entries
 	for _, restorePlan := range currentBackupConfig.RestorePlan {
+		_, err = tx.Exec("INSERT INTO restore_plans VALUES (?, ?);",
+			currentBackupConfig.Timestamp, restorePlan.Timestamp)
+		if err != nil {
+			goto CleanupError
+		}
+
 		for _, tableFQN := range restorePlan.TableFQNs {
-			_, err = tx.Exec("INSERT INTO restore_plans VALUES (?, ?, ?);",
+			_, err = tx.Exec("INSERT INTO restore_plan_tables VALUES (?, ?, ?);",
 				currentBackupConfig.Timestamp, restorePlan.Timestamp, tableFQN)
 			if err != nil {
 				goto CleanupError
@@ -363,7 +382,7 @@ func GetBackupConfig(timestamp string, historyDB *sql.DB) (*BackupConfig, error)
 	}
 
 	// Retrieve restore plan information
-	restorePlanQuery := fmt.Sprintf("SELECT restore_plan_timestamp, table_fqn FROM restore_plans WHERE timestamp = '%s' ORDER BY restore_plan_timestamp", timestamp)
+	restorePlanQuery := fmt.Sprintf("SELECT DISTINCT restore_plan_timestamp FROM restore_plans WHERE timestamp = '%s' ORDER BY restore_plan_timestamp", timestamp)
 	restorePlanRows, err := historyDB.Query(restorePlanQuery)
 	if err != nil {
 		return nil, err
@@ -371,34 +390,34 @@ func GetBackupConfig(timestamp string, historyDB *sql.DB) (*BackupConfig, error)
 	defer restorePlanRows.Close()
 
 	backupConfig.RestorePlan = make([]RestorePlanEntry, 0)
-	var prevTimestamp string
-	var restorePlanTimestamp string
-	var restorePlan RestorePlanEntry
-	restorePlan.TableFQNs = make([]string, 0)
 	for restorePlanRows.Next() {
-		var tableFQN string
-		err = restorePlanRows.Scan(&restorePlanTimestamp, &tableFQN)
+
+		var restorePlanTimestamp string
+		restorePlan := RestorePlanEntry{}
+		restorePlan.TableFQNs = make([]string, 0)
+
+		err = restorePlanRows.Scan(&restorePlanTimestamp)
 		if err != nil {
 			return nil, err
 		}
-
-		// if there are multiple restore plans associated with this backup and we hit a new one,
-		// save off the old one and reinitialize a new one
-		if restorePlanTimestamp != prevTimestamp && prevTimestamp != "" {
-			restorePlan.Timestamp = prevTimestamp
-			backupConfig.RestorePlan = append(backupConfig.RestorePlan, restorePlan)
-
-			restorePlan = RestorePlanEntry{}
-			restorePlan.TableFQNs = make([]string, 0)
-		}
-		restorePlan.TableFQNs = append(restorePlan.TableFQNs, tableFQN)
-		prevTimestamp = restorePlanTimestamp
-
-	}
-
-	// store the last (or only) restore plan onto the backup config
-	if restorePlanTimestamp != "" {
 		restorePlan.Timestamp = restorePlanTimestamp
+
+		restorePlanTablesQuery := fmt.Sprintf("SELECT table_fqn FROM restore_plan_tables WHERE timestamp = '%s' and restore_plan_timestamp = '%s'", timestamp, restorePlanTimestamp)
+		restorePlanTableRows, err := historyDB.Query(restorePlanTablesQuery)
+		if err != nil {
+			return nil, err
+		}
+		defer restorePlanTableRows.Close()
+
+		for restorePlanTableRows.Next() {
+			var tableFQN string
+			err = restorePlanTableRows.Scan(&tableFQN)
+			if err != nil {
+				return nil, err
+			}
+			restorePlan.TableFQNs = append(restorePlan.TableFQNs, tableFQN)
+		}
+
 		backupConfig.RestorePlan = append(backupConfig.RestorePlan, restorePlan)
 	}
 

@@ -328,16 +328,10 @@ func getMetdataFileContents(backupDir string, timestamp string, fileSuffix strin
 }
 
 func saveHistory(myCluster *cluster.Cluster) {
-	// move history file out of the way, and replace in "after". This is because the
-	// history file might have newer backups, with more attributes, and thus the newer
-	// history could be a longer file than when read and rewritten by the old history
-	// code (the history code reads in history, inserts a new config at top, and writes
-	// the entire file). We have known bugs in the underlying common library about
-	// closing a file after reading, and also a bug with not using OS_TRUNC when opening
-	// a file for writing.
+	// move history file out of the way, and replace in "after". This avoids adding junk to an existing gpackup_history.db
 
 	mdd := myCluster.GetDirForContent(-1)
-	historyFilePath = path.Join(mdd, "gpbackup_history.yaml")
+	historyFilePath = path.Join(mdd, "gpbackup_history.db")
 	_ = utils.CopyFile(historyFilePath, saveHistoryFilePath)
 }
 
@@ -1724,7 +1718,6 @@ LANGUAGE plpgsql NO SQL;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schematwo CASCADE;`)
 				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemathree CASCADE;`)
 
-
 				if !testUsesPlugin { // No need to manually move files when using a plugin
 					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
 					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp, incrementalTimestamp)
@@ -1859,7 +1852,6 @@ LANGUAGE plpgsql NO SQL;`)
 					}
 					extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
 					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
-
 
 					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
 					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp)
