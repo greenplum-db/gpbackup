@@ -395,14 +395,17 @@ func DoTeardown() {
 			backupReport.ConstructBackupParamsString()
 			backupReport.BackupConfig.SegmentCount = len(globalCluster.ContentIDs) - 1
 
-			historyDB, err := history.InitializeHistoryDatabase(historyDBName)
-			if err != nil {
-				gplog.Error(fmt.Sprintf("%v", err))
-			} else {
-				err = history.StoreBackupHistory(historyDB, &backupReport.BackupConfig)
-				historyDB.Close()
+			var err error
+			if !MustGetFlagBool(options.NO_HISTORY) {
+				historyDB, err := history.InitializeHistoryDatabase(historyDBName)
 				if err != nil {
 					gplog.Error(fmt.Sprintf("%v", err))
+				} else {
+					err = history.StoreBackupHistory(historyDB, &backupReport.BackupConfig)
+					historyDB.Close()
+					if err != nil {
+						gplog.Error(fmt.Sprintf("%v", err))
+					}
 				}
 			}
 

@@ -34,6 +34,7 @@ const (
 	LEAF_PARTITION_DATA   = "leaf-partition-data"
 	METADATA_ONLY         = "metadata-only"
 	NO_COMPRESSION        = "no-compression"
+	NO_HISTORY            = "no-history"
 	PLUGIN_CONFIG         = "plugin-config"
 	QUIET                 = "quiet"
 	SINGLE_DATA_FILE      = "single-data-file"
@@ -74,6 +75,7 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
 	flagSet.Bool(METADATA_ONLY, false, "Only back up metadata, do not back up data")
 	flagSet.Bool(NO_COMPRESSION, false, "Skip compression of data files")
+	flagSet.Bool(NO_HISTORY, false, "Do not write a backup entry to the gpbackup_history database")
 	flagSet.String(PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
 	flagSet.Bool("version", false, "Print version number and exit")
 	flagSet.Bool(QUIET, false, "Suppress non-warning, non-error log messages")
