@@ -383,10 +383,17 @@ func DoTeardown() {
 			return
 		}
 		historyDBName := globalFPInfo.GetBackupHistoryDatabasePath()
+		historyFileLegacyName := globalFPInfo.GetBackupHistoryFilePath()
 		reportFilename := globalFPInfo.GetBackupReportFilePath()
 		configFilename := globalFPInfo.GetConfigFilePath()
 
 		time.Sleep(time.Second) // We sleep for 1 second to ensure multiple backups do not start within the same second.
+
+		// Check if legacy history file is still present, log warning if so. Only log if we're planning to use history db.
+		var err error
+		if _, err = os.Stat(historyFileLegacyName); err == nil && !MustGetFlagBool(options.NO_HISTORY) {
+			gplog.Warn("Legacy gpbackup_history file %s is still present. Please run 'gpbackup_manager --migrate-history' to add entries from that file to the history database.", historyFileLegacyName)
+		}
 
 		if backupReport != nil {
 			if !backupFailed {
@@ -395,7 +402,6 @@ func DoTeardown() {
 			backupReport.ConstructBackupParamsString()
 			backupReport.BackupConfig.SegmentCount = len(globalCluster.ContentIDs) - 1
 
-			var err error
 			if !MustGetFlagBool(options.NO_HISTORY) {
 				historyDB, err := history.InitializeHistoryDatabase(historyDBName)
 				if err != nil {
