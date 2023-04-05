@@ -1728,28 +1728,25 @@ LANGUAGE plpgsql NO SQL;`)
 				}
 
 				// This block stops the test if it hangs.  It was introduced to prevent hangs causing timeout failures in Concourse CI.
-				// Those flakes have stop being observed, and can no longer be reproduced.  Some changes have since been made
-				// that may obviate the original cause of the hangs, but a definitive RCA was never accomplished.
-				// This block is elegant is kept around for now in case the hangs reappear.
-				// TODO: if pipe-related hangs have not been observed by 6/1/2023, remove this code as it is not needed.
-				// completed := make(chan bool)
-				// defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
-				// go func() {
-				// 	// No test run has been observed to take more than a few minutes without a hang,
-				// 	// so loop 5 times and check for success after 1 minute each
-				// 	for i := 0; i < 5; i++ {
-				// 		select {
-				// 		case <-completed:
-				// 			return
-				// 		default:
-				// 			time.Sleep(time.Minute)
-				// 		}
-				// 	}
-				// 	// If we get here, this test is hanging, stop the processes.
-				// 	// If the test succeeded or failed, we'll return before here.
-				// 	_ = exec.Command("pkill", "-9", "gpbackup_helper").Run()
-				// 	_ = exec.Command("pkill", "-9", "gprestore").Run()
-				// }()
+				// These hangs are still being observed only in CI, and a definitive RCA has not yet been accomplished
+				completed := make(chan bool)
+				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
+				go func() {
+					// No test run has been observed to take more than a few minutes without a hang,
+					// so loop 5 times and check for success after 1 minute each
+					for i := 0; i < 5; i++ {
+						select {
+						case <-completed:
+							return
+						default:
+							time.Sleep(time.Minute)
+						}
+					}
+					// If we get here, this test is hanging, stop the processes.
+					// If the test succeeded or failed, we'll return before here.
+					_ = exec.Command("pkill", "-9", "gpbackup_helper").Run()
+					_ = exec.Command("pkill", "-9", "gprestore").Run()
+				}()
 
 				gprestoreArgs := []string{
 					"--timestamp", fullTimestamp,
