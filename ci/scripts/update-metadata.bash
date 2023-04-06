@@ -73,11 +73,11 @@ pushd pivnet_release_cache
   touch ../workspace/v-${TILE_RELEASE_VERSION}
 popd
 
-if test ! -f gpbackup-release-license/open_source_license_VMware_Tanzu_Greenplum_Backup_and_Restore_${CURR_MAJOR}.${CURR_MINOR}.*.txt ; then
+if test ! -f gpbackup-release-license/open_source_license_VMware_Greenplum_Backup_and_Restore_${CURR_MAJOR}.${CURR_MINOR}.*.txt ; then
   echo "License file for gpbackup version ${CURR_MAJOR}.${CURR_MINOR}.* does not exist in resource.\n Ensure the OSL is properly uploaded to the GCS bucket prior to pushing to pivnet." 1>&2
   exit 1
 fi
-cp gpbackup-release-license/open_source_license_VMware_Tanzu_Greenplum_Backup_and_Restore_*.txt workspace/files-to-upload/
+cp gpbackup-release-license/open_source_license_VMware_Greenplum_Backup_and_Restore_*.txt workspace/files-to-upload/
 
 # NOTE: We must use the Pivnet Release Version because we cannot upload files with the same name in different tile releases
 DDBOOST_PLUGIN_VERSION=$(cat workspace/files-to-upload/ddboost_plugin_version)
@@ -88,7 +88,7 @@ BMAN_VERSION=$(cat workspace/files-to-upload/gpbackup_manager_version)
 sed -i "s/<BMAN_VERSION>/${BMAN_VERSION}/g" workspace/metadata.yml
 sed -i "s/<TILE_RELEASE_VERSION>/${TILE_RELEASE_VERSION}/g" workspace/metadata.yml
 sed -i "s/<GPBAR_VERSION>/${TILE_RELEASE_VERSION}/g" workspace/metadata.yml
-OSL_FILENAME=$(basename -- gpbackup-release-license/open_source_license_VMware_Tanzu_Greenplum_Backup_and_Restore_*.txt)
+OSL_FILENAME=$(basename -- gpbackup-release-license/open_source_license_VMware_Greenplum_Backup_and_Restore_*.txt)
 sed -i "s/<OSL_FILENAME>/${OSL_FILENAME}/g" workspace/metadata.yml
 sed -i "s/<RELEASE_TYPE>/${RELEASE_TYPE} Release/g" workspace/metadata.yml
 

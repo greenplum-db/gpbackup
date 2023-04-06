@@ -1,6 +1,6 @@
 Package: GreenplumBackupTools
 Priority: extra
-Maintainer: gpdb-dp@pivotal.io
+Maintainer: gp-data-protection@vmware.com
 Architecture: ${ARCH}
 Version: ${GPBACKUP_TOOLS_VERSION}
 Provides: gpbackup_tools

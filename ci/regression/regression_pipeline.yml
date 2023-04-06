@@ -152,7 +152,7 @@ resources:
   source:
     bucket: gpbackup-release-licenses
     json_key: ((dp/dev/gcp_svc_acct_key))
-    regexp: open_source_license_VMware_Tanzu_Greenplum_Backup_and_Restore_(.*)_.*.txt
+    regexp: open_source_license_VMware_Greenplum_Backup_and_Restore_(.*)_.*.txt
 
 - name: icw_dump_GPDB6
   type: gcs
