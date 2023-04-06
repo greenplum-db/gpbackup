@@ -600,7 +600,7 @@ func GetForeignTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Foreig
 	}
 
 	query := fmt.Sprintf(`
-	SELECT ftrelid, fs.srvname AS ftserver,
+	SELECT ftrelid, pg_catalog.quote_ident(fs.srvname) AS ftserver,
 		pg_catalog.array_to_string(array(
 			SELECT pg_catalog.quote_ident(option_name) || ' ' || pg_catalog.quote_literal(option_value)
 			FROM pg_catalog.pg_options_to_table(ftoptions) ORDER BY option_name
