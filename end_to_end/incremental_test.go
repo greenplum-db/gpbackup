@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 
+	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/history"
@@ -838,6 +839,12 @@ EOF1`, backupDir)
 			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
 			defer assertArtifactsCleaned(restoreConn, timestamp1)
 
+			// run a migration on history file to support mixed-version test suites
+			if useOldBackupVersion && oldBackupSemVer.LT(semver.MustParse("1.7.2")) {
+				migrateCommand := exec.Command("gpbackup_manager", "migrate-history")
+				_, _ = migrateCommand.CombinedOutput()
+			}
+
 			// initialize historyDB to allow us to examine the stored restore plans
 			historyDB, err := history.InitializeHistoryDatabase(historyFilePath)
 			Expect(err).ToNot(HaveOccurred())
@@ -910,6 +917,12 @@ EOF1`, backupDir)
 			// take a full backup to start out
 			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
 			defer assertArtifactsCleaned(restoreConn, timestamp1)
+
+			// run a migration on history file to support mixed-version test suites
+			if useOldBackupVersion && oldBackupSemVer.LT(semver.MustParse("1.7.2")) {
+				migrateCommand := exec.Command("gpbackup_manager", "migrate-history")
+				_, _ = migrateCommand.CombinedOutput()
+			}
 
 			// initialize historyDB to allow us to examine the stored restore plans
 			historyDB, err := history.InitializeHistoryDatabase(historyFilePath)
