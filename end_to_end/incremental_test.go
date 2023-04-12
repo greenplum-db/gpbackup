@@ -839,6 +839,16 @@ EOF1`, backupDir)
 			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
 			defer assertArtifactsCleaned(restoreConn, timestamp1)
 
+			// add some data and take an incremental backup dependent on the full backup
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
+			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp2)
+
+			// finally, take a second incremental backup with no new data
+			timestamp3 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp3)
+
 			// run a migration on history file to support mixed-version test suites
 			if useOldBackupVersion && oldBackupSemVer.LT(semver.MustParse("1.7.2")) {
 				migrateCommand := exec.Command("gpbackup_manager", "migrate-history")
@@ -856,11 +866,6 @@ EOF1`, backupDir)
 			Expect(backupConfig1.RestorePlan[0].TableFQNs).To(HaveLen(2))
 			Expect(backupConfig1.RestorePlan[0].Timestamp).To(Equal(timestamp1))
 
-			// add some data and take an incremental backup dependent on the full backup
-			testhelper.AssertQueryRuns(backupConn,
-				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
-			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp2)
 			// get restore plans for first incremental backup, assert expectations
 			backupConfig2, err := history.GetBackupConfig(timestamp2, historyDB)
 			Expect(err).ToNot(HaveOccurred())
@@ -878,10 +883,6 @@ EOF1`, backupDir)
 					Fail(fmt.Sprintf("Unexpected timestamp %s in restore plan", backupConfig2.RestorePlan[restorePlanIdx].Timestamp))
 				}
 			}
-
-			// finally, take a second incremental backup with no new data
-			timestamp3 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp3)
 
 			// get restore plans for second incremental backup, assert expectations
 			backupConfig3, err := history.GetBackupConfig(timestamp3, historyDB)
@@ -918,6 +919,12 @@ EOF1`, backupDir)
 			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
 			defer assertArtifactsCleaned(restoreConn, timestamp1)
 
+			// add some data and take an incremental backup dependent on the full backup
+			testhelper.AssertQueryRuns(backupConn,
+				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
+			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
+			defer assertArtifactsCleaned(restoreConn, timestamp2)
+
 			// run a migration on history file to support mixed-version test suites
 			if useOldBackupVersion && oldBackupSemVer.LT(semver.MustParse("1.7.2")) {
 				migrateCommand := exec.Command("gpbackup_manager", "migrate-history")
@@ -934,12 +941,6 @@ EOF1`, backupDir)
 			Expect(backupConfig1.RestorePlan).To(HaveLen(1))
 			Expect(backupConfig1.RestorePlan[0].TableFQNs).To(HaveLen(2))
 			Expect(backupConfig1.RestorePlan[0].Timestamp).To(Equal(timestamp1))
-
-			// add some data and take an incremental backup dependent on the full backup
-			testhelper.AssertQueryRuns(backupConn,
-				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
-			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp2)
 
 			// there is no re-use of tables from prior restore plans, so all tables will be in the
 			// newer restore plan despite no change to new_table1
