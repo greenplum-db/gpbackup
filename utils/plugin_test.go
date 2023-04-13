@@ -14,7 +14,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/iohelper"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
-	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/pkg/errors"
 
@@ -24,7 +23,7 @@ import (
 
 var _ = Describe("utils/plugin tests", func() {
 	var testCluster *cluster.Cluster
-	var executor testutils.TestExecutorMultiple
+	var executor testhelper.TestExecutor
 	var subject utils.PluginConfig
 	var tempDir string
 
@@ -38,8 +37,9 @@ var _ = Describe("utils/plugin tests", func() {
 			Options:        make(map[string]string),
 		}
 		subject.Options = make(map[string]string)
-		executor = testutils.TestExecutorMultiple{
+		executor = testhelper.TestExecutor{
 			ClusterOutputs: make([]*cluster.RemoteOutput, 2),
+			UseLastOutput:  true,
 		}
 		executor.ClusterOutputs[0] = &cluster.RemoteOutput{
 			Commands: []cluster.ShellCommand{
@@ -115,7 +115,7 @@ options:
 			subject.SetBackupPluginVersion("myTimestamp", "my.test.version")
 			subject.CopyPluginConfigToAllHosts(testCluster)
 
-			Expect(executor.NumRemoteExecutions).To(Equal(1))
+			Expect(executor.NumClusterExecutions).To(Equal(1))
 			cc := executor.ClusterCommands[0]
 			Expect(len(cc)).To(Equal(3))
 			Expect(cc[0].Content).To(Equal(-1))
@@ -337,7 +337,7 @@ options:
 
 				subject.DeletePluginConfigWhenEncrypting(testCluster)
 
-				Expect(executor.NumRemoteExecutions).To(Equal(1))
+				Expect(executor.NumClusterExecutions).To(Equal(1))
 				cc := executor.ClusterCommands[0]
 				Expect(len(cc)).To(Equal(3))
 				Expect(cc[0].Content).To(Equal(-1))
