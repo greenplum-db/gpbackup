@@ -392,7 +392,7 @@ func DoTeardown() {
 		// Check if legacy history file is still present, log warning if so. Only log if we're planning to use history db.
 		var err error
 		if _, err = os.Stat(historyFileLegacyName); err == nil && !MustGetFlagBool(options.NO_HISTORY) {
-			gplog.Warn("Legacy gpbackup_history file %s is still present. Please run 'gpbackup_manager --migrate-history' to add entries from that file to the history database.", historyFileLegacyName)
+			gplog.Warn("Legacy gpbackup_history file %s is still present. Please run 'gpbackup_manager migrate-history' to add entries from that file to the history database.", historyFileLegacyName)
 		}
 
 		if backupReport != nil {
