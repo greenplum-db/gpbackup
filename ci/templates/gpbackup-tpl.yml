@@ -176,11 +176,11 @@ anchors:
       bucket_path: clusters-google/
 
 - &ddboost_params
-  DD_SOURCE_HOST: ((dp/$$DEV_PROD$$/datadomain_source_host_gcp))
-  DD_USER: ((dp/$$DEV_PROD$$/datadomain_user))
-  DD_PW: ((dp/$$DEV_PROD$$/datadomain_password_gcp))
-  DD_DEST_HOST: ((dp/$$DEV_PROD$$/datadomain_dest_host_gcp))
-  DD_ENCRYPTED_PW: ((dp/$$DEV_PROD$$/encrypted_datadomain_password_gcp))
+  DD_SOURCE_HOST: ((dp/$$DEV_PROD$$/datadomain_711_source_host_gcp))
+  DD_USER: ((dp/prod/datadomain_user))
+  DD_PW: ((dp/prod/datadomain_711_password_gcp))
+  DD_DEST_HOST: ((dp/$$DEV_PROD$$/datadomain_711_dest_host_gcp))
+  DD_ENCRYPTED_PW: ((dp/prod/encrypted_datadomain_711_password_gcp))
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - &slack_alert
