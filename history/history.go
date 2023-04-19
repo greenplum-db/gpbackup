@@ -114,6 +114,7 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
             compression_type TEXT,
             database_name TEXT,
             database_version TEXT,
+            segment_count INT,
             data_only INT CHECK (data_only in (0,1)),
             date_deleted TEXT,
             exclude_schema_filtered INT CHECK (exclude_schema_filtered in (0,1)),
@@ -215,18 +216,26 @@ func StoreBackupHistory(db *sql.DB, currentBackupConfig *BackupConfig) error {
 	}
 	tx, _ := db.Begin()
 
-	_, err := tx.Exec("INSERT INTO backups VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+	_, err := tx.Exec(`INSERT INTO backups (
+			timestamp, backup_dir, backup_version, compressed, compression_type, database_name,
+			database_version, segment_count, data_only, date_deleted, exclude_schema_filtered,
+			exclude_table_filtered, include_schema_filtered, include_table_filtered, incremental,
+			leaf_partition_data, metadata_only, plugin, plugin_version, single_data_file, end_time,
+			without_globals, with_statistics, status
+			)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
 		currentBackupConfig.Timestamp, currentBackupConfig.BackupDir,
 		currentBackupConfig.BackupVersion, currentBackupConfig.Compressed,
 		currentBackupConfig.CompressionType, currentBackupConfig.DatabaseName,
-		currentBackupConfig.DatabaseVersion, currentBackupConfig.DataOnly,
-		currentBackupConfig.DateDeleted, currentBackupConfig.ExcludeSchemaFiltered,
-		currentBackupConfig.ExcludeTableFiltered, currentBackupConfig.IncludeSchemaFiltered,
-		currentBackupConfig.IncludeTableFiltered, currentBackupConfig.Incremental,
-		currentBackupConfig.LeafPartitionData, currentBackupConfig.MetadataOnly,
-		currentBackupConfig.Plugin, currentBackupConfig.PluginVersion,
-		currentBackupConfig.SingleDataFile, currentBackupConfig.EndTime,
-		currentBackupConfig.WithoutGlobals, currentBackupConfig.WithStatistics, currentBackupConfig.Status)
+		currentBackupConfig.DatabaseVersion, currentBackupConfig.SegmentCount,
+		currentBackupConfig.DataOnly, currentBackupConfig.DateDeleted,
+		currentBackupConfig.ExcludeSchemaFiltered, currentBackupConfig.ExcludeTableFiltered,
+		currentBackupConfig.IncludeSchemaFiltered, currentBackupConfig.IncludeTableFiltered,
+		currentBackupConfig.Incremental, currentBackupConfig.LeafPartitionData,
+		currentBackupConfig.MetadataOnly, currentBackupConfig.Plugin,
+		currentBackupConfig.PluginVersion, currentBackupConfig.SingleDataFile,
+		currentBackupConfig.EndTime, currentBackupConfig.WithoutGlobals,
+		currentBackupConfig.WithStatistics, currentBackupConfig.Status)
 	if err != nil {
 		goto CleanupError
 	}
@@ -282,8 +291,8 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 	// table. Need to confirm this is possible with sqlite. Unclear if we ever pull in and use aux
 	// table info, so it may not be needed.
 	backupQuery := fmt.Sprintf(`
-		SELECT timestamp, backup_dir, backup_version, compressed, compression_type,
-			database_name, database_version, data_only, date_deleted, exclude_schema_filtered,
+		SELECT timestamp, backup_dir, backup_version, compressed, compression_type, database_name,
+			database_version, segment_count, data_only, date_deleted, exclude_schema_filtered,
 			exclude_table_filtered, include_schema_filtered, include_table_filtered, incremental,
 			leaf_partition_data, metadata_only, plugin, plugin_version, single_data_file, end_time,
 			without_globals, with_statistics, status
@@ -305,9 +314,10 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 	var isWithoutGlobals int
 	var isWithStatistics int
 	err := backupRow.Scan(
-		&backupConfig.Timestamp, &backupConfig.BackupDir, &backupConfig.BackupVersion, &isCompressed,
-		&backupConfig.CompressionType, &backupConfig.DatabaseName, &backupConfig.DatabaseVersion,
-		&isDataOnly, &backupConfig.DateDeleted, &isExclSchemaFiltered, &isExclTableFiltered,
+		&backupConfig.Timestamp, &backupConfig.BackupDir, &backupConfig.BackupVersion,
+		&isCompressed, &backupConfig.CompressionType, &backupConfig.DatabaseName,
+		&backupConfig.DatabaseVersion, &backupConfig.SegmentCount, &isDataOnly,
+		&backupConfig.DateDeleted, &isExclSchemaFiltered, &isExclTableFiltered,
 		&isInclSchemaFiltered, &isInclTableFiltered, &isIncremental, &isLeafPartition,
 		&isMetadataOnly, &backupConfig.Plugin, &backupConfig.PluginVersion, &isSingleDataFile,
 		&backupConfig.EndTime, &isWithoutGlobals, &isWithStatistics, &backupConfig.Status)
