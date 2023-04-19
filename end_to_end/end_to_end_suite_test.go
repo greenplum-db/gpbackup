@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -2132,5 +2133,73 @@ LANGUAGE plpgsql NO SQL;`)
 			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "", "9", "8", "3"),
 			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "schemaone.measurement_peaktemp_catchall", "9", "8", "3"),
 		)
+	})
+	Describe("Concurrent backups will only work if given unique backup directories and the flags: metadata-only, backup-dir, and no-history", func() {
+		var backupDir1 string
+		var backupDir2 string
+		var backupDir3 string
+		BeforeEach(func() {
+			backupDir1 = path.Join(backupDir, "conc_test1")
+			backupDir2 = path.Join(backupDir, "conc_test2")
+			backupDir3 = path.Join(backupDir, "conc_test3")
+			os.Mkdir(backupDir1, 0777)
+			os.Mkdir(backupDir2, 0777)
+			os.Mkdir(backupDir3, 0777)
+		})
+		AfterEach(func() {
+			os.RemoveAll(backupDir1)
+			os.RemoveAll(backupDir2)
+			os.RemoveAll(backupDir3)
+		})
+		It("backs up successfully with the correct flags", func() {
+			command1 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1, "--no-history", "--metadata-only")
+			command2 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir2, "--no-history", "--metadata-only")
+			command3 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir3, "--no-history", "--metadata-only")
+			commands := []*exec.Cmd{command1, command2, command3}
+
+			var backWg sync.WaitGroup
+			errchan := make(chan error, len(commands))
+			for _, cmd := range commands {
+				backWg.Add(1)
+				go func(command *exec.Cmd) {
+					defer backWg.Done()
+					_, err := command.CombinedOutput()
+					errchan <- err
+				}(cmd)
+			}
+			backWg.Wait()
+			close(errchan)
+
+			for err := range errchan {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+		It("fails without the correct flags", func() {
+			command1 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1)
+			command2 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1)
+			command3 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1)
+			commands := []*exec.Cmd{command1, command2, command3}
+
+			var backWg sync.WaitGroup
+			errchan := make(chan error, len(commands))
+			for _, cmd := range commands {
+				backWg.Add(1)
+				go func(command *exec.Cmd) {
+					defer backWg.Done()
+					_, err := command.CombinedOutput()
+					errchan <- err
+				}(cmd)
+			}
+			backWg.Wait()
+			close(errchan)
+
+			errcounter := 0
+			for err := range errchan {
+				if err != nil {
+					errcounter++
+				}
+			}
+			Expect(errcounter > 0).To(BeTrue())
+		})
 	})
 })

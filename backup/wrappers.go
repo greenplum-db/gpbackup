@@ -166,7 +166,15 @@ func initializeBackupReport(opts options.Options) {
 
 func createBackupLockFile(timestamp string) {
 	var err error
-	timestampLockFile := fmt.Sprintf("/tmp/%s.lck", timestamp)
+	var timestampLockFile string
+	metadataOnly := MustGetFlagBool(options.METADATA_ONLY)
+	backupDir := MustGetFlagString(options.BACKUP_DIR)
+	noHistory := MustGetFlagBool(options.NO_HISTORY)
+	if metadataOnly && noHistory && backupDir != "" {
+		timestampLockFile = fmt.Sprintf("%s/%s.lck", backupDir, timestamp)
+	} else {
+		timestampLockFile = fmt.Sprintf("/tmp/%s.lck", timestamp)
+	}
 	backupLockFile, err = lockfile.New(timestampLockFile)
 	gplog.FatalOnError(err)
 	err = backupLockFile.TryLock()

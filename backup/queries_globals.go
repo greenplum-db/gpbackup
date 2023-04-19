@@ -295,7 +295,7 @@ func GetResourceGroups[T ResourceGroupBefore7 | ResourceGroupAtLeast7](connectio
 	}
 
 	results := make([]T, 0)
-	err := connectionPool.Select(&results, query) // AJR TODO -- not sure this is smart enough to deserialize into a generic struct.  let's find out!
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }
