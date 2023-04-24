@@ -832,6 +832,23 @@ SET SUBPARTITION TEMPLATE
 
 			Expect(inheritanceMap).To(BeEmpty())
 		})
+		It("constructs dependencies correctly if there is one table dependent on two parent tables but one parent is not in the backup set", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.parent_one(i int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent_one")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.parent_two(j int)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent_two")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.child() INHERITS (public.parent_one, public.parent_two)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.child")
+
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.parent_one")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.child")
+			parentOne.Oid = testutils.OidFromObjectName(connectionPool, "public", "parent_one", backup.TYPE_RELATION)
+			tables := []backup.Relation{childOne}
+
+			inheritanceMap := backup.GetTableInheritance(connectionPool, tables)
+
+			Expect(inheritanceMap).To(HaveLen(0))
+		})
 		It("constructs dependencies correctly if there are two dependent tables but one is not in the backup set", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.parent(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent")

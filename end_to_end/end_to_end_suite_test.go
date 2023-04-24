@@ -151,6 +151,37 @@ func assertDataRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
 	}
 }
 
+func checkTableExists(conn *dbconn.DBConn, tableName string) bool {
+	var schema, table string
+	s := strings.Split(tableName, ".")
+	if len(s) == 2 {
+		schema, table = s[0], s[1]
+	} else if len(s) == 1 {
+		schema = "public"
+		table = s[0]
+	} else {
+		Fail(fmt.Sprintf("Table %s is not in a valid format", tableName))
+	}
+	exists := dbconn.MustSelectString(conn, fmt.Sprintf("SELECT EXISTS (SELECT * FROM pg_tables WHERE schemaname = '%s' AND tablename = '%s') AS string", schema, table))
+	return (exists == "true")
+}
+
+func assertTablesRestored(conn *dbconn.DBConn, tables []string) {
+	for _, tableName := range tables {
+		if !checkTableExists(conn, tableName) {
+			Fail(fmt.Sprintf("Table %s does not exist when it should", tableName))
+		}
+	}
+}
+
+func assertTablesNotRestored(conn *dbconn.DBConn, tables []string) {
+	for _, tableName := range tables {
+		if checkTableExists(conn, tableName) {
+			Fail(fmt.Sprintf("Table %s exists when it should not", tableName))
+		}
+	}
+}
+
 func unMarshalRowCounts(filepath string) map[string]int {
 	rowFile, err := os.Open(filepath)
 
@@ -2202,6 +2233,32 @@ LANGUAGE plpgsql NO SQL;`)
 				}
 			}
 			Expect(errcounter > 0).To(BeTrue())
+		})
+	})
+	Describe("Filtered backups with --no-inherit", func() {
+		It("will not include children of included tables, but will include its parents", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_one(one int);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_two(two int);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.base() INHERITS (public.parent_one, public.parent_two);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child_one() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child_two() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(three int);`)
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.parent_one CASCADE")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.parent_two CASCADE")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.unrelated")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", "public.base", "--no-inherit")
+
+			contents := string(getMetdataFileContents(backupDir, timestamp, "metadata.sql"))
+			Expect(contents).To(ContainSubstring("CREATE TABLE public.parent_one"))
+			Expect(contents).To(ContainSubstring("CREATE TABLE public.parent_two"))
+			Expect(contents).To(ContainSubstring("CREATE TABLE public.base"))
+			Expect(contents).ToNot(ContainSubstring("CREATE TABLE public.child_one"))
+			Expect(contents).ToNot(ContainSubstring("CREATE TABLE public.child_two"))
+			Expect(contents).ToNot(ContainSubstring("CREATE TABLE public.unrelated"))
 		})
 	})
 })

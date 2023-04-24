@@ -114,6 +114,9 @@ func validateFlagCombinations(flags *pflag.FlagSet) {
 	if MustGetFlagBool(options.INCREMENTAL) && !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		gplog.Fatal(errors.Errorf("--leaf-partition-data must be specified with --incremental"), "")
 	}
+	if MustGetFlagBool(options.NO_INHERIT) && !(FlagChanged(options.INCLUDE_RELATION) || FlagChanged(options.INCLUDE_RELATION_FILE)) {
+		gplog.Fatal(errors.Errorf("--no-inherit must be specified with either --include-table or --include-table-file"), "")
+	}
 }
 
 func validateFlagValues() {

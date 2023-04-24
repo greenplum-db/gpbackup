@@ -299,5 +299,36 @@ FORMAT 'csv';`)
 			Expect(tables).To(HaveLen(len(expectedTableNames)))
 			Expect(tables).To(Equal(expectedTableNames))
 		})
+		It("returns parent and child tables if the filter includes a non-partition table with multiple inheritance relationships", func() {
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.base")
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.parent_one(one int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.parent_two(two int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.base() INHERITS (public.parent_one, public.parent_two);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.child_one() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.child_two() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.unrelated(three int);`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent_one CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent_two CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.unrelated")
+
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			expectedTableNames := []string{
+				"public.base",
+				"public.child_one",
+				"public.child_two",
+				"public.parent_one",
+				"public.parent_two",
+			}
+
+			tables := subject.GetIncludedTables()
+			sort.Strings(tables)
+			Expect(tables).To(HaveLen(len(expectedTableNames)))
+			Expect(tables).To(Equal(expectedTableNames))
+		})
 	})
 })

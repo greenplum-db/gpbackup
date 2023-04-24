@@ -112,6 +112,50 @@ PARTITION BY LIST (gender)
 			assertDataRestored(restoreConn, localSchemaTupleCounts)
 			assertArtifactsCleaned(restoreConn, timestamp)
 		})
+		It("backs up a child table inheriting from a parent when only the parent is included", func() {
+			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent(a int);`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.parent`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child() INHERITS (public.parent);`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.child`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(c int);`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.unrelated`)
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", `public.parent`,
+				"--metadata-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir)
+
+			assertTablesRestored(restoreConn, []string{"public.parent", "public.child"})
+			assertTablesNotRestored(restoreConn, []string{"public.unrelated"})
+			assertArtifactsCleaned(restoreConn, timestamp)
+		})
+		It("backs up a table inheriting from multiple parents when only one parent is included", func() {
+			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_a(a int);`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.parent_a`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_b(b int);`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.parent_b`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child() INHERITS (public.parent_a, public.parent_b);`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.child`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(c int);`)
+			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.unrelated`)
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", `public.parent_a`,
+				"--metadata-only")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir)
+
+			assertTablesRestored(restoreConn, []string{"public.parent_a", "public.parent_b", "public.child"})
+			assertTablesNotRestored(restoreConn, []string{"public.unrelated"})
+			assertArtifactsCleaned(restoreConn, timestamp)
+		})
 		It("gpbackup with --include-table does not backup protocols and functions", func() {
 			testhelper.AssertQueryRuns(backupConn,
 				`CREATE TABLE t1(i int)`)
