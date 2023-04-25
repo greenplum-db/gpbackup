@@ -2152,6 +2152,8 @@ LANGUAGE plpgsql NO SQL;`)
 			os.RemoveAll(backupDir3)
 		})
 		It("backs up successfully with the correct flags", func() {
+			// --no-history flag was added in 1.28.0
+			skipIfOldBackupVersionBefore("1.28.0")
 			command1 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1, "--no-history", "--metadata-only")
 			command2 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir2, "--no-history", "--metadata-only")
 			command3 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir3, "--no-history", "--metadata-only")
