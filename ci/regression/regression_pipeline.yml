@@ -119,7 +119,7 @@ resources:
   source:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/main/server-rc-(.*)-rhel8_x86_64.tar.gz
+    regexp: server/published/main/server-rc-(.*)-el8_x86_64.tar.gz
 
 #### Misc Other ####
 - name: weekly-trigger
