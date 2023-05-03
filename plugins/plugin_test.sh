@@ -5,7 +5,7 @@ set -o pipefail
 plugin=$1
 plugin_config=$2
 secondary_plugin_config=$3
-MINIMUM_API_VERSION="0.3.0"
+MINIMUM_API_VERSION="0.4.0"
 
 # ----------------------------------------------
 # Test suite setup
@@ -393,6 +393,44 @@ if [ $? -eq 0 ] ; then
 fi
 echo "[PASSED] fails with unknown command"
 set -e
+
+# ----------------------------------------------
+# Delete replica function
+# ----------------------------------------------
+if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboost_config_replication.yaml ]]; then
+    time_second_for_repl=$(expr 99999999999999 - $(od -vAn -N5 -tu < /dev/urandom | tr -d ' \n'))
+    current_date_for_repl=$(echo $time_second_for_repl | cut -c 1-8)
+
+    testdir_for_repl="/tmp/testseg/backups/${current_date_for_repl}/${time_second_for_repl}"
+    testdata_for_repl="$testdir_for_repl/testdata_$time_second_for_repl.txt"
+
+    mkdir -p $testdir_for_repl
+
+    echo "[RUNNING] backup_data with replica"
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl coordinator \"-1\"
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment_host
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment \"0\"
+
+
+    echo $data | $plugin backup_data $plugin_config $testdata_for_repl
+    echo "[PASSED] backup_data with replica"
+
+    echo "[RUNNING] delete_replica"
+    $plugin delete_replica $plugin_config $time_second_for_repl
+    echo "[PASSED] delete_replica"
+
+    set +e
+    echo "[RUNNING] delete_replica again to verify warning"
+    output=`$plugin delete_replica $plugin_config $time_second_for_repl`
+
+    if [[ "$output" != *"already deleted"* ]]; then
+        echo "Failed to delete replica using plugin"
+        exit 1
+    fi
+    echo "[PASSED] delete_replica again to verify warning"
+    set -e
+
+fi
 
 # ----------------------------------------------
 # Run test gpbackup and gprestore with plugin
