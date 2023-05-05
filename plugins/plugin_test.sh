@@ -4,7 +4,8 @@ set -o pipefail
 
 plugin=$1
 plugin_config=$2
-secondary_plugin_config=$3
+plugin_dir=$3
+secondary_plugin_config=$4
 MINIMUM_API_VERSION="0.4.0"
 
 # ----------------------------------------------
@@ -12,9 +13,9 @@ MINIMUM_API_VERSION="0.4.0"
 # This will put small amounts of data in the
 # plugin destination location
 # ----------------------------------------------
-if [ $# -lt 2 ] || [ $# -gt 3 ]
+if [ $# -lt 3 ] || [ $# -gt 4 ]
   then
-    echo "Usage: plugin_test.sh [path_to_executable] [plugin_config] [optional_config_for_secondary_destination]"
+    echo "Usage: plugin_test.sh [path_to_executable] [plugin_config] [plugin_testdir] [optional_config_for_secondary_destination]"
     exit 1
 fi
 
@@ -36,8 +37,9 @@ testdata="$testdir/testdata_$time_second.txt"
 test_no_data="$testdir/test_no_data_$time_second.txt"
 testdatasmall="$testdir/testdatasmall_$time_second.txt"
 testdatalarge="$testdir/testdatalarge_$time_second.txt"
-
 logdir="/tmp/test_bench_logs"
+
+plugin_testdir="$plugin_dir/${current_date}/${time_second}"
 
 text="this is some text"
 data=`LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 1000 ; echo`
@@ -57,16 +59,18 @@ cleanup_test_dir() {
   fi
 
   testdir_to_clean=$1
+  set +e
 
-  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean coordinator \"-1\"
-  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment_host
-  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment \"0\"
-  echo "[PASSED - CLEANUP] cleanup_plugin_for_backup"
+  echo "[RUNNING] delete_directory on plugin: $testdir_to_clean"
+  $plugin delete_directory $plugin_config $testdir_to_clean 
+  echo "[PASSED] delete_directory on plugin: $testdir_to_clean"
 
-  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean coordinator \"-1\"
-  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment_host
-  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment \"0\"
-  echo "[PASSED - CLEANUP] cleanup_plugin_for_restore"
+if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$secondary_plugin_config" ]]; then
+  echo "[RUNNING] delete_directory on plugin remote: $testdir_to_clean"
+  $plugin delete_directory $secondary_plugin_config $testdir_to_clean 
+  echo "[PASSED] delete_directory on plugin remote: $testdir_to_clean"
+fi
+  set -e
 }
 
 echo "# ----------------------------------------------"
@@ -152,7 +156,8 @@ echo "[PASSED] setup_plugin_for_backup"
 echo "[PASSED] backup_file"
 echo "[PASSED] setup_plugin_for_restore"
 echo "[PASSED] restore_file"
-cleanup_test_dir $testdir
+# TODO -- This test is still not getting cleaned up.  The "backup_file" path construction logic places files 
+# very strangely, making delete_directory inappropraite for this case.
 
 # ----------------------------------------------
 # Backup/Restore data functions
@@ -179,7 +184,6 @@ if [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$seconda
 fi
 echo "[PASSED] backup_data"
 echo "[PASSED] restore_data"
-cleanup_test_dir $testdir
 
 echo "[RUNNING] backup_data with no data"
 echo -n "" | $plugin backup_data $plugin_config $test_no_data
@@ -202,7 +206,6 @@ if [[ "$plugin_config" == *ddboost_config_replication.yaml ]] && [[ -n "$seconda
 fi
 echo "[PASSED] backup_data with no data"
 echo "[PASSED] restore_data with no data"
-cleanup_test_dir $testdir
 
 # ----------------------------------------------
 # Restore subset data functions
@@ -240,10 +243,11 @@ if [[ "$plugin" == *gpbackup_ddboost_plugin ]]; then
   data_part2=$(echo $data_large | cut -c900001-900001)
   if [ "$output" != "$data_part1$data_part2" ]; then
     echo "Failure restore_data_subset of two partitions from large data"
+    cleanup_test_dir $plugin_testdir
     exit 1
   fi
   echo "[PASSED] restore_data_subset of two partitions from large data"
-  cleanup_test_dir $testdir
+  cleanup_test_dir $plugin_testdir
 fi
 
 # ----------------------------------------------
@@ -255,10 +259,12 @@ current_date_for_del=$(echo $time_second_for_del | cut -c 1-8)
 time_second_for_del2=$(expr $time_second_for_del + 1)
 current_date_for_del2=$(echo $time_second_for_del2 | cut -c 1-8)
 
+plugin_testdir_for_del="$plugin_dir/${current_date_for_del}/${time_second_for_del}"
 testdir_for_del="/tmp/testseg/backups/${current_date_for_del}/${time_second_for_del}"
 testdata_for_del="$testdir_for_del/testdata_$time_second_for_del.txt"
 testfile_for_del="$testdir_for_del/testfile_$time_second_for_del.txt"
 
+plugin_testdir_for_del2="$plugin_dir/${current_date_for_del2}/${time_second_for_del2}"
 testdir_for_del2="/tmp/testseg/backups/${current_date_for_del2}/${time_second_for_del2}"
 testdata_for_del2="$testdir_for_del2/testdata_$time_second_for_del2.txt"
 testfile_for_del2="$testdir_for_del2/testfile_$time_second_for_del2.txt"
@@ -335,7 +341,8 @@ fi
 
 set -e
 echo "[PASSED] delete_backup"
-cleanup_test_dir $testdir_for_del
+# cleanup_test_dir $plugin_testdir_for_del
+# cleanup_test_dir $plugin_testdir_for_del2
 
 # ----------------------------------------------
 # Replicate backup function
@@ -344,6 +351,7 @@ if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboos
     time_second_for_repl=$(expr 99999999999999 - $(od -vAn -N5 -tu < /dev/urandom | tr -d ' \n'))
     current_date_for_repl=$(echo $time_second_for_repl | cut -c 1-8)
 
+    plugin_testdir_for_repl="$plugin_dir/${current_date_for_repl}/${time_second_for_repl}"
     testdir_for_repl="/tmp/testseg/backups/${current_date_for_repl}/${time_second_for_repl}"
     testdata_for_repl="$testdir_for_repl/testdata_$time_second_for_repl.txt"
 
@@ -381,7 +389,7 @@ if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboos
         fi
     fi
     echo "[PASSED] replicate backup"
-    cleanup_test_dir $testdir_for_repl
+    cleanup_test_dir $plugin_testdir_for_repl
 fi
 
 set +e
@@ -401,6 +409,7 @@ if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboos
     time_second_for_repl=$(expr 99999999999999 - $(od -vAn -N5 -tu < /dev/urandom | tr -d ' \n'))
     current_date_for_repl=$(echo $time_second_for_repl | cut -c 1-8)
 
+    plugin_testdir_for_repl="$plugin_dir/${current_date_for_repl}/${time_second_for_repl}"
     testdir_for_repl="/tmp/testseg/backups/${current_date_for_repl}/${time_second_for_repl}"
     testdata_for_repl="$testdir_for_repl/testdata_$time_second_for_repl.txt"
 
@@ -430,6 +439,7 @@ if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboos
     echo "[PASSED] delete_replica again to verify warning"
     set -e
 
+    cleanup_test_dir $plugin_testdir_for_repl
 fi
 
 # ----------------------------------------------

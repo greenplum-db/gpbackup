@@ -456,7 +456,7 @@ var _ = Describe("End to End plugin tests", func() {
 			}
 			pluginsDir := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("GOPATH"))
 			copyPluginToAllHosts(backupConn, fmt.Sprintf("%s/example_plugin.bash", pluginsDir))
-			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test.sh %s/example_plugin.bash %s/example_plugin_config.yaml", pluginsDir, pluginsDir, pluginsDir))
+            command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test.sh %s/example_plugin.bash %s/example_plugin_config.yaml /tmp/plugin_dest", pluginsDir, pluginsDir, pluginsDir))
 			mustRunCommand(command)
 
 			_ = os.RemoveAll("/tmp/plugin_dest")
