@@ -1,0 +1,17 @@
+platform: linux
+
+image_resource:
+  type: registry-image
+
+inputs:
+- name: gpbackup
+- name: gpdb_src
+- name: bin_gpdb
+- name: gppkgs
+
+params:
+  LOCAL_CLUSTER_SIZE: 3
+  OS: RHEL8
+
+run:
+  path: gpbackup/ci/scripts/clean-plugins.bash

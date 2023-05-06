@@ -77,6 +77,16 @@ groups:
   - ddboost_plugin_perf
 {% endif %}
 
+- name: Plugins
+  jobs: 
+  - s3_plugin_tests
+  - ddboost_plugin_and_boostfs_tests_6x
+{% if is_prod and "gpbackup-release" != pipeline_name %}
+  - ddboost_plugin_and_boostfs_tests_5x
+  - s3_plugin_perf
+  - ddboost_plugin_perf
+{% endif %}
+
 {% if "gpbackup-release" == pipeline_name %}
 - name: Packaging and Release
   jobs:
@@ -1216,6 +1226,9 @@ jobs:
       <<: *ccp_destroy_nvme
   ensure:
     <<: *set_failed
+
+{% if "gpbackup-release" != pipeline_name %}
+{% endif %}
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: GPDB6-ubuntu
