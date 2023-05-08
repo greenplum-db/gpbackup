@@ -133,7 +133,7 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		Timestamp:             timestamp,
 		WithoutGlobals:        MustGetFlagBool(options.WITHOUT_GLOBALS),
 		WithStatistics:        MustGetFlagBool(options.WITH_STATS),
-		Status:                history.BackupStatusFailed,
+		Status:                history.BackupStatusInProgress,
 	}
 
 	return &backupConfig
@@ -156,6 +156,8 @@ func initializeBackupReport(opts options.Options) {
 		//Potentially expensive query
 		dbSize = GetDBSize(connectionPool)
 	}
+
+	config.SegmentCount = len(globalCluster.ContentIDs) - 1
 
 	backupReport = &report.Report{
 		DatabaseSize: dbSize,

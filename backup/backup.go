@@ -141,6 +141,38 @@ func DoBackup() {
 	gplog.Info("Metadata will be written to %s", metadataFilename)
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
 
+	/*
+	 * We check this in the backup report rather than the flag because we
+	 * perform a metadata only backup if the database contains no tables
+	 * or only external tables
+	 */
+	backupSetTables := dataTables
+	if !backupReport.MetadataOnly {
+		targetBackupRestorePlan := make([]history.RestorePlanEntry, 0)
+		if targetBackupTimestamp != "" {
+			gplog.Info("Basing incremental backup off of backup with timestamp = %s", targetBackupTimestamp)
+
+			targetBackupTOC := toc.NewTOC(targetBackupFPInfo.GetTOCFilePath())
+			targetBackupRestorePlan = history.ReadConfigFile(targetBackupFPInfo.GetConfigFilePath()).RestorePlan
+			backupSetTables = FilterTablesForIncremental(targetBackupTOC, globalTOC, dataTables)
+		}
+
+		backupReport.RestorePlan = PopulateRestorePlan(backupSetTables, targetBackupRestorePlan, dataTables)
+	}
+
+	// As soon as all necessary data is available, capture the backup into history database
+	if !MustGetFlagBool(options.NO_HISTORY) {
+		historyDBName := globalFPInfo.GetBackupHistoryDatabasePath()
+		historyDB, err := history.InitializeHistoryDatabase(historyDBName)
+		if err != nil {
+			gplog.FatalOnError(err)
+		} else {
+			err = history.StoreBackupHistory(historyDB, &backupReport.BackupConfig)
+			historyDB.Close()
+			gplog.FatalOnError(err)
+		}
+	}
+
 	backupSessionGUC(metadataFile)
 	if !MustGetFlagBool(options.DATA_ONLY) {
 		isFullBackup := len(MustGetFlagStringArray(options.INCLUDE_RELATION)) == 0
@@ -153,26 +185,10 @@ func DoBackup() {
 		backupPostdata(metadataFile)
 	}
 
-	/*
-	 * We check this in the backup report rather than the flag because we
-	 * perform a metadata only backup if the database contains no tables
-	 * or only external tables
-	 */
 	if !backupReport.MetadataOnly {
-		backupSetTables := dataTables
-
-		targetBackupRestorePlan := make([]history.RestorePlanEntry, 0)
-		if targetBackupTimestamp != "" {
-			gplog.Info("Basing incremental backup off of backup with timestamp = %s", targetBackupTimestamp)
-
-			targetBackupTOC := toc.NewTOC(targetBackupFPInfo.GetTOCFilePath())
-			targetBackupRestorePlan = history.ReadConfigFile(targetBackupFPInfo.GetConfigFilePath()).RestorePlan
-			backupSetTables = FilterTablesForIncremental(targetBackupTOC, globalTOC, dataTables)
-		}
-
-		backupReport.RestorePlan = PopulateRestorePlan(backupSetTables, targetBackupRestorePlan, dataTables)
 		backupData(backupSetTables)
 	}
+
 	printDataBackupWarnings(numExtOrForeignTables)
 	if MustGetFlagBool(options.WITH_STATS) {
 		backupStatistics(metadataTables)
@@ -382,7 +398,6 @@ func DoTeardown() {
 		if statErr != nil { // Even if this isn't os.IsNotExist, don't try to write a report file in case of further errors
 			return
 		}
-		historyDBName := globalFPInfo.GetBackupHistoryDatabasePath()
 		historyFileLegacyName := globalFPInfo.GetBackupHistoryFilePath()
 		reportFilename := globalFPInfo.GetBackupReportFilePath()
 		configFilename := globalFPInfo.GetConfigFilePath()
@@ -396,24 +411,12 @@ func DoTeardown() {
 		}
 
 		if backupReport != nil {
-			if !backupFailed {
+			if backupFailed {
+				backupReport.BackupConfig.Status = history.BackupStatusFailed
+			} else {
 				backupReport.BackupConfig.Status = history.BackupStatusSucceed
 			}
 			backupReport.ConstructBackupParamsString()
-			backupReport.BackupConfig.SegmentCount = len(globalCluster.ContentIDs) - 1
-
-			if !MustGetFlagBool(options.NO_HISTORY) {
-				historyDB, err := history.InitializeHistoryDatabase(historyDBName)
-				if err != nil {
-					gplog.Error(fmt.Sprintf("%v", err))
-				} else {
-					err = history.StoreBackupHistory(historyDB, &backupReport.BackupConfig)
-					historyDB.Close()
-					if err != nil {
-						gplog.Error(fmt.Sprintf("%v", err))
-					}
-				}
-			}
 
 			history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
 			if backupReport.BackupConfig.EndTime == "" {
@@ -472,6 +475,31 @@ func DoCleanup(backupFailed bool) {
 				utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
 			}
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
+		}
+
+		// The gpbackup_history entry is written to the DB with an "In Progress" status very early
+		// on.  If we get to cleanup and the backup succeeded, mark it as a success, otherwise mark
+		// it as a failure. Between our signal handler and recovering panics, there should be no
+		// way for gpbackup to exit that leaves the entry in the initial status.
+
+		if !MustGetFlagBool(options.NO_HISTORY) {
+			var statusString string
+			if backupFailed {
+				statusString = history.BackupStatusFailed
+			} else {
+				statusString = history.BackupStatusSucceed
+			}
+			historyDBName := globalFPInfo.GetBackupHistoryDatabasePath()
+			historyDB, err := history.InitializeHistoryDatabase(historyDBName)
+			if err != nil {
+				gplog.Error(fmt.Sprintf("Unable to update history database.  Error: %v", err))
+			} else {
+				_, err := historyDB.Exec(fmt.Sprintf("UPDATE backups SET status='%s' WHERE timestamp='%s'", statusString, globalFPInfo.Timestamp))
+				historyDB.Close()
+				if err != nil {
+					gplog.Error(fmt.Sprintf("Unable to update history database.  Error: %v", err))
+				}
+			}
 		}
 	}
 	err := backupLockFile.Unlock()

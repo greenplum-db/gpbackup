@@ -336,7 +336,7 @@ restore status:          Success but non-fatal errors occurred. See log file .+ 
 				Plugin:               "/tmp/plugin.sh",
 				Timestamp:            "timestamp1",
 				IncludeTableFiltered: true,
-				Status:               history.BackupStatusFailed,
+				Status:               history.BackupStatusInProgress,
 			}, backupConfig)
 		})
 	})
