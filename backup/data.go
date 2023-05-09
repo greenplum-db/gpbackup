@@ -165,11 +165,17 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	 * 	3) Processes tables only in the event that the other workers encounter locking issues.
 	 * Worker 0 already has all locks on the tables so it will not run into locking issues.
 	 */
+	panicChan := make(chan error)
 	rowsCopiedMaps[0] = make(map[uint32]int64)
 	for connNum := 1; connNum < connectionPool.NumConns; connNum++ {
 		rowsCopiedMaps[connNum] = make(map[uint32]int64)
 		workerPool.Add(1)
 		go func(whichConn int) {
+			defer func() {
+				if panicErr := recover(); panicErr != nil {
+					panicChan <- fmt.Errorf("%v", panicErr)
+				}
+			}()
 			defer workerPool.Done()
 			/* If the --leaf-partition-data flag is not set, the parent and all leaf
 			 * partition data are treated as a single table and will be assigned to a single worker.
@@ -243,12 +249,18 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 			}
 		}(connNum)
 	}
+
 	// Special goroutine to handle deferred tables
 	// Handle all tables deferred by the deadlock detection. This can only be
 	// done with the main worker thread, worker 0, because it has
 	// AccessShareLocks on all the tables already.
 	deferredWorkerDone := make(chan bool)
 	go func() {
+		defer func() {
+			if panicErr := recover(); panicErr != nil {
+				panicChan <- fmt.Errorf("%v", panicErr)
+			}
+		}()
 		for _, table := range tables {
 			for {
 				state, _ := oidMap.Load(table.Oid)
@@ -270,8 +282,18 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 		}
 		deferredWorkerDone <- true
 	}()
+
 	close(tasks)
 	workerPool.Wait()
+
+	// Allow panics to crash from the main process, invoking DoCleanup
+	select {
+	case err := <-panicChan:
+		gplog.Fatal(err, "")
+	default:
+		// no panic, nothing to do
+	}
+
 	// If not using synchronized snapshots,
 	// check if all workers were terminated due to lock issues.
 	if backupSnapshot == "" {

@@ -64,15 +64,28 @@ func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.Pro
 		connNum := connectionPool.ValidateConnNum(whichConn...)
 		executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum, executeInParallel)
 	} else {
+		panicChan := make(chan error)
 		for i := 0; i < connectionPool.NumConns; i++ {
 			workerPool.Add(1)
 			go func(connNum int) {
+				defer func() {
+					if panicErr := recover(); panicErr != nil {
+						panicChan <- fmt.Errorf("%v", panicErr)
+					}
+				}()
 				defer workerPool.Done()
 				connNum = connectionPool.ValidateConnNum(connNum)
 				executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum, executeInParallel)
 			}(i)
 		}
 		workerPool.Wait()
+		// Allow panics to crash from the main process, invoking DoCleanup
+		select {
+		case err := <-panicChan:
+			gplog.Fatal(err, "")
+		default:
+			// no panic, nothing to do
+		}
 	}
 	if fatalErr != nil {
 		fmt.Println("")

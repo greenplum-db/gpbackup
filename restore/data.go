@@ -213,10 +213,16 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Co
 	var workerPool sync.WaitGroup
 	var numErrors int32
 	var mutex = &sync.Mutex{}
+	panicChan := make(chan error)
 
 	for i := 0; i < connectionPool.NumConns; i++ {
 		workerPool.Add(1)
 		go func(whichConn int) {
+			defer func() {
+				if panicErr := recover(); panicErr != nil {
+					panicChan <- fmt.Errorf("%v", panicErr)
+				}
+			}()
 			defer workerPool.Done()
 
 			setGUCsForConnection(gucStatements, whichConn)
@@ -277,6 +283,13 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Co
 	}
 	close(tasks)
 	workerPool.Wait()
+	// Allow panics to crash from the main process, invoking DoCleanup
+	select {
+	case err := <-panicChan:
+		gplog.Fatal(err, "")
+	default:
+		// no panic, nothing to do
+	}
 
 	if numErrors > 0 {
 		fmt.Println("")
