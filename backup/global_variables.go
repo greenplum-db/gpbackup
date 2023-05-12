@@ -80,6 +80,10 @@ func SetFPInfo(fpInfo filepath.FilePathInfo) {
 	globalFPInfo = fpInfo
 }
 
+func GetFPInfo() filepath.FilePathInfo {
+	return globalFPInfo
+}
+
 func SetPluginConfig(config *utils.PluginConfig) {
 	pluginConfig = config
 }

@@ -134,10 +134,10 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 * If synchronized snapshot is not supported and worker is unable to acquire a lock, the
 * worker must be terminated because the session no longer has a valid distributed snapshot
 *
-* FIXME: Simplify backupDataForAllTables by having one function for snapshot workflow and
+* FIXME: Simplify BackupDataForAllTables by having one function for snapshot workflow and
 * another without, then extract common portions into their own functions.
  */
-func backupDataForAllTables(tables []Table) []map[uint32]int64 {
+func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables))}
 	counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
 	counters.ProgressBar.Start()
