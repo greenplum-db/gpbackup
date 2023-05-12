@@ -230,7 +230,8 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 				err = BackupSingleTableData(table, rowsCopiedMaps[whichConn], &counters, whichConn)
 				if err != nil {
 					copyErr = err
-					break
+					oidMap.Store(table.Oid, Complete)
+					continue
 				} else {
 					oidMap.Store(table.Oid, Complete)
 				}
