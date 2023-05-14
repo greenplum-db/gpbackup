@@ -2,10 +2,11 @@
 
 set -ex
 
+########################################################################################
 # Create native package installation files
 function build_rpm_rhel() {
     export ARCH=x86_64
-    GPDB_VER=( "5" "6" "7" )
+    GPDB_VER=( "5" "6" )
     RPMROOT=/tmp/gpbackup_tools_rpm
     mkdir -p ${RPMROOT}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
@@ -43,15 +44,18 @@ function build_deb_ubuntu() {
 
     PKG_FILES=deb_build_dir/${DEB_NAME}
 }
+########################################################################################
 
+########################################################################################
 export GPBACKUP_TOOLS_VERSION=$(cat gpbackup-tools-versions/pkg_version)
-echo "Building installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} platform: ${OS}"
+echo "Building gppkg v1 installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} platform: ${OS}"
 
 if [[ ${OS} == "RHEL6" || ${OS} == "RHEL7" ||  ${OS} == "RHEL8" ]]; then
     build_rpm_rhel
 elif [[ ${OS} == "ubuntu" ]]; then
     build_deb_ubuntu
 fi
+
 
 # Install gpdb binaries
 if [[ ! -f bin_gpdb/bin_gpdb.tar.gz ]]; then
@@ -64,20 +68,60 @@ tar -xzf bin_gpdb/bin_gpdb.tar.gz -C /usr/local/greenplum-db-devel
 gpdb_src/concourse/scripts/setup_gpadmin_user.bash
 source /usr/local/greenplum-db-devel/greenplum_path.sh
 
-# Create gppkg from native package
+# Create gppkg_v1 from native package
 for i in ${GPDB_VER[@]}; do
-  # spec file
-  export GPDB_MAJOR_VERSION=${i}
-  envsubst < gpbackup/gppkg/gppkg_spec.yml.in > gppkg_spec.yml
-  cat gppkg_spec.yml
+    # spec file
+    export GPDB_MAJOR_VERSION=${i}
+    envsubst < gpbackup/gppkg/gppkg_spec.yml.in > gppkg_spec.yml
+    cat gppkg_spec.yml
 
-  mkdir -p gppkg
-  cp gppkg_spec.yml ${PKG_FILES} gppkg/
-  gppkg --build gppkg/
+    mkdir -p gppkg
+    cp gppkg_spec.yml ${PKG_FILES} gppkg/
+    gppkg --build gppkg/
 done
-echo "Successfully built gppkg"
+echo "Successfully built gppkg v1 for GPDB5 and GPDB6"
+########################################################################################
 
+########################################################################################
+# gpdb7+ uses gppkg_v2, which does not require an rpm or deb package.  Instead just placed compiled
+# binaries and config metadata into a folder for building
+if [[ ${OS} == "RHEL8" ]]; then
+    export ARCH=x86_64
+    export GPBACKUP_TOOLS_VERSION=$(cat gpbackup-tools-versions/pkg_version)
+    echo "Building gppkg v2 installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} platform: ${OS}"
+
+    mkdir /tmp/gppkgv2
+    tar -xzf gp-pkg/gppkg* -C /tmp/gppkgv2
+
+    BUILDROOT=/tmp/gpbackup_tools_build
+    mkdir -p ${BUILDROOT}/bin
+
+    cp gpbackup_tar/bin_gpbackup.tar.gz ${BUILDROOT}/
+    tar -xzvf ${BUILDROOT}/bin_gpbackup.tar.gz -C ${BUILDROOT}/bin
+
+    # Create gppkg v2 from compiled binaries
+    # spec file
+    export GPDB_MAJOR_VERSION=7
+    envsubst < gpbackup/gppkg/gppkg_v2_spec.yml.in > gppkg_spec.yml
+    cat gppkg_spec.yml
+
+    cp gppkg_spec.yml ${BUILDROOT}
+    /tmp/gppkgv2/gppkg build -c $BUILDROOT/gppkg_spec.yml -i $BUILDROOT/bin
+
+    # gppkg v2 defaults to appending .tar.gz to the gppkg file
+    for file in *gppkg.tar.gz; do
+        if [ -f "$file" ]; then
+            new_name="${file%.gppkg.tar.gz}"
+            mv "$file" "${new_name}-RHEL8-x86_64.gppkg"
+        fi
+    done
+    echo "Successfully built gppkg v2 for GPDB7"
+fi
+########################################################################################
+
+########################################################################################
 # Prepare to publish output
 chown gpadmin:gpadmin *.gppkg
 ls -l *.gppkg
 mv *.gppkg gppkgs/
+########################################################################################

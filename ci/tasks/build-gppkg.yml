@@ -9,6 +9,7 @@ inputs:
 - name: bin_gpdb
 - name: gpbackup_tar
 - name: gpbackup-tools-versions
+- name: gp-pkg
 
 outputs:
 - name: gppkgs

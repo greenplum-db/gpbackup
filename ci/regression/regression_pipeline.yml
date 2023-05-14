@@ -128,6 +128,14 @@ resources:
     location: America/Los_Angeles
     interval: 168h # 7 days
 
+- name: gp-pkg
+  type: gcs
+  icon: google
+  source:
+    json_key: ((concourse-gcs-resources-service-account-key))
+    bucket: pivotal-gpdb-concourse-resources-prod
+    regexp: gppkg/released/gpdb7/gppkg-(.*).tar.gz
+
 - name: gpbackup-go-components-rhel8
   type: gcs
   icon: google
@@ -441,6 +449,7 @@ jobs:
     - get: weekly-trigger
       trigger: true
     - get: rocky8-gpdb7-image
+    - get: gp-pkg
     - get: gpbackup
       trigger: true
       passed: [build_gppkgs]

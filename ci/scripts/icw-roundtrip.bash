@@ -16,6 +16,17 @@ pushd ./diffdb_src
     scp ./diffdb cdw:/home/gpadmin/
 popd
 
+if [[ -d gp-pkg ]] ; then
+  mkdir /tmp/gppkgv2
+  tar -xzf gp-pkg/gppkg* -C /tmp/gppkgv2
+
+  # install gppkgv2 onto all segments
+  while read -r host; do
+    ssh -n "$host" "mkdir -p /home/gpadmin/.local/bin"
+    scp /tmp/gppkgv2/gppkg "$host":/home/gpadmin/.local/bin
+  done <cluster_env_files/hostfile_all
+fi
+
 cat <<SCRIPT > /tmp/run_tests.bash
 #!/bin/bash
 
@@ -32,8 +43,14 @@ set +e
 echo \$is_installed_output | grep 'is installed'
 if [ \$? -ne 0 ] ; then
   set -e
-  gppkg -i gpbackup*gp*.gppkg
+  if [[ -f /home/gpadmin/.local/bin/gppkg ]] ; then
+    # gppkg v2 is installed here
+    gppkg install -a gpbackup*gp*.gppkg
+  else
+    gppkg -i gpbackup*gp*.gppkg
+  fi
 fi
+set -e
 
 # run dump into database
 echo "## Loading dumpfile ##"

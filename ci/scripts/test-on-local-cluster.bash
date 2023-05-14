@@ -29,6 +29,10 @@ fi
 
 mkdir /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+if [[ -d gp-pkg ]] ; then
+    mkdir /tmp/gppkgv2
+    tar -xzf gp-pkg/gppkg* -C /tmp/gppkgv2
+fi
 
 if [[ ! -f bin_gpdb/bin_gpdb.tar.gz ]] ; then
   mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
@@ -73,7 +77,12 @@ fi
 # Install gpbackup gppkg
 out=\$(psql postgres -c "select version();")
 GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
-gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*${OS}*.gppkg
+
+if [[ -f /tmp/gppkgv2/gppkg ]] ; then
+    /tmp/gppkgv2/gppkg install -a /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*${OS}*.gppkg
+else
+    gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*${OS}*.gppkg
+fi
 
 # Get the GPDB version to use for the unit tests
 export TEST_GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9].[0-9]\+.[0-9]\+\).*/\1/p')
