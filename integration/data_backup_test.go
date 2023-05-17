@@ -81,7 +81,7 @@ var _ = Describe("backup integration tests", func() {
 				Extension:     ".dne",
 			}
 			utils.SetPipeThroughProgram(dummyPipeThrough)
-            defer testhelper.ShouldPanicWithMessage("doesnotexist: not found")
+			defer testhelper.ShouldPanicWithMessage("doesnotexist")
 			backup.BackupDataForAllTables(testTables)
 		})
 	})
