@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"reflect"
 
@@ -173,6 +174,8 @@ func createBackupLockFile(timestamp string) {
 	backupDir := MustGetFlagString(options.BACKUP_DIR)
 	noHistory := MustGetFlagBool(options.NO_HISTORY)
 	if metadataOnly && noHistory && backupDir != "" {
+		err = os.MkdirAll(backupDir, 0777)
+		gplog.FatalOnError(err)
 		timestampLockFile = fmt.Sprintf("%s/%s.lck", backupDir, timestamp)
 	} else {
 		timestampLockFile = fmt.Sprintf("/tmp/%s.lck", timestamp)
