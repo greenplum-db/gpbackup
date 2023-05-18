@@ -58,7 +58,9 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(err).To(BeNil())
 	_, stderr, logFile = testhelper.SetupTestLogger()
-	connectionPool = testutils.SetupTestDbConn("testdb")
+	connectionPool = dbconn.NewDBConnFromEnvironment("testdb")
+	// we want multiple connections to facilitate testing the more common path in BackupData
+	connectionPool.MustConnect(2)
 	// We can't use AssertQueryRuns since if a role already exists it will error
 	_, _ = connectionPool.Exec("CREATE ROLE testrole SUPERUSER")
 	_, _ = connectionPool.Exec("CREATE ROLE anothertestrole SUPERUSER")
