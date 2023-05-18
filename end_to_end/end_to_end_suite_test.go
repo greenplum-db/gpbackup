@@ -1863,6 +1863,8 @@ LANGUAGE plpgsql NO SQL;`)
 			Entry("Can backup a 1-segment cluster and restore to current cluster with a filter", "20220908150804", "", "1-segment-db-filter", false, true, false, false),
 			Entry("Can backup a 3-segment cluster and restore to current cluster", "20220909094828", "", "3-segment-db", false, false, false, false),
 
+			Entry("Can backup a 2-segment using gpbackup 1.26.0 and restore to current cluster", "20230516032007", "", "2-segment-db-1_26_0", false, false, false, false),
+
 			// These tests will only run in CI, to avoid requiring developers to configure a plugin locally.
 			// We don't do as many combinatoric tests for resize restores using plugins, partly for storage space reasons and partly because
 			// we assume that if all of the above resize restores work and basic plugin restores work then the intersection should also work.
@@ -1870,6 +1872,19 @@ LANGUAGE plpgsql NO SQL;`)
 			Entry("Can perform a backup and full restore of a 2-segment cluster using a plugin", "20220908150159", "", "2-segment-db-single-data-file", false, false, true, true),
 			Entry("Can perform a backup and incremental restore of a 2-segment cluster using a plugin", "20220909150612", "20220909150622", "2-segment-db-incremental", true, false, false, true),
 		)
+		It("will not restore a pre-1.26.0 backup that lacks a stored SegmentCount value", func() {
+			extractDirectory := extractSavedTarFile(backupDir, "2-segment-db-1_24_0")
+
+			gprestoreCmd := exec.Command(gprestorePath,
+				"--timestamp", "20230516021751",
+				"--redirect-db", "restoredb",
+				"--backup-dir", extractDirectory,
+				"--resize-cluster",
+				"--on-error-continue")
+			output, err := gprestoreCmd.CombinedOutput()
+			Expect(err).To(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("Segment count for backup with timestamp 20230516021751 is unknown, cannot restore using --resize-cluster flag."))
+		})
 
 		Describe("Restore from various-sized clusters with a replicated table", func() {
 			if useOldBackupVersion {
@@ -1881,7 +1896,7 @@ LANGUAGE plpgsql NO SQL;`)
 
 					testutils.SkipIfBefore6(backupConn)
 					if useOldBackupVersion {
-						Skip("Resize-cluster was only added in version 1.25")
+						Skip("Resize-cluster was only added in version 1.26")
 					}
 					extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
 					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)

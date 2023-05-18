@@ -100,5 +100,8 @@ func GetResizeClusterInfo() (int, int, bool) {
 	isResizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
 	origSize := backupConfig.SegmentCount
 	destSize := len(globalCluster.ContentIDs) - 1
+	if !isResizeCluster && origSize == 0 { // Backup taken with version <1.26, no SegmentCount stored
+		origSize = destSize
+	}
 	return origSize, destSize, isResizeCluster
 }
