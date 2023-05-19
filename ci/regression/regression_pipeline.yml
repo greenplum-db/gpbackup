@@ -40,7 +40,7 @@ resource_types:
 ## ======================================================================
 
 resources:
-##### Docker Images #####  
+##### Docker Images #####
 - name: rocky8-gpdb6-image
   type: registry-image
   source:
@@ -175,7 +175,7 @@ resources:
     bucket: pivotal-gpdb-concourse-resources-intermediates-prod
     json_key: ((concourse-gcs-resources-service-account-key))
     versioned_file: gpdb_main/icw_planner_rhel8_dump/dump.sql.xz
-    
+
 - name: terraform
   type: terraform
   source:
@@ -335,6 +335,7 @@ jobs:
   plan:
   - in_parallel:
     - get: rocky8-gpdb6-image
+    - get: gp-pkg
     - get: gpdb_src
       resource: gpdb6_src
     - get: gpbackup-go-components-rhel8
@@ -442,7 +443,7 @@ jobs:
     <<: *ccp_destroy_nvme
   on_failure:
     *slack_alert
-      
+
 - name: regdb-GPDB7
   plan:
   - in_parallel:
