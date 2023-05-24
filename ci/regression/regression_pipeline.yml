@@ -320,16 +320,14 @@ jobs:
       trigger: true
     - get: pivnet_release_cache
     - get: rocky8-gpdb7-image
-  - in_parallel:
-    - do: # RHEL8
-      - task: build-go-binaries-rhel8
-        file: gpbackup/ci/tasks/build-go-binaries.yml
-        image: rocky8-gpdb7-image
-        params:
-          OS: RHEL8
-      - put: gpbackup-go-components-rhel8
-        params:
-          file: go_components/go_components.tar.gz
+  - task: build-go-binaries-rhel8
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+    image: rocky8-gpdb7-image
+    params:
+      OS: RHEL8
+  - put: gpbackup-go-components-rhel8
+    params:
+      file: go_components/go_components.tar.gz
 
 - name: build_gppkgs
   plan:

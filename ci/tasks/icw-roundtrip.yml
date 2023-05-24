@@ -10,6 +10,8 @@ inputs:
 - name: gppkgs
 - name: icw_dump
 - name: diffdb_src
+- name: gp-pkg
+  optional: true
 
 
 params:
