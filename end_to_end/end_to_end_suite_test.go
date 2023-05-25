@@ -2250,7 +2250,7 @@ LANGUAGE plpgsql NO SQL;`)
 			Expect(errcounter > 0).To(BeTrue())
 		})
 	})
-	Describe("Filtered backups with --no-inherit", func() {
+	Describe("Filtered backups with --no-inherits", func() {
 		It("will not include children of included tables, but will include its parents", func() {
 			if useOldBackupVersion {
 				Skip("This test is not needed for old backup versions")
@@ -2265,7 +2265,7 @@ LANGUAGE plpgsql NO SQL;`)
 			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.parent_two CASCADE")
 			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.unrelated")
 
-			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", "public.base", "--no-inherit")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", "public.base", "--no-inherits")
 
 			contents := string(getMetdataFileContents(backupDir, timestamp, "metadata.sql"))
 			Expect(contents).To(ContainSubstring("CREATE TABLE public.parent_one"))

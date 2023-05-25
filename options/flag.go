@@ -51,7 +51,7 @@ const (
 	TRUNCATE_TABLE        = "truncate-table"
 	WITHOUT_GLOBALS       = "without-globals"
 	RESIZE_CLUSTER        = "resize-cluster"
-	NO_INHERIT            = "no-inherit"
+	NO_INHERITS           = "no-inherits"
 )
 
 func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
@@ -85,7 +85,7 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(WITH_STATS, false, "Back up query plan statistics")
 	flagSet.Bool(WITHOUT_GLOBALS, false, "Skip backup of global metadata")
-	flagSet.Bool(NO_INHERIT, false, "For a filtered backup, don't back up all tables that inherit included tables")
+	flagSet.Bool(NO_INHERITS, false, "For a filtered backup, don't back up all tables that inherit included tables")
 }
 
 func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {

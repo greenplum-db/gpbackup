@@ -215,7 +215,7 @@ func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.
 		return err
 	}
 
-	allFqnStructs, err := o.getUserTableRelationsWithIncludeFiltering(conn, quotedIncludeRelations, MustGetFlagBool(flags, NO_INHERIT))
+	allFqnStructs, err := o.getUserTableRelationsWithIncludeFiltering(conn, quotedIncludeRelations, MustGetFlagBool(flags, NO_INHERITS))
 	if err != nil {
 		return err
 	}
@@ -379,7 +379,7 @@ func (o *Options) recurseTableDepend(conn *dbconn.DBConn, includeOids []string, 
 	return expandedIncludeOidsArr, err
 }
 
-func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string, no_inherit bool) ([]FqnStruct, error) {
+func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string, no_inherits bool) ([]FqnStruct, error) {
 	includeOids, err := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	if err != nil {
 		return nil, err
@@ -396,9 +396,9 @@ func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbcon
 	// earlier, this inheritance-based approach still works in those earlier versions and it's
 	// good to keep the logic as similar as possible between the earlier and later versions.
 	//
-	// If --no-inherit is passed, we retrieve parent tables (so that filtering on partition
+	// If --no-inherits is passed, we retrieve parent tables (so that filtering on partition
 	// leaves works) but skip retrieving child tables.
-	if !no_inherit {
+	if !no_inherits {
 		childOids, err := o.recurseTableDepend(connectionPool, includeOids, "parent", o.isLeafPartitionData)
 		if err != nil {
 			return nil, err
@@ -415,7 +415,7 @@ func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbcon
 	if len(parentOids) > 0 {
 		parentAndExternalPartitionFilter = fmt.Sprintf(`OR c.oid IN (%s)`, strings.Join(parentOids, ", "))
 	}
-	if !no_inherit {
+	if !no_inherits {
 		expandedOids := make([]string, 0)
 		// We shouldn't need anywhere near 100 iterations to get all dependencies; we just need a cap to prevent an infinite loop
 		for i := 0; i < 100; i++ {
