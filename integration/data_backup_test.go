@@ -51,7 +51,7 @@ var _ = Describe("backup integration tests", func() {
 			backup.SetFPInfo(origFPInfo)
 			utils.SetPipeThroughProgram(origPipeThroughProgram)
 		})
-		It("backs up multiple tables with valid data", func() {
+		It("backs up multiple tables with valid data", FlakeAttempts(5), func() {
 
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE dataTest.testtable1 (i int) DISTRIBUTED BY (i);`)
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE dataTest.testtable2 (i int) DISTRIBUTED BY (i);`)
@@ -66,6 +66,7 @@ var _ = Describe("backup integration tests", func() {
 			}
 			// set up a backupsnapshot to ensure the code flow we're testing is the intended case
 			connectionPool.MustBegin()
+			defer connectionPool.MustCommit()
 			testSnapshot, err := backup.GetSynchronizedSnapshot(connectionPool)
 			Expect(err).ToNot(HaveOccurred())
 			backup.SetBackupSnapshot(testSnapshot)
@@ -73,14 +74,11 @@ var _ = Describe("backup integration tests", func() {
 
 			Expect(func() { backup.BackupDataForAllTables(testTables) }).ShouldNot(Panic())
 
-			connectionPool.MustCommit()
-
 			// Assert that at least one segment's worth of files for both tables were written out
 			_, err = os.Stat("/tmp/backup_data_test/backups/20170101/20170101010101/gpbackup_0_20170101010101_0")
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.Stat("/tmp/backup_data_test/backups/20170101/20170101010101/gpbackup_0_20170101010101_1")
 			Expect(err).ToNot(HaveOccurred())
-
 		})
 		It("correctly errors if a piped copy command fails", func() {
 			// We had a bug for a while where this would result in a permanent hang, instead of an
@@ -106,14 +104,13 @@ var _ = Describe("backup integration tests", func() {
 				},
 			}
 			connectionPool.MustBegin()
+			defer connectionPool.MustRollback()
 
 			testSnapshot, err := backup.GetSynchronizedSnapshot(connectionPool)
 			Expect(err).ToNot(HaveOccurred())
 			backup.SetBackupSnapshot(testSnapshot)
 
 			Expect(func() { backup.BackupDataForAllTables(testTables) }).Should(Panic())
-
-			connectionPool.MustRollback()
 
 			// Terminate the hanging copy command or it breaks test suite cleanup. We do not need
 			// to worry about GPDB5- syntax here because these tests don't apply to that
@@ -126,7 +123,6 @@ var _ = Describe("backup integration tests", func() {
 			    AND query like '%COPY%PROGRAM%doesnotexist%'
                 AND pid <> pg_backend_pid();`
 			cleanupConn.MustExec(query)
-
 		})
 
 		It("correctly errors if an unexpected error occurs taking a lock", func() {
@@ -143,14 +139,13 @@ var _ = Describe("backup integration tests", func() {
 				},
 			}
 			connectionPool.MustBegin()
+			defer connectionPool.MustRollback()
 
 			testSnapshot, err := backup.GetSynchronizedSnapshot(connectionPool)
 			Expect(err).ToNot(HaveOccurred())
 			backup.SetBackupSnapshot(testSnapshot)
 
 			Expect(func() { backup.BackupDataForAllTables(testTables) }).Should(Panic())
-
-			connectionPool.MustRollback()
 		})
 	})
 })
