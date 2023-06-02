@@ -100,6 +100,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					addFunction.PlannerSupport = "-"
 					addFunction.Kind = "f"
 					addFunction.Parallel = "u"
+					addFunction.DataAccess = ""
 				}
 
 				metadata := testutils.DefaultMetadata("FUNCTION", true, true, true, includeSecurityLabels)
@@ -127,6 +128,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					appendFunction.PlannerSupport = "-"
 					appendFunction.Kind = "f"
 					appendFunction.Parallel = "u"
+					appendFunction.DataAccess = ""
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, appendFunction, funcMetadata)
@@ -153,6 +155,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					dupFunction.PlannerSupport = "-"
 					dupFunction.Kind = "f"
 					dupFunction.Parallel = "u"
+					dupFunction.DataAccess = ""
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, dupFunction, funcMetadata)
@@ -184,6 +187,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					windowFunction.Kind = "w"
 					windowFunction.Parallel = "u"
 					windowFunction.ExecLocation = "c"
+					windowFunction.DataAccess = ""
 
 					// GPDB7 only allows set-returning functions to execute on coordinator
 					windowFunction.ReturnsSet = true
@@ -214,6 +218,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					segmentFunction.PlannerSupport = "-"
 					segmentFunction.Kind = "f"
 					segmentFunction.Parallel = "u"
+					segmentFunction.DataAccess = ""
 
 					// GPDB7 only allows set-returning functions to execute on coordinator
 					segmentFunction.ReturnsSet = true
@@ -244,6 +249,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					leakProofFunction.PlannerSupport = "-"
 					leakProofFunction.Kind = "f"
 					leakProofFunction.Parallel = "u"
+					leakProofFunction.DataAccess = ""
 				}
 
 				backup.PrintCreateFunctionStatement(backupfile, tocfile, leakProofFunction, funcMetadata)
@@ -268,7 +274,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
-					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "",
 					Language: "sql", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "r",
 				}
 
@@ -290,7 +296,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					BinaryPath: "", Arguments: sql.NullString{String: "hstore", Valid: true},
 					IdentArgs:  sql.NullString{String: "hstore", Valid: true},
 					ResultType: sql.NullString{String: "integer", Valid: true},
-					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "",
 					Language: "plperl", IsWindow: false, ExecLocation: "a", PlannerSupport: "-", Kind: "f", Parallel: "u",
 					TransformTypes: "FOR TYPE pg_catalog.hstore",
 				}

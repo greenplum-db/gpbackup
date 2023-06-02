@@ -67,6 +67,10 @@ MODIFIES SQL DATA
 				ResultType: sql.NullString{String: "SETOF record", Valid: true},
 				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, PlannerSupport: plannerSupportValue, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				addFunction.DataAccess = ""
+				appendFunction.DataAccess = ""
+			}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
@@ -84,6 +88,9 @@ AS 'SELECT $1 + $2'
 LANGUAGE SQL`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION testschema.add(integer, integer)")
 
+			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
+			results := backup.GetFunctions(connectionPool)
+
 			addFunction := backup.Function{
 				Schema: "testschema", Name: "add", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
@@ -91,8 +98,9 @@ LANGUAGE SQL`)
 				ResultType: sql.NullString{String: "integer", Valid: true},
 				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
-			_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
-			results := backup.GetFunctions(connectionPool)
+			if connectionPool.Version.AtLeast("7") {
+				addFunction.DataAccess = ""
+			}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &addFunction, "Oid")
@@ -120,8 +128,9 @@ LANGUAGE SQL WINDOW`)
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "SETOF integer", Valid: true},
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
-					Language: "sql", Kind: "w", ExecLocation: "a", Parallel: proparallelValue, IsWindow: true}
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, PlannerSupport: plannerSupportValue,
+					Config: "", Cost: 100, NumRows: 1000, DataAccess: "", Language: "sql", Kind: "w", ExecLocation: "a",
+					Parallel: proparallelValue, IsWindow: true}
 			} else {
 				windowFunction = backup.Function{
 					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
@@ -184,6 +193,7 @@ EXECUTE ON ALL SEGMENTS;`)
 				srfOnCoordinatorFunction.ReturnsSet = true
 				srfOnCoordinatorFunction.NumRows = 1000
 				srfOnCoordinatorFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
+				srfOnCoordinatorFunction.DataAccess = ""
 			}
 
 			srfOnAllSegmentsFunction := backup.Function{
@@ -199,6 +209,7 @@ EXECUTE ON ALL SEGMENTS;`)
 				srfOnAllSegmentsFunction.ReturnsSet = true
 				srfOnAllSegmentsFunction.NumRows = 1000
 				srfOnAllSegmentsFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
+				srfOnAllSegmentsFunction.DataAccess = ""
 			}
 
 			Expect(results).To(HaveLen(2))
@@ -234,7 +245,7 @@ EXECUTE ON INITPLAN;`)
 					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 					ResultType: sql.NullString{String: "SETOF integer", Valid: true},
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "",
 					PlannerSupport: plannerSupportValue, Language: "sql", IsWindow: true, ExecLocation: "i",
 					Parallel: proparallelValue, Kind: "w"}
 			} else {
@@ -277,6 +288,9 @@ MODIFIES SQL DATA
 				Volatility: "s", IsStrict: true, IsLeakProof: true, IsSecurityDefiner: true,
 				PlannerSupport: plannerSupportValue, Config: `SET search_path TO 'pg_temp'`, Cost: 200,
 				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				appendFunction.DataAccess = ""
+			}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
@@ -318,6 +332,9 @@ MODIFIES SQL DATA
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: "SET work_mem TO '1MB'", Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				appendFunction.DataAccess = ""
+			}
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
 		})
@@ -353,6 +370,9 @@ MODIFIES SQL DATA
 				Volatility: "v", IsStrict: false, IsLeakProof: false, IsSecurityDefiner: false,
 				PlannerSupport: plannerSupportValue, Config: `SET search_path TO '$user', 'public', 'abc"def'`, Cost: 100,
 				NumRows: 0, DataAccess: "n", Language: "plpgsql", ExecLocation: "a", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				appendFunction.DataAccess = ""
+			}
 
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &appendFunction, "Oid")
@@ -403,6 +423,10 @@ INSERT INTO public.tbl VALUES (b);
 				Volatility: "v", IsSecurityDefiner: false, PlannerSupport: plannerSupportValue,
 				Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", ExecLocation: "a", Parallel: proparallelValue}
+			if connectionPool.Version.AtLeast("7") {
+				firstProcedure.DataAccess = ""
+				secondProcedure.DataAccess = ""
+			}
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &firstProcedure, "Oid")

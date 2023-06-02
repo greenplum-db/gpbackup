@@ -82,21 +82,45 @@ SET baz to abc`))
 				Skip("Test does not apply for GPDB versions before 5")
 			}
 
-			header := []string{"oid", "schema", "name", "proretset", "functionbody", "binarypath", "arguments", "identargs", "resulttype",
-				"provolatile", "proisstrict", "prosecdef", "proconfig", "procost", "prorows", "prodataaccess", "language"}
-			rowGood := []driver.Value{"1", "mock_schema", "mock_table", false, "mock_funcbody", "mock_path",
-				sql.NullString{String: "mock_args", Valid: true}, sql.NullString{String: "mock_identargs", Valid: true},
-				sql.NullString{String: "mock_resulttype", Valid: true}, "mock_volatility", false, false, "", 0, 0,
-				"mock_dataaccess", "mock_language"}
-			rowNullArg := []driver.Value{"2", "mock_schema2", "mock_table2", false, "mock_funcbody2", "mock_path2", nil,
-				sql.NullString{String: "mock_identargs2", Valid: true}, sql.NullString{String: "mock_resulttype2", Valid: true}, "mock_volatility2",
-				false, false, "", 0, 0, "mock_dataaccess2", "mock_language2"}
-			rowNullIdentArg := []driver.Value{"3", "mock_schema3", "mock_table3", false, "mock_funcbody3", "mock_path3",
-				sql.NullString{String: "mock_args3", Valid: true}, nil, sql.NullString{String: "mock_resulttype3", Valid: true}, "mock_volatility3",
-				false, false, "", 0, 0, "mock_dataaccess3", "mock_language3"}
-			rowNullResultType := []driver.Value{"4", "mock_schema4", "mock_table4", false, "mock_funcbody4", "mock_path4",
-				sql.NullString{String: "mock_args4", Valid: true}, sql.NullString{String: "mock_identargs4", Valid: true}, nil, "mock_volatility4",
-				false, false, "", 0, 0, "mock_dataaccess4", "mock_language4"}
+			var (
+				header                                                  []string
+				rowGood, rowNullArg, rowNullIdentArg, rowNullResultType []driver.Value
+			)
+			//The column prodataaccess was removed in GP7 so we declare two sets of variables with and without that column
+			if connectionPool.Version.AtLeast("7") {
+				header = []string{"oid", "schema", "name", "proretset", "functionbody", "binarypath", "arguments", "identargs", "resulttype",
+					"provolatile", "proisstrict", "prosecdef", "proconfig", "procost", "prorows", "language"}
+				rowGood = []driver.Value{"1", "mock_schema", "mock_table", false, "mock_funcbody", "mock_path",
+					sql.NullString{String: "mock_args", Valid: true}, sql.NullString{String: "mock_identargs", Valid: true},
+					sql.NullString{String: "mock_resulttype", Valid: true}, "mock_volatility", false, false, "", 0, 0,
+					"mock_language"}
+				rowNullArg = []driver.Value{"2", "mock_schema2", "mock_table2", false, "mock_funcbody2", "mock_path2", nil,
+					sql.NullString{String: "mock_identargs2", Valid: true}, sql.NullString{String: "mock_resulttype2", Valid: true}, "mock_volatility2",
+					false, false, "", 0, 0, "mock_language2"}
+				rowNullIdentArg = []driver.Value{"3", "mock_schema3", "mock_table3", false, "mock_funcbody3", "mock_path3",
+					sql.NullString{String: "mock_args3", Valid: true}, nil, sql.NullString{String: "mock_resulttype3", Valid: true}, "mock_volatility3",
+					false, false, "", 0, 0, "mock_language3"}
+				rowNullResultType = []driver.Value{"4", "mock_schema4", "mock_table4", false, "mock_funcbody4", "mock_path4",
+					sql.NullString{String: "mock_args4", Valid: true}, sql.NullString{String: "mock_identargs4", Valid: true}, nil, "mock_volatility4",
+					false, false, "", 0, 0, "mock_language4"}
+			} else {
+				header = []string{"oid", "schema", "name", "proretset", "functionbody", "binarypath", "arguments", "identargs", "resulttype",
+					"provolatile", "proisstrict", "prosecdef", "proconfig", "procost", "prorows", "prodataaccess", "language"}
+				rowGood = []driver.Value{"1", "mock_schema", "mock_table", false, "mock_funcbody", "mock_path",
+					sql.NullString{String: "mock_args", Valid: true}, sql.NullString{String: "mock_identargs", Valid: true},
+					sql.NullString{String: "mock_resulttype", Valid: true}, "mock_volatility", false, false, "", 0, 0,
+					"mock_dataaccess", "mock_language"}
+				rowNullArg = []driver.Value{"2", "mock_schema2", "mock_table2", false, "mock_funcbody2", "mock_path2", nil,
+					sql.NullString{String: "mock_identargs2", Valid: true}, sql.NullString{String: "mock_resulttype2", Valid: true}, "mock_volatility2",
+					false, false, "", 0, 0, "mock_dataaccess2", "mock_language2"}
+				rowNullIdentArg = []driver.Value{"3", "mock_schema3", "mock_table3", false, "mock_funcbody3", "mock_path3",
+					sql.NullString{String: "mock_args3", Valid: true}, nil, sql.NullString{String: "mock_resulttype3", Valid: true}, "mock_volatility3",
+					false, false, "", 0, 0, "mock_dataaccess3", "mock_language3"}
+				rowNullResultType = []driver.Value{"4", "mock_schema4", "mock_table4", false, "mock_funcbody4", "mock_path4",
+					sql.NullString{String: "mock_args4", Valid: true}, sql.NullString{String: "mock_identargs4", Valid: true}, nil, "mock_volatility4",
+					false, false, "", 0, 0, "mock_dataaccess4", "mock_language4"}
+			}
+
 			fakeRows := sqlmock.NewRows(header).AddRow(rowGood...).AddRow(rowNullArg...).AddRow(rowNullIdentArg...).AddRow(rowNullResultType...)
 			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeRows)
 			result := backup.GetFunctions(connectionPool)
@@ -107,6 +131,9 @@ SET baz to abc`))
 				IdentArgs: sql.NullString{String: "mock_identargs", Valid: true}, ResultType: sql.NullString{String: "mock_resulttype", Valid: true},
 				Volatility: "mock_volatility", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 0,
 				NumRows: 0, DataAccess: "mock_dataaccess", Language: "mock_language"}}
+			if connectionPool.Version.AtLeast("7") {
+				expectedResult[0].DataAccess = ""
+			}
 
 			Expect(result).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatch(&expectedResult[0], &result[0])

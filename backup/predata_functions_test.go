@@ -117,6 +117,11 @@ $_$`)
 		})
 		Describe("PrintFunctionModifiers", func() {
 			Context("SqlUsage cases", func() {
+				BeforeEach(func() {
+					if connectionPool.Version.AtLeast("7") {
+						Skip("Test not applicable to GP7 and above")
+					}
+				})
 				It("prints 'c' as CONTAINS SQL", func() {
 					funcDef.DataAccess = "c"
 					backup.PrintFunctionModifiers(backupfile, funcDef)
