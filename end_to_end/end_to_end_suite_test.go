@@ -1721,7 +1721,7 @@ LANGUAGE plpgsql NO SQL;`)
 			})
 		})
 	})
-	Describe("Restore to a different-sized cluster", func() {
+	Describe("Restore to a different-sized cluster", FlakeAttempts(3), func() {
 		if useOldBackupVersion {
 			Skip("This test is not needed for old backup versions")
 		}
@@ -1763,6 +1763,7 @@ LANGUAGE plpgsql NO SQL;`)
 				// These hangs are still being observed only in CI, and a definitive RCA has not yet been accomplished
 				completed := make(chan bool)
 				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
+				defer GinkgoRecover()
 				go func() {
 					// No test run has been observed to take more than a few minutes without a hang,
 					// so loop 5 times and check for success after 1 minute each
@@ -1778,6 +1779,7 @@ LANGUAGE plpgsql NO SQL;`)
 					// If the test succeeded or failed, we'll return before here.
 					_ = exec.Command("pkill", "-9", "gpbackup_helper").Run()
 					_ = exec.Command("pkill", "-9", "gprestore").Run()
+					Fail("Resize-restore end-to-end test is hanging. Failing test.")
 				}()
 
 				gprestoreArgs := []string{
