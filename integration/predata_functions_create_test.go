@@ -650,7 +650,12 @@ var _ = Describe("backup integration create statement tests", func() {
 			resultExtensions := backup.GetExtensions(connectionPool)
 			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_EXTENSION)
 			plperlExtension.Oid = testutils.OidFromObjectName(connectionPool, "", "plperl", backup.TYPE_EXTENSION)
-			Expect(resultExtensions).To(HaveLen(1))
+			if connectionPool.Version.Before("7") {
+				Expect(resultExtensions).To(HaveLen(1))
+			} else {
+				// gp_toolkit is installed by default as an extension in GPDB7+
+				Expect(resultExtensions).To(HaveLen(2))
+			}
 			plperlMetadata := resultMetadataMap[plperlExtension.GetUniqueID()]
 			structmatcher.ExpectStructsToMatch(&plperlExtension, &resultExtensions[0])
 			structmatcher.ExpectStructsToMatch(&extensionMetadata, &plperlMetadata)

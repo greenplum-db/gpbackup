@@ -880,10 +880,19 @@ LANGUAGE SQL`)
 
 			results := backup.GetExtensions(connectionPool)
 
-			Expect(results).To(HaveLen(1))
+			if connectionPool.Version.Before("7") {
+				Expect(results).To(HaveLen(1))
+			} else {
+				// gp_toolkit is installed by default as an extension in GPDB7+
+				Expect(results).To(HaveLen(2))
+			}
 
 			plperlDef := backup.Extension{Oid: 0, Name: "plperl", Schema: "pg_catalog"}
-			structmatcher.ExpectStructsToMatchExcluding(&plperlDef, &results[0], "Oid")
+			for _, result := range results {
+				if result.Name == "plperl" {
+					structmatcher.ExpectStructsToMatchExcluding(&plperlDef, &results[0], "Oid")
+				}
+			}
 		})
 	})
 	Describe("GetProceduralLanguages", func() {
