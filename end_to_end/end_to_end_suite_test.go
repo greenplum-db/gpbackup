@@ -1763,8 +1763,8 @@ LANGUAGE plpgsql NO SQL;`)
 				// These hangs are still being observed only in CI, and a definitive RCA has not yet been accomplished
 				completed := make(chan bool)
 				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
-				defer GinkgoRecover()
 				go func() {
+					defer GinkgoRecover()
 					// No test run has been observed to take more than a few minutes without a hang,
 					// so loop 5 times and check for success after 1 minute each
 					for i := 0; i < 5; i++ {
