@@ -22,6 +22,8 @@ var _ = Describe("backup integration tests", func() {
 		tableOid = testutils.OidFromObjectName(connectionPool, "public", "foo", backup.TYPE_RELATION)
 		testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.foo VALUES (1, 'a', 't')")
 		testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.foo VALUES (2, 'b', 'f')")
+		testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.foo VALUES (3, 'c', 't')")
+		testhelper.AssertQueryRuns(connectionPool, "INSERT INTO public.foo VALUES (4, 'd', 'f')")
 		testhelper.AssertQueryRuns(connectionPool, "ANALYZE public.foo")
 	})
 	AfterEach(func() {
@@ -43,22 +45,22 @@ var _ = Describe("backup integration tests", func() {
 			 */
 			expectedStats4I := backup.AttributeStatistic{Oid: tableOid, Schema: "public", Table: "foo", AttName: "i",
 				Type: "int4", Relid: tableOid, AttNumber: 1, Width: 4, Distinct: -1, Kind1: 1, Kind2: 0, Operator1: 96,
-				Operator2: 0, Numbers1: []string{"0.5", "0.5"}, Values1: []string{"1", "2"}}
+				Operator2: 0, Numbers1: []string{"0.5", "0.5"}, Values1: []string{"1", "2", "3", "4"}}
 			expectedStats4J := backup.AttributeStatistic{Oid: tableOid, Schema: "public", Table: "foo", AttName: "j",
 				Type: "text", Relid: tableOid, AttNumber: 2, Width: 2, Distinct: -1, Kind1: 1, Kind2: 0, Operator1: 98,
-				Operator2: 0, Numbers1: []string{"0.5", "0.5"}, Values1: []string{"a", "b"}}
+				Operator2: 0, Numbers1: []string{"0.5", "0.5"}, Values1: []string{"a", "b", "c", "d"}}
 			expectedStats4K := backup.AttributeStatistic{Oid: tableOid, Schema: "public", Table: "foo", AttName: "k",
 				Type: "bool", Relid: tableOid, AttNumber: 3, Width: 1, Distinct: 2, Kind1: 1, Kind2: 0, Operator1: 91,
 				Operator2: 0, Numbers1: []string{"0.5", "0.5"}, Values1: []string{"f", "t"}}
 			expectedStats5I := backup.AttributeStatistic{Oid: tableOid, Schema: "public", Table: "foo", AttName: "i",
 				Type: "int4", Relid: tableOid, AttNumber: 1, Inherit: false, Width: 4, Distinct: -1, Kind1: 2, Kind2: 3, Operator1: 97,
-				Operator2: 97, Numbers2: []string{"1"}, Values1: []string{"1", "2"}}
+				Operator2: 97, Numbers2: []string{"1"}, Values1: []string{"1", "2", "3", "4"}}
 			expectedStats5J := backup.AttributeStatistic{Oid: tableOid, Schema: "public", Table: "foo", AttName: "j",
 				Type: "text", Relid: tableOid, AttNumber: 2, Inherit: false, Width: 2, Distinct: -1, Kind1: 2, Kind2: 3, Operator1: 664,
-				Operator2: 664, Numbers2: []string{"1"}, Values1: []string{"a", "b"}}
+				Operator2: 664, Numbers2: []string{"1"}, Values1: []string{"a", "b", "c", "d"}}
 			expectedStats5K := backup.AttributeStatistic{Oid: tableOid, Schema: "public", Table: "foo", AttName: "k",
-				Type: "bool", Relid: tableOid, AttNumber: 3, Inherit: false, Width: 1, Distinct: -1, Kind1: 2, Kind2: 3, Operator1: 58,
-				Operator2: 58, Numbers2: []string{"-1"}, Values1: []string{"f", "t"}}
+				Type: "bool", Relid: tableOid, AttNumber: 3, Inherit: false, Width: 1, Distinct: -0.5, Kind1: 1, Kind2: 3, Operator1: 91,
+				Operator2: 58, Numbers1: []string{"0.5", "0.5"}, Numbers2: []string{"0.5"}, Values1: []string{"f", "t"}}
 			if connectionPool.Version.AtLeast("7") {
 				expectedStats5J.Collation1 = 100
 				expectedStats5J.Collation2 = 100
@@ -86,7 +88,7 @@ var _ = Describe("backup integration tests", func() {
 			tableTupleStats := tupleStats[tableOid]
 
 			// Tuple statistics will not vary by GPDB version. Relpages may vary based on the hardware.
-			expectedStats := backup.TupleStatistic{Oid: tableOid, Schema: "public", Table: "foo", RelTuples: 2}
+			expectedStats := backup.TupleStatistic{Oid: tableOid, Schema: "public", Table: "foo", RelTuples: 4}
 
 			structmatcher.ExpectStructsToMatchExcluding(&expectedStats, &tableTupleStats, "RelPages")
 		})
