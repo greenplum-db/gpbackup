@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -10,6 +11,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+func createGenericPartitionTable(tableName string) {
+	testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf(`CREATE TABLE %s (id int, gender char(1))
+		DISTRIBUTED BY (id)
+		PARTITION BY LIST (gender)
+		( PARTITION girls VALUES ('F'),
+		  PARTITION boys VALUES ('M'),
+		  DEFAULT PARTITION other )`, tableName))
+}
+
+func createPartitionTableWithExternalPartition(tableName string, extPartName string) {
+	createGenericPartitionTable(tableName)
+	testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf(`CREATE EXTERNAL WEB TABLE %[1]s_ext_part_ (like %[1]s_1_prt_%[2]s)
+EXECUTE 'echo -e "2\n1"' on host
+FORMAT 'csv';`, tableName, extPartName))
+	testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf(`ALTER TABLE %[1]s EXCHANGE PARTITION %[2]s WITH TABLE %[1]s_ext_part_ WITHOUT VALIDATION;`, tableName, extPartName))
+}
+
+func dropTableWithExternalPartition(tableName string) {
+	testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("DROP TABLE %s", tableName))
+	testhelper.AssertQueryRuns(connectionPool, fmt.Sprintf("DROP TABLE %s_ext_part_", tableName))
+}
 
 var _ = Describe("Options Integration", func() {
 	Describe("QuoteTablesNames", func() {
@@ -92,14 +115,7 @@ bar";
 	})
 	Describe("ExpandIncludesForPartitions", func() {
 		BeforeEach(func() {
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public."CAPpart"
-				(id int, rank int, year int, gender char(1), count int )
-					DISTRIBUTED BY (id)
-					PARTITION BY LIST (gender)
-					( PARTITION girls VALUES ('F'),
-					  PARTITION boys VALUES ('M'),
-					  DEFAULT PARTITION other )
-			`)
+			createGenericPartitionTable(`public."CAPpart"`)
 		})
 
 		AfterEach(func() {
@@ -127,14 +143,7 @@ bar";
 			Expect(subject.GetOriginalIncludedTables()).To(Equal([]string{`public.CAPpart_1_prt_girls`}))
 		})
 		It("adds parent table when child partition with embedded quote character is included", func() {
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public."""hasquote"""
-				(id int, rank int, year int, gender char(1), count int )
-					DISTRIBUTED BY (id)
-					PARTITION BY LIST (gender)
-					( PARTITION girls VALUES ('F'),
-					  PARTITION boys VALUES ('M'),
-					  DEFAULT PARTITION other )
-			`)
+			createGenericPartitionTable(`public."""hasquote"""`)
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public."""hasquote"""`)
 
 			err := backupCmdFlags.Set(options.INCLUDE_RELATION, `public."hasquote"_1_prt_girls`)
@@ -155,14 +164,7 @@ bar";
 			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.rank")
 
-			createStmt := `CREATE TABLE public.rank (id int, rank int, year int, gender
-char(1), count int )
-DISTRIBUTED BY (id)
-PARTITION BY LIST (gender)
-( PARTITION girls VALUES ('F'),
-  PARTITION boys VALUES ('M'),
-  DEFAULT PARTITION other );`
-			testhelper.AssertQueryRuns(connectionPool, createStmt)
+			createGenericPartitionTable(`public.rank`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.rank")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.test_table(i int)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.test_table")
@@ -182,24 +184,13 @@ PARTITION BY LIST (gender)
 
 			tables := subject.GetIncludedTables()
 			sort.Strings(tables)
-			Expect(tables).To(HaveLen(4))
 			Expect(tables).To(Equal(expectedTableNames))
 		})
 		It("returns parent and external leaf partition table if the filter includes a leaf table and leaf-partition-data is set", func() {
 			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table_1_prt_boys")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.partition_table (id int, gender char(1))
-DISTRIBUTED BY (id)
-PARTITION BY LIST (gender)
-( PARTITION girls VALUES ('F'),
-  PARTITION boys VALUES ('M'),
-  DEFAULT PARTITION other );`)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE EXTERNAL WEB TABLE public.partition_table_ext_part_ (like public.partition_table_1_prt_girls)
-EXECUTE 'echo -e "2\n1"' on host
-FORMAT 'csv';`)
-			testhelper.AssertQueryRuns(connectionPool, `ALTER TABLE public.partition_table EXCHANGE PARTITION girls WITH TABLE public.partition_table_ext_part_ WITHOUT VALIDATION;`)
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table_ext_part_")
+			createPartitionTableWithExternalPartition("public.partition_table", "girls")
+			defer dropTableWithExternalPartition("public.partition_table")
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
@@ -221,49 +212,40 @@ FORMAT 'csv';`)
 
 			tables := subject.GetIncludedTables()
 			sort.Strings(tables)
-			Expect(tables).To(HaveLen(len(expectedTableNames)))
+			Expect(tables).To(Equal(expectedTableNames))
+		})
+		It("returns the parent table and no unrelated external partitions if the filter includes a leaf table and leaf-partition-data and no-inherits are set", func() {
+			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
+			_ = backupCmdFlags.Set(options.NO_INHERITS, "true")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table_1_prt_boys")
+			createPartitionTableWithExternalPartition("public.partition_table", "girls")
+			defer dropTableWithExternalPartition("public.partition_table")
+
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			expectedTableNames := []string{
+				"public.partition_table",
+				"public.partition_table_1_prt_boys",
+			}
+
+			tables := subject.GetIncludedTables()
+			sort.Strings(tables)
 			Expect(tables).To(Equal(expectedTableNames))
 		})
 		It("returns external partition tables for an included parent table if the filter includes a parent partition table", func() {
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table2_1_prt_other")
 
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.partition_table1 (id int, gender char(1))
-DISTRIBUTED BY (id)
-PARTITION BY LIST (gender)
-( PARTITION girls VALUES ('F'),
-  PARTITION boys VALUES ('M'),
-  DEFAULT PARTITION other );`)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE EXTERNAL WEB TABLE public.partition_table1_ext_part_ (like public.partition_table1_1_prt_boys)
-EXECUTE 'echo -e "2\n1"' on host
-FORMAT 'csv';`)
-			testhelper.AssertQueryRuns(connectionPool, `ALTER TABLE public.partition_table1 EXCHANGE PARTITION boys WITH TABLE public.partition_table1_ext_part_ WITHOUT VALIDATION;`)
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table1")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table1_ext_part_")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.partition_table2 (id int, gender char(1))
-DISTRIBUTED BY (id)
-PARTITION BY LIST (gender)
-( PARTITION girls VALUES ('F'),
-  PARTITION boys VALUES ('M'),
-  DEFAULT PARTITION other );`)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE EXTERNAL WEB TABLE public.partition_table2_ext_part_ (like public.partition_table2_1_prt_girls)
-EXECUTE 'echo -e "2\n1"' on host
-FORMAT 'csv';`)
-			testhelper.AssertQueryRuns(connectionPool, `ALTER TABLE public.partition_table2 EXCHANGE PARTITION girls WITH TABLE public.partition_table2_ext_part_ WITHOUT VALIDATION;`)
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table2")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table2_ext_part_")
-			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.partition_table3 (id int, gender char(1))
-DISTRIBUTED BY (id)
-PARTITION BY LIST (gender)
-( PARTITION girls VALUES ('F'),
-  PARTITION boys VALUES ('M'),
-  DEFAULT PARTITION other );`)
-			testhelper.AssertQueryRuns(connectionPool, `CREATE EXTERNAL WEB TABLE public.partition_table3_ext_part_ (like public.partition_table3_1_prt_girls)
-EXECUTE 'echo -e "2\n1"' on host
-FORMAT 'csv';`)
-			testhelper.AssertQueryRuns(connectionPool, `ALTER TABLE public.partition_table3 EXCHANGE PARTITION girls WITH TABLE public.partition_table3_ext_part_ WITHOUT VALIDATION;`)
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table3")
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.partition_table3_ext_part_")
+			createPartitionTableWithExternalPartition("public.partition_table1", "boys")
+			defer dropTableWithExternalPartition("public.partition_table1")
+			createPartitionTableWithExternalPartition("public.partition_table2", "girls")
+			defer dropTableWithExternalPartition("public.partition_table2")
+			createPartitionTableWithExternalPartition("public.partition_table3", "girls")
+			defer dropTableWithExternalPartition("public.partition_table3")
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
@@ -296,7 +278,35 @@ FORMAT 'csv';`)
 
 			tables := subject.GetIncludedTables()
 			sort.Strings(tables)
-			Expect(tables).To(HaveLen(len(expectedTableNames)))
+			Expect(tables).To(Equal(expectedTableNames))
+		})
+		It("returns included parent tables but omits un-included external partitions if the filter includes a parent partition table and no-inherits is set", func() {
+			_ = backupCmdFlags.Set(options.NO_INHERITS, "true")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table1")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table2_1_prt_other")
+
+			createPartitionTableWithExternalPartition("public.partition_table1", "boys")
+			defer dropTableWithExternalPartition("public.partition_table1")
+			createPartitionTableWithExternalPartition("public.partition_table2", "girls")
+			defer dropTableWithExternalPartition("public.partition_table2")
+			createPartitionTableWithExternalPartition("public.partition_table3", "girls")
+			defer dropTableWithExternalPartition("public.partition_table3")
+
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			var expectedTableNames []string
+			expectedTableNames = []string{
+				"public.partition_table1",
+				"public.partition_table2",
+				"public.partition_table2_1_prt_other",
+			}
+
+			tables := subject.GetIncludedTables()
+			sort.Strings(tables)
 			Expect(tables).To(Equal(expectedTableNames))
 		})
 		It("returns parent and child tables if the filter includes a non-partition table with multiple inheritance relationships", func() {
@@ -327,7 +337,89 @@ FORMAT 'csv';`)
 
 			tables := subject.GetIncludedTables()
 			sort.Strings(tables)
-			Expect(tables).To(HaveLen(len(expectedTableNames)))
+			Expect(tables).To(Equal(expectedTableNames))
+		})
+		It("returns parent tables but not child tables if the filter includes a non-partition table with multiple inheritance relationships and no-inherits is set", func() {
+			_ = backupCmdFlags.Set(options.NO_INHERITS, "true")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.base")
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.parent_one(one int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.parent_two(two int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.base() INHERITS (public.parent_one, public.parent_two);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.child_one() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.child_two() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.unrelated(three int);`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent_one CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent_two CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.unrelated")
+
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			expectedTableNames := []string{
+				"public.base",
+				"public.parent_one",
+				"public.parent_two",
+			}
+
+			tables := subject.GetIncludedTables()
+			sort.Strings(tables)
+			Expect(tables).To(Equal(expectedTableNames))
+		})
+		It("returns parents of child tables if the children of an included table inherit from other tables", func() {
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.base")
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.base(one int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.other(two int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.child() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.grandchild() INHERITS (public.child, public.other);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.unrelated(three int);`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.base CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.other CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.unrelated")
+
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			expectedTableNames := []string{
+				"public.base",
+				"public.child",
+				"public.grandchild",
+				"public.other",
+			}
+
+			tables := subject.GetIncludedTables()
+			sort.Strings(tables)
+			Expect(tables).To(Equal(expectedTableNames))
+		})
+		It("returns only the included table, without any children or other parents of children, if no-inherits is passed, ", func() {
+			_ = backupCmdFlags.Set(options.NO_INHERITS, "true")
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.base")
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.base(one int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.other(two int);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.child() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.grandchild() INHERITS (public.child, public.other);`)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.unrelated(three int);`)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.base CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.other CASCADE")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.unrelated")
+
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+
+			expectedTableNames := []string{
+				"public.base",
+			}
+
+			tables := subject.GetIncludedTables()
+			sort.Strings(tables)
 			Expect(tables).To(Equal(expectedTableNames))
 		})
 	})
