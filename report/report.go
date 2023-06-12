@@ -177,7 +177,7 @@ func (report *Report) WriteBackupReportFile(reportFilename string, timestamp str
 func WriteRestoreReportFile(reportFilename string, backupTimestamp string, startTimestamp string, connectionPool *dbconn.DBConn, restoreVersion string, origSize int, destSize int, errMsg string) {
 	reportFile, err := iohelper.OpenFileForWriting(reportFilename)
 	if err != nil {
-		gplog.Error("Unable to open restore report file %s", reportFilename)
+		gplog.Warn("Unable to open restore report file %s, skipping report creation", reportFilename)
 		return
 	}
 

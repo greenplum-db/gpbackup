@@ -303,6 +303,17 @@ duration:                4:03:01
 
 restore status:          Success but non-fatal errors occurred. See log file .+ for details.`))
 		})
+		It("warns if the report file cannot be written", func() {
+			operating.System.OpenFileWrite = func(name string, flag int, perm os.FileMode) (io.WriteCloser, error) {
+				// Normally no handle would be returned on error, we return buffer here so we can check that it isn't used
+				return buffer, errors.New("Cannot access /tmp/backup-dir: Permission denied")
+			}
+			report.WriteRestoreReportFile("filename", timestamp, restoreStartTime, connectionPool, restoreVersion, 3, 3, "")
+			Expect(stdout).To(Say("skipping report creation"))
+			Expect(buffer).ToNot(Say("Greenplum Database Restore Report"))
+			Expect(gplog.GetErrorCode()).To(Equal(0))
+
+		})
 	})
 	Describe("SetBackupParamFromFlags", func() {
 		AfterEach(func() {
