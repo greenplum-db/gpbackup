@@ -116,7 +116,7 @@ func GetTextSearchTemplates(connectionPool *dbconn.DBConn) []TextSearchTemplate 
 	WHERE %s
 		AND %s
 	ORDER BY tmplname`,
-	SchemaFilterClause("n"), ExtensionFilterClause("p"))
+		SchemaFilterClause("n"), ExtensionFilterClause("p"))
 
 	results := make([]TextSearchTemplate, 0)
 	err := connectionPool.Select(&results, query)
@@ -166,7 +166,7 @@ func GetTextSearchDictionaries(connectionPool *dbconn.DBConn) []TextSearchDictio
 	WHERE %s
 		AND %s
 	ORDER BY dictname`,
-	SchemaFilterClause("dict_ns"), ExtensionFilterClause("d"))
+		SchemaFilterClause("dict_ns"), ExtensionFilterClause("d"))
 
 	results := make([]TextSearchDictionary, 0)
 	err := connectionPool.Select(&results, query)
@@ -216,7 +216,7 @@ func GetTextSearchConfigurations(connectionPool *dbconn.DBConn) []TextSearchConf
 	WHERE %s
 		AND %s
 	ORDER BY cfgname`,
-	SchemaFilterClause("cfg_ns"), ExtensionFilterClause("c"))
+		SchemaFilterClause("cfg_ns"), ExtensionFilterClause("c"))
 
 	results := make([]struct {
 		Schema    string

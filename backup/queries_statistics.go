@@ -109,7 +109,8 @@ func GetAttributeStatistics(connectionPool *dbconn.DBConn, tables []Table) map[u
 		s.stavalues4
 	FROM pg_class c
 		JOIN pg_namespace n ON c.relnamespace = n.oid
-		JOIN pg_attribute a ON a.attrelid = c.oid
+
+	JOIN pg_attribute a ON a.attrelid = c.oid
 		JOIN pg_statistic s ON (c.oid = s.starelid AND a.attnum = s.staattnum)
 		JOIN pg_type t ON a.atttypid = t.oid
 	WHERE %s
@@ -152,7 +153,7 @@ func GetTupleStatistics(connectionPool *dbconn.DBConn, tables []Table) map[uint3
 	WHERE %s
 		AND quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
 	ORDER BY n.nspname, c.relname`,
-	SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
+		SchemaFilterClause("n"), utils.SliceToQuotedString(tablenames))
 
 	results := make([]TupleStatistic, 0)
 	err := connectionPool.Select(&results, query)

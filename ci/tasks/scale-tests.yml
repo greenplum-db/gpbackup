@@ -11,7 +11,7 @@ inputs:
 - name: gppkgs
 
 params:
-  OS: RHEL
+  OS: RHEL8
 
 run:
   path: gpbackup/ci/scripts/scale-tests.bash

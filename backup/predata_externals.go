@@ -2,7 +2,7 @@ package backup
 
 /*
  * This file contains structs and functions related to backing up metadata on the
- * master for objects that connect to external data (external tables and external
+ * coordinator for objects that connect to external data (external tables and external
  * protocols).
  */
 
@@ -289,8 +289,8 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 		}
 	}
 	if extTableDef.Type == READABLE || (extTableDef.Type == WRITABLE_WEB && extTableDef.Protocol == S3) {
-		if extTableDef.ExecLocation == "MASTER_ONLY" {
-			metadataFile.MustPrintf(" ON MASTER")
+		if extTableDef.ExecLocation == "COORDINATOR_ONLY" {
+			metadataFile.MustPrintf(" ON COORDINATOR")
 		} else if extTableDef.ExecLocation == "COORDINATOR_ONLY" {
 			metadataFile.MustPrintf(" ON COORDINATOR")
 		}

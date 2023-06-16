@@ -111,7 +111,7 @@ PARTITION BY RANGE (year)
 
 			Expect(tableAtts).To(BeEmpty())
 		})
-		It("returns table attributes with options only applicable to master", func() {
+		It("returns table attributes with options only applicable to coordinator", func() {
 			testutils.SkipIfBefore6(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX')")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
@@ -337,6 +337,35 @@ PARTITION BY LIST (gender)
           DEFAULT PARTITION other  WITH (tablename='part_table_1_prt_other', appendonly=%[1]s)
           )`, partitionPartFalseExpectation)
 			Expect(result[oid]).To(Equal(expectedResult))
+		})
+		PIt("returns a value for a partition definition for a table with a negative partition value", func() {
+			// Pend test until this fix makes it into an RC
+			// this test exercises a corner case bug that was fixed in GPDB6:
+			// https://github.com/greenplum-db/gpdb/pull/13330
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (id int)
+DISTRIBUTED BY (id)
+PARTITION BY LIST (id)
+( PARTITION negative VALUES (-1, 1),
+  PARTITION zero VALUES (0),
+  DEFAULT PARTITION other );
+			`)
+			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
+
+			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.part_table")
+
+			results, _ := backup.GetPartitionDetails(connectionPool)
+			Expect(results).To(HaveLen(1))
+			result := results[oid]
+
+			testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table")
+
+			// ensure that the partition definition generated is valid SQL
+			newTableQuery := fmt.Sprintf(`CREATE TABLE public.part_table2 (id int)
+DISTRIBUTED BY (id)
+%s`, result)
+			testhelper.AssertQueryRuns(connectionPool, newTableQuery)
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.part_table2")
 		})
 		It("returns a value for a partition definition for a specific table", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.part_table (id int, rank int, year int, gender
@@ -721,8 +750,9 @@ SET SUBPARTITION TEMPLATE
 			if connectionPool.Version.Before("7") {
 				Expect(result[oid]).To(Equal("appendonly=true"))
 			} else {
-				// For GPDB 7+, storage options no longer contain appendonly and orientation
-				Expect(result[oid]).To(Equal(""))
+				// For GPDB 7+, storage options no longer contain appendonly and orientation,
+				// instead populates with default compression values
+				Expect(result[oid]).To(Equal("blocksize=32768, compresslevel=0, compresstype=none, checksum=true"))
 			}
 		})
 	})

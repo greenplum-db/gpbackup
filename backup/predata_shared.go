@@ -3,7 +3,7 @@ package backup
 /*
  * This file contains structs and functions related to backing up metadata shared
  * among many or all object types (privileges, owners, and comments) on the
- * master that needs to be restored before data is restored.
+ * coordinator that needs to be restored before data is restored.
  */
 
 import (

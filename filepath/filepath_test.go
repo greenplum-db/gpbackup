@@ -25,19 +25,19 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("filepath tests", func() {
-	masterDir := "/data/gpseg-1"
+	coordinatorDir := "/data/gpseg-1"
 	segDirOne := "/data/gpseg0"
 	segDirTwo := "/data/gpseg1"
 	var c *cluster.Cluster
 	BeforeEach(func() {
 		c = cluster.NewCluster([]cluster.SegConfig{
-			{ContentID: -1, DataDir: masterDir},
+			{ContentID: -1, DataDir: coordinatorDir},
 		})
 	})
 	Describe("Backup Filepath setup and accessors", func() {
 		It("returns content dir for a single-host, single-segment nodes", func() {
 			c = cluster.NewCluster([]cluster.SegConfig{
-				{ContentID: -1, DataDir: masterDir},
+				{ContentID: -1, DataDir: coordinatorDir},
 				{ContentID: 0, DataDir: segDirOne},
 			})
 			fpInfo := NewFilePathInfo(c, "", "20170101010101", "gpseg")
@@ -47,7 +47,7 @@ var _ = Describe("filepath tests", func() {
 		})
 		It("sets up the configuration for a single-host, multi-segment fpInfo", func() {
 			c = cluster.NewCluster([]cluster.SegConfig{
-				{ContentID: -1, DataDir: masterDir},
+				{ContentID: -1, DataDir: coordinatorDir},
 				{ContentID: 0, DataDir: segDirOne},
 				{ContentID: 1, DataDir: segDirTwo},
 			})
@@ -129,7 +129,7 @@ var _ = Describe("filepath tests", func() {
 		AfterEach(func() {
 			operating.System.Glob = path.Glob
 		})
-		It("returns segment prefix from directory path if master backup directory exists", func() {
+		It("returns segment prefix from directory path if coordinator backup directory exists", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{"/tmp/foo/gpseg-1/backups"}, nil
 			}
@@ -142,19 +142,19 @@ var _ = Describe("filepath tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal(""))
 		})
-		It("returns an error when master backup directory does not exist", func() {
+		It("returns an error when coordinator backup directory does not exist", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) { return []string{}, nil }
 			_, err := ParseSegPrefix("/tmp/foo")
-			Expect(err.Error()).To(Equal("Master backup directory in /tmp/foo missing"))
+			Expect(err.Error()).To(Equal("Backup directory in /tmp/foo missing"))
 		})
-		It("returns an error when there is an error accessing master backup directory", func() {
+		It("returns an error when there is an error accessing coordinator backup directory", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{""}, os.ErrPermission
 			}
 			_, err := ParseSegPrefix("/tmp/foo")
-			Expect(err.Error()).To(Equal("Failure while trying to locate master backup directory in /tmp/foo. Error: permission denied"))
+			Expect(err.Error()).To(Equal("Failure while trying to locate backup directory in /tmp/foo. Error: permission denied"))
 		})
-		It("returns an error when multiple master backup directories", func() {
+		It("returns an error when multiple coordinator backup directories", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				if pattern == "/tmp/foo/*-1/backups" {
 					return []string{"/tmp/foo/foo-1/backups", "/tmp/foo/foo-1/backups"}, nil
@@ -163,7 +163,7 @@ var _ = Describe("filepath tests", func() {
 				}
 			}
 			_, err := ParseSegPrefix("/tmp/foo")
-			Expect(err.Error()).To(Equal("Multiple master backup directories in /tmp/foo"))
+			Expect(err.Error()).To(Equal("Multiple backup directories in /tmp/foo"))
 		})
 		Describe("IsValidTimestamp", func() {
 			It("allows a valid timestamp", func() {

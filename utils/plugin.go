@@ -31,7 +31,13 @@ type PluginConfig struct {
 
 type PluginScope string
 
+// The COORDINATOR and MASTER scopes are identical in function, we just support
+// both so that creators of existing plugins as of GPDB 6 need not (re)write
+// them to support the GPDB 7 verbiage.  Plugin code should use COORDINATOR when
+// carrying out internal functionality, but check for both COORDINATOR and MASTER
+// when expecting external input.
 const (
+	COORDINATOR  PluginScope = "coordinator"
 	MASTER       PluginScope = "master"
 	SEGMENT_HOST PluginScope = "segment_host"
 	SEGMENT      PluginScope = "segment"
@@ -101,7 +107,7 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 		operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
 	remoteOutput := c.GenerateAndExecuteCommand(
 		"Checking plugin api version on all hosts",
-		cluster.ON_HOSTS&cluster.INCLUDE_MASTER,
+		cluster.ON_HOSTS&cluster.INCLUDE_COORDINATOR,
 		func(contentID int) string {
 			return command
 		})
@@ -130,7 +136,7 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 					"with version on another segment", plugin.ExecutablePath, contentID, version)
 				cluster.LogFatalClusterError("Plugin API version is inconsistent "+
 					"across segments; please reinstall plugin across segments",
-					cluster.ON_HOSTS&cluster.INCLUDE_MASTER, numIncorrect)
+					cluster.ON_HOSTS&cluster.INCLUDE_COORDINATOR, numIncorrect)
 			}
 		}
 
@@ -148,7 +154,7 @@ func (plugin *PluginConfig) checkPluginAPIVersion(c *cluster.Cluster) {
 	}
 	if numIncorrect > 0 {
 		cluster.LogFatalClusterError("Plugin API version incorrect",
-			cluster.ON_HOSTS|cluster.INCLUDE_MASTER, numIncorrect)
+			cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR, numIncorrect)
 	}
 }
 
@@ -157,7 +163,7 @@ func (plugin *PluginConfig) getPluginNativeVersion(c *cluster.Cluster) string {
 		operating.System.Getenv("GPHOME"), plugin.ExecutablePath)
 	remoteOutput := c.GenerateAndExecuteCommand(
 		"Checking plugin version on all hosts",
-		cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+		cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 		func(contentID int) string {
 			return command
 		})
@@ -182,7 +188,7 @@ func (plugin *PluginConfig) getPluginNativeVersion(c *cluster.Cluster) string {
 					"with version on another segment", plugin.ExecutablePath, contentID, pluginVersion)
 				cluster.LogFatalClusterError("Plugin --version is inconsistent "+
 					"across segments; please reinstall plugin across segments",
-					cluster.ON_HOSTS&cluster.INCLUDE_MASTER, numIncorrect)
+					cluster.ON_HOSTS&cluster.INCLUDE_COORDINATOR, numIncorrect)
 			}
 		}
 
@@ -197,7 +203,7 @@ func (plugin *PluginConfig) getPluginNativeVersion(c *cluster.Cluster) string {
 	}
 	if numIncorrect > 0 || pluginVersion == "" {
 		cluster.LogFatalClusterError(fmt.Sprintf("Plugin --version response '%s' incorrect", badPluginVersion),
-			cluster.ON_HOSTS&cluster.INCLUDE_MASTER, numIncorrect)
+			cluster.ON_HOSTS&cluster.INCLUDE_COORDINATOR, numIncorrect)
 	}
 	return parts[2]
 }
@@ -231,26 +237,26 @@ func (plugin *PluginConfig) CleanupPluginForRestore(c *cluster.Cluster, fpInfo f
 func (plugin *PluginConfig) executeHook(c *cluster.Cluster, verboseCommandMsg string,
 	command string, fpInfo filepath.FilePathInfo, noFatal bool) {
 
-	// Execute command once on master
+	// Execute command once on coordinator
 	scope := MASTER
 	_, _ = plugin.buildHookErrorMsgAndFunc(command, scope)
-	masterContentID := -1
-	masterOutput, masterErr := c.ExecuteLocalCommand(
-		plugin.buildHookString(command, fpInfo, scope, masterContentID))
-	if masterErr != nil {
+	coordinatorContentID := -1
+	coordinatorOutput, coordinatorErr := c.ExecuteLocalCommand(
+		plugin.buildHookString(command, fpInfo, scope, coordinatorContentID))
+	if coordinatorErr != nil {
 		if noFatal {
-			gplog.Error(masterOutput)
+			gplog.Error(coordinatorOutput)
 			return
 		}
-		gplog.Fatal(masterErr, masterOutput)
+		gplog.Fatal(coordinatorErr, coordinatorOutput)
 	}
 
 	// Execute command once on each segment host
 	scope = SEGMENT_HOST
 	hookFunc := plugin.buildHookFunc(command, fpInfo, scope)
 	verboseErrorMsg, errorMsgFunc := plugin.buildHookErrorMsgAndFunc(command, scope)
-	verboseCommandHostMasterMsg := fmt.Sprintf(verboseCommandMsg, "segment hosts")
-	remoteOutput := c.GenerateAndExecuteCommand(verboseCommandHostMasterMsg, cluster.ON_HOSTS, hookFunc)
+	verboseCommandHostCoordinatorMsg := fmt.Sprintf(verboseCommandMsg, "segment hosts")
+	remoteOutput := c.GenerateAndExecuteCommand(verboseCommandHostCoordinatorMsg, cluster.ON_HOSTS, hookFunc)
 	gplog.Debug("Execute Hook: %s", command)
 	c.CheckClusterError(remoteOutput, verboseErrorMsg, errorMsgFunc, noFatal)
 
@@ -273,7 +279,7 @@ func (plugin *PluginConfig) buildHookFunc(command string,
 func (plugin *PluginConfig) buildHookString(command string,
 	fpInfo filepath.FilePathInfo, scope PluginScope, contentID int) string {
 	contentIDStr := ""
-	if scope == MASTER || scope == SEGMENT {
+	if scope == COORDINATOR || scope == MASTER || scope == SEGMENT {
 		contentIDStr = fmt.Sprintf(`\"%d\"`, contentID)
 	}
 
@@ -306,7 +312,7 @@ func (plugin *PluginConfig) CopyPluginConfigToAllHosts(c *cluster.Cluster) {
 	}
 	remoteOutput := c.GenerateAndExecuteCommand(
 		"Copying plugin config to all hosts",
-		cluster.ON_LOCAL|cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+		cluster.ON_LOCAL|cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 		func(contentIDForSegmentOnHost int) string {
 			hostConfigFile := plugin.createHostPluginConfig(contentIDForSegmentOnHost, c)
 			command = fmt.Sprintf("rsync -e ssh %[1]s %s:%s; rm %[1]s", hostConfigFile,
@@ -330,7 +336,7 @@ func (plugin *PluginConfig) DeletePluginConfigWhenEncrypting(c *cluster.Cluster)
 	}
 
 	verboseMsg := "Removing plugin config from all hosts"
-	scope := cluster.ON_HOSTS | cluster.INCLUDE_MASTER
+	scope := cluster.ON_HOSTS | cluster.INCLUDE_COORDINATOR
 	command := fmt.Sprintf("rm -f %s", plugin.ConfigPath)
 	f := func(contentIDForSegmentOnHost int) string {
 		return command

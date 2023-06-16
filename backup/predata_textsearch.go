@@ -2,7 +2,7 @@ package backup
 
 /*
  * This file contains structs and functions related to backing up metadata on the
- * master for objects relating to built-in text search that needs to be restored
+ * coordinator for objects relating to built-in text search that needs to be restored
  * before data is restored.
  *
  * Text search is not supported in GPDB 4.3, so none of these structs or functions

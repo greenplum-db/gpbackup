@@ -3,16 +3,16 @@
 set -ex
 
 ccp_src/scripts/setup_ssh_to_cluster.sh
-ssh -t centos@mdw "curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscli.zip" && \
+ssh -t centos@cdw "curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscli.zip" && \
     unzip -qq awscli.zip && \
     sudo ./aws/install"
 
-out=$(ssh -t mdw 'source env.sh && psql postgres -c "select version();"')
+out=$(ssh -t cdw 'source env.sh && psql postgres -c "select version();"')
 GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
 mkdir -p /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg mdw:/home/gpadmin
-ssh -t mdw "source env.sh; gppkg -i gpbackup_tools*.gppkg"
+scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg cdw:/home/gpadmin
+ssh -t cdw "source env.sh; gppkg -i gpbackup_tools*.gppkg"
 
 cat << EOF > lineitem.ddl
 CREATE TABLE lineitem (
@@ -114,5 +114,5 @@ set -x
 SCRIPT
 
 chmod +x /tmp/setup_perf.bash
-scp lineitem.ddl gpload.yml /tmp/setup_perf.bash mdw:
-ssh -t mdw "/home/gpadmin/setup_perf.bash"
+scp lineitem.ddl gpload.yml /tmp/setup_perf.bash cdw:
+ssh -t cdw "/home/gpadmin/setup_perf.bash"

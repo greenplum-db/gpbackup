@@ -81,5 +81,5 @@ popd
 SCRIPT
 
 chmod +x /tmp/run_perf.bash
-scp /tmp/run_perf.bash mdw:
-ssh -t mdw "/home/gpadmin/run_perf.bash"
+scp /tmp/run_perf.bash cdw:
+ssh -t cdw "/home/gpadmin/run_perf.bash"

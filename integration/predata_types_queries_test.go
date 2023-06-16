@@ -326,7 +326,7 @@ var _ = Describe("backup integration tests", func() {
 			Expect(results).To(HaveLen(1))
 
 			collationDef := backup.Collation{Oid: 0, Schema: "public", Name: "some_coll", Collate: "POSIX", Ctype: "POSIX"}
-			if(connectionPool.Version.AtLeast("7")) {
+			if connectionPool.Version.AtLeast("7") {
 				collationDef.IsDeterministic = "true"
 				collationDef.Provider = "c"
 			}
@@ -348,7 +348,7 @@ var _ = Describe("backup integration tests", func() {
 			Expect(results).To(HaveLen(1))
 
 			collationDef := backup.Collation{Oid: 0, Schema: "testschema", Name: "some_coll", Collate: "POSIX", Ctype: "POSIX"}
-			if(connectionPool.Version.AtLeast("7")) {
+			if connectionPool.Version.AtLeast("7") {
 				collationDef.IsDeterministic = "true"
 				collationDef.Provider = "c"
 			}

@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("gpexpand_sensor", func() {
-	const sampleMasterDataDir = "/my_fake_database/demoDataDir-1"
+	const sampleCoordinatorDataDir = "/my_fake_database/demoDataDir-1"
 	var (
 		memoryfs       vfs.Filesystem
 		mddPathRow     *sqlmock.Rows
@@ -25,7 +25,7 @@ var _ = Describe("gpexpand_sensor", func() {
 
 	BeforeEach(func() {
 		memoryfs = memfs.Create()
-		mddPathRow = sqlmock.NewRows([]string{"datadir"}).AddRow(sampleMasterDataDir)
+		mddPathRow = sqlmock.NewRows([]string{"datadir"}).AddRow(sampleCoordinatorDataDir)
 		tableExistsRow = sqlmock.NewRows([]string{"relname"}).AddRow("some table name")
 		connectionPool.DBName = "postgres"
 
@@ -35,10 +35,10 @@ var _ = Describe("gpexpand_sensor", func() {
 	})
 	Context("IsGpexpandRunning", func() {
 		Describe("happy path", func() {
-			It("senses when gpexpand is in phase 1, as determined by existence of a file 'gpexpand.status' in master data directory", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnRows(mddPathRow)
-				Expect(vfs.MkdirAll(memoryfs, sampleMasterDataDir, 0755)).To(Succeed())
-				path := filepath.Join(sampleMasterDataDir, utils.GpexpandStatusFilename)
+			It("senses when gpexpand is in phase 1, as determined by existence of a file 'gpexpand.status' in coordinator data directory", func() {
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnRows(mddPathRow)
+				Expect(vfs.MkdirAll(memoryfs, sampleCoordinatorDataDir, 0755)).To(Succeed())
+				path := filepath.Join(sampleCoordinatorDataDir, utils.GpexpandStatusFilename)
 				Expect(vfs.WriteFile(memoryfs, path, []byte{0}, 0400)).To(Succeed())
 				gpexpandSensor := utils.NewGpexpandSensor(memoryfs, connectionPool)
 
@@ -48,7 +48,7 @@ var _ = Describe("gpexpand_sensor", func() {
 				Expect(result).To(BeTrue())
 			})
 			It("senses gpexpand is in phase 2, as determined by database query to postgres database for gpexpand's temporary table", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnRows(mddPathRow)
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnRows(mddPathRow)
 
 				mock.ExpectQuery(regexp.QuoteMeta(utils.GpexpandStatusTableExistsQuery)).WillReturnRows(tableExistsRow)
 				hasGpexpandPhase2StatusRow := sqlmock.NewRows([]string{"status"}).AddRow("some gpexpand status that is not finished")
@@ -61,7 +61,7 @@ var _ = Describe("gpexpand_sensor", func() {
 				Expect(result).To(BeTrue())
 			})
 			It("senses when all indications are that gpexpand status does not exist", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnRows(mddPathRow)
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnRows(mddPathRow)
 				tableDoesNotExistsRow := sqlmock.NewRows([]string{"relname"}).AddRow("")
 
 				mock.ExpectQuery(regexp.QuoteMeta(utils.GpexpandStatusTableExistsQuery)).WillReturnRows(tableDoesNotExistsRow)
@@ -73,7 +73,7 @@ var _ = Describe("gpexpand_sensor", func() {
 				Expect(result).To(BeFalse())
 			})
 			It("senses when gpexpand status indicates stoppage", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnRows(mddPathRow)
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnRows(mddPathRow)
 				mock.ExpectQuery(regexp.QuoteMeta(utils.GpexpandStatusTableExistsQuery)).WillReturnRows(tableExistsRow)
 				finishedGpexpandPhase2StatusRow := sqlmock.NewRows([]string{"status"}).AddRow("EXPANSION STOPPED")
 				mock.ExpectQuery(utils.GpexpandTemporaryTableStatusQuery).WillReturnRows(finishedGpexpandPhase2StatusRow)
@@ -85,7 +85,7 @@ var _ = Describe("gpexpand_sensor", func() {
 				Expect(result).To(BeFalse())
 			})
 			It("senses when gpexpand status indicates completion", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnRows(mddPathRow)
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnRows(mddPathRow)
 				mock.ExpectQuery(regexp.QuoteMeta(utils.GpexpandStatusTableExistsQuery)).WillReturnRows(tableExistsRow)
 				finishedGpexpandPhase2StatusRow := sqlmock.NewRows([]string{"status"}).AddRow("EXPANSION COMPLETE")
 				mock.ExpectQuery(utils.GpexpandTemporaryTableStatusQuery).WillReturnRows(finishedGpexpandPhase2StatusRow)
@@ -97,7 +97,7 @@ var _ = Describe("gpexpand_sensor", func() {
 				Expect(result).To(BeFalse())
 			})
 			It("senses when gpexpand status indicates completion", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnRows(mddPathRow)
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnRows(mddPathRow)
 				mock.ExpectQuery(regexp.QuoteMeta(utils.GpexpandStatusTableExistsQuery)).WillReturnRows(tableExistsRow)
 				finishedGpexpandPhase2StatusRow := sqlmock.NewRows([]string{"status"}).AddRow("SETUP DONE")
 				mock.ExpectQuery(utils.GpexpandTemporaryTableStatusQuery).WillReturnRows(finishedGpexpandPhase2StatusRow)
@@ -111,7 +111,7 @@ var _ = Describe("gpexpand_sensor", func() {
 		})
 		Describe("sad paths", func() {
 			It("returns an error when MDD query fails", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnError(errors.New("query error"))
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnError(errors.New("query error"))
 				gpexpandSensor := utils.NewGpexpandSensor(memoryfs, connectionPool)
 
 				_, err := gpexpandSensor.IsGpexpandRunning()
@@ -120,7 +120,7 @@ var _ = Describe("gpexpand_sensor", func() {
 				Expect(err.Error()).To(Equal("query error"))
 			})
 			It("returns an error when Stat for file fails for a reason besides 'does not exist'", func() {
-				mock.ExpectQuery(utils.MasterDataDirQuery).WillReturnRows(mddPathRow)
+				mock.ExpectQuery(utils.CoordinatorDataDirQuery).WillReturnRows(mddPathRow)
 				gpexpandSensor := utils.NewGpexpandSensor(vfs.Dummy(errors.New("fs error")), connectionPool)
 
 				_, err := gpexpandSensor.IsGpexpandRunning()

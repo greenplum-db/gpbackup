@@ -64,7 +64,7 @@ func SetupTestDbConn(dbname string) *dbconn.DBConn {
 }
 
 // Connects to specific segment in utility mode
-func SetupTestDBConnSegment(dbname string, port int, gpVersion dbconn.GPDBVersion) *dbconn.DBConn {
+func SetupTestDBConnSegment(dbname string, port int, host string, gpVersion dbconn.GPDBVersion) *dbconn.DBConn {
 
 	if dbname == "" {
 		gplog.Fatal(errors.New("No database provided"), "")
@@ -72,14 +72,17 @@ func SetupTestDBConnSegment(dbname string, port int, gpVersion dbconn.GPDBVersio
 	if port == 0 {
 		gplog.Fatal(errors.New("No segment port provided"), "")
 	}
+	// Don't fail if no host is passed, as that implies connecting on the local host
 	username := operating.System.Getenv("PGUSER")
 	if username == "" {
 		currentUser, _ := operating.System.CurrentUser()
 		username = currentUser.Username
 	}
-	host := operating.System.Getenv("PGHOST")
 	if host == "" {
-		host, _ = operating.System.Hostname()
+		host := operating.System.Getenv("PGHOST")
+		if host == "" {
+			host, _ = operating.System.Hostname()
+		}
 	}
 
 	conn := &dbconn.DBConn{
@@ -121,15 +124,15 @@ func SetupTestDBConnSegment(dbname string, port int, gpVersion dbconn.GPDBVersio
 }
 
 func SetDefaultSegmentConfiguration() *cluster.Cluster {
-	configMaster := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
+	configCoordinator := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "gpseg-1"}
 	configSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "gpseg0"}
 	configSegTwo := cluster.SegConfig{ContentID: 1, Hostname: "localhost", DataDir: "gpseg1"}
-	return cluster.NewCluster([]cluster.SegConfig{configMaster, configSegOne, configSegTwo})
+	return cluster.NewCluster([]cluster.SegConfig{configCoordinator, configSegOne, configSegTwo})
 }
 
 func SetupTestFilespace(connectionPool *dbconn.DBConn, testCluster *cluster.Cluster) {
 	remoteOutput := testCluster.GenerateAndExecuteCommand("Creating filespace test directory",
-		cluster.ON_HOSTS|cluster.INCLUDE_MASTER,
+		cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
 		func(contentID int) string {
 			return fmt.Sprintf("mkdir -p /tmp/test_dir")
 		})

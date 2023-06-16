@@ -35,10 +35,10 @@ var _ = Describe("restore/validate tests", func() {
 			tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			backupfile.ByteCount = table1Len
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema1", Name: "table1", ObjectType: "TABLE"}, 0, backupfile.ByteCount)
-			tocfile.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "table1", 1, "(i)", 0, "", "")
 			backupfile.ByteCount += table2Len
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema2", Name: "table2", ObjectType: "TABLE"}, table1Len, backupfile.ByteCount)
-			tocfile.AddMasterDataEntry("schema2", "table2", 2, "(j)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("schema2", "table2", 2, "(j)", 0, "", "")
 			backupfile.ByteCount += sequenceLen
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "somesequence", ObjectType: "SEQUENCE"}, table1Len+table2Len, backupfile.ByteCount)
 			restore.SetTOC(tocfile)
@@ -77,10 +77,10 @@ var _ = Describe("restore/validate tests", func() {
 		var opts *options.Options
 		BeforeEach(func() {
 			tocfile, _ = testutils.InitializeTestTOC(buffer, "metadata")
-			tocfile.AddMasterDataEntry("s1", "table1", 1, "(j)", 0, "", "")
-			tocfile.AddMasterDataEntry("s1", "table2", 2, "(j)", 0, "", "")
-			tocfile.AddMasterDataEntry("s2", "table1", 3, "(j)", 0, "", "")
-			tocfile.AddMasterDataEntry("s2", "table2", 4, "(j)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("s1", "table1", 1, "(j)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("s1", "table2", 2, "(j)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("s2", "table1", 3, "(j)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("s2", "table2", 4, "(j)", 0, "", "")
 			restore.SetTOC(tocfile)
 
 			opts = &options.Options{}
@@ -198,10 +198,10 @@ var _ = Describe("restore/validate tests", func() {
 		BeforeEach(func() {
 			tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema1", Name: "table1", ObjectType: "TABLE"}, 0, backupfile.ByteCount)
-			tocfile.AddMasterDataEntry("schema1", "table1", 1, "(i)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("schema1", "table1", 1, "(i)", 0, "", "")
 
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema2", Name: "table2", ObjectType: "TABLE"}, 0, backupfile.ByteCount)
-			tocfile.AddMasterDataEntry("schema2", "table2", 2, "(j)", 0, "", "")
+			tocfile.AddCoordinatorDataEntry("schema2", "table2", 2, "(j)", 0, "", "")
 
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema1", Name: "somesequence", ObjectType: "SEQUENCE"}, 0, backupfile.ByteCount)
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema1", Name: "someview", ObjectType: "VIEW"}, 0, backupfile.ByteCount)

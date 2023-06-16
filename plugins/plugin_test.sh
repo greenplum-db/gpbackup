@@ -58,12 +58,12 @@ cleanup_test_dir() {
 
   testdir_to_clean=$1
 
-  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean master \"-1\"
+  $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean coordinator \"-1\"
   $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment_host
   $plugin cleanup_plugin_for_backup $plugin_config $testdir_to_clean segment \"0\"
   echo "[PASSED - CLEANUP] cleanup_plugin_for_backup"
 
-  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean master \"-1\"
+  $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean coordinator \"-1\"
   $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment_host
   $plugin cleanup_plugin_for_restore $plugin_config $testdir_to_clean segment \"0\"
   echo "[PASSED - CLEANUP] cleanup_plugin_for_restore"
@@ -99,8 +99,8 @@ echo "[PASSED] --version"
 # Setup and Backup/Restore file functions
 # ----------------------------------------------
 
-echo "[RUNNING] setup_plugin_for_backup on master"
-$plugin setup_plugin_for_backup $plugin_config $testdir master \"-1\"
+echo "[RUNNING] setup_plugin_for_backup on coordinator"
+$plugin setup_plugin_for_backup $plugin_config $testdir coordinator \"-1\"
 echo "[RUNNING] setup_plugin_for_backup on segment_host"
 $plugin setup_plugin_for_backup $plugin_config $testdir segment_host
 echo "[RUNNING] setup_plugin_for_backup on segment 0"
@@ -111,8 +111,8 @@ $plugin backup_file $plugin_config $testfile
 # plugins should leave copies of the files locally when they run backup_file
 test -f $testfile
 
-echo "[RUNNING] setup_plugin_for_restore on master"
-$plugin setup_plugin_for_restore $plugin_config $testdir master \"-1\"
+echo "[RUNNING] setup_plugin_for_restore on coordinator"
+$plugin setup_plugin_for_restore $plugin_config $testdir coordinator \"-1\"
 echo "[RUNNING] setup_plugin_for_restore on segment_host"
 $plugin setup_plugin_for_restore $plugin_config $testdir segment_host
 echo "[RUNNING] setup_plugin_for_restore on segment 0"
@@ -272,7 +272,7 @@ echo $text > $testfile_for_del2
 echo "[RUNNING] delete_backup"
 
 # first backup
-$plugin setup_plugin_for_backup $plugin_config $testdir_for_del master \"-1\"
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del coordinator \"-1\"
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment_host
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del segment \"0\"
 
@@ -280,7 +280,7 @@ echo $data | $plugin backup_data $plugin_config $testdata_for_del
 $plugin backup_file $plugin_config $testfile_for_del
 
 # second backup
-$plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 master \"-1\"
+$plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 coordinator \"-1\"
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment_host
 $plugin setup_plugin_for_backup $plugin_config $testdir_for_del2 segment \"0\"
 
@@ -350,7 +350,7 @@ if [[ "$plugin" == *gpbackup_ddboost_plugin ]] && [[ "$plugin_config" == *ddboos
     mkdir -p $testdir_for_repl
 
     echo "[RUNNING] backup_data without replication to replicate later"
-    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl master \"-1\"
+    $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl coordinator \"-1\"
     $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment_host
     $plugin setup_plugin_for_backup $plugin_config $testdir_for_repl segment \"0\"
 
@@ -400,28 +400,33 @@ set -e
 #gpbackup --dbname $test_db --plugin-config $plugin_config $further_options > $log_file
 
 test_backup_and_restore_with_plugin() {
-    flags=$1
-    restore_filter=$2
+    flags_backup=$1
+    flags_restore=$2
+    restore_filter=$3
     test_db=plugin_test_db
     log_file="$logdir/plugin_test_log_file"
 
     psql -X -d postgres -qc "DROP DATABASE IF EXISTS $test_db" 2>/dev/null
     createdb $test_db
     psql -X -d $test_db -qc "CREATE TABLE test1(i int) DISTRIBUTED RANDOMLY; INSERT INTO test1 select generate_series(1,50000)"
-    if [ "$restore_filter" == "restore-filter" ] ; then
+    if [ "$restore_filter" == "test2" ] ; then
       psql -X -d $test_db -qc "CREATE TABLE test2(i int) DISTRIBUTED RANDOMLY; INSERT INTO test2 VALUES(3333)"
-      flags_restore="--include-table public.test2"
+    fi
+
+    if [ "$restore_filter" == "test3" ] ; then
+      psql -X -d $test_db -qc "DROP SCHEMA IF EXISTS otherschema; CREATE SCHEMA otherschema" 2>/dev/null
+      psql -X -d $test_db -qc "CREATE TABLE otherschema.test3(i int) DISTRIBUTED RANDOMLY; INSERT INTO otherschema.test3 VALUES(2000)"
     fi
 
     set +e
     # save the encrypt key file, if it exists
-    if [ -f "$MASTER_DATA_DIRECTORY/.encrypt" ] ; then
-        mv $MASTER_DATA_DIRECTORY/.encrypt /tmp/.encrypt_saved
+    if [ -f "$COORDINATOR_DATA_DIRECTORY/.encrypt" ] ; then
+        mv $COORDINATOR_DATA_DIRECTORY/.encrypt /tmp/.encrypt_saved
     fi
-    echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $MASTER_DATA_DIRECTORY/.encrypt
+    echo "gpbackup_ddboost_plugin: 66706c6c6e677a6965796f68343365303133336f6c73366b316868326764" > $COORDINATOR_DATA_DIRECTORY/.encrypt
 
-    echo "[RUNNING] gpbackup with test database (using ${flags} ${flags_restore})"
-    gpbackup --dbname $test_db --plugin-config $plugin_config $flags &> $log_file
+    echo "[RUNNING] gpbackup with test database (backing up with '${flags_backup}', restoring with '${flags_restore}')"
+    gpbackup --dbname $test_db --plugin-config $plugin_config $flags_backup &> $log_file
     if [ ! $? -eq 0 ]; then
         echo
         cat $log_file
@@ -442,20 +447,39 @@ test_backup_and_restore_with_plugin() {
         exit 1
     fi
 
-    if [ "$restore_filter" == "restore-filter" ] ; then
+    if [ "$restore_filter" == "test2" ] ; then
       result=`psql -X -d $test_db -tc "SELECT table_name FROM information_schema.tables WHERE table_schema='public'" | xargs`
       if [ "$result" == *"test1"* ]; then
           echo "Expected relation test1 to not exist"
           exit 1
       fi
+      if [ "$result" == *"test3"* ]; then
+          echo "Expected relation otherschema.test3 to not exist"
+          exit 1
+      fi
       result=`psql -X -d $test_db -tc "SELECT * FROM test2" | xargs`
-      if [ "$flags" != "--metadata-only" ] && [ "$result" != "3333" ]; then
-          echo "Expected relation test2 value: 3333, got %result"
+      if [ "$flags_backup" != "--metadata-only" ] && [ "$result" != "3333" ]; then
+          echo "Expected relation test2 value: 3333, got $result"
+          exit 1
+      fi
+    elif [ "$restore_filter" == "test3" ] ; then
+      result=`psql -X -d $test_db -tc "SELECT table_name FROM information_schema.tables WHERE table_schema='otherschema'" | xargs`
+      if [ "$result" == *"test1"* ]; then
+          echo "Expected relation test1 to not exist"
+          exit 1
+      fi
+      if [ "$result" == *"test2"* ]; then
+          echo "Expected relation test2 to not exist"
+          exit 1
+      fi
+      result=`psql -X -d $test_db -tc "SELECT * FROM otherschema.test3" | xargs`
+      if [[ "$flags_backup" != *"--metadata-only"* ]] && [[ "$flags_restore" != *"--metadata-only"* ]] && [ "$result" != "2000" ]; then
+          echo "Expected relation test3 value: 2000, got $result"
           exit 1
       fi
     else
       result=`psql -X -d $test_db -tc "SELECT count(*) FROM test1" | xargs`
-      if [ "$flags" != "--metadata-only" ] && [ "$result" != "50000" ]; then
+      if [[ "$flags_backup" != *"--metadata-only"* ]] && [[ "$flags_restore" != *"--metadata-only"* ]] && [ "$result" != "50000" ]; then
           echo "Expected to restore 50000 rows, got $result"
           exit 1
       fi
@@ -473,24 +497,30 @@ test_backup_and_restore_with_plugin() {
             exit 1
         fi
         result=`psql -X -d $test_db -tc "SELECT count(*) FROM test1" | xargs`
-        if [ "$flags" != "--metadata-only" ] && [ "$result" != "50000" ]; then
+        if [ "$flags_backup" != "--metadata-only" ] && [ "$result" != "50000" ]; then
           echo "Expected to restore 50000 rows, got $result"
           exit 1
         fi
     fi
     # replace the encrypt key file to its proper location
     if [ -f "/tmp/.encrypt_saved" ] ; then
-        mv /tmp/.encrypt_saved $MASTER_DATA_DIRECTORY/.encrypt
+        mv /tmp/.encrypt_saved $COORDINATOR_DATA_DIRECTORY/.encrypt
     fi
     set -e
-    echo "[PASSED] gpbackup and gprestore (using ${flags})"
+    echo "[PASSED] gpbackup and gprestore (backing up with '${flags_backup}', restoring with '${flags_restore}')"
 }
 
 test_backup_and_restore_with_plugin "--single-data-file --no-compression --copy-queue-size 4" "--copy-queue-size 4"
 test_backup_and_restore_with_plugin "--no-compression --single-data-file"
 test_backup_and_restore_with_plugin "--no-compression"
+test_backup_and_restore_with_plugin "--single-data-file"
 test_backup_and_restore_with_plugin "--metadata-only"
-test_backup_and_restore_with_plugin "--no-compression --single-data-file" "restore-filter"
+test_backup_and_restore_with_plugin " " "--metadata-only"
+test_backup_and_restore_with_plugin "--no-compression --single-data-file" " " "test2"
+test_backup_and_restore_with_plugin "--no-compression --single-data-file" "--include-table public.test2" "test2"
+test_backup_and_restore_with_plugin "--no-compression --single-data-file" "--exclude-table public.test1" "test2"
+test_backup_and_restore_with_plugin "--no-compression --single-data-file" "--include-schema otherschema" "test3"
+test_backup_and_restore_with_plugin "--no-compression --single-data-file" "--exclude-schema public" "test3"
 
 
 # ----------------------------------------------

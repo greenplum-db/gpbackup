@@ -2,7 +2,7 @@ package backup
 
 /*
  * This file contains structs and functions related to backing up query planner
- * statistics on the master.
+ * statistics on the coordinator.
  */
 
 import (

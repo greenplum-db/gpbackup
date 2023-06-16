@@ -33,7 +33,7 @@ func forceMetadataFileDownloadFromPlugin(conn *dbconn.DBConn, timestamp string) 
 	remoteOutput := backupCluster.GenerateAndExecuteCommand(
 		fmt.Sprintf("Removing backups on all segments for "+
 			"timestamp %s", timestamp),
-		cluster.ON_SEGMENTS|cluster.INCLUDE_MASTER,
+		cluster.ON_SEGMENTS|cluster.INCLUDE_COORDINATOR,
 		func(contentID int) string {
 			return fmt.Sprintf("rm -rf %s", fpInfo.GetDirForContent(contentID))
 		})

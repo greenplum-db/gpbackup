@@ -31,7 +31,7 @@ var _ = Describe("agent remote", func() {
 		}
 
 		// Setup test cluster
-		masterSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
+		coordinatorSeg := cluster.SegConfig{ContentID: -1, Hostname: "localhost", DataDir: "/data/gpseg-1"}
 		localSegOne := cluster.SegConfig{ContentID: 0, Hostname: "localhost", DataDir: "/data/gpseg0"}
 		remoteSegOne := cluster.SegConfig{ContentID: 1, Hostname: "remotehost1", DataDir: "/data/gpseg1"}
 
@@ -39,7 +39,7 @@ var _ = Describe("agent remote", func() {
 		remoteOutput = &cluster.RemoteOutput{}
 		testExecutor.ClusterOutput = remoteOutput
 
-		testCluster = cluster.NewCluster([]cluster.SegConfig{masterSeg, localSegOne, remoteSegOne})
+		testCluster = cluster.NewCluster([]cluster.SegConfig{coordinatorSeg, localSegOne, remoteSegOne})
 		testCluster.Executor = testExecutor
 
 		fpInfo = filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
@@ -65,7 +65,7 @@ var _ = Describe("agent remote", func() {
 				cluster.ShellCommand{Content: 0},
 				cluster.ShellCommand{
 					Content:       1,
-					CommandString: "rsync -e ssh fake_master fake_host",
+					CommandString: "rsync -e ssh fake_coordinator fake_host",
 					Stderr:        "stderr content 1",
 					Error:         errors.New("test error 1"),
 				},

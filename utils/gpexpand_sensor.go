@@ -16,7 +16,7 @@ const (
 
 	RestorePreventedByGpexpandMessage GpexpandFailureMessage = `Greenplum expansion currently in process.  Once expansion is complete, it will be possible to restart gprestore, but please note existing backup sets taken with a different cluster configuration may no longer be compatible with the newly expanded cluster configuration`
 
-	MasterDataDirQuery                = `select datadir from gp_segment_configuration where content=-1 and role='p'`
+	CoordinatorDataDirQuery           = `select datadir from gp_segment_configuration where content=-1 and role='p'`
 	GpexpandTemporaryTableStatusQuery = `SELECT status FROM gpexpand.status ORDER BY updated DESC LIMIT 1`
 	GpexpandStatusTableExistsQuery    = `select relname from pg_class JOIN pg_namespace on (pg_class.relnamespace = pg_namespace.oid)  where relname = 'status' and pg_namespace.nspname = 'gpexpand'`
 
@@ -57,13 +57,13 @@ func (sensor GpexpandSensor) IsGpexpandRunning() (bool, error) {
 		gplog.Error(fmt.Sprintf("Error encountered validating db connection: %v", err))
 		return false, err
 	}
-	masterDataDir, err := dbconn.SelectString(sensor.postgresConn, MasterDataDirQuery)
+	coordinatorDataDir, err := dbconn.SelectString(sensor.postgresConn, CoordinatorDataDirQuery)
 	if err != nil {
-		gplog.Error(fmt.Sprintf("Error encountered retrieving master data directory: %v", err))
+		gplog.Error(fmt.Sprintf("Error encountered retrieving data directory: %v", err))
 		return false, err
 	}
 
-	_, err = sensor.fs.Stat(filepath.Join(masterDataDir, GpexpandStatusFilename))
+	_, err = sensor.fs.Stat(filepath.Join(coordinatorDataDir, GpexpandStatusFilename))
 	// error has 3 possible states:
 	if err == nil {
 		// file exists, so gpexpand is running

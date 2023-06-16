@@ -105,7 +105,7 @@ LANGUAGE SQL`)
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW`)
 			} else {
-			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.add(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW`)
 			}
@@ -135,11 +135,11 @@ LANGUAGE SQL WINDOW`)
 			Expect(results).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &windowFunction, "Oid")
 		})
-		It("returns a function to execute on master and all segments", func() {
+		It("returns a function to execute on coordinator and all segments", func() {
 			testutils.SkipIfBefore6(connectionPool)
 
 			if connectionPool.Version.Is("6") {
-				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS integer
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_coordinator(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON MASTER;`)
@@ -148,7 +148,7 @@ AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON ALL SEGMENTS;`)
 			} else {
-				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_master(integer, integer) RETURNS SETOF integer
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_coordinator(integer, integer) RETURNS SETOF integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON COORDINATOR;`)
@@ -158,7 +158,7 @@ LANGUAGE SQL WINDOW
 EXECUTE ON ALL SEGMENTS;`)
 			}
 
-			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_master(integer, integer)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_coordinator(integer, integer)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.srf_on_all_segments(integer, integer)")
 
 			results := backup.GetFunctions(connectionPool)
@@ -169,8 +169,8 @@ EXECUTE ON ALL SEGMENTS;`)
 				prokindValue = ""
 			}
 
-			srfOnMasterFunction := backup.Function{
-				Schema: "public", Name: "srf_on_master", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+			srfOnCoordinatorFunction := backup.Function{
+				Schema: "public", Name: "srf_on_coordinator", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
 				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
 				ResultType: sql.NullString{String: "integer", Valid: true},
@@ -178,13 +178,14 @@ EXECUTE ON ALL SEGMENTS;`)
 				PlannerSupport: plannerSupportValue, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 				Language: "sql", IsWindow: true, ExecLocation: "m", Parallel: proparallelValue}
 			if connectionPool.Version.AtLeast("7") {
-				srfOnMasterFunction.ExecLocation = "c"
+				srfOnCoordinatorFunction.ExecLocation = "c"
 
 				// GPDB7 only allows set-returning functions to execute on coordinator
-				srfOnMasterFunction.ReturnsSet = true
-				srfOnMasterFunction.NumRows = 1000
-				srfOnMasterFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
+				srfOnCoordinatorFunction.ReturnsSet = true
+				srfOnCoordinatorFunction.NumRows = 1000
+				srfOnCoordinatorFunction.ResultType = sql.NullString{String: "SETOF integer", Valid: true}
 			}
+
 			srfOnAllSegmentsFunction := backup.Function{
 				Schema: "public", Name: "srf_on_all_segments", Kind: prokindValue, ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
 				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
@@ -202,7 +203,7 @@ EXECUTE ON ALL SEGMENTS;`)
 
 			Expect(results).To(HaveLen(2))
 			structmatcher.ExpectStructsToMatchExcluding(&results[0], &srfOnAllSegmentsFunction, "Oid")
-			structmatcher.ExpectStructsToMatchExcluding(&results[1], &srfOnMasterFunction, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&results[1], &srfOnCoordinatorFunction, "Oid")
 		})
 		It("returns a function to execute on initplan", func() {
 			if connectionPool.Version.Before("6.5") {
@@ -216,7 +217,7 @@ AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON INITPLAN;`)
 			} else {
-			testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_initplan(integer, integer) RETURNS integer
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.srf_on_initplan(integer, integer) RETURNS integer
 AS 'SELECT $1 + $2'
 LANGUAGE SQL WINDOW
 EXECUTE ON INITPLAN;`)
@@ -238,11 +239,11 @@ EXECUTE ON INITPLAN;`)
 					Parallel: proparallelValue, Kind: "w"}
 			} else {
 				srfOnInitplan = backup.Function{
-				Schema: "public", Name: "srf_on_initplan", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-				ResultType: sql.NullString{String: "integer", Valid: true},
-				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+					Schema: "public", Name: "srf_on_initplan", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+					ResultType: sql.NullString{String: "integer", Valid: true},
+					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
 					PlannerSupport: plannerSupportValue, Language: "sql", IsWindow: true, ExecLocation: "i",
 					Parallel: proparallelValue}
 			}

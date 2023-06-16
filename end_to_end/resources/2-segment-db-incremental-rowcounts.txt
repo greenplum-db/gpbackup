@@ -1,0 +1,19 @@
+ table_schema | table_name | seg_id | row_count 
+--------------+------------+--------+-----------
+ schemaone    | tablefour  |      0 |      5013
+ schemaone    | tablefour  |      1 |      4987
+ schemaone    | tableone   |      1 |         1
+ schemaone    | tablethree |      0 |       508
+ schemaone    | tablethree |      1 |       492
+ schemaone    | tabletwo   |      0 |        53
+ schemaone    | tabletwo   |      1 |        47
+ schematwo    | tableone   |      0 |     50082
+ schematwo    | tableone   |      1 |     49919
+ schematwo    | tablefour  |      0 |      5013
+ schematwo    | tablefour  |      1 |      4987
+ schematwo    | tablethree |      0 |       508
+ schematwo    | tablethree |      1 |       492
+ schematwo    | tabletwo   |      0 |        53
+ schematwo    | tabletwo   |      1 |        47
+(16 rows)
+

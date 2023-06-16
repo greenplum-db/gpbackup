@@ -2,7 +2,7 @@ package backup
 
 /*
  * This file contains structs and functions related to backing up relation
- * (sequence, table, and view) metadata on the master.
+ * (sequence, table, and view) metadata on the coordinator.
  */
 
 import (

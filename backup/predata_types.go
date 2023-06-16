@@ -2,7 +2,7 @@ package backup
 
 /*
  * This file contains structs and functions related to backing up type
- * metadata on the master that needs to be restored before data is restored.
+ * metadata on the coordinator that needs to be restored before data is restored.
  */
 
 import (

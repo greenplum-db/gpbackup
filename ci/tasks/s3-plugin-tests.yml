@@ -14,7 +14,7 @@ params:
   AWS_SECRET_ACCESS_KEY:
   BUCKET:
   REGION:
-  OS: RHEL
+  OS: RHEL8
 
 run:
   path: gpbackup/ci/scripts/s3-plugin-tests.bash

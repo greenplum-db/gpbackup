@@ -2,7 +2,7 @@ package backup
 
 /*
  * This file contains structs and functions related to backing up metadata on the
- * master for objects that don't fall under any other predata categorization,
+ * coordinator for objects that don't fall under any other predata categorization,
  * such as procedural languages and constraints, that needs to be restored
  * before data is restored.
  */

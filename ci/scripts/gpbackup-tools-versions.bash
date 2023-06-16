@@ -3,7 +3,7 @@
 set -ex
 
 # get versions for gpbackup, s3_plugin and gpbackup_manager
-pushd gpbackup-go-components
+pushd gpbackup-go-components-rhel8
       tar -xzf go_components.tar.gz
       GPBACKUP_VERSION=$(cat gpbackup_version)
       cp *_version ../gpbackup-tools-versions/

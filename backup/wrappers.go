@@ -178,7 +178,7 @@ func createBackupLockFile(timestamp string) {
 
 func createBackupDirectoriesOnAllHosts() {
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Creating backup directories",
-		cluster.ON_SEGMENTS|cluster.INCLUDE_MASTER,
+		cluster.ON_SEGMENTS|cluster.INCLUDE_COORDINATOR,
 		func(contentID int) string {
 			return fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(contentID))
 		})
@@ -495,11 +495,19 @@ func backupResourceGroups(metadataFile *utils.FileWithByteCount) {
 		return
 	}
 	gplog.Verbose("Writing CREATE RESOURCE GROUP statements to metadata file")
-	resGroups := GetResourceGroups(connectionPool)
-	objectCounts["Resource Groups"] = len(resGroups)
-	resGroupMetadata := GetCommentsForObjectType(connectionPool, TYPE_RESOURCEGROUP)
-	PrintResetResourceGroupStatements(metadataFile, globalTOC)
-	PrintCreateResourceGroupStatements(metadataFile, globalTOC, resGroups, resGroupMetadata)
+	if connectionPool.Version.Before("7") {
+		resGroups := GetResourceGroups[ResourceGroupBefore7](connectionPool)
+		objectCounts["Resource Groups"] = len(resGroups)
+		resGroupMetadata := GetCommentsForObjectType(connectionPool, TYPE_RESOURCEGROUP)
+		PrintResetResourceGroupStatements(metadataFile, globalTOC)
+		PrintCreateResourceGroupStatementsBefore7(metadataFile, globalTOC, resGroups, resGroupMetadata)
+	} else { // GPDB7+
+		resGroups := GetResourceGroups[ResourceGroupAtLeast7](connectionPool)
+		objectCounts["Resource Groups"] = len(resGroups)
+		resGroupMetadata := GetCommentsForObjectType(connectionPool, TYPE_RESOURCEGROUP)
+		PrintResetResourceGroupStatements(metadataFile, globalTOC)
+		PrintCreateResourceGroupStatementsAtLeast7(metadataFile, globalTOC, resGroups, resGroupMetadata)
+	}
 }
 
 func backupRoles(metadataFile *utils.FileWithByteCount) {

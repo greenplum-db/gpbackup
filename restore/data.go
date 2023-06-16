@@ -56,7 +56,11 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 		}
 	}
 	for i := 0; i < batches; i++ {
-		gplog.Verbose(`Executing "%s" on master`, query)
+		if connectionPool.Version.AtLeast("7") {
+			gplog.Verbose(`Executing "%s" on coordinator`, query)
+		} else {
+			gplog.Verbose(`Executing "%s" on master`, query)
+		}
 		result, err := connectionPool.Exec(query, whichConn)
 		if err != nil {
 			errStr := fmt.Sprintf("Error loading data into table %s", tableName)
@@ -75,7 +79,7 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, tableAttribute
 	return numRows, err
 }
 
-func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.MasterDataEntry, tableName string, whichConn int, origSize int, destSize int) error {
+func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.CoordinatorDataEntry, tableName string, whichConn int, origSize int, destSize int) error {
 	resizeCluster := MustGetFlagBool(options.RESIZE_CLUSTER)
 	destinationToRead := ""
 	if backupConfig.SingleDataFile || resizeCluster {
@@ -153,7 +157,7 @@ func RedistributeTableData(tableName string, whichConn int) error {
 	return err
 }
 
-func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.MasterDataEntry,
+func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.CoordinatorDataEntry,
 	gucStatements []toc.StatementWithType, dataProgressBar utils.ProgressBar) int32 {
 	totalTables := len(dataEntries)
 	if totalTables == 0 {
@@ -201,11 +205,11 @@ func restoreDataFromTimestamp(fpInfo filepath.FilePathInfo, dataEntries []toc.Ma
 	}
 	/*
 	 * We break when an interrupt is received and rely on
-	 * TerminateHangingCopySessions to kill any COPY
+	 * TerminateHangingCopySessions to stop any COPY
 	 * statements in progress if they don't finish on their own.
 	 */
 	var tableNum int64 = 0
-	tasks := make(chan toc.MasterDataEntry, totalTables)
+	tasks := make(chan toc.CoordinatorDataEntry, totalTables)
 	var workerPool sync.WaitGroup
 	var numErrors int32
 	var mutex = &sync.Mutex{}

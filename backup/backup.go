@@ -382,11 +382,18 @@ func DoTeardown() {
 		if statErr != nil { // Even if this isn't os.IsNotExist, don't try to write a report file in case of further errors
 			return
 		}
-		historyFilename := globalFPInfo.GetBackupHistoryFilePath()
+		historyDBName := globalFPInfo.GetBackupHistoryDatabasePath()
+		historyFileLegacyName := globalFPInfo.GetBackupHistoryFilePath()
 		reportFilename := globalFPInfo.GetBackupReportFilePath()
 		configFilename := globalFPInfo.GetConfigFilePath()
 
 		time.Sleep(time.Second) // We sleep for 1 second to ensure multiple backups do not start within the same second.
+
+		// Check if legacy history file is still present, log warning if so. Only log if we're planning to use history db.
+		var err error
+		if _, err = os.Stat(historyFileLegacyName); err == nil && !MustGetFlagBool(options.NO_HISTORY) {
+			gplog.Warn("Legacy gpbackup_history file %s is still present. Please run 'gpbackup_manager migrate-history' to add entries from that file to the history database.", historyFileLegacyName)
+		}
 
 		if backupReport != nil {
 			if !backupFailed {
@@ -394,10 +401,20 @@ func DoTeardown() {
 			}
 			backupReport.ConstructBackupParamsString()
 			backupReport.BackupConfig.SegmentCount = len(globalCluster.ContentIDs) - 1
-			err := history.WriteBackupHistory(historyFilename, &backupReport.BackupConfig)
-			if err != nil {
-				gplog.Error(fmt.Sprintf("%v", err))
+
+			if !MustGetFlagBool(options.NO_HISTORY) {
+				historyDB, err := history.InitializeHistoryDatabase(historyDBName)
+				if err != nil {
+					gplog.Error(fmt.Sprintf("%v", err))
+				} else {
+					err = history.StoreBackupHistory(historyDB, &backupReport.BackupConfig)
+					historyDB.Close()
+					if err != nil {
+						gplog.Error(fmt.Sprintf("%v", err))
+					}
+				}
 			}
+
 			history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
 			if backupReport.BackupConfig.EndTime == "" {
 				backupReport.BackupConfig.EndTime = history.CurrentTimestamp()
@@ -447,7 +464,7 @@ func DoCleanup(backupFailed bool) {
 			// If the terminate query is sent via a connection with an active COPY command, and the COPY's pipe is cleaned up, the COPY query will hang.
 			// This results in the DoCleanup function passed to the signal handler to never return, blocking the os.Exit call
 			if wasTerminated {
-				// It is possible for the COPY command to become orphaned if an agent process is killed
+				// It is possible for the COPY command to become orphaned if an agent process is stopped
 				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, fmt.Sprintf("gpbackup_%s", globalFPInfo.Timestamp))
 			}
 			if backupFailed {

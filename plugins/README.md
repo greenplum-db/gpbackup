@@ -17,7 +17,7 @@ gprestore ... --plugin-config <Absolute path to config file>
 The backup you are restoring must have been taken with the same plugin.
 
 ## Plugin configuration file format
-The plugin configuration must be specified in a yaml file. This yaml file is only required to exist on the master host, and is automatically copied to segment hosts.
+The plugin configuration must be specified in a yaml file. This yaml file is only required to exist on the coordinator host, and is automatically copied to segment hosts.
 
 The _executablepath_ is a required parameter and must point to the absolute path of the executable on each host. Additional parameters may be specified under the _options_ key as required by the specific plugin. Refer to the documentation for the plugin you are using for additional required paramters. The _options_ section will include "pgport" for one of the segments on a given host, in case the plugin requires usage of a postgres function. Upon a restore, the _options_ section may also contain "backup_plugin_version" if the information is available from historical records.  With this historical version, a newer plugin could possibly support backwards compatibility toward backups created with older versions of plugins.
 
@@ -81,14 +81,14 @@ These arguments are passed to the plugin by gpbackup/gprestore.
 
 [config_path](#config_path): Absolute path to the config yaml file
 
-[local_backup_directory](#local_backup_directory): The path to the directory where gpbackup would place backup files on the master host if not using a plugin. Our plugins reference this path to recreate a similar directory structure on the destination system. gprestore will read files from this location so the plugin will need to create the directory during setup if it does not already exist.
+[local_backup_directory](#local_backup_directory): The path to the directory where gpbackup would place backup files on the coordinator host if not using a plugin. Our plugins reference this path to recreate a similar directory structure on the destination system. gprestore will read files from this location so the plugin will need to create the directory during setup if it does not already exist.
 
-[scope](#scope): The scope at which this plugin's setup/cleanup hook is invoked. Values for this parameter are: "master", "segment_host" and "segment". Each such hook is invoked at each of these scopes. For eg. If we have a cluster with a master on 1 master host and 2 segment hosts each with 4 segments, each of these hooks will be executed in the following manner: There will be 1 invocation
-of each method with the parameter "master", offering a chance to perform some setup/cleanup to be done *once* per cluster. Creation/Deletion of a remote directory is a perfect candidate here. Furthermore, there will be 1 invocation for each of these commands for each of the segment hosts, offering a chance to establish/teardown connectivity to a remote storage provider such as S3 for instance. Finally, there will be 1 invocation for each of these commands for each of the segments.
+[scope](#scope): The scope at which this plugin's setup/cleanup hook is invoked. Values for this parameter are "coordinator", "segment_host" and "segment" (with "master" being a supported synonym for "coordinator" for backwards compatibility). Each such hook is invoked at each of these scopes. For eg. If we have a cluster with a coordinator on 1 coordinator host and 2 segment hosts each with 4 segments, each of these hooks will be executed in the following manner: There will be 1 invocation
+of each method with the parameter "coordinator", offering a chance to perform some setup/cleanup to be done *once* per cluster. Creation/Deletion of a remote directory is a perfect candidate here. Furthermore, there will be 1 invocation for each of these commands for each of the segment hosts, offering a chance to establish/teardown connectivity to a remote storage provider such as S3 for instance. Finally, there will be 1 invocation for each of these commands for each of the segments.
 
 Note: "segment_host" and "segment" are both provided as a single physical segment host may house multiple segment processes in Greenplum. There maybe some setup or cleanup required at the segment host level as compared to each segment process.
 
-[contentID](#contentID): The contentID corresponding to the scope. This is passed in only for the "master" and "segment" scopes.
+[contentID](#contentID): The contentID corresponding to the scope. This is passed in only for the "coordinator" and "segment" scopes.
 
 [filepath](#filepath): The local path to a file written by gpbackup and/or read by gprestore.
 
@@ -104,7 +104,7 @@ Steps necessary to initialize plugin before backup begins. E.g. Creating remote 
 
 **Usage within gpbackup:**
 
-Called at the start of the backup process on the master and each segment host.
+Called at the start of the backup process on the coordinator and each segment host.
 
 **Arguments:**
 
@@ -120,7 +120,7 @@ Called at the start of the backup process on the master and each segment host.
 
 **Example:**
 ```
-test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 coordinator -1
 test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
 test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
 test_plugin setup_plugin_for_backup /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
@@ -132,7 +132,7 @@ Steps necessary to initialize plugin before restore begins. E.g. validating conn
 
 **Usage within gprestore:**
 
-Called at the start of the restore process on the master and each segment host.
+Called at the start of the restore process on the coordinator and each segment host.
 
 **Arguments:**
 
@@ -148,7 +148,7 @@ Called at the start of the restore process on the master and each segment host.
 
 **Example:**
 ```
-test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 coordinator -1
 test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
 test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
 test_plugin setup_plugin_for_restore /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
@@ -160,7 +160,7 @@ Steps necessary to tear down plugin once backup is complete. E.g. Disconnecting 
 
 **Usage within gpbackup:**
 
-Called during the backup teardown phase on the master and each segment host. This will execute even if backup fails early due to an error.
+Called during the backup teardown phase on the coordinator and each segment host. This will execute even if backup fails early due to an error.
 
 **Arguments:**
 
@@ -176,7 +176,7 @@ Called during the backup teardown phase on the master and each segment host. Thi
 
 **Example:**
 ```
-test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 coordinator -1
 test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
 test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
 test_plugin cleanup_plugin_for_backup /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
@@ -188,7 +188,7 @@ Steps necessary to tear down plugin once restore is complete. E.g. Disconnecting
 
 **Usage within gprestore:**
 
-Called during the restore teardown phase on the master and each segment host. This will execute even if restore fails early due to an error.
+Called during the restore teardown phase on the coordinator and each segment host. This will execute even if restore fails early due to an error.
 
 **Arguments:**
 
@@ -204,7 +204,7 @@ Called during the restore teardown phase on the master and each segment host. Th
 
 **Example:**
 ```
-test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 master -1
+test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir-1/backups/20180101/20180101010101 coordinator -1
 test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment_host
 test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir0/backups/20180101/20180101010101 segment 0
 test_plugin cleanup_plugin_for_restore /home/test_plugin_config.yaml /data_dir1/backups/20180101/20180101010101 segment 1
@@ -216,7 +216,7 @@ Given the path to a file gpbackup has created on local disk, this command should
 
 **Usage within gpbackup:**
 
-Called once for each file created by gpbackup after the files have been written to the backup directories on local disk. Some files exist on the master and others exist on the segments.
+Called once for each file created by gpbackup after the files have been written to the backup directories on local disk. Some files exist on the coordinator and others exist on the segments.
 
 **Arguments:**
 
@@ -237,7 +237,7 @@ Given the path to a file gprestore will read on local disk, this command should 
 
 **Usage within gprestore:**
 
-Called once for each file created by gpbackup to restore them to local disk so gprestore can read them. Some files will be restored to the master and others to the segments.
+Called once for each file created by gpbackup to restore them to local disk so gprestore can read them. Some files will be restored to the coordinator and others to the segments.
 
 **Arguments:**
 
@@ -371,7 +371,7 @@ options:
 
 ## Verification using the gpbackup plugin API test bench
 
-We provide tests to ensure your plugin will work with gpbackup and gprestore. If the tests succesfully run your plugin, you can be confident that your plugin will work with the utilities. The tests are located [here](https://github.com/greenplum-db/gpbackup/blob/master/plugins/plugin_test.sh).
+We provide tests to ensure your plugin will work with gpbackup and gprestore. If the tests succesfully run your plugin, you can be confident that your plugin will work with the utilities. The tests are located [here](https://github.com/greenplum-db/gpbackup/blob/coordinator/plugins/plugin_test.sh).
 
 Run the test bench script using:
 

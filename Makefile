@@ -27,14 +27,24 @@ DEBUG=-gcflags=all="-N -l"
 CUSTOM_BACKUP_DIR ?= "/tmp"
 helper_path ?= $(BIN_DIR)/$(HELPER)
 
+# Prefer gpsync as the newer utility, fall back to gpscp if not present (older installs)
+ifeq (, $(shell which gpsync))
+COPYUTIL=gpscp
+else
+COPYUTIL=gpsync
+endif
+
 depend :
 	go mod download
 
-$(GINKGO) : # v1.14.0 is compatible with centos6 default gcc version
-	go install github.com/onsi/ginkgo/v2/ginkgo@v2.2.0
+$(GINKGO) :
+	go install github.com/onsi/ginkgo/v2/ginkgo@v2.8.4
 
 $(GOIMPORTS) :
 	go install golang.org/x/tools/cmd/goimports@latest
+
+$(GOSQLITE) :
+	go install github.com/mattn/go-sqlite3
 
 format : $(GOIMPORTS)
 		@goimports -w $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -56,7 +66,7 @@ unit_all_gpdb_versions : $(GINKGO)
 		TEST_GPDB_VERSION=4.3.999 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
 		TEST_GPDB_VERSION=5.999.0 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
 		TEST_GPDB_VERSION=6.999.0 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1
-		TEST_GPDB_VERSION=7.999.0 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1 # GPDB master
+		TEST_GPDB_VERSION=7.999.0 ginkgo $(GINKGO_FLAGS) $(SUBDIRS_HAS_UNIT) 2>&1 # GPDB main
 
 integration : $(GINKGO)
 	ginkgo $(GINKGO_FLAGS) integration 2>&1
@@ -64,20 +74,20 @@ integration : $(GINKGO)
 test : build unit integration
 
 end_to_end : $(GINKGO)
-	ginkgo $(GINKGO_FLAGS) --slow-spec-threshold=10s end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
+	ginkgo $(GINKGO_FLAGS) --timeout=3h --poll-progress-after=0s end_to_end -- --custom_backup_dir $(CUSTOM_BACKUP_DIR) 2>&1
 
 coverage :
 		@./show_coverage.sh
 
-build :
-		$(GO_BUILD) -tags '$(BACKUP)' -o $(BIN_DIR)/$(BACKUP) -ldflags "-X $(BACKUP_VERSION_STR)"
-		$(GO_BUILD) -tags '$(RESTORE)' -o $(BIN_DIR)/$(RESTORE) -ldflags "-X $(RESTORE_VERSION_STR)"
-		$(GO_BUILD) -tags '$(HELPER)' -o $(BIN_DIR)/$(HELPER) -ldflags "-X $(HELPER_VERSION_STR)"
+build : $(GOSQLITE)
+		CGO_ENABLED=1 $(GO_BUILD) -tags '$(BACKUP)' -o $(BIN_DIR)/$(BACKUP) --ldflags '-X $(BACKUP_VERSION_STR)'
+		CGO_ENABLED=1 $(GO_BUILD) -tags '$(RESTORE)' -o $(BIN_DIR)/$(RESTORE) --ldflags '-X $(RESTORE_VERSION_STR)'
+		CGO_ENABLED=1 $(GO_BUILD) -tags '$(HELPER)' -o $(BIN_DIR)/$(HELPER) --ldflags '-X $(HELPER_VERSION_STR)'
 
 debug :
-		$(GO_BUILD) -tags '$(BACKUP)' -o $(BIN_DIR)/$(BACKUP) -ldflags "-X $(BACKUP_VERSION_STR)" $(DEBUG)
-		$(GO_BUILD) -tags '$(RESTORE)' -o $(BIN_DIR)/$(RESTORE) -ldflags "-X $(RESTORE_VERSION_STR)" $(DEBUG)
-		$(GO_BUILD) -tags '$(HELPER)' -o $(BIN_DIR)/$(HELPER) -ldflags "-X $(HELPER_VERSION_STR)" $(DEBUG)
+		CGO_ENABLED=1 $(GO_BUILD) -tags '$(BACKUP)' -o $(BIN_DIR)/$(BACKUP) -ldflags "-X $(BACKUP_VERSION_STR)" $(DEBUG)
+		CGO_ENABLED=1 $(GO_BUILD) -tags '$(RESTORE)' -o $(BIN_DIR)/$(RESTORE) -ldflags "-X $(RESTORE_VERSION_STR)" $(DEBUG)
+		CGO_ENABLED=1 $(GO_BUILD) -tags '$(HELPER)' -o $(BIN_DIR)/$(HELPER) -ldflags "-X $(HELPER_VERSION_STR)" $(DEBUG)
 
 build_linux :
 		env GOOS=linux GOARCH=amd64 $(GO_BUILD) -tags '$(BACKUP)' -o $(BACKUP) -ldflags "-X $(BACKUP_VERSION_STR)"
@@ -88,7 +98,7 @@ install :
 		cp $(BIN_DIR)/$(BACKUP) $(BIN_DIR)/$(RESTORE) $(GPHOME)/bin
 		@psql -X -t -d template1 -c 'select distinct hostname from gp_segment_configuration where content != -1' > /tmp/seg_hosts 2>/dev/null; \
 		if [ $$? -eq 0 ]; then \
-			gpscp -f /tmp/seg_hosts $(helper_path) =:$(GPHOME)/bin/$(HELPER); \
+			$(COPYUTIL) -f /tmp/seg_hosts $(helper_path) =:$(GPHOME)/bin/$(HELPER); \
 			if [ $$? -eq 0 ]; then \
 				echo 'Successfully copied gpbackup_helper to $(GPHOME) on all segments'; \
 			else \

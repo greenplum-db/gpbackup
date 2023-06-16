@@ -20,7 +20,7 @@ import (
 )
 
 var _ = Describe("utils integration", func() {
-	It("TerminateHangingCopySessions kills hanging COPY sessions", func() {
+	It("TerminateHangingCopySessions stops hanging COPY sessions", func() {
 		tempDir, err := ioutil.TempDir("", "temp")
 		Expect(err).To(Not(HaveOccurred()))
 		defer os.Remove(tempDir)

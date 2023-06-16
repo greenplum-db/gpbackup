@@ -15,6 +15,7 @@ inputs:
 
 params:
   GPBACKUP_VERSION:
+  OS: RHEL8
 
 run:
   path: gpbackup/ci/scripts/all-tests.bash

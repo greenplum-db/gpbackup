@@ -5,8 +5,7 @@ set -ex
 # Create native package installation files
 function build_rpm_rhel() {
     export ARCH=x86_64
-    # gpdb4 gppkgs must have 'orca' in its version because of some version validation
-    GPDB_VER=( "4.3orca" "5" "6" "7")
+    GPDB_VER=( "5" "6" "7" )
     RPMROOT=/tmp/gpbackup_tools_rpm
     mkdir -p ${RPMROOT}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
@@ -19,7 +18,8 @@ function build_rpm_rhel() {
          --define "%_topdir ${RPMROOT}" \
          --define "debug_package %{nil}" \
          --define "rpm_version ${GPBACKUP_TOOLS_VERSION}" \
-         --define "operating_system ${OS}"
+         --define "operating_system ${OS}" \
+         --define "_build_id_links none"
 
     PKG_FILES=${RPMROOT}/RPMS/x86_64/*${OS}*.rpm
 }
@@ -47,7 +47,7 @@ function build_deb_ubuntu() {
 export GPBACKUP_TOOLS_VERSION=$(cat gpbackup-tools-versions/pkg_version)
 echo "Building installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} platform: ${OS}"
 
-if [[ ${OS} == "RHEL" || ${OS} == "SLES" ]]; then
+if [[ ${OS} == "RHEL6" || ${OS} == "RHEL7" ||  ${OS} == "RHEL8" ]]; then
     build_rpm_rhel
 elif [[ ${OS} == "ubuntu" ]]; then
     build_deb_ubuntu
