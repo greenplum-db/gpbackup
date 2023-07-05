@@ -621,7 +621,13 @@ func writeErrorTables(isMetadata bool) {
 	}
 
 	errorFile, err := os.OpenFile(errorFilename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-	gplog.FatalOnError(err)
+	// We don't Fatal here, or in the other error checks below, as we don't want the restore
+	// to be considered a failure if only this file errors out; there may be legitimate
+	// reasons for it to fail, such as the files being restored from a read-only filesystem.
+	if err != nil {
+		gplog.Warn("Unable to open error table file %s, skipping error report creation", errorFilename)
+		return
+	}
 	errorWriter := bufio.NewWriter(errorFile)
 	start := true
 	for table := range *errorTables {
@@ -634,9 +640,14 @@ func writeErrorTables(isMetadata bool) {
 	}
 	err = errorWriter.Flush()
 	err = errorFile.Close()
-	gplog.FatalOnError(err)
+	if err != nil {
+		gplog.Warn("Could not close error tables file: %v", err)
+		return
+	}
 	err = os.Chmod(errorFilename, 0444)
-	gplog.FatalOnError(err)
+	if err != nil {
+		gplog.Warn("Could not modify permissions of error tables file: %v", err)
+	}
 }
 
 func DoCleanup(restoreFailed bool) {
