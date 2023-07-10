@@ -657,8 +657,15 @@ var _ = Describe("backup integration create statement tests", func() {
 				Expect(resultExtensions).To(HaveLen(2))
 			}
 			plperlMetadata := resultMetadataMap[plperlExtension.GetUniqueID()]
-			structmatcher.ExpectStructsToMatch(&plperlExtension, &resultExtensions[0])
 			structmatcher.ExpectStructsToMatch(&extensionMetadata, &plperlMetadata)
+			// We don't guarantee the order in which extensions are returned, so plperl could be in either struct
+			for _, result := range resultExtensions {
+				if result.Name == "plperl" {
+					structmatcher.ExpectStructsToMatch(&plperlExtension, &result)
+					return
+				}
+			}
+			Fail("PLPerl extension not found in list")
 		})
 	})
 	Describe("PrintCreateTransformStatements", func() {
