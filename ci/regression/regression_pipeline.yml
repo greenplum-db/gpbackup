@@ -1,12 +1,26 @@
 # USAGE: fly -t dp set-pipeline  -p regression -c ~/workspace/gpbackup/ci/regression/regression_pipeline.yml -v gpbackup-git-branch=BRANCH_NAME
 ---
 groups:
-- name: Regression
+- name: all
+  jobs: 
+  - build_binaries
+  - build_gppkgs
+  - regdb-gpdb6
+  - regdb-gpdb7
+  - regdb-gpdb6-to-gpdb7-backup
+  - regdb-gpdb6-to-gpdb7-restore
+
+- name: regression
   jobs:
   - build_binaries
   - build_gppkgs
-  - regdb-GPDB6
-  - regdb-GPDB7
+  - regdb-gpdb6
+  - regdb-gpdb7
+
+- name: migration
+  jobs: 
+  - regdb-gpdb6-to-gpdb7-backup
+  - regdb-gpdb6-to-gpdb7-restore
 
 resource_types:
 - name: terraform
@@ -162,19 +176,27 @@ resources:
     json_key: ((dp/dev/gcp_svc_acct_key))
     regexp: open_source_license_VMware_Greenplum_Backup_and_Restore_(.*)_.*.txt
 
-- name: icw_dump_GPDB6
+- name: icw_dump_gpdb6
   type: gcs
   source:
     bucket: pivotal-gpdb-concourse-resources-intermediates-prod
     json_key: ((concourse-gcs-resources-service-account-key))
     versioned_file: 6X_STABLE_without_asserts/icw_planner_centos6_dump/dump.sql.xz
 
-- name: icw_dump_GPDB7
+- name: icw_dump_gpdb7
   type: gcs
   source:
     bucket: pivotal-gpdb-concourse-resources-intermediates-prod
     json_key: ((concourse-gcs-resources-service-account-key))
     versioned_file: gpdb_main/icw_planner_rhel8_dump/dump.sql.xz
+
+- name: gpdb6-migration-backup
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/dev/gcs-ci-bucket))
+    json_key: ((dp/dev/gcp_svc_acct_key))
+    versioned_file: gpbackup/intermediates/migration-backups/gpdb6/migration-backup.tar.gz
 
 - name: terraform
   type: terraform
@@ -350,19 +372,19 @@ jobs:
     file: gpbackup/ci/tasks/gpbackup-tools-versions.yml
   - in_parallel:
     - do: # RHEL8
-      - task: build-ddboost-RHEL8
+      - task: build-ddboost-rhel8
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-ddboost.yml
         input_mapping:
           bin_gpdb: bin_gpdb_6x_rhel8
-      - task: tar-binaries-RHEL8
+      - task: tar-binaries-rhel8
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-os-tars.yml
         input_mapping:
           gpbackup-go-components: gpbackup-go-components-rhel8
         output_mapping:
           gpbackup_tar: gpbackup_tar_rhel8
-      - task: build_gppkgs-RHEL8
+      - task: build_gppkgs-rhel8
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-gppkg.yml
         input_mapping:
@@ -394,7 +416,7 @@ jobs:
     params:
       file: gppkgs/gpbackup-gppkgs.tar.gz
 
-- name: regdb-GPDB6
+- name: regdb-gpdb6
   plan:
   - in_parallel:
     - get: weekly-trigger
@@ -411,7 +433,7 @@ jobs:
       resource: gpdb6_src
     - get: gppkgs
     - get: icw_dump
-      resource: icw_dump_GPDB6
+      resource: icw_dump_gpdb6
     - get: terraform.d
       params:
         unpack: true
@@ -442,7 +464,7 @@ jobs:
   on_failure:
     *slack_alert
 
-- name: regdb-GPDB7
+- name: regdb-gpdb7
   plan:
   - in_parallel:
     - get: weekly-trigger
@@ -460,7 +482,7 @@ jobs:
     - get: gppkgs
     - get: diffdb_src
     - get: icw_dump
-      resource: icw_dump_GPDB7
+      resource: icw_dump_gpdb7
     - get: terraform.d
       params:
         unpack: true
@@ -488,5 +510,55 @@ jobs:
     file: gpbackup/ci/tasks/icw-roundtrip.yml
   on_success:
     <<: *ccp_destroy_nvme
+  on_failure:
+    *slack_alert
+
+- name: regdb-gpdb6-to-gpdb7-backup
+  plan:
+  - in_parallel:
+    - get: weekly-trigger
+      trigger: true
+    - get: rocky8-gpdb6-image
+    - get: gpbackup
+      trigger: true
+      passed: [build_gppkgs]
+    - get: bin_gpdb_6x_rhel8
+      resource: 
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: gppkgs
+    - get: icw_dump
+      resource: icw_dump_gpdb6
+  - task: icw-migr-backup
+    image: rocky8-gpdb6-image
+    file: gpbackup/ci/tasks/icw-migr-backup.yml
+    input_mapping:
+      bin_gpdb: bin_gpdb_6x_rhel8
+  - put: gpdb6-migration-backup
+    params:
+        file: migration-artifacts/migration-backup.tar.gz
+  on_failure:
+    *slack_alert
+
+- name: regdb-gpdb6-to-gpdb7-restore
+  plan:
+  - in_parallel:
+    - get: rocky8-gpdb7-image
+    - get: gp-pkg
+    - get: gpbackup
+    - get: bin_gpdb_7x_rhel8
+      resource: 
+    - get: gpdb_src
+      resource: gpdb_main_src
+    - get: gppkgs
+    - get: migration-backup
+      trigger: true
+      resource: gpdb6-migration-backup 
+      passed: [regdb-gpdb6-to-gpdb7-backup]
+  - task: icw-migr-restore
+    image: rocky8-gpdb7-image
+    file: gpbackup/ci/tasks/icw-migr-restore.yml
+    input_mapping:
+      bin_gpdb: bin_gpdb_7x_rhel8
   on_failure:
     *slack_alert

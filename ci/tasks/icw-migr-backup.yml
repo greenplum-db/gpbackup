@@ -1,0 +1,22 @@
+platform: linux
+
+image_resource:
+  type: registry-image
+
+inputs:
+- name: gpbackup
+- name: gpdb_src
+- name: bin_gpdb
+- name: gppkgs
+- name: gp-pkg
+  optional: true
+- name: icw_dump 
+
+outputs:
+- name: migration-artifacts
+
+params:
+  OS: RHEL8
+
+run:
+  path: gpbackup/ci/scripts/icw-migr-backup.bash
