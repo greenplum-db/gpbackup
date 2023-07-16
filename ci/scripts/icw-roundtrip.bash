@@ -61,6 +61,11 @@ unxz < /home/gpadmin/dump.sql.xz | PGOPTIONS='--client-min-messages=warning' psq
 psql -d regression -c "DROP TYPE IF EXISTS gpdist_legacy_opclasses.colors CASCADE;"
 psql -d regression -c "DROP TABLE IF EXISTS gpdist_legacy_opclasses.legacy_enum CASCADE;"
 
+# gpbackup bug. there is a ticket open to resolve
+psql -d regression -c "DROP TABLE IF EXISTS public.equal_operator_not_in_search_path_table CASCADE;"
+psql -d regression -c "DROP TABLE IF EXISTS public.equal_operator_not_in_search_path_table_multi_key CASCADE;"
+
+
 echo "## Performing backup of regression database ## "
 gpbackup --dbname regression --backup-dir /home/gpadmin/data | tee /tmp/gpbackup_test.log
 timestamp=\$(head -10 /tmp/gpbackup_test.log | grep "Backup Timestamp " | grep -Eo "[[:digit:]]{14}")

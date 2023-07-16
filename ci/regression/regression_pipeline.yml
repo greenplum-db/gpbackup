@@ -181,7 +181,7 @@ resources:
   source:
     bucket: pivotal-gpdb-concourse-resources-intermediates-prod
     json_key: ((concourse-gcs-resources-service-account-key))
-    versioned_file: 6X_STABLE_without_asserts/icw_planner_centos6_dump/dump.sql.xz
+    versioned_file: 6X_STABLE_without_asserts/icw_planner_rocky8_dump/dump.sql.xz
 
 - name: icw_dump_gpdb7
   type: gcs
