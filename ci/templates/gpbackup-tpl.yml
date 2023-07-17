@@ -276,13 +276,13 @@ resources:
 - name: ubuntu-debian-image
   type: registry-image
   source:
-    repository: gcr.io/data-gpdb-public-images/gpdb6-ubuntu18.04-build
+    repository: gcr.io/data-gpdb-public-images/gpdb6-ubuntu20.04-build
     tag: latest
 
 - name: ubuntu-debian-test-image
   type: registry-image
   source:
-    repository: gcr.io/data-gpdb-public-images/gpdb6-ubuntu18.04-test
+    repository: gcr.io/data-gpdb-public-images/gpdb6-ubuntu20.04-test
     tag: latest
 {% endif %}
 
@@ -366,9 +366,6 @@ resources:
     branch: ((dp/ccp-git-branch))
     private_key: ((gp-concourse-cluster-provisioner-git-key))
     uri: ((dp/ccp-git-remote))
-  # issue with Ubuntu versioning is breaking our tests. pin for now
-  version:
-    ref: fe40dce2883df9d836f59f92950b93ec142ba8e5
 
 ##############################################
 
@@ -380,7 +377,7 @@ resources:
   source:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-ubuntu18.04_x86_64((dp/$$DEV_PROD$$/rc-build-type-gcs)).tar.gz
+    regexp: server/published/gpdb6/server-rc-(.*)-ubuntu20.04_x86_64((dp/$$DEV_PROD$$/rc-build-type-gcs)).debug.tar.gz
 {% endif %}
 
 - name: bin_gpdb_7x_rhel8
@@ -1340,7 +1337,7 @@ jobs:
       <<: *ccp_default_params
       vars:
         <<: *ccp_default_vars
-        PLATFORM: ubuntu18.04
+        PLATFORM: ubuntu20.04
         default_image_user: root
   - task: gen_cluster
     params:
