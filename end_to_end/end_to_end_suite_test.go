@@ -331,6 +331,18 @@ func getMetdataFileContents(backupDir string, timestamp string, fileSuffix strin
 	return fileContentBytes
 }
 
+// check restore file exist and has right permissions
+func checkRestoreMetdataFile(backupDir string, timestamp string, fileSuffix string) {
+	file, err := path.Glob(path.Join(backupDir, "*-1/backups", timestamp[:8], timestamp, fmt.Sprintf("gprestore_%s_*_%s", timestamp, fileSuffix)))
+	Expect(err).ToNot(HaveOccurred())
+	Expect(file).To(HaveLen(1))
+	info, err := os.Stat(file[0])
+	Expect(err).ToNot(HaveOccurred())
+	if info.Mode() != 0444 {
+		Fail(fmt.Sprintf("File %s is not read-only (mode is %v).", file[0], info.Mode()))
+	}
+}
+
 func saveHistory(myCluster *cluster.Cluster) {
 	// move history file out of the way, and replace in "after". This avoids adding junk to an existing gpackup_history.db
 
@@ -1151,6 +1163,75 @@ var _ = Describe("backup and restore end to end tests", func() {
 			actualStatisticCount := dbconn.MustSelectString(restoreConn,
 				`SELECT count(*) FROM pg_statistic WHERE starelid='public.sales'::regclass::oid`)
 			Expect(actualStatisticCount).To(Equal("3"))
+		})
+	})
+	Describe("Restore with --report-dir", func() {
+		It("runs gprestore without --report-dir", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb")
+
+			// Since --report-dir and --backup-dir were not used, restore report should be in default dir
+			checkRestoreMetdataFile(path.Dir(backupCluster.GetDirForContent(-1)), timestamp, "report")
+		})
+		It("runs gprestore without --report-dir, but with --backup-dir", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--backup-dir", backupDir,
+				"--redirect-db", "restoredb")
+
+			// Since --backup-dir was used, restore report should be in backup dir
+			checkRestoreMetdataFile(backupDir, timestamp, "report")
+		})
+		It("runs gprestore with --report-dir and same --backup-dir", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--backup-dir", backupDir,
+				"--report-dir", backupDir,
+				"--redirect-db", "restoredb")
+
+			// Since --report-dir and --backup-dir are the same, restore report should be in backup dir
+			checkRestoreMetdataFile(backupDir, timestamp, "report")
+		})
+		It("runs gprestore with --report-dir and different --backup-dir", func() {
+			reportDir := path.Join(backupDir, "restore")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--backup-dir", backupDir,
+				"--report-dir", reportDir,
+				"--redirect-db", "restoredb")
+
+			// Since --report-dir differs from --backup-dir, restore report should be in report dir
+			checkRestoreMetdataFile(reportDir, timestamp, "report")
+		})
+		It("runs gprestore with --report-dir and check error_tables* files are present", func() {
+			if segmentCount != 3 {
+				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
+			}
+			extractDirectory := extractSavedTarFile(backupDir, "corrupt-db")
+			reportDir := path.Join(backupDir, "restore")
+
+			// Restore command with data error
+			// Metadata errors due to invalid alter ownership
+			gprestoreCmd := exec.Command(gprestorePath,
+				"--timestamp", "20190809230424",
+				"--redirect-db", "restoredb",
+				"--backup-dir", extractDirectory,
+				"--report-dir", reportDir,
+				"--on-error-continue")
+			_, _ = gprestoreCmd.CombinedOutput()
+
+			// All report files should be placed in the same dir
+			checkRestoreMetdataFile(reportDir, "20190809230424", "report")
+			checkRestoreMetdataFile(reportDir, "20190809230424", "error_tables_metadata")
+			checkRestoreMetdataFile(reportDir, "20190809230424", "error_tables_data")
 		})
 	})
 	Describe("Flag combinations", func() {
