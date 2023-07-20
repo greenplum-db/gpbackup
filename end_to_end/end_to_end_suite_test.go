@@ -2295,4 +2295,45 @@ LANGUAGE plpgsql NO SQL;`)
 			Expect(contents).ToNot(ContainSubstring("CREATE TABLE public.unrelated"))
 		})
 	})
+	Describe("Report files", func() {
+		It("prints the correct end time in the report file", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			testhelper.AssertQueryRuns(backupConn, `CREATE SCHEMA testschema`)
+			// We need enough tables for the backup to take multiple seconds, so create a bunch of them
+			for i := 0; i < 100; i++ {
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE testschema.foo%d(i int)`, i))
+				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO testschema.foo%d SELECT generate_series(1,10000)`, i))
+			}
+			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA testschema CASCADE")
+
+			gpbackupCmd := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir)
+			out, err := gpbackupCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			output := string(out)
+			timestampRegex := regexp.MustCompile(`Backup Timestamp = (\d{14})`)
+			timestamp := timestampRegex.FindStringSubmatch(output)[1]
+
+			// Grab the printed timestamp from the last line of the output and the timestamp in the report file,
+			// then convert the printed one into the same format as the report one for comparison
+			lines := strings.Split(strings.TrimSpace(output), "\n")
+			stdoutTimestamp := strings.Split(lines[len(lines)-1], " ")[0]
+			stdoutTime, _ := time.ParseInLocation("20060102:15:04:05", stdoutTimestamp, time.Local)
+			stdoutEndTime := stdoutTime.Format("Mon Jan 02 2006 15:04:05")
+
+			reportRegex := regexp.MustCompile(`end time: +(.+)\n`)
+			contents := string(getMetdataFileContents(backupDir, timestamp, "report"))
+			reportEndTime := reportRegex.FindStringSubmatch(contents)[1]
+
+			if stdoutEndTime != reportEndTime {
+				// The times *should* be identical, but DoTeardown might be a second off, so we accept a 1-second difference
+				marginTime := stdoutTime.Add(time.Second * -1)
+				marginEndTime := marginTime.Format("Mon Jan 02 2006 15:04:05")
+				if marginEndTime != reportEndTime {
+					Fail(fmt.Sprintf("Expected printed timestamp %s to match timestamp %s in report file", stdoutEndTime, reportEndTime))
+				}
+			}
+		})
+	})
 })

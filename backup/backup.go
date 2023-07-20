@@ -419,9 +419,8 @@ func DoTeardown() {
 			backupReport.ConstructBackupParamsString()
 
 			history.WriteConfigFile(&backupReport.BackupConfig, configFilename)
-			if backupReport.BackupConfig.EndTime == "" {
-				backupReport.BackupConfig.EndTime = history.CurrentTimestamp()
-			}
+			// We always want to override the initial end time set by the call to StoreBackupHistory
+			backupReport.BackupConfig.EndTime = history.CurrentTimestamp()
 			endtime, _ := time.ParseInLocation("20060102150405", backupReport.BackupConfig.EndTime, operating.System.Local)
 			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, endtime, objectCounts, errMsg)
 			report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup", !backupFailed)
@@ -477,10 +476,10 @@ func DoCleanup(backupFailed bool) {
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
 		}
 
-		// The gpbackup_history entry is written to the DB with an "In Progress" status very early
-		// on.  If we get to cleanup and the backup succeeded, mark it as a success, otherwise mark
-		// it as a failure. Between our signal handler and recovering panics, there should be no
-		// way for gpbackup to exit that leaves the entry in the initial status.
+		// The gpbackup_history entry is written to the DB with an "In Progress" status and a preliminary EndTime value
+		// very early on.  If we get to cleanup and the backup succeeded, mark it as a success, otherwise mark it as a
+		// failure; in either case, update the end time to the actual value. Between our signal handler and recovering
+		// panics, there should be no way for gpbackup to exit that leaves the entry in the initial status.
 
 		if !MustGetFlagBool(options.NO_HISTORY) {
 			var statusString string
@@ -494,7 +493,7 @@ func DoCleanup(backupFailed bool) {
 			if err != nil {
 				gplog.Error(fmt.Sprintf("Unable to update history database.  Error: %v", err))
 			} else {
-				_, err := historyDB.Exec(fmt.Sprintf("UPDATE backups SET status='%s' WHERE timestamp='%s'", statusString, globalFPInfo.Timestamp))
+				_, err := historyDB.Exec(fmt.Sprintf("UPDATE backups SET status='%s', end_time='%s' WHERE timestamp='%s'", statusString, backupReport.BackupConfig.EndTime, globalFPInfo.Timestamp))
 				historyDB.Close()
 				if err != nil {
 					gplog.Error(fmt.Sprintf("Unable to update history database.  Error: %v", err))
