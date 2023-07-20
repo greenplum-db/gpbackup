@@ -326,10 +326,6 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 	// Cannot use unnest() in CASE statements anymore in GPDB 7+ so convert
 	// it to a LEFT JOIN LATERAL. We do not use LEFT JOIN LATERAL for GPDB 6
 	// because the CASE unnest() logic is more performant.
-	//
-	// Note that we use a subquery to determine whether an attribute is inherited instead of
-	// simply checking attislocal because an attribute being inherited doesn't prevent it
-	// from being (re)defined locally in a CREATE statement and vice versa.
 	atLeast7Query := fmt.Sprintf(`
 	SELECT a.attrelid,
 		a.attnum,
@@ -354,14 +350,7 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
 		coalesce(sec.provider,'') AS securitylabelprovider,
 		coalesce(sec.label,'') AS securitylabel,
-		EXISTS (
-			SELECT 1
-			FROM pg_inherits AS i
-			INNER JOIN pg_attribute AS a2
-				ON i.inhparent = a2.attrelid
-			WHERE i.inhrelid = a.attrelid
-				AND a.attname = a2.attname
-		) AS isinherited
+		(a.attinhcount > 0) AS isinherited
 	FROM pg_catalog.pg_attribute a
 		JOIN pg_class c ON a.attrelid = c.oid
 		JOIN pg_namespace n ON c.relnamespace = n.oid

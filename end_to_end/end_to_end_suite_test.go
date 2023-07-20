@@ -2297,9 +2297,7 @@ LANGUAGE plpgsql NO SQL;`)
 	})
 	Describe("Report files", func() {
 		It("prints the correct end time in the report file", func() {
-			if useOldBackupVersion {
-				Skip("This test is not needed for old backup versions")
-			}
+			testutils.SkipIfBefore7(backupConn)
 			testhelper.AssertQueryRuns(backupConn, `CREATE SCHEMA testschema`)
 			// We need enough tables for the backup to take multiple seconds, so create a bunch of them
 			for i := 0; i < 100; i++ {
