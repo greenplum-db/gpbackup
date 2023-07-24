@@ -235,10 +235,11 @@ func doRestoreAgent() error {
 
 			log(fmt.Sprintf("Oid %d: Opening pipe %s", oid, currentPipe))
 			retries := 0
+			var elapsedWait time.Duration = 0
 			for {
 				writer, writeHandle, err = getRestorePipeWriter(currentPipe)
 				if err != nil {
-					if errors.Is(err, unix.ENXIO) && retries < 15 {
+					if errors.Is(err, unix.ENXIO) {
 						// COPY (the pipe reader) has not tried to access the pipe yet so our restore_helper
 						// process will get ENXIO error on its nonblocking open call on the pipe. We loop in
 						// here while looking to see if gprestore has created a skip file for this restore entry.
@@ -252,12 +253,18 @@ func doRestoreAgent() error {
 							err = nil
 							goto LoopEnd
 						} else {
-							// keep trying to open the pipe.  hard-quit eventually to prevent permanent hangs.
+							// keep trying to open the pipe.  If we've been trying for more than 60 seconds, log warnings
 							retries += 1
-							backoff := time.Duration(math.Pow(2, float64(retries-1))) * 10 * time.Millisecond
-							if retries > 10 {
-								log(fmt.Sprintf("Unable to open pipe %s because pipe reader has not yet tried to access it, retrying in %s", currentPipe, backoff))
+
+							var backoff time.Duration
+							if elapsedWait > time.Duration(60)*time.Second {
+								log(fmt.Sprintf("Waiting to open writer to pipe %s because reader has not yet tried to access it. Have been waiting for: %s", currentPipe, elapsedWait))
+								backoff = time.Duration(60) * time.Second
+							} else {
+								backoff = time.Duration(math.Pow(2, float64(retries-1))) * 10 * time.Millisecond
 							}
+
+							elapsedWait += backoff
 							time.Sleep(backoff)
 						}
 					} else {
