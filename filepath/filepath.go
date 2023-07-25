@@ -26,7 +26,6 @@ type FilePathInfo struct {
 	Timestamp              string
 	UserSpecifiedBackupDir string
 	UserSpecifiedSegPrefix string
-	UserSpecifiedReportDir string
 }
 
 func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestamp string, userSegPrefix string, useMirrors ...bool) FilePathInfo {
@@ -34,7 +33,6 @@ func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestam
 	backupFPInfo.PID = os.Getpid()
 	backupFPInfo.UserSpecifiedBackupDir = userSpecifiedBackupDir
 	backupFPInfo.UserSpecifiedSegPrefix = userSegPrefix
-	backupFPInfo.UserSpecifiedReportDir = ""
 	backupFPInfo.Timestamp = timestamp
 	backupFPInfo.SegDirMap = make(map[int]string)
 
@@ -49,14 +47,6 @@ func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestam
 	}
 
 	return backupFPInfo
-}
-
-/*
- * Set user specified dir for report.
- * Currently used for restore only.
- */
-func (backupFPInfo *FilePathInfo) SetReportDir(userSpecifiedReportDir string) {
-	backupFPInfo.UserSpecifiedReportDir = userSpecifiedReportDir
 }
 
 /*
@@ -79,18 +69,6 @@ func (backupFPInfo *FilePathInfo) GetDirForContent(contentID int) string {
 		return path.Join(backupFPInfo.UserSpecifiedBackupDir, segDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
 	}
 	return path.Join(backupFPInfo.SegDirMap[contentID], "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
-}
-
-func (backupFPInfo *FilePathInfo) IsUserSpecifiedReportDir() bool {
-	return backupFPInfo.UserSpecifiedReportDir != ""
-}
-
-func (backupFPInfo *FilePathInfo) GetDirForReport(contentID int) string {
-	if backupFPInfo.IsUserSpecifiedReportDir() {
-		segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, contentID)
-		return path.Join(backupFPInfo.UserSpecifiedReportDir, segDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
-	}
-	return backupFPInfo.GetDirForContent(contentID);
 }
 
 func (backupFPInfo *FilePathInfo) replaceCopyFormatStringsInPath(templateFilePath string, contentID int) string {
@@ -168,7 +146,7 @@ func (backupFPInfo *FilePathInfo) GetBackupReportFilePath() string {
 }
 
 func (backupFPInfo *FilePathInfo) GetRestoreFilePath(restoreTimestamp string, filetype string) string {
-	return path.Join(backupFPInfo.GetDirForReport(-1), fmt.Sprintf("gprestore_%s_%s_%s", backupFPInfo.Timestamp, restoreTimestamp, metadataFilenameMap[filetype]))
+	return path.Join(backupFPInfo.GetDirForContent(-1), fmt.Sprintf("gprestore_%s_%s_%s", backupFPInfo.Timestamp, restoreTimestamp, metadataFilenameMap[filetype]))
 }
 
 func (backupFPInfo *FilePathInfo) GetRestoreReportFilePath(restoreTimestamp string) string {
