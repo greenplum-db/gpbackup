@@ -98,7 +98,7 @@ END_OF_SUPPORT_DATE=$(date -d "$future_date_18_month - 1 day" +%Y-%m-%d)
 sed -i "s/<END_OF_SUPPORT_DATE>/${END_OF_SUPPORT_DATE}/g" workspace/metadata.yml
 
 # The URL adjusts based on major/minor version
-REL_NOTES_VERSION=$(echo ${TILE_RELEASE_VERSION//./-} | cut -d- -f1,2)
+REL_NOTES_VERSION=$(echo ${TILE_RELEASE_VERSION} | cut -d. -f1,2)
 sed -i "s/<REL_NOTES_VERSION>/${REL_NOTES_VERSION}/g" workspace/metadata.yml
 
 cat workspace/metadata.yml

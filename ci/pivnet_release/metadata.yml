@@ -10,7 +10,7 @@ release:
         - gpbackup_manager <BMAN_VERSION>
         - gpbackup_ddboost_plugin <DDBOOST_PLUGIN_VERSION>
         - gpbackup_s3_plugin <S3_PLUGIN_VERSION>
-  release_notes_url: https://docs.vmware.com/en/VMware-Tanzu-Greenplum-Backup-and-Restore/<REL_NOTES_VERSION>/tanzu-greenplum-backup-and-restore/GUID-release-notes.html
+  release_notes_url: https://docs.vmware.com/en/VMware-Greenplum-Backup-and-Restore/<REL_NOTES_VERSION>/greenplum-backup-and-restore/release-notes.html
   availability: Admins Only
   controlled: false
   eccn: EAR99
