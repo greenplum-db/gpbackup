@@ -331,6 +331,18 @@ func getMetdataFileContents(backupDir string, timestamp string, fileSuffix strin
 	return fileContentBytes
 }
 
+// check restore file exist and has right permissions
+func checkRestoreMetdataFile(backupDir string, timestamp string, fileSuffix string) {
+	file, err := path.Glob(path.Join(backupDir, "*-1/backups", timestamp[:8], timestamp, fmt.Sprintf("gprestore_%s_*_%s", timestamp, fileSuffix)))
+	Expect(err).ToNot(HaveOccurred())
+	Expect(file).To(HaveLen(1))
+	info, err := os.Stat(file[0])
+	Expect(err).ToNot(HaveOccurred())
+	if info.Mode() != 0444 {
+		Fail(fmt.Sprintf("File %s is not read-only (mode is %v).", file[0], info.Mode()))
+	}
+}
+
 func saveHistory(myCluster *cluster.Cluster) {
 	// move history file out of the way, and replace in "after". This avoids adding junk to an existing gpackup_history.db
 
@@ -1153,6 +1165,75 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(actualStatisticCount).To(Equal("3"))
 		})
 	})
+	Describe("Restore with --report-dir", func() {
+		It("runs gprestore without --report-dir", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb")
+
+			// Since --report-dir and --backup-dir were not used, restore report should be in default dir
+			checkRestoreMetdataFile(path.Dir(backupCluster.GetDirForContent(-1)), timestamp, "report")
+		})
+		It("runs gprestore without --report-dir, but with --backup-dir", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--backup-dir", backupDir,
+				"--redirect-db", "restoredb")
+
+			// Since --backup-dir was used, restore report should be in backup dir
+			checkRestoreMetdataFile(backupDir, timestamp, "report")
+		})
+		It("runs gprestore with --report-dir and same --backup-dir", func() {
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--backup-dir", backupDir,
+				"--report-dir", backupDir,
+				"--redirect-db", "restoredb")
+
+			// Since --report-dir and --backup-dir are the same, restore report should be in backup dir
+			checkRestoreMetdataFile(backupDir, timestamp, "report")
+		})
+		It("runs gprestore with --report-dir and different --backup-dir", func() {
+			reportDir := path.Join(backupDir, "restore")
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--backup-dir", backupDir,
+				"--include-table", "public.sales")
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--backup-dir", backupDir,
+				"--report-dir", reportDir,
+				"--redirect-db", "restoredb")
+
+			// Since --report-dir differs from --backup-dir, restore report should be in report dir
+			checkRestoreMetdataFile(reportDir, timestamp, "report")
+		})
+		It("runs gprestore with --report-dir and check error_tables* files are present", func() {
+			if segmentCount != 3 {
+				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
+			}
+			extractDirectory := extractSavedTarFile(backupDir, "corrupt-db")
+			reportDir := path.Join(backupDir, "restore")
+
+			// Restore command with data error
+			// Metadata errors due to invalid alter ownership
+			gprestoreCmd := exec.Command(gprestorePath,
+				"--timestamp", "20190809230424",
+				"--redirect-db", "restoredb",
+				"--backup-dir", extractDirectory,
+				"--report-dir", reportDir,
+				"--on-error-continue")
+			_, _ = gprestoreCmd.CombinedOutput()
+
+			// All report files should be placed in the same dir
+			checkRestoreMetdataFile(reportDir, "20190809230424", "report")
+			checkRestoreMetdataFile(reportDir, "20190809230424", "error_tables_metadata")
+			checkRestoreMetdataFile(reportDir, "20190809230424", "error_tables_data")
+		})
+	})
 	Describe("Flag combinations", func() {
 		It("runs gpbackup and gprestore without redirecting restore to another db", func() {
 			err := exec.Command("createdb", "recreateme").Run()
@@ -1621,6 +1702,31 @@ LANGUAGE plpgsql NO SQL;`)
 					"public.sales":                    13,
 					"public.to_use_for_function":      1,
 					"public.test_depends_on_function": 1})
+
+				assertArtifactsCleaned(restoreConn, timestamp)
+			})
+			It("runs gpbackup and gprestore to backup functions depending on table row's type", func() {
+				skipIfOldBackupVersionBefore("1.19.0")
+
+				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE table_provides_type (n int);")
+				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_provides_type;")
+
+				testhelper.AssertQueryRuns(backupConn, "INSERT INTO table_provides_type values (1);")
+				testhelper.AssertQueryRuns(backupConn, "CREATE OR REPLACE FUNCTION func_depends_on_row_type(arg table_provides_type[]) RETURNS void AS $$ BEGIN; SELECT NULL; END; $$ LANGUAGE SQL;")
+
+				defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func_depends_on_row_type(arg table_provides_type[]);")
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath)
+				gprestore(gprestorePath, restoreHelperPath, timestamp,
+					"--redirect-db", "restoredb")
+
+				assertRelationsCreated(restoreConn, TOTAL_RELATIONS+1) // for 1 new table
+				assertDataRestored(restoreConn, schema2TupleCounts)
+				assertDataRestored(restoreConn, map[string]int{
+					"public.foo":                 40000,
+					"public.holds":               50000,
+					"public.sales":               13,
+					"public.table_provides_type": 1})
 
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})

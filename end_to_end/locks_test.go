@@ -200,8 +200,8 @@ var _ = Describe("Deadlock handling", func() {
 		// Concurrently wait for gpbackup to block on the trigger metadata dump section. Once we
 		// see gpbackup blocked, request AccessExclusiveLock (to imitate a TRUNCATE or VACUUM
 		// FULL) on all the test tables.
-		dataTables := []string{`public."FOObar"`, "public.foo", "public.holds", "public.sales", "public.bigtable",
-			"schema2.ao1", "schema2.ao2", "schema2.foo2", "schema2.foo3", "schema2.returns"}
+		dataTables := []string{"public.bigtable", "public.holds", "public.foo", "schema2.foo3", "schema2.ao1",
+			"schema2.ao2", `public."FOObar"`, "public.sales", "schema2.foo2", "schema2.returns"}
 		for _, dataTable := range dataTables {
 			go func(dataTable string) {
 				accessExclusiveLockConn := testutils.SetupTestDbConn("testdb")
@@ -260,7 +260,7 @@ var _ = Describe("Deadlock handling", func() {
 		// Check that 10 deadlock traps were placed during the test
 		Expect(accessExclBlockedLockCount).To(Equal(10))
 		// No non-main worker should have been able to run COPY due to deadlock detection
-		for i := 1; i < 2; i++ {
+		for i := 1; i <= 2; i++ {
 			expectedLockString := fmt.Sprintf("[DEBUG]:-Worker %d: LOCK TABLE ", i)
 			Expect(stdout).To(ContainSubstring(expectedLockString))
 
@@ -270,7 +270,7 @@ var _ = Describe("Deadlock handling", func() {
 			unexpectedCopyString := fmt.Sprintf("[DEBUG]:-Worker %d: COPY ", i)
 			Expect(stdout).ToNot(ContainSubstring(unexpectedCopyString))
 
-			expectedLockString = fmt.Sprintf(`Locks held on table %s`, dataTables[i])
+			expectedLockString = fmt.Sprintf(`Locks held on table %s`, dataTables[i-1])
 			Expect(stdout).To(ContainSubstring(expectedLockString))
 
 			Expect(stdout).To(ContainSubstring(`"Mode":"AccessExclusiveLock"`))
