@@ -631,6 +631,7 @@ func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 
 	gplog.Verbose("Writing CREATE statements for dependent objects to metadata file")
 
+	sortables = SortByOid(sortables)
 	backupSet := createBackupSet(sortables)
 	relevantDeps := GetDependencies(connectionPool, backupSet, tables)
 	if connectionPool.Version.Is("4") && !tableOnly {
