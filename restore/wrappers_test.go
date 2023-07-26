@@ -226,7 +226,7 @@ singledatafile: true
 timestamp: "20180415154238"
 withstatistics: false
 `
-		var executor testutils.TestExecutorMultiple
+		var executor testhelper.TestExecutor
 		var testConfigPath = "/tmp/unit_test_plugin_config.yml"
 		var oldWd string
 		var mdd string
@@ -240,8 +240,9 @@ withstatistics: false
 			err = cmdFlags.Set(options.PLUGIN_CONFIG, testConfigPath)
 			Expect(err).ToNot(HaveOccurred())
 
-			executor = testutils.TestExecutorMultiple{
+			executor = testhelper.TestExecutor{
 				ClusterOutputs: make([]*cluster.RemoteOutput, 2),
+				UseLastOutput:  true,
 			}
 			executor.ClusterOutputs[0] = &cluster.RemoteOutput{
 				Commands: []cluster.ShellCommand{

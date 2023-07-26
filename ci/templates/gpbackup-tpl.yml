@@ -1668,9 +1668,9 @@ jobs:
         - gpbackup-manager-tests
     - get: gpbackup
       passed: [build_gppkgs]
-    - put: gppkgs_release_versioned
-      params:
-        file: gppkgs/gpbackup-gppkgs.tar.gz
+  - put: gppkgs_release_versioned
+    params:
+      file: gppkgs/gpbackup-gppkgs.tar.gz
 
 - name: push-to-github
   plan:

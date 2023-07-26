@@ -26,8 +26,12 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("filepath tests", func() {
 	coordinatorDir := "/data/gpseg-1"
+	standbyDir := "/data/gpseg_mirror-1"
 	segDirOne := "/data/gpseg0"
 	segDirTwo := "/data/gpseg1"
+	mirrorDirOne := "/data/gpseg_mirror0"
+	mirrorDirTwo := "/data/gpseg_mirror1"
+
 	var c *cluster.Cluster
 	BeforeEach(func() {
 		c = cluster.NewCluster([]cluster.SegConfig{
@@ -56,6 +60,36 @@ var _ = Describe("filepath tests", func() {
 			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg0/backups/20170101/20170101010101"))
 			Expect(fpInfo.GetDirForContent(1)).To(Equal("/data/gpseg1/backups/20170101/20170101010101"))
+		})
+		It("sets up the configuration for a single-host, multi-segment fpInfo using primaries when the cluster has mirrors", func() {
+			c = cluster.NewCluster([]cluster.SegConfig{
+				{ContentID: -1, Role: "p", DataDir: coordinatorDir},
+				{ContentID: 0, Role: "p", DataDir: segDirOne},
+				{ContentID: 1, Role: "p", DataDir: segDirTwo},
+				{ContentID: 0, Role: "m", DataDir: mirrorDirOne},
+				{ContentID: 1, Role: "m", DataDir: mirrorDirTwo},
+				{ContentID: -1, Role: "m", DataDir: standbyDir},
+			})
+			fpInfo := NewFilePathInfo(c, "", "20170101010101", "gpseg")
+			Expect(fpInfo.SegDirMap).To(HaveLen(3))
+			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg-1/backups/20170101/20170101010101"))
+			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg0/backups/20170101/20170101010101"))
+			Expect(fpInfo.GetDirForContent(1)).To(Equal("/data/gpseg1/backups/20170101/20170101010101"))
+		})
+		It("sets up the configuration for a single-host, multi-segment fpInfo using mirrors", func() {
+			c = cluster.NewCluster([]cluster.SegConfig{
+				{ContentID: -1, Role: "p", DataDir: coordinatorDir},
+				{ContentID: 0, Role: "p", DataDir: segDirOne},
+				{ContentID: 1, Role: "p", DataDir: segDirTwo},
+				{ContentID: 0, Role: "m", DataDir: mirrorDirOne},
+				{ContentID: 1, Role: "m", DataDir: mirrorDirTwo},
+				{ContentID: -1, Role: "m", DataDir: standbyDir},
+			})
+			fpInfo := NewFilePathInfo(c, "", "20170101010101", "gpseg", true)
+			Expect(fpInfo.SegDirMap).To(HaveLen(3))
+			Expect(fpInfo.GetDirForContent(-1)).To(Equal("/data/gpseg_mirror-1/backups/20170101/20170101010101"))
+			Expect(fpInfo.GetDirForContent(0)).To(Equal("/data/gpseg_mirror0/backups/20170101/20170101010101"))
+			Expect(fpInfo.GetDirForContent(1)).To(Equal("/data/gpseg_mirror1/backups/20170101/20170101010101"))
 		})
 		It("returns the content directory based on the user specified path", func() {
 			fpInfo := NewFilePathInfo(c, "/foo/bar", "20170101010101", "gpseg")

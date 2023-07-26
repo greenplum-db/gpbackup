@@ -12,10 +12,10 @@ mkdir /tmp/rhel7
 mkdir /tmp/rhel8
 mkdir /tmp/ubuntu
 
-cp release_componenents_rhel6/*.gz /tmp/rhel6
-cp release_componenents_rhel7/*.gz /tmp/rhel7
-cp release_componenents_rhel8/*.gz /tmp/rhel8
-cp release_componenents_ubuntu/*.gz /tmp/ubuntu
+cp release_components_rhel6/*.gz /tmp/rhel6
+cp release_components_rhel7/*.gz /tmp/rhel7
+cp release_components_rhel8/*.gz /tmp/rhel8
+cp release_components_ubuntu/*.gz /tmp/ubuntu
 
 pushd /tmp
     mkdir untarred_rhel6

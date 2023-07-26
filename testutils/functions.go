@@ -562,38 +562,3 @@ func InitializeTestTOC(buffer io.Writer, which string) (*toc.TOC, *utils.FileWit
 	backupfile.Filename = which
 	return tocfile, backupfile
 }
-
-type TestExecutorMultiple struct {
-	ClusterOutputs      []*cluster.RemoteOutput
-	ClusterCommands     [][]cluster.ShellCommand
-	ErrorOnExecNum      int // Throw the specified error after this many executions of Execute[...]Command(); 0 means always return error
-	NumLocalExecutions  int
-	NumRemoteExecutions int
-	LocalOutput         string
-	LocalError          error
-	LocalCommands       []string
-}
-
-func (executor *TestExecutorMultiple) ExecuteLocalCommand(commandStr string) (string, error) {
-	executor.NumLocalExecutions++
-	executor.LocalCommands = append(executor.LocalCommands, commandStr)
-	if executor.ErrorOnExecNum == 0 || executor.NumLocalExecutions == executor.ErrorOnExecNum {
-		return executor.LocalOutput, executor.LocalError
-	}
-	return executor.LocalOutput, nil
-}
-
-func (executor *TestExecutorMultiple) ExecuteClusterCommand(scope cluster.Scope, commands []cluster.ShellCommand) (result *cluster.RemoteOutput) {
-	originalExecutions := executor.NumRemoteExecutions
-	executor.NumRemoteExecutions++
-	executor.ClusterCommands = append(executor.ClusterCommands, commands)
-	if executor.ErrorOnExecNum == 0 || executor.NumRemoteExecutions == executor.ErrorOnExecNum {
-		// return the indexed item if exists, otherwise the last item
-		numOutputs := len(executor.ClusterOutputs)
-		result = executor.ClusterOutputs[numOutputs-1]
-		if originalExecutions < numOutputs {
-			result = executor.ClusterOutputs[originalExecutions]
-		}
-	}
-	return result
-}
