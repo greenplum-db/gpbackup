@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/blang/semver"
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
@@ -39,6 +40,9 @@ var (
 	memAuditDefault       = "0"
 	cpuSetDefault         = "-1"
 	includeSecurityLabels = false
+
+	useOldBackupVersion = false
+	oldBackupSemVer     semver.Version
 )
 
 func TestQueries(t *testing.T) {
@@ -54,7 +58,9 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(err).To(BeNil())
 	_, stderr, logFile = testhelper.SetupTestLogger()
-	connectionPool = testutils.SetupTestDbConn("testdb")
+	connectionPool = dbconn.NewDBConnFromEnvironment("testdb")
+	// we want multiple connections to facilitate testing the more common path in BackupData
+	connectionPool.MustConnect(2)
 	// We can't use AssertQueryRuns since if a role already exists it will error
 	_, _ = connectionPool.Exec("CREATE ROLE testrole SUPERUSER")
 	_, _ = connectionPool.Exec("CREATE ROLE anothertestrole SUPERUSER")
@@ -93,6 +99,12 @@ var _ = BeforeSuite(func() {
 		memSpillDefault = "0"
 
 		includeSecurityLabels = true
+	}
+
+	// handle backwards-compatibility tests
+	useOldBackupVersion = os.Getenv("OLD_BACKUP_VERSION") != ""
+	if useOldBackupVersion {
+		oldBackupSemVer = semver.MustParse(os.Getenv("OLD_BACKUP_VERSION"))
 	}
 })
 

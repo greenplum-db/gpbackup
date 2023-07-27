@@ -29,6 +29,10 @@ fi
 
 mkdir /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+if [[ -d gp-pkg ]] ; then
+    mkdir /tmp/gppkgv2
+    tar -xzf gp-pkg/gppkg* -C /tmp/gppkgv2
+fi
 
 if [[ ! -f bin_gpdb/bin_gpdb.tar.gz ]] ; then
   mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
@@ -63,17 +67,28 @@ source $(pwd)/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
 mkdir -p "\${GPHOME}/postgresql"
 
 if [ ${REQUIRES_DUMMY_SEC} ]; then
-  # dummy security label: copy library from bucket to correct location
-  install -m 755 -T $(pwd)/dummy_seclabel/dummy_seclabel*.so "\${GPHOME}/lib/postgresql/dummy_seclabel.so"
-  gpconfig -c shared_preload_libraries -v dummy_seclabel
-  gpstop -ra
-  gpconfig -s shared_preload_libraries | grep dummy_seclabel
+    # dummy security label: copy library from bucket to correct location
+    install -m 755 -T $(pwd)/dummy_seclabel/dummy_seclabel*.so "\${GPHOME}/lib/postgresql/dummy_seclabel.so"
+
+    editConfig() {
+    	echo "editing \$1"
+    	sed -i "s/^shared_preload_libraries=.*//g" \$1 && echo "shared_preload_libraries='dummy_seclabel'" >> \$1
+    }
+
+    export -f editConfig
+    find $(pwd)/gpdb_src -name postgresql.conf -exec bash -c 'editConfig "\$0"' {} \;
+    gpstop -ra
 fi
 
 # Install gpbackup gppkg
 out=\$(psql postgres -c "select version();")
 GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
-gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*${OS}*.gppkg
+
+if [[ -f /tmp/gppkgv2/gppkg ]] ; then
+    /tmp/gppkgv2/gppkg install -a /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*${OS}*.gppkg
+else
+    gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*${OS}*.gppkg
+fi
 
 # Get the GPDB version to use for the unit tests
 export TEST_GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9].[0-9]\+.[0-9]\+\).*/\1/p')

@@ -20,7 +20,7 @@ import (
  */
 
 /*
- Table backup state constants
+Table backup state constants
 */
 const (
 	Unknown int = iota
@@ -78,6 +78,18 @@ func SetCluster(cluster *cluster.Cluster) {
 
 func SetFPInfo(fpInfo filepath.FilePathInfo) {
 	globalFPInfo = fpInfo
+}
+
+func GetFPInfo() filepath.FilePathInfo {
+	return globalFPInfo
+}
+
+func SetBackupSnapshot(snapshot string) {
+	backupSnapshot = snapshot
+}
+
+func GetBackupSnapshot() string {
+	return backupSnapshot
 }
 
 func SetPluginConfig(config *utils.PluginConfig) {

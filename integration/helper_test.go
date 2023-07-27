@@ -148,7 +148,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			assertBackupArtifactsWithCompression("zstd", true)
 		})
-		It("Generates error file when backup agent interrupted", func() {
+		It("Generates error file when backup agent interrupted", FlakeAttempts(5), func() {
 			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "0", "--data-file", dataFileFullPath)
 			waitForPipeCreation()
 			err := helperCmd.Process.Signal(unix.SIGINT)

@@ -70,13 +70,14 @@ func GetLatestMatchingBackupConfig(historyDBPath string, currentBackupConfig *hi
 	historyDB, _ := history.InitializeHistoryDatabase(historyDBPath)
 
 	whereClause := fmt.Sprintf(`backup_dir = '%s' AND database_name = '%s' AND leaf_partition_data = %v
-		AND plugin = '%s' AND single_data_file = %v AND compressed = %v AND date_deleted = ''`,
+		AND plugin = '%s' AND single_data_file = %v AND compressed = %v AND date_deleted = '' AND status = '%s'`,
 		MustGetFlagString(options.BACKUP_DIR),
 		currentBackupConfig.DatabaseName,
 		MustGetFlagBool(options.LEAF_PARTITION_DATA),
 		currentBackupConfig.Plugin,
 		MustGetFlagBool(options.SINGLE_DATA_FILE),
-		currentBackupConfig.Compressed)
+		currentBackupConfig.Compressed,
+        history.BackupStatusSucceed)
 
 	getBackupTimetampsQuery := fmt.Sprintf(`
 		SELECT timestamp

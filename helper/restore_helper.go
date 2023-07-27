@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path"
@@ -237,7 +238,7 @@ func doRestoreAgent() error {
 			for {
 				writer, writeHandle, err = getRestorePipeWriter(currentPipe)
 				if err != nil {
-					if errors.Is(err, unix.ENXIO) && retries < 100 {
+					if errors.Is(err, unix.ENXIO) && retries < 15 {
 						// COPY (the pipe reader) has not tried to access the pipe yet so our restore_helper
 						// process will get ENXIO error on its nonblocking open call on the pipe. We loop in
 						// here while looking to see if gprestore has created a skip file for this restore entry.
@@ -253,7 +254,11 @@ func doRestoreAgent() error {
 						} else {
 							// keep trying to open the pipe.  hard-quit eventually to prevent permanent hangs.
 							retries += 1
-							time.Sleep(100 * time.Millisecond)
+							backoff := time.Duration(math.Pow(2, float64(retries-1))) * 10 * time.Millisecond
+							if retries > 10 {
+								log(fmt.Sprintf("Unable to open pipe %s because pipe reader has not yet tried to access it, retrying in %s", currentPipe, backoff))
+							}
+							time.Sleep(backoff)
 						}
 					} else {
 						// In the case this error is hit it means we have lost the
@@ -372,8 +377,10 @@ func constructSingleTableFilename(name string, contentToRestore int, oid int) st
 	name = strings.ReplaceAll(name, fmt.Sprintf("gpbackup_%d", *content), fmt.Sprintf("gpbackup_%d", contentToRestore))
 	nameParts := strings.Split(name, ".")
 	filename := fmt.Sprintf("%s_%d", nameParts[0], oid)
-	if len(nameParts) == 2 {
-		filename = fmt.Sprintf("%s.%s", filename, nameParts[1])
+	if len(nameParts) > 1 { // We only expect filenames ending in ".gz" or ".zst", but they can contain dots so handle arbitrary numbers of dots
+		prefix := strings.Join(nameParts[0:len(nameParts)-1], ".")
+		suffix := nameParts[len(nameParts)-1]
+		filename = fmt.Sprintf("%s_%d.%s", prefix, oid, suffix)
 	}
 	return filename
 }

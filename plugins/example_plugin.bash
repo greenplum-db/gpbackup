@@ -90,9 +90,19 @@ delete_backup() {
 
 }
 
+list_directory() {
+  echo "list_directory $1 /tmp/plugin_dest" >> /tmp/plugin_out.txt
+  ls /tmp/plugin_dest
+}
+
+delete_directory() {
+  echo "delete_directory $1 /tmp/plugin_dest" >> /tmp/plugin_out.txt
+  rm -rf /tmp/plugin_dest
+}
+
 plugin_api_version(){
-  echo "0.4.0"
-  echo "0.4.0" >> /tmp/plugin_out.txt
+  echo "0.5.0"
+  echo "0.5.0" >> /tmp/plugin_out.txt
 }
 
 --version(){

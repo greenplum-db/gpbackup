@@ -129,6 +129,13 @@ SET default_with_oids = off;
 	// during COPY FROM SEGMENT. ANALYZE should be run separately.
 	setupQuery += "SET gp_autostats_mode = 'none';\n"
 
+    // GPDB7 removed support for QuickLZ.  To support creating tables
+    // from backups done with QuickLZ, a GUC was added to allow silent
+    // fallback to zstd 
+	if connectionPool.Version.AtLeast("7") {
+		setupQuery += "SET gp_quicklz_fallback = on;\n"
+	}
+
 	for i := 0; i < connectionPool.NumConns; i++ {
 		connectionPool.MustExec(setupQuery, i)
 	}

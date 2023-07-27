@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"reflect"
 
@@ -133,7 +134,7 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		Timestamp:             timestamp,
 		WithoutGlobals:        MustGetFlagBool(options.WITHOUT_GLOBALS),
 		WithStatistics:        MustGetFlagBool(options.WITH_STATS),
-		Status:                history.BackupStatusFailed,
+		Status:                history.BackupStatusInProgress,
 	}
 
 	return &backupConfig
@@ -157,6 +158,8 @@ func initializeBackupReport(opts options.Options) {
 		dbSize = GetDBSize(connectionPool)
 	}
 
+	config.SegmentCount = len(globalCluster.ContentIDs) - 1
+
 	backupReport = &report.Report{
 		DatabaseSize: dbSize,
 		BackupConfig: *config,
@@ -166,7 +169,17 @@ func initializeBackupReport(opts options.Options) {
 
 func createBackupLockFile(timestamp string) {
 	var err error
-	timestampLockFile := fmt.Sprintf("/tmp/%s.lck", timestamp)
+	var timestampLockFile string
+	metadataOnly := MustGetFlagBool(options.METADATA_ONLY)
+	backupDir := MustGetFlagString(options.BACKUP_DIR)
+	noHistory := MustGetFlagBool(options.NO_HISTORY)
+	if metadataOnly && noHistory && backupDir != "" {
+		err = os.MkdirAll(backupDir, 0777)
+		gplog.FatalOnError(err)
+		timestampLockFile = fmt.Sprintf("%s/%s.lck", backupDir, timestamp)
+	} else {
+		timestampLockFile = fmt.Sprintf("/tmp/%s.lck", timestamp)
+	}
 	backupLockFile, err = lockfile.New(timestampLockFile)
 	gplog.FatalOnError(err)
 	err = backupLockFile.TryLock()

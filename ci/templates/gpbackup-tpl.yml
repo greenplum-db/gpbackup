@@ -2,10 +2,14 @@
 groups:
 - name: All
   jobs:
-  - build_binaries
+  # these are kept as separate jobs to avoid race bugs when they're tasks in the same job
+  - build_binaries_rhel6
+  - build_binaries_rhel7
+  - build_binaries_rhel8
   - build_gppkgs
   - GPDB5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
+  - build_binaries_ubuntu
   - GPDB6-ubuntu
   - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
@@ -77,10 +81,23 @@ groups:
   - ddboost_plugin_perf
 {% endif %}
 
+- name: Plugins
+  jobs:
+  - s3_plugin_tests
+  - ddboost_plugin_and_boostfs_tests_6x
+{% if is_prod and "gpbackup-release" != pipeline_name %}
+  - ddboost_plugin_and_boostfs_tests_5x
+  - s3_plugin_perf
+  - ddboost_plugin_perf
+{% endif %}
+
 {% if "gpbackup-release" == pipeline_name %}
 - name: Packaging and Release
   jobs:
-  - build_binaries
+  - build_binaries_rhel6
+  - build_binaries_rhel7
+  - build_binaries_rhel8
+  - build_binaries_ubuntu
   - push-to-github
   - green_gate
   - push-to-pivnet
@@ -176,11 +193,11 @@ anchors:
       bucket_path: clusters-google/
 
 - &ddboost_params
-  DD_SOURCE_HOST: ((dp/$$DEV_PROD$$/datadomain_source_host_gcp))
-  DD_USER: ((dp/$$DEV_PROD$$/datadomain_user))
-  DD_PW: ((dp/$$DEV_PROD$$/datadomain_password_gcp))
-  DD_DEST_HOST: ((dp/$$DEV_PROD$$/datadomain_dest_host_gcp))
-  DD_ENCRYPTED_PW: ((dp/$$DEV_PROD$$/encrypted_datadomain_password_gcp))
+  DD_SOURCE_HOST: ((dp/$$DEV_PROD$$/datadomain_711_source_host_gcp))
+  DD_USER: ((dp/prod/datadomain_user))
+  DD_PW: ((dp/prod/datadomain_711_password_gcp))
+  DD_DEST_HOST: ((dp/$$DEV_PROD$$/datadomain_711_dest_host_gcp))
+  DD_ENCRYPTED_PW: ((dp/prod/encrypted_datadomain_711_password_gcp))
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - &slack_alert
@@ -297,7 +314,7 @@ resources:
   type: git
   icon: github-circle
   source:
-    branch: ((dp/gpbackup-ddboost-plugin-branch)) 
+    branch: ((dp/gpbackup-ddboost-plugin-branch))
     private_key: ((dp/gpbackup-ddboost-plugin-remote-key))
     uri: ((dp/gpbackup-ddboost-plugin-git-remote))
 {% if "gpbackup-release" == pipeline_name %}
@@ -349,6 +366,9 @@ resources:
     branch: ((dp/ccp-git-branch))
     private_key: ((gp-concourse-cluster-provisioner-git-key))
     uri: ((dp/ccp-git-remote))
+  # issue with Ubuntu versioning is breaking our tests. pin for now
+  version:
+    ref: fe40dce2883df9d836f59f92950b93ec142ba8e5
 
 ##############################################
 
@@ -369,7 +389,7 @@ resources:
   source:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/main/server-rc-(.*)-rhel8_x86_64.tar.gz
+    regexp: server/published/main/server-rc-(.*)-el8_x86_64.tar.gz
 
 - name: bin_gpdb_5x_stable_centos6
   type: s3
@@ -671,6 +691,14 @@ resources:
     versioned_file: gpbackup/intermediates/ubuntu/go_components.tar.gz
 {% endif %}
 
+- name: gp-pkg
+  type: gcs
+  icon: google
+  source:
+    json_key: ((concourse-gcs-resources-service-account-key))
+    bucket: pivotal-gpdb-concourse-resources-prod
+    regexp: gppkg/released/gpdb7/gppkg-(.*).tar.gz
+
 - name: gppkgs
   type: gcs
   icon: google
@@ -715,7 +743,7 @@ resources:
 
 
 jobs:
-- name: build_binaries
+- name: build_binaries_rhel6
   plan:
   - in_parallel:
 {% if "gpbackup-release" != pipeline_name %}
@@ -732,49 +760,93 @@ jobs:
 {% endif %}
     - get: pivnet_release_cache
     - get: centos6-gpdb5-image
-    - get: centos7-gpdb6-build-image
-    - get: rocky8-gpdb7-image
-{% if is_prod or "gpbackup-release" == pipeline_name %}
-    - get: ubuntu-debian-image
-{% endif %}
+  - task: build-go-binaries-rhel6
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+    image: centos6-gpdb5-image
+    params:
+      OS: RHEL6
+  - put: gpbackup-go-components-rhel6
+    params:
+      file: go_components/go_components.tar.gz
+
+- name: build_binaries_rhel7
+  plan:
   - in_parallel:
-    - do: # RHEL6
-      - task: build-go-binaries-rhel6
-        file: gpbackup/ci/tasks/build-go-binaries.yml
-        image: centos6-gpdb5-image
-        params:
-          OS: RHEL6
-      - put: gpbackup-go-components-rhel6
-        params:
-          file: go_components/go_components.tar.gz
-    - do: # RHEL7
-      - task: build-go-binaries-rhel7
-        file: gpbackup/ci/tasks/build-go-binaries.yml
-        image: centos7-gpdb6-build-image
-        params:
-          OS: RHEL7
-      - put: gpbackup-go-components-rhel7
-        params:
-          file: go_components/go_components.tar.gz
-    - do: # RHEL8
-      - task: build-go-binaries-rhel8
-        file: gpbackup/ci/tasks/build-go-binaries.yml
-        image: rocky8-gpdb7-image
-        params:
-          OS: RHEL8
-      - put: gpbackup-go-components-rhel8
-        params:
-          file: go_components/go_components.tar.gz
+{% if "gpbackup-release" != pipeline_name %}
+    - get: gpbackup_s3_plugin
+      trigger: true
+    - get: gpbackup_manager_src
+      trigger: true
+    - get: gpbackup
+      trigger: true
+{% else %}
+    - get: gpbackup_s3_plugin
+    - get: gpbackup_manager_src
+    - get: gpbackup
+{% endif %}
+    - get: pivnet_release_cache
+    - get: centos7-gpdb6-build-image
+  - task: build-go-binaries-rhel7
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+    image: centos7-gpdb6-build-image
+    params:
+      OS: RHEL7
+  - put: gpbackup-go-components-rhel7
+    params:
+      file: go_components/go_components.tar.gz
+
+- name: build_binaries_rhel8
+  plan:
+  - in_parallel:
+{% if "gpbackup-release" != pipeline_name %}
+    - get: gpbackup_s3_plugin
+      trigger: true
+    - get: gpbackup_manager_src
+      trigger: true
+    - get: gpbackup
+      trigger: true
+{% else %}
+    - get: gpbackup_s3_plugin
+    - get: gpbackup_manager_src
+    - get: gpbackup
+{% endif %}
+    - get: pivnet_release_cache
+    - get: rocky8-gpdb7-image
+  - task: build-go-binaries-rhel8
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+    image: rocky8-gpdb7-image
+    params:
+      OS: RHEL8
+  - put: gpbackup-go-components-rhel8
+    params:
+      file: go_components/go_components.tar.gz
+
 {% if is_prod or "gpbackup-release" == pipeline_name %}
-    - do: # UBUNTU 
-      - task: build-go-binaries-ubuntu
-        file: gpbackup/ci/tasks/build-go-binaries.yml
-        image: ubuntu-debian-image
-        params:
-          OS: UBUNTU
-      - put: gpbackup-go-components-ubuntu
-        params:
-          file: go_components/go_components.tar.gz
+- name: build_binaries_ubuntu
+  plan:
+  - in_parallel:
+{% if "gpbackup-release" != pipeline_name %}
+    - get: gpbackup_s3_plugin
+      trigger: true
+    - get: gpbackup_manager_src
+      trigger: true
+    - get: gpbackup
+      trigger: true
+{% else %}
+    - get: gpbackup_s3_plugin
+    - get: gpbackup_manager_src
+    - get: gpbackup
+{% endif %}
+    - get: pivnet_release_cache
+    - get: ubuntu-debian-image
+  - task: build-go-binaries-ubuntu
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+    image: ubuntu-debian-image
+    params:
+      OS: UBUNTU
+  - put: gpbackup-go-components-ubuntu
+    params:
+      file: go_components/go_components.tar.gz
 {% endif %}
 
 - name: build_gppkgs
@@ -783,20 +855,28 @@ jobs:
     - get: rocky8-gpdb6-image
     - get: gpdb_src
       resource: gpdb6_src
+    - get: gp-pkg
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: ubuntu-debian-image
     - get: ubuntu-debian-test-image
     - get: bin_gpdb_6x_stable_ubuntu
     - get: gpbackup-go-components-ubuntu
+      passed: [build_binaries_ubuntu]
 {% endif %}
     - get: gpbackup-go-components-rhel6
+      passed: [build_binaries_rhel6]
     - get: gpbackup-go-components-rhel7
+      passed: [build_binaries_rhel7]
     - get: gpbackup-go-components-rhel8
       trigger: true
-      passed: [build_binaries]
+      passed: [build_binaries_rhel8]
     - get: bin_gpdb_6x_rhel8
     - get: gpbackup
-      passed: [build_binaries]
+{% if is_prod or "gpbackup-release" == pipeline_name %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_ubuntu]
+{% else %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8]
+{% endif %}
     - get: gpbackup_ddboost_plugin
     - get: pivnet_release_cache
     - get: gpbackup-release-license
@@ -925,7 +1005,11 @@ jobs:
   - in_parallel:
     - get: rocky8-gpdb6-image
     - get: gpbackup_s3_plugin
-      passed: [build_binaries]
+{% if is_prod or "gpbackup-release" == pipeline_name %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_ubuntu]
+{% else %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8]
+{% endif %}
     - get: gpbackup
       passed: [build_gppkgs]
     - get: gpdb_src
@@ -980,7 +1064,11 @@ jobs:
   - in_parallel:
     - get: rocky8-gpdb7-image
     - get: gpbackup_s3_plugin
-      passed: [build_binaries]
+{% if is_prod or "gpbackup-release" == pipeline_name %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_ubuntu]
+{% else %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8]
+{% endif %}
     - get: gpbackup
       passed: [build_gppkgs]
     - get: gpdb_src
@@ -1038,7 +1126,11 @@ jobs:
   - in_parallel:
     - get: centos7-gpdb6-golang-image
     - get: gpbackup_manager_src
-      passed: [build_binaries]
+{% if is_prod or "gpbackup-release" == pipeline_name %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_ubuntu]
+{% else %}
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8]
+{% endif %}
     - get: gpbackup
       passed: [build_gppkgs]
     - get: bin_gpdb
@@ -1217,6 +1309,9 @@ jobs:
   ensure:
     <<: *set_failed
 
+{% if "gpbackup-release" != pipeline_name %}
+{% endif %}
+
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: GPDB6-ubuntu
   plan:
@@ -1280,6 +1375,7 @@ jobs:
       resource: gpdb_main_src
     - get: dummy_seclabel
       resource: dummy_seclabel_linux_main
+    - get: gp-pkg
     - get: gppkgs
       trigger: true
       passed: [build_gppkgs]
@@ -1508,6 +1604,7 @@ jobs:
     - get: gpdb_binary
       resource: bin_gpdb_7x_rhel8
     - get: ccp_src
+    - get: gp-pkg
     - get: gpdb_src
       resource: gpdb_main_src
     - get: scale_schema

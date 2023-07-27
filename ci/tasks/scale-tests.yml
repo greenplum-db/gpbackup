@@ -9,6 +9,8 @@ inputs:
 - name: cluster_env_files
 - name: scale_schema
 - name: gppkgs
+- name: gp-pkg
+  optional: true
 
 params:
   OS: RHEL8

@@ -256,12 +256,12 @@ GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 					`ALTER RESOURCE GROUP default_group SET MEMORY_LIMIT 1;`)
 			} else { // GPDB7+
 				testutils.AssertBufferContents(tocfile.GlobalEntries, buffer,
-					`ALTER RESOURCE GROUP admin_group SET CPU_HARD_QUOTA_LIMIT 1;`,
-					`ALTER RESOURCE GROUP admin_group SET CPU_SOFT_PRIORITY 100;`,
-					`ALTER RESOURCE GROUP default_group SET CPU_HARD_QUOTA_LIMIT 1;`,
-					`ALTER RESOURCE GROUP default_group SET CPU_SOFT_PRIORITY 100;`,
-					`ALTER RESOURCE GROUP system_group SET CPU_HARD_QUOTA_LIMIT 1;`,
-					`ALTER RESOURCE GROUP system_group SET CPU_SOFT_PRIORITY 100;`)
+					`ALTER RESOURCE GROUP admin_group SET CPU_MAX_PERCENT 1;`,
+					`ALTER RESOURCE GROUP admin_group SET CPU_WEIGHT 100;`,
+					`ALTER RESOURCE GROUP default_group SET CPU_MAX_PERCENT 1;`,
+					`ALTER RESOURCE GROUP default_group SET CPU_WEIGHT 100;`,
+					`ALTER RESOURCE GROUP system_group SET CPU_MAX_PERCENT 1;`,
+					`ALTER RESOURCE GROUP system_group SET CPU_WEIGHT 100;`)
 
 			}
 		})

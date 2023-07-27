@@ -2,6 +2,7 @@ package options
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -214,7 +215,7 @@ func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.
 		return err
 	}
 
-	allFqnStructs, err := o.getUserTableRelationsWithIncludeFiltering(conn, quotedIncludeRelations)
+	allFqnStructs, err := o.getUserTableRelationsWithIncludeFiltering(conn, quotedIncludeRelations, MustGetFlagBool(flags, NO_INHERITS))
 	if err != nil {
 		return err
 	}
@@ -239,12 +240,17 @@ func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.
 		}
 	}
 
+	if len(diff) > 0 {
+		gplog.Info("The filtered table set has been expanded to include additional dependent tables; see the log file for a full list of tables that have been added")
+		sort.Strings(diff)
+	}
 	for _, fqn := range diff {
 		err = flags.Set(INCLUDE_RELATION, fqn)
 		if err != nil {
 			return err
 		}
 		o.AddIncludedRelation(fqn)
+		gplog.Verbose("Added %s to the backup set", fqn)
 	}
 
 	return nil
@@ -272,7 +278,7 @@ func (o *Options) QuoteExcludeRelations(conn *dbconn.DBConn) error {
 
 // given a set of table oids, return a deduplicated set of other tables that EITHER depend
 // on them, OR that they depend on. The behavior for which is set with recurseDirection.
-func (o *Options) recurseTableDepend(conn *dbconn.DBConn, includeOids []string, recurseSource string) ([]string, error) {
+func (o *Options) recurseTableDepend(conn *dbconn.DBConn, includeOids []string, tablesToRetrieve string, getLeafPartitions bool) ([]string, error) {
 	var err error
 	var dependQuery string
 
@@ -281,26 +287,51 @@ func (o *Options) recurseTableDepend(conn *dbconn.DBConn, includeOids []string, 
 		expandedIncludeOids[oid] = true
 	}
 
-	if recurseSource == "child" {
-		dependQuery = `
+	parentsQuery := `
 			SELECT dep.refobjid
 			FROM
 				pg_depend dep
 				INNER JOIN pg_class cls ON dep.refobjid = cls.oid
 			WHERE
-				dep.objid in (%s)
-				AND cls.relkind in ('r', 'p', 'f')`
-	} else if recurseSource == "parent" {
-		dependQuery = `
+				dep.objid IN (%[1]s)
+				AND cls.relkind IN ('r', 'p', 'f')`
+	childrenQuery := `
 			SELECT dep.objid
 			FROM
 				pg_depend dep
 				INNER JOIN pg_class cls ON dep.objid = cls.oid
 			WHERE
-				dep.refobjid in (%s)
-				AND cls.relkind in ('r', 'p', 'f')`
+				dep.refobjid IN (%[1]s)
+				AND cls.relkind IN ('r', 'p', 'f')`
+
+	if conn.Version.Before("7") {
+		if getLeafPartitions {
+			// Get external partitions and leaves in the include list
+			// Also get leaves of root partitions that currently have no leaves in the include list,
+			// i.e. those that have no filtering on their leaves and so should be fully expanded.
+			childrenQuery += `
+				AND (
+					-- External partitions
+					dep.objid NOT IN (SELECT parchildrelid FROM pg_partition_rule WHERE parchildrelid NOT IN (SELECT reloid FROM pg_exttable))
+					-- Leaf partitions in the include list
+					OR dep.objid IN (%[1]s)
+					-- Leaves of root partitions that currently have no leaves in the include list
+					OR dep.refobjid NOT IN (SELECT parrelid FROM pg_partition p JOIN pg_partition_rule r ON p.oid = r.paroid WHERE r.parchildrelid in (%[1]s))
+				)`
+		} else {
+			// Only get external partitions; specifically, exclude non-external leaf partitions, since we can't just
+			// grab external partitions because we need to deal with non-partition tables as well.
+			childrenQuery += `
+				AND dep.objid NOT IN (SELECT parchildrelid FROM pg_partition_rule WHERE parchildrelid NOT IN (SELECT reloid FROM pg_exttable))`
+		}
+	}
+
+	if tablesToRetrieve == "parents" {
+		dependQuery = parentsQuery
+	} else if tablesToRetrieve == "children" {
+		dependQuery = childrenQuery
 	} else {
-		gplog.Error("Please fix calling of this function recurseTableDepend. Argument recurseSource only accepts 'parent' or 'child'.")
+		gplog.Error(`Please fix calling of this function recurseTableDepend. Argument tablesToRetrieve only accepts "parents" or "children".`)
 	}
 
 	// here we loop until no further table dependencies are found.  implemented iteratively, but functions like a recursion
@@ -341,83 +372,63 @@ func (o *Options) recurseTableDepend(conn *dbconn.DBConn, includeOids []string, 
 	return expandedIncludeOidsArr, err
 }
 
-func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) ([]FqnStruct, error) {
+func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string, no_inherits bool) ([]FqnStruct, error) {
 	includeOids, err := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
 	if err != nil {
 		return nil, err
 	}
 
 	oidStr := strings.Join(includeOids, ", ")
-	childPartitionFilter := ""
-	parentAndExternalPartitionFilter := ""
-	if connectionPool.Version.Before("7") {
-		if o.isLeafPartitionData {
-			//Get all leaf partition tables whose parents are in the include list
-			childPartitionFilter = fmt.Sprintf(`
-		OR c.oid IN (
-			SELECT
-				r.parchildrelid
-			FROM pg_partition p
-			JOIN pg_partition_rule r ON p.oid = r.paroid
-			WHERE p.paristemplate = false
-			AND p.parrelid IN (%s))`, oidStr)
-		} else {
-			//Get only external partition tables whose parents are in the include list
-			childPartitionFilter = fmt.Sprintf(`
-		OR c.oid IN (
-			SELECT
-				r.parchildrelid
-			FROM pg_partition p
-			JOIN pg_partition_rule r ON p.oid = r.paroid
-			JOIN pg_exttable e ON r.parchildrelid = e.reloid
-			WHERE p.paristemplate = false
-			AND e.reloid IS NOT NULL
-			AND p.parrelid IN (%s))`, oidStr)
-		}
+	var childPartitionFilter, parentAndExternalPartitionFilter string
+	// GPDB7+ reworks the nature of partition tables.  It is no longer sufficient
+	// to pull parents and children in one step.  Instead we must recursively climb/descend
+	// the pg_depend ladder, filtering to only members of pg_class at each step, until the
+	// full hierarchy has been retrieved.
+	//
+	// While we could query pg_partition and pg_partition_rule for this information in 6 and
+	// earlier, this inheritance-based approach still works in those earlier versions and it's
+	// good to keep the logic as similar as possible between the earlier and later versions.
+	//
+	// If --no-inherits is passed, we retrieve parent tables (so that filtering on partition
+	// leaves works) but skip retrieving child tables.
 
-		parentAndExternalPartitionFilter = fmt.Sprintf(`
-		-- Get parent partition tables whose children are in the include list
-		OR c.oid IN (
-			SELECT
-				p.parrelid
-			FROM pg_partition p
-			JOIN pg_partition_rule r ON p.oid = r.paroid
-			WHERE p.paristemplate = false
-			AND r.parchildrelid IN (%[1]s)
-		)
-		-- Get external partition tables whose siblings are in the include list
-		OR c.oid IN (
-			SELECT
-				r.parchildrelid
-			FROM pg_partition_rule r
-			JOIN pg_exttable e ON r.parchildrelid = e.reloid
-			WHERE r.paroid IN (
-				SELECT
-					pr.paroid
-				FROM pg_partition_rule pr
-				WHERE pr.parchildrelid IN (%[1]s)
-			)
-		)`, oidStr)
-	} else {
-		// GPDB7+ reworks the nature of partition tables.  It is no longer sufficient
-		// to pull parents and children in one step.  Instead we must recursively climb/descend
-		// the pg_depend ladder, filtering to only members of pg_class at each step, until the
-		// full hierarchy has been retrieved
-		childOids, err := o.recurseTableDepend(connectionPool, includeOids, "parent")
+	// Step 1: Get all children
+	if !no_inherits {
+		childOids, err := o.recurseTableDepend(connectionPool, includeOids, "children", o.isLeafPartitionData)
 		if err != nil {
 			return nil, err
 		}
 		if len(childOids) > 0 {
 			childPartitionFilter = fmt.Sprintf(`OR c.oid IN (%s)`, strings.Join(childOids, ", "))
 		}
+		includeOids = childOids
+	}
 
-		parentOids, err := o.recurseTableDepend(connectionPool, includeOids, "child")
+	// Step 2: Get all parents, both of the original included tables and of the children retrieved in step 1.
+	// This ensures that if e.g. a child table inherits from another table not in the include list then it, too,
+	// will be backed up correctly.
+	parentOids, err := o.recurseTableDepend(connectionPool, includeOids, "parents", o.isLeafPartitionData)
+	if err != nil {
+		return nil, err
+	}
+	if len(parentOids) > 0 {
+		parentAndExternalPartitionFilter = fmt.Sprintf(`OR c.oid IN (%s)`, strings.Join(parentOids, ", "))
+	}
+	includeOids = parentOids
+
+	// Step 3: In GPDB 6 and earlier, retrieve children a second time, as if any parents retrieved in step 2 are
+	// partition roots we need to retrieve their included and external partitions.
+	// This does not apply to GPDB 7 and later, because partition tables are created individually and so we don't
+	// care about the metadata of sibling tables of any included leaf partitions.
+	if connectionPool.Version.Before("7") && !no_inherits {
+		childOids, err := o.recurseTableDepend(connectionPool, includeOids, "children", o.isLeafPartitionData)
 		if err != nil {
 			return nil, err
 		}
-		if len(parentOids) > 0 {
-			parentAndExternalPartitionFilter = fmt.Sprintf(`OR c.oid IN (%s)`, strings.Join(parentOids, ", "))
+		if len(childOids) > 0 {
+			childPartitionFilter = fmt.Sprintf(`OR c.oid IN (%s)`, strings.Join(childOids, ", "))
 		}
+		includeOids = childOids
 	}
 
 	query := fmt.Sprintf(`

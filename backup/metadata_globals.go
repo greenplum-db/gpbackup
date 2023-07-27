@@ -119,12 +119,12 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_RATE_LIMIT 1"})
 		defSettings = append(defSettings, DefSetting{"default_group", "SET MEMORY_LIMIT 1"})
 	} else { // GPDB7+
-		defSettings = append(defSettings, DefSetting{"admin_group", "SET CPU_HARD_QUOTA_LIMIT 1"})
-		defSettings = append(defSettings, DefSetting{"admin_group", "SET CPU_SOFT_PRIORITY 100"})
-		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_HARD_QUOTA_LIMIT 1"})
-		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_SOFT_PRIORITY 100"})
-		defSettings = append(defSettings, DefSetting{"system_group", "SET CPU_HARD_QUOTA_LIMIT 1"})
-		defSettings = append(defSettings, DefSetting{"system_group", "SET CPU_SOFT_PRIORITY 100"})
+		defSettings = append(defSettings, DefSetting{"admin_group", "SET CPU_MAX_PERCENT 1"})
+		defSettings = append(defSettings, DefSetting{"admin_group", "SET CPU_WEIGHT 100"})
+		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_MAX_PERCENT 1"})
+		defSettings = append(defSettings, DefSetting{"default_group", "SET CPU_WEIGHT 100"})
+		defSettings = append(defSettings, DefSetting{"system_group", "SET CPU_MAX_PERCENT 1"})
+		defSettings = append(defSettings, DefSetting{"system_group", "SET CPU_WEIGHT 100"})
 	}
 
 	for _, prepare := range defSettings {
@@ -145,7 +145,7 @@ func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByte
 				setting string
 				value   string
 			}{
-				{"CPU_SOFT_PRIORITY", resGroup.CpuSoftPriority},
+				{"CPU_WEIGHT", resGroup.CpuWeight},
 				{"CONCURRENCY", resGroup.Concurrency},
 			}
 			for _, property := range resGroupList {
@@ -159,9 +159,9 @@ func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByte
 			// TODO -- why do we handle these separately?
 			// TODO -- is this still necessary for 7?
 			start = metadataFile.ByteCount
-			if !strings.HasPrefix(resGroup.CpuHardQuotaLimit, "-") {
+			if !strings.HasPrefix(resGroup.CpuMaxPercent, "-") {
 				/* cpu rate mode */
-				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_HARD_QUOTA_LIMIT %s;", resGroup.Name, resGroup.CpuHardQuotaLimit)
+				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPU_MAX_PERCENT %s;", resGroup.Name, resGroup.CpuMaxPercent)
 			} else {
 				/* cpuset mode */
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
@@ -176,14 +176,14 @@ func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByte
 			/* special handling for cpu properties */
 			// TODO -- why do we handle these separately?
 			// TODO -- is this still necessary for 7?
-			if !strings.HasPrefix(resGroup.CpuHardQuotaLimit, "-") {
+			if !strings.HasPrefix(resGroup.CpuMaxPercent, "-") {
 				/* cpu rate mode */
-				attributes = append(attributes, fmt.Sprintf("CPU_HARD_QUOTA_LIMIT=%s", resGroup.CpuHardQuotaLimit))
+				attributes = append(attributes, fmt.Sprintf("CPU_MAX_PERCENT=%s", resGroup.CpuMaxPercent))
 			} else if connectionPool.Version.AtLeast("5.9.0") {
 				/* cpuset mode */
 				attributes = append(attributes, fmt.Sprintf("CPUSET='%s'", resGroup.Cpuset))
 			}
-			attributes = append(attributes, fmt.Sprintf("CPU_SOFT_PRIORITY=%s", resGroup.CpuSoftPriority))
+			attributes = append(attributes, fmt.Sprintf("CPU_WEIGHT=%s", resGroup.CpuWeight))
 			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%s", resGroup.Concurrency))
 			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
 

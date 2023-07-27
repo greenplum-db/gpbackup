@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
+var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 	BeforeEach(func() {
 		end_to_end_setup()
 		testhelper.AssertQueryRuns(backupConn, "CREATE table bigtable(id int unique); INSERT INTO bigtable SELECT generate_series(1,10000000)")
@@ -32,11 +32,10 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 			cmd := exec.Command(gpbackupPath, args...)
 			go func() {
 				/*
-				* We use a random delay for the sleep in this test (between
-				* 1.0s and 1.5s) so that gpbackup will be interrupted at a
-				* different point in the backup process every time to help
-				* catch timing issues with the cleanup.
-				*/
+				 * We use a random delay for the sleep in this test (between 1.0s and 1.5s) so that
+				 * gpbackup will be interrupted at a different point in the backup process every time to help catch
+				 * timing issues with the cleanup.
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGINT)
@@ -66,7 +65,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 				* 0.5s and 0.8s) so that gpbackup will be interrupted at a
 				* different point in the backup process every time to help
 				* catch timing issues with the cleanup.
-				*/
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(300)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGINT)
@@ -201,7 +200,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 				* 1.0s and 1.5s) so that gprestore will be interrupted at a
 				* different point in the backup process every time to help
 				* catch timing issues with the cleanup.
-				*/
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGINT)
@@ -234,7 +233,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 				* 1.0s and 1.5s) so that gprestore will be interrupted at a
 				* different point in the backup process every time to help
 				* catch timing issues with the cleanup.
-				*/
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGINT)
@@ -263,7 +262,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 				* 1.0s and 1.5s) so that gpbackup will be interrupted at a
 				* different point in the backup process every time to help
 				* catch timing issues with the cleanup.
-				*/
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGTERM)
@@ -394,7 +393,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 				* 1.0s and 1.5s) so that gpbackup will be interrupted at a
 				* different point in the backup process every time to help
 				* catch timing issues with the cleanup.
-				*/
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGTERM)
@@ -427,7 +426,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 				* 1.0s and 1.5s) so that gprestore will be interrupted at a
 				* different point in the backup process every time to help
 				* catch timing issues with the cleanup.
-				*/
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGTERM)
@@ -459,7 +458,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(3), func() {
 				* 1.0s and 1.5s) so that gprestore will be interrupted at a
 				* different point in the backup process every time to help
 				* catch timing issues with the cleanup.
-				*/
+				 */
 				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 				time.Sleep(time.Duration(rng.Intn(1000)+500) * time.Millisecond)
 				_ = cmd.Process.Signal(unix.SIGTERM)

@@ -134,10 +134,10 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 * If synchronized snapshot is not supported and worker is unable to acquire a lock, the
 * worker must be terminated because the session no longer has a valid distributed snapshot
 *
-* FIXME: Simplify backupDataForAllTables by having one function for snapshot workflow and
+* FIXME: Simplify BackupDataForAllTables by having one function for snapshot workflow and
 * another without, then extract common portions into their own functions.
  */
-func backupDataForAllTables(tables []Table) []map[uint32]int64 {
+func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables))}
 	counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
 	counters.ProgressBar.Start()
@@ -149,8 +149,8 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	 */
 	tasks := make(chan Table, len(tables))
 	var oidMap sync.Map
+	var isErroredBackup atomic.Bool
 	var workerPool sync.WaitGroup
-	var copyErr error
 	// Record and track tables in a hashmap of oids and table states (preloaded with value Unknown).
 	// The tables are loaded into the tasks channel for the subsequent goroutines to work on.
 	for _, table := range tables {
@@ -165,11 +165,17 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	 * 	3) Processes tables only in the event that the other workers encounter locking issues.
 	 * Worker 0 already has all locks on the tables so it will not run into locking issues.
 	 */
+	panicChan := make(chan error)
 	rowsCopiedMaps[0] = make(map[uint32]int64)
 	for connNum := 1; connNum < connectionPool.NumConns; connNum++ {
 		rowsCopiedMaps[connNum] = make(map[uint32]int64)
 		workerPool.Add(1)
 		go func(whichConn int) {
+			defer func() {
+				if panicErr := recover(); panicErr != nil {
+					panicChan <- fmt.Errorf("%v", panicErr)
+				}
+			}()
 			defer workerPool.Done()
 			/* If the --leaf-partition-data flag is not set, the parent and all leaf
 			 * partition data are treated as a single table and will be assigned to a single worker.
@@ -177,34 +183,33 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 			 * transaction commits and the locks are released.
 			 */
 			for table := range tasks {
-				if wasTerminated || copyErr != nil {
+				if wasTerminated || isErroredBackup.Load() {
 					counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
 					return
 				}
 				if backupSnapshot != "" && connectionPool.Tx[whichConn] == nil {
 					err := SetSynchronizedSnapshot(connectionPool, whichConn, backupSnapshot)
-					if err != nil {
-						gplog.FatalOnError(err)
-					}
+					gplog.FatalOnError(err)
 				}
-				// If a random external SQL command had queued an AccessExclusiveLock acquisition request
-				// against this next table, the --job worker thread would deadlock on the COPY attempt.
-				// To prevent gpbackup from hanging, we attempt to acquire an AccessShareLock on the
-				// relation with the NOWAIT option before we run COPY. If the LOCK TABLE NOWAIT call
-				// fails, we catch the error and defer the table to the main worker thread, worker 0.
-				// Afterwards, we break early and terminate the worker since its transaction is now in an
-				// aborted state. We do not need to do this with the main worker thread because it has
-				// already acquired AccessShareLocks on all tables before the metadata dumping part.
+				// If a random external SQL command had queued an AccessExclusiveLock acquisition
+				// request against this next table, the --job worker thread would deadlock on the
+				// COPY attempt. To prevent gpbackup from hanging, we attempt to acquire an
+				// AccessShareLock on the relation with the NOWAIT option before we run COPY. If
+				// the LOCK TABLE NOWAIT call fails, we catch the error and defer the table to the
+				// main worker thread, worker 0. Afterwards, if we are in a local transaction
+				// instead of a distributed snapshot, we break early and terminate the worker since
+				// its transaction is now in an aborted state. We do not need to do this with the
+				// main worker thread because it has already acquired AccessShareLocks on all
+				// tables before the metadata dumping part.
 				err := LockTableNoWait(table, whichConn)
 				if err != nil {
 					if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code != PG_LOCK_NOT_AVAILABLE {
-						copyErr = err
-						oidMap.Store(table.Oid, Deferred)
+						isErroredBackup.Store(true)
 						err = connectionPool.Rollback(whichConn)
 						if err != nil {
 							gplog.Warn("Worker %d: %s", whichConn, err)
 						}
-						continue
+						gplog.Fatal(fmt.Errorf("Unexpectedly unable to take lock on table %s, %s", table.FQN(), pgErr.Error()), "")
 					}
 					if gplog.GetVerbosity() < gplog.LOGVERBOSE {
 						// Add a newline to interrupt the progress bar so that
@@ -229,8 +234,11 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 				}
 				err = BackupSingleTableData(table, rowsCopiedMaps[whichConn], &counters, whichConn)
 				if err != nil {
-					copyErr = err
-					break
+					// if copy isn't working, skip remaining backups, and let downstream panic
+					// handling deal with it
+					counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
+					isErroredBackup.Store(true)
+					gplog.Fatal(err, "")
 				} else {
 					oidMap.Store(table.Oid, Complete)
 				}
@@ -243,21 +251,31 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 			}
 		}(connNum)
 	}
+
 	// Special goroutine to handle deferred tables
 	// Handle all tables deferred by the deadlock detection. This can only be
 	// done with the main worker thread, worker 0, because it has
 	// AccessShareLocks on all the tables already.
 	deferredWorkerDone := make(chan bool)
 	go func() {
+		defer func() {
+			if panicErr := recover(); panicErr != nil {
+				panicChan <- fmt.Errorf("%v", panicErr)
+			}
+		}()
 		for _, table := range tables {
 			for {
+				if wasTerminated || isErroredBackup.Load() {
+					return
+				}
 				state, _ := oidMap.Load(table.Oid)
 				if state.(int) == Unknown {
 					time.Sleep(time.Millisecond * 50)
 				} else if state.(int) == Deferred {
 					err := BackupSingleTableData(table, rowsCopiedMaps[0], &counters, 0)
 					if err != nil {
-						copyErr = err
+						isErroredBackup.Store(true)
+						gplog.Fatal(err, "")
 					}
 					oidMap.Store(table.Oid, Complete)
 					break
@@ -270,14 +288,24 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 		}
 		deferredWorkerDone <- true
 	}()
+
 	close(tasks)
 	workerPool.Wait()
+
+	// Allow panics to crash from the main process, invoking DoCleanup
+	select {
+	case err := <-panicChan:
+		gplog.Fatal(err, "")
+	default:
+		// no panic, nothing to do
+	}
+
 	// If not using synchronized snapshots,
 	// check if all workers were terminated due to lock issues.
 	if backupSnapshot == "" {
 		allWorkersTerminatedLogged := false
 		for _, table := range tables {
-			if wasTerminated || copyErr != nil {
+			if wasTerminated || isErroredBackup.Load() {
 				counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
 				break
 			}
@@ -295,12 +323,7 @@ func backupDataForAllTables(tables []Table) []map[uint32]int64 {
 	// Main goroutine waits for deferred worker 0 by waiting on this channel
 	<-deferredWorkerDone
 	agentErr := utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
-	if copyErr != nil && agentErr != nil {
-		gplog.Error(agentErr.Error())
-		gplog.Fatal(copyErr, "")
-	} else if copyErr != nil {
-		gplog.Fatal(copyErr, "")
-	} else if agentErr != nil {
+	if agentErr != nil {
 		gplog.Fatal(agentErr, "")
 	}
 

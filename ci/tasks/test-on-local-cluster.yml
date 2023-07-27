@@ -10,6 +10,8 @@ inputs:
 - name: dummy_seclabel
   optional: true
 - name: gppkgs
+- name: gp-pkg
+  optional: true
 
 params:
   REQUIRES_DUMMY_SEC:

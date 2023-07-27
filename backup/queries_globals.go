@@ -219,9 +219,9 @@ type ResourceGroupBefore7 struct {
 }
 
 type ResourceGroupAtLeast7 struct {
-	ResourceGroup            // embedded common rg fields+methods
-	CpuHardQuotaLimit string `db:"cpu_hard_quota_limit"`
-	CpuSoftPriority   string `db:"cpu_soft_priority"`
+	ResourceGroup        // embedded common rg fields+methods
+	CpuMaxPercent string `db:"cpu_max_percent"`
+	CpuWeight     string `db:"cpu_weight"`
 }
 
 func GetResourceGroups[T ResourceGroupBefore7 | ResourceGroupAtLeast7](connectionPool *dbconn.DBConn) []T {
@@ -284,8 +284,8 @@ func GetResourceGroups[T ResourceGroupBefore7 | ResourceGroupAtLeast7](connectio
 				g.oid       AS oid,
 				g.rsgname   AS name,
 				t1.value    AS concurrency,
-				t2.value    AS cpu_hard_quota_limit,
-				t3.value    AS cpu_soft_priority,
+				t2.value    AS cpu_max_percent,
+				t3.value    AS cpu_weight,
 				t4.value    AS cpuset
 			FROM pg_resgroup g
 				JOIN pg_resgroupcapability t1 ON g.oid = t1.resgroupid AND t1.reslimittype = 1
@@ -295,7 +295,7 @@ func GetResourceGroups[T ResourceGroupBefore7 | ResourceGroupAtLeast7](connectio
 	}
 
 	results := make([]T, 0)
-	err := connectionPool.Select(&results, query) // AJR TODO -- not sure this is smart enough to deserialize into a generic struct.  let's find out!
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
 }

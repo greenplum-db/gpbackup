@@ -51,15 +51,18 @@ func PrintFunctionBodyOrPath(metadataFile *utils.FileWithByteCount, funcDef Func
 }
 
 func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Function) {
-	switch funcDef.DataAccess {
-	case "c":
-		metadataFile.MustPrintf(" CONTAINS SQL")
-	case "m":
-		metadataFile.MustPrintf(" MODIFIES SQL DATA")
-	case "n":
-		metadataFile.MustPrintf(" NO SQL")
-	case "r":
-		metadataFile.MustPrintf(" READS SQL DATA")
+	// DataAccess removed from the catalog in GP7
+	if connectionPool.Version.Before("7") {
+		switch funcDef.DataAccess {
+		case "c":
+			metadataFile.MustPrintf(" CONTAINS SQL")
+		case "m":
+			metadataFile.MustPrintf(" MODIFIES SQL DATA")
+		case "n":
+			metadataFile.MustPrintf(" NO SQL")
+		case "r":
+			metadataFile.MustPrintf(" READS SQL DATA")
+		}
 	}
 	switch funcDef.Volatility {
 	case "i":

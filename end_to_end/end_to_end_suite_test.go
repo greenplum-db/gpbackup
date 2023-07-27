@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -146,6 +147,37 @@ func assertDataRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
 		actualTupleCount := dbconn.MustSelectString(conn, fmt.Sprintf("SELECT count(*) AS string FROM %s", tableName))
 		if strconv.Itoa(expectedNumTuples) != actualTupleCount {
 			Fail(fmt.Sprintf("Expected:\n\t%s rows to have been restored into table %s\nActual:\n\t%s rows were restored", strconv.Itoa(expectedNumTuples), tableName, actualTupleCount))
+		}
+	}
+}
+
+func checkTableExists(conn *dbconn.DBConn, tableName string) bool {
+	var schema, table string
+	s := strings.Split(tableName, ".")
+	if len(s) == 2 {
+		schema, table = s[0], s[1]
+	} else if len(s) == 1 {
+		schema = "public"
+		table = s[0]
+	} else {
+		Fail(fmt.Sprintf("Table %s is not in a valid format", tableName))
+	}
+	exists := dbconn.MustSelectString(conn, fmt.Sprintf("SELECT EXISTS (SELECT * FROM pg_tables WHERE schemaname = '%s' AND tablename = '%s') AS string", schema, table))
+	return (exists == "true")
+}
+
+func assertTablesRestored(conn *dbconn.DBConn, tables []string) {
+	for _, tableName := range tables {
+		if !checkTableExists(conn, tableName) {
+			Fail(fmt.Sprintf("Table %s does not exist when it should", tableName))
+		}
+	}
+}
+
+func assertTablesNotRestored(conn *dbconn.DBConn, tables []string) {
+	for _, tableName := range tables {
+		if checkTableExists(conn, tableName) {
+			Fail(fmt.Sprintf("Table %s exists when it should not", tableName))
 		}
 	}
 }
@@ -301,7 +333,7 @@ func createGlobalObjects(conn *dbconn.DBConn) {
 	if conn.Version.Is("5") || conn.Version.Is("6") {
 		testhelper.AssertQueryRuns(conn, "CREATE RESOURCE GROUP test_group WITH (CPU_RATE_LIMIT=1, MEMORY_LIMIT=1);")
 	} else if conn.Version.AtLeast("7") {
-		testhelper.AssertQueryRuns(conn, "CREATE RESOURCE GROUP test_group WITH (CPU_HARD_QUOTA_LIMIT=1, MEMORY_LIMIT=1);")
+		testhelper.AssertQueryRuns(conn, "CREATE RESOURCE GROUP test_group WITH (CPU_MAX_PERCENT=1, MEMORY_LIMIT=1);")
 	}
 	if conn.Version.AtLeast("5") {
 		testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role RESOURCE GROUP test_group;")
@@ -565,6 +597,23 @@ var _ = AfterSuite(func() {
 
 func end_to_end_setup() {
 	testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+
+	// Try to drop some objects that test failures might leave lying around
+	// We can't use AssertQueryRuns since if an object doesn't exist it will error out, and these objects don't have IF EXISTS as an option
+	backupConn.Exec("DROP ROLE testrole; DROP ROLE global_role; DROP RESOURCE QUEUE test_queue; DROP RESOURCE GROUP rg_test_group; DROP TABLESPACE test_tablespace;")
+	restoreConn.Exec("DROP ROLE testrole; DROP ROLE global_role; DROP RESOURCE QUEUE test_queue; DROP RESOURCE GROUP rg_test_group; DROP TABLESPACE test_tablespace;")
+	if backupConn.Version.AtLeast("6") {
+		backupConn.Exec("DROP FOREIGN DATA WRAPPER fdw CASCADE;")
+		restoreConn.Exec("DROP FOREIGN DATA WRAPPER fdw CASCADE;")
+	}
+	// The gp_toolkit extension should be created automatically, but in some cases it either isn't
+	// being created or is being dropped, so for now we explicitly create it to avoid spurious failures.
+	// TODO: Track down the cause of the issue so we don't need to manually create it.
+	if backupConn.Version.AtLeast("7") {
+		backupConn.Exec("CREATE EXTENSION gp_toolkit;")
+		restoreConn.Exec("CREATE EXTENSION gp_toolkit;")
+	}
+
 	publicSchemaTupleCounts = map[string]int{
 		"public.foo":   40000,
 		"public.holds": 50000,
@@ -1795,7 +1844,7 @@ LANGUAGE plpgsql NO SQL;`)
 			})
 		})
 	})
-	Describe("Restore to a different-sized cluster", func() {
+	Describe("Restore to a different-sized cluster", FlakeAttempts(3), func() {
 		if useOldBackupVersion {
 			Skip("This test is not needed for old backup versions")
 		}
@@ -1838,6 +1887,7 @@ LANGUAGE plpgsql NO SQL;`)
 				completed := make(chan bool)
 				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
 				go func() {
+					defer GinkgoRecover()
 					// No test run has been observed to take more than a few minutes without a hang,
 					// so loop 5 times and check for success after 1 minute each
 					for i := 0; i < 5; i++ {
@@ -1852,6 +1902,7 @@ LANGUAGE plpgsql NO SQL;`)
 					// If the test succeeded or failed, we'll return before here.
 					_ = exec.Command("pkill", "-9", "gpbackup_helper").Run()
 					_ = exec.Command("pkill", "-9", "gprestore").Run()
+					Fail("Resize-restore end-to-end test is hanging. Failing test.")
 				}()
 
 				gprestoreArgs := []string{
@@ -1937,6 +1988,8 @@ LANGUAGE plpgsql NO SQL;`)
 			Entry("Can backup a 1-segment cluster and restore to current cluster with a filter", "20220908150804", "", "1-segment-db-filter", false, true, false, false),
 			Entry("Can backup a 3-segment cluster and restore to current cluster", "20220909094828", "", "3-segment-db", false, false, false, false),
 
+			Entry("Can backup a 2-segment using gpbackup 1.26.0 and restore to current cluster", "20230516032007", "", "2-segment-db-1_26_0", false, false, false, false),
+
 			// These tests will only run in CI, to avoid requiring developers to configure a plugin locally.
 			// We don't do as many combinatoric tests for resize restores using plugins, partly for storage space reasons and partly because
 			// we assume that if all of the above resize restores work and basic plugin restores work then the intersection should also work.
@@ -1944,6 +1997,19 @@ LANGUAGE plpgsql NO SQL;`)
 			Entry("Can perform a backup and full restore of a 2-segment cluster using a plugin", "20220908150159", "", "2-segment-db-single-data-file", false, false, true, true),
 			Entry("Can perform a backup and incremental restore of a 2-segment cluster using a plugin", "20220909150612", "20220909150622", "2-segment-db-incremental", true, false, false, true),
 		)
+		It("will not restore a pre-1.26.0 backup that lacks a stored SegmentCount value", func() {
+			extractDirectory := extractSavedTarFile(backupDir, "2-segment-db-1_24_0")
+
+			gprestoreCmd := exec.Command(gprestorePath,
+				"--timestamp", "20230516021751",
+				"--redirect-db", "restoredb",
+				"--backup-dir", extractDirectory,
+				"--resize-cluster",
+				"--on-error-continue")
+			output, err := gprestoreCmd.CombinedOutput()
+			Expect(err).To(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("Segment count for backup with timestamp 20230516021751 is unknown, cannot restore using --resize-cluster flag."))
+		})
 
 		Describe("Restore from various-sized clusters with a replicated table", func() {
 			if useOldBackupVersion {
@@ -1955,7 +2021,7 @@ LANGUAGE plpgsql NO SQL;`)
 
 					testutils.SkipIfBefore6(backupConn)
 					if useOldBackupVersion {
-						Skip("Resize-cluster was only added in version 1.25")
+						Skip("Resize-cluster was only added in version 1.26")
 					}
 					extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
 					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
@@ -2238,5 +2304,101 @@ LANGUAGE plpgsql NO SQL;`)
 			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "", "9", "8", "3"),
 			Entry("Will correctly handle filtering on child table", "schemaone.measurement", "schemaone.measurement_peaktemp_catchall", "9", "8", "3"),
 		)
+	})
+	Describe("Concurrent backups will only work if given unique backup directories and the flags: metadata-only, backup-dir, and no-history", func() {
+		var backupDir1 string
+		var backupDir2 string
+		var backupDir3 string
+		BeforeEach(func() {
+			backupDir1 = path.Join(backupDir, "conc_test1")
+			backupDir2 = path.Join(backupDir, "conc_test2")
+			backupDir3 = path.Join(backupDir, "conc_test3")
+			os.Mkdir(backupDir1, 0777)
+			os.Mkdir(backupDir2, 0777)
+			os.Mkdir(backupDir3, 0777)
+		})
+		AfterEach(func() {
+			os.RemoveAll(backupDir1)
+			os.RemoveAll(backupDir2)
+			os.RemoveAll(backupDir3)
+		})
+		It("backs up successfully with the correct flags", func() {
+			// --no-history flag was added in 1.28.0
+			skipIfOldBackupVersionBefore("1.28.0")
+			command1 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1, "--no-history", "--metadata-only")
+			command2 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir2, "--no-history", "--metadata-only")
+			command3 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir3, "--no-history", "--metadata-only")
+			commands := []*exec.Cmd{command1, command2, command3}
+
+			var backWg sync.WaitGroup
+			errchan := make(chan error, len(commands))
+			for _, cmd := range commands {
+				backWg.Add(1)
+				go func(command *exec.Cmd) {
+					defer backWg.Done()
+					_, err := command.CombinedOutput()
+					errchan <- err
+				}(cmd)
+			}
+			backWg.Wait()
+			close(errchan)
+
+			for err := range errchan {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+		It("fails without the correct flags", func() {
+			command1 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1)
+			command2 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1)
+			command3 := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir1)
+			commands := []*exec.Cmd{command1, command2, command3}
+
+			var backWg sync.WaitGroup
+			errchan := make(chan error, len(commands))
+			for _, cmd := range commands {
+				backWg.Add(1)
+				go func(command *exec.Cmd) {
+					defer backWg.Done()
+					_, err := command.CombinedOutput()
+					errchan <- err
+				}(cmd)
+			}
+			backWg.Wait()
+			close(errchan)
+
+			errcounter := 0
+			for err := range errchan {
+				if err != nil {
+					errcounter++
+				}
+			}
+			Expect(errcounter > 0).To(BeTrue())
+		})
+	})
+	Describe("Filtered backups with --no-inherits", func() {
+		It("will not include children of included tables, but will include its parents", func() {
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_one(one int);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_two(two int);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.base() INHERITS (public.parent_one, public.parent_two);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child_one() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child_two() INHERITS (public.base);`)
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(three int);`)
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.parent_one CASCADE")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.parent_two CASCADE")
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.unrelated")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", "public.base", "--no-inherits")
+
+			contents := string(getMetdataFileContents(backupDir, timestamp, "metadata.sql"))
+			Expect(contents).To(ContainSubstring("CREATE TABLE public.parent_one"))
+			Expect(contents).To(ContainSubstring("CREATE TABLE public.parent_two"))
+			Expect(contents).To(ContainSubstring("CREATE TABLE public.base"))
+			Expect(contents).ToNot(ContainSubstring("CREATE TABLE public.child_one"))
+			Expect(contents).ToNot(ContainSubstring("CREATE TABLE public.child_two"))
+			Expect(contents).ToNot(ContainSubstring("CREATE TABLE public.unrelated"))
+		})
 	})
 })

@@ -10,6 +10,19 @@ mkdir -p /tmp/untarred
 tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
 scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg cdw:/home/gpadmin
 
+tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+
+if [[ -d gp-pkg ]] ; then
+  mkdir /tmp/gppkgv2
+  tar -xzf gp-pkg/gppkg* -C /tmp/gppkgv2
+
+  # install gppkgv2 onto all segments
+  while read -r host; do
+    ssh -n "$host" "mkdir -p /home/gpadmin/.local/bin"
+    scp /tmp/gppkgv2/gppkg "$host":/home/gpadmin/.local/bin
+  done <cluster_env_files/hostfile_all
+fi
+
 scp cluster_env_files/hostfile_all cdw:/tmp
 
 cat <<SCRIPT > /tmp/run_tests.bash
@@ -28,7 +41,12 @@ set +e
 echo \$is_installed_output | grep 'is installed'
 if [ \$? -ne 0 ] ; then
   set -e
-  gppkg -i gpbackup*gp*.gppkg
+  if [[ -f /home/gpadmin/.local/bin/gppkg ]] ; then
+    # gppkg v2 is installed here
+    gppkg install -a gpbackup*gp*.gppkg
+  else
+    gppkg -i gpbackup*gp*.gppkg
+  fi
 fi
 set -e
 

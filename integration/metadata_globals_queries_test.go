@@ -172,13 +172,13 @@ var _ = Describe("backup integration tests", func() {
 					}
 				}
 			} else { // GPDB7+
-				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP someGroup WITH (CPU_HARD_QUOTA_LIMIT=10, CPU_SOFT_PRIORITY=100, CONCURRENCY=15);`)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP someGroup WITH (CPU_MAX_PERCENT=10, CPU_WEIGHT=100, CONCURRENCY=15);`)
 				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP someGroup`)
 
 				results := backup.GetResourceGroups[backup.ResourceGroupAtLeast7](connectionPool)
 
 				someGroup := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: `somegroup`, Concurrency: "15", Cpuset: "-1"},
-					CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+					CpuMaxPercent: "10", CpuWeight: "100"}
 
 				for _, resultGroup := range results {
 					if resultGroup.Name == `somegroup` {
@@ -226,13 +226,13 @@ var _ = Describe("backup integration tests", func() {
 					}
 				}
 			} else {
-				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP someGroup WITH (CPU_HARD_QUOTA_LIMIT=10, CPU_SOFT_PRIORITY=100);`)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP someGroup WITH (CPU_MAX_PERCENT=10, CPU_WEIGHT=100);`)
 				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP someGroup`)
 
 				results := backup.GetResourceGroups[backup.ResourceGroupAtLeast7](connectionPool)
 
 				expectedDefaults := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: `somegroup`, Concurrency: concurrencyDefault, Cpuset: cpuSetDefault},
-					CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+					CpuMaxPercent: "10", CpuWeight: "100"}
 
 				for _, resultGroup := range results {
 					if resultGroup.Name == `somegroup` {

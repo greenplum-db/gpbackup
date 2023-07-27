@@ -156,7 +156,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					}
 				}
 			} else { // GPDB7+
-				someGroup := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: "some_group", Concurrency: "15", Cpuset: "-1"}, CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+				someGroup := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: "some_group", Concurrency: "15", Cpuset: "-1"}, CpuMaxPercent: "10", CpuWeight: "100"}
 				backup.PrintCreateResourceGroupStatementsAtLeast7(backupfile, tocfile, []backup.ResourceGroupAtLeast7{someGroup}, emptyMetadataMap)
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP some_group`)
@@ -189,9 +189,9 @@ var _ = Describe("backup integration create statement tests", func() {
 				}
 			} else { // GPDB7+
 				expectedDefaults := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: "some_group", Concurrency: concurrencyDefault, Cpuset: cpuSetDefault},
-					CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+					CpuMaxPercent: "10", CpuWeight: "100"}
 
-				testhelper.AssertQueryRuns(connectionPool, "CREATE RESOURCE GROUP some_group WITH (CPU_HARD_QUOTA_LIMIT=10, CPU_SOFT_PRIORITY=100);")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE RESOURCE GROUP some_group WITH (CPU_MAX_PERCENT=10, CPU_WEIGHT=100);")
 				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP some_group`)
 
 				resultResourceGroups := backup.GetResourceGroups[backup.ResourceGroupAtLeast7](connectionPool)
@@ -228,9 +228,9 @@ var _ = Describe("backup integration create statement tests", func() {
 				}
 			} else { // GPDB7+
 				expectedDefaults := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: "some_group", Concurrency: concurrencyDefault, Cpuset: cpuSetDefault},
-					CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+					CpuMaxPercent: "10", CpuWeight: "100"}
 
-				testhelper.AssertQueryRuns(connectionPool, "CREATE RESOURCE GROUP some_group WITH (CPU_HARD_QUOTA_LIMIT=10, CPU_SOFT_PRIORITY=100);")
+				testhelper.AssertQueryRuns(connectionPool, "CREATE RESOURCE GROUP some_group WITH (CPU_MAX_PERCENT=10, CPU_WEIGHT=100);")
 				defer testhelper.AssertQueryRuns(connectionPool, `DROP RESOURCE GROUP some_group`)
 
 				resultResourceGroups := backup.GetResourceGroups[backup.ResourceGroupAtLeast7](connectionPool)
@@ -266,7 +266,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				}
 			} else {
 				defaultGroup := backup.ResourceGroupAtLeast7{ResourceGroup: backup.ResourceGroup{Oid: 1, Name: "default_group", Concurrency: "15", Cpuset: "-1"},
-					CpuHardQuotaLimit: "10", CpuSoftPriority: "100"}
+					CpuMaxPercent: "10", CpuWeight: "100"}
 				emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
 				backup.PrintCreateResourceGroupStatementsAtLeast7(backupfile, tocfile, []backup.ResourceGroupAtLeast7{defaultGroup}, emptyMetadataMap)

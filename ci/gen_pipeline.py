@@ -35,6 +35,11 @@ import yaml
 
 from jinja2 import Environment, FileSystemLoader
 
+# raw_input isn't defined in Python3.x, whereas input wasn't behaving like raw_input in Python 2.x
+# this should make both input and raw_input work in Python 2.x/3.x like the raw_input from Python 2.x
+try: input = raw_input
+except NameError: raw_input = input
+
 PIPELINES_DIR = os.path.dirname(os.path.abspath(__file__))
 
 TEMPLATE_ENVIRONMENT = Environment(
@@ -85,30 +90,31 @@ def create_pipeline(args):
 
 def print_output_message(args):
     git_branch = suggested_git_branch()
+    curr_dir = os.getcwd()
     if not args.is_prod:
         if git_branch == "main":
-            print "\n[WARNING] You are generating a dev pipeline pointed to the main branch!\n"
+            print("\n[WARNING] You are generating a dev pipeline pointed to the main branch!\n")
         cmd = """fly -t dp set-pipeline  -p dev:%s_%s \
--c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-dev-generated.yml \
--v gpbackup-git-branch=%s""" % (args.pipeline_name, git_branch, args.pipeline_name, git_branch)
-        print "To set this pipeline on dev, run: \n%s" % (cmd)
+-c %s/%s-dev-generated.yml \
+-v gpbackup-git-branch=%s""" % (args.pipeline_name, git_branch, curr_dir, args.pipeline_name, git_branch)
+        print("To set this pipeline on dev, run: \n%s" % (cmd))
         join = raw_input('Would you like to run the pipeline now? [yN]: ')
         if join.lower() == 'yes' or join.lower() == 'y':
             # Expand all home directory paths (i.e. ~/workspace...)
             cmd = [os.path.expanduser(p) if p[0] == '~' else p for p in cmd.replace('\\\n', '').split()]
             subprocess.call(cmd)
         else:
-            print "bailing out"
+            print("bailing out")
 
     if args.is_prod:
         if git_branch != "main":
-            print "\n[WARNING] You are generating a prod pipeline, but are not on the main branch!\n"
+            print("\n[WARNING] You are generating a prod pipeline, but are not on the main branch!\n")
         cmd1 = "fly -t gpdb-prod set-pipeline -p %s \
--c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml" % (args.pipeline_name, args.pipeline_name)
+-c %s/%s-generated.yml" % (args.pipeline_name, curr_dir, args.pipeline_name)
         args.pipeline_name = "gpbackup"
         cmd2 = "fly -t gpdb-prod set-pipeline -p %s \
--c ~/go/src/github.com/greenplum-db/gpbackup/ci/%s-generated.yml" % (args.pipeline_name, args.pipeline_name)
-        print "To set these pipelines (gpbackup / gpbackup-release) on prod, run: \n%s\n%s" % (cmd2, cmd1)
+-c %s/%s-generated.yml" % (args.pipeline_name, curr_dir, args.pipeline_name)
+        print("To set these pipelines (gpbackup / gpbackup-release) on prod, run: \n%s\n%s" % (cmd2, cmd1))
 
 def main():
     """main: parse args and create pipeline"""

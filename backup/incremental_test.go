@@ -96,6 +96,7 @@ var _ = Describe("backup/incremental tests", func() {
 			{
 				DatabaseName:     "test1",
 				Timestamp:        "timestamp3",
+				Status:           history.BackupStatusSucceed,
 				ExcludeRelations: []string{},
 				ExcludeSchemas:   []string{},
 				IncludeRelations: []string{},
@@ -104,6 +105,7 @@ var _ = Describe("backup/incremental tests", func() {
 			{
 				DatabaseName:     "test2",
 				Timestamp:        "timestamp2",
+				Status:           history.BackupStatusSucceed,
 				ExcludeRelations: []string{},
 				ExcludeSchemas:   []string{},
 				IncludeRelations: []string{},
@@ -113,6 +115,7 @@ var _ = Describe("backup/incremental tests", func() {
 			{
 				DatabaseName:     "test1",
 				Timestamp:        "timestamp1",
+				Status:           history.BackupStatusSucceed,
 				ExcludeRelations: []string{},
 				ExcludeSchemas:   []string{},
 				IncludeRelations: []string{},
