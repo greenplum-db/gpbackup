@@ -798,7 +798,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			}
 			Expect(err).NotTo(HaveOccurred())
 		})
-		It(`ensure gprestore on corrupt backup with --on-error-continue logs error tables`, func() {
+		It(`ensures gprestore on corrupt backup with --on-error-continue logs error tables`, func() {
 			if segmentCount != 3 {
 				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
 			}
@@ -858,7 +858,40 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(tables).To(HaveLen(len(expectedErrorTablesMetadata)))
 			_ = os.Remove(files[0])
 		})
-		It(`ensure successful gprestore with --on-error-continue does not log error tables`, func() {
+		It(`ensures gprestore of corrupt backup with --on-error-continue only logs tables in error_tables_metadata file`, func() {
+			if segmentCount != 3 {
+				Skip("Restoring from a tarred backup currently requires a 3-segment cluster to test.")
+			}
+			// The functionality works on 5, but it's currently difficult to make a saved backup on a 5 cluster.
+			// TODO: Remove this and re-do the saved backup once we get local 5 testing working again.
+			testutils.SkipIfBefore6(backupConn)
+
+			// This backup is corrupt because the CREATE statement for corrupt_type
+			// was changed to substitute "NULL" for "text", causing the statement
+			// to error out and also preventing corrupt_table from being created
+			// because the type does not exist.  The backup was taken with gpbackup
+			// version 1.29.1 and GPDB version 6.23.2.
+			extractDirectory := extractSavedTarFile(backupDir, "corrupt-metadata-db")
+
+			expectedErrorTablesMetadata := []string{"public.corrupt_table"}
+			gprestoreCmd := exec.Command(gprestorePath,
+				"--timestamp", "20230727021246",
+				"--redirect-db", "restoredb",
+				"--backup-dir", extractDirectory,
+				"--on-error-continue")
+			_, _ = gprestoreCmd.CombinedOutput()
+
+			files, _ := path.Glob(path.Join(extractDirectory, "/*-1/backups/*", "20230727021246", "*error_tables*"))
+			Expect(files).To(HaveLen(1))
+
+			Expect(files[0]).To(HaveSuffix("_metadata"))
+			contents, err := ioutil.ReadFile(files[0])
+			Expect(err).ToNot(HaveOccurred())
+			tables := strings.Split(string(contents), "\n")
+			Expect(tables).To(Equal(expectedErrorTablesMetadata))
+			_ = os.Remove(files[0])
+		})
+		It(`ensures successful gprestore with --on-error-continue does not log error tables`, func() {
 			// Ensure no error tables with successful restore
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--no-compression",

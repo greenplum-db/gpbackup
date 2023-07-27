@@ -31,12 +31,16 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
 			if MustGetFlagBool(options.ON_ERROR_CONTINUE) {
 				if executeInParallel {
 					atomic.AddInt32(numErrors, 1)
-					mutex.Lock()
-					errorTablesMetadata[statement.Schema+"."+statement.Name] = Empty{}
-					mutex.Unlock()
+					if statement.ObjectType == "TABLE" {
+						mutex.Lock()
+						errorTablesMetadata[statement.Schema+"."+statement.Name] = Empty{}
+						mutex.Unlock()
+					}
 				} else {
 					*numErrors = *numErrors + 1
-					errorTablesMetadata[statement.Schema+"."+statement.Name] = Empty{}
+					if statement.ObjectType == "TABLE" {
+						errorTablesMetadata[statement.Schema+"."+statement.Name] = Empty{}
+					}
 				}
 			} else {
 				*fatalErr = err
