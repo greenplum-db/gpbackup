@@ -617,7 +617,11 @@ ALTER FOREIGN TABLE public.tablename OWNER TO testrole;
 
 
 REVOKE ALL ON public.tablename FROM PUBLIC;
+
+
 REVOKE ALL ON public.tablename FROM testrole;
+
+
 GRANT ALL ON public.tablename TO testrole;
 
 
@@ -654,12 +658,20 @@ ALTER TABLE public.tablename OWNER TO testrole;
 
 
 REVOKE ALL (i) ON TABLE public.tablename FROM PUBLIC;
+
+
 REVOKE ALL (i) ON TABLE public.tablename FROM testrole;
+
+
 GRANT SELECT (i) ON TABLE public.tablename TO testrole;
 
 
 REVOKE ALL (j) ON TABLE public.tablename FROM PUBLIC;
+
+
 REVOKE ALL (j) ON TABLE public.tablename FROM testrole;
+
+
 GRANT ALL (j) ON TABLE public.tablename TO testrole2;`)
 		})
 		It("prints a security group statement on a table column", func() {

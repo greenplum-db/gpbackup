@@ -61,9 +61,9 @@ $$add_two_ints$$
 LANGUAGE internal%s;`, DEFAULT_PARALLEL),
 					"COMMENT ON FUNCTION public.func_name(integer, integer) IS 'This is a function comment.';",
 					"ALTER FUNCTION public.func_name(integer, integer) OWNER TO testrole;",
-					`REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM testrole;
-GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`,
+					`REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM PUBLIC;`,
+					`REVOKE ALL ON FUNCTION public.func_name(integer, integer) FROM testrole;`,
+					`GRANT ALL ON FUNCTION public.func_name(integer, integer) TO testrole;`,
 					"SECURITY LABEL FOR dummy ON FUNCTION public.func_name(integer, integer) IS 'unclassified';"}
 				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 
@@ -825,9 +825,9 @@ ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
 				// Languages have implicit owners in 4.3, but do not support ALTER OWNER
 				expectedStatements = append(expectedStatements, "ALTER LANGUAGE plpythonu OWNER TO testrole;")
 			}
-			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;
-REVOKE ALL ON LANGUAGE plpythonu FROM testrole;
-GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
+			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;`,
+				`REVOKE ALL ON LANGUAGE plpythonu FROM testrole;`,
+				`GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
 				"SECURITY LABEL FOR dummy ON LANGUAGE plpythonu IS 'unclassified';")
 
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
@@ -853,9 +853,9 @@ GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
 				// Languages have implicit owners in 4.3, but do not support ALTER OWNER
 				expectedStatements = append(expectedStatements, `ALTER LANGUAGE plperl OWNER TO testrole;`)
 			}
-			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plperl FROM PUBLIC;
-REVOKE ALL ON LANGUAGE plperl FROM testrole;
-GRANT ALL ON LANGUAGE plperl TO testrole;`,
+			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plperl FROM PUBLIC;`,
+				`REVOKE ALL ON LANGUAGE plperl FROM testrole;`,
+				`GRANT ALL ON LANGUAGE plperl TO testrole;`,
 				"SECURITY LABEL FOR dummy ON LANGUAGE plperl IS 'unclassified';")
 
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)

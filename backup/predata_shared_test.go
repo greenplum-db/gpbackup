@@ -156,9 +156,9 @@ var _ = Describe("backup/predata_shared tests", func() {
 			expectedStatements := []string{"CREATE SCHEMA schemaname;",
 				"COMMENT ON SCHEMA schemaname IS 'This is a schema comment.';",
 				"ALTER SCHEMA schemaname OWNER TO testrole;",
-				`REVOKE ALL ON SCHEMA schemaname FROM PUBLIC;
-REVOKE ALL ON SCHEMA schemaname FROM testrole;
-GRANT ALL ON SCHEMA schemaname TO testrole;`,
+				`REVOKE ALL ON SCHEMA schemaname FROM PUBLIC;`,
+				`REVOKE ALL ON SCHEMA schemaname FROM testrole;`,
+				`GRANT ALL ON SCHEMA schemaname TO testrole;`,
 				"SECURITY LABEL FOR dummy ON SCHEMA schemaname IS 'unclassified';"}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})

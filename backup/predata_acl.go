@@ -108,8 +108,8 @@ func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 			statements = append(statements, strings.TrimSpace(owner))
 		}
 	}
-	if privileges := metadata.GetPrivilegesStatements(obj.FQN(), entry.ObjectType); privileges != "" {
-		statements = append(statements, strings.TrimSpace(privileges))
+	if privileges := metadata.GetPrivilegesStatements(obj.FQN(), entry.ObjectType); len(privileges) > 0 {
+		statements = append(statements, privileges...);
 	}
 	if securityLabel := metadata.GetSecurityLabelStatement(obj.FQN(), entry.ObjectType); securityLabel != "" {
 		statements = append(statements, strings.TrimSpace(securityLabel))
@@ -138,8 +138,8 @@ func printExtensionFunctionACLs(metadataFile *utils.FileWithByteCount, toc *toc.
 	})
 	statements := make([]string, 0)
 	for _, obj := range objects {
-		if privileges := obj.GetPrivilegesStatements(obj.FQN(), "FUNCTION"); privileges != "" {
-			statements = append(statements, strings.TrimSpace(privileges))
+		if privileges := obj.GetPrivilegesStatements(obj.FQN(), "FUNCTION"); len(privileges) > 0 {
+			statements = append(statements, privileges...);
 			PrintStatements(metadataFile, toc, obj, statements)
 		}
 	}
@@ -290,7 +290,7 @@ func ParseACL(aclStr string) *ACL {
 	return nil
 }
 
-func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType string, columnName ...string) string {
+func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType string, columnName ...string) []string {
 	statements := make([]string, 0)
 	typeStr := fmt.Sprintf("%s ", objectType)
 	if objectType == "VIEW" || objectType == "FOREIGN TABLE" || objectType == "MATERIALIZED VIEW" {
@@ -325,10 +325,7 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 			}
 		}
 	}
-	if len(statements) > 0 {
-		return "\n\n" + strings.Join(statements, "\n")
-	}
-	return ""
+	return statements
 }
 
 func createPrivilegeStrings(acl ACL, objectType string) (string, string) {
