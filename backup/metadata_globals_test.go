@@ -50,9 +50,9 @@ var _ = Describe("backup/metadata_globals tests", func() {
 				`CREATE DATABASE testdb TEMPLATE template0;`,
 				`COMMENT ON DATABASE testdb IS 'This is a database comment.';`,
 				`ALTER DATABASE testdb OWNER TO testrole;`,
-				`REVOKE ALL ON DATABASE testdb FROM PUBLIC;
-REVOKE ALL ON DATABASE testdb FROM testrole;
-GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
+				`REVOKE ALL ON DATABASE testdb FROM PUBLIC;`,
+				`REVOKE ALL ON DATABASE testdb FROM testrole;`,
+				`GRANT TEMPORARY,CONNECT ON DATABASE testdb TO testrole;`,
 				`SECURITY LABEL FOR dummy ON DATABASE testdb IS 'unclassified';`}
 			testutils.AssertBufferContents(tocfile.GlobalEntries, buffer, expectedStatements...)
 		})
@@ -428,9 +428,9 @@ ALTER ROLE "testRole2" WITH SUPERUSER INHERIT CREATEROLE CREATEDB LOGIN REPLICAT
 				`CREATE TABLESPACE test_tablespace FILESPACE test_filespace;`,
 				`COMMENT ON TABLESPACE test_tablespace IS 'This is a tablespace comment.';`,
 				`ALTER TABLESPACE test_tablespace OWNER TO testrole;`,
-				`REVOKE ALL ON TABLESPACE test_tablespace FROM PUBLIC;
-REVOKE ALL ON TABLESPACE test_tablespace FROM testrole;
-GRANT ALL ON TABLESPACE test_tablespace TO testrole;`,
+				`REVOKE ALL ON TABLESPACE test_tablespace FROM PUBLIC;`,
+				`REVOKE ALL ON TABLESPACE test_tablespace FROM testrole;`,
+				`GRANT ALL ON TABLESPACE test_tablespace TO testrole;`,
 				`SECURITY LABEL FOR dummy ON TABLESPACE test_tablespace IS 'unclassified';`}
 			testutils.AssertBufferContents(tocfile.GlobalEntries, buffer, expectedStatements...)
 

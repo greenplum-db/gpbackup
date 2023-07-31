@@ -1079,6 +1079,44 @@ var _ = Describe("backup and restore end to end tests", func() {
 			assertRelationsCreatedInSchema(restoreConn, "schema2", 0)
 			assertRelationsCreatedInSchema(restoreConn, "fooschema", 0)
 		})
+		It("runs gprestore with --redirect-schema restoring all privileges to the new schema", func() {
+			skipIfOldBackupVersionBefore("1.17.0")
+			testhelper.AssertQueryRuns(backupConn,
+				"DROP ROLE IF EXISTS test_user; CREATE ROLE test_user;")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP ROLE test_user")
+			testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA IF EXISTS schema_to CASCADE; CREATE SCHEMA schema_to;")
+			defer testhelper.AssertQueryRuns(restoreConn,
+				"DROP SCHEMA schema_to CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA IF EXISTS schema_from CASCADE; CREATE SCHEMA schema_from;")
+			defer testhelper.AssertQueryRuns(backupConn,
+				"DROP SCHEMA schema_from CASCADE")
+			testhelper.AssertQueryRuns(backupConn,
+				"CREATE TABLE schema_from.test_table(i int)")
+			testhelper.AssertQueryRuns(backupConn,
+				"GRANT SELECT ON schema_from.test_table TO test_user")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+				"--include-schema", "schema_from")
+
+			gprestore(gprestorePath, restoreHelperPath, timestamp,
+				"--redirect-db", "restoredb",
+				"--include-table", "schema_from.test_table",
+				"--redirect-schema", "schema_to")
+
+			assertRelationsCreatedInSchema(restoreConn, "schema_to", 1)
+
+			// The resulting grantee count is 2 (owner and 'test_user').
+			// '--redirect-schema' should cause all privilege statements to be
+			// edited with new schema name. Restoring should not cause an error
+			// of not existed schema.
+			privCount := dbconn.MustSelectString(restoreConn,
+				`select count(distinct grantee) from information_schema.table_privileges` +
+				` where table_schema = 'schema_to' and table_name = 'test_table'`)
+			Expect(privCount).To(Equal("2"))
+		})
 	})
 	Describe("ACLs for extensions", func() {
 		It("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
