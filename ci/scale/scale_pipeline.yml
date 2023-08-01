@@ -1,11 +1,10 @@
 # USAGE: fly -t dp set-pipeline  -p scale_test_refactor -c ~/workspace/gpbackup/ci/scale/scale_pipeline.yml -v gpbackup-git-branch=BRANCH_NAME
 ---
 groups:
-- name: Scale
+- name: scale
   jobs:
-  - build_binaries
-  - build_gppkgs
-  - scale-test
+  - load-data-gpdb6
+  - scale-perf-tests-gpdb6
 
 resource_types:
 - name: terraform
@@ -40,22 +39,10 @@ resource_types:
 
 resources:
 ##### Docker Images #####
-- name: centos6-image
+- name: rocky8-gpdb7-image
   type: registry-image
   source:
-    repository: gcr.io/data-gpdb-public-images/gpdb5-centos6-build-test
-    tag: latest
-  
-- name: centos7-image
-  type: registry-image
-  source:
-    repository: gcr.io/data-gpdb-public-images/gpdb5-centos7-build-test
-    tag: latest
-
-- name: gpdb7-centos7-image
-  type: registry-image
-  source:
-    repository: gcr.io/data-gpdb-public-images/gpdb7-centos7-build
+    repository: gcr.io/data-gpdb-public-images/gpdb7-rocky8-test
     tag: latest
 
 ##### Source Code ####
@@ -73,28 +60,13 @@ resources:
     uri: https://github.com/greenplum-db/gpdb
     branch: 6X_STABLE
 
-- name: gpbackup_manager_src
+- name: ccp_src
   type: git
   icon: github-circle
   source:
-    branch: main
-    private_key: ((dp/dev/gp-backup-manager-remote-deploy-key))
-    uri: ((dp/gp-backup-manager-git-remote))
-
-- name: gpbackup_s3_plugin
-  type: git
-  icon: github-circle
-  source:
-    branch: ((dp/dev/gpbackup-s3-plugin-git-branch))
-    uri: https://github.com/greenplum-db/gpbackup-s3-plugin
-
-- name: gpbackup_ddboost_plugin
-  type: git
-  icon: github-circle
-  source:
-    branch: ((dp/gpbackup-ddboost-plugin-branch)) 
-    private_key: ((dp/gpbackup-ddboost-plugin-remote-key))
-    uri: ((dp/gpbackup-ddboost-plugin-git-remote))
+    branch: ((dp/ccp-git-branch))
+    private_key: ((gp-concourse-cluster-provisioner-git-key))
+    uri: ((dp/ccp-git-remote))
 
 #### Binaries ####
 - name: bin_gpdb_6x_stable_centos7
@@ -134,51 +106,20 @@ resources:
     url: ((dp/webhook_url))
     disable: false
 
-- name: gpbackup-go-components
-  type: s3
-  icon: amazon
-  source:
-    access_key_id: ((aws-bucket-access-key-id))
-    bucket: ((dp/dev/gpdb-stable-bucket-name))
-    region_name: ((dp/aws-region))
-    secret_access_key: ((aws-bucket-secret-access-key))
-    versioned_file: gpbackup-go-components/go_components.tar.gz
-
 - name: gppkgs
-  type: s3
-  icon: amazon
-  source:
-    access_key_id: ((aws-bucket-access-key-id))
-    bucket: ((dp/dev/gpdb-stable-bucket-name))
-    region_name: ((dp/aws-region))
-    secret_access_key: ((aws-bucket-secret-access-key))
-    versioned_file: gppkgs/intermediates/gpbackup-gppkgs.tar.gz
-
-- name: gpbackup-release-license
   type: gcs
   icon: google
   source:
-    bucket: gpbackup-release-licenses
+    bucket: ((dp/dev/gcs-ci-bucket))
     json_key: ((dp/dev/gcp_svc_acct_key))
-    regexp: open_source_license_VMware_Greenplum_Backup_and_Restore_(.*)_.*.txt
+    versioned_file: gpbackup/intermediates/gpbackup-gppkgs.tar.gz
 
-- name: pivnet_release_cache
-  type: s3
-  icon: amazon
+- name: cluster-metadata
+  type: gcs
   source:
-    access_key_id: ((aws-bucket-access-key-id))
-    bucket: ((dp/dev/pivnet_bucket_name))
-    region_name: ((dp/aws-region))
-    secret_access_key: ((aws-bucket-secret-access-key))
-    regexp: pivnet_release_version/v-(.*)
-
-- name: ccp_src
-  type: git
-  icon: github-circle
-  source:
-    branch: ((dp/ccp-git-branch))
-    private_key: ((gp-concourse-cluster-provisioner-git-key))
-    uri: ((dp/ccp-git-remote))
+    bucket: ((dp/dev/gcs-ci-bucket))
+    json_key: ((dp/dev/gcp_svc_acct_key))
+    versioned_file: gpbackup/intermediates/cluster-metadata.tar.gz
 
 - name: terraform.d
   type: s3
@@ -288,7 +229,7 @@ anchors:
   params:
     text: |
       [gpbackup/$BUILD_JOB_NAME] failed:
-      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+      https://dp.ci.gpdb.pivotal.io/teams/main/pipelines/scale_test_refactor/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
 
 ## ======================================================================
 ##    _       _
@@ -300,84 +241,19 @@ anchors:
 ## ======================================================================
 
 jobs:
-- name: build_binaries
-  plan:
-  - in_parallel:
-    - get: gpbackup_s3_plugin
-      trigger: true
-    - get: gpbackup_manager_src
-      trigger: true
-    - get: gpbackup
-      trigger: true
-    - get: pivnet_release_cache
-  - task: build-go-binaries
-    file: gpbackup/ci/tasks/build-go-binaries.yml
-  - put: gpbackup-go-components
-    params:
-      file: go_components/go_components.tar.gz
-  
-- name: build_gppkgs
-  plan:
-  - in_parallel:
-    - get: centos7-image
-    - get: gpdb_src
-      resource: gpdb6_src
-    - get: gpbackup-go-components
-      trigger: true
-      passed: [build_binaries]
-    - get: bin_gpdb_6x_stable_centos7
-    - get: gpbackup
-      passed: [build_binaries]
-    - get: gpbackup_ddboost_plugin
-      trigger: true
-    - get: pivnet_release_cache
-    - get: gpbackup-release-license
-  - task: gpbackup-tools-versions
-    image: centos7-image
-    file: gpbackup/ci/tasks/gpbackup-tools-versions.yml
-  - in_parallel:
-    - do: # RHEL
-      - task: build-ddboost-RHEL
-        image: centos7-image
-        file: gpbackup/ci/tasks/build-ddboost.yml
-        input_mapping:
-          bin_gpdb: bin_gpdb_6x_stable_centos7
-      - task: tar-binaries-RHEL
-        image: centos7-image
-        file: gpbackup/ci/tasks/build-os-tars.yml
-      - task: build_gppkgs-RHEL
-        image: centos7-image
-        file: gpbackup/ci/tasks/build-gppkg.yml
-        input_mapping:
-          bin_gpdb: bin_gpdb_6x_stable_centos7
-        output_mapping:
-          gppkgs: rhel-gppkg
-        params:
-          OS: RHEL
-  - task: tar-gppkgs
-    image: centos7-image
-    file: gpbackup/ci/tasks/tar-gppkgs.yml
-  - put: gppkgs
-    params:
-      file: gppkgs/gpbackup-gppkgs.tar.gz
-
-- name: scale-test
+- name: load-data-gpdb6
   plan:
   - in_parallel:
     - get: weekly-trigger
       trigger: true
-    - get: centos6-image
-    - get: centos7-image
-    - get: gpdb7-centos7-image
+    - get: rocky8-gpdb7-image
     - get: gpbackup
-      passed: [build_gppkgs]
     - get: gpdb_binary
       resource: bin_gpdb_6x_stable_centos7
-    - get: ccp_src
     - get: gpdb_src
       resource: gpdb6_src
     - get: gppkgs
-      passed: [build_gppkgs]
+    - get: ccp_src
     - get: terraform.d
       params:
         unpack: true
@@ -399,10 +275,35 @@ jobs:
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-centos-env
-    image: centos6-image
+    image: rocky8-gpdb7-image
     file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: scale-perf-load
+    image: rocky8-gpdb7-image
+    file: gpbackup/ci/tasks/scale-perf-load.yml
+    params:
+      GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
+    on_failure:
+      *slack_alert
+  - put: cluster-metadata
+    params:
+      file: cluster-metadata/cluster-metadata.tar.gz
+
+- name: scale-perf-tests-gpdb6
+  plan:
+  - in_parallel:
+    - get: cluster-metadata
+      passed: ['load-data-gpdb6']
+      trigger: true
+    - get: rocky8-gpdb7-image
+    - get: gpbackup
+    - get: gpdb_binary
+      resource: bin_gpdb_6x_stable_centos7
+    - get: gpdb_src
+      resource: gpdb6_src
+    - get: gppkgs
+    - get: ccp_src
   - task: scale-perf-tests
-    image: centos6-image
+    image: rocky8-gpdb7-image
     file: gpbackup/ci/tasks/scale-perf-tests.yml
     params:
       RESULTS_LOG_FILE: /tmp/gpbackup.log
@@ -410,19 +311,14 @@ jobs:
       RESULTS_DATABASE_USER: postgres
       RESULTS_DATABASE_NAME: gpbackup_refdb
       RESULTS_DATABASE_PASSWORD: ((dp/dev/gcp_refdb_admin_password))
-      GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
-      GOOGLE_PROJECT_ID: ((dp/dev/google-project-id))
-      GOOGLE_ZONE: ((dp/dev/google-zone))
-      GOOGLE_SERVICE_ACCOUNT: ((dp/dev/google-service-account))
-      BUCKET_NAME: ((dp/dev/scale_test_bucket))
     on_failure:
       *slack_alert
   - task: scale-test-slack-notify
-    image: gpdb7-centos7-image
+    image: rocky8-gpdb7-image
     file: gpbackup/ci/tasks/scale-tests-slack-notify.yml
     params:
       RESULTS_DATABASE_HOST: 10.122.32.4
       RESULTS_DATABASE_USER: postgres
       RESULTS_DATABASE_NAME: gpbackup_refdb
       SLACK_WEBHOOK_URL: ((dp/webhook_url))
-      RESULTS_DATABASE_PASSWORD: ((dp/dev/gcp_refdb_admin_password))
+ 

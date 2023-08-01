@@ -6,8 +6,8 @@ image_resource:
 inputs:
 - name: gpbackup
 - name: ccp_src
-- name: cluster_env_files
 - name: gppkgs
+- name: cluster-metadata
 
 params:
   RESULTS_LOG_FILE:
@@ -15,12 +15,7 @@ params:
   RESULTS_DATABASE_USER:
   RESULTS_DATABASE_NAME:
   RESULTS_DATABASE_PASSWORD:
-  GOOGLE_CREDENTIALS:
-  GOOGLE_PROJECT_ID:
-  GOOGLE_ZONE:
-  GOOGLE_SERVICE_ACCOUNT:
-  BUCKET_NAME:
   OS: RHEL
 
 run:
-  path: gpbackup/ci/scripts/scale_perf_tests.bash
+  path: gpbackup/ci/scripts/scale-perf-tests.bash

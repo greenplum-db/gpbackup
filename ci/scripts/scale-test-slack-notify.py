@@ -83,10 +83,15 @@ def send_slack_notification(unreported_failures):
 
 def main():
     try:
+        print("Examining runtime database to report test failures")
         unreported_failures = get_unreported_failures()
         if unreported_failures:
+            print("Reporting test failures")
             send_slack_notification(unreported_failures)
             update_unreported_failures()
+        else:
+            print("No test failures found to report")
+
     except Exception as e:
         print("Python script errored: {}".format(e))
         return

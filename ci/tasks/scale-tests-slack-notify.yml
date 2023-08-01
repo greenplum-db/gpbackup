@@ -14,4 +14,4 @@ params:
   SLACK_WEBHOOK_URL:
 
 run:
-  path: gpbackup/ci/scripts/scale_test_slack_notify.bash
+  path: gpbackup/ci/scripts/scale-test-slack-notify.bash
