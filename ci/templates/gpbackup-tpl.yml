@@ -1,31 +1,31 @@
 ---
 groups:
-- name: All
+- name: all
   jobs:
   # these are kept as separate jobs to avoid race bugs when they're tasks in the same job
   - build_binaries_rhel6
   - build_binaries_rhel7
   - build_binaries_rhel8
   - build_gppkgs
-  - GPDB5
+  - gpdb5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
   - build_binaries_ubuntu
-  - GPDB6-ubuntu
+  - gpdb6-ubuntu
   - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
 {% if is_prod and "gpbackup-release" != pipeline_name %}
   - scale-5x
   - scale-6x
-  - scale-GPDB7
+  - scale-gpdb7
   - s3_plugin_perf
   - ddboost_plugin_perf
 {% endif %}
   - gpbackup-manager-tests
 {% if "gpbackup-release" != pipeline_name %}
 {% endif %}
-  - GPDB6
-  - GPDB6-7-seg-cluster
-  - GPDB7
+  - gpdb6
+  - gpdb6-7-seg-cluster
+  - gpdb7
   - s3_plugin_tests
   - backward-compatibility
   - ddboost_plugin_and_boostfs_tests_6x
@@ -38,9 +38,9 @@ groups:
   - final_gate
 {% endif %}
 
-- name: GPDB5
+- name: gpdb5
   jobs:
-  - GPDB5
+  - gpdb5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
   - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
@@ -50,38 +50,38 @@ groups:
   - s3_plugin_tests
   - backward-compatibility
 
-- name: GPDB6
+- name: gpdb6
   jobs:
-  - GPDB6
-  - GPDB6-7-seg-cluster
+  - gpdb6
+  - gpdb6-7-seg-cluster
 {% if is_prod or "gpbackup-release" == pipeline_name %}
-  - GPDB6-ubuntu
+  - gpdb6-ubuntu
 {% endif %}
 {% if is_prod and "gpbackup-release" != pipeline_name %}
   - scale-6x
-{% endif %}
-  - ddboost_plugin_and_boostfs_tests_6x
   - s3_plugin_perf
   - ddboost_plugin_perf
+{% endif %}
+  - ddboost_plugin_and_boostfs_tests_6x
 
-- name: GPDB7
+- name: gpdb7
   jobs:
-  - GPDB7
+  - gpdb7
 {% if is_prod and "gpbackup-release" != pipeline_name %}
-  - scale-GPDB7
+  - scale-gpdb7
 {% endif %}
 
 {% if is_prod and "gpbackup-release" != pipeline_name %}
-- name: Scale
+- name: scale
   jobs:
   - scale-5x
   - scale-6x
-  - scale-GPDB7
+  - scale-gpdb7
   - s3_plugin_perf
   - ddboost_plugin_perf
 {% endif %}
 
-- name: Plugins
+- name: plugins
   jobs:
   - s3_plugin_tests
   - ddboost_plugin_and_boostfs_tests_6x
@@ -92,7 +92,7 @@ groups:
 {% endif %}
 
 {% if "gpbackup-release" == pipeline_name %}
-- name: Packaging and Release
+- name: packaging_and_release
   jobs:
   - build_binaries_rhel6
   - build_binaries_rhel7
@@ -254,12 +254,6 @@ resources:
     repository: gcr.io/data-gpdb-public-images/gpdb6-centos7-build
     tag: latest
 
-- name: centos7-gpdb6-golang-image
-  type: registry-image
-  source:
-    repository: gcr.io/data-gpdb-public-images/gpdb6-centos7-test-golang
-    tag: latest
-
 - name: rocky8-gpdb6-image
   type: registry-image
   source:
@@ -407,14 +401,6 @@ resources:
     region_name: us-west-2
     access_key_id: ((aws-bucket-access-key-id))
     secret_access_key: ((aws-bucket-secret-access-key))
-
-- name: bin_gpdb_6x_stable_centos6
-  type: gcs
-  icon: google
-  source:
-    bucket: ((dp/prod/gcs-ci-bucket))
-    json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-rhel6_x86_64((dp/$$DEV_PROD$$/rc-build-type-gcs)).tar.gz
 
 - name: bin_gpdb_6x_stable_centos7
   type: gcs
@@ -882,19 +868,19 @@ jobs:
     file: gpbackup/ci/tasks/gpbackup-tools-versions.yml
   - in_parallel:
     - do: # RHEL6
-      - task: build-ddboost-RHEL6
+      - task: build-ddboost-rhel6
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-ddboost.yml
         input_mapping:
           bin_gpdb: bin_gpdb_6x_rhel8
-      - task: tar-binaries-RHEL6
+      - task: tar-binaries-rhel6
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-os-tars.yml
         input_mapping:
           gpbackup-go-components: gpbackup-go-components-rhel6
         output_mapping:
           gpbackup_tar: gpbackup_tar_rhel6
-      - task: build_gppkgs-RHEL6
+      - task: build_gppkgs-rhel6
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-gppkg.yml
         input_mapping:
@@ -905,19 +891,19 @@ jobs:
         params:
           OS: RHEL6
     - do: # RHEL7
-      - task: build-ddboost-RHEL7
+      - task: build-ddboost-rhel7
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-ddboost.yml
         input_mapping:
           bin_gpdb: bin_gpdb_6x_rhel8
-      - task: tar-binaries-RHEL7
+      - task: tar-binaries-rhel7
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-os-tars.yml
         input_mapping:
           gpbackup-go-components: gpbackup-go-components-rhel7
         output_mapping:
           gpbackup_tar: gpbackup_tar_rhel7
-      - task: build_gppkgs-RHEL7
+      - task: build_gppkgs-rhel7
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-gppkg.yml
         input_mapping:
@@ -928,19 +914,19 @@ jobs:
         params:
           OS: RHEL7
     - do: # RHEL8
-      - task: build-ddboost-RHEL8
+      - task: build-ddboost-rhel8
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-ddboost.yml
         input_mapping:
           bin_gpdb: bin_gpdb_6x_rhel8
-      - task: tar-binaries-RHEL8
+      - task: tar-binaries-rhel8
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-os-tars.yml
         input_mapping:
           gpbackup-go-components: gpbackup-go-components-rhel8
         output_mapping:
           gpbackup_tar: gpbackup_tar_rhel8
-      - task: build_gppkgs-RHEL8
+      - task: build_gppkgs-rhel8
         image: rocky8-gpdb6-image
         file: gpbackup/ci/tasks/build-gppkg.yml
         input_mapping:
@@ -1056,6 +1042,7 @@ jobs:
   ensure:
     <<: *set_failed
 
+{% if is_prod and "gpbackup-release" != pipeline_name %}
 - name: s3_plugin_perf
   plan:
   - in_parallel:
@@ -1071,7 +1058,7 @@ jobs:
     - get: gpdb_src
       resource: gpdb6_src
     - get: gpdb_binary
-      resource: bin_gpdb_6x_stable_centos6
+      resource: bin_gpdb_6x_rhel8
     - get: gppkgs
       passed: [build_gppkgs]
       trigger: true
@@ -1117,11 +1104,12 @@ jobs:
 {% endif %}
   ensure:
     <<: *set_failed
+{% endif %}
 
 - name: gpbackup-manager-tests
   plan:
   - in_parallel:
-    - get: centos7-gpdb6-golang-image
+    - get: rocky8-gpdb6-image
     - get: gpbackup_manager_src
 {% if is_prod or "gpbackup-release" == pipeline_name %}
       passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_ubuntu]
@@ -1131,14 +1119,14 @@ jobs:
     - get: gpbackup
       passed: [build_gppkgs]
     - get: bin_gpdb
-      resource: bin_gpdb_6x_stable_centos6
+      resource: bin_gpdb_6x_rhel8
     - get: gpdb_src
       resource: gpdb6_src
     - get: gppkgs
       trigger: true
       passed: [build_gppkgs]
   - task: run_tests
-    image: centos7-gpdb6-golang-image
+    image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/test-gpbackup-manager.yml
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
@@ -1252,6 +1240,7 @@ jobs:
   ensure:
     <<: *set_failed
 
+{% if is_prod and "gpbackup-release" != pipeline_name %}
 - name: ddboost_plugin_perf
   plan:
   - in_parallel:
@@ -1305,12 +1294,10 @@ jobs:
       <<: *ccp_destroy_nvme
   ensure:
     <<: *set_failed
-
-{% if "gpbackup-release" != pipeline_name %}
 {% endif %}
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
-- name: GPDB6-ubuntu
+- name: gpdb6-ubuntu
   plan:
   - in_parallel:
     - get: gpbackup
@@ -1360,7 +1347,7 @@ jobs:
     <<: *set_failed
 {% endif %}
 
-- name: GPDB7
+- name: gpdb7
   plan:
   - in_parallel:
     - get: rocky8-gpdb7-image
@@ -1389,7 +1376,7 @@ jobs:
     *slack_alert
 {% endif %}
 
-- name: GPDB5
+- name: gpdb5
   plan:
   - in_parallel:
     - get: centos6-gpdb5-image
@@ -1426,19 +1413,17 @@ jobs:
     *slack_alert
 {% endif %}
 
-- name: GPDB6
+- name: gpdb6
   plan:
   - in_parallel:
-    - get: centos7-gpdb6-golang-image
     - get: rocky8-gpdb6-image
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: ubuntu-debian-test-image
     - get: bin_gpdb_6x_stable_ubuntu
 {% endif %}
-    - get: bin_gpdb_6x_rhel8
     - get: gpbackup
       passed: [build_gppkgs]
-    - get: bin_gpdb_6x_stable_centos6
+    - get: bin_gpdb_6x_rhel8
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
@@ -1452,7 +1437,7 @@ jobs:
       passed: [build_gppkgs]
   - in_parallel:
     - task: run-tests-locally-centos7
-      image: centos7-gpdb6-golang-image
+      image: rocky8-gpdb6-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
@@ -1480,10 +1465,9 @@ jobs:
     *slack_alert
 {% endif %}
 
-- name: GPDB6-7-seg-cluster
+- name: gpdb6-7-seg-cluster
   plan:
   - in_parallel:
-    - get: centos7-gpdb6-golang-image
     - get: rocky8-gpdb6-image
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - get: ubuntu-debian-test-image
@@ -1491,7 +1475,6 @@ jobs:
 {% endif %}
     - get: gpbackup
       passed: [build_gppkgs]
-    - get: bin_gpdb_6x_stable_centos6
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
@@ -1506,7 +1489,7 @@ jobs:
       passed: [build_gppkgs]
   - in_parallel:
     - task: run-tests-locally-centos7
-      image: centos7-gpdb6-golang-image
+      image: rocky8-gpdb6-image
       file: gpbackup/ci/tasks/test-on-local-cluster.yml
       params:
         REQUIRES_DUMMY_SEC: true
@@ -1592,7 +1575,7 @@ jobs:
     <<: *set_failed
 
 {% if is_prod and "gpbackup-release" != pipeline_name %}
-- name: scale-GPDB7
+- name: scale-gpdb7
   plan:
   - in_parallel:
     - get: rocky8-gpdb7-image
@@ -1752,9 +1735,9 @@ jobs:
       trigger: true
       passed:
         - build_gppkgs
-        - GPDB5
-        - GPDB6-ubuntu
-        - GPDB6
+        - gpdb5
+        - gpdb6-ubuntu
+        - gpdb6
         - s3_plugin_tests
         - backward-compatibility
         - ddboost_plugin_and_boostfs_tests_5x
@@ -1813,7 +1796,7 @@ jobs:
       - get: pivnet_release_cache
       - get: rocky8-gpdb7-image
       - get: tanzunet_client
-    - task: update metadata.yml
+    - task: update_metadata.yml
       image: rocky8-gpdb7-image
       file: gpbackup/ci/tasks/update-metadata.yml
       params:
@@ -1865,13 +1848,13 @@ jobs:
       trigger: true
       passed:
         - build_gppkgs
-        - GPDB5
-        - GPDB6
-        - GPDB7
+        - gpdb5
+        - gpdb6
+        - gpdb7
         - s3_plugin_tests
         - backward-compatibility
 {% if is_prod %}
-        - GPDB6-ubuntu
+        - gpdb6-ubuntu
         - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
         - ddboost_plugin_and_boostfs_tests_6x
