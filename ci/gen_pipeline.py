@@ -69,7 +69,8 @@ def create_pipeline(args):
         'timestamp': datetime.datetime.now(),
         'pipeline_name': args.pipeline_name,
         'nightly_trigger': args.nightly_trigger,
-        'is_prod': args.is_prod
+        'is_prod': args.is_prod,
+        'should_alert': args.should_alert
     }
 
     pipeline_yml = render_template(args.template_filename, context)
@@ -94,9 +95,9 @@ def print_output_message(args):
     if not args.is_prod:
         if git_branch == "main":
             print("\n[WARNING] You are generating a dev pipeline pointed to the main branch!\n")
-        cmd = """fly -t dp set-pipeline  -p dev:%s_%s \
+        cmd = """fly -t dp set-pipeline -p %s \
 -c %s/%s-dev-generated.yml \
--v gpbackup-git-branch=%s""" % (args.pipeline_name, git_branch, curr_dir, args.pipeline_name, git_branch)
+-v gpbackup-git-branch=%s""" % (git_branch, curr_dir, args.pipeline_name, git_branch)
         print("To set this pipeline on dev, run: \n%s" % (cmd))
         join = raw_input('Would you like to run the pipeline now? [yN]: ')
         if join.lower() == 'yes' or join.lower() == 'y':
@@ -110,10 +111,12 @@ def print_output_message(args):
         if git_branch != "main":
             print("\n[WARNING] You are generating a prod pipeline, but are not on the main branch!\n")
         cmd1 = "fly -t gpdb-prod set-pipeline -p %s \
--c %s/%s-generated.yml" % (args.pipeline_name, curr_dir, args.pipeline_name)
+-c %s/%s-generated.yml \
+-v gpbackup-git-branch=%s" % (args.pipeline_name, curr_dir, args.pipeline_name, git_branch)
         args.pipeline_name = "gpbackup"
         cmd2 = "fly -t gpdb-prod set-pipeline -p %s \
--c %s/%s-generated.yml" % (args.pipeline_name, curr_dir, args.pipeline_name)
+-c %s/%s-generated.yml \
+-v gpbackup-git-branch=%s" % (args.pipeline_name, curr_dir, args.pipeline_name, git_branch)
         print("To set these pipelines (gpbackup / gpbackup-release) on prod, run: \n%s\n%s" % (cmd2, cmd1))
 
 def main():
@@ -130,6 +133,15 @@ def main():
         dest='template_filename',
         default="gpbackup-tpl.yml",
         help='Name of template to use, in templates/'
+    )
+
+    parser.add_argument(
+        '-na',
+        '--no-alerts',
+        action='store_false',
+        dest='should_alert',
+        default=True,
+        help='Disable the Slack alert for failed jobs'
     )
 
     parser.add_argument(

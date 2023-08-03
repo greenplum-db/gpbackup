@@ -199,7 +199,7 @@ anchors:
   DD_DEST_HOST: ((dp/$$DEV_PROD$$/datadomain_711_dest_host_gcp))
   DD_ENCRYPTED_PW: ((dp/prod/encrypted_datadomain_711_password_gcp))
 
-{% if is_prod or "gpbackup-release" == pipeline_name %}
+{% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
 - &slack_alert
   put: slack-alert
   params:
@@ -492,7 +492,7 @@ resources:
     secret_access_key: ((gpdb4-bucket-secret-access-key))
     versioned_file: DDBoostFS-1.1.0.1-565598.rhel.x86_64.rpm
 
-{% if is_prod or "gpbackup-release" == pipeline_name %}
+{% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
 - name: slack-alert
   type: slack-notification
   source:
@@ -1035,7 +1035,7 @@ jobs:
       BUCKET: ((dp/$$DEV_PROD$$/gpbackup-s3-plugin-test-bucket))
   on_success:
     <<: *ccp_destroy
-{% if is_prod or "gpbackup-release" == pipeline_name %}
+{% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
   on_failure:
     *slack_alert
 {% endif %}
@@ -1098,7 +1098,7 @@ jobs:
       SCALE_FACTOR: 1
   on_success:
     <<: *ccp_destroy
-{% if is_prod or "gpbackup-release" == pipeline_name %}
+{% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
   on_failure:
     *slack_alert
 {% endif %}
@@ -1341,8 +1341,10 @@ jobs:
       default_ami_user: ubuntu
   on_success:
     <<: *ccp_destroy
+{% if should_alert %}
   on_failure:
     *slack_alert
+{% endif %}
   ensure:
     <<: *set_failed
 {% endif %}
@@ -1371,7 +1373,7 @@ jobs:
       OS: RHEL8
     input_mapping:
       bin_gpdb: bin_gpdb_7x_rhel8
-{% if is_prod or "gpbackup-release" == pipeline_name %}
+{% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
   on_failure:
     *slack_alert
 {% endif %}
@@ -1408,7 +1410,7 @@ jobs:
         bin_gpdb: bin_gpdb_5x_stable_centos7
       params:
           OS: RHEL7
-{% if is_prod or "gpbackup-release" == pipeline_name %}
+{% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
   on_failure:
     *slack_alert
 {% endif %}
@@ -1461,8 +1463,10 @@ jobs:
         OS: ubuntu
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_ubuntu
+{% if should_alert %}
   on_failure:
     *slack_alert
+{% endif %}
 {% endif %}
 
 - name: gpdb6-7-seg-cluster
@@ -1516,8 +1520,10 @@ jobs:
         OS: ubuntu
       input_mapping:
         bin_gpdb: bin_gpdb_6x_stable_ubuntu
+{% if should_alert %}
   on_failure:
     *slack_alert
+{% endif %}
 {% endif %}
 
 - name: backward-compatibility
@@ -1623,8 +1629,10 @@ jobs:
       OS: RHEL8
   on_success:
     <<: *ccp_destroy_nvme
+{% if should_alert %}
   on_failure:
     *slack_alert
+{% endif %}
   ensure:
     <<: *set_failed
 
@@ -1673,8 +1681,10 @@ jobs:
       OS: RHEL7
   on_success:
     <<: *ccp_destroy_nvme
+{% if should_alert %}
   on_failure:
     *slack_alert
+{% endif %}
   ensure:
     <<: *set_failed
 
@@ -1721,8 +1731,10 @@ jobs:
       OS: RHEL6
   on_success:
     <<: *ccp_destroy_nvme
+{% if should_alert %}
   on_failure:
     *slack_alert
+{% endif %}
   ensure:
     <<: *set_failed
 {% endif %}
