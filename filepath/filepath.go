@@ -83,12 +83,8 @@ func (backupFPInfo *FilePathInfo) GetDirForContent(contentID int) string {
 	return path.Join(backupFPInfo.SegDirMap[contentID], "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
 }
 
-func (backupFPInfo *FilePathInfo) IsUserSpecifiedReportDir() bool {
-	return backupFPInfo.UserSpecifiedReportDir != ""
-}
-
 func (backupFPInfo *FilePathInfo) GetDirForReport(contentID int) string {
-	if backupFPInfo.IsUserSpecifiedReportDir() {
+	if backupFPInfo.UserSpecifiedReportDir != "" {
 		segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, contentID)
 		return path.Join(backupFPInfo.UserSpecifiedReportDir, segDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
 	}

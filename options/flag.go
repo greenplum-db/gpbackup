@@ -121,7 +121,7 @@ func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
 	flagSet.Bool(RUN_ANALYZE, false, "Run ANALYZE on restored tables")
 	flagSet.Bool(RESIZE_CLUSTER, false, "Restore a backup taken on a cluster with more or fewer segments than the cluster to which it will be restored")
-	flagSet.String(REPORT_DIR, "", "The absolute path of the directory to which all report files will be written")
+	flagSet.String(REPORT_DIR, "", "The absolute path of the directory to which restore report and error tables will be written")
 	_ = flagSet.MarkHidden(LEAF_PARTITION_DATA)
 }
 
