@@ -349,7 +349,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 	})
 	Describe("SplitTablesByPartitionType", func() {
 		var tables []backup.Table
-		var includeList []string
+		var includeList []options.Relation
 		var expectedMetadataTables []backup.Table
 		BeforeEach(func() {
 			tables = []backup.Table{
@@ -404,7 +404,28 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 		})
 		Context("leafPartitionData and includeTables", func() {
 			It("gets only parent partitions of included tables for metadata and only child partitions for data", func() {
-				includeList = []string{"public.part_parent1", "public.part_parent2_child1", "public.part_parent2_child2", "public.test_table"}
+				includeList = []options.Relation{
+					{
+						Oid:    1,
+						Schema: "public",
+						Name:   "part_parent1",
+					},
+					{
+						Oid:    6,
+						Schema: "public",
+						Name:   "part_parent2_child1",
+					},
+					{
+						Oid:    7,
+						Schema: "public",
+						Name:   "part_parent2_child2",
+					},
+					{
+						Oid:    8,
+						Schema: "public",
+						Name:   "test_table",
+					},
+				}
 				_ = cmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 
 				metadataTables, dataTables := backup.SplitTablesByPartitionType(tables, includeList)
@@ -429,7 +450,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 		Context("leafPartitionData only", func() {
 			It("gets only parent partitions for metadata and only child partitions in data", func() {
 				_ = cmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
-				includeList = []string{}
+				includeList = []options.Relation{}
 				metadataTables, dataTables := backup.SplitTablesByPartitionType(tables, includeList)
 
 				// In GPDB 7+, leaf partitions are created and attached to the root in separate metadata DDL
@@ -452,7 +473,28 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 		Context("includeTables only", func() {
 			It("gets only parent partitions of included tables for metadata and only included tables for data", func() {
 				_ = cmdFlags.Set(options.LEAF_PARTITION_DATA, "false")
-				includeList = []string{"public.part_parent1", "public.part_parent2_child1", "public.part_parent2_child2", "public.test_table"}
+				includeList = []options.Relation{
+					{
+						Oid:    1,
+						Schema: "public",
+						Name:   "part_parent1",
+					},
+					{
+						Oid:    6,
+						Schema: "public",
+						Name:   "part_parent2_child1",
+					},
+					{
+						Oid:    7,
+						Schema: "public",
+						Name:   "part_parent2_child2",
+					},
+					{
+						Oid:    8,
+						Schema: "public",
+						Name:   "test_table",
+					},
+				}
 				metadataTables, dataTables := backup.SplitTablesByPartitionType(tables, includeList)
 
 				// In GPDB 7+, leaf partitions are created and attached to the root in separate metadata DDL
@@ -474,7 +516,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 		})
 		Context("neither leafPartitionData nor includeTables", func() {
 			It("gets the same table list for both metadata and data", func() {
-				includeList = []string{}
+				includeList = []options.Relation{}
 				tables = []backup.Table{
 					{
 						Relation:        backup.Relation{Oid: 1, Schema: "public", Name: "part_parent1"},
@@ -519,7 +561,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 					expectedLongName = tableLongName
 				}
 
-				includeList = []string{}
+				includeList = []options.Relation{}
 				tables = []backup.Table{
 					{
 						Relation:        backup.Relation{Oid: 1, Schema: "public", Name: tableShortName},

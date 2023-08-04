@@ -56,9 +56,9 @@ func DoSetup() {
 	opts, err := options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
-	validateFilterLists(opts)
-
-	err = opts.ExpandIncludesForPartitions(connectionPool, cmdFlags)
+	ValidateAndProcessFilterLists(opts)
+	includeOids := GetOidsFromRelationList(IncludedRelationFqns)
+	err = ExpandIncludesForPartitions(connectionPool, opts, includeOids, cmdFlags)
 	gplog.FatalOnError(err)
 
 	clusterConfigConn := dbconn.NewDBConnFromEnvironment(MustGetFlagString(options.DBNAME))

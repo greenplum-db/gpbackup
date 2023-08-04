@@ -214,11 +214,25 @@ var _ = Describe("options", func() {
 	})
 	Describe("SeparateSchemaAndTable", func() {
 		It("properly splits the strings", func() {
-			tableList := []string{"foo.Bar", "FOO.Bar", "FO!@#.BAR"}
-			expectedFqn := []options.FqnStruct{
-				{SchemaName: `foo`, TableName: `Bar`},
-				{SchemaName: `FOO`, TableName: `Bar`},
-				{SchemaName: `FO!@#`, TableName: `BAR`},
+			tableList := []string{
+				"foo.Bar",
+				"FOO.Bar",
+				"FO!@#.BAR",
+				`ezschema."myt.able"`,          // dots in one part
+				`"mys.chema"."othert.able"`,    // dots in both parts
+				`easy."tryme""`,                // quotes with escaping
+				`"mys.chema"."anoth"ert.able"`, // quotes without escaping
+				`easy.no"quotes`,               // quotes without wrapping or escaping
+			}
+			expectedFqn := []options.Relation{
+				{Schema: `foo`, Name: `Bar`},
+				{Schema: `FOO`, Name: `Bar`},
+				{Schema: `FO!@#`, Name: `BAR`},
+				{Schema: "ezschema", Name: "myt.able"},
+				{Schema: "mys.chema", Name: "othert.able"},
+				{Schema: "easy", Name: "tryme\""},
+				{Schema: "mys.chema", Name: "anoth\"ert.able"},
+				{Schema: "easy", Name: "no\"quotes"},
 			}
 			resultFqn, err := options.SeparateSchemaAndTable(tableList)
 			Expect(err).ToNot(HaveOccurred())
@@ -242,7 +256,7 @@ var _ = Describe("options", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("foobar"))
 		})
-		It("fails when there are more than one dots", func() {
+		It("fails when there is more than one dot and no correct quoting", func() {
 			// todo in a future story, establish a way for users to escape dots to show us which one is *in* the name versus the dot that divides schemaname from tablename
 			tableList := []string{"foobar.baz.bam"}
 			_, err := options.SeparateSchemaAndTable(tableList)
@@ -267,7 +281,7 @@ var _ = Describe("options", func() {
 		})
 		It("returns a single result when given a single fqn", func() {
 			tablenames := []string{"public.foo"}
-			queryMock := mockdb.ExpectQuery("SELECT quote_ident")
+			queryMock := mockdb.ExpectQuery("SELECT quote_")
 			resultRows := sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("public", "foo")
 
@@ -280,17 +294,17 @@ var _ = Describe("options", func() {
 		It("returns an array of correctly formatted fqn's", func() {
 			tablenames := []string{"public.one", "public.two", "public.three"}
 
-			queryMock := mockdb.ExpectQuery("SELECT quote_ident")
+			queryMock := mockdb.ExpectQuery("SELECT quote_")
 			resultRows := sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("public", "one")
 			queryMock.WillReturnRows(resultRows)
 
-			queryMock = mockdb.ExpectQuery("SELECT quote_ident")
+			queryMock = mockdb.ExpectQuery("SELECT quote_")
 			resultRows = sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("public", "two")
 			queryMock.WillReturnRows(resultRows)
 
-			queryMock = mockdb.ExpectQuery("SELECT quote_ident")
+			queryMock = mockdb.ExpectQuery("SELECT quote_")
 			resultRows = sqlmock.NewRows([]string{"schemaname", "tablename"}).
 				AddRow("public", "three")
 			queryMock.WillReturnRows(resultRows)
@@ -299,15 +313,5 @@ var _ = Describe("options", func() {
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(tablenames).To(Equal(quotedTableNames))
 		})
-		//	// todo handle embedded dots
-		//	PIt("handles dots within schema or tablename", func() {
-		//	})
-		//	// todo handle embedded commas
-		//	PIt("handles commas within schema or tablename", func() {
-		//	})
-		//	// todo handle embedded quotes
-		//	PIt("handles quotes within schema or tablename", func() {
-		//	})
-		//
 	})
 })

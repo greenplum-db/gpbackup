@@ -181,6 +181,9 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE INDEX simple_table_idx1 ON testschema.simple_table(i)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP INDEX testschema.simple_table_idx1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.simple_table")
+			opts, err := options.NewOptions(backupCmdFlags)
+			Expect(err).NotTo(HaveOccurred())
+			backup.ValidateAndProcessFilterLists(opts)
 
 			index1 := backup.IndexDefinition{Oid: 0, Name: "simple_table_idx1", OwningSchema: "testschema", OwningTable: "simple_table", Def: sql.NullString{String: "CREATE INDEX simple_table_idx1 ON testschema.simple_table USING btree (i)", Valid: true}}
 
@@ -330,6 +333,9 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE RULE double_insert AS ON INSERT TO testschema.rule_table1 DO INSERT INTO testschema.rule_table1 (i) VALUES (1)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP RULE double_insert ON testschema.rule_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.rule_table1")
+			opts, err := options.NewOptions(backupCmdFlags)
+			Expect(err).NotTo(HaveOccurred())
+			backup.ValidateAndProcessFilterLists(opts)
 
 			results := backup.GetRules(connectionPool)
 
@@ -424,6 +430,9 @@ PARTITION BY RANGE (date)
 			testhelper.AssertQueryRuns(connectionPool, triggerString2)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TRIGGER sync_trigger_table1 ON testschema.trigger_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "testschema.trigger_table1")
+			opts, err := options.NewOptions(backupCmdFlags)
+			Expect(err).NotTo(HaveOccurred())
+			backup.ValidateAndProcessFilterLists(opts)
 
 			trigger1 := backup.TriggerDefinition{Oid: 0, Name: "sync_trigger_table1", OwningSchema: "testschema", OwningTable: "trigger_table1", Def: sql.NullString{String: triggerString2, Valid: true}}
 
@@ -531,8 +540,8 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 			results := backup.GetPolicies(connectionPool)
 
 			Expect(results).To(HaveLen(3))
-			policy1 := backup.RLSPolicy{Oid: 1, Name: "policy1_bob_all", Cmd: "*", Permissive: "true", Schema: "public", Table: "passwd", Roles: "bob", Qual: "true",WithCheck:"true"}
-			policy2 := backup.RLSPolicy{Oid: 1, Name: "policy2_all_view", Cmd: "r", Permissive: "true", Schema: "public", Table: "passwd", Roles: "", Qual: "true", WithCheck:""}
+			policy1 := backup.RLSPolicy{Oid: 1, Name: "policy1_bob_all", Cmd: "*", Permissive: "true", Schema: "public", Table: "passwd", Roles: "bob", Qual: "true", WithCheck: "true"}
+			policy2 := backup.RLSPolicy{Oid: 1, Name: "policy2_all_view", Cmd: "r", Permissive: "true", Schema: "public", Table: "passwd", Roles: "", Qual: "true", WithCheck: ""}
 			policy3 := backup.RLSPolicy{Oid: 1, Name: "policy3_user_mod", Cmd: "w", Permissive: "true", Schema: "public", Table: "passwd", Roles: "", Qual: "(user_name = CURRENT_USER)", WithCheck: "((CURRENT_USER = user_name) AND (shell = ANY (ARRAY['/bin/bash'::text, '/bin/sh'::text])))"}
 			structmatcher.ExpectStructsToMatchExcluding(&policy1, &results[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&policy2, &results[1], "Oid")

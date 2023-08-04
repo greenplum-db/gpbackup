@@ -2,7 +2,7 @@ package options
 
 import (
 	"fmt"
-	"sort"
+	"regexp"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -140,9 +140,11 @@ func (o *Options) AddIncludedRelation(relation string) {
 	o.IncludedRelations = append(o.IncludedRelations, relation)
 }
 
-type FqnStruct struct {
-	SchemaName string
-	TableName  string
+type Relation struct {
+	SchemaOid uint32
+	Oid       uint32
+	Schema    string
+	Name      string
 }
 
 func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error) {
@@ -150,14 +152,7 @@ func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error)
 		return []string{}, nil
 	}
 
-	// Properly escape single quote before running quote ident. Postgres
-	// quote_ident escapes single quotes by doubling them
-	escapedTables := make([]string, 0)
-	for _, v := range tableNames {
-		escapedTables = append(escapedTables, utils.EscapeSingleQuotes(v))
-	}
-
-	fqnSlice, err := SeparateSchemaAndTable(escapedTables)
+	fqnSlice, err := SeparateSchemaAndTable(tableNames)
 	if err != nil {
 		return nil, err
 	}
@@ -165,8 +160,11 @@ func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error)
 
 	quoteIdentTableFQNQuery := `SELECT quote_ident('%s') AS schemaname, quote_ident('%s') AS tablename`
 	for _, fqn := range fqnSlice {
-		queryResultTable := make([]FqnStruct, 0)
-		query := fmt.Sprintf(quoteIdentTableFQNQuery, fqn.SchemaName, fqn.TableName)
+		queryResultTable := make([]struct {
+			SchemaName string
+			TableName  string
+		}, 0)
+		query := fmt.Sprintf(quoteIdentTableFQNQuery, fqn.Schema, fqn.Name)
 		err := conn.Select(&queryResultTable, query)
 		if err != nil {
 			return nil, err
@@ -178,82 +176,53 @@ func QuoteTableNames(conn *dbconn.DBConn, tableNames []string) ([]string, error)
 	return result, nil
 }
 
-func SeparateSchemaAndTable(tableNames []string) ([]FqnStruct, error) {
-	fqnSlice := make([]FqnStruct, 0)
+func SeparateSchemaAndTable(tableNames []string) ([]Relation, error) {
+	fqnSlice := make([]Relation, 0)
+
 	for _, fqn := range tableNames {
-		parts := strings.Split(fqn, ".")
-		if len(parts) > 2 {
-			return nil, errors.Errorf("cannot process an Fully Qualified Name with embedded dots yet: %s", fqn)
+
+		var quotesPattern *regexp.Regexp
+		schemaNameIsQuoted := strings.HasPrefix(fqn, "\"")
+		tableNameIsQuoted := strings.HasSuffix(fqn, "\"")
+
+		if schemaNameIsQuoted && tableNameIsQuoted {
+			quotesPattern = regexp.MustCompile(`^"|"$|"\."`)
+		} else if schemaNameIsQuoted {
+			quotesPattern = regexp.MustCompile(`^"|"\.`)
+		} else if tableNameIsQuoted {
+			quotesPattern = regexp.MustCompile(`"$|\."`)
+		} else {
+			quotesPattern = regexp.MustCompile(`\.`)
 		}
-		if len(parts) < 2 {
-			return nil, errors.Errorf("Fully Qualified Names require a minimum of one dot, specifying the schema and table. Cannot process: %s", fqn)
-		}
-		schema := parts[0]
-		table := parts[1]
-		if schema == "" || table == "" {
-			return nil, errors.Errorf("Fully Qualified Names must specify the schema and table. Cannot process: %s", fqn)
+		parts := quotesPattern.Split(fqn, -1)
+
+		fqnParts := make([]string, 0)
+		for _, part := range parts {
+			if len(part) > 0 {
+				fqnParts = append(fqnParts, part)
+			}
 		}
 
-		currFqn := FqnStruct{
-			SchemaName: schema,
-			TableName:  table,
+		if len(fqnParts) != 2 {
+			return nil, errors.Errorf("cannot process this Fully Qualified Name: %s", fqn)
+		}
+
+		// Properly escape quotes before running quote ident. Postgres
+		// quote_ident escapes quotes by doubling them
+		schema := utils.EscapeSingleQuotes(fqnParts[0])
+		table := utils.EscapeSingleQuotes(fqnParts[1])
+
+		currFqn := Relation{
+			SchemaOid: 0,
+			Oid:       0,
+			Schema:    schema,
+			Name:      table,
 		}
 
 		fqnSlice = append(fqnSlice, currFqn)
 	}
 
 	return fqnSlice, nil
-}
-
-func (o *Options) ExpandIncludesForPartitions(conn *dbconn.DBConn, flags *pflag.FlagSet) error {
-	if len(o.GetIncludedTables()) == 0 {
-		return nil
-	}
-
-	quotedIncludeRelations, err := QuoteTableNames(conn, o.GetIncludedTables())
-	if err != nil {
-		return err
-	}
-
-	allFqnStructs, err := o.getUserTableRelationsWithIncludeFiltering(conn, quotedIncludeRelations, MustGetFlagBool(flags, NO_INHERITS))
-	if err != nil {
-		return err
-	}
-
-	includeSet := map[string]bool{}
-	for _, include := range o.GetIncludedTables() {
-		includeSet[include] = true
-	}
-
-	allFqnSet := map[string]bool{}
-	for _, fqnStruct := range allFqnStructs {
-		fqn := fmt.Sprintf("%s.%s", fqnStruct.SchemaName, fqnStruct.TableName)
-		allFqnSet[fqn] = true
-	}
-
-	// set arithmetic: find difference
-	diff := make([]string, 0)
-	for key := range allFqnSet {
-		_, keyExists := includeSet[key]
-		if !keyExists {
-			diff = append(diff, key)
-		}
-	}
-
-	if len(diff) > 0 {
-		gplog.Info("The filtered table set has been expanded to include additional dependent tables; see the log file for a full list of tables that have been added")
-		sort.Strings(diff)
-	}
-	for _, fqn := range diff {
-		err = flags.Set(INCLUDE_RELATION, fqn)
-		if err != nil {
-			return err
-		}
-		o.AddIncludedRelation(fqn)
-		gplog.Verbose("Added %s to the backup set", fqn)
-	}
-
-	return nil
 }
 
 func (o *Options) QuoteIncludeRelations(conn *dbconn.DBConn) error {
@@ -372,11 +341,7 @@ func (o *Options) recurseTableDepend(conn *dbconn.DBConn, includeOids []string, 
 	return expandedIncludeOidsArr, err
 }
 
-func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string, no_inherits bool) ([]FqnStruct, error) {
-	includeOids, err := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
-	if err != nil {
-		return nil, err
-	}
+func (o Options) GetUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includeOids []string, no_inherits bool) ([]Relation, error) {
 
 	oidStr := strings.Join(includeOids, ", ")
 	var childPartitionFilter, parentAndExternalPartitionFilter string
@@ -433,8 +398,10 @@ func (o Options) getUserTableRelationsWithIncludeFiltering(connectionPool *dbcon
 
 	query := fmt.Sprintf(`
 SELECT
-	n.nspname AS schemaname,
-	c.relname AS tablename
+    n.oid as schemaoid,
+    c.oid as oid,
+	n.nspname AS schema,
+	c.relname AS name
 FROM pg_class c
 JOIN pg_namespace n
 	ON c.relnamespace = n.oid
@@ -449,22 +416,10 @@ AND relkind IN ('r', 'f', 'p')
 AND %s
 ORDER BY c.oid;`, o.schemaFilterClause("n"), oidStr, parentAndExternalPartitionFilter, childPartitionFilter, ExtensionFilterClause("c"))
 
-	results := make([]FqnStruct, 0)
+	results := make([]Relation, 0)
 	err = connectionPool.Select(&results, query)
 
 	return results, err
-}
-
-func getOidsFromRelationList(connectionPool *dbconn.DBConn, quotedRelationNames []string) ([]string, error) {
-	relList := utils.SliceToQuotedString(quotedRelationNames)
-	query := fmt.Sprintf(`
-SELECT
-	c.oid AS string
-FROM pg_class c
-JOIN pg_namespace n ON c.relnamespace = n.oid
-WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, relList)
-
-	return dbconn.SelectStringSlice(connectionPool, query)
 }
 
 // A list of schemas we don't want to back up, formatted for use in a WHERE clause

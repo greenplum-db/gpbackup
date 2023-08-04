@@ -38,11 +38,11 @@ var _ = Describe("utils/util tests", func() {
 	Describe("ValidateFQNs", func() {
 		It("validates the following cases correctly", func() {
 			testStrings := []string{
-				`schemaname.tablename`,    // unquoted
-				`"schema,name".tablename`, // quoted schema
-				`schemaname."table,name"`, // quoted table
-				`schema name.tablename"`,  // spaces
-				`schema name	.tablename"`, //tabs
+				`schemaname.tablename`,                              // unquoted
+				`"schema,name".tablename`,                           // quoted schema
+				`schemaname."table,name"`,                           // quoted table
+				`schema name.tablename"`,                            // spaces
+				`schema name	.tablename"`,                           //tabs
 				`schemaname.TABLENAME!@#$%^&*()_+={}|[]\';":/,?><"`, // special characters
 			}
 			utils.ValidateFQNs(testStrings)
@@ -58,7 +58,7 @@ var _ = Describe("utils/util tests", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("fails if the schema and table can't be determined", func() {
-			testStrings := []string{`schema.name.table.name`}
+			testStrings := []string{`schemanametablename`}
 			err := utils.ValidateFQNs(testStrings)
 			Expect(err).To(HaveOccurred())
 		})

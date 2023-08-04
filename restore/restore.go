@@ -122,7 +122,7 @@ func DoSetup() {
 			gplog.FatalOnError(err)
 			redirectRelationsToRestore := make([]string, 0)
 			for _, fqn := range fqns {
-				redirectRelationsToRestore = append(redirectRelationsToRestore, utils.MakeFQN(opts.RedirectSchema, fqn.TableName))
+				redirectRelationsToRestore = append(redirectRelationsToRestore, utils.MakeFQN(opts.RedirectSchema, fqn.Name))
 			}
 			relationsToRestore = redirectRelationsToRestore
 		}

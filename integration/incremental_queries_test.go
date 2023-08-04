@@ -260,6 +260,9 @@ var _ = Describe("backup integration tests", func() {
 			Context("During a table-filtered backup", func() {
 				It("only retrieves ao metadata for specific tables", func() {
 					_ = backupCmdFlags.Set(options.INCLUDE_RELATION, aoTableFQN)
+					opts, err := options.NewOptions(backupCmdFlags)
+					Expect(err).NotTo(HaveOccurred())
+					backup.ValidateAndProcessFilterLists(opts)
 
 					aoIncrementalMetadata = backup.GetAOIncrementalMetadata(connectionPool)
 					Expect(aoIncrementalMetadata).To(HaveLen(1))

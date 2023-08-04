@@ -76,7 +76,6 @@ var _ = Describe("backup/validate tests", func() {
 				// Added to handle call to `quote_ident`
 				schemaAndTable.AddRow("public", "table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(schemaAndTable)
-				//
 				tableRows.AddRow("1", "public.table1")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(tableRows)
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(partitionTables)

@@ -17,8 +17,16 @@ import (
  * This file contains functions related to validating user input.
  */
 
-func validateFilterLists(opts *options.Options) {
+/* This function populates the global table filter lists, so must be run before those are
+ * referenced
+ */
+func ValidateAndProcessFilterLists(opts *options.Options) {
 	gplog.Verbose("Validating Tables and Schemas exist in Database")
+
+	// pre-create these so we can save the processed versions of our filters
+	IncludedRelationFqns = make([]options.Relation, 0)
+	ExcludedRelationFqns = make([]options.Relation, 0)
+
 	ValidateTablesExist(connectionPool, opts.GetIncludedTables(), false)
 	ValidateTablesExist(connectionPool, opts.GetExcludedTables(), true)
 	ValidateSchemasExist(connectionPool, opts.GetIncludedSchemas(), false)
@@ -54,42 +62,76 @@ func ValidateTablesExist(conn *dbconn.DBConn, tableList []string, excludeSet boo
 
 	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, tableList)
 	gplog.FatalOnError(err)
-	// todo perhaps store quoted list in options??
 
 	quotedTablesStr := utils.SliceToQuotedString(quotedIncludeRelations)
 	query := fmt.Sprintf(`
 	SELECT
+        n.oid as schemaoid,
 		c.oid,
-		n.nspname || '.' || c.relname AS name
+        n.nspname as schemaname,
+        c.relname as tablename,
+		quote_ident(n.nspname) || '.' || quote_ident(c.relname) AS name
 	FROM pg_namespace n
 	JOIN pg_class c ON n.oid = c.relnamespace
 	WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTablesStr)
 	resultTables := make([]struct {
-		Oid  uint32
-		Name string
+		SchemaOid  uint32
+		Oid        uint32
+		SchemaName string
+		TableName  string
+		Name       string
 	}, 0)
 	err = conn.Select(&resultTables, query)
 	gplog.FatalOnError(err, fmt.Sprintf("Query was: %s", query))
-	tableMap := make(map[string]uint32)
+	tableMap := make(map[string]options.Relation)
 	for _, table := range resultTables {
-		tableMap[table.Name] = table.Oid
+		currFqn := options.Relation{
+			SchemaOid: table.SchemaOid,
+			Oid:       table.Oid,
+			Schema:    table.SchemaName,
+			Name:      table.TableName,
+		}
+		tableMap[table.Name] = currFqn
 	}
 
 	partTableMap := GetPartitionTableMap(conn)
-	for _, table := range tableList {
-		tableOid := tableMap[table]
-		if tableOid == 0 {
+	for idx, table := range quotedIncludeRelations {
+		tableRel, ok := tableMap[table]
+
+		/* Because users have some flexibility in what they choose to quote, also check for matches
+		 * using table names that are not run through quote_ident.
+		 */
+		if !ok {
+			unquotedTable := tableList[idx]
+			unQuotedTableRel, unquotedOk := tableMap[unquotedTable]
+			if unquotedOk {
+				tableRel = unQuotedTableRel
+				table = unquotedTable
+				ok = true
+			}
+		}
+
+		if !ok {
 			if excludeSet {
 				gplog.Warn("Excluded table %s does not exist", table)
 			} else {
 				gplog.Fatal(nil, "Table %s does not exist", table)
 			}
 		}
-		if partTableMap[tableOid].Level == "i" {
+		if partTableMap[tableRel.Oid].Level == "i" {
 			gplog.Fatal(nil, "Cannot filter on %s, as it is an intermediate partition table.  Only parent partition tables and leaf partition tables may be specified.", table)
 		}
-		if partTableMap[tableOid].Level == "l" && !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
+		if partTableMap[tableRel.Oid].Level == "l" && !MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 			gplog.Fatal(nil, "--leaf-partition-data flag must be specified to filter on %s, as it is a leaf partition table.", table)
+		}
+
+		// store the table oids for later use, to avoid needing to re-process
+		if ok {
+			if excludeSet {
+				AddExcludedRelationFqn(tableRel)
+			} else {
+				AddIncludedRelationFqn(tableRel)
+			}
 		}
 	}
 }

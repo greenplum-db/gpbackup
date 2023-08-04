@@ -205,10 +205,9 @@ func createBackupDirectoriesOnAllHosts() {
  */
 
 func RetrieveAndProcessTables() ([]Table, []Table) {
-	quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.INCLUDE_RELATION))
-	gplog.FatalOnError(err)
+	includedRelations := GetIncludedUserTableRelations(connectionPool, IncludedRelationFqns)
+	tableRelations := ConvertRelationsOptionsToBackup(includedRelations)
 
-	tableRelations := GetIncludedUserTableRelations(connectionPool, quotedIncludeRelations)
 	LockTables(connectionPool, tableRelations)
 
 	if connectionPool.Version.AtLeast("6") {
@@ -217,7 +216,7 @@ func RetrieveAndProcessTables() ([]Table, []Table) {
 
 	tables := ConstructDefinitionsForTables(connectionPool, tableRelations)
 
-	metadataTables, dataTables := SplitTablesByPartitionType(tables, quotedIncludeRelations)
+	metadataTables, dataTables := SplitTablesByPartitionType(tables, IncludedRelationFqns)
 	objectCounts["Tables"] = len(metadataTables)
 
 	return metadataTables, dataTables

@@ -3,6 +3,7 @@ package integration
 import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,7 +59,8 @@ var _ = Describe("backup integration tests", func() {
 
 			deps := backup.GetDependencies(connectionPool, backupSet, tables)
 			if connectionPool.Version.Is("4") {
-				tableRelations := backup.GetIncludedUserTableRelations(connectionPool, []string{})
+				optRelations := backup.GetIncludedUserTableRelations(connectionPool, []options.Relation{})
+				tableRelations := backup.ConvertRelationsOptionsToBackup(optRelations)
 				tables := backup.ConstructDefinitionsForTables(connectionPool, tableRelations)
 				protocols := backup.GetExternalProtocols(connectionPool)
 				backup.AddProtocolDependenciesForGPDB4(deps, tables, protocols)

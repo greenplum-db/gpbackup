@@ -77,7 +77,9 @@ CREATE SCHEMA "CAPschema";
 CREATE TABLE "CAPschema"."BAR" (i int);
 CREATE TABLE "CAPschema".baz (i int);
 CREATE TABLE public.foo_bar (i int);
-CREATE TABLE public."foo ~#$%^&*()_-+[]{}><\|;:/?!bar" (i int);
+CREATE TABLE public."foo ~#$%^.&*()_-+[]{}><\|;:/?!bar" (i int);
+CREATE SCHEMA "dot.schema";
+CREATE TABLE "dot.schema"."dot.table" (i int);
 -- special chars: embedded tab char
 CREATE TABLE public."tab	bar" (i int);
 -- special chars: embedded newline char
@@ -90,7 +92,8 @@ DROP TABLE public."FOObar";
 DROP TABLE public."BAR";
 DROP SCHEMA "CAPschema" cascade;
 DROP TABLE public.foo_bar;
-DROP TABLE public."foo ~#$%^&*()_-+[]{}><\|;:/?!bar";
+DROP TABLE public."foo ~#$%^.&*()_-+[]{}><\|;:/?!bar";
+DROP SCHEMA "dot.schema" cascade;
 -- special chars: embedded tab char
 DROP TABLE public."tab	bar";
 -- special chars: embedded newline char
@@ -101,13 +104,14 @@ bar";
 			defer testhelper.AssertQueryRuns(connectionPool, dropSpecialCharacterTables)
 
 			tableList := []string{
-				`public.BAR`,
-				`CAPschema.BAR`,
-				`CAPschema.baz`,
+				`public."BAR"`,
+				`"CAPschema"."BAR"`,
+				`"CAPschema".baz`,
 				`public.foo_bar`,
-				`public.foo ~#$%^&*()_-+[]{}><\|;:/?!bar`,
-				"public.tab\tbar",     // important to use double quotes to allow \t to become tab
-				"public.newline\nbar", // important to use double quotes to allow \n to become newline
+				`public."foo ~#$%^.&*()_-+[]{}><\|;:/?!bar"`,
+				`"dot.schema"."dot.table"`,
+				"public.\"tab\tbar\"",     // important to use double quotes to allow \t to become tab
+				"public.\"newline\nbar\"", // important to use double quotes to allow \n to become newline
 			}
 
 			backup.ValidateTablesExist(connectionPool, tableList, false)
@@ -121,44 +125,58 @@ bar";
 		AfterEach(func() {
 			testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public."CAPpart"`)
 		})
-
 		It("adds parent table when child partition with special chars is included", func() {
-			err := backupCmdFlags.Set(options.INCLUDE_RELATION, `public.CAPpart_1_prt_girls`)
+			parentTable := `public.CAPpart`
+			partTable := `public.CAPpart_1_prt_girls`
+
+			err := backupCmdFlags.Set(options.INCLUDE_RELATION, partTable)
 			Expect(err).ToNot(HaveOccurred())
+			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
+
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
-			Expect(subject.GetIncludedTables()).To(ContainElement("public.CAPpart_1_prt_girls"))
+			backup.ValidateAndProcessFilterLists(subject)
+
+			Expect(subject.GetIncludedTables()).To(ContainElement(partTable))
 			Expect(subject.GetIncludedTables()).To(HaveLen(1))
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(subject.GetIncludedTables()).To(HaveLen(2))
 			Expect(backupCmdFlags.GetStringArray(options.INCLUDE_RELATION)).To(HaveLen(2))
-			Expect(subject.GetIncludedTables()).To(ContainElement("public.CAPpart_1_prt_girls"))
-			Expect(subject.GetIncludedTables()).To(ContainElement("public.CAPpart"))
+			Expect(subject.GetIncludedTables()).To(ContainElement(partTable))
+			Expect(subject.GetIncludedTables()).To(ContainElement(parentTable))
 
 			// ensure that ExpandIncludesForPartitions does not disturb the original value
 			// that the user typed in, which is used by initializeBackupReport() and
 			// is important for incremental backups which must exactly match all flag input
-			Expect(subject.GetOriginalIncludedTables()).To(Equal([]string{`public.CAPpart_1_prt_girls`}))
+			Expect(subject.GetOriginalIncludedTables()).To(HaveLen(1))
+			Expect(subject.GetOriginalIncludedTables()).To(Equal([]string{partTable}))
 		})
 		It("adds parent table when child partition with embedded quote character is included", func() {
 			createGenericPartitionTable(`public."""hasquote"""`)
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public."""hasquote"""`)
 
-			err := backupCmdFlags.Set(options.INCLUDE_RELATION, `public."hasquote"_1_prt_girls`)
+			parentTable := `public."hasquote"`
+			partTable := `public."hasquote"_1_prt_girls`
+			err := backupCmdFlags.Set(options.INCLUDE_RELATION, partTable)
+			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 			Expect(err).ToNot(HaveOccurred())
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
-			Expect(subject.GetIncludedTables()).To(ContainElement(`public."hasquote"_1_prt_girls`))
+			backup.ValidateAndProcessFilterLists(subject)
+
+			Expect(subject.GetIncludedTables()).To(ContainElement(partTable))
 			Expect(subject.GetIncludedTables()).To(HaveLen(1))
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 			Expect(subject.GetIncludedTables()).To(HaveLen(2))
 			Expect(backupCmdFlags.GetStringArray(options.INCLUDE_RELATION)).To(HaveLen(2))
-			Expect(subject.GetIncludedTables()[0]).To(Equal(`public."hasquote"_1_prt_girls`))
-			Expect(subject.GetIncludedTables()[1]).To(Equal(`public."hasquote"`))
+			Expect(subject.GetIncludedTables()[0]).To(Equal(partTable))
+			Expect(subject.GetIncludedTables()[1]).To(Equal(parentTable))
 		})
 		It("returns child partition tables for an included parent table if the leaf-partition-data flag is set and the filter includes a parent partition table", func() {
 			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
@@ -171,8 +189,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{
@@ -194,8 +214,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{
@@ -223,8 +245,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{
@@ -240,6 +264,10 @@ bar";
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table2_1_prt_other")
 
+			// must include leaf partition flag, as it is required to validate the include lists and populate the global structures
+			// this results in a much broader partition inclusion on GPDB6 and before
+			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
+
 			createPartitionTableWithExternalPartition("public.partition_table1", "boys")
 			defer dropTableWithExternalPartition("public.partition_table1")
 			createPartitionTableWithExternalPartition("public.partition_table2", "girls")
@@ -249,8 +277,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			var expectedTableNames []string
@@ -258,6 +288,8 @@ bar";
 				expectedTableNames = []string{
 					"public.partition_table1",
 					"public.partition_table1_1_prt_boys",
+					"public.partition_table1_1_prt_girls",
+					"public.partition_table1_1_prt_other",
 					"public.partition_table2",
 					"public.partition_table2_1_prt_girls",
 					"public.partition_table2_1_prt_other",
@@ -284,6 +316,7 @@ bar";
 			_ = backupCmdFlags.Set(options.NO_INHERITS, "true")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table1")
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.partition_table2_1_prt_other")
+			_ = backupCmdFlags.Set(options.LEAF_PARTITION_DATA, "true")
 
 			createPartitionTableWithExternalPartition("public.partition_table1", "boys")
 			defer dropTableWithExternalPartition("public.partition_table1")
@@ -294,8 +327,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			var expectedTableNames []string
@@ -323,8 +358,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{
@@ -354,8 +391,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{
@@ -381,8 +420,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{
@@ -410,8 +451,10 @@ bar";
 
 			subject, err := options.NewOptions(backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
-			err = subject.ExpandIncludesForPartitions(connectionPool, backupCmdFlags)
+			includeOids := backup.GetOidsFromRelationList(backup.IncludedRelationFqns)
+			err = backup.ExpandIncludesForPartitions(connectionPool, subject, includeOids, backupCmdFlags)
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{

@@ -423,6 +423,9 @@ PARTITION BY LIST (gender)
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.part_table")
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
 			results, _ := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))
@@ -568,6 +571,9 @@ SET SUBPARTITION TEMPLATE
 			oid := testutils.OidFromObjectName(connectionPool, "public", "part_table", backup.TYPE_RELATION)
 
 			_ = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.part_table")
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
 
 			_, results := backup.GetPartitionDetails(connectionPool)
 			Expect(results).To(HaveLen(1))

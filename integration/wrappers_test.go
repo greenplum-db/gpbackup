@@ -27,6 +27,10 @@ var _ = Describe("Wrappers Integration", func() {
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.foo;")
 			defer testhelper.AssertQueryRuns(connectionPool, `DROP TABLE public."BAR";`)
 
+			subject, err := options.NewOptions(backupCmdFlags)
+			Expect(err).To(Not(HaveOccurred()))
+			backup.ValidateAndProcessFilterLists(subject)
+
 			// every backup occurs in a transaction; we are testing a small part of that backup
 			connectionPool.MustBegin(0)
 			defer connectionPool.MustCommit(0)

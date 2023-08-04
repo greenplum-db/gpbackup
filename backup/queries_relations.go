@@ -8,6 +8,7 @@ package backup
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -24,35 +25,27 @@ func relationAndSchemaFilterClause() string {
 	}
 	filterRelationClause = SchemaFilterClause("n")
 	if len(MustGetFlagStringArray(options.EXCLUDE_RELATION)) > 0 {
-		quotedExcludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.EXCLUDE_RELATION))
-		gplog.FatalOnError(err)
-
-		excludeOids := getOidsFromRelationList(connectionPool, quotedExcludeRelations)
+		excludeOids := GetOidsFromRelationList(ExcludedRelationFqns)
 		if len(excludeOids) > 0 {
-			filterRelationClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ", "))
+			filterRelationClause += fmt.Sprintf("\nAND c.oid NOT IN (%s)", strings.Join(excludeOids, ","))
 		}
 	}
 	if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) > 0 {
-		quotedIncludeRelations, err := options.QuoteTableNames(connectionPool, MustGetFlagStringArray(options.INCLUDE_RELATION))
-		gplog.FatalOnError(err)
-
-		includeOids := getOidsFromRelationList(connectionPool, quotedIncludeRelations)
-		filterRelationClause += fmt.Sprintf("\nAND c.oid IN (%s)", strings.Join(includeOids, ", "))
+		includeOids := GetOidsFromRelationList(IncludedRelationFqns)
+		filterRelationClause += fmt.Sprintf("\nAND c.oid IN (%s)", strings.Join(includeOids, ","))
 	}
 	return filterRelationClause
 }
 
-func getOidsFromRelationList(connectionPool *dbconn.DBConn, quotedIncludeRelations []string) []string {
-	relList := utils.SliceToQuotedString(quotedIncludeRelations)
-	query := fmt.Sprintf(`
-	SELECT c.oid AS string
-	FROM pg_class c
-		JOIN pg_namespace n ON c.relnamespace = n.oid
-	WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, relList)
-	return dbconn.MustSelectStringSlice(connectionPool, query)
+func GetOidsFromRelationList(relationFqns []options.Relation) []string {
+	oidString := make([]string, len(relationFqns))
+	for idx, rel := range relationFqns {
+		oidString[idx] = strconv.FormatUint(uint64(rel.Oid), 10)
+	}
+	return oidString
 }
 
-func GetIncludedUserTableRelations(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
+func GetIncludedUserTableRelations(connectionPool *dbconn.DBConn, includedRelationsQuoted []options.Relation) []options.Relation {
 	if len(MustGetFlagStringArray(options.INCLUDE_RELATION)) > 0 {
 		return getUserTableRelationsWithIncludeFiltering(connectionPool, includedRelationsQuoted)
 	}
@@ -75,10 +68,31 @@ func (r Relation) GetUniqueID() UniqueID {
 }
 
 /*
+ * Due to the structure of our codebase, we have two identical versions of the Relation struct.
+ * Convert explicitly to keep the compiler happy.
+ *
+ * TODO -- find a way to remove this and just have one version of this struct.
+ */
+func ConvertRelationsOptionsToBackup(inRelations []options.Relation) []Relation {
+	outRelations := make([]Relation, len(inRelations))
+
+	for idx, inRel := range inRelations {
+		outRel := Relation{
+			SchemaOid: inRel.SchemaOid,
+			Oid:       inRel.Oid,
+			Schema:    inRel.Schema,
+			Name:      inRel.Name,
+		}
+		outRelations[idx] = outRel
+	}
+	return outRelations
+}
+
+/*
  * This function also handles exclude table filtering since the way we do
  * it is currently much simpler than the include case.
  */
-func getUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
+func getUserTableRelations(connectionPool *dbconn.DBConn) []options.Relation {
 	childPartitionFilter := ""
 	if !MustGetFlagBool(options.LEAF_PARTITION_DATA) && connectionPool.Version.Before("7") {
 		// Filter out non-external child partitions in GPDB6 and earlier.
@@ -111,21 +125,21 @@ func getUserTableRelations(connectionPool *dbconn.DBConn) []Relation {
 		ORDER BY c.oid`,
 		relationAndSchemaFilterClause(), childPartitionFilter, relkindFilter, ExtensionFilterClause("c"))
 
-	results := make([]Relation, 0)
+	results := make([]options.Relation, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
 	return results
 }
 
-func getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includedRelationsQuoted []string) []Relation {
+func getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, includeRelationFqns []options.Relation) []options.Relation {
 	// In GPDB 7+, root partitions are marked as relkind 'p'.
 	relkindFilter := `'r'`
 	if connectionPool.Version.AtLeast("7") {
 		relkindFilter = `'r', 'p'`
 	}
 
-	includeOids := getOidsFromRelationList(connectionPool, includedRelationsQuoted)
+	includeOids := GetOidsFromRelationList(includeRelationFqns)
 	oidStr := strings.Join(includeOids, ", ")
 	query := fmt.Sprintf(`
 	SELECT n.oid AS schemaoid,
@@ -138,7 +152,7 @@ func getUserTableRelationsWithIncludeFiltering(connectionPool *dbconn.DBConn, in
 		AND relkind IN (%s)
 	ORDER BY c.oid`, oidStr, relkindFilter)
 
-	results := make([]Relation, 0)
+	results := make([]options.Relation, 0)
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	return results
@@ -265,8 +279,7 @@ func GetAllSequences(connectionPool *dbconn.DBConn) []Sequence {
 	// where owning table is excluded from backup
 	excludeOids := make([]string, 0)
 	if len(MustGetFlagStringArray(options.EXCLUDE_RELATION)) > 0 {
-		excludeOids = getOidsFromRelationList(connectionPool,
-			MustGetFlagStringArray(options.EXCLUDE_RELATION))
+		excludeOids = GetOidsFromRelationList(ExcludedRelationFqns)
 	}
 	for i := range results {
 		found := utils.Exists(excludeOids, results[i].OwningTableOid)

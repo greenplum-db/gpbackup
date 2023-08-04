@@ -52,6 +52,10 @@ var (
 	 * or the signal handler.
 	 */
 	CleanupGroup *sync.WaitGroup
+
+	// Allow global access to pre-processed include and exclude table lists
+	IncludedRelationFqns []options.Relation
+	ExcludedRelationFqns []options.Relation
 )
 
 /*
@@ -144,4 +148,13 @@ func MustGetFlagStringSlice(flagName string) []string {
 
 func MustGetFlagStringArray(flagName string) []string {
 	return options.MustGetFlagStringArray(cmdFlags, flagName)
+}
+
+// Allow global access to pre-processed include and exclude table lists
+func AddIncludedRelationFqn(relation options.Relation) {
+	IncludedRelationFqns = append(IncludedRelationFqns, relation)
+}
+
+func AddExcludedRelationFqn(relation options.Relation) {
+	ExcludedRelationFqns = append(ExcludedRelationFqns, relation)
 }
