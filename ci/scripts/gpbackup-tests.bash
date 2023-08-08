@@ -42,9 +42,6 @@ cat <<SCRIPT > /tmp/run_tests.bash
 
   set -ex
   source env.sh
-  if [[ -f /opt/gcc_env.sh ]]; then
-      source /opt/gcc_env.sh
-  fi
   if test -f ${GPHOME}/lib/postgresql/dummy_seclabel.so; then
     gpconfig -c shared_preload_libraries -v dummy_seclabel
     gpstop -ar

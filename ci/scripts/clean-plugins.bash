@@ -85,9 +85,6 @@ set -x
 # use "temp build dir" of parent shell
 export GOPATH=\${HOME}/go
 export PATH=/usr/local/go/bin:\$PATH:\${GOPATH}/bin:/opt/rh/devtoolset-7/root/usr/bin/
-if [[ -f /opt/gcc_env.sh ]]; then
-    source /opt/gcc_env.sh
-fi
 mkdir -p \${GOPATH}/bin \${GOPATH}/src/github.com/greenplum-db
 cp -R $(pwd)/gpbackup \${GOPATH}/src/github.com/greenplum-db/
 

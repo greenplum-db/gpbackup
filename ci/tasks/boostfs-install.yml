@@ -13,7 +13,7 @@ inputs:
 - name: gpbackup_ddboost_plugin
 
 params:
-  default_ami_user: centos
+  default_ami_user: rocky
   DD_SOURCE_HOST:
   DD_USER:
   DD_PW:

@@ -21,9 +21,6 @@ chown -R gpadmin:gpadmin ${GOPATH}
 cat<<SCRIPT > /home/gpadmin/.bashrc
 export GOPATH=${GOPATH}
 export PATH=/usr/local/go/bin:$PATH:${GOPATH}/bin
-if [[ -f /opt/gcc_env.sh ]]; then
-    source /opt/gcc_env.sh
-fi
 source /usr/local/greenplum-db-devel/greenplum_path.sh
 source ${CWDIR}/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
 SCRIPT
