@@ -55,14 +55,6 @@ func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestam
 }
 
 /*
- * Set user specified dir for report.
- * Currently used for restore only.
- */
-func (backupFPInfo *FilePathInfo) SetReportDir(userSpecifiedReportDir string) {
-	backupFPInfo.UserSpecifiedReportDir = userSpecifiedReportDir
-}
-
-/*
  * Restoring a future-dated backup is allowed (e.g. the backup was taken in a
  * different time zone that is ahead of the restore time zone), so only check
  * format, not whether the timestamp is earlier than the current time.
@@ -90,12 +82,11 @@ func (backupFPInfo *FilePathInfo) GetDirForContent(contentID int) string {
 	return path.Join(baseDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
 }
 
-func (backupFPInfo *FilePathInfo) GetDirForReport(contentID int) string {
+func (backupFPInfo *FilePathInfo) GetReportDirectoryPath() string {
 	if backupFPInfo.UserSpecifiedReportDir != "" {
-		segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, contentID)
-		return path.Join(backupFPInfo.UserSpecifiedReportDir, segDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
+		return backupFPInfo.UserSpecifiedReportDir
 	}
-	return backupFPInfo.GetDirForContent(contentID);
+	return backupFPInfo.GetDirForContent(-1)
 }
 
 func (backupFPInfo *FilePathInfo) replaceCopyFormatStringsInPath(templateFilePath string, contentID int) string {
@@ -176,7 +167,7 @@ func (backupFPInfo *FilePathInfo) GetBackupReportFilePath() string {
 }
 
 func (backupFPInfo *FilePathInfo) GetRestoreFilePath(restoreTimestamp string, filetype string) string {
-	return path.Join(backupFPInfo.GetDirForReport(-1), fmt.Sprintf("gprestore_%s_%s_%s", backupFPInfo.Timestamp, restoreTimestamp, metadataFilenameMap[filetype]))
+	return path.Join(backupFPInfo.GetReportDirectoryPath(), fmt.Sprintf("gprestore_%s_%s_%s", backupFPInfo.Timestamp, restoreTimestamp, metadataFilenameMap[filetype]))
 }
 
 func (backupFPInfo *FilePathInfo) GetRestoreReportFilePath(restoreTimestamp string) string {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gp-common-go-libs/operating"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
@@ -76,9 +77,9 @@ func DoSetup() {
 	gplog.FatalOnError(err)
 	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), backupTimestamp, segPrefix)
 	if reportDir := MustGetFlagString(options.REPORT_DIR); reportDir != "" {
-		globalFPInfo.SetReportDir(reportDir)
-		info, err := globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForReport(-1)))
-		gplog.FatalOnError(err, info)
+		globalFPInfo.UserSpecifiedReportDir = reportDir
+		err := operating.System.MkdirAll(globalFPInfo.GetReportDirectoryPath(), 0775)
+		gplog.FatalOnError(err)
 	}
 
 	// Get restore metadata from plugin

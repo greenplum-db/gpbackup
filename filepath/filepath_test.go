@@ -150,9 +150,9 @@ var _ = Describe("filepath tests", func() {
 		})
 		It("returns different report file paths based on user specified report path for backup and restore command", func() {
 			fpInfo := NewFilePathInfo(c, "/foo/bar", "20170101010101", "gpseg")
-			fpInfo.SetReportDir("/bar/foo")
+			fpInfo.UserSpecifiedReportDir = "/bar/foo"
 			Expect(fpInfo.GetBackupReportFilePath()).To(Equal("/foo/bar/gpseg-1/backups/20170101/20170101010101/gpbackup_20170101010101_report"))
-			Expect(fpInfo.GetRestoreReportFilePath("20200101010101")).To(Equal("/bar/foo/gpseg-1/backups/20170101/20170101010101/gprestore_20170101010101_20200101010101_report"))
+			Expect(fpInfo.GetRestoreReportFilePath("20200101010101")).To(Equal("/bar/foo/gprestore_20170101010101_20200101010101_report"))
 		})
 	})
 	Describe("GetTableBackupFilePath", func() {

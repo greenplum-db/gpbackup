@@ -364,8 +364,14 @@ func getMetdataFileContents(backupDir string, timestamp string, fileSuffix strin
 }
 
 // check restore file exist and has right permissions
-func checkRestoreMetdataFile(backupDir string, timestamp string, fileSuffix string) {
-	file, err := path.Glob(path.Join(backupDir, "*-1/backups", timestamp[:8], timestamp, fmt.Sprintf("gprestore_%s_*_%s", timestamp, fileSuffix)))
+func checkRestoreMetadataFile(backupDir string, timestamp string, fileSuffix string, withHierarchy bool) {
+	filePath := fmt.Sprintf("gprestore_%s_*_%s", timestamp, fileSuffix)
+	if withHierarchy {
+		filePath = path.Join(backupDir, "backups", timestamp[:8], timestamp, filePath)
+	} else {
+		filePath = path.Join(backupDir, filePath)
+	}
+	file, err := path.Glob(filePath)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(file).To(HaveLen(1))
 	info, err := os.Stat(file[0])
@@ -1259,7 +1265,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-db", "restoredb")
 
 			// Since --report-dir and --backup-dir were not used, restore report should be in default dir
-			checkRestoreMetdataFile(path.Dir(backupCluster.GetDirForContent(-1)), timestamp, "report")
+			checkRestoreMetadataFile(backupCluster.GetDirForContent(-1), timestamp, "report", true)
 		})
 		It("runs gprestore without --report-dir, but with --backup-dir", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1270,7 +1276,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-db", "restoredb")
 
 			// Since --backup-dir was used, restore report should be in backup dir
-			checkRestoreMetdataFile(backupDir, timestamp, "report")
+			checkRestoreMetadataFile(backupDir, timestamp, "report", true)
 		})
 		It("runs gprestore with --report-dir and same --backup-dir", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1282,7 +1288,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-db", "restoredb")
 
 			// Since --report-dir and --backup-dir are the same, restore report should be in backup dir
-			checkRestoreMetdataFile(backupDir, timestamp, "report")
+			checkRestoreMetadataFile(backupDir, timestamp, "report", false)
 		})
 		It("runs gprestore with --report-dir and different --backup-dir", func() {
 			reportDir := path.Join(backupDir, "restore")
@@ -1295,7 +1301,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-db", "restoredb")
 
 			// Since --report-dir differs from --backup-dir, restore report should be in report dir
-			checkRestoreMetdataFile(reportDir, timestamp, "report")
+			checkRestoreMetadataFile(reportDir, timestamp, "report", false)
 		})
 		It("runs gprestore with --report-dir and check error_tables* files are present", func() {
 			if segmentCount != 3 {
@@ -1315,9 +1321,9 @@ var _ = Describe("backup and restore end to end tests", func() {
 			_, _ = gprestoreCmd.CombinedOutput()
 
 			// All report files should be placed in the same dir
-			checkRestoreMetdataFile(reportDir, "20190809230424", "report")
-			checkRestoreMetdataFile(reportDir, "20190809230424", "error_tables_metadata")
-			checkRestoreMetdataFile(reportDir, "20190809230424", "error_tables_data")
+			checkRestoreMetadataFile(reportDir, "20190809230424", "report", false)
+			checkRestoreMetadataFile(reportDir, "20190809230424", "error_tables_metadata", false)
+			checkRestoreMetadataFile(reportDir, "20190809230424", "error_tables_data", false)
 		})
 	})
 	Describe("Flag combinations", func() {
