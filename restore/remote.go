@@ -38,8 +38,20 @@ func VerifyBackupDirectoriesExistOnAllHosts() {
 }
 
 func VerifyBackupFileCountOnSegments() {
+	// In the current backup directory format, all content IDs are intermingled in one directory, so we need to get a list of which contents
+	// correspond to the content ID we're going to check in order to provide a useful count to the user in the case of an error.
+	origSize, destSize, isResizeRestore := GetResizeClusterInfo()
+	contentMap := make(map[int][]string, destSize) // []string instead of []int so we can join them later
+	for i := 0; i < origSize; i++ {
+		contentMap[i%destSize] = append(contentMap[i%destSize], fmt.Sprintf("%d", i))
+	}
+
 	remoteOutput := globalCluster.GenerateAndExecuteCommand("Verifying backup file count", cluster.ON_SEGMENTS, func(contentID int) string {
-		return fmt.Sprintf("find %s -type f | wc -l", globalFPInfo.GetDirForContent(contentID))
+		// Coordinator backup files (and any gprestore report files) will be mixed in with segment backup files on a single-node cluster,
+		// so we explicitly look for filenames in the segment filename format.  In a smaller-to-larger restore, the contents list for a segment
+		// outside the destination array will be "[]", which the find command can handle safely in this context.
+		contentsList := fmt.Sprintf("[%s]", strings.Join(contentMap[contentID], "|"))
+		return fmt.Sprintf(`find %s -type f -name "gpbackup_%s_%s*" | wc -l`, globalFPInfo.GetDirForContent(contentID), contentsList, globalFPInfo.Timestamp)
 	})
 	globalCluster.CheckClusterError(remoteOutput, "Could not verify backup file count", func(contentID int) string {
 		return "Could not verify backup file count"
@@ -51,7 +63,6 @@ func VerifyBackupFileCountOnSegments() {
 		fileCount = len(globalTOC.DataEntries)
 	}
 
-	origSize, destSize, isResizeRestore := GetResizeClusterInfo()
 	batchMap := make(map[int]int, len(remoteOutput.Commands))
 	for i := 0; i < origSize; i++ {
 		batchMap[i%destSize] += fileCount

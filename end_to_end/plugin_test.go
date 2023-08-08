@@ -29,7 +29,7 @@ func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {
 }
 
 func forceMetadataFileDownloadFromPlugin(conn *dbconn.DBConn, timestamp string) {
-	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, filepath.GetSegPrefix(conn))
+	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, "")
 	remoteOutput := backupCluster.GenerateAndExecuteCommand(
 		fmt.Sprintf("Removing backups on all segments for "+
 			"timestamp %s", timestamp),

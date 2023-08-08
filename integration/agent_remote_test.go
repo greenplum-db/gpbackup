@@ -21,7 +21,7 @@ var _ = Describe("agent remote", func() {
 		oidList = []string{"1", "2", "3"}
 		segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
 		testCluster = cluster.NewCluster(segConfig)
-		filePath = filepath.NewFilePathInfo(testCluster, "my_dir", "20190102030405", filepath.GetSegPrefix(connectionPool))
+		filePath = filepath.NewFilePathInfo(testCluster, "my_dir", "20190102030405", "")
 	})
 	Describe("WriteOidListToSegments()", func() {
 		It("writes oids to a temp file and copies it to all segments", func() {

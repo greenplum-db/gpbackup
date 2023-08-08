@@ -285,7 +285,7 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 	output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
 	Eventually(func() string { return strings.TrimSpace(string(output)) }, 10*time.Second, 100*time.Millisecond).Should(Equal(""))
 
-	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, filepath.GetSegPrefix(conn))
+	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, "")
 	description := "Checking if helper files are cleaned up properly"
 	cleanupFunc := func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
@@ -355,7 +355,7 @@ func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
 
 // fileSuffix should be one of: config.yaml, metadata.sql, toc.yaml, or report
 func getMetdataFileContents(backupDir string, timestamp string, fileSuffix string) []byte {
-	file, err := path.Glob(path.Join(backupDir, "*-1/backups", timestamp[:8], timestamp, fmt.Sprintf("gpbackup_%s_%s", timestamp, fileSuffix)))
+	file, err := path.Glob(path.Join(backupDir, "backups", timestamp[:8], timestamp, fmt.Sprintf("gpbackup_%s_%s", timestamp, fileSuffix)))
 	Expect(err).ToNot(HaveOccurred())
 	fileContentBytes, err := ioutil.ReadFile(file[0])
 	Expect(err).ToNot(HaveOccurred())
@@ -912,7 +912,11 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
 				"--on-error-continue")
-			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables*"))
+			errorFilePath := path.Join(backupDir, "backups/*", timestamp, "_error_tables")
+			if _, err := os.Stat(path.Join(backupDir, "backups")); err != nil && os.IsNotExist(err) {
+				errorFilePath = path.Join(backupDir, "*-1/backups/*", timestamp, "_error_tables")
+			}
+			files, err := path.Glob(errorFilePath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(0))
 		})
@@ -1429,8 +1433,12 @@ var _ = Describe("backup and restore end to end tests", func() {
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir)
-			configFile, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
-				timestamp, "*config.yaml"))
+
+			configPath := path.Join(backupDir, "backups/*", timestamp, "*config.yaml")
+			if _, err := os.Stat(path.Join(backupDir, "backups")); err != nil && os.IsNotExist(err) {
+				configPath = path.Join(backupDir, "*-1/backups/*", timestamp, "*config.yaml")
+			}
+			configFile, err := path.Glob(configPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(configFile).To(HaveLen(1))
 
@@ -1449,7 +1457,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--with-stats",
 				"--backup-dir", backupDir)
-			files, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
+			files, err := path.Glob(path.Join(backupDir, "backups/*",
 				timestamp, "*statistics.sql"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(HaveLen(1))
@@ -1489,7 +1497,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--with-stats",
 				"--backup-dir", backupDir)
-			statFiles, err := path.Glob(path.Join(backupDir, "*-1/backups/*",
+			statFiles, err := path.Glob(path.Join(backupDir, "backups/*",
 				timestamp, "*statistics.sql"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statFiles).To(HaveLen(1))

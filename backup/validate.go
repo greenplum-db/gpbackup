@@ -137,8 +137,7 @@ func validateFlagValues() {
 }
 
 func validateFromTimestamp(fromTimestamp string) {
-	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
-		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix)
+	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir, fromTimestamp, "")
 	if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		// The config file needs to be downloaded from the remote system into the local filesystem
 		pluginConfig.MustRestoreFile(fromTimestampFPInfo.GetConfigFilePath())

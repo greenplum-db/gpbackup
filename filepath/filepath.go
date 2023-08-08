@@ -15,8 +15,6 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
-	"github.com/greenplum-db/gp-common-go-libs/dbconn"
-	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 )
 
@@ -34,6 +32,9 @@ func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestam
 	backupFPInfo := FilePathInfo{}
 	backupFPInfo.PID = os.Getpid()
 	backupFPInfo.UserSpecifiedBackupDir = userSpecifiedBackupDir
+	// We only need the segment prefix to support restoring the legacy backup file format.
+	// New backups should not set it, and the existence of a segment prefix can be used
+	// as a proxy to determine whether a backup set is in the old or new format.
 	backupFPInfo.UserSpecifiedSegPrefix = userSegPrefix
 	backupFPInfo.UserSpecifiedReportDir = ""
 	backupFPInfo.Timestamp = timestamp
@@ -75,12 +76,18 @@ func (backupFPInfo *FilePathInfo) IsUserSpecifiedBackupDir() bool {
 	return backupFPInfo.UserSpecifiedBackupDir != ""
 }
 
+// When using the current directory format, the backup directory is identical for all contents;
+// we keep this function around solely for backwards compatibility.
 func (backupFPInfo *FilePathInfo) GetDirForContent(contentID int) string {
+	baseDir := backupFPInfo.SegDirMap[contentID]
 	if backupFPInfo.IsUserSpecifiedBackupDir() {
-		segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, contentID)
-		return path.Join(backupFPInfo.UserSpecifiedBackupDir, segDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
+		baseDir = backupFPInfo.UserSpecifiedBackupDir
+		if backupFPInfo.UserSpecifiedSegPrefix != "" {
+			segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, contentID)
+			baseDir = path.Join(baseDir, segDir)
+		}
 	}
-	return path.Join(backupFPInfo.SegDirMap[contentID], "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
+	return path.Join(baseDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
 }
 
 func (backupFPInfo *FilePathInfo) GetDirForReport(contentID int) string {
@@ -119,7 +126,10 @@ func (backupFPInfo *FilePathInfo) GetTableBackupFilePathForCopyCommand(tableOid 
 	backupFilePath += extension
 	baseDir := backupFPInfo.BaseDataDir
 	if backupFPInfo.IsUserSpecifiedBackupDir() {
-		baseDir = path.Join(backupFPInfo.UserSpecifiedBackupDir, fmt.Sprintf("%s<SEGID>", backupFPInfo.UserSpecifiedSegPrefix))
+		baseDir = backupFPInfo.UserSpecifiedBackupDir
+		if backupFPInfo.UserSpecifiedSegPrefix != "" {
+			baseDir = path.Join(baseDir, fmt.Sprintf("%s<SEGID>", backupFPInfo.UserSpecifiedSegPrefix))
+		}
 	}
 	return path.Join(baseDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp, backupFilePath)
 }
@@ -207,26 +217,21 @@ func (backupFPInfo *FilePathInfo) GetHelperLogPath() string {
  * Helper functions
  */
 
-func GetSegPrefix(connectionPool *dbconn.DBConn) string {
-	query := ""
-	if connectionPool.Version.Before("6") {
-		query = "SELECT fselocation FROM pg_filespace_entry WHERE fsedbid = 1;"
-	} else {
-		query = "SELECT datadir FROM gp_segment_configuration WHERE content = -1 AND role = 'p';"
-	}
-	result := ""
-	err := connectionPool.Get(&result, query)
-	gplog.FatalOnError(err)
-	_, segPrefix := path.Split(result)
-	segPrefix = segPrefix[:len(segPrefix)-2] // Remove "-1" segment ID from string
-	return segPrefix
-}
-
 func ParseSegPrefix(backupDir string) (string, error) {
 	if backupDir == "" {
 		return "", nil
 	}
 
+	_, err := operating.System.Stat(fmt.Sprintf("%s/backups", backupDir))
+	if err == nil {
+		// We're using the current directory format, there's no prefix to parse
+		return "", nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("Failure while trying to locate backup directory in %s. Error: %s", backupDir, err.Error())
+	}
+
+	// We're using the legacy directory format, try to find a prefix
 	backupDirForCoordinator, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups", backupDir))
 	if err != nil {
 		return "", fmt.Errorf("Failure while trying to locate backup directory in %s. Error: %s", backupDir, err.Error())
