@@ -238,3 +238,31 @@ func ParseSegPrefix(backupDir string) (string, error) {
 
 	return segPrefix, nil
 }
+
+func GetTimestampFromBackupDirectory(backupDir string) (string, error) {
+	if backupDir == "" {
+		return "", fmt.Errorf("No backup directory provided, please specify a timestamp using the --timestamp flag")
+	}
+
+	var timestampDirs []string
+	_, err := operating.System.Stat(fmt.Sprintf("%s/backups", backupDir))
+	if err == nil {
+		timestampDirs, err = operating.System.Glob(fmt.Sprintf("%s/backups/*/*", backupDir))
+	} else if os.IsNotExist(err) {
+		timestampDirs, err = operating.System.Glob(fmt.Sprintf("%s/*-1/backups/*/*", backupDir))
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("Failure while trying to determine timestamp from backup directory %s. Error: %s", backupDir, err.Error())
+	}
+
+	if len(timestampDirs) == 0 {
+		return "", fmt.Errorf("No timestamp directories found under %s", backupDir)
+	}
+	if len(timestampDirs) != 1 {
+		return "", fmt.Errorf("Multiple timestamp directories found under %s, please specify a timestamp using the --timestamp flag", backupDir)
+	}
+
+	timestamp := path.Base(string(timestampDirs[0]))
+	return timestamp, nil
+}

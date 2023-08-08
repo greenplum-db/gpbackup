@@ -355,7 +355,11 @@ func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
 
 // fileSuffix should be one of: config.yaml, metadata.sql, toc.yaml, or report
 func getMetdataFileContents(backupDir string, timestamp string, fileSuffix string) []byte {
-	file, err := path.Glob(path.Join(backupDir, "backups", timestamp[:8], timestamp, fmt.Sprintf("gpbackup_%s_%s", timestamp, fileSuffix)))
+	filePath := path.Join("backups", timestamp[:8], timestamp, fmt.Sprintf("gpbackup_%s_%s", timestamp, fileSuffix))
+	if _, err := os.Stat(path.Join(backupDir, "backups")); err != nil && os.IsNotExist(err) {
+		filePath = path.Join("*-1", filePath)
+	}
+	file, err := path.Glob(path.Join(backupDir, filePath))
 	Expect(err).ToNot(HaveOccurred())
 	fileContentBytes, err := ioutil.ReadFile(file[0])
 	Expect(err).ToNot(HaveOccurred())
@@ -367,11 +371,12 @@ func getMetdataFileContents(backupDir string, timestamp string, fileSuffix strin
 func checkRestoreMetadataFile(backupDir string, timestamp string, fileSuffix string, withHierarchy bool) {
 	filePath := fmt.Sprintf("gprestore_%s_*_%s", timestamp, fileSuffix)
 	if withHierarchy {
-		filePath = path.Join(backupDir, "backups", timestamp[:8], timestamp, filePath)
-	} else {
-		filePath = path.Join(backupDir, filePath)
+		filePath = path.Join("backups", timestamp[:8], timestamp, filePath)
+		if _, err := os.Stat(path.Join(backupDir, "backups")); err != nil && os.IsNotExist(err) {
+			filePath = path.Join("*-1", filePath)
+		}
 	}
-	file, err := path.Glob(filePath)
+	file, err := path.Glob(path.Join(backupDir, filePath))
 	Expect(err).ToNot(HaveOccurred())
 	Expect(file).To(HaveLen(1))
 	info, err := os.Stat(file[0])
@@ -2460,6 +2465,57 @@ LANGUAGE plpgsql NO SQL;`)
 					Fail(fmt.Sprintf("Expected printed timestamp %s to match timestamp %s in report file", stdoutEndTime, reportEndTime))
 				}
 			}
+		})
+	})
+	Describe("Running gprestore without the --timestamp flag", func() {
+		BeforeEach(func() {
+			// All of the gpbackup calls below use --metadata-only, so there's nothing to clean up on the segments
+			os.RemoveAll(fmt.Sprintf("%s/backups", backupCluster.GetDirForContent(-1)))
+			os.RemoveAll("/tmp/no-timestamp-tests")
+		})
+		AfterEach(func() {
+			os.RemoveAll("/tmp/no-timestamp-tests")
+		})
+
+		It("functions normally if there is a single backup in the normal backup location", func() {
+			gpbackup(gpbackupPath, backupHelperPath, "--verbose", "--metadata-only")
+
+			output, err := exec.Command(gprestorePath, "--verbose", "--redirect-db", "restoredb").CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("Restore completed successfully"))
+		})
+		It("functions normally if there is a single backup in a user-provided backup directory", func() {
+			gpbackup(gpbackupPath, backupHelperPath, "--verbose", "--metadata-only", "--backup-dir", "/tmp/no-timestamp-tests")
+
+			output, err := exec.Command(gprestorePath, "--verbose", "--redirect-db", "restoredb", "--backup-dir", "/tmp/no-timestamp-tests").CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("Restore completed successfully"))
+		})
+		It("errors out if there are no backups in the normal backup location", func() {
+			output, err := exec.Command(gprestorePath, "--verbose").CombinedOutput()
+			Expect(err).To(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("No timestamp directories found"))
+		})
+		It("errors out if there are no backups in a user-provided backup directory", func() {
+			output, err := exec.Command(gprestorePath, "--verbose", "--backup-dir", "/tmp/no-timestamp-tests").CombinedOutput()
+			Expect(err).To(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("No timestamp directories found"))
+		})
+		It("errors out if there are multiple backups in the normal backup location", func() {
+			gpbackup(gpbackupPath, backupHelperPath, "--verbose", "--metadata-only")
+			gpbackup(gpbackupPath, backupHelperPath, "--verbose", "--metadata-only")
+
+			output, err := exec.Command(gprestorePath, "--verbose").CombinedOutput()
+			Expect(err).To(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("Multiple timestamp directories found"))
+		})
+		It("errors out if there are multiple backups in a user-provided backup directory", func() {
+			gpbackup(gpbackupPath, backupHelperPath, "--verbose", "--metadata-only", "--backup-dir", "/tmp/no-timestamp-tests")
+			gpbackup(gpbackupPath, backupHelperPath, "--verbose", "--metadata-only", "--backup-dir", "/tmp/no-timestamp-tests")
+
+			output, err := exec.Command(gprestorePath, "--verbose", "--backup-dir", "/tmp/no-timestamp-tests").CombinedOutput()
+			Expect(err).To(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("Multiple timestamp directories found"))
 		})
 	})
 })

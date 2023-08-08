@@ -29,7 +29,6 @@ func DoInit(cmd *cobra.Command) {
 	CleanupGroup.Add(1)
 	gplog.InitializeLogging("gprestore", "")
 	SetCmdFlags(cmd.Flags())
-	_ = cmd.MarkFlagRequired(options.TIMESTAMP)
 	utils.InitializeSignalHandler(DoCleanup, "restore process", &wasTerminated)
 }
 
@@ -43,8 +42,9 @@ func DoValidation(cmd *cobra.Command) {
 	gplog.FatalOnError(err)
 	err = utils.ValidateFullPath(MustGetFlagString(options.PLUGIN_CONFIG))
 	gplog.FatalOnError(err)
-	if !filepath.IsValidTimestamp(MustGetFlagString(options.TIMESTAMP)) {
-		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", MustGetFlagString(options.TIMESTAMP)), "")
+	providedTimestamp := MustGetFlagString(options.TIMESTAMP)
+	if providedTimestamp != "" && !filepath.IsValidTimestamp(providedTimestamp) {
+		gplog.Fatal(errors.Errorf("Timestamp %s is invalid.  Timestamps must be in the format YYYYMMDDHHMMSS.", providedTimestamp), "")
 	}
 }
 
@@ -55,13 +55,24 @@ func DoSetup() {
 
 	utils.CheckGpexpandRunning(utils.RestorePreventedByGpexpandMessage)
 	restoreStartTime = history.CurrentTimestamp()
-	backupTimestamp := MustGetFlagString(options.TIMESTAMP)
-	gplog.Info("Restore Key = %s", backupTimestamp)
 
 	CreateConnectionPool("postgres")
+	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
+	globalCluster = cluster.NewCluster(segConfig)
+
+	var err error
+	backupTimestamp := MustGetFlagString(options.TIMESTAMP)
+	if backupTimestamp == "" {
+		backupDir := MustGetFlagString(options.BACKUP_DIR)
+		if backupDir == "" {
+			backupDir = globalCluster.GetDirForContent(-1)
+		}
+		backupTimestamp, err = filepath.GetTimestampFromBackupDirectory(backupDir)
+		gplog.FatalOnError(err)
+	}
+	gplog.Info("Restore Key = %s", backupTimestamp)
 
 	var segPrefix string
-	var err error
 	opts, err = options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
@@ -71,8 +82,6 @@ func DoSetup() {
 	err = opts.QuoteExcludeRelations(connectionPool)
 	gplog.FatalOnError(err)
 
-	segConfig := cluster.MustGetSegmentConfiguration(connectionPool)
-	globalCluster = cluster.NewCluster(segConfig)
 	segPrefix, err = filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR))
 	gplog.FatalOnError(err)
 	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), backupTimestamp, segPrefix)
