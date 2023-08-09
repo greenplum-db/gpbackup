@@ -10,7 +10,6 @@ groups:
   - gpdb5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
   - build_binaries_ubuntu
-  - gpdb6-ubuntu
   - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
 {% if is_prod and "gpbackup-release" != pipeline_name %}
@@ -54,9 +53,6 @@ groups:
   jobs:
   - gpdb6
   - gpdb6-7-seg-cluster
-{% if is_prod or "gpbackup-release" == pipeline_name %}
-  - gpdb6-ubuntu
-{% endif %}
 {% if is_prod and "gpbackup-release" != pipeline_name %}
   - scale-6x
   - s3_plugin_perf
@@ -1296,60 +1292,6 @@ jobs:
     <<: *set_failed
 {% endif %}
 
-{% if is_prod or "gpbackup-release" == pipeline_name %}
-- name: gpdb6-ubuntu
-  plan:
-  - in_parallel:
-    - get: gpbackup
-      passed: [build_gppkgs]
-    - get: gpdb_binary
-      resource: bin_gpdb_6x_ubuntu
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
-    - get: ccp_src
-    - get: gpdb_src
-      resource: gpdb6_src
-    - get: dummy_seclabel
-      resource: dummy_seclabel_linux_gpdb6
-    - get: ubuntu20.04-gpdb6-image
-    - get: gppkgs
-      passed: [build_gppkgs]
-      trigger: true
-    - get: terraform.d
-      params:
-        unpack: true
-  - put: terraform
-    params:
-      <<: *ccp_default_params
-      terraform_source: ccp_src/google/
-      vars:
-        instance_type: n1-standard-1
-        PLATFORM: ubuntu20.04
-        default_image_user: root
-  - task: gen_cluster
-    params:
-      <<: *ccp_gen_cluster_default_params
-      PLATFORM: ubuntu20.04
-    file: ccp_src/ci/tasks/gen_cluster.yml
-  - task: gpinitsystem
-    file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: integration-tests
-    image: ubuntu20.04-gpdb6-image
-    file: gpbackup/ci/tasks/gpbackup-tests.yml
-    params:
-      OS: ubuntu
-      default_ami_user: ubuntu
-  on_success:
-    <<: *ccp_destroy
-{% if should_alert %}
-  on_failure:
-    *slack_alert
-{% endif %}
-  ensure:
-    <<: *set_failed
-{% endif %}
-
 - name: gpdb7
   plan:
   - in_parallel:
@@ -1753,7 +1695,6 @@ jobs:
       passed:
         - build_gppkgs
         - gpdb5
-        - gpdb6-ubuntu
         - gpdb6
         - s3_plugin_tests
         - backward-compatibility
@@ -1871,7 +1812,6 @@ jobs:
         - s3_plugin_tests
         - backward-compatibility
 {% if is_prod %}
-        - gpdb6-ubuntu
         - ddboost_plugin_and_boostfs_tests_5x
 {% endif %}
         - ddboost_plugin_and_boostfs_tests_6x
