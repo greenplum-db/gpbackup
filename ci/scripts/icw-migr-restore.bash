@@ -52,7 +52,7 @@ else
 fi
 
 # extract timestamp from saved folder, use it to run a restore
-TS=\$(ls $(pwd)/backups/demoDataDir-1/backups/*)
+TS=\$(ls $(pwd)/backups/backups/*)
 gprestore --timestamp=\$TS --backup-dir=$(pwd)/backups --create-db --with-globals --on-error-continue | tee /tmp/gpbackup_test.log
 
 # We expect some errors, so we have to use on-error-continue, but we want to parse for unexpected
