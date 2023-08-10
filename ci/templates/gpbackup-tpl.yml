@@ -1022,9 +1022,9 @@ jobs:
           PLATFORM: rocky8
       - task: gpinitsystem
         file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
+  - task: setup-cluster-env
     image: rocky8-gpdb6-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
   - task: run_tests
     image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/s3-plugin-tests.yml
@@ -1083,8 +1083,8 @@ jobs:
           PLATFORM: rocky8
       - task: gpinitsystem
         file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: setup-cluster-env
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
     image: rocky8-gpdb6-image
   - task: run_perf
     image: rocky8-gpdb6-image
@@ -1162,8 +1162,8 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: setup-cluster-env
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
     image: centos7-gpdb6-image
     params:
       default_ami_user: centos
@@ -1219,8 +1219,8 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: setup-cluster-env
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
     image: rocky8-gpdb6-image
   - task: install-boostfs
     file: gpbackup/ci/tasks/boostfs-install.yml
@@ -1273,9 +1273,9 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
+  - task: setup-cluster-env
     image: rocky8-gpdb6-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
   - task: run_perf
     image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/ddboost-plugin-perf.yml
@@ -1506,8 +1506,8 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+  - task: setup-cluster-env
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
     image: centos7-gpdb6-image
     params:
       default_ami_user: centos
@@ -1564,9 +1564,9 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
+  - task: setup-cluster-env
     image: rocky8-gpdb7-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
   - task: scale-tests
     image: rocky8-gpdb7-image
     file: gpbackup/ci/tasks/scale-tests.yml
@@ -1615,9 +1615,9 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
+  - task: setup-cluster-env
     image: rocky8-gpdb6-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
   - task: scale-tests
     image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/scale-tests.yml
@@ -1666,9 +1666,9 @@ jobs:
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
-  - task: setup-centos-env
+  - task: setup-cluster-env
     image: centos7-gpdb6-image
-    file: gpbackup/ci/tasks/setup-centos-env.yml
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
     params:
       default_ami_user: centos
   - task: scale-tests

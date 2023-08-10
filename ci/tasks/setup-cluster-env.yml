@@ -14,4 +14,4 @@ params:
   default_ami_user: rocky
 
 run:
-  path: gpbackup/ci/scripts/setup-centos-env.bash
+  path: gpbackup/ci/scripts/setup-cluster-env.bash
