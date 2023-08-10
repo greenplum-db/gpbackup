@@ -260,7 +260,7 @@ anchors:
   delete_on_failure: true
   generate_random_name: true
   plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
-  terraform_source: ccp_src/google/
+  terraform_source: ccp_src/google-nvme-block-device/
 
 - &ccp_gen_cluster_default_params
   AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
@@ -273,46 +273,18 @@ anchors:
 - &destroy_params
   action: destroy
   plugin_dir: ../../terraform.d/plugin-cache/linux_amd64
-  terraform_source: ccp_src/google/
+  terraform_source: ccp_src/google-nvme-block-device/
   env_name_file: terraform/name
   vars:
     aws_instance-node-instance_type: t2.micro #t2.micro is ignored in destroy, but aws_instance-node-instance_type is required.
     aws_ebs_volume_type: standard
 
-- &ccp_destroy
-  put: terraform
-  params:
-    <<: *destroy_params
-  get_params:
-    action: destroy
-
 - &ccp_destroy_nvme
   put: terraform
   params:
     <<: *destroy_params
-    terraform_source: ccp_src/google-nvme-block-device/
   get_params:
     action: destroy
-
-
-- &terraform_cluster
-  type: terraform
-  source:
-    env:
-      AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
-      AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
-      GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
-    vars:
-      project_id: ((dp/dev/google-service-account))
-    storage:
-      access_key_id: ((tf-machine-access-key-id))
-      secret_access_key: ((tf-machine-secret-access-key))
-      region_name: ((dp/aws-region))
-      # This is not parameterized, on purpose. All tfstates will go to this spot,
-      # and different teams will place there clusters' tfstate files under different paths
-      bucket: gpdb5-pipeline-dynamic-terraform
-      bucket_path: clusters-google/
-
 
 - &slack_alert
   put: slack-alert
@@ -440,7 +412,6 @@ jobs:
   - put: terraform
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/google-nvme-block-device/
       vars:
         instance_type: n1-standard-8
         PLATFORM: rhel8
@@ -489,7 +460,6 @@ jobs:
   - put: terraform
     params:
       <<: *ccp_default_params
-      terraform_source: ccp_src/google-nvme-block-device/
       vars:
         instance_type: n1-standard-8
         PLATFORM: rhel8-gpdb7
