@@ -39,10 +39,10 @@ resource_types:
 
 resources:
 ##### Docker Images #####
-- name: rocky8-gpdb7-image
+- name: rocky8-gpdb6-image
   type: registry-image
   source:
-    repository: gcr.io/data-gpdb-public-images/gpdb7-rocky8-test
+    repository: gcr.io/data-gpdb-public-images/gpdb6-rocky8-test
     tag: latest
 
 ##### Source Code ####
@@ -69,13 +69,12 @@ resources:
     uri: ((dp/ccp-git-remote))
 
 #### Binaries ####
-- name: bin_gpdb_6x_stable_centos7
+- name: bin_gpdb_6x_rhel8
   type: gcs
-  icon: google
   source:
-    bucket: ((dp/dev/gcs-bucket))
+    bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64.tar.gz
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel8_x86_64.tar.gz
 
 #### Misc Other ####
 - name: weekly-trigger
@@ -246,10 +245,10 @@ jobs:
   - in_parallel:
     - get: weekly-trigger
       trigger: true
-    - get: rocky8-gpdb7-image
+    - get: rocky8-gpdb6-image
     - get: gpbackup
     - get: gpdb_binary
-      resource: bin_gpdb_6x_stable_centos7
+      resource: bin_gpdb_6x_rhel8
     - get: gpdb_src
       resource: gpdb6_src
     - get: gppkgs
@@ -262,7 +261,7 @@ jobs:
       <<: *ccp_default_params
       terraform_source: ccp_src/google-nvme-block-device/
       vars:
-        PLATFORM: centos7
+        PLATFORM: rocky8
         instance_type: n2-standard-8
         disk_size: 1000
         number_of_nodes: 4
@@ -270,15 +269,15 @@ jobs:
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
-      PLATFORM: centos7
+      PLATFORM: rocky8
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-cluster-env
-    image: rocky8-gpdb7-image
+    image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/setup-cluster-env.yml
   - task: scale-perf-load
-    image: rocky8-gpdb7-image
+    image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/scale-perf-load.yml
     params:
       GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
@@ -294,16 +293,16 @@ jobs:
     - get: cluster-metadata
       passed: ['load-data-gpdb6']
       trigger: true
-    - get: rocky8-gpdb7-image
+    - get: rocky8-gpdb6-image
     - get: gpbackup
     - get: gpdb_binary
-      resource: bin_gpdb_6x_stable_centos7
+      resource: bin_gpdb_6x_rhel8
     - get: gpdb_src
       resource: gpdb6_src
     - get: gppkgs
     - get: ccp_src
   - task: scale-perf-tests
-    image: rocky8-gpdb7-image
+    image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/scale-perf-tests.yml
     params:
       RESULTS_LOG_FILE: /tmp/gpbackup.log
@@ -314,7 +313,7 @@ jobs:
     on_failure:
       *slack_alert
   - task: scale-test-slack-notify
-    image: rocky8-gpdb7-image
+    image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/scale-tests-slack-notify.yml
     params:
       RESULTS_DATABASE_HOST: 10.122.32.4

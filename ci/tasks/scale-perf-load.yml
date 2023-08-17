@@ -14,7 +14,7 @@ outputs:
 
 params:
   GOOGLE_CREDENTIALS:
-  OS: RHEL
+  OS: RHEL8
 
 run:
   path: gpbackup/ci/scripts/scale-perf-load.bash
