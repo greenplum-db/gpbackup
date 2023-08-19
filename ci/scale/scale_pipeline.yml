@@ -75,7 +75,7 @@ resources:
   source:
     bucket: ((dp/dev/gcs-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64((dp/dev/rc-build-type-gcs)).tar.gz
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64.tar.gz
 
 #### Misc Other ####
 - name: weekly-trigger

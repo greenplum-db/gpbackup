@@ -110,11 +110,11 @@ def print_output_message(args):
     if args.is_prod:
         if git_branch != "main":
             print("\n[WARNING] You are generating a prod pipeline, but are not on the main branch!\n")
-        cmd1 = "fly -t gpdb-prod set-pipeline -p %s \
+        cmd1 = "fly -t dp set-pipeline -p %s \
 -c %s/%s-generated.yml \
 -v gpbackup-git-branch=%s" % (args.pipeline_name, curr_dir, args.pipeline_name, git_branch)
         args.pipeline_name = "gpbackup"
-        cmd2 = "fly -t gpdb-prod set-pipeline -p %s \
+        cmd2 = "fly -t dp set-pipeline -p %s \
 -c %s/%s-generated.yml \
 -v gpbackup-git-branch=%s" % (args.pipeline_name, curr_dir, args.pipeline_name, git_branch)
         print("To set these pipelines (gpbackup / gpbackup-release) on prod, run: \n%s\n%s" % (cmd2, cmd1))

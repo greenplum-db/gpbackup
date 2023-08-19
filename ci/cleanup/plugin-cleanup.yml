@@ -44,7 +44,7 @@ resources:
   source:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-rhel8_x86_64((dp/dev/rc-build-type-gcs)).tar.gz
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel8_x86_64.tar.gz
 
 - name: gpbackup
   type: git

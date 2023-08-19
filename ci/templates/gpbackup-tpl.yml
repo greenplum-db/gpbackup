@@ -156,10 +156,10 @@ anchors:
         run:
           path: 'ccp_src/google/ccp_failed_test.sh'
         params:
-          GOOGLE_CREDENTIALS: ((dp/$$DEV_PROD$$/google-service-account-key))
-          GOOGLE_PROJECT_ID: ((dp/$$DEV_PROD$$/google-project-id))
-          GOOGLE_ZONE: ((dp/$$DEV_PROD$$/google-zone))
-          GOOGLE_SERVICE_ACCOUNT: ((dp/$$DEV_PROD$$/google-service-account))
+          GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
+          GOOGLE_PROJECT_ID: ((dp/dev/google-project-id))
+          GOOGLE_ZONE: ((dp/dev/google-zone))
+          GOOGLE_SERVICE_ACCOUNT: ((dp/dev/google-service-account))
           AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
           AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
           AWS_DEFAULT_REGION: ((dp/tf-machine-region))
@@ -172,9 +172,9 @@ anchors:
     env:
       AWS_ACCESS_KEY_ID: ((tf-machine-access-key-id))
       AWS_SECRET_ACCESS_KEY: ((tf-machine-secret-access-key))
-      GOOGLE_CREDENTIALS: ((dp/$$DEV_PROD$$/google-service-account-key))
+      GOOGLE_CREDENTIALS: ((dp/dev/google-service-account-key))
     vars:
-      project_id: ((dp/$$DEV_PROD$$/google-project-id))
+      project_id: ((dp/dev/google-project-id))
     storage:
       access_key_id: ((tf-machine-access-key-id))
       secret_access_key: ((tf-machine-secret-access-key))
@@ -185,10 +185,10 @@ anchors:
       bucket_path: clusters-google/
 
 - &ddboost_params
-  DD_SOURCE_HOST: ((dp/$$DEV_PROD$$/datadomain_711_source_host_gcp))
+  DD_SOURCE_HOST: ((dp/dev/datadomain_711_source_host_gcp))
   DD_USER: ((dp/prod/datadomain_user))
   DD_PW: ((dp/prod/datadomain_711_password_gcp))
-  DD_DEST_HOST: ((dp/$$DEV_PROD$$/datadomain_711_dest_host_gcp))
+  DD_DEST_HOST: ((dp/dev/datadomain_711_dest_host_gcp))
   DD_ENCRYPTED_PW: ((dp/prod/encrypted_datadomain_711_password_gcp))
 
 {% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
@@ -284,7 +284,7 @@ resources:
   type: git
   icon: github-circle
   source:
-    branch: ((dp/$$DEV_PROD$$/gpbackup-s3-plugin-git-branch))
+    branch: main
     uri: https://github.com/greenplum-db/gpbackup-s3-plugin
 {% if "gpbackup-release" == pipeline_name %}
     tag_filter: 1.*
@@ -294,7 +294,7 @@ resources:
   type: git
   icon: github-circle
   source:
-    branch: ((dp/gpbackup-ddboost-plugin-branch))
+    branch: main
     private_key: ((dp/gpbackup-ddboost-plugin-remote-key))
     uri: ((dp/gpbackup-ddboost-plugin-git-remote))
 {% if "gpbackup-release" == pipeline_name %}
@@ -357,7 +357,7 @@ resources:
   source:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-ubuntu20.04_x86_64((dp/$$DEV_PROD$$/rc-build-type-gcs)).debug.tar.gz
+    regexp: server/published/gpdb6/server-rc-(.*)-ubuntu20.04_x86_64.debug.tar.gz
 {% endif %}
 
 - name: bin_gpdb_7x_rhel8
@@ -394,14 +394,14 @@ resources:
   source:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64((dp/$$DEV_PROD$$/rc-build-type-gcs)).tar.gz
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel7_x86_64.tar.gz
 
 - name: bin_gpdb_6x_rhel8
   type: gcs
   source:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-rhel8_x86_64((dp/$$DEV_PROD$$/rc-build-type-gcs)).tar.gz
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel8_x86_64.tar.gz
 
 # These binaries are used for backwards-compatibility testing only
 - name: bin_gpbackup_1.0.0_and_1.7.1
@@ -1032,7 +1032,7 @@ jobs:
       REGION: us-west-2
       AWS_ACCESS_KEY_ID: ((aws-bucket-access-key-id))
       AWS_SECRET_ACCESS_KEY: ((aws-bucket-secret-access-key))
-      BUCKET: ((dp/$$DEV_PROD$$/gpbackup-s3-plugin-test-bucket))
+      BUCKET: ((dp/prod/gpbackup-s3-plugin-test-bucket))
   on_success:
     <<: *ccp_destroy
 {% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
@@ -1093,7 +1093,7 @@ jobs:
       REGION: us-west-2
       AWS_ACCESS_KEY_ID: ((aws-bucket-access-key-id))
       AWS_SECRET_ACCESS_KEY: ((aws-bucket-secret-access-key))
-      BUCKET: ((dp/$$DEV_PROD$$/gpbackup-s3-plugin-test-bucket))
+      BUCKET: ((dp/prod/gpbackup-s3-plugin-test-bucket))
       SCALE_FACTOR: 1
   on_success:
     <<: *ccp_destroy
@@ -1284,7 +1284,7 @@ jobs:
       REGION: us-west-2
       AWS_ACCESS_KEY_ID: ((aws-bucket-access-key-id))
       AWS_SECRET_ACCESS_KEY: ((aws-bucket-secret-access-key))
-      BUCKET: ((dp/$$DEV_PROD$$/gpbackup-s3-plugin-test-bucket))
+      BUCKET: ((dp/prod/gpbackup-s3-plugin-test-bucket))
       SCALE_FACTOR: 1
     on_success:
       <<: *ccp_destroy_nvme
