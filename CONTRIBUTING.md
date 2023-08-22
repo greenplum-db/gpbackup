@@ -9,7 +9,7 @@ for details.
 
 ## Getting Started
 
-* Sign our [Contributor License Agreement](https://cla.pivotal.io/sign/greenplum)
+* Sign our [Contributor License Agreement](https://cla.vmware.com/cla/1/preview)
 * Fork the gpbackup repository on GitHub
 * Run `go get github.com/greenplum-db/gpbackup/...` and add your fork as a remote
 * Run `make depend` to install required dependencies
