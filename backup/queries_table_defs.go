@@ -224,6 +224,7 @@ type ColumnDefinition struct {
 	SecurityLabelProvider string
 	SecurityLabel         string
 	AttGenerated          string
+	IsInherited           bool
 }
 
 var storageTypeCodes = map[string]string{
@@ -348,7 +349,8 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 		coalesce(array_to_string(ARRAY(SELECT option_name || ' ' || quote_literal(option_value) FROM pg_options_to_table(attfdwoptions) ORDER BY option_name), ', '), '') AS fdwoptions,
 		CASE WHEN a.attcollation <> t.typcollation THEN quote_ident(cn.nspname) || '.' || quote_ident(coll.collname) ELSE '' END AS collation,
 		coalesce(sec.provider,'') AS securitylabelprovider,
-		coalesce(sec.label,'') AS securitylabel
+		coalesce(sec.label,'') AS securitylabel,
+		(a.attinhcount > 0) AS isinherited
 	FROM pg_catalog.pg_attribute a
 		JOIN pg_class c ON a.attrelid = c.oid
 		JOIN pg_namespace n ON c.relnamespace = n.oid

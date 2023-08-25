@@ -207,7 +207,12 @@ func printColumnDefinitions(metadataFile *utils.FileWithByteCount, columnDefs []
 		}
 		if column.HasDefault {
 			if column.AttGenerated != "" {
-				line += fmt.Sprintf(" GENERATED ALWAYS AS %s %s", column.DefaultVal, column.AttGenerated)
+				// Unlike most keywords, GENERATED cannot be applied to a column that inherits from a parent table,
+				// even if the specified generation expression is identical to that of the column it inherits,
+				// so we skip printing it in that case.
+				if !column.IsInherited {
+					line += fmt.Sprintf(" GENERATED ALWAYS AS %s %s", column.DefaultVal, column.AttGenerated)
+				}
 			} else {
 				line += fmt.Sprintf(" DEFAULT %s", column.DefaultVal)
 			}

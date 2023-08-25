@@ -50,7 +50,7 @@ file_groups:
       file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.gppkg
       description:
-      upload_as: Backup and Restore for GP 6 on Ubuntu 18.04
+      upload_as: Backup and Restore for GP 6 on Ubuntu 20.04
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel8.tar.gz
@@ -70,7 +70,7 @@ file_groups:
       file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-ubuntu.tar.gz
       description:
-      upload_as: Backup and Restore for GP 6 on Ubuntu 18.04 compressed tarball
+      upload_as: Backup and Restore for GP 6 on Ubuntu 20.04 compressed tarball
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
 

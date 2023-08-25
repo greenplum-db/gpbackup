@@ -180,6 +180,40 @@ CREATE TABLE public.test_tsvector (
 			Expect(tableAtts).To(HaveLen(1))
 			Expect(tableAtts[0].Collation).To(Equal("myschema.mycoll"))
 		})
+		It("correctly identifies which columns in a table are inherited", func() {
+			testutils.SkipIfBefore7(connectionPool)
+
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.parent(a integer, b integer)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.parent CASCADE")
+			// Set up a variety of inheritance schemes in which "a" and "b" are always inherited and "c" is never inherited, for easy checking
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.same_atts(a integer, b integer) INHERITS (public.parent)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.extra_att(a integer, b integer, c integer) INHERITS (public.parent)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.mixed_atts(a integer, c integer) INHERITS (public.parent)")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.no_overwrite() INHERITS (public.parent)")
+
+			parent_oid := testutils.OidFromObjectName(connectionPool, "public", "parent", backup.TYPE_RELATION)
+			child_oids := []uint32{
+				testutils.OidFromObjectName(connectionPool, "public", "same_atts", backup.TYPE_RELATION),
+				testutils.OidFromObjectName(connectionPool, "public", "extra_att", backup.TYPE_RELATION),
+				testutils.OidFromObjectName(connectionPool, "public", "mixed_atts", backup.TYPE_RELATION),
+				testutils.OidFromObjectName(connectionPool, "public", "no_overwrite", backup.TYPE_RELATION),
+			}
+
+			allAtts := backup.GetColumnDefinitions(connectionPool)
+
+			for _, attribute := range allAtts[parent_oid] {
+				Expect(attribute.IsInherited).To(BeFalse())
+			}
+			for _, oid := range child_oids {
+				for _, attribute := range allAtts[oid] {
+					if attribute.Name == "c" {
+						Expect(attribute.IsInherited).To(BeFalse())
+					} else {
+						Expect(attribute.IsInherited).To(BeTrue())
+					}
+				}
+			}
+		})
 	})
 	Describe("GetDistributionPolicies", func() {
 		It("returns distribution policy info for a table DISTRIBUTED RANDOMLY", func() {
