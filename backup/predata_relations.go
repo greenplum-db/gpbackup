@@ -259,7 +259,7 @@ func PrintPostCreateTableStatements(metadataFile *utils.FileWithByteCount, toc *
 		if att.Privileges.Valid {
 			columnMetadata := ObjectMetadata{Privileges: getColumnACL(att.Privileges, att.Kind), Owner: tableMetadata.Owner}
 			columnPrivileges := columnMetadata.GetPrivilegesStatements(table.FQN(), "COLUMN", att.Name)
-			statements = append(statements, strings.TrimSpace(columnPrivileges))
+			statements = append(statements, columnPrivileges...)
 		}
 		if att.SecurityLabel != "" {
 			escapedLabel := utils.EscapeSingleQuotes(att.SecurityLabel)

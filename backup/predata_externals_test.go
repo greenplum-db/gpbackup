@@ -491,9 +491,9 @@ SEGMENT REJECT LIMIT 2 ROWS`)
 			expectedStatements := []string{
 				"CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);",
 				"ALTER PROTOCOL s3 OWNER TO testrole;",
-				`REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;
-REVOKE ALL ON PROTOCOL s3 FROM testrole;
-GRANT ALL ON PROTOCOL s3 TO testrole;`}
+				`REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;`,
+				`REVOKE ALL ON PROTOCOL s3 FROM testrole;`,
+				`GRANT ALL ON PROTOCOL s3 TO testrole;`}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 		It("prints a protocol ACL even when the protocol's CREATE statement is skipped", func() {
@@ -511,9 +511,9 @@ GRANT ALL ON PROTOCOL s3 TO testrole;`}
 			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolUntrustedReadWrite, pgCatalogFuncInfoMap, protoMetadata)
 			expectedStatements := []string{
 				"ALTER PROTOCOL s3 OWNER TO testrole;",
-				`REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;
-REVOKE ALL ON PROTOCOL s3 FROM testrole;
-GRANT ALL ON PROTOCOL s3 TO testrole;`}
+				`REVOKE ALL ON PROTOCOL s3 FROM PUBLIC;`,
+				`REVOKE ALL ON PROTOCOL s3 FROM testrole;`,
+				`GRANT ALL ON PROTOCOL s3 TO testrole;`}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
 	})

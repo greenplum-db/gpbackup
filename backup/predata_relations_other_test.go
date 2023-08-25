@@ -217,9 +217,9 @@ SELECT pg_catalog.setval('public.seq_''name', 7, true);`, getSeqDefReplace()))
 SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()),
 				"COMMENT ON SEQUENCE public.seq_name IS 'This is a sequence comment.';",
 				fmt.Sprintf("ALTER %s public.seq_name OWNER TO testrole;", keywordReplace),
-				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
-REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;
-GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`}
+				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;`,
+				`REVOKE ALL ON SEQUENCE public.seq_name FROM testrole;`,
+				`GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedEntries...)
 		})
 		It("can print a sequence with privileges WITH GRANT OPTION", func() {
@@ -235,8 +235,8 @@ GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole;`}
 	CACHE 5;
 
 SELECT pg_catalog.setval('public.seq_name', 7, true);`, getSeqDefReplace()),
-				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;
-GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
+				`REVOKE ALL ON SEQUENCE public.seq_name FROM PUBLIC;`,
+				`GRANT SELECT,USAGE ON SEQUENCE public.seq_name TO testrole WITH GRANT OPTION;`)
 		})
 		It("prints data_type of the sequence", func() {
 			if connectionPool.Version.Before("7") {
@@ -311,9 +311,9 @@ SELECT pg_catalog.setval('public.seq_name', 10, true);`, getSeqDefReplace()),
 			expectedEntries := []string{"CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;",
 				"COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';",
 				fmt.Sprintf("ALTER %s shamwow.shazam OWNER TO testrole;", keywordReplace),
-				`REVOKE ALL ON shamwow.shazam FROM PUBLIC;
-REVOKE ALL ON shamwow.shazam FROM testrole;
-GRANT ALL ON shamwow.shazam TO testrole;`}
+				`REVOKE ALL ON shamwow.shazam FROM PUBLIC;`,
+				`REVOKE ALL ON shamwow.shazam FROM testrole;`,
+				`GRANT ALL ON shamwow.shazam TO testrole;`}
 
 			if connectionPool.Version.AtLeast("6") {
 				expectedEntries = append(expectedEntries, "SECURITY LABEL FOR dummy ON VIEW shamwow.shazam IS 'unclassified';")
