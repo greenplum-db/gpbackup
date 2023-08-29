@@ -86,7 +86,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		coalesce(e.rejectlimit, 0) AS rejectlimit,
 		coalesce(e.rejectlimittype, '') AS rejectlimittype,
 		e.logerrors,
-		coalesce('log_errors=p' = any(ft.ftoptions), false) AS logerrpersist,
+		coalesce('log_errors=persistently' = any(ft.ftoptions), false) AS logerrpersist,
 		pg_encoding_to_char(e.encoding) AS encoding,
 		e.writable
 	FROM pg_exttable e
