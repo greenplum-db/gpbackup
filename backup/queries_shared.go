@@ -39,7 +39,7 @@ func (s Schema) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          s.Name,
 			Name:            s.Name,
-			ObjectType:      "SCHEMA",
+			ObjectType:      toc.OBJ_SCHEMA,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -95,7 +95,7 @@ func (c Constraint) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
-			ObjectType:      "CONSTRAINT",
+			ObjectType:      toc.OBJ_CONSTRAINT,
 			ReferenceObject: c.OwningObject,
 			StartByte:       0,
 			EndByte:         0,
@@ -352,7 +352,7 @@ func (a AccessMethod) GetMetadataEntry() (string, toc.MetadataEntry) {
 	return "predata",
 		toc.MetadataEntry{
 			Name:            a.Name,
-			ObjectType:      "ACCESS METHOD",
+			ObjectType:      toc.OBJ_ACCESS_METHOD,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

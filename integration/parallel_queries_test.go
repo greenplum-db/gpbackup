@@ -80,10 +80,10 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			third := "INSERT INTO public.timestamps VALUES (3, now());"
 			fourth := "SELECT pg_sleep(1); INSERT INTO public.timestamps VALUES (4, now() + '1 second'::interval);"
 			statements := []toc.StatementWithType{
-				{ObjectType: "TABLE", Statement: first},
-				{ObjectType: "DATABASE", Statement: second},
-				{ObjectType: "SEQUENCE", Statement: third},
-				{ObjectType: "DATABASE", Statement: fourth},
+				{ObjectType: toc.OBJ_TABLE, Statement: first, Tier: []uint32{0, 0}},
+				{ObjectType: toc.OBJ_DATABASE, Statement: second, Tier: []uint32{0, 0}},
+				{ObjectType: toc.OBJ_SEQUENCE, Statement: third, Tier: []uint32{0, 0}},
+				{ObjectType: toc.OBJ_DATABASE, Statement: fourth, Tier: []uint32{0, 0}},
 			}
 			BeforeEach(func() {
 				testhelper.AssertQueryRuns(tempConn, "CREATE TABLE public.timestamps(exec_index int, exec_time timestamp);")
@@ -99,7 +99,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			})
 
 			It("can execute all statements in the list in parallel", func() {
-				expectedOrderArray := []string{"3", "1", "4", "2"}
+				expectedOrderArray := []string{"1", "2", "3", "4"}
 				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, true)
 				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
@@ -110,8 +110,8 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			goodStmt := "SELECT * FROM pg_class LIMIT 1;"
 			syntaxError := "BAD SYNTAX;"
 			statements := []toc.StatementWithType{
-				{ObjectType: "TABLE", Statement: goodStmt},
-				{ObjectType: "INDEX", Statement: syntaxError},
+				{ObjectType: toc.OBJ_TABLE, Statement: goodStmt},
+				{ObjectType: toc.OBJ_INDEX, Statement: syntaxError},
 			}
 			Context("on-error-continue is not set", func() {
 				It("panics after exiting goroutines when running serially", func() {

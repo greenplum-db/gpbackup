@@ -5,6 +5,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintDefaultPrivilegesStatements", func() {
 		It("create default privileges for a table", func() {
-			privs := []backup.ACL{{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", "TABLE")}
+			privs := []backup.ACL{{Grantee: "", Select: true}, testutils.DefaultACLForType("testrole", toc.OBJ_TABLE)}
 			defaultPrivileges := []backup.DefaultPrivileges{{Schema: "", Privileges: privs, ObjectType: "r", Owner: "testrole"}}
 
 			backup.PrintDefaultPrivilegesStatements(backupfile, tocfile, defaultPrivileges)

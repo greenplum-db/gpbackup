@@ -138,7 +138,7 @@ func (p ExternalProtocol) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            p.Name,
-			ObjectType:      "PROTOCOL",
+			ObjectType:      toc.OBJ_PROTOCOL,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

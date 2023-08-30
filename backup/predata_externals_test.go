@@ -6,6 +6,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -94,7 +95,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 			extTableDef.URIs = []string{"file://host:port/path/file"}
 			testTable.ExtTableDef = extTableDef
 			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "tablename", "TABLE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "tablename", toc.OBJ_TABLE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE READABLE EXTERNAL TABLE public.tablename (
 ) LOCATION (
 	'file://host:port/path/file'
@@ -469,7 +470,7 @@ SEGMENT REJECT LIMIT 2 ROWS`)
 
 		It("prints untrusted protocol with read and write function", func() {
 			backup.PrintCreateExternalProtocolStatement(backupfile, tocfile, protocolUntrustedReadWrite, funcInfoMap, emptyMetadata)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "", "s3", "PROTOCOL")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "", "s3", toc.OBJ_PROTOCOL)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE PROTOCOL s3 (readfunc = public.read_fn_s3, writefunc = public.write_fn_s3);`)
 		})
 		It("prints untrusted protocol with read and validator", func() {

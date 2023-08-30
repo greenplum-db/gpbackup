@@ -27,9 +27,9 @@ func (t Table) SkipDataBackup() bool {
 }
 
 func (t Table) GetMetadataEntry() (string, toc.MetadataEntry) {
-	objectType := "TABLE"
+	objectType := toc.OBJ_TABLE
 	if (t.ForeignDef != ForeignTableDefinition{}) {
-		objectType = "FOREIGN TABLE"
+		objectType = toc.OBJ_FOREIGN_TABLE
 	}
 	referenceObject := ""
 	if t.AttachPartitionInfo != (AttachPartitionInfo{}) {

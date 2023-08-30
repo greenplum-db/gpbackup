@@ -88,8 +88,8 @@ func SetPluginConfig(config *utils.PluginConfig) {
 	pluginConfig = config
 }
 
-func SetTOC(toc *toc.TOC) {
-	globalTOC = toc
+func SetTOC(objToc *toc.TOC) {
+	globalTOC = objToc
 }
 
 // Util functions to enable ease of access to global flag values

@@ -5,6 +5,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,7 +41,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION testschema.\"testFunc\" (path,path) RETURNS path AS 'SELECT $1' LANGUAGE SQL IMMUTABLE")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION testschema.\"testFunc\" (path,path)")
 
-			operatorMetadata := testutils.DefaultMetadata("OPERATOR", false, false, true, false)
+			operatorMetadata := testutils.DefaultMetadata(toc.OBJ_OPERATOR, false, false, true, false)
 			operator := backup.Operator{Oid: 1, Schema: "testschema", Name: "##", Procedure: "testschema.\"testFunc\"", LeftArgType: "path", RightArgType: "path", CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 
 			backup.PrintCreateOperatorStatement(backupfile, tocfile, operator, operatorMetadata)
@@ -75,7 +76,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates operator family with owner and comment", func() {
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 			operatorFamilies := []backup.OperatorFamily{operatorFamily}
-			operatorFamilyMetadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true, false)
+			operatorFamilyMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_OPERATOR_FAMILY, false, true, true, false)
 			operatorFamilyMetadata := operatorFamilyMetadataMap[operatorFamily.GetUniqueID()]
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, tocfile, operatorFamilies, operatorFamilyMetadataMap)
@@ -85,7 +86,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			resultOperatorFamilies := backup.GetOperatorFamilies(connectionPool)
 			Expect(resultOperatorFamilies).To(HaveLen(1))
-			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORFAMILY)
+			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATOR_FAMILY)
 			resultMetadata := resultMetadataMap[resultOperatorFamilies[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&operatorFamily, &resultOperatorFamilies[0], "Oid")
 			structmatcher.ExpectStructsToMatchExcluding(&resultMetadata, &operatorFamilyMetadata, "Oid")
@@ -159,7 +160,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates basic operator class with a comment and owner", func() {
 			operatorClass := backup.OperatorClass{Oid: 1, Schema: "public", Name: "testclass", FamilySchema: "public", FamilyName: "testclass", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
-			operatorClassMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true, false)
+			operatorClassMetadata := testutils.DefaultMetadata(toc.OBJ_OPERATOR_CLASS, false, true, true, false)
 			if connectionPool.Version.Before("5") { // Operator families do not exist prior to GPDB5
 				operatorClass.FamilySchema = ""
 				operatorClass.FamilyName = ""
@@ -178,7 +179,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			Expect(resultOperatorClasses).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&operatorClass, &resultOperatorClasses[0], "Oid")
 
-			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATORCLASS)
+			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATOR_CLASS)
 			resultMetadata := resultMetadataMap[resultOperatorClasses[0].GetUniqueID()]
 			structmatcher.ExpectStructsToMatchExcluding(&resultMetadata, &operatorClassMetadata, "Oid")
 

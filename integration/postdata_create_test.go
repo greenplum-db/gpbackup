@@ -8,6 +8,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,7 +63,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates an index with a comment", func() {
 			indexes := []backup.IndexDefinition{{Oid: 1, Name: "index1", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: "CREATE INDEX index1 ON public.testtable USING btree (i)", Valid: true}}}
-			indexMetadataMap = testutils.DefaultMetadataMap("INDEX", false, false, true, false)
+			indexMetadataMap = testutils.DefaultMetadataMap(toc.OBJ_INDEX, false, false, true, false)
 			indexMetadata := indexMetadataMap[indexes[0].GetUniqueID()]
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 
@@ -184,7 +185,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a rule with a comment", func() {
 			rules := []backup.RuleDefinition{{Oid: 1, Name: "update_notify", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: ruleDef, Valid: true}}}
-			ruleMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
+			ruleMetadataMap = testutils.DefaultMetadataMap(toc.OBJ_RULE, false, false, true, false)
 			ruleMetadata := ruleMetadataMap[rules[0].GetUniqueID()]
 			backup.PrintCreateRuleStatements(backupfile, tocfile, rules, ruleMetadataMap)
 
@@ -232,7 +233,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				triggerDef = `CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON public.testtable FOR EACH ROW EXECUTE FUNCTION "RI_FKey_check_ins"()`
 			}
 			triggers := []backup.TriggerDefinition{{Oid: 1, Name: "sync_testtable", OwningSchema: "public", OwningTable: "testtable", Def: sql.NullString{String: triggerDef, Valid: true}}}
-			triggerMetadataMap = testutils.DefaultMetadataMap("RULE", false, false, true, false)
+			triggerMetadataMap = testutils.DefaultMetadataMap(toc.OBJ_RULE, false, false, true, false)
 			triggerMetadata := triggerMetadataMap[triggers[0].GetUniqueID()]
 			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)
 
@@ -301,7 +302,7 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 		})
 		It("creates an event trigger with comment, security label, and owner", func() {
 			eventTriggers := []backup.EventTrigger{{Oid: 1, Name: "test_event_trigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}}
-			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, true, true, includeSecurityLabels)
+			eventTriggerMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_EVENT_TRIGGER, false, true, true, includeSecurityLabels)
 			eventTriggerMetadata := eventTriggerMetadataMap[eventTriggers[0].GetUniqueID()]
 
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, []backup.EventTrigger{eventTriggers[0]}, eventTriggerMetadataMap)
@@ -310,10 +311,10 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP EVENT TRIGGER test_event_trigger")
 
 			resultEventTriggers := backup.GetEventTriggers(connectionPool)
-			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_EVENTTRIGGER)
+			resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_EVENT_TRIGGER)
 
 			Expect(resultEventTriggers).To(HaveLen(1))
-			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "test_event_trigger", backup.TYPE_EVENTTRIGGER)
+			uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "test_event_trigger", backup.TYPE_EVENT_TRIGGER)
 			resultMetadata := resultMetadataMap[uniqueID]
 			structmatcher.ExpectStructsToMatchExcluding(&eventTriggers[0], &resultEventTriggers[0], "Oid")
 			structmatcher.ExpectStructsToMatch(&eventTriggerMetadata, &resultMetadata)

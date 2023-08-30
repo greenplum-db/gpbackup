@@ -16,14 +16,14 @@ import (
  * such as roles and database configuration.
  */
 
-func PrintSessionGUCs(metadataFile *utils.FileWithByteCount, toc *toc.TOC, gucs SessionGUCs) {
+func PrintSessionGUCs(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, gucs SessionGUCs) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf(`
 SET client_encoding = '%s';
 `, gucs.ClientEncoding)
 
 	section, entry := gucs.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 }
 
 func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, defaultDB Database, db Database, dbMetadata MetadataMap) {
@@ -43,9 +43,9 @@ func PrintCreateDatabaseStatement(metadataFile *utils.FileWithByteCount, tocfile
 	}
 	metadataFile.MustPrintf(";")
 
-	entry := toc.MetadataEntry{Name: db.Name, ObjectType: "DATABASE"}
-	tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, tocfile, dbMetadata[db.GetUniqueID()], db, "")
+	entry := toc.MetadataEntry{Name: db.Name, ObjectType: toc.OBJ_DATABASE}
+	tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount, []uint32{0, 0})
+	PrintObjectMetadata(metadataFile, tocfile, dbMetadata[db.GetUniqueID()], db, "", []uint32{0, 0})
 }
 
 func PrintDatabaseGUCs(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, gucs []string, dbname string) {
@@ -53,8 +53,8 @@ func PrintDatabaseGUCs(metadataFile *utils.FileWithByteCount, tocfile *toc.TOC, 
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nALTER DATABASE %s %s;", dbname, guc)
 
-		entry := toc.MetadataEntry{Name: dbname, ObjectType: "DATABASE GUC"}
-		tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
+		entry := toc.MetadataEntry{Name: dbname, ObjectType: toc.OBJ_DATABASE_GUC}
+		tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount, []uint32{0, 0})
 	}
 }
 
@@ -91,8 +91,8 @@ func PrintCreateResourceQueueStatements(metadataFile *utils.FileWithByteCount, t
 		metadataFile.MustPrintf("\n\n%s RESOURCE QUEUE %s WITH (%s);", action, resQueue.Name, strings.Join(attributes, ", "))
 
 		section, entry := resQueue.GetMetadataEntry()
-		tocfile.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, tocfile, resQueueMetadata[resQueue.GetUniqueID()], resQueue, "")
+		tocfile.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
+		PrintObjectMetadata(metadataFile, tocfile, resQueueMetadata[resQueue.GetUniqueID()], resQueue, "", []uint32{0, 0})
 	}
 }
 
@@ -131,12 +131,12 @@ func PrintResetResourceGroupStatements(metadataFile *utils.FileWithByteCount, to
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s %s;", prepare.name, prepare.setting)
 
-		entry := toc.MetadataEntry{Name: prepare.name, ObjectType: "RESOURCE GROUP"}
-		tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount)
+		entry := toc.MetadataEntry{Name: prepare.name, ObjectType: toc.OBJ_RESOURCE_GROUP}
+		tocfile.AddMetadataEntry("global", entry, start, metadataFile.ByteCount, []uint32{0, 0})
 	}
 }
 
-func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByteCount, toc *toc.TOC, resGroups []ResourceGroupAtLeast7, resGroupMetadata MetadataMap) {
+func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, resGroups []ResourceGroupAtLeast7, resGroupMetadata MetadataMap) {
 	for _, resGroup := range resGroups {
 		var start uint64
 		section, entry := resGroup.GetMetadataEntry()
@@ -152,7 +152,7 @@ func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByte
 				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET %s %s;", resGroup.Name, property.setting, property.value)
 
-				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 			}
 
 			/* special handling for cpu properties */
@@ -167,8 +167,8 @@ func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByte
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
 			}
 
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
+			PrintObjectMetadata(metadataFile, objToc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "", []uint32{0, 0})
 		} else {
 			start = metadataFile.ByteCount
 			attributes := make([]string, 0)
@@ -187,13 +187,13 @@ func PrintCreateResourceGroupStatementsAtLeast7(metadataFile *utils.FileWithByte
 			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%s", resGroup.Concurrency))
 			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
 
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
+			PrintObjectMetadata(metadataFile, objToc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "", []uint32{0, 0})
 		}
 	}
 }
 
-func PrintCreateResourceGroupStatementsBefore7(metadataFile *utils.FileWithByteCount, toc *toc.TOC, resGroups []ResourceGroupBefore7, resGroupMetadata MetadataMap) {
+func PrintCreateResourceGroupStatementsBefore7(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, resGroups []ResourceGroupBefore7, resGroupMetadata MetadataMap) {
 	for _, resGroup := range resGroups {
 
 		// temporarily special case for 5x resource groups #temp5xResGroup
@@ -228,7 +228,7 @@ func PrintCreateResourceGroupStatementsBefore7(metadataFile *utils.FileWithByteC
 				start = metadataFile.ByteCount
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET %s %s;", resGroup.Name, property.setting, property.value)
 
-				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 			}
 
 			/* special handling for cpu properties */
@@ -241,8 +241,8 @@ func PrintCreateResourceGroupStatementsBefore7(metadataFile *utils.FileWithByteC
 				metadataFile.MustPrintf("\n\nALTER RESOURCE GROUP %s SET CPUSET '%s';", resGroup.Name, resGroup.Cpuset)
 			}
 
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
+			PrintObjectMetadata(metadataFile, objToc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "", []uint32{0, 0})
 		} else {
 			start = metadataFile.ByteCount
 			attributes := make([]string, 0)
@@ -273,13 +273,13 @@ func PrintCreateResourceGroupStatementsBefore7(metadataFile *utils.FileWithByteC
 			attributes = append(attributes, fmt.Sprintf("CONCURRENCY=%s", resGroup.Concurrency))
 			metadataFile.MustPrintf("\n\nCREATE RESOURCE GROUP %s WITH (%s);", resGroup.Name, strings.Join(attributes, ", "))
 
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-			PrintObjectMetadata(metadataFile, toc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "")
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
+			PrintObjectMetadata(metadataFile, objToc, resGroupMetadata[resGroup.GetUniqueID()], resGroup, "", []uint32{0, 0})
 		}
 	}
 }
 
-func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, roles []Role, roleMetadata MetadataMap) {
+func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, roles []Role, roleMetadata MetadataMap) {
 	for _, role := range roles {
 		start := metadataFile.ByteCount
 		attrs := make([]string, 0)
@@ -366,20 +366,20 @@ CREATE ROLE %s;
 ALTER ROLE %s WITH %s;`, role.Name, role.Name, strings.Join(attrs, " "))
 
 		section, entry := role.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 
 		if len(role.TimeConstraints) != 0 {
 			for _, timeConstraint := range role.TimeConstraints {
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER ROLE %s DENY BETWEEN DAY %d TIME '%s' AND DAY %d TIME '%s';", role.Name, timeConstraint.StartDay, timeConstraint.StartTime, timeConstraint.EndDay, timeConstraint.EndTime)
-				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 			}
 		}
-		PrintObjectMetadata(metadataFile, toc, roleMetadata[role.GetUniqueID()], role, "")
+		PrintObjectMetadata(metadataFile, objToc, roleMetadata[role.GetUniqueID()], role, "", []uint32{0, 0})
 	}
 }
 
-func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, roleGUCs map[string][]RoleGUC) {
+func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, roleGUCs map[string][]RoleGUC) {
 	for roleName := range roleGUCs {
 		for _, roleGUC := range roleGUCs[roleName] {
 			start := metadataFile.ByteCount
@@ -390,12 +390,12 @@ func PrintRoleGUCStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 			metadataFile.MustPrintf("\n\nALTER ROLE %s %s%s;", roleName, dbString, roleGUC.Config)
 
 			section, entry := roleGUC.GetMetadataEntry()
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 		}
 	}
 }
 
-func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, roleMembers []RoleMember) {
+func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, roleMembers []RoleMember) {
 	metadataFile.MustPrintf("\n\n")
 	for _, roleMember := range roleMembers {
 		start := metadataFile.ByteCount
@@ -409,11 +409,11 @@ func PrintRoleMembershipStatements(metadataFile *utils.FileWithByteCount, toc *t
 		metadataFile.MustPrintf(";")
 
 		section, entry := roleMember.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 	}
 }
 
-func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, tablespaces []Tablespace, tablespaceMetadata MetadataMap) {
+func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, tablespaces []Tablespace, tablespaceMetadata MetadataMap) {
 	for _, tablespace := range tablespaces {
 		start := metadataFile.ByteCount
 		locationStr := ""
@@ -427,13 +427,13 @@ func PrintCreateTablespaceStatements(metadataFile *utils.FileWithByteCount, toc 
 		metadataFile.MustPrintf("\n\nCREATE TABLESPACE %s %s;", tablespace.Tablespace, locationStr)
 
 		section, entry := tablespace.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 
 		if tablespace.Options != "" {
 			start = metadataFile.ByteCount
 			metadataFile.MustPrintf("\n\nALTER TABLESPACE %s SET (%s);\n", tablespace.Tablespace, tablespace.Options)
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 		}
-		PrintObjectMetadata(metadataFile, toc, tablespaceMetadata[tablespace.GetUniqueID()], tablespace, "")
+		PrintObjectMetadata(metadataFile, objToc, tablespaceMetadata[tablespace.GetUniqueID()], tablespace, "", []uint32{0, 0})
 	}
 }

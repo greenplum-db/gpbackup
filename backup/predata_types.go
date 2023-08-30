@@ -38,11 +38,11 @@ func PrintCreateShellTypeStatements(metadataFile *utils.FileWithByteCount, tocfi
 		metadataFile.MustPrintf("CREATE TYPE %s;\n", typ.FQN())
 
 		section, entry := typ.GetMetadataEntry()
-		tocfile.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		tocfile.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 	}
 }
 
-func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, domain Domain, typeMetadata ObjectMetadata, constraints []Constraint) {
+func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, domain Domain, typeMetadata ObjectMetadata, constraints []Constraint) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\nCREATE DOMAIN %s AS %s", domain.FQN(), domain.BaseType)
 	if domain.DefaultVal != "" {
@@ -60,11 +60,12 @@ func PrintCreateDomainStatement(metadataFile *utils.FileWithByteCount, toc *toc.
 	metadataFile.MustPrintln(";")
 
 	section, entry := domain.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, typeMetadata, domain, "")
+	tier := globalTierMap[domain.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, typeMetadata, domain, "", tier)
 }
 
-func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, base BaseType, typeMetadata ObjectMetadata) {
+func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, base BaseType, typeMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TYPE %s (\n", base.FQN())
 
@@ -135,11 +136,12 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, toc *to
 		metadataFile.MustPrintf("\nALTER TYPE %s\n\tSET DEFAULT ENCODING (%s);", base.FQN(), base.StorageOptions)
 	}
 	section, entry := base.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, typeMetadata, base, "")
+	tier := globalTierMap[base.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, typeMetadata, base, "", tier)
 }
 
-func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
+func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
 	var attributeList []string
 	for _, att := range composite.Attributes {
 		collationStr := ""
@@ -155,33 +157,35 @@ func PrintCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, to
 	metadataFile.MustPrintf(");")
 
 	section, entry := composite.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	printPostCreateCompositeTypeStatement(metadataFile, toc, composite, typeMetadata)
+	tier := globalTierMap[composite.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	printPostCreateCompositeTypeStatement(metadataFile, objToc, composite, typeMetadata, tier)
 }
 
-func printPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, composite CompositeType, typeMetadata ObjectMetadata) {
-	PrintObjectMetadata(metadataFile, toc, typeMetadata, composite, "")
+func printPostCreateCompositeTypeStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, composite CompositeType, typeMetadata ObjectMetadata, tier []uint32) {
+	PrintObjectMetadata(metadataFile, objToc, typeMetadata, composite, "", tier)
 	statements := make([]string, 0)
 	for _, att := range composite.Attributes {
 		if att.Comment != "" {
 			statements = append(statements, fmt.Sprintf("COMMENT ON COLUMN %s.%s IS %s;", composite.FQN(), att.Name, att.Comment))
 		}
 	}
-	PrintStatements(metadataFile, toc, composite, statements)
+	PrintStatements(metadataFile, objToc, composite, statements, tier)
 }
 
-func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, enums []EnumType, typeMetadata MetadataMap) {
+func PrintCreateEnumTypeStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, enums []EnumType, typeMetadata MetadataMap) {
 	for _, enum := range enums {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nCREATE TYPE %s AS ENUM (\n\t%s\n);\n", enum.FQN(), enum.EnumLabels)
 
 		section, entry := enum.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, typeMetadata[enum.GetUniqueID()], enum, "")
+		tier := globalTierMap[enum.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+		PrintObjectMetadata(metadataFile, objToc, typeMetadata[enum.GetUniqueID()], enum, "", tier)
 	}
 }
 
-func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, rangeType RangeType, typeMetadata ObjectMetadata) {
+func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, rangeType RangeType, typeMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TYPE %s AS RANGE (\n\tSUBTYPE = %s", rangeType.FQN(), rangeType.SubType)
 
@@ -200,11 +204,12 @@ func PrintCreateRangeTypeStatement(metadataFile *utils.FileWithByteCount, toc *t
 	metadataFile.MustPrintf("\n);\n")
 
 	section, entry := rangeType.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, typeMetadata, rangeType, "")
+	tier := globalTierMap[rangeType.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, typeMetadata, rangeType, "", tier)
 }
 
-func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, collations []Collation, collationMetadata MetadataMap) {
+func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, collations []Collation, collationMetadata MetadataMap) {
 	for _, collation := range collations {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\nCREATE COLLATION %s (LC_COLLATE = '%s', LC_CTYPE = '%s'", collation.FQN(), collation.Collate, collation.Ctype)
@@ -228,7 +233,8 @@ func PrintCreateCollationStatements(metadataFile *utils.FileWithByteCount, toc *
 		metadataFile.MustPrintf(");")
 
 		section, entry := collation.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, collationMetadata[collation.GetUniqueID()], collation, "")
+		tier := globalTierMap[collation.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+		PrintObjectMetadata(metadataFile, objToc, collationMetadata[collation.GetUniqueID()], collation, "", tier)
 	}
 }

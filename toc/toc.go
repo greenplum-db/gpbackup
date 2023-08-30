@@ -33,6 +33,7 @@ type MetadataEntry struct {
 	ReferenceObject string
 	StartByte       uint64
 	EndByte         uint64
+	Tier            []uint32
 }
 
 type CoordinatorDataEntry struct {
@@ -58,6 +59,67 @@ type AOEntry struct {
 	Modcount         int64
 	LastDDLTimestamp string
 }
+
+type UniqueID struct {
+	ClassID uint32
+	Oid     uint32
+}
+
+// These are to be used as the values for setting object type on any of the structs that require
+// that field. Note that we do still dynamically add " METADATA" to some postdata object types to
+// assist in batching for parallel restore.
+const (
+	OBJ_AGGREGATE                 = "AGGREGATE"
+	OBJ_ACCESS_METHOD             = "ACCESS METHOD"
+	OBJ_CAST                      = "CAST"
+	OBJ_COLLATION                 = "COLLATION"
+	OBJ_COLUMN                    = "COLUMN"
+	OBJ_CONSTRAINT                = "CONSTRAINT"
+	OBJ_CONVERSION                = "CONVERSION"
+	OBJ_DATABASE                  = "DATABASE"
+	OBJ_DATABASE_GUC              = "DATABASE GUC"
+	OBJ_DATABASE_METADATA         = "DATABASE METADATA"
+	OBJ_DOMAIN                    = "DOMAIN"
+	OBJ_EVENT_TRIGGER             = "EVENT TRIGGER"
+	OBJ_EXTENSION                 = "EXTENSION"
+	OBJ_FOREIGN_DATA_WRAPPER      = "FOREIGN DATA WRAPPER"
+	OBJ_FOREIGN_SERVER            = "FOREIGN SERVER"
+	OBJ_FOREIGN_TABLE             = "FOREIGN TABLE"
+	OBJ_FUNCTION                  = "FUNCTION"
+	OBJ_INDEX                     = "INDEX"
+	OBJ_LANGUAGE                  = "LANGUAGE"
+	OBJ_MATERIALIZED_VIEW         = "MATERIALIZED VIEW"
+	OBJ_OPERATOR_CLASS            = "OPERATOR CLASS"
+	OBJ_OPERATOR                  = "OPERATOR"
+	OBJ_OPERATOR_FAMILY           = "OPERATOR FAMILY"
+	OBJ_PROCEDURE                 = "PROCEDURE"
+	OBJ_PROTOCOL                  = "PROTOCOL"
+	OBJ_RELATION                  = "RELATION"
+	OBJ_RESOURCE_GROUP            = "RESOURCE GROUP"
+	OBJ_RESOURCE_QUEUE            = "RESOURCE QUEUE"
+	OBJ_ROLE                      = "ROLE"
+	OBJ_ROLE_GRANT                = "ROLE GRANT"
+	OBJ_ROLE_GUC                  = "ROLE GUCS"
+	OBJ_RULE                      = "RULE"
+	OBJ_SCHEMA                    = "SCHEMA"
+	OBJ_SEQUENCE                  = "SEQUENCE"
+	OBJ_SEQUENCE_OWNER            = "SEQUENCE OWNER"
+	OBJ_SERVER                    = "SERVER"
+	OBJ_SESSION_GUC               = "SESSION GUCS"
+	OBJ_STATISTICS                = "STATISTICS"
+	OBJ_STATISTICS_EXT            = "STATISTICS_EXT"
+	OBJ_TABLE                     = "TABLE"
+	OBJ_TABLESPACE                = "TABLESPACE"
+	OBJ_TRANSFORM                 = "TRANSFORM"
+	OBJ_TRIGGER                   = "TRIGGER"
+	OBJ_TEXT_SEARCH_CONFIGURATION = "TEXT SEARCH CONFIGURATION"
+	OBJ_TEXT_SEARCH_DICTIONARY    = "TEXT SEARCH DICTIONARY"
+	OBJ_TEXT_SEARCH_PARSER        = "TEXT SEARCH PARSER"
+	OBJ_TEXT_SEARCH_TEMPLATE      = "TEXT SEARCH TEMPLATE"
+	OBJ_TYPE                      = "TYPE"
+	OBJ_USER_MAPPING              = "USER MAPPING"
+	OBJ_VIEW                      = "VIEW"
+)
 
 func NewTOC(filename string) *TOC {
 	toc := &TOC{}
@@ -98,6 +160,7 @@ type StatementWithType struct {
 	ObjectType      string
 	ReferenceObject string
 	Statement       string
+	Tier            []uint32
 }
 
 func GetIncludedPartitionRoots(tocDataEntries []CoordinatorDataEntry, includeRelations []string) []string {
@@ -132,7 +195,7 @@ func (toc *TOC) GetSQLStatementForObjectTypes(section string, metadataFile io.Re
 			contents := make([]byte, entry.EndByte-entry.StartByte)
 			_, err := metadataFile.ReadAt(contents, int64(entry.StartByte))
 			gplog.FatalOnError(err)
-			statements = append(statements, StatementWithType{Schema: entry.Schema, Name: entry.Name, ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents)})
+			statements = append(statements, StatementWithType{Schema: entry.Schema, Name: entry.Name, ObjectType: entry.ObjectType, ReferenceObject: entry.ReferenceObject, Statement: string(contents), Tier: entry.Tier})
 		}
 	}
 	return statements
@@ -171,10 +234,10 @@ func shouldIncludeStatement(entry MetadataEntry, objectSet *utils.FilterSet, sch
 		includeLeafPartition = false
 	}
 
-	shouldIncludeRelation := (relationSet.IsExclude && entry.ObjectType != "TABLE" && entry.ObjectType != "VIEW" && entry.ObjectType != "MATERIALIZED VIEW" && entry.ObjectType != "SEQUENCE" && entry.ObjectType != "STATISTICS" && entry.ReferenceObject == "") ||
-		((entry.ObjectType == "TABLE" || entry.ObjectType == "VIEW" || entry.ObjectType == "MATERIALIZED VIEW" || entry.ObjectType == "SEQUENCE" || entry.ObjectType == "STATISTICS") && relationSet.MatchesFilter(relationFQN) && includeLeafPartition) || // Relations should match the filter
-		(entry.ObjectType != "SEQUENCE OWNER" && entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) || // Include relations that filtered tables depend on
-		(entry.ObjectType == "SEQUENCE OWNER" && relationSet.MatchesFilter(relationFQN) && relationSet.MatchesFilter(entry.ReferenceObject)) //Include sequence owners if both table and sequence are being restored
+	shouldIncludeRelation := (relationSet.IsExclude && entry.ObjectType != OBJ_TABLE && entry.ObjectType != OBJ_VIEW && entry.ObjectType != OBJ_MATERIALIZED_VIEW && entry.ObjectType != OBJ_SEQUENCE && entry.ObjectType != OBJ_STATISTICS && entry.ReferenceObject == "") ||
+		((entry.ObjectType == OBJ_TABLE || entry.ObjectType == OBJ_VIEW || entry.ObjectType == OBJ_MATERIALIZED_VIEW || entry.ObjectType == OBJ_SEQUENCE || entry.ObjectType == OBJ_STATISTICS) && relationSet.MatchesFilter(relationFQN) && includeLeafPartition) || // Relations should match the filter
+		(entry.ObjectType != OBJ_SEQUENCE_OWNER && entry.ReferenceObject != "" && relationSet.MatchesFilter(entry.ReferenceObject)) || // Include relations that filtered tables depend on
+		(entry.ObjectType == OBJ_SEQUENCE_OWNER && relationSet.MatchesFilter(relationFQN) && relationSet.MatchesFilter(entry.ReferenceObject)) //Include sequence owners if both table and sequence are being restored
 
 	return shouldIncludeObject && shouldIncludeSchema && shouldIncludeRelation
 }
@@ -232,7 +295,7 @@ func (toc *TOC) GetDataEntriesMatching(includeSchemas []string, excludeSchemas [
 }
 
 func SubstituteRedirectDatabaseInStatements(statements []StatementWithType, oldQuotedName string, newQuotedName string) []StatementWithType {
-	shouldReplace := map[string]bool{"DATABASE GUC": true, "DATABASE": true, "DATABASE METADATA": true}
+	shouldReplace := map[string]bool{OBJ_DATABASE_GUC: true, OBJ_DATABASE: true, OBJ_DATABASE_METADATA: true}
 	pattern := regexp.MustCompile(fmt.Sprintf("DATABASE %s(;| OWNER| SET| TO| FROM| IS| TEMPLATE)", regexp.QuoteMeta(oldQuotedName)))
 	for i := range statements {
 		if shouldReplace[statements[i].ObjectType] {
@@ -245,7 +308,7 @@ func SubstituteRedirectDatabaseInStatements(statements []StatementWithType, oldQ
 func RemoveActiveRole(activeUser string, statements []StatementWithType) []StatementWithType {
 	newStatements := make([]StatementWithType, 0)
 	for _, statement := range statements {
-		if statement.ObjectType == "ROLE" && statement.Name == activeUser {
+		if statement.ObjectType == OBJ_ROLE && statement.Name == activeUser {
 			continue
 		}
 		newStatements = append(newStatements, statement)
@@ -270,9 +333,10 @@ type TOCObjectWithMetadata interface {
 	FQN() string
 }
 
-func (toc *TOC) AddMetadataEntry(section string, entry MetadataEntry, start, end uint64) {
+func (toc *TOC) AddMetadataEntry(section string, entry MetadataEntry, start, end uint64, tier []uint32) {
 	entry.StartByte = start
 	entry.EndByte = end
+	entry.Tier = tier
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
 }
 

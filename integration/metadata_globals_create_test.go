@@ -8,6 +8,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -90,7 +91,7 @@ var _ = Describe("backup integration create statement tests", func() {
 	Describe("PrintCreateResourceQueueStatements", func() {
 		It("creates a basic resource queue with a comment", func() {
 			basicQueue := backup.ResourceQueue{Oid: 1, Name: `"basicQueue"`, ActiveStatements: -1, MaxCost: "32.80", CostOvercommit: false, MinCost: "0.00", Priority: "medium", MemoryLimit: "-1"}
-			resQueueMetadataMap := testutils.DefaultMetadataMap("RESOURCE QUEUE", false, false, true, false)
+			resQueueMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_RESOURCE_QUEUE, false, false, true, false)
 			resQueueMetadata := resQueueMetadataMap[basicQueue.GetUniqueID()]
 
 			backup.PrintCreateResourceQueueStatements(backupfile, tocfile, []backup.ResourceQueue{basicQueue}, resQueueMetadataMap)
@@ -103,8 +104,8 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, hunks[1])
 
 			resultResourceQueues := backup.GetResourceQueues(connectionPool)
-			resQueueUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "basicQueue", backup.TYPE_RESOURCEQUEUE)
-			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RESOURCEQUEUE)
+			resQueueUniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", "basicQueue", backup.TYPE_RESOURCE_QUEUE)
+			resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_RESOURCE_QUEUE)
 			resultMetadata := resultMetadataMap[resQueueUniqueID]
 			structmatcher.ExpectStructsToMatch(&resultMetadata, &resQueueMetadata)
 
@@ -374,7 +375,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				role1.Createrexthdfs = false
 				role1.Createwexthdfs = false
 			}
-			metadataMap := testutils.DefaultMetadataMap("ROLE", false, false, true, includeSecurityLabels)
+			metadataMap := testutils.DefaultMetadataMap(toc.OBJ_ROLE, false, false, true, includeSecurityLabels)
 
 			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{role1}, metadataMap)
 
@@ -561,7 +562,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a tablespace with permissions, an owner, security label, and a comment", func() {
 			numTablespaces := len(backup.GetTablespaces(connectionPool))
-			tablespaceMetadataMap := testutils.DefaultMetadataMap("TABLESPACE", true, true, true, includeSecurityLabels)
+			tablespaceMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_TABLESPACE, true, true, true, includeSecurityLabels)
 			tablespaceMetadata := tablespaceMetadataMap[expectedTablespace.GetUniqueID()]
 			backup.PrintCreateTablespaceStatements(backupfile, tocfile, []backup.Tablespace{expectedTablespace}, tablespaceMetadataMap)
 

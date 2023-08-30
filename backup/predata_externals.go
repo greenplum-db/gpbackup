@@ -49,7 +49,7 @@ type ExternalTableDefinition struct {
 	URIs            []string
 }
 
-func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, table Table) {
+func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, table Table) {
 	start := metadataFile.ByteCount
 	tableTypeStrMap := map[int]string{
 		READABLE:     "READABLE EXTERNAL",
@@ -67,9 +67,10 @@ func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, to
 		metadataFile.MustPrintf("\n%s", table.DistPolicy)
 	}
 	metadataFile.MustPrintf(";")
-	if toc != nil {
+	if objToc != nil {
 		section, entry := table.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		tier := globalTierMap[table.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 	}
 }
 
@@ -309,10 +310,11 @@ func PrintExternalTableStatements(metadataFile *utils.FileWithByteCount, tableNa
 	}
 }
 
-func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, protocol ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata ObjectMetadata) {
+func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, protocol ExternalProtocol, funcInfoMap map[uint32]FunctionInfo, protoMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	funcOidList := []uint32{protocol.ReadFunction, protocol.WriteFunction, protocol.Validator}
 	hasUserDefinedFunc := false
+	tier := globalTierMap[protocol.GetUniqueID()]
 	for _, funcOid := range funcOidList {
 		if funcInfo, ok := funcInfoMap[funcOid]; ok && !funcInfo.IsInternal {
 			hasUserDefinedFunc = true
@@ -337,13 +339,12 @@ func PrintCreateExternalProtocolStatement(metadataFile *utils.FileWithByteCount,
 		metadataFile.MustPrintf("PROTOCOL %s (%s);\n", protocol.Name, strings.Join(protocolFunctions, ", "))
 
 		section, entry := protocol.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 	}
-
-	PrintObjectMetadata(metadataFile, toc, protoMetadata, protocol, "")
+	PrintObjectMetadata(metadataFile, objToc, protoMetadata, protocol, "", tier)
 }
 
-func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Table) {
+func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, extPartitions []PartitionInfo, partInfoMap map[uint32]PartitionInfo, tables []Table) {
 	tableNameMap := make(map[uint32]string, len(tables))
 	for _, table := range tables {
 		tableNameMap[table.Oid] = table.FQN()
@@ -351,17 +352,25 @@ func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCo
 	for _, externalPartition := range extPartitions {
 		extPartRelationName := tableNameMap[externalPartition.RelationOid]
 		if extPartRelationName == "" {
-			continue //Not included in the list of tables to back up
+			continue // Not included in the list of tables to back up
 		}
 		parentRelationName := utils.MakeFQN(externalPartition.ParentSchema, externalPartition.ParentRelationName)
 		start := metadataFile.ByteCount
 		alterPartitionStr := ""
+		maxParentTier := []uint32{0, 0}
 		currentPartition := externalPartition
 		for currentPartition.PartitionParentRuleOid != 0 {
 			parent := partInfoMap[currentPartition.PartitionParentRuleOid]
 			if parent.PartitionName == "" {
 				alterPartitionStr = fmt.Sprintf("ALTER PARTITION FOR (RANK(%d)) ", parent.PartitionRank) + alterPartitionStr
 			} else {
+				// Keep track of deepest tier for partition parents, to ensure that the exchange
+				// statement is always run after the parent exists
+				parentTier, ok := globalTierMap[UniqueID{ClassID: PG_CLASS_OID, Oid: parent.RelationOid}]
+				if ok && parentTier[0] > maxParentTier[0] {
+					maxParentTier = parentTier
+				}
+
 				alterPartitionStr = fmt.Sprintf("ALTER PARTITION %s ", parent.PartitionName) + alterPartitionStr
 			}
 			currentPartition = parent
@@ -376,6 +385,6 @@ func PrintExchangeExternalPartitionStatements(metadataFile *utils.FileWithByteCo
 		metadataFile.MustPrintf("\n\nDROP TABLE %s;", extPartRelationName)
 
 		section, entry := externalPartition.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{maxParentTier[0] + 1, maxParentTier[1]})
 	}
 }

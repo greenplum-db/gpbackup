@@ -136,8 +136,8 @@ var _ = Describe("backup integration tests", func() {
 object-relational database management system');`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.ts_config_view;")
 
-			parserID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testparser", backup.TYPE_TSPARSER)
-			configID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testconfig", backup.TYPE_TSCONFIGURATION)
+			parserID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testparser", backup.TYPE_TS_PARSER)
+			configID := testutils.UniqueIDFromObjectName(connectionPool, "public", "testconfig", backup.TYPE_TS_CONFIGURATION)
 			viewID := testutils.UniqueIDFromObjectName(connectionPool, "public", "ts_config_view", backup.TYPE_RELATION)
 			backupSet := map[backup.UniqueID]bool{parserID: true, configID: true, viewID: true}
 			tables := make([]backup.Table, 0)

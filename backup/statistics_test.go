@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/lib/pq"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -67,12 +68,12 @@ var _ = Describe("backup/statistics tests", func() {
 			}
 
 			backup.PrintStatisticsStatements(backupfile, tocfile, tables, attStats, tupleStats)
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 0, "testschema", "", "testtable1", "STATISTICS")
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 1, "testschema", "", "testtable2", "STATISTICS")
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 2, "testschema", "", "testtable2", "STATISTICS")
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 3, "testschema", "", "testtable2", "STATISTICS")
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 4, "testschema", "", "testtable2", "STATISTICS")
-			testutils.ExpectEntry(tocfile.StatisticsEntries, 5, "testschema", "", "testtable2", "STATISTICS")
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 0, "testschema", "", "testtable1", toc.OBJ_STATISTICS)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 1, "testschema", "", "testtable2", toc.OBJ_STATISTICS)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 2, "testschema", "", "testtable2", toc.OBJ_STATISTICS)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 3, "testschema", "", "testtable2", toc.OBJ_STATISTICS)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 4, "testschema", "", "testtable2", toc.OBJ_STATISTICS)
+			testutils.ExpectEntry(tocfile.StatisticsEntries, 5, "testschema", "", "testtable2", toc.OBJ_STATISTICS)
 
 			insertReplace1, insertReplace2, insertReplace3, insertReplace4, insertReplace5 := getStatInsertReplace(0, 0)
 

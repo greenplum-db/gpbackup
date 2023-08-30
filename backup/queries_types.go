@@ -19,7 +19,7 @@ func GetTypeMetadataEntry(schema string, name string) (string, toc.MetadataEntry
 		toc.MetadataEntry{
 			Schema:          schema,
 			Name:            name,
-			ObjectType:      "TYPE",
+			ObjectType:      toc.OBJ_TYPE,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -320,7 +320,7 @@ func (t Domain) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          t.Schema,
 			Name:            t.Name,
-			ObjectType:      "DOMAIN",
+			ObjectType:      toc.OBJ_DOMAIN,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -546,7 +546,7 @@ func (c Collation) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          c.Schema,
 			Name:            c.Name,
-			ObjectType:      "COLLATION",
+			ObjectType:      toc.OBJ_COLLATION,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

@@ -23,7 +23,7 @@ func (sg SessionGUCs) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            "",
-			ObjectType:      "SESSION GUCS",
+			ObjectType:      toc.OBJ_SESSION_GUC,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -52,7 +52,7 @@ func (db Database) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            db.Name,
-			ObjectType:      "DATABASE METADATA",
+			ObjectType:      toc.OBJ_DATABASE_METADATA,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -142,7 +142,7 @@ func (rq ResourceQueue) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rq.Name,
-			ObjectType:      "RESOURCE QUEUE",
+			ObjectType:      toc.OBJ_RESOURCE_QUEUE,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -194,7 +194,7 @@ func (rg ResourceGroup) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rg.Name,
-			ObjectType:      "RESOURCE GROUP",
+			ObjectType:      toc.OBJ_RESOURCE_GROUP,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -335,7 +335,7 @@ func (r Role) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            r.Name,
-			ObjectType:      "ROLE",
+			ObjectType:      toc.OBJ_ROLE,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -425,7 +425,7 @@ func (rg RoleGUC) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rg.RoleName,
-			ObjectType:      "ROLE GUCS",
+			ObjectType:      toc.OBJ_ROLE_GUC,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -516,7 +516,7 @@ func (rm RoleMember) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            rm.Member,
-			ObjectType:      "ROLE GRANT",
+			ObjectType:      toc.OBJ_ROLE_GRANT,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -571,7 +571,7 @@ func (t Tablespace) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            t.Tablespace,
-			ObjectType:      "TABLESPACE",
+			ObjectType:      toc.OBJ_TABLESPACE,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

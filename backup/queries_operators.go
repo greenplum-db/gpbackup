@@ -34,7 +34,7 @@ func (o Operator) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          o.Schema,
 			Name:            o.Name,
-			ObjectType:      "OPERATOR",
+			ObjectType:      toc.OBJ_OPERATOR,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -122,7 +122,7 @@ func (opf OperatorFamily) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          opf.Schema,
 			Name:            opf.Name,
-			ObjectType:      "OPERATOR FAMILY",
+			ObjectType:      toc.OBJ_OPERATOR_FAMILY,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -173,7 +173,7 @@ func (opc OperatorClass) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          opc.Schema,
 			Name:            opc.Name,
-			ObjectType:      "OPERATOR CLASS",
+			ObjectType:      toc.OBJ_OPERATOR_CLASS,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

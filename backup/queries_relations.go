@@ -195,7 +195,7 @@ func (s Sequence) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          s.Schema,
 			Name:            s.Name,
-			ObjectType:      "SEQUENCE",
+			ObjectType:      toc.OBJ_SEQUENCE,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -376,9 +376,9 @@ func (v View) FQN() string {
 
 func (v View) ObjectType() string {
 	if v.IsMaterialized {
-		return "MATERIALIZED VIEW"
+		return toc.OBJ_MATERIALIZED_VIEW
 	}
-	return "VIEW"
+	return toc.OBJ_VIEW
 }
 
 // This function retrieves both regular views and materialized views.

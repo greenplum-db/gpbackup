@@ -31,7 +31,7 @@ var _ = Describe("backup/dependencies tests", func() {
 		It("returns the original slice if there are no dependencies among objects", func() {
 			relations := []backup.Sortable{relation1, relation2, relation3}
 
-			relations = backup.TopologicalSort(relations, depMap)
+			relations, _ = backup.TopologicalSort(relations, depMap)
 
 			Expect(relations[0].FQN()).To(Equal("public.relation1"))
 			Expect(relations[1].FQN()).To(Equal("public.relation2"))
@@ -41,7 +41,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			depMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = map[backup.UniqueID]bool{{ClassID: backup.PG_CLASS_OID, Oid: 3}: true}
 			relations := []backup.Sortable{relation1, relation2, relation3}
 
-			relations = backup.TopologicalSort(relations, depMap)
+			relations, _ = backup.TopologicalSort(relations, depMap)
 
 			Expect(relations[0].FQN()).To(Equal("public.relation2"))
 			Expect(relations[1].FQN()).To(Equal("public.relation3"))
@@ -52,7 +52,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			depMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 3}] = map[backup.UniqueID]bool{{ClassID: backup.PG_CLASS_OID, Oid: 2}: true}
 			relations := []backup.Sortable{relation1, relation2, relation3}
 
-			relations = backup.TopologicalSort(relations, depMap)
+			relations, _ = backup.TopologicalSort(relations, depMap)
 
 			Expect(relations[0].FQN()).To(Equal("public.relation2"))
 			Expect(relations[1].FQN()).To(Equal("public.relation1"))
@@ -62,7 +62,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			depMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 2}] = map[backup.UniqueID]bool{{ClassID: backup.PG_CLASS_OID, Oid: 1}: true, {ClassID: backup.PG_CLASS_OID, Oid: 1}: true}
 			relations := []backup.Sortable{relation1, relation2, relation3}
 
-			relations = backup.TopologicalSort(relations, depMap)
+			relations, _ = backup.TopologicalSort(relations, depMap)
 
 			Expect(relations[0].FQN()).To(Equal("public.relation1"))
 			Expect(relations[1].FQN()).To(Equal("public.relation3"))
@@ -86,7 +86,7 @@ var _ = Describe("backup/dependencies tests", func() {
 				testhelper.ExpectRegexp(logfile, "\tpublic.relation2 {ClassID:1259 Oid:2}")
 			}()
 			defer testhelper.ShouldPanicWithMessage("Dependency resolution failed; see log file gbytes.Buffer for details. This is a bug, please report.")
-			sortable = backup.TopologicalSort(sortable, depMap)
+			sortable, _ = backup.TopologicalSort(sortable, depMap)
 		})
 		It("aborts if dependencies are not met", func() {
 			depMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = map[backup.UniqueID]bool{{ClassID: backup.PG_CLASS_OID, Oid: 2}: true}
@@ -94,7 +94,7 @@ var _ = Describe("backup/dependencies tests", func() {
 			sortable := []backup.Sortable{relation1, relation2}
 
 			defer testhelper.ShouldPanicWithMessage("Dependency resolution failed; see log file gbytes.Buffer for details. This is a bug, please report.")
-			sortable = backup.TopologicalSort(sortable, depMap)
+			sortable, _ = backup.TopologicalSort(sortable, depMap)
 		})
 	})
 	Describe("PrintDependentObjectStatements", func() {

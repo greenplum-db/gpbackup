@@ -56,8 +56,8 @@ type ACL struct {
 
 type MetadataMap map[UniqueID]ObjectMetadata
 
-func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
-	obj toc.TOCObject, statements []string) {
+func PrintStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC,
+	obj toc.TOCObject, statements []string, tier []uint32) {
 	for _, statement := range statements {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s\n", statement)
@@ -75,15 +75,16 @@ func PrintStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 				entry.ReferenceObject = entry.Name
 			}
 		}
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 	}
 }
 
-func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
-	metadata ObjectMetadata, obj toc.TOCObjectWithMetadata, owningTable string) {
+func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, objToc *toc.TOC,
+	metadata ObjectMetadata, obj toc.TOCObjectWithMetadata, owningTable string, tier []uint32) {
 	_, entry := obj.GetMetadataEntry()
-	if entry.ObjectType == "DATABASE METADATA" {
-		entry.ObjectType = "DATABASE"
+
+	if entry.ObjectType == toc.OBJ_DATABASE_METADATA {
+		entry.ObjectType = toc.OBJ_DATABASE
 	}
 	statements := make([]string, 0)
 	if comment := metadata.GetCommentStatement(obj.FQN(), entry.ObjectType, owningTable); comment != "" {
@@ -97,13 +98,13 @@ func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 			if object.Kind == "p" {
 				// Procedures are handled as a kind of function but with different syntax and capabilities.
 				// Distinction made when printing here
-				objectType = "PROCEDURE"
+				objectType = toc.OBJ_PROCEDURE
 			}
 		}
 	}
 
 	if owner := metadata.GetOwnerStatement(obj.FQN(), objectType); owner != "" {
-		if !(connectionPool.Version.Before("5") && entry.ObjectType == "LANGUAGE") {
+		if !(connectionPool.Version.Before("5") && entry.ObjectType == toc.OBJ_LANGUAGE) {
 			// Languages have implicit owners in 4.3, but do not support ALTER OWNER
 			statements = append(statements, strings.TrimSpace(owner))
 		}
@@ -114,11 +115,11 @@ func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
 	if securityLabel := metadata.GetSecurityLabelStatement(obj.FQN(), entry.ObjectType); securityLabel != "" {
 		statements = append(statements, strings.TrimSpace(securityLabel))
 	}
-	PrintStatements(metadataFile, toc, obj, statements)
+	PrintStatements(metadataFile, objToc, obj, statements, tier)
 }
 
 // Only print grant statements for any functions that belong to extensions
-func printExtensionFunctionACLs(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
+func printExtensionFunctionACLs(metadataFile *utils.FileWithByteCount, objToc *toc.TOC,
 	metadataMap MetadataMap, funcInfoMap map[uint32]FunctionInfo) {
 	type objectInfo struct {
 		FunctionInfo
@@ -138,9 +139,9 @@ func printExtensionFunctionACLs(metadataFile *utils.FileWithByteCount, toc *toc.
 	})
 	statements := make([]string, 0)
 	for _, obj := range objects {
-		if privileges := obj.GetPrivilegesStatements(obj.FQN(), "FUNCTION"); privileges != "" {
+		if privileges := obj.GetPrivilegesStatements(obj.FQN(), toc.OBJ_FUNCTION); privileges != "" {
 			statements = append(statements, strings.TrimSpace(privileges))
-			PrintStatements(metadataFile, toc, obj, statements)
+			PrintStatements(metadataFile, objToc, obj, statements, []uint32{0, 0})
 		}
 	}
 }
@@ -293,11 +294,11 @@ func ParseACL(aclStr string) *ACL {
 func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType string, columnName ...string) string {
 	statements := make([]string, 0)
 	typeStr := fmt.Sprintf("%s ", objectType)
-	if objectType == "VIEW" || objectType == "FOREIGN TABLE" || objectType == "MATERIALIZED VIEW" {
+	if objectType == toc.OBJ_VIEW || objectType == toc.OBJ_FOREIGN_TABLE || objectType == toc.OBJ_MATERIALIZED_VIEW {
 		typeStr = ""
-	} else if objectType == "COLUMN" {
+	} else if objectType == toc.OBJ_COLUMN {
 		typeStr = "TABLE "
-	} else if objectType == "AGGREGATE" {
+	} else if objectType == toc.OBJ_AGGREGATE {
 		typeStr = "FUNCTION "
 	}
 	columnStr := ""
@@ -342,45 +343,45 @@ func createPrivilegeStrings(acl ACL, objectType string) (string, string) {
 	privStr := ""
 	privWithGrantStr := ""
 	switch objectType {
-	case "COLUMN":
+	case toc.OBJ_COLUMN:
 		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.References
 		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.ReferencesWithGrant
-	case "DATABASE":
+	case toc.OBJ_DATABASE:
 		hasAllPrivileges = acl.Create && acl.Temporary && acl.Connect
 		hasAllPrivilegesWithGrant = acl.CreateWithGrant && acl.TemporaryWithGrant && acl.ConnectWithGrant
-	case "FOREIGN DATA WRAPPER":
+	case toc.OBJ_FOREIGN_DATA_WRAPPER:
 		hasAllPrivileges = acl.Usage
 		hasAllPrivilegesWithGrant = acl.UsageWithGrant
-	case "FOREIGN SERVER":
+	case toc.OBJ_FOREIGN_SERVER:
 		hasAllPrivileges = acl.Usage
 		hasAllPrivilegesWithGrant = acl.UsageWithGrant
-	case "FOREIGN TABLE":
+	case toc.OBJ_FOREIGN_TABLE:
 		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.References && acl.Trigger
 		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
 			acl.ReferencesWithGrant && acl.TriggerWithGrant
-	case "FUNCTION":
+	case toc.OBJ_FUNCTION:
 		hasAllPrivileges = acl.Execute
 		hasAllPrivilegesWithGrant = acl.ExecuteWithGrant
-	case "LANGUAGE":
+	case toc.OBJ_LANGUAGE:
 		hasAllPrivileges = acl.Usage
 		hasAllPrivilegesWithGrant = acl.UsageWithGrant
-	case "PROTOCOL":
+	case toc.OBJ_PROTOCOL:
 		hasAllPrivileges = acl.Select && acl.Insert
 		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant
-	case "SCHEMA":
+	case toc.OBJ_SCHEMA:
 		hasAllPrivileges = acl.Usage && acl.Create
 		hasAllPrivilegesWithGrant = acl.UsageWithGrant && acl.CreateWithGrant
-	case "SEQUENCE":
+	case toc.OBJ_SEQUENCE:
 		hasAllPrivileges = acl.Select && acl.Update && acl.Usage
 		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.UpdateWithGrant && acl.UsageWithGrant
-	case "TABLE", "VIEW", "MATERIALIZED VIEW":
+	case toc.OBJ_TABLE, toc.OBJ_VIEW, toc.OBJ_MATERIALIZED_VIEW:
 		hasAllPrivileges = acl.Select && acl.Insert && acl.Update && acl.Delete && acl.Truncate && acl.References && acl.Trigger
 		hasAllPrivilegesWithGrant = acl.SelectWithGrant && acl.InsertWithGrant && acl.UpdateWithGrant && acl.DeleteWithGrant &&
 			acl.TruncateWithGrant && acl.ReferencesWithGrant && acl.TriggerWithGrant
-	case "TABLESPACE":
+	case toc.OBJ_TABLESPACE:
 		hasAllPrivileges = acl.Create
 		hasAllPrivilegesWithGrant = acl.CreateWithGrant
-	case "TYPE":
+	case toc.OBJ_TYPE:
 		hasAllPrivileges = acl.Usage
 		hasAllPrivilegesWithGrant = acl.UsageWithGrant
 	}
@@ -473,10 +474,11 @@ func createPrivilegeStrings(acl ACL, objectType string) (string, string) {
 }
 func (obj ObjectMetadata) GetOwnerStatement(objectName string, objectType string) string {
 	typeStr := objectType
-	if connectionPool.Version.Before("6") && (objectType == "SEQUENCE" || objectType == "VIEW") {
-		typeStr = "TABLE"
-	} else if objectType == "FOREIGN SERVER" {
-		typeStr = "SERVER"
+	if connectionPool.Version.Before("6") && (objectType == toc.OBJ_SEQUENCE || objectType == toc.OBJ_VIEW) {
+		// these aren't strictly object types but share use with them so we use the const strings here
+		typeStr = toc.OBJ_TABLE
+	} else if objectType == toc.OBJ_FOREIGN_SERVER {
+		typeStr = toc.OBJ_SERVER
 	}
 	ownerStr := ""
 	if obj.Owner != "" {
@@ -507,7 +509,7 @@ func (obj ObjectMetadata) GetSecurityLabelStatement(objectName string, objectTyp
 	return securityLabelStr
 }
 
-func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, privileges []DefaultPrivileges) {
+func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, privileges []DefaultPrivileges) {
 	for _, priv := range privileges {
 		statements := make([]string, 0)
 		roleStr := ""
@@ -522,13 +524,13 @@ func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc
 		objectType := ""
 		switch priv.ObjectType {
 		case "r":
-			objectType = "TABLE"
+			objectType = toc.OBJ_TABLE
 		case "S":
-			objectType = "SEQUENCE"
+			objectType = toc.OBJ_SEQUENCE
 		case "f":
-			objectType = "FUNCTION"
+			objectType = toc.OBJ_FUNCTION
 		case "T":
-			objectType = "TYPE"
+			objectType = toc.OBJ_TYPE
 		}
 		alterPrefix := fmt.Sprintf("ALTER DEFAULT PRIVILEGES%s%s", roleStr, schemaStr)
 		statements = append(statements, fmt.Sprintf("%s REVOKE ALL ON %sS FROM PUBLIC;", alterPrefix, objectType))
@@ -553,7 +555,7 @@ func PrintDefaultPrivilegesStatements(metadataFile *utils.FileWithByteCount, toc
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintln("\n\n" + strings.Join(statements, "\n"))
 		section, entry := priv.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 	}
 }
 

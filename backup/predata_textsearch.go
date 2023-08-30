@@ -17,7 +17,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateTextSearchParserStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, parser TextSearchParser, parserMetadata ObjectMetadata) {
+func PrintCreateTextSearchParserStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, parser TextSearchParser, parserMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH PARSER %s (", parser.FQN())
 	metadataFile.MustPrintf("\n\tSTART = %s,", parser.StartFunc)
@@ -30,11 +30,12 @@ func PrintCreateTextSearchParserStatement(metadataFile *utils.FileWithByteCount,
 	metadataFile.MustPrintf("\n);")
 
 	section, entry := parser.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, parserMetadata, parser, "")
+	tier := globalTierMap[parser.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, parserMetadata, parser, "", tier)
 }
 
-func PrintCreateTextSearchTemplateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, template TextSearchTemplate, templateMetadata ObjectMetadata) {
+func PrintCreateTextSearchTemplateStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, template TextSearchTemplate, templateMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH TEMPLATE %s (", template.FQN())
 	if template.InitFunc != "" {
@@ -44,11 +45,12 @@ func PrintCreateTextSearchTemplateStatement(metadataFile *utils.FileWithByteCoun
 	metadataFile.MustPrintf("\n);")
 
 	section, entry := template.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, templateMetadata, template, "")
+	tier := globalTierMap[template.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, templateMetadata, template, "", tier)
 }
 
-func PrintCreateTextSearchDictionaryStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, dictionary TextSearchDictionary, dictionaryMetadata ObjectMetadata) {
+func PrintCreateTextSearchDictionaryStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, dictionary TextSearchDictionary, dictionaryMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH DICTIONARY %s (", dictionary.FQN())
 	metadataFile.MustPrintf("\n\tTEMPLATE = %s", dictionary.Template)
@@ -58,18 +60,20 @@ func PrintCreateTextSearchDictionaryStatement(metadataFile *utils.FileWithByteCo
 	metadataFile.MustPrintf("\n);")
 
 	section, entry := dictionary.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, dictionaryMetadata, dictionary, "")
+	tier := globalTierMap[dictionary.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, dictionaryMetadata, dictionary, "", tier)
 }
 
-func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, configuration TextSearchConfiguration, configurationMetadata ObjectMetadata) {
+func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, configuration TextSearchConfiguration, configurationMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE TEXT SEARCH CONFIGURATION %s (", configuration.FQN())
 	metadataFile.MustPrintf("\n\tPARSER = %s", configuration.Parser)
 	metadataFile.MustPrintf("\n);")
 
 	section, entry := configuration.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+	tier := globalTierMap[configuration.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 
 	tokens := make([]string, 0)
 	for token := range configuration.TokenToDicts {
@@ -81,7 +85,7 @@ func PrintCreateTextSearchConfigurationStatement(metadataFile *utils.FileWithByt
 		dicts := configuration.TokenToDicts[token]
 		metadataFile.MustPrintf("\n\nALTER TEXT SEARCH CONFIGURATION %s", configuration.FQN())
 		metadataFile.MustPrintf("\n\tADD MAPPING FOR \"%s\" WITH %s;", token, strings.Join(dicts, ", "))
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 	}
-	PrintObjectMetadata(metadataFile, toc, configurationMetadata, configuration, "")
+	PrintObjectMetadata(metadataFile, objToc, configurationMetadata, configuration, "", tier)
 }

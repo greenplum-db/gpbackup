@@ -2,6 +2,7 @@ package backup
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -87,7 +88,17 @@ type Sortable interface {
 	GetUniqueID() UniqueID
 }
 
-func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
+// This function sorts all dependencies to ensure that metadata restore happens in a correct order.
+// It also assigns "tiers" to each metadata object, to ensure that in the case of parallel restores
+// the parallel transactions do not contend with each other for locks on reference objects. Tiers
+// are represented as slices of length=2 like so: [0,0]. The first value indicates the depth of
+// dependency of the object, so that each "batch" of restores is of generally parallelizable
+// objects. The second value indicates which connection should restore that object, so that for
+// example views and constraints which reference the same table are assigned to the same
+// transaction and do not deadlock each other. A tier[0]==0 value is used to indicate that this
+// object must be restored serially and should not be parallelized. Given this, both values are
+// 1-indexed to keep them consistent.
+func TopologicalSort(slice []Sortable, dependencies DependencyMap) ([]Sortable, map[UniqueID][]uint32) {
 	inDegrees := make(map[UniqueID]int)
 	dependencyIndexes := make(map[UniqueID]int)
 	isDependentOn := make(map[UniqueID][]UniqueID)
@@ -95,8 +106,12 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 	sorted := make([]Sortable, 0)
 	notVisited := make(map[UniqueID]bool)
 	nameForUniqueID := make(map[UniqueID]string)
+	tierMap := make(map[UniqueID][]uint32)
+	nextTier := make([]Sortable, 0)
+	tierCount := 1
 	for i, item := range slice {
 		uniqueID := item.GetUniqueID()
+		tierMap[uniqueID] = []uint32{0, 0}
 		nameForUniqueID[uniqueID] = item.FQN()
 		deps := dependencies[uniqueID]
 		notVisited[uniqueID] = true
@@ -109,17 +124,26 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 			queue = append(queue, item)
 		}
 	}
+STAGE2:
 	for len(queue) > 0 {
 		item := queue[0]
+		uniqueID := item.GetUniqueID()
 		queue = queue[1:]
+		tierMap[uniqueID][0] = uint32(tierCount)
 		sorted = append(sorted, item)
 		notVisited[item.GetUniqueID()] = false
 		for _, dep := range isDependentOn[item.GetUniqueID()] {
 			inDegrees[dep]--
 			if inDegrees[dep] == 0 {
-				queue = append(queue, slice[dependencyIndexes[dep]])
+				nextTier = append(nextTier, slice[dependencyIndexes[dep]])
 			}
 		}
+	}
+	if len(nextTier) > 0 {
+		queue = nextTier
+		nextTier = make([]Sortable, 0)
+		tierCount++
+		goto STAGE2
 	}
 	if len(slice) != len(sorted) {
 		gplog.Verbose("Failed to sort dependencies.")
@@ -135,7 +159,104 @@ func TopologicalSort(slice []Sortable, dependencies DependencyMap) []Sortable {
 		}
 		gplog.Fatal(errors.Errorf("Dependency resolution failed; see log file %s for details. This is a bug, please report.", gplog.GetLogFilePath()), "")
 	}
-	return sorted
+	assignCohorts(slice, dependencies, isDependentOn, tierMap)
+	return sorted, tierMap
+}
+
+func mergeCohorts(cohortNumberMap map[uint32]map[UniqueID]bool, objectToCohortMap map[UniqueID]uint32, firstCohort uint32, secondCohort uint32) uint32 {
+	var lowerCohort uint32
+	var higherCohort uint32
+	if firstCohort < secondCohort {
+		lowerCohort = firstCohort
+		higherCohort = secondCohort
+	} else {
+		lowerCohort = secondCohort
+		higherCohort = firstCohort
+	}
+	_, lowerCohortExists := cohortNumberMap[lowerCohort]
+	if !lowerCohortExists {
+		cohortNumberMap[lowerCohort] = make(map[UniqueID]bool)
+	}
+
+	cohortToMerge, cohortExists := cohortNumberMap[higherCohort]
+	if cohortExists {
+		for object := range cohortToMerge {
+			objectToCohortMap[object] = lowerCohort
+			cohortNumberMap[lowerCohort][object] = true
+		}
+		delete(cohortNumberMap, higherCohort)
+	}
+	return lowerCohort
+}
+
+// When doing parallel restore, each tier must not contend for locks with the others, as this can
+// result in deadlocks between parallel transactions. This routine pre-assigns cohorts of objects
+// that can all be safely restored together. The maximum cohort number for a given tier represents
+// the theoretically maximum number of jobs it's worth running from a metadata perspective. This
+// function alters the input tierMap to populate the second value in the []uint32 slice for each
+// UniqueID.
+func assignCohorts(slice []Sortable, dependencies DependencyMap, isDependentOn map[UniqueID][]UniqueID, tierMap map[UniqueID][]uint32) {
+	objectToCohortMap := make(map[UniqueID]uint32)
+	cohortNumberMap := make(map[uint32]map[UniqueID]bool)
+
+	// We assign each object to its own cohort initially, then any time a dependency relationship
+	// is found, we merge the "trees" of dependencies of the found object. At the end, we have
+	// accumulated the theoretically minimal number of cohorts needed to capture the unique
+	// dependency trees within the item sets.
+	i := uint32(0)
+	for _, item := range slice {
+		id := item.GetUniqueID()
+		objectToCohortMap[id] = i + uint32(1)
+		cohortNumberMap[i+uint32(1)] = make(map[UniqueID]bool)
+		cohortNumberMap[i+uint32(1)][id] = true
+		i++
+	}
+
+	for _, item := range slice {
+		id := item.GetUniqueID()
+		currCohort := objectToCohortMap[id]
+
+		// Check upstream dependencies
+		parents := dependencies[id]
+		for parent := range parents {
+			parentCohort := objectToCohortMap[parent]
+			if parentCohort != currCohort {
+				currCohort = mergeCohorts(cohortNumberMap, objectToCohortMap, currCohort, parentCohort)
+			}
+		}
+
+		// Check downstream dependencies
+		children := isDependentOn[id]
+		for _, child := range children {
+			childCohort := objectToCohortMap[child]
+			if childCohort != currCohort {
+				currCohort = mergeCohorts(cohortNumberMap, objectToCohortMap, currCohort, childCohort)
+			}
+		}
+	}
+	// Remap the cohort numbers to get a continuous range starting at 1
+	cohorts := make([]uint32, len(cohortNumberMap))
+	i = uint32(0)
+	for k := range cohortNumberMap {
+		cohorts[i] = k
+		i++
+	}
+	sort.SliceStable(cohorts, func(i, j int) bool { return cohorts[i] < cohorts[j] })
+	expectedCohort := uint32(1)
+	for _, actualCohort := range cohorts {
+		if expectedCohort != actualCohort {
+			_ = mergeCohorts(cohortNumberMap, objectToCohortMap, expectedCohort, actualCohort)
+		}
+		expectedCohort++
+	}
+
+	// Finally, we mutate the tierMap, updating the minimal cohorts we've selected for writing out
+	// to the toc.
+	for id := range tierMap {
+		cohort := objectToCohortMap[id]
+		tierMap[id][1] = uint32(cohort)
+	}
+	return
 }
 
 type DependencyMap map[UniqueID]map[UniqueID]bool
@@ -273,7 +394,7 @@ func breakCircularDependencies(depMap DependencyMap) {
 	}
 }
 
-func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, objects []Sortable, metadataMap MetadataMap, domainConstraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
+func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, objects []Sortable, metadataMap MetadataMap, domainConstraints []Constraint, funcInfoMap map[uint32]FunctionInfo) {
 	domainConMap := make(map[string][]Constraint)
 	for _, constraint := range domainConstraints {
 		domainConMap[constraint.OwningObject] = append(domainConMap[constraint.OwningObject], constraint)
@@ -282,51 +403,51 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, toc *
 		objMetadata := metadataMap[object.GetUniqueID()]
 		switch obj := object.(type) {
 		case BaseType:
-			PrintCreateBaseTypeStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateBaseTypeStatement(metadataFile, objToc, obj, objMetadata)
 		case CompositeType:
-			PrintCreateCompositeTypeStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateCompositeTypeStatement(metadataFile, objToc, obj, objMetadata)
 		case Domain:
-			PrintCreateDomainStatement(metadataFile, toc, obj, objMetadata, domainConMap[obj.FQN()])
+			PrintCreateDomainStatement(metadataFile, objToc, obj, objMetadata, domainConMap[obj.FQN()])
 		case RangeType:
-			PrintCreateRangeTypeStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateRangeTypeStatement(metadataFile, objToc, obj, objMetadata)
 		case Function:
-			PrintCreateFunctionStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateFunctionStatement(metadataFile, objToc, obj, objMetadata)
 		case Table:
-			PrintCreateTableStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateTableStatement(metadataFile, objToc, obj, objMetadata)
 		case ExternalProtocol:
-			PrintCreateExternalProtocolStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
+			PrintCreateExternalProtocolStatement(metadataFile, objToc, obj, funcInfoMap, objMetadata)
 		case View:
-			PrintCreateViewStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateViewStatement(metadataFile, objToc, obj, objMetadata)
 		case TextSearchParser:
-			PrintCreateTextSearchParserStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateTextSearchParserStatement(metadataFile, objToc, obj, objMetadata)
 		case TextSearchConfiguration:
-			PrintCreateTextSearchConfigurationStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateTextSearchConfigurationStatement(metadataFile, objToc, obj, objMetadata)
 		case TextSearchTemplate:
-			PrintCreateTextSearchTemplateStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateTextSearchTemplateStatement(metadataFile, objToc, obj, objMetadata)
 		case TextSearchDictionary:
-			PrintCreateTextSearchDictionaryStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateTextSearchDictionaryStatement(metadataFile, objToc, obj, objMetadata)
 		case Operator:
-			PrintCreateOperatorStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateOperatorStatement(metadataFile, objToc, obj, objMetadata)
 		case OperatorClass:
-			PrintCreateOperatorClassStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateOperatorClassStatement(metadataFile, objToc, obj, objMetadata)
 		case Aggregate:
-			PrintCreateAggregateStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
+			PrintCreateAggregateStatement(metadataFile, objToc, obj, funcInfoMap, objMetadata)
 		case Cast:
-			PrintCreateCastStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateCastStatement(metadataFile, objToc, obj, objMetadata)
 		case ForeignDataWrapper:
-			PrintCreateForeignDataWrapperStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
+			PrintCreateForeignDataWrapperStatement(metadataFile, objToc, obj, funcInfoMap, objMetadata)
 		case ForeignServer:
-			PrintCreateServerStatement(metadataFile, toc, obj, objMetadata)
+			PrintCreateServerStatement(metadataFile, objToc, obj, objMetadata)
 		case UserMapping:
-			PrintCreateUserMappingStatement(metadataFile, toc, obj)
+			PrintCreateUserMappingStatement(metadataFile, objToc, obj)
 		case Constraint:
-			PrintConstraintStatement(metadataFile, toc, obj, objMetadata)
+			PrintConstraintStatement(metadataFile, objToc, obj, objMetadata)
 		case Transform:
-			PrintCreateTransformStatement(metadataFile, toc, obj, funcInfoMap, objMetadata)
+			PrintCreateTransformStatement(metadataFile, objToc, obj, funcInfoMap, objMetadata)
 		}
 		// Remove ACLs from metadataMap for the current object since they have been processed
 		delete(metadataMap, object.GetUniqueID())
 	}
 	//  Process ACLs for left over objects in the metadata map
-	printExtensionFunctionACLs(metadataFile, toc, metadataMap, funcInfoMap)
+	printExtensionFunctionACLs(metadataFile, objToc, metadataMap, funcInfoMap)
 }

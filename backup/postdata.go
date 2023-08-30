@@ -15,14 +15,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
+func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, indexes []IndexDefinition, indexMetadata MetadataMap) {
 	for _, index := range indexes {
 		start := metadataFile.ByteCount
 		if !index.SupportsConstraint {
 			section, entry := index.GetMetadataEntry()
 
 			metadataFile.MustPrintf("\n\n%s;", index.Def.String)
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 
 			// Start INDEX metadata
 			entry.ReferenceObject = index.FQN()
@@ -30,23 +30,23 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 			if index.Tablespace != "" {
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER INDEX %s SET TABLESPACE %s;", index.FQN(), index.Tablespace)
-				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 			}
 			if index.ParentIndexFQN != "" && connectionPool.Version.AtLeast("7") {
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER INDEX %s ATTACH PARTITION %s;", index.ParentIndexFQN, index.FQN())
-				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 			}
 			tableFQN := utils.MakeFQN(index.OwningSchema, index.OwningTable)
 			if index.IsClustered {
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER TABLE %s CLUSTER ON %s;", tableFQN, index.Name)
-				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 			}
 			if index.IsReplicaIdentity {
 				start := metadataFile.ByteCount
 				metadataFile.MustPrintf("\nALTER TABLE %s REPLICA IDENTITY USING INDEX %s;", tableFQN, index.Name)
-				toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+				objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 			}
 			if index.StatisticsColumns != "" && index.StatisticsValues != "" {
 				cols := strings.Split(index.StatisticsColumns, ",")
@@ -57,39 +57,39 @@ func PrintCreateIndexStatements(metadataFile *utils.FileWithByteCount, toc *toc.
 				for i := 0; i < len(cols); i++ {
 					start := metadataFile.ByteCount
 					metadataFile.MustPrintf("\nALTER INDEX %s ALTER COLUMN %s SET STATISTICS %s;", index.FQN(), cols[i], vals[i])
-					toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+					objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 				}
 			}
 		}
-		PrintObjectMetadata(metadataFile, toc, indexMetadata[index.GetUniqueID()], index, "")
+		PrintObjectMetadata(metadataFile, objToc, indexMetadata[index.GetUniqueID()], index, "", []uint32{0, 0})
 	}
 }
 
-func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, rules []RuleDefinition, ruleMetadata MetadataMap) {
+func PrintCreateRuleStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, rules []RuleDefinition, ruleMetadata MetadataMap) {
 	for _, rule := range rules {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s", rule.Def.String)
 
 		section, entry := rule.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 		tableFQN := utils.MakeFQN(rule.OwningSchema, rule.OwningTable)
-		PrintObjectMetadata(metadataFile, toc, ruleMetadata[rule.GetUniqueID()], rule, tableFQN)
+		PrintObjectMetadata(metadataFile, objToc, ruleMetadata[rule.GetUniqueID()], rule, tableFQN, []uint32{0, 0})
 	}
 }
 
-func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, triggers []TriggerDefinition, triggerMetadata MetadataMap) {
+func PrintCreateTriggerStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, triggers []TriggerDefinition, triggerMetadata MetadataMap) {
 	for _, trigger := range triggers {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\n%s;", trigger.Def.String)
 
 		section, entry := trigger.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 		tableFQN := utils.MakeFQN(trigger.OwningSchema, trigger.OwningTable)
-		PrintObjectMetadata(metadataFile, toc, triggerMetadata[trigger.GetUniqueID()], trigger, tableFQN)
+		PrintObjectMetadata(metadataFile, objToc, triggerMetadata[trigger.GetUniqueID()], trigger, tableFQN, []uint32{0, 0})
 	}
 }
 
-func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, eventTriggers []EventTrigger, eventTriggerMetadata MetadataMap) {
+func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, eventTriggers []EventTrigger, eventTriggerMetadata MetadataMap) {
 	for _, eventTrigger := range eventTriggers {
 		start := metadataFile.ByteCount
 		section, entry := eventTrigger.GetMetadataEntry()
@@ -103,11 +103,11 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 		} else {
 			metadataFile.MustPrintf("\nEXECUTE PROCEDURE %s();", eventTrigger.FunctionName)
 		}
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 
 		// Start EVENT TRIGGER metadata
 		entry.ReferenceObject = eventTrigger.Name
-		entry.ObjectType = "EVENT TRIGGER METADATA"
+		entry.ObjectType = toc.OBJ_EVENT_TRIGGER + " METADATA"
 		if eventTrigger.Enabled != "O" {
 			var enableOption string
 			switch eventTrigger.Enabled {
@@ -122,20 +122,20 @@ func PrintCreateEventTriggerStatements(metadataFile *utils.FileWithByteCount, to
 			}
 			start := metadataFile.ByteCount
 			metadataFile.MustPrintf("\nALTER EVENT TRIGGER %s %s;", eventTrigger.Name, enableOption)
-			toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+			objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 		}
-		PrintObjectMetadata(metadataFile, toc, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger, "")
+		PrintObjectMetadata(metadataFile, objToc, eventTriggerMetadata[eventTrigger.GetUniqueID()], eventTrigger, "", []uint32{0, 0})
 	}
 }
 
-func PrintCreatePolicyStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, policies []RLSPolicy, policyMetadata MetadataMap) {
+func PrintCreatePolicyStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, policies []RLSPolicy, policyMetadata MetadataMap) {
 	for _, policy := range policies {
 		start := metadataFile.ByteCount
 		section, entry := policy.GetMetadataEntry()
 
 		tableFQN := utils.MakeFQN(policy.Schema, policy.Table)
 		metadataFile.MustPrintf("\n\nALTER TABLE %s ENABLE ROW LEVEL SECURITY;", tableFQN)
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
 
 		permissiveOption := ""
 		if policy.Permissive == "false" {
@@ -171,19 +171,19 @@ func PrintCreatePolicyStatements(metadataFile *utils.FileWithByteCount, toc *toc
 			metadataFile.MustPrintf("\n WITH CHECK (%s)", policy.WithCheck)
 		}
 		metadataFile.MustPrintf(";\n")
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, policyMetadata[policy.GetUniqueID()], policy, "")
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
+		PrintObjectMetadata(metadataFile, objToc, policyMetadata[policy.GetUniqueID()], policy, "", []uint32{0, 0})
 	}
 }
 
-func PrintCreateExtendedStatistics(metadataFile *utils.FileWithByteCount, toc *toc.TOC, statExtObjects []StatisticExt, statMetadata MetadataMap) {
+func PrintCreateExtendedStatistics(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, statExtObjects []StatisticExt, statMetadata MetadataMap) {
 	for _, stat := range statExtObjects {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintln()
 
 		metadataFile.MustPrintf("\n%s;", stat.Definition)
 		section, entry := stat.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, statMetadata[stat.GetUniqueID()], stat, "")
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, []uint32{0, 0})
+		PrintObjectMetadata(metadataFile, objToc, statMetadata[stat.GetUniqueID()], stat, "", []uint32{0, 0})
 	}
 }

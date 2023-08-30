@@ -15,16 +15,16 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateOperatorStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, operator Operator, operatorMetadata ObjectMetadata) {
+func PrintCreateOperatorStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, operator Operator, operatorMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	optionalFields := make([]string, 0)
 	var leftArg string
 	var rightArg string
 	var createStatementFuncRepl string
 	if connectionPool.Version.AtLeast("7") {
-		createStatementFuncRepl = "FUNCTION"
+		createStatementFuncRepl = toc.OBJ_FUNCTION
 	} else {
-		createStatementFuncRepl = "PROCEDURE"
+		createStatementFuncRepl = toc.OBJ_PROCEDURE
 	}
 	if operator.LeftArgType != "-" {
 		leftArg = operator.LeftArgType
@@ -60,26 +60,28 @@ CREATE OPERATOR %s.%s (
 );`, operator.Schema, operator.Name, createStatementFuncRepl, operator.Procedure, strings.Join(optionalFields, ",\n\t"))
 
 	section, entry := operator.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, operatorMetadata, operator, "")
+	tier := globalTierMap[operator.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, operatorMetadata, operator, "", tier)
 }
 
 /*
  * Operator families are not supported in GPDB 4.3, so this function
  * is not used in a 4.3 backup.
  */
-func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, operatorFamilies []OperatorFamily, operatorFamilyMetadata MetadataMap) {
+func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, operatorFamilies []OperatorFamily, operatorFamilyMetadata MetadataMap) {
 	for _, operatorFamily := range operatorFamilies {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nCREATE OPERATOR FAMILY %s;", operatorFamily.FQN())
 
 		section, entry := operatorFamily.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, operatorFamilyMetadata[operatorFamily.GetUniqueID()], operatorFamily, "")
+		tier := globalTierMap[operatorFamily.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+		PrintObjectMetadata(metadataFile, objToc, operatorFamilyMetadata[operatorFamily.GetUniqueID()], operatorFamily, "", tier)
 	}
 }
 
-func PrintCreateOperatorClassStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, operatorClass OperatorClass, operatorClassMetadata ObjectMetadata) {
+func PrintCreateOperatorClassStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, operatorClass OperatorClass, operatorClassMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE OPERATOR CLASS %s.%s", operatorClass.Schema, operatorClass.Name)
 	forTypeStr := ""
@@ -124,6 +126,7 @@ func PrintCreateOperatorClassStatement(metadataFile *utils.FileWithByteCount, to
 	metadataFile.MustPrintf(" AS\n\t%s;", strings.Join(opClassClauses, ",\n\t"))
 
 	section, entry := operatorClass.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, operatorClassMetadata, operatorClass, "")
+	tier := globalTierMap[operatorClass.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, operatorClassMetadata, operatorClass, "", tier)
 }

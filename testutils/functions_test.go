@@ -25,7 +25,7 @@ var _ = Describe("testutils/functions", func() {
 	Describe("SliceBufferByEntries()", func() {
 		It("returns a one item slice", func() {
 			bufferLen := utils.MustPrintf(buffer, "CREATE TABLE foo (i int);")
-			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: bufferLen}}
+			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: toc.OBJ_TABLE, StartByte: 0, EndByte: bufferLen}}
 			results, remaining := testutils.SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
 			Expect(results).To(HaveLen(1))
@@ -34,7 +34,7 @@ var _ = Describe("testutils/functions", func() {
 		It("returns a multi-item slice with spaces and newlines", func() {
 			table1Len := utils.MustPrintf(buffer, "CREATE TABLE foo (i int);")
 			table2Len := utils.MustPrintf(buffer, "CREATE TABLE bar (j int);")
-			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: table1Len}, {Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: table1Len, EndByte: table1Len + table2Len}}
+			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: toc.OBJ_TABLE, StartByte: 0, EndByte: table1Len}, {Name: "name", Schema: "schema", ObjectType: toc.OBJ_TABLE, StartByte: table1Len, EndByte: table1Len + table2Len}}
 			results, remaining := testutils.SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
 			Expect(results).To(HaveLen(2))
@@ -43,7 +43,7 @@ var _ = Describe("testutils/functions", func() {
 		})
 		It("returns a single slice with start within buffer, end outside buffer", func() {
 			bufferLen := utils.MustPrintf(buffer, "CREATE TABLE foo (i int);")
-			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: bufferLen + 10}}
+			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: toc.OBJ_TABLE, StartByte: 0, EndByte: bufferLen + 10}}
 			results, remaining := testutils.SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
 			Expect(results).To(HaveLen(1))
@@ -51,7 +51,7 @@ var _ = Describe("testutils/functions", func() {
 		})
 		It("returns multiple slices with start outside buffer, end outside buffer", func() {
 			bufferLen := utils.MustPrintf(buffer, "CREATE TABLE foo (i int);")
-			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: bufferLen + 10}, {Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: bufferLen + 10, EndByte: bufferLen + 40}}
+			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: toc.OBJ_TABLE, StartByte: 0, EndByte: bufferLen + 10}, {Name: "name", Schema: "schema", ObjectType: toc.OBJ_TABLE, StartByte: bufferLen + 10, EndByte: bufferLen + 40}}
 			results, remaining := testutils.SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal(""))
 			Expect(results).To(HaveLen(2))
@@ -61,7 +61,7 @@ var _ = Describe("testutils/functions", func() {
 		It("returns a single slice with extra buffer contents", func() {
 			bufferLen := utils.MustPrintf(buffer, "CREATE TABLE foo (i int);")
 			utils.MustPrintf(buffer, "More extra stuff")
-			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: "TABLE", StartByte: 0, EndByte: bufferLen}}
+			entries := []toc.MetadataEntry{{Name: "name", Schema: "schema", ObjectType: toc.OBJ_TABLE, StartByte: 0, EndByte: bufferLen}}
 			_, remaining := testutils.SliceBufferByEntries(entries, buffer)
 			Expect(remaining).To(Equal("More extra stuff"))
 		})

@@ -10,12 +10,12 @@ import (
 
 var _ = Describe("restore/parallel tests", func() {
 	Describe("BatchPostdataStatements", func() {
-		index1 := toc.StatementWithType{ObjectType: "INDEX", ReferenceObject: "public.table1", Statement: `CREATE INDEX testindex1 ON public.table1 USING btree(i);`}
-		index2 := toc.StatementWithType{ObjectType: "INDEX", ReferenceObject: "public.table2", Statement: `CREATE INDEX testindex2 ON public.table2 USING btree(i);`}
-		index3 := toc.StatementWithType{ObjectType: "INDEX", ReferenceObject: "public.table3", Statement: `CREATE INDEX testindex3 ON public.table3 USING btree(i);`}
+		index1 := toc.StatementWithType{ObjectType: toc.OBJ_INDEX, ReferenceObject: "public.table1", Statement: `CREATE INDEX testindex1 ON public.table1 USING btree(i);`}
+		index2 := toc.StatementWithType{ObjectType: toc.OBJ_INDEX, ReferenceObject: "public.table2", Statement: `CREATE INDEX testindex2 ON public.table2 USING btree(i);`}
+		index3 := toc.StatementWithType{ObjectType: toc.OBJ_INDEX, ReferenceObject: "public.table3", Statement: `CREATE INDEX testindex3 ON public.table3 USING btree(i);`}
 		index2_comment := toc.StatementWithType{ObjectType: "INDEX METADATA", ReferenceObject: "public.testindex2", Statement: `COMMENT ON INDEX public.testindex2 IS 'hello';`}
 		index2_tablespace := toc.StatementWithType{ObjectType: "INDEX METADATA", ReferenceObject: "public.testindex2", Statement: `ALTER INDEX public.testindex2 SET TABLESPACE footblspc;`}
-		trigger := toc.StatementWithType{ObjectType: "TRIGGER", ReferenceObject: "public.table3", Statement: `CREATE TRIGGER footrigger AFTER INSERT ON table1 FOR EACH STATEMENT EXECUTE PROCEDURE fooproc();`}
+		trigger := toc.StatementWithType{ObjectType: toc.OBJ_TRIGGER, ReferenceObject: "public.table3", Statement: `CREATE TRIGGER footrigger AFTER INSERT ON table1 FOR EACH STATEMENT EXECUTE PROCEDURE fooproc();`}
 		trigger_comment := toc.StatementWithType{ObjectType: "TRIGGER METADATA", ReferenceObject: "footrigger", Statement: `COMMENT ON TRIGGER footrigger ON table1 IS 'hello'`}
 		It("places all indexes in first batch when all are on different tables", func() {
 			statements := []toc.StatementWithType{index1, index2, index3}

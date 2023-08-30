@@ -324,7 +324,7 @@ func (r RuleDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          r.OwningSchema,
 			Name:            r.Name,
-			ObjectType:      "RULE",
+			ObjectType:      toc.OBJ_RULE,
 			ReferenceObject: tableFQN,
 			StartByte:       0,
 			EndByte:         0,
@@ -389,7 +389,7 @@ func (t TriggerDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          t.OwningSchema,
 			Name:            t.Name,
-			ObjectType:      "TRIGGER",
+			ObjectType:      toc.OBJ_TRIGGER,
 			ReferenceObject: tableFQN,
 			StartByte:       0,
 			EndByte:         0,
@@ -459,7 +459,7 @@ func (et EventTrigger) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          "",
 			Name:            et.Name,
-			ObjectType:      "EVENT TRIGGER",
+			ObjectType:      toc.OBJ_EVENT_TRIGGER,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

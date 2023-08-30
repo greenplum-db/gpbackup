@@ -399,7 +399,7 @@ func replaceContentInFilename(filename string, content int) string {
 	return contentRE.ReplaceAllString(filename, fmt.Sprintf("gpbackup_%d_", content))
 }
 
-func getRestoreDataReader(fileToRead string, toc *toc.SegmentTOC, oidList []int) (*RestoreReader, error) {
+func getRestoreDataReader(fileToRead string, objToc *toc.SegmentTOC, oidList []int) (*RestoreReader, error) {
 	var readHandle io.Reader
 	var seekHandle io.ReadSeeker
 	var isSubset bool
@@ -407,7 +407,7 @@ func getRestoreDataReader(fileToRead string, toc *toc.SegmentTOC, oidList []int)
 	restoreReader := new(RestoreReader)
 
 	if *pluginConfigFile != "" {
-		readHandle, isSubset, err = startRestorePluginCommand(fileToRead, toc, oidList)
+		readHandle, isSubset, err = startRestorePluginCommand(fileToRead, objToc, oidList)
 		if isSubset {
 			// Reader that operates on subset data
 			restoreReader.readerType = SUBSET
@@ -479,7 +479,7 @@ func getRestorePipeWriter(currentPipe string) (*bufio.Writer, *os.File, error) {
 	return pipeWriter, fileHandle, nil
 }
 
-func startRestorePluginCommand(fileToRead string, toc *toc.SegmentTOC, oidList []int) (io.Reader, bool, error) {
+func startRestorePluginCommand(fileToRead string, objToc *toc.SegmentTOC, oidList []int) (io.Reader, bool, error) {
 	isSubset := false
 	pluginConfig, err := utils.ReadPluginConfig(*pluginConfigFile)
 	if err != nil {
@@ -487,7 +487,7 @@ func startRestorePluginCommand(fileToRead string, toc *toc.SegmentTOC, oidList [
 		return nil, false, err
 	}
 	cmdStr := ""
-	if toc != nil && pluginConfig.CanRestoreSubset() && *isFiltered && !strings.HasSuffix(fileToRead, ".gz") && !strings.HasSuffix(fileToRead, ".zst") {
+	if objToc != nil && pluginConfig.CanRestoreSubset() && *isFiltered && !strings.HasSuffix(fileToRead, ".gz") && !strings.HasSuffix(fileToRead, ".zst") {
 		offsetsFile, _ := ioutil.TempFile("/tmp", "gprestore_offsets_")
 		defer func() {
 			offsetsFile.Close()
@@ -496,7 +496,7 @@ func startRestorePluginCommand(fileToRead string, toc *toc.SegmentTOC, oidList [
 		w.WriteString(fmt.Sprintf("%v", len(oidList)))
 
 		for _, oid := range oidList {
-			w.WriteString(fmt.Sprintf(" %v %v", toc.DataEntries[uint(oid)].StartByte, toc.DataEntries[uint(oid)].EndByte))
+			w.WriteString(fmt.Sprintf(" %v %v", objToc.DataEntries[uint(oid)].StartByte, objToc.DataEntries[uint(oid)].EndByte))
 		}
 		w.Flush()
 		cmdStr = fmt.Sprintf("%s restore_data_subset %s %s %s", pluginConfig.ExecutablePath, pluginConfig.ConfigPath, fileToRead, offsetsFile.Name())

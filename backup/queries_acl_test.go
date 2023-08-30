@@ -8,6 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gpbackup/backup"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +36,7 @@ var _ = Describe("backup/queries_acl tests", func() {
 		}
 
 		BeforeEach(func() {
-			params = backup.MetadataQueryParams{ObjectType: "RELATION", NameField: "name", OwnerField: "owner", CatalogTable: "table"}
+			params = backup.MetadataQueryParams{ObjectType: toc.OBJ_RELATION, NameField: "name", OwnerField: "owner", CatalogTable: "table"}
 		})
 		It("queries metadata for an object with default params", func() {
 			securityLabelSelectReplace, securityLabelJoinReplace, _ := getSecurityLabelReplace()

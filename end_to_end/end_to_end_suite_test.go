@@ -230,7 +230,7 @@ type PGClassStats struct {
 }
 
 func assertPGClassStatsRestored(backupConn *dbconn.DBConn, restoreConn *dbconn.DBConn, tableToTupleCount map[string]int) {
-	for tableName, _ := range tableToTupleCount {
+	for tableName := range tableToTupleCount {
 		backupStats := make([]PGClassStats, 0)
 		restoreStats := make([]PGClassStats, 0)
 		pgClassStatsQuery := fmt.Sprintf("SELECT relpages, reltuples FROM pg_class WHERE oid='%s'::regclass::oid", tableName)
@@ -709,7 +709,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			err := yaml.Unmarshal(tocFileContents, tocStruct)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(tocStruct.GlobalEntries)).To(Equal(1))
-			Expect(tocStruct.GlobalEntries[0].ObjectType).To(Equal("SESSION GUCS"))
+			Expect(tocStruct.GlobalEntries[0].ObjectType).To(Equal(toc.OBJ_SESSION_GUC))
 		})
 		It("runs gpbackup with --without-globals and --metadata-only", func() {
 			skipIfOldBackupVersionBefore("1.18.0")
@@ -729,7 +729,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			err := yaml.Unmarshal(tocFileContents, tocStruct)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(tocStruct.GlobalEntries)).To(Equal(1))
-			Expect(tocStruct.GlobalEntries[0].ObjectType).To(Equal("SESSION GUCS"))
+			Expect(tocStruct.GlobalEntries[0].ObjectType).To(Equal(toc.OBJ_SESSION_GUC))
 		})
 	})
 	Describe(`On Error Continue`, func() {
@@ -1116,7 +1116,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 				"--redirect-db", "restoredb")
 
 			extensionMetadata := backup.ObjectMetadata{
-				ObjectType: "FUNCTION", Privileges: []backup.ACL{
+				ObjectType: toc.OBJ_FUNCTION, Privileges: []backup.ACL{
 					{Grantee: "", Execute: true},
 					{Grantee: currentUser, Execute: true},
 					{Grantee: "testrole", ExecuteWithGrant: true},

@@ -23,25 +23,25 @@ func TestTOC(t *testing.T) {
 }
 
 var _ = Describe("utils/toc tests", func() {
-	table1 := toc.StatementWithType{Schema: "schema", Name: "table1", ObjectType: "TABLE", Statement: "CREATE TABLE schema.table1"}
+	table1 := toc.StatementWithType{Schema: "schema", Name: "table1", ObjectType: toc.OBJ_TABLE, Statement: "CREATE TABLE schema.table1", Tier: []uint32{0, 0}}
 	table1Len := uint64(len(table1.Statement))
 
-	capsTable := toc.StatementWithType{Schema: "schema", Name: "TABLE_CAPS", ObjectType: "TABLE", Statement: "CREATE TABLE schema.TABLE_CAPS"}
+	capsTable := toc.StatementWithType{Schema: "schema", Name: "TABLE_CAPS", ObjectType: toc.OBJ_TABLE, Statement: "CREATE TABLE schema.TABLE_CAPS", Tier: []uint32{0, 0}}
 	capsTableLen := uint64(len(capsTable.Statement))
 
-	table2 := toc.StatementWithType{Schema: "schema2", Name: "table2", ObjectType: "TABLE", Statement: "CREATE TABLE schema2.table2"}
+	table2 := toc.StatementWithType{Schema: "schema2", Name: "table2", ObjectType: toc.OBJ_TABLE, Statement: "CREATE TABLE schema2.table2", Tier: []uint32{0, 0}}
 	table2Len := uint64(len(table2.Statement))
 
-	view := toc.StatementWithType{Schema: "schema", Name: "view", ObjectType: "VIEW", Statement: "CREATE VIEW schema.view"}
+	view := toc.StatementWithType{Schema: "schema", Name: "view", ObjectType: toc.OBJ_VIEW, Statement: "CREATE VIEW schema.view", Tier: []uint32{0, 0}}
 	viewLen := uint64(len(view.Statement))
 
-	matView := toc.StatementWithType{Schema: "schema", Name: "matView", ObjectType: "MATERIALIZED VIEW", Statement: "CREATE MATERIALIZED VIEW schema.mat_view"}
+	matView := toc.StatementWithType{Schema: "schema", Name: "matView", ObjectType: toc.OBJ_MATERIALIZED_VIEW, Statement: "CREATE MATERIALIZED VIEW schema.mat_view", Tier: []uint32{0, 0}}
 	matViewLen := uint64(len(matView.Statement))
 
-	sequence := toc.StatementWithType{Schema: "schema", Name: "sequence", ObjectType: "SEQUENCE", Statement: "CREATE SEQUENCE schema.sequence START 100"}
+	sequence := toc.StatementWithType{Schema: "schema", Name: "sequence", ObjectType: toc.OBJ_SEQUENCE, Statement: "CREATE SEQUENCE schema.sequence START 100", Tier: []uint32{0, 0}}
 	sequenceLen := uint64(len(sequence.Statement))
 
-	index := toc.StatementWithType{Schema: "schema2", Name: "someindex", ObjectType: "INDEX", Statement: "CREATE INDEX someindex ON schema2.table2(i)", ReferenceObject: "schema2.table2"}
+	index := toc.StatementWithType{Schema: "schema2", Name: "someindex", ObjectType: toc.OBJ_INDEX, Statement: "CREATE INDEX someindex ON schema2.table2(i)", ReferenceObject: "schema2.table2", Tier: []uint32{0, 0}}
 	indexLen := uint64(len(index.Statement))
 
 	BeforeEach(func() {
@@ -54,50 +54,50 @@ var _ = Describe("utils/toc tests", func() {
 		BeforeEach(func() {
 			startCount := uint64(0)
 			endCount := table1Len
-			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "table1", ObjectType: "TABLE"}, startCount, endCount)
+			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "table1", ObjectType: toc.OBJ_TABLE}, startCount, endCount, []uint32{0, 0})
 			startCount = endCount
 			endCount += capsTableLen
-			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "TABLE_CAPS", ObjectType: "TABLE"}, startCount, endCount)
+			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "TABLE_CAPS", ObjectType: toc.OBJ_TABLE}, startCount, endCount, []uint32{0, 0})
 			startCount = endCount
 			endCount += table2Len
-			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema2", Name: "table2", ObjectType: "TABLE"}, startCount, endCount)
+			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema2", Name: "table2", ObjectType: toc.OBJ_TABLE}, startCount, endCount, []uint32{0, 0})
 			startCount = endCount
 			endCount += viewLen
-			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "view", ObjectType: "VIEW"}, startCount, endCount)
+			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "view", ObjectType: toc.OBJ_VIEW}, startCount, endCount, []uint32{0, 0})
 			startCount = endCount
 			endCount += matViewLen
-			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "matView", ObjectType: "MATERIALIZED VIEW"}, startCount, endCount)
+			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "matView", ObjectType: toc.OBJ_MATERIALIZED_VIEW}, startCount, endCount, []uint32{0, 0})
 			startCount = endCount
 			endCount += sequenceLen
-			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "sequence", ObjectType: "SEQUENCE"}, startCount, endCount)
+			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "sequence", ObjectType: toc.OBJ_SEQUENCE}, startCount, endCount, []uint32{0, 0})
 			startCount = endCount
 			endCount += indexLen
-			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema2", Name: "someindex", ObjectType: "INDEX", ReferenceObject: "schema2.table2"}, startCount, endCount)
+			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema2", Name: "someindex", ObjectType: toc.OBJ_INDEX, ReferenceObject: "schema2.table2"}, startCount, endCount, []uint32{0, 0})
 
 			metadataFile = bytes.NewReader([]byte(table1.Statement + capsTable.Statement + table2.Statement + view.Statement + matView.Statement + sequence.Statement + index.Statement))
 		})
 		It("returns statement for a single object type", func() {
-			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{"VIEW"}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
+			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{toc.OBJ_VIEW}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
 
 			Expect(statements).To(Equal([]toc.StatementWithType{view}))
 		})
 		It("returns statement for multiple object types", func() {
-			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{"TABLE", "VIEW"}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
+			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{toc.OBJ_TABLE, toc.OBJ_VIEW}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
 
 			Expect(statements).To(Equal([]toc.StatementWithType{table1, capsTable, table2, view}))
 		})
 		It("does not return a statement type listed in the exclude list", func() {
-			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, []string{"TABLE"}, noInSchema, noExSchema, noInRelation, noExRelation)
+			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, []string{toc.OBJ_TABLE}, noInSchema, noExSchema, noInRelation, noExRelation)
 
 			Expect(statements).To(Equal([]toc.StatementWithType{view, matView, sequence, index}))
 		})
 		It("returns empty statement when no object types are found", func() {
-			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{"FUNCTION"}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
+			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{toc.OBJ_FUNCTION}, noExObj, noInSchema, noExSchema, noInRelation, noExRelation)
 
 			Expect(statements).To(Equal([]toc.StatementWithType{}))
 		})
 		It("returns statement for a single object type with matching schema", func() {
-			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{"TABLE"}, noExObj, []string{"schema2"}, noExSchema, noInRelation, noExRelation)
+			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, []string{toc.OBJ_TABLE}, noExObj, []string{"schema2"}, noExSchema, noInRelation, noExRelation)
 
 			Expect(statements).To(Equal([]toc.StatementWithType{table2}))
 		})
@@ -119,7 +119,7 @@ var _ = Describe("utils/toc tests", func() {
 		It("returns statement for a table matching an included table in caps", func() {
 			statements := tocfile.GetSQLStatementForObjectTypes("predata", metadataFile, noInObj, noExObj, noInSchema, noExSchema, []string{"schema.TABLE_CAPS"}, noExRelation)
 
-			tableCaps := toc.StatementWithType{Schema: "schema", Name: "TABLE_CAPS", ObjectType: "TABLE", Statement: "CREATE TABLE schema.TABLE_CAPS"}
+			tableCaps := toc.StatementWithType{Schema: "schema", Name: "TABLE_CAPS", ObjectType: toc.OBJ_TABLE, Statement: "CREATE TABLE schema.TABLE_CAPS", Tier: []uint32{0, 0}}
 
 			Expect(statements).To(Equal([]toc.StatementWithType{tableCaps}))
 		})
@@ -145,19 +145,21 @@ var _ = Describe("utils/toc tests", func() {
 		})
 
 		Context("With reference object", func() {
-			sequenceTable := toc.StatementWithType{Schema: "schema", Name: "sequence_table", ObjectType: "TABLE", Statement: "CREATE TABLE schema.sequence_table"}
+			sequenceTable := toc.StatementWithType{Schema: "schema", Name: "sequence_table", ObjectType: toc.OBJ_TABLE,
+				Statement: "CREATE TABLE schema.sequence_table", Tier: []uint32{0, 0}}
 			sequenceTableLen := uint64(len(sequenceTable.Statement))
 
-			sequenceOwner := toc.StatementWithType{Schema: "schema", Name: "sequence", ObjectType: "SEQUENCE OWNER", Statement: "ALTER SEQUENCE schema.sequence OWNED BY schema.sequence_table", ReferenceObject: "schema.sequence_table"}
+			sequenceOwner := toc.StatementWithType{Schema: "schema", Name: "sequence", ObjectType: toc.OBJ_SEQUENCE_OWNER,
+				Statement: "ALTER SEQUENCE schema.sequence OWNED BY schema.sequence_table", ReferenceObject: "schema.sequence_table", Tier: []uint32{0, 0}}
 			sequenceOwnerLen := uint64(len(sequenceOwner.Statement))
 
 			BeforeEach(func() {
 				startCount := table1Len + capsTableLen + table2Len + viewLen + matViewLen + sequenceLen + indexLen
 				endCount := startCount + sequenceTableLen
-				tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "sequence_table", ObjectType: "TABLE"}, startCount, endCount)
+				tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "sequence_table", ObjectType: toc.OBJ_TABLE}, startCount, endCount, []uint32{0, 0})
 				startCount = endCount
 				endCount += sequenceOwnerLen
-				tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "sequence", ObjectType: "SEQUENCE OWNER", ReferenceObject: "schema.sequence_table"}, startCount, endCount)
+				tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema", Name: "sequence", ObjectType: toc.OBJ_SEQUENCE_OWNER, ReferenceObject: "schema.sequence_table"}, startCount, endCount, []uint32{0, 0})
 
 				metadataFile = bytes.NewReader([]byte(table1.Statement + capsTable.Statement + table2.Statement + view.Statement + matView.Statement + sequence.Statement + index.Statement + sequenceTable.Statement + sequenceOwner.Statement))
 			})
@@ -342,12 +344,12 @@ var _ = Describe("utils/toc tests", func() {
 		})
 	})
 	Describe("SubstituteRedirectDatabaseInStatements", func() {
-		create := toc.StatementWithType{Schema: "", Name: "somedatabase", ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase TEMPLATE template0;\n"}
-		wrongCreate := toc.StatementWithType{ObjectType: "TABLE", Statement: "CREATE DATABASE somedatabase;\n"}
-		encoding := toc.StatementWithType{ObjectType: "DATABASE", Statement: "CREATE DATABASE somedatabase TEMPLATE template0 ENCODING 'UTF8';\n"}
-		gucs := toc.StatementWithType{ObjectType: "DATABASE GUC", Statement: "ALTER DATABASE somedatabase SET fsync TO off;\n"}
-		metadata := toc.StatementWithType{ObjectType: "DATABASE METADATA", Statement: "ALTER DATABASE somedatabase OWNER TO testrole;\n\nREVOKE ALL ON DATABASE somedatabase FROM public;\nGRANT ALL ON DATABASE somedatabase TO gpadmin;"}
-		oldSpecial := toc.StatementWithType{ObjectType: "DATABASE", Statement: `CREATE DATABASE "db-special-chär$" TEMPLATE template0 TABLESPACE test_tablespace;
+		create := toc.StatementWithType{Schema: "", Name: "somedatabase", ObjectType: toc.OBJ_DATABASE, Statement: "CREATE DATABASE somedatabase TEMPLATE template0;\n"}
+		wrongCreate := toc.StatementWithType{ObjectType: toc.OBJ_TABLE, Statement: "CREATE DATABASE somedatabase;\n"}
+		encoding := toc.StatementWithType{ObjectType: toc.OBJ_DATABASE, Statement: "CREATE DATABASE somedatabase TEMPLATE template0 ENCODING 'UTF8';\n"}
+		gucs := toc.StatementWithType{ObjectType: toc.OBJ_DATABASE_GUC, Statement: "ALTER DATABASE somedatabase SET fsync TO off;\n"}
+		metadata := toc.StatementWithType{ObjectType: toc.OBJ_DATABASE_METADATA, Statement: "ALTER DATABASE somedatabase OWNER TO testrole;\n\nREVOKE ALL ON DATABASE somedatabase FROM public;\nGRANT ALL ON DATABASE somedatabase TO gpadmin;"}
+		oldSpecial := toc.StatementWithType{ObjectType: toc.OBJ_DATABASE, Statement: `CREATE DATABASE "db-special-chär$" TEMPLATE template0 TABLESPACE test_tablespace;
 
 COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 		It("can substitute a database name in a CREATE DATABASE statement", func() {
@@ -385,8 +387,8 @@ COMMENT ON DATABASE "db-special-chär$" IS 'this is a database comment';`}
 		})
 	})
 	Describe("RemoveActiveRoles", func() {
-		user1 := toc.StatementWithType{Name: "user1", ObjectType: "ROLE", Statement: "CREATE ROLE user1 SUPERUSER;\n"}
-		user2 := toc.StatementWithType{Name: "user2", ObjectType: "ROLE", Statement: "CREATE ROLE user2;\n"}
+		user1 := toc.StatementWithType{Name: "user1", ObjectType: toc.OBJ_ROLE, Statement: "CREATE ROLE user1 SUPERUSER;\n"}
+		user2 := toc.StatementWithType{Name: "user2", ObjectType: toc.OBJ_ROLE, Statement: "CREATE ROLE user2;\n"}
 		It("Removes current user from the list of roles to restore", func() {
 			resultStatements := toc.RemoveActiveRole("user1", []toc.StatementWithType{user1, user2})
 

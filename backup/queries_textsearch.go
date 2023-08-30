@@ -33,7 +33,7 @@ func (tsp TextSearchParser) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          tsp.Schema,
 			Name:            tsp.Name,
-			ObjectType:      "TEXT SEARCH PARSER",
+			ObjectType:      toc.OBJ_TEXT_SEARCH_PARSER,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -86,7 +86,7 @@ func (tst TextSearchTemplate) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          tst.Schema,
 			Name:            tst.Name,
-			ObjectType:      "TEXT SEARCH TEMPLATE",
+			ObjectType:      toc.OBJ_TEXT_SEARCH_TEMPLATE,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -137,7 +137,7 @@ func (tsd TextSearchDictionary) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          tsd.Schema,
 			Name:            tsd.Name,
-			ObjectType:      "TEXT SEARCH DICTIONARY",
+			ObjectType:      toc.OBJ_TEXT_SEARCH_DICTIONARY,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
@@ -187,7 +187,7 @@ func (tsc TextSearchConfiguration) GetMetadataEntry() (string, toc.MetadataEntry
 		toc.MetadataEntry{
 			Schema:          tsc.Schema,
 			Name:            tsc.Name,
-			ObjectType:      "TEXT SEARCH CONFIGURATION",
+			ObjectType:      toc.OBJ_TEXT_SEARCH_CONFIGURATION,
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

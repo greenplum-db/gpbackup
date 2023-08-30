@@ -198,18 +198,18 @@ func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComme
 		securityLabel = "unclassified"
 	}
 	switch objType {
-	case "DOMAIN":
-		objType = "TYPE"
-	case "FOREIGN SERVER":
-		objType = "SERVER"
-	case "MATERIALIZED VIEW":
-		objType = "RELATION"
-	case "SEQUENCE":
-		objType = "RELATION"
-	case "TABLE":
-		objType = "RELATION"
-	case "VIEW":
-		objType = "RELATION"
+	case toc.OBJ_DOMAIN:
+		objType = toc.OBJ_TYPE
+	case toc.OBJ_FOREIGN_SERVER:
+		objType = toc.OBJ_SERVER
+	case toc.OBJ_MATERIALIZED_VIEW:
+		objType = toc.OBJ_RELATION
+	case toc.OBJ_SEQUENCE:
+		objType = toc.OBJ_RELATION
+	case toc.OBJ_TABLE:
+		objType = toc.OBJ_RELATION
+	case toc.OBJ_VIEW:
+		objType = toc.OBJ_RELATION
 	}
 	return backup.ObjectMetadata{
 		Privileges:            privileges,
@@ -230,41 +230,41 @@ func DefaultMetadataMap(objType string, hasPrivileges bool, hasOwner bool, hasCo
 }
 
 var objNameToClassID = map[string]uint32{
-	"AGGREGATE":                 1255,
-	"CAST":                      2605,
-	"COLLATION":                 3456,
-	"CONSTRAINT":                2606,
-	"CONVERSION":                2607,
-	"DATABASE":                  1262,
-	"DOMAIN":                    1247,
-	"EVENT TRIGGER":             3466,
-	"EXTENSION":                 3079,
-	"FOREIGN DATA WRAPPER":      2328,
-	"FOREIGN SERVER":            1417,
-	"FUNCTION":                  1255,
-	"INDEX":                     2610,
-	"LANGUAGE":                  2612,
-	"OPERATOR CLASS":            2616,
-	"OPERATOR FAMILY":           2753,
-	"OPERATOR":                  2617,
-	"PROTOCOL":                  7175,
-	"RESOURCE GROUP":            6436,
-	"RESOURCE QUEUE":            6026,
-	"ROLE":                      1260,
-	"RULE":                      2618,
-	"SCHEMA":                    2615,
-	"SEQUENCE":                  1259,
-	"TABLE":                     1259,
-	"TABLESPACE":                1213,
-	"TEXT SEARCH CONFIGURATION": 3602,
-	"TEXT SEARCH DICTIONARY":    3600,
-	"TEXT SEARCH PARSER":        3601,
-	"TEXT SEARCH TEMPLATE":      3764,
-	"TRIGGER":                   2620,
-	"TYPE":                      1247,
-	"USER MAPPING":              1418,
-	"VIEW":                      1259,
-	"MATERIALIZED VIEW":         1259,
+	toc.OBJ_AGGREGATE:                 1255,
+	toc.OBJ_CAST:                      2605,
+	toc.OBJ_COLLATION:                 3456,
+	toc.OBJ_CONSTRAINT:                2606,
+	toc.OBJ_CONVERSION:                2607,
+	toc.OBJ_DATABASE:                  1262,
+	toc.OBJ_DOMAIN:                    1247,
+	toc.OBJ_EVENT_TRIGGER:             3466,
+	toc.OBJ_EXTENSION:                 3079,
+	toc.OBJ_FOREIGN_DATA_WRAPPER:      2328,
+	toc.OBJ_FOREIGN_SERVER:            1417,
+	toc.OBJ_FUNCTION:                  1255,
+	toc.OBJ_INDEX:                     2610,
+	toc.OBJ_LANGUAGE:                  2612,
+	toc.OBJ_OPERATOR_CLASS:            2616,
+	toc.OBJ_OPERATOR_FAMILY:           2753,
+	toc.OBJ_OPERATOR:                  2617,
+	toc.OBJ_PROTOCOL:                  7175,
+	toc.OBJ_RESOURCE_GROUP:            6436,
+	toc.OBJ_RESOURCE_QUEUE:            6026,
+	toc.OBJ_ROLE:                      1260,
+	toc.OBJ_RULE:                      2618,
+	toc.OBJ_SCHEMA:                    2615,
+	toc.OBJ_SEQUENCE:                  1259,
+	toc.OBJ_TABLE:                     1259,
+	toc.OBJ_TABLESPACE:                1213,
+	toc.OBJ_TEXT_SEARCH_CONFIGURATION: 3602,
+	toc.OBJ_TEXT_SEARCH_DICTIONARY:    3600,
+	toc.OBJ_TEXT_SEARCH_PARSER:        3601,
+	toc.OBJ_TEXT_SEARCH_TEMPLATE:      3764,
+	toc.OBJ_TRIGGER:                   2620,
+	toc.OBJ_TYPE:                      1247,
+	toc.OBJ_USER_MAPPING:              1418,
+	toc.OBJ_VIEW:                      1259,
+	toc.OBJ_MATERIALIZED_VIEW:         1259,
 }
 
 func ClassIDFromObjectName(objName string) uint32 {
@@ -274,36 +274,36 @@ func ClassIDFromObjectName(objName string) uint32 {
 func DefaultACLForType(grantee string, objType string) backup.ACL {
 	return backup.ACL{
 		Grantee:    grantee,
-		Select:     objType == "PROTOCOL" || objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
-		Insert:     objType == "PROTOCOL" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
-		Update:     objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
-		Delete:     objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
-		Truncate:   objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		References: objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
-		Trigger:    objType == "TABLE" || objType == "VIEW" || objType == "FOREIGN TABLE" || objType == "MATERIALIZED VIEW",
-		Usage:      objType == "LANGUAGE" || objType == "SCHEMA" || objType == "SEQUENCE" || objType == "FOREIGN DATA WRAPPER" || objType == "FOREIGN SERVER",
-		Execute:    objType == "FUNCTION" || objType == "AGGREGATE",
-		Create:     objType == "DATABASE" || objType == "SCHEMA" || objType == "TABLESPACE",
-		Temporary:  objType == "DATABASE",
-		Connect:    objType == "DATABASE",
+		Select:     objType == toc.OBJ_PROTOCOL || objType == toc.OBJ_SEQUENCE || objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_FOREIGN_TABLE || objType == toc.OBJ_MATERIALIZED_VIEW,
+		Insert:     objType == toc.OBJ_PROTOCOL || objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_FOREIGN_TABLE || objType == toc.OBJ_MATERIALIZED_VIEW,
+		Update:     objType == toc.OBJ_SEQUENCE || objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_FOREIGN_TABLE || objType == toc.OBJ_MATERIALIZED_VIEW,
+		Delete:     objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_FOREIGN_TABLE || objType == toc.OBJ_MATERIALIZED_VIEW,
+		Truncate:   objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		References: objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_FOREIGN_TABLE || objType == toc.OBJ_MATERIALIZED_VIEW,
+		Trigger:    objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_FOREIGN_TABLE || objType == toc.OBJ_MATERIALIZED_VIEW,
+		Usage:      objType == toc.OBJ_LANGUAGE || objType == toc.OBJ_SCHEMA || objType == toc.OBJ_SEQUENCE || objType == toc.OBJ_FOREIGN_DATA_WRAPPER || objType == toc.OBJ_FOREIGN_SERVER,
+		Execute:    objType == toc.OBJ_FUNCTION || objType == toc.OBJ_AGGREGATE,
+		Create:     objType == toc.OBJ_DATABASE || objType == toc.OBJ_SCHEMA || objType == toc.OBJ_TABLESPACE,
+		Temporary:  objType == toc.OBJ_DATABASE,
+		Connect:    objType == toc.OBJ_DATABASE,
 	}
 }
 
 func DefaultACLForTypeWithGrant(grantee string, objType string) backup.ACL {
 	return backup.ACL{
 		Grantee:             grantee,
-		SelectWithGrant:     objType == "PROTOCOL" || objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		InsertWithGrant:     objType == "PROTOCOL" || objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		UpdateWithGrant:     objType == "SEQUENCE" || objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		DeleteWithGrant:     objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		TruncateWithGrant:   objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		ReferencesWithGrant: objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		TriggerWithGrant:    objType == "TABLE" || objType == "VIEW" || objType == "MATERIALIZED VIEW",
-		UsageWithGrant:      objType == "LANGUAGE" || objType == "SCHEMA" || objType == "SEQUENCE" || objType == "FOREIGN DATA WRAPPER" || objType == "FOREIGN SERVER",
-		ExecuteWithGrant:    objType == "FUNCTION",
-		CreateWithGrant:     objType == "DATABASE" || objType == "SCHEMA" || objType == "TABLESPACE",
-		TemporaryWithGrant:  objType == "DATABASE",
-		ConnectWithGrant:    objType == "DATABASE",
+		SelectWithGrant:     objType == toc.OBJ_PROTOCOL || objType == toc.OBJ_SEQUENCE || objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		InsertWithGrant:     objType == toc.OBJ_PROTOCOL || objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		UpdateWithGrant:     objType == toc.OBJ_SEQUENCE || objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		DeleteWithGrant:     objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		TruncateWithGrant:   objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		ReferencesWithGrant: objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		TriggerWithGrant:    objType == toc.OBJ_TABLE || objType == toc.OBJ_VIEW || objType == toc.OBJ_MATERIALIZED_VIEW,
+		UsageWithGrant:      objType == toc.OBJ_LANGUAGE || objType == toc.OBJ_SCHEMA || objType == toc.OBJ_SEQUENCE || objType == toc.OBJ_FOREIGN_DATA_WRAPPER || objType == toc.OBJ_FOREIGN_SERVER,
+		ExecuteWithGrant:    objType == toc.OBJ_FUNCTION,
+		CreateWithGrant:     objType == toc.OBJ_DATABASE || objType == toc.OBJ_SCHEMA || objType == toc.OBJ_TABLESPACE,
+		TemporaryWithGrant:  objType == toc.OBJ_DATABASE,
+		ConnectWithGrant:    objType == toc.OBJ_DATABASE,
 	}
 }
 
@@ -449,7 +449,7 @@ func AssertBufferContents(entries []toc.MetadataEntry, buffer *Buffer, expected 
 
 func ExpectEntry(entries []toc.MetadataEntry, index int, schema, referenceObject, name, objectType string) {
 	Expect(len(entries)).To(BeNumerically(">", index))
-	structmatcher.ExpectStructsToMatchExcluding(entries[index], toc.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte")
+	structmatcher.ExpectStructsToMatchExcluding(entries[index], toc.MetadataEntry{Schema: schema, Name: name, ObjectType: objectType, ReferenceObject: referenceObject, StartByte: 0, EndByte: 0}, "StartByte", "EndByte", "Tier")
 }
 
 func ExpectEntryCount(entries []toc.MetadataEntry, index int) {

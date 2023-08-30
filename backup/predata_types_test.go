@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -13,8 +14,8 @@ import (
 var _ = Describe("backup/predata_types tests", func() {
 	emptyMetadata := backup.ObjectMetadata{}
 	emptyMetadataMap := backup.MetadataMap{}
-	typeMetadata := testutils.DefaultMetadata("TYPE", false, true, true, true)
-	typeMetadataMap := testutils.DefaultMetadataMap("TYPE", false, true, true, true)
+	typeMetadata := testutils.DefaultMetadata(toc.OBJ_TYPE, false, true, true, true)
+	typeMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_TYPE, false, true, true, true)
 
 	BeforeEach(func() {
 		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
@@ -25,7 +26,7 @@ var _ = Describe("backup/predata_types tests", func() {
 
 		It("prints an enum type with multiple attributes", func() {
 			backup.PrintCreateEnumTypeStatements(backupfile, tocfile, []backup.EnumType{enumOne}, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "enum_type", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "enum_type", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.enum_type AS ENUM (
 	'bar',
 	'baz',
@@ -59,7 +60,7 @@ var _ = Describe("backup/predata_types tests", func() {
 		It("prints a composite type with one attribute", func() {
 			compType.Attributes = oneAtt
 			backup.PrintCreateCompositeTypeStatement(backupfile, tocfile, compType, emptyMetadata)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "composite_type", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "composite_type", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
 	foo integer
 );`)
@@ -67,7 +68,7 @@ var _ = Describe("backup/predata_types tests", func() {
 		It("prints a composite type with one attribute with a collation", func() {
 			compType.Attributes = oneAttWithCollation
 			backup.PrintCreateCompositeTypeStatement(backupfile, tocfile, compType, emptyMetadata)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "composite_type", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "composite_type", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.composite_type AS (
 	foo integer COLLATE public.some_coll
 );`)
@@ -109,7 +110,7 @@ var _ = Describe("backup/predata_types tests", func() {
 
 		It("prints a base type with no optional arguments", func() {
 			backup.PrintCreateBaseTypeStatement(backupfile, tocfile, baseSimple, emptyMetadata)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "base_type", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "base_type", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.base_type (
 	INPUT = input_fn,
 	OUTPUT = output_fn
@@ -200,18 +201,18 @@ ALTER TYPE public.base_type
 		rangeOne := backup.RangeType{Oid: 1, Schema: "public", Name: "range_type1"}
 		It("prints shell type for a shell type", func() {
 			backup.PrintCreateShellTypeStatements(backupfile, tocfile, []backup.ShellType{shellOne}, []backup.BaseType{}, []backup.RangeType{})
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "shell_type1", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "shell_type1", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, "CREATE TYPE public.shell_type1;")
 		})
 		It("prints shell type for a base type", func() {
 			backup.PrintCreateShellTypeStatements(backupfile, tocfile, []backup.ShellType{}, []backup.BaseType{baseOne, baseTwo}, []backup.RangeType{})
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "base_type1", "TYPE")
-			testutils.ExpectEntry(tocfile.PredataEntries, 1, "public", "", "base_type2", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "base_type1", toc.OBJ_TYPE)
+			testutils.ExpectEntry(tocfile.PredataEntries, 1, "public", "", "base_type2", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, "CREATE TYPE public.base_type1;", "CREATE TYPE public.base_type2;")
 		})
 		It("prints shell type for a range type", func() {
 			backup.PrintCreateShellTypeStatements(backupfile, tocfile, []backup.ShellType{}, []backup.BaseType{}, []backup.RangeType{rangeOne})
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "range_type1", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "range_type1", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, "CREATE TYPE public.range_type1;")
 		})
 	})
@@ -222,7 +223,7 @@ ALTER TYPE public.base_type
 		domainTwo := backup.Domain{Oid: 1, Schema: "public", Name: "domain2", DefaultVal: "", BaseType: "varchar", NotNull: false, Collation: ""}
 		It("prints a domain with a constraint", func() {
 			backup.PrintCreateDomainStatement(backupfile, tocfile, domainOne, emptyMetadata, checkConstraint)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "domain1", "DOMAIN")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "domain1", toc.OBJ_DOMAIN)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL
 	CONSTRAINT domain1_check CHECK (VALUE > 2);`)
 		})
@@ -231,7 +232,7 @@ ALTER TYPE public.base_type
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE DOMAIN public.domain1 AS numeric DEFAULT 4 COLLATE public.mycollation NOT NULL;`)
 		})
 		It("prints a domain without constraint with comment, security label, and owner", func() {
-			domainMetadata := testutils.DefaultMetadata("DOMAIN", false, true, true, true)
+			domainMetadata := testutils.DefaultMetadata(toc.OBJ_DOMAIN, false, true, true, true)
 			backup.PrintCreateDomainStatement(backupfile, tocfile, domainTwo, domainMetadata, emptyConstraint)
 			expectedEntries := []string{"CREATE DOMAIN public.domain2 AS varchar;",
 				"COMMENT ON DOMAIN public.domain2 IS 'This is a domain comment.';",
@@ -256,14 +257,14 @@ ALTER TYPE public.base_type
 		}
 		It("prints a basic range type", func() {
 			backup.PrintCreateRangeTypeStatement(backupfile, tocfile, basicRangeType, emptyMetadata)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "rangetype", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "rangetype", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.rangetype AS RANGE (
 	SUBTYPE = test_subtype_schema.test_subtype
 );`)
 		})
 		It("prints a complex range type", func() {
 			backup.PrintCreateRangeTypeStatement(backupfile, tocfile, complexRangeType, emptyMetadata)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "rangetype", "TYPE")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "rangetype", toc.OBJ_TYPE)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE TYPE public.rangetype AS RANGE (
 	SUBTYPE = test_subtype_schema.test_subtype,
 	SUBTYPE_OPCLASS = opclass_schema.test_opclass,
@@ -291,7 +292,7 @@ ALTER TYPE public.base_type
 		})
 		It("prints a create collation statement with owner and comment", func() {
 			collation := backup.Collation{Oid: 1, Name: "collation1", Collate: "collate1", Ctype: "ctype1", Schema: "schema1"}
-			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true, false)
+			collationMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_COLLATION, false, true, true, false)
 			backup.PrintCreateCollationStatements(backupfile, tocfile, []backup.Collation{collation}, collationMetadataMap)
 			expectedStatements := []string{
 				"CREATE COLLATION schema1.collation1 (LC_COLLATE = 'collate1', LC_CTYPE = 'ctype1');",

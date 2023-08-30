@@ -14,7 +14,7 @@ import (
 	"github.com/greenplum-db/gpbackup/utils"
 )
 
-func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
+func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, funcDef Function, funcMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	funcFQN := utils.MakeFQN(funcDef.Schema, funcDef.Name)
 
@@ -29,8 +29,9 @@ func PrintCreateFunctionStatement(metadataFile *utils.FileWithByteCount, toc *to
 	metadataFile.MustPrintln(";")
 
 	section, entry := funcDef.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, funcMetadata, funcDef, "")
+	tier := globalTierMap[funcDef.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, funcMetadata, funcDef, "", tier)
 }
 
 /*
@@ -129,7 +130,7 @@ func PrintFunctionModifiers(metadataFile *utils.FileWithByteCount, funcDef Funct
 	}
 }
 
-func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, aggDef Aggregate, funcInfoMap map[uint32]FunctionInfo, aggMetadata ObjectMetadata) {
+func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, aggDef Aggregate, funcInfoMap map[uint32]FunctionInfo, aggMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	orderedStr := ""
 	if aggDef.IsOrdered {
@@ -254,11 +255,12 @@ func PrintCreateAggregateStatement(metadataFile *utils.FileWithByteCount, toc *t
 	metadataFile.MustPrintln("\n);")
 
 	section, entry := aggDef.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, aggMetadata, aggDef, "")
+	tier := globalTierMap[aggDef.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, aggMetadata, aggDef, "", tier)
 }
 
-func PrintCreateCastStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, castDef Cast, castMetadata ObjectMetadata) {
+func PrintCreateCastStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, castDef Cast, castMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE CAST %s\n", castDef.FQN())
 	switch castDef.CastMethod {
@@ -280,18 +282,20 @@ func PrintCreateCastStatement(metadataFile *utils.FileWithByteCount, toc *toc.TO
 	metadataFile.MustPrintf(";")
 
 	section, entry := castDef.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, castMetadata, castDef, "")
+	tier := globalTierMap[castDef.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, castMetadata, castDef, "", tier)
 }
 
-func PrintCreateExtensionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, extensionDefs []Extension, extensionMetadata MetadataMap) {
+func PrintCreateExtensionStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, extensionDefs []Extension, extensionMetadata MetadataMap) {
 	for _, extensionDef := range extensionDefs {
 		start := metadataFile.ByteCount
 		metadataFile.MustPrintf("\n\nSET search_path=%s,pg_catalog;\nCREATE EXTENSION IF NOT EXISTS %s WITH SCHEMA %s;\nSET search_path=pg_catalog;", extensionDef.Schema, extensionDef.Name, extensionDef.Schema)
 
 		section, entry := extensionDef.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, extensionMetadata[extensionDef.GetUniqueID()], extensionDef, "")
+		tier := globalTierMap[extensionDef.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+		PrintObjectMetadata(metadataFile, objToc, extensionMetadata[extensionDef.GetUniqueID()], extensionDef, "", tier)
 	}
 }
 
@@ -323,7 +327,7 @@ func ExtractLanguageFunctions(funcDefs []Function, procLangs []ProceduralLanguag
 	return langFuncs, otherFuncs
 }
 
-func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, procLangs []ProceduralLanguage,
+func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, procLangs []ProceduralLanguage,
 	funcInfoMap map[uint32]FunctionInfo, procLangMetadata MetadataMap) {
 	for _, procLang := range procLangs {
 		start := metadataFile.ByteCount
@@ -363,17 +367,18 @@ func PrintCreateLanguageStatements(metadataFile *utils.FileWithByteCount, toc *t
 		metadataFile.MustPrintf("%s;", paramsStr)
 
 		section, entry := procLang.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		tier := globalTierMap[procLang.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 
 		start = metadataFile.ByteCount
 		metadataFile.MustPrint(alterStr)
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 
-		PrintObjectMetadata(metadataFile, toc, procLangMetadata[procLang.GetUniqueID()], procLang, "")
+		PrintObjectMetadata(metadataFile, objToc, procLangMetadata[procLang.GetUniqueID()], procLang, "", tier)
 	}
 }
 
-func PrintCreateTransformStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, transform Transform, funcInfoMap map[uint32]FunctionInfo, transformMetadata ObjectMetadata) {
+func PrintCreateTransformStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, transform Transform, funcInfoMap map[uint32]FunctionInfo, transformMetadata ObjectMetadata) {
 	fromSQLFunc, fromSQLIsDefined := funcInfoMap[transform.FromSQLFunc]
 	toSQLFunc, toSQLIsDefined := funcInfoMap[transform.ToSQLFunc]
 	TypeFQN := fmt.Sprintf("%s.%s", transform.TypeNamespace, transform.TypeName)
@@ -401,11 +406,12 @@ func PrintCreateTransformStatement(metadataFile *utils.FileWithByteCount, toc *t
 	statement += ");"
 	metadataFile.MustPrintf(statement)
 	section, entry := transform.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, transformMetadata, transform, "")
+	tier := globalTierMap[transform.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, transformMetadata, transform, "", tier)
 }
 
-func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc *toc.TOC, conversions []Conversion, conversionMetadata MetadataMap) {
+func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, conversions []Conversion, conversionMetadata MetadataMap) {
 	for _, conversion := range conversions {
 		start := metadataFile.ByteCount
 		convFQN := utils.MakeFQN(conversion.Schema, conversion.Name)
@@ -417,12 +423,13 @@ func PrintCreateConversionStatements(metadataFile *utils.FileWithByteCount, toc 
 			defaultStr, convFQN, conversion.ForEncoding, conversion.ToEncoding, conversion.ConversionFunction)
 
 		section, entry := conversion.GetMetadataEntry()
-		toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-		PrintObjectMetadata(metadataFile, toc, conversionMetadata[conversion.GetUniqueID()], conversion, "")
+		tier := globalTierMap[conversion.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+		PrintObjectMetadata(metadataFile, objToc, conversionMetadata[conversion.GetUniqueID()], conversion, "", tier)
 	}
 }
 
-func PrintCreateForeignDataWrapperStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC,
+func PrintCreateForeignDataWrapperStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC,
 	fdw ForeignDataWrapper, funcInfoMap map[uint32]FunctionInfo, fdwMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE FOREIGN DATA WRAPPER %s", fdw.Name)
@@ -439,11 +446,12 @@ func PrintCreateForeignDataWrapperStatement(metadataFile *utils.FileWithByteCoun
 	metadataFile.MustPrintf(";")
 
 	section, entry := fdw.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, fdwMetadata, fdw, "")
+	tier := globalTierMap[fdw.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, fdwMetadata, fdw, "", tier)
 }
 
-func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, server ForeignServer, serverMetadata ObjectMetadata) {
+func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, server ForeignServer, serverMetadata ObjectMetadata) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE SERVER %s", server.Name)
 	if server.Type != "" {
@@ -460,11 +468,12 @@ func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, toc *toc.
 
 	//NOTE: We must specify SERVER when creating and dropping, but FOREIGN SERVER when granting and revoking
 	section, entry := server.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
-	PrintObjectMetadata(metadataFile, toc, serverMetadata, server, "")
+	tier := globalTierMap[server.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, serverMetadata, server, "", tier)
 }
 
-func PrintCreateUserMappingStatement(metadataFile *utils.FileWithByteCount, toc *toc.TOC, mapping UserMapping) {
+func PrintCreateUserMappingStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, mapping UserMapping) {
 	start := metadataFile.ByteCount
 	metadataFile.MustPrintf("\n\nCREATE USER MAPPING FOR %s\n\tSERVER %s", mapping.User, mapping.Server)
 	if mapping.Options != "" {
@@ -473,5 +482,6 @@ func PrintCreateUserMappingStatement(metadataFile *utils.FileWithByteCount, toc 
 	metadataFile.MustPrintf(";")
 
 	section, entry := mapping.GetMetadataEntry()
-	toc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount)
+	tier := globalTierMap[mapping.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
 }

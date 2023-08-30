@@ -7,6 +7,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,7 +24,7 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		It("creates a non public schema", func() {
 			schemas := []backup.Schema{{Oid: 0, Name: "test_schema"}}
-			schemaMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true, includeSecurityLabels)
+			schemaMetadata := testutils.DefaultMetadataMap(toc.OBJ_SCHEMA, true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateSchemaStatements(backupfile, tocfile, schemas, schemaMetadata)
 
@@ -40,7 +41,7 @@ var _ = Describe("backup integration create statement tests", func() {
 
 		It("modifies the public schema", func() {
 			schemas := []backup.Schema{{Oid: 2200, Name: "public"}}
-			schemaMetadata := testutils.DefaultMetadataMap("SCHEMA", true, true, true, includeSecurityLabels)
+			schemaMetadata := testutils.DefaultMetadataMap(toc.OBJ_SCHEMA, true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateSchemaStatements(backupfile, tocfile, schemas, schemaMetadata)
 
@@ -76,7 +77,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			partitionChildConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "id_unique", ConType: "u", Def: sql.NullString{String: "UNIQUE (id)", Valid: true}, OwningObject: "public.part_one", IsDomainConstraint: false, IsPartitionParent: false}
 			partitionParentConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "check_year", ConType: "c", Def: sql.NullString{String: "CHECK (year < 3000)", Valid: true}, OwningObject: "public.part", IsDomainConstraint: false, IsPartitionParent: true}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.testtable(a int, b text) DISTRIBUTED BY (b)")
-			objectMetadata = testutils.DefaultMetadata("CONSTRAINT", false, false, false, false)
+			objectMetadata = testutils.DefaultMetadata(toc.OBJ_CONSTRAINT, false, false, false, false)
 
 			if connectionPool.Version.AtLeast("6") {
 				uniqueConstraint.ConIsLocal = true

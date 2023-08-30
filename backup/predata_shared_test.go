@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -36,14 +37,14 @@ var _ = Describe("backup/predata_shared tests", func() {
 			foreignTwo = backup.Constraint{Oid: 0, Name: "tablename_j_fkey", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (j) REFERENCES other_tablename(b)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false}
 			checkConstraint = backup.Constraint{Oid: 0, Name: "check1", ConType: "c", Def: sql.NullString{String: "CHECK (VALUE <> 42::numeric)", Valid: true}, OwningObject: "public.tablename", IsDomainConstraint: false, IsPartitionParent: false, ConIsLocal: true}
 
-			objectMetadata = testutils.DefaultMetadata("CONSTRAINT", false, false, false, false)
+			objectMetadata = testutils.DefaultMetadata(toc.OBJ_CONSTRAINT, false, false, false, false)
 		})
 
 		Context("Constraints involving different columns", func() {
 			It("prints an ADD CONSTRAINT statement for one UNIQUE constraint with a comment", func() {
-				withCommentMetadata := testutils.DefaultMetadata("CONSTRAINT", false, false, true, false)
+				withCommentMetadata := testutils.DefaultMetadata(toc.OBJ_CONSTRAINT, false, false, true, false)
 				backup.PrintConstraintStatement(backupfile, tocfile, uniqueOne, withCommentMetadata)
-				testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "public.tablename", "tablename_i_key", "CONSTRAINT")
+				testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "public.tablename", "tablename_i_key", toc.OBJ_CONSTRAINT)
 				testutils.AssertBufferContents(tocfile.PredataEntries, buffer,
 					"ALTER TABLE ONLY public.tablename ADD CONSTRAINT tablename_i_key UNIQUE (i);",
 					"COMMENT ON CONSTRAINT tablename_i_key ON public.tablename IS 'This is a constraint comment.';")
@@ -145,12 +146,12 @@ var _ = Describe("backup/predata_shared tests", func() {
 			emptyMetadataMap := backup.MetadataMap{}
 
 			backup.PrintCreateSchemaStatements(backupfile, tocfile, schemas, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schemaname", "", "schemaname", "SCHEMA")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schemaname", "", "schemaname", toc.OBJ_SCHEMA)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, "CREATE SCHEMA schemaname;")
 		})
 		It("can print a schema with privileges, an owner, security label, and a comment", func() {
 			schemas := []backup.Schema{{Oid: 1, Name: "schemaname"}}
-			schemaMetadataMap := testutils.DefaultMetadataMap("SCHEMA", true, true, true, true)
+			schemaMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_SCHEMA, true, true, true, true)
 
 			backup.PrintCreateSchemaStatements(backupfile, tocfile, schemas, schemaMetadataMap)
 			expectedStatements := []string{"CREATE SCHEMA schemaname;",
@@ -169,7 +170,7 @@ GRANT ALL ON SCHEMA schemaname TO testrole;`,
 			emptyMetadataMap := backup.MetadataMap{}
 
 			backup.PrintAccessMethodStatements(backupfile, tocfile, accessMethods, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "", "my_access_method", "ACCESS METHOD")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "", "", "my_access_method", toc.OBJ_ACCESS_METHOD)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, "CREATE ACCESS METHOD my_access_method TYPE TABLE HANDLER my_access_handler;")
 		})
 	})

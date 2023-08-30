@@ -20,18 +20,18 @@ func PrintStatisticsStatements(statisticsFile *utils.FileWithByteCount, tocfile 
 		printStatisticsStatementForTable(statisticsFile, tocfile, table, tupleQuery)
 		for _, attStat := range attStats[table.Oid] {
 			attributeQueries := GenerateAttributeStatisticsQueries(table, attStat)
-			for _, attrQuery := range attributeQueries{
+			for _, attrQuery := range attributeQueries {
 				printStatisticsStatementForTable(statisticsFile, tocfile, table, attrQuery)
 			}
 		}
 	}
 }
 
-func printStatisticsStatementForTable(statisticsFile *utils.FileWithByteCount, tocfile *toc.TOC, table Table, query string){
+func printStatisticsStatementForTable(statisticsFile *utils.FileWithByteCount, tocfile *toc.TOC, table Table, query string) {
 	start := statisticsFile.ByteCount
 	statisticsFile.MustPrintf("\n\n%s\n", query)
-	entry := toc.MetadataEntry{Schema: table.Schema, Name: table.Name, ObjectType: "STATISTICS"}
-	tocfile.AddMetadataEntry("statistics", entry, start, statisticsFile.ByteCount)
+	entry := toc.MetadataEntry{Schema: table.Schema, Name: table.Name, ObjectType: toc.OBJ_STATISTICS}
+	tocfile.AddMetadataEntry("statistics", entry, start, statisticsFile.ByteCount, []uint32{0, 0})
 }
 
 func GenerateTupleStatisticsQuery(table Table, tupleStat TupleStatistic) string {

@@ -11,47 +11,47 @@ import (
 var _ = Describe("restore internal tests", func() {
 	statements := []toc.StatementWithType{
 		{ // simple table
-			Schema: "foo", Name: "bar", ObjectType: "TABLE",
+			Schema: "foo", Name: "bar", ObjectType: toc.OBJ_TABLE,
 			Statement: "\n\nCREATE TABLE foo.bar (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 		},
 		{ // simple schema
-			Schema: "foo", Name: "foo", ObjectType: "SCHEMA",
+			Schema: "foo", Name: "foo", ObjectType: toc.OBJ_SCHEMA,
 			Statement: "\n\nCREATE SCHEMA foo;\n",
 		},
 		{ // table with a schema containing dots
-			Schema: "\"foo.bar\"", Name: "baz", ObjectType: "TABLE",
+			Schema: "\"foo.bar\"", Name: "baz", ObjectType: toc.OBJ_TABLE,
 			Statement: "\n\nCREATE TABLE \"foo.bar\".baz (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 		},
 		{ // table with a schema containing quotes
-			Schema: "\"foo\"bar\"", Name: "baz", ObjectType: "TABLE",
+			Schema: "\"foo\"bar\"", Name: "baz", ObjectType: toc.OBJ_TABLE,
 			Statement: "\n\nCREATE TABLE \"foo\"bar\".baz (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 		},
 		{ // view with multiple schema replacements
-			Schema: "foo", Name: "myview", ObjectType: "VIEW",
+			Schema: "foo", Name: "myview", ObjectType: toc.OBJ_VIEW,
 			Statement: "\n\nCREATE VIEW foo.myview AS  SELECT bar.i\n   FROM foo.bar;\n",
 		},
 		{ // schema and table are the same name
-			Schema: "foo", Name: "foo", ObjectType: "TABLE",
+			Schema: "foo", Name: "foo", ObjectType: toc.OBJ_TABLE,
 			Statement: "\n\nCREATE TABLE foo.foo (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 		},
 		{ // multi-line permissions block for a schema
-			Schema: "foo", Name: "foo", ObjectType: "SCHEMA",
+			Schema: "foo", Name: "foo", ObjectType: toc.OBJ_SCHEMA,
 			Statement: "\n\nREVOKE ALL ON SCHEMA foo FROM PUBLIC;\nGRANT ALL ON SCHEMA foo TO testuser;\n",
 		},
 		{ // multi-line permissions block for a non-schema object
-			Schema: "foo", Name: "myfunc", ObjectType: "FUNCTION",
+			Schema: "foo", Name: "myfunc", ObjectType: toc.OBJ_FUNCTION,
 			Statement: "\n\nREVOKE ALL ON FUNCTION foo.myfunc(integer) FROM PUBLIC;\nGRANT ALL ON FUNCTION foo.myfunc(integer) TO testuser;\n",
 		},
 		{ // multi-line permissions block with a schema containing dots
-			Schema: "\"foo.bar\"", Name: "myfunc", ObjectType: "FUNCTION",
+			Schema: "\"foo.bar\"", Name: "myfunc", ObjectType: toc.OBJ_FUNCTION,
 			Statement: "\n\nREVOKE ALL ON FUNCTION \"foo.bar\".myfunc(integer) FROM PUBLIC;\nGRANT ALL ON FUNCTION \"foo.bar\".myfunc(integer) TO testuser;\n",
 		},
 		{ // ALTER TABLE ... ATTACH PARTITION statement
-			Schema: "public", Name: "foopart_p1", ObjectType: "TABLE", ReferenceObject: "public.foopart",
+			Schema: "public", Name: "foopart_p1", ObjectType: toc.OBJ_TABLE, ReferenceObject: "public.foopart",
 			Statement: "\n\nALTER TABLE public.foopart ATTACH PARTITION public.foopart_p1 FOR VALUES FROM (0) TO (1);\n",
 		},
 		{ // ALTER TABLE ONLY ... ATTACH PARTITION statement
-			Schema: "public", Name: "foopart_p1", ObjectType: "TABLE", ReferenceObject: "public.foopart",
+			Schema: "public", Name: "foopart_p1", ObjectType: toc.OBJ_TABLE, ReferenceObject: "public.foopart",
 			Statement: "\n\nALTER TABLE ONLY public.foopart ATTACH PARTITION public.foopart_p1 FOR VALUES FROM (0) TO (1);\n",
 		},
 	}
@@ -78,47 +78,47 @@ var _ = Describe("restore internal tests", func() {
 
 			expectedStatements := []toc.StatementWithType{
 				{
-					Schema: "foo2", Name: "bar", ObjectType: "TABLE",
+					Schema: "foo2", Name: "bar", ObjectType: toc.OBJ_TABLE,
 					Statement: "\n\nCREATE TABLE foo2.bar (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 				},
 				{
-					Schema: "foo2", Name: "foo2", ObjectType: "SCHEMA",
+					Schema: "foo2", Name: "foo2", ObjectType: toc.OBJ_SCHEMA,
 					Statement: "\n\nCREATE SCHEMA foo2;\n",
 				},
 				{
-					Schema: "foo2", Name: "baz", ObjectType: "TABLE",
+					Schema: "foo2", Name: "baz", ObjectType: toc.OBJ_TABLE,
 					Statement: "\n\nCREATE TABLE foo2.baz (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 				},
 				{
-					Schema: "foo2", Name: "baz", ObjectType: "TABLE",
+					Schema: "foo2", Name: "baz", ObjectType: toc.OBJ_TABLE,
 					Statement: "\n\nCREATE TABLE foo2.baz (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 				},
 				{
-					Schema: "foo2", Name: "myview", ObjectType: "VIEW",
+					Schema: "foo2", Name: "myview", ObjectType: toc.OBJ_VIEW,
 					Statement: "\n\nCREATE VIEW foo2.myview AS  SELECT bar.i\n   FROM foo.bar;\n",
 				},
 				{
-					Schema: "foo2", Name: "foo", ObjectType: "TABLE",
+					Schema: "foo2", Name: "foo", ObjectType: toc.OBJ_TABLE,
 					Statement: "\n\nCREATE TABLE foo2.foo (\n\ti integer\n) DISTRIBUTED BY (i);\n",
 				},
 				{
-					Schema: "foo2", Name: "foo2", ObjectType: "SCHEMA",
+					Schema: "foo2", Name: "foo2", ObjectType: toc.OBJ_SCHEMA,
 					Statement: "\n\nREVOKE ALL ON SCHEMA foo2 FROM PUBLIC;\nGRANT ALL ON SCHEMA foo2 TO testuser;\n",
 				},
 				{
-					Schema: "foo2", Name: "myfunc", ObjectType: "FUNCTION",
+					Schema: "foo2", Name: "myfunc", ObjectType: toc.OBJ_FUNCTION,
 					Statement: "\n\nREVOKE ALL ON FUNCTION foo2.myfunc(integer) FROM PUBLIC;\nGRANT ALL ON FUNCTION foo2.myfunc(integer) TO testuser;\n",
 				},
 				{
-					Schema: "foo2", Name: "myfunc", ObjectType: "FUNCTION",
+					Schema: "foo2", Name: "myfunc", ObjectType: toc.OBJ_FUNCTION,
 					Statement: "\n\nREVOKE ALL ON FUNCTION foo2.myfunc(integer) FROM PUBLIC;\nGRANT ALL ON FUNCTION foo2.myfunc(integer) TO testuser;\n",
 				},
 				{ // ALTER TABLE ... ATTACH PARTITION statement
-					Schema: "foo2", Name: "foopart_p1", ObjectType: "TABLE", ReferenceObject: "foo2.foopart",
+					Schema: "foo2", Name: "foopart_p1", ObjectType: toc.OBJ_TABLE, ReferenceObject: "foo2.foopart",
 					Statement: "\n\nALTER TABLE foo2.foopart ATTACH PARTITION foo2.foopart_p1 FOR VALUES FROM (0) TO (1);\n",
 				},
 				{ // ALTER TABLE ONLY ... ATTACH PARTITION statement
-					Schema: "foo2", Name: "foopart_p1", ObjectType: "TABLE", ReferenceObject: "foo2.foopart",
+					Schema: "foo2", Name: "foopart_p1", ObjectType: toc.OBJ_TABLE, ReferenceObject: "foo2.foopart",
 					Statement: "\n\nALTER TABLE ONLY foo2.foopart ATTACH PARTITION foo2.foopart_p1 FOR VALUES FROM (0) TO (1);\n",
 				},
 			}

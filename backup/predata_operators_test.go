@@ -5,6 +5,7 @@ import (
 
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -21,18 +22,18 @@ var _ = Describe("backup/predata_operators tests", func() {
 			createStatementFuncRepl string
 		)
 		BeforeEach(func() {
-			operatorMetadata = testutils.DefaultMetadata("OPERATOR", false, true, true, false)
+			operatorMetadata = testutils.DefaultMetadata(toc.OBJ_OPERATOR, false, true, true, false)
 			operator = backup.Operator{Oid: 0, Schema: "public", Name: "##", Procedure: "public.path_inter", LeftArgType: "public.path", RightArgType: `public."PATH"`, CommutatorOp: "0", NegatorOp: "0", RestrictFunction: "-", JoinFunction: "-", CanHash: false, CanMerge: false}
 			if connectionPool.Version.AtLeast("7") {
-				createStatementFuncRepl = "FUNCTION"
+				createStatementFuncRepl = toc.OBJ_FUNCTION
 			} else {
-				createStatementFuncRepl = "PROCEDURE"
+				createStatementFuncRepl = toc.OBJ_PROCEDURE
 			}
 		})
 		It("prints a basic operator", func() {
 			backup.PrintCreateOperatorStatement(backupfile, tocfile, operator, emptyMetadata)
 
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "##", "OPERATOR")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "##", toc.OBJ_OPERATOR)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, fmt.Sprintf(`CREATE OPERATOR public.## (
 	%s = public.path_inter,
 	LEFTARG = public.path,
@@ -87,13 +88,13 @@ var _ = Describe("backup/predata_operators tests", func() {
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, tocfile, []backup.OperatorFamily{operatorFamily}, backup.MetadataMap{})
 
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "testfam", "OPERATOR FAMILY")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "testfam", toc.OBJ_OPERATOR_FAMILY)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE OPERATOR FAMILY public.testfam USING hash;`)
 		})
 		It("prints an operator family with an owner and comment", func() {
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 
-			metadataMap := testutils.DefaultMetadataMap("OPERATOR FAMILY", false, true, true, false)
+			metadataMap := testutils.DefaultMetadataMap(toc.OBJ_OPERATOR_FAMILY, false, true, true, false)
 
 			backup.PrintCreateOperatorFamilyStatements(backupfile, tocfile, []backup.OperatorFamily{operatorFamily}, metadataMap)
 
@@ -118,7 +119,7 @@ var _ = Describe("backup/predata_operators tests", func() {
 		It("prints a basic operator class", func() {
 			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, emptyMetadata)
 
-			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "testclass", "OPERATOR CLASS")
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "public", "", "testclass", toc.OBJ_OPERATOR_CLASS)
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE OPERATOR CLASS public.testclass
 	FOR TYPE uuid USING hash AS
 	STORAGE uuid;`)
@@ -197,7 +198,7 @@ var _ = Describe("backup/predata_operators tests", func() {
 		It("prints an operator class with a function and owner and comment", func() {
 			operatorClass.Functions = []backup.OperatorClassFunction{function1}
 
-			objMetadata := testutils.DefaultMetadata("OPERATOR CLASS", false, true, true, false)
+			objMetadata := testutils.DefaultMetadata(toc.OBJ_OPERATOR_CLASS, false, true, true, false)
 			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, objMetadata)
 
 			expectedStatements := []string{

@@ -37,6 +37,7 @@ var (
 	connectionPool       *dbconn.DBConn
 	globalCluster        *cluster.Cluster
 	globalFPInfo         filepath.FilePathInfo
+	globalTierMap        map[UniqueID][]uint32
 	globalTOC            *toc.TOC
 	objectCounts         map[string]int
 	pluginConfig         *utils.PluginConfig

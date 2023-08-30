@@ -5,6 +5,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -113,7 +114,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					baseType.Preferred = true
 					baseType.Collatable = true
 				}
-				metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
+				metadata := testutils.DefaultMetadata(toc.OBJ_TYPE, false, true, true, includeSecurityLabels)
 				backup.PrintCreateBaseTypeStatement(backupfile, tocfile, baseType, metadata)
 
 				//Run queries to set up the database state so we can successfully create base types
@@ -156,7 +157,7 @@ var _ = Describe("backup integration create statement tests", func() {
 					defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
 					domainType.Collation = "public.some_coll"
 				}
-				metadata := testutils.DefaultMetadata("DOMAIN", false, true, true, includeSecurityLabels)
+				metadata := testutils.DefaultMetadata(toc.OBJ_DOMAIN, false, true, true, includeSecurityLabels)
 				backup.PrintCreateDomainStatement(backupfile, tocfile, domainType, metadata, constraints)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -174,7 +175,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE COLLATION public.some_coll (lc_collate = 'POSIX', lc_ctype = 'POSIX');")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll")
 
-				metadata := testutils.DefaultMetadata("TYPE", false, true, true, includeSecurityLabels)
+				metadata := testutils.DefaultMetadata(toc.OBJ_TYPE, false, true, true, includeSecurityLabels)
 				backup.PrintCreateRangeTypeStatement(backupfile, tocfile, rangeType, metadata)
 
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
@@ -235,7 +236,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				collation.IsDeterministic = "true"
 				collation.Provider = "c"
 			}
-			collationMetadataMap := testutils.DefaultMetadataMap("COLLATION", false, true, true, false)
+			collationMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_COLLATION, false, true, true, false)
 			collationMetadata := collationMetadataMap[collation.GetUniqueID()]
 
 			backup.PrintCreateCollationStatements(backupfile, tocfile, []backup.Collation{collation}, collationMetadataMap)

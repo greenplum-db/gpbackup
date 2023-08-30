@@ -6,6 +6,7 @@ import (
 
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/testutils"
+	"github.com/greenplum-db/gpbackup/toc"
 
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -23,14 +24,14 @@ var _ = Describe("backup/postdata tests", func() {
 		It("can print a basic index", func() {
 			indexes := []backup.IndexDefinition{index}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testindex", "INDEX")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testindex", toc.OBJ_INDEX)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, `CREATE INDEX testindex ON public.testtable USING btree(i);`)
 		})
 		It("can print an index used for clustering", func() {
 			index.IsClustered = true
 			indexes := []backup.IndexDefinition{index}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testindex", "INDEX")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testindex", toc.OBJ_INDEX)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, "CREATE INDEX testindex ON public.testtable USING btree(i);",
 				"ALTER TABLE public.testtable CLUSTER ON testindex;")
 		})
@@ -43,7 +44,7 @@ var _ = Describe("backup/postdata tests", func() {
 		})
 		It("can print an index with a comment", func() {
 			indexes := []backup.IndexDefinition{index}
-			indexMetadataMap := testutils.DefaultMetadataMap("INDEX", false, false, true, false)
+			indexMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_INDEX, false, false, true, false)
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, indexMetadataMap)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, "CREATE INDEX testindex ON public.testtable USING btree(i);",
 				"COMMENT ON INDEX public.testindex IS 'This is an index comment.';")
@@ -52,7 +53,7 @@ var _ = Describe("backup/postdata tests", func() {
 			index.IsReplicaIdentity = true
 			indexes := []backup.IndexDefinition{index}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testindex", "INDEX")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testindex", toc.OBJ_INDEX)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer,
 				"CREATE INDEX testindex ON public.testtable USING btree(i);",
 				"ALTER TABLE public.testtable REPLICA IDENTITY USING INDEX testindex;",
@@ -65,8 +66,8 @@ var _ = Describe("backup/postdata tests", func() {
 			index.ParentIndexFQN = "public.parenttestindex"
 			indexes := []backup.IndexDefinition{parentIndex, index}
 			backup.PrintCreateIndexStatements(backupfile, tocfile, indexes, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.parenttesttable", "parenttestindex", "INDEX")
-			testutils.ExpectEntry(tocfile.PostdataEntries, 1, "public", "public.testtable", "testindex", "INDEX")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.parenttesttable", "parenttestindex", toc.OBJ_INDEX)
+			testutils.ExpectEntry(tocfile.PostdataEntries, 1, "public", "public.testtable", "testindex", toc.OBJ_INDEX)
 			testutils.ExpectEntry(tocfile.PostdataEntries, 2, "public", "public.testindex", "testindex", "INDEX METADATA")
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer,
 				"CREATE INDEX parenttestindex ON public.parenttesttable USING btree(i);",
@@ -81,12 +82,12 @@ var _ = Describe("backup/postdata tests", func() {
 			rules := []backup.RuleDefinition{rule}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateRuleStatements(backupfile, tocfile, rules, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testrule", "RULE")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testrule", toc.OBJ_RULE)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;")
 		})
 		It("can print a rule with a comment", func() {
 			rules := []backup.RuleDefinition{rule}
-			ruleMetadataMap := testutils.DefaultMetadataMap("RULE", false, false, true, false)
+			ruleMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_RULE, false, false, true, false)
 			backup.PrintCreateRuleStatements(backupfile, tocfile, rules, ruleMetadataMap)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, "CREATE RULE update_notify AS ON UPDATE TO testtable DO NOTIFY testtable;",
 				"COMMENT ON RULE testrule ON public.testtable IS 'This is a rule comment.';")
@@ -98,12 +99,12 @@ var _ = Describe("backup/postdata tests", func() {
 			triggers := []backup.TriggerDefinition{trigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testtrigger", "TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "public.testtable", "testtrigger", toc.OBJ_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger();")
 		})
 		It("can print a trigger with a comment", func() {
 			triggers := []backup.TriggerDefinition{trigger}
-			triggerMetadataMap := testutils.DefaultMetadataMap("TRIGGER", false, false, true, false)
+			triggerMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_TRIGGER, false, false, true, false)
 			backup.PrintCreateTriggerStatements(backupfile, tocfile, triggers, triggerMetadataMap)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, "CREATE TRIGGER sync_testtable AFTER INSERT OR DELETE OR UPDATE ON testtable FOR EACH STATEMENT EXECUTE PROCEDURE flatfile_update_trigger();",
 				"COMMENT ON TRIGGER testtrigger ON public.testtable IS 'This is a trigger comment.';")
@@ -113,9 +114,9 @@ var _ = Describe("backup/postdata tests", func() {
 		var evTrigExecReplacement string
 		BeforeEach(func() {
 			if connectionPool.Version.AtLeast("7") {
-				evTrigExecReplacement = "FUNCTION"
+				evTrigExecReplacement = toc.OBJ_FUNCTION
 			} else {
-				evTrigExecReplacement = "PROCEDURE"
+				evTrigExecReplacement = toc.OBJ_PROCEDURE
 			}
 		})
 		It("can print a basic event trigger", func() {
@@ -123,7 +124,7 @@ var _ = Describe("backup/postdata tests", func() {
 			eventTriggers := []backup.EventTrigger{eventTrigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement))
@@ -131,9 +132,9 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement))
 		It("can print a basic event trigger with a comment", func() {
 			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
 			eventTriggers := []backup.EventTrigger{eventTrigger}
-			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, false, true, false)
+			eventTriggerMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_EVENT_TRIGGER, false, false, true, false)
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, eventTriggerMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement), `COMMENT ON EVENT TRIGGER testeventtrigger IS 'This is an event trigger comment.';`)
@@ -141,9 +142,9 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `COMMENT ON EVENT TRIG
 		It("can print a basic event trigger with an owner", func() {
 			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
 			eventTriggers := []backup.EventTrigger{eventTrigger}
-			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, true, false, false)
+			eventTriggerMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_EVENT_TRIGGER, false, true, false, false)
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, eventTriggerMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER testeventtrigger OWNER TO testrole;`)
@@ -151,9 +152,9 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER t
 		It("can print a basic event trigger with a security label", func() {
 			eventTrigger := backup.EventTrigger{Oid: 1, Name: "testeventtrigger", Event: "ddl_command_start", FunctionName: "abort_any_command", Enabled: "O"}
 			eventTriggers := []backup.EventTrigger{eventTrigger}
-			eventTriggerMetadataMap := testutils.DefaultMetadataMap("EVENT TRIGGER", false, false, false, true)
+			eventTriggerMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_EVENT_TRIGGER, false, false, false, true)
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, eventTriggerMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement), `SECURITY LABEL FOR dummy ON EVENT TRIGGER testeventtrigger IS 'unclassified';`)
@@ -163,7 +164,7 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `SECURITY LABEL FOR du
 			eventTriggers := []backup.EventTrigger{eventTrigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 WHEN TAG IN ('DROP FUNCTION','DROP TABLE')
@@ -174,7 +175,7 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement))
 			eventTriggers := []backup.EventTrigger{eventTrigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER testeventtrigger DISABLE;`)
@@ -184,7 +185,7 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER t
 			eventTriggers := []backup.EventTrigger{eventTrigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER testeventtrigger ENABLE;`)
@@ -194,7 +195,7 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER t
 			eventTriggers := []backup.EventTrigger{eventTrigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER testeventtrigger ENABLE REPLICA;`)
@@ -204,7 +205,7 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER t
 			eventTriggers := []backup.EventTrigger{eventTrigger}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateEventTriggerStatements(backupfile, tocfile, eventTriggers, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", "EVENT TRIGGER")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "", "", "testeventtrigger", toc.OBJ_EVENT_TRIGGER)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, fmt.Sprintf(`CREATE EVENT TRIGGER testeventtrigger
 ON ddl_command_start
 EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER testeventtrigger ENABLE ALWAYS;`)
@@ -216,7 +217,7 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER t
 			stats := []backup.StatisticExt{statExt}
 			emptyMetadataMap := backup.MetadataMap{}
 			backup.PrintCreateExtendedStatistics(backupfile, tocfile, stats, emptyMetadataMap)
-			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "myschema.mytable", "test_stat", "STATISTICS")
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "public", "myschema.mytable", "test_stat", toc.OBJ_STATISTICS)
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, `CREATE STATISTICS public.test_stat (dependencies) ON a, b FROM myschema.mytable;`)
 		})
 	})
