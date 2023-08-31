@@ -362,26 +362,45 @@ func editStatementsRedirectSchema(statements []toc.StatementWithType, redirectSc
 		return
 	}
 
-	for i, statement := range statements {
-		oldSchema := fmt.Sprintf("%s.", statement.Schema)
+	schemaMatch := `(?:".+?"|[^.]+?)` // matches either an unquoted schema with no dots or a quoted schema containing dots
+	// This expression matches a GRANT or REVOKE statement on any object and captures the old schema name
+	permissionsRE := regexp.MustCompile(fmt.Sprintf(`(?m)(^(?:REVOKE|GRANT) .+ ON .+?) (%s)((\..+)? (?:FROM|TO) .+)`, schemaMatch))
+	// This expression matches an ATTACH PARTITION statement and captures both the parent and child schema names
+	attachRE := regexp.MustCompile(fmt.Sprintf(`(ALTER TABLE(?: ONLY)?) (%[1]s)(\..+ ATTACH PARTITION) (%[1]s)(\..+)`, schemaMatch))
+	for i := range statements {
+		oldSchema := fmt.Sprintf("%s.", statements[i].Schema)
 		newSchema := fmt.Sprintf("%s.", redirectSchema)
+		statement := statements[i].Statement
+		// Schemas themselves are a special case, since they lack the trailing dot.
+		statement = strings.Replace(statement, fmt.Sprintf("CREATE SCHEMA %s", statements[i].Schema), fmt.Sprintf("CREATE SCHEMA %s", redirectSchema), 1)
+
 		statements[i].Schema = redirectSchema
-		statements[i].Statement = strings.Replace(statement.Statement, oldSchema, newSchema, 1)
+		if statements[i].ObjectType == "SCHEMA" {
+			statements[i].Name = redirectSchema
+		}
+		replaced := false
 
-		// ALTER TABLE schema.root ATTACH PARTITION schema.leaf needs two schema replacements
-		if connectionPool.Version.AtLeast("7") && statement.ObjectType == "TABLE" && statement.ReferenceObject != "" {
-			alterTableAttachPart := strings.Split(statements[i].Statement, " ATTACH PARTITION ")
-
-			if len(alterTableAttachPart) == 2 {
-				statements[i].Statement = fmt.Sprintf(`%s ATTACH PARTITION %s`,
-					alterTableAttachPart[0],
-					strings.Replace(alterTableAttachPart[1], oldSchema, newSchema, 1))
-			}
+		// Permission statements come in multi-line blocks, so ensure we replace all instances of the existing schema
+		if strings.Contains(statement, "GRANT") || strings.Contains(statement, "REVOKE") {
+			statement = permissionsRE.ReplaceAllString(statement, fmt.Sprintf("$1 %s$3", redirectSchema))
+			replaced = true
 		}
 
+		// ALTER TABLE schema.root ATTACH PARTITION schema.leaf needs two schema replacements
+		if connectionPool.Version.AtLeast("7") && statements[i].ObjectType == "TABLE" && statements[i].ReferenceObject != "" {
+			statement = attachRE.ReplaceAllString(statement, fmt.Sprintf("$1 %[1]s$3 %[1]s$5", redirectSchema))
+			replaced = true
+		}
+
+		// Only do a general replace if we haven't replaced anything yet, to avoid e.g. hitting a schema in a VIEW definition
+		if !replaced {
+			statement = strings.Replace(statement, oldSchema, newSchema, 1)
+		}
+		statements[i].Statement = statement
+
 		// only postdata will have a reference object
-		if statement.ReferenceObject != "" {
-			statements[i].ReferenceObject = strings.Replace(statement.ReferenceObject, oldSchema, newSchema, 1)
+		if statements[i].ReferenceObject != "" {
+			statements[i].ReferenceObject = strings.Replace(statements[i].ReferenceObject, oldSchema, newSchema, 1)
 		}
 	}
 }
