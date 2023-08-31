@@ -11,7 +11,6 @@ import (
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
-	"gopkg.in/cheggaaa/pb.v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -157,7 +156,7 @@ var _ = Describe("backup/data tests", func() {
 		var (
 			testTable     backup.Table
 			rowsCopiedMap map[uint32]int64
-			counters      backup.BackupProgressCounters
+			progressBars  *utils.MultiProgressBar
 			copyFmtStr    = "COPY(.*)%s(.*)"
 		)
 		BeforeEach(func() {
@@ -167,10 +166,7 @@ var _ = Describe("backup/data tests", func() {
 			}
 			_ = cmdFlags.Set(options.SINGLE_DATA_FILE, "false")
 			rowsCopiedMap = make(map[uint32]int64)
-			counters = backup.BackupProgressCounters{NumRegTables: 0, TotalRegTables: 1}
-			counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
-			counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
-			counters.ProgressBar.Start()
+			progressBars = utils.NewMultiProgressBar(0, "", 0, false)
 		})
 		It("backs up a single regular table with single data file", func() {
 			_ = cmdFlags.Set(options.SINGLE_DATA_FILE, "true")
@@ -178,11 +174,11 @@ var _ = Describe("backup/data tests", func() {
 			backupFile := fmt.Sprintf("<SEG_DATA_DIR>/gpbackup_<SEGID>_20170101010101_pipe_(.*)_%d", testTable.Oid)
 			copyCmd := fmt.Sprintf(copyFmtStr, backupFile)
 			mock.ExpectExec(copyCmd).WillReturnResult(sqlmock.NewResult(0, 10))
-			err := backup.BackupSingleTableData(testTable, rowsCopiedMap, &counters, 0)
+			err := backup.BackupSingleTableData(testTable, rowsCopiedMap, progressBars, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rowsCopiedMap[0]).To(Equal(int64(10)))
-			Expect(counters.NumRegTables).To(Equal(int64(1)))
+			Expect(progressBars.TablesBar.GetBar().Get()).To(Equal(int64(1)))
 		})
 		It("backs up a single regular table without a single data file", func() {
 			_ = cmdFlags.Set(options.SINGLE_DATA_FILE, "false")
@@ -190,11 +186,11 @@ var _ = Describe("backup/data tests", func() {
 			backupFile := fmt.Sprintf("<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_%d", testTable.Oid)
 			copyCmd := fmt.Sprintf(copyFmtStr, backupFile)
 			mock.ExpectExec(copyCmd).WillReturnResult(sqlmock.NewResult(0, 10))
-			err := backup.BackupSingleTableData(testTable, rowsCopiedMap, &counters, 0)
+			err := backup.BackupSingleTableData(testTable, rowsCopiedMap, progressBars, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rowsCopiedMap[0]).To(Equal(int64(10)))
-			Expect(counters.NumRegTables).To(Equal(int64(1)))
+			Expect(progressBars.TablesBar.GetBar().Get()).To(Equal(int64(1)))
 		})
 	})
 	Describe("GetBackupDataSet", func() {

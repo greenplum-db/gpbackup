@@ -17,11 +17,11 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgconn"
-	"gopkg.in/cheggaaa/pb.v1"
 )
 
 var (
-	tableDelim = ","
+	tableDelim   = ","
+	progressBars *utils.MultiProgressBar
 )
 
 func ConstructTableAttributesList(columnDefs []ColumnDefinition) string {
@@ -56,12 +56,6 @@ func AddTableDataEntriesToTOC(tables []Table, rowsCopiedMaps []map[uint32]int64)
 	}
 }
 
-type BackupProgressCounters struct {
-	NumRegTables   int64
-	TotalRegTables int64
-	ProgressBar    utils.ProgressBar
-}
-
 func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite string, connNum int) (int64, error) {
 	checkPipeExistsCommand := ""
 	customPipeThroughCommand := utils.GetPipeThroughProgram().OutputCommand
@@ -89,18 +83,58 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 
 	query := fmt.Sprintf("COPY %s%s TO %s WITH CSV DELIMITER '%s' ON SEGMENT IGNORE EXTERNAL PARTITIONS;", table.FQN(), columnNames, copyCommand, tableDelim)
 	gplog.Verbose("Worker %d: %s", connNum, query)
+
+	var done chan bool
+	shouldTrackProgress := connectionPool.Version.AtLeast("7") && progressBars != nil
+
+	if shouldTrackProgress {
+		// A true on this channel means the COPY succeeded.  We explicitly signal this on a success, instead
+		// of just closing the channel, to allow the progress goroutine to handle cleanup properly based on
+		// success or failure.  We don't give the channel a size because we want the send to block, so that
+		// we don't stop printing any progress bars before all goroutines are done and possibly make it look
+		// like we failed to back up some number of tuples.
+		done = make(chan bool)
+		defer close(done)
+
+		// For performance reasons, we only get an estimate of tuple count; reltuples will only be populated
+		// if the table has been analyzed or there is an index on the table, but we can safely assume that
+		// will be true in any real backup scenario.
+		numTuples, err := dbconn.SelectInt(connectionPool, fmt.Sprintf("SELECT reltuples::bigint FROM pg_class WHERE oid = %d", table.Oid), connNum)
+		if err != nil {
+			// Don't block the COPY for an error here, just note it and skip the progress bar for this table
+			gplog.Verbose("Could not retrieve tuple count for table %s, not printing COPY progress: %v", table.FQN(), err)
+		} else {
+			// Normally, we pass connNum-1 for tableNum because we index into progressBars.TuplesBars using
+			// that value (progressBars.TablesBar effectively corresponds to connection 0, so it's off by 1)
+			// and use connection 0 to query the copy progress table; however, when dealing with deferred
+			// tables, those *must* use connection 0, so we use connection 1 for the query in that case.
+			whichConn := 0
+			tableNum := connNum - 1
+			if connNum == 0 {
+				whichConn = 1
+				tableNum = 0
+			}
+			progressBars.TrackCopyProgress(table.FQN(), table.Oid, numTuples, connectionPool, whichConn, tableNum, done)
+		}
+	}
+
 	result, err := connectionPool.Exec(query, connNum)
 	if err != nil {
 		return 0, err
 	}
 	numRows, _ := result.RowsAffected()
+
+	if shouldTrackProgress {
+		done <- true
+	}
 	return numRows, nil
 }
 
-func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters *BackupProgressCounters, whichConn int) error {
+func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, progressBars *utils.MultiProgressBar, whichConn int) error {
 	logMessage := fmt.Sprintf("Worker %d: Writing data for table %s to file", whichConn, table.FQN())
-	// Avoid race condition by incrementing counters in call to sprintf
-	tableCount := fmt.Sprintf(" (table %d of %d)", atomic.AddInt64(&counters.NumRegTables, 1), counters.TotalRegTables)
+	// Avoid race condition by incrementing progressBars in call to sprintf
+	current := progressBars.TablesBar.GetBar().Get()
+	tableCount := fmt.Sprintf(" (table %d of %d)", atomic.AddInt64(&current, 1), progressBars.TablesBar.GetBar().Total)
 	if gplog.GetVerbosity() > gplog.LOGINFO {
 		// No progress bar at this log level, so we note table count here
 		gplog.Verbose(logMessage + tableCount)
@@ -119,7 +153,7 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 		return err
 	}
 	rowsCopiedMap[table.Oid] = rowsCopied
-	counters.ProgressBar.Increment()
+	progressBars.TablesBar.Increment()
 	return nil
 }
 
@@ -138,9 +172,15 @@ func BackupSingleTableData(table Table, rowsCopiedMap map[uint32]int64, counters
 * another without, then extract common portions into their own functions.
  */
 func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
-	counters := BackupProgressCounters{NumRegTables: 0, TotalRegTables: int64(len(tables))}
-	counters.ProgressBar = utils.NewProgressBar(int(counters.TotalRegTables), "Tables backed up: ", utils.PB_INFO)
-	counters.ProgressBar.Start()
+	numTuplesBars := 0
+	if connectionPool.Version.AtLeast("7") {
+		numTuplesBars = connectionPool.NumConns - 1
+	}
+	progressBars = utils.NewMultiProgressBar(len(tables), "Tables backed up: ", numTuplesBars, MustGetFlagBool(options.VERBOSE))
+	defer progressBars.Finish()
+	err := progressBars.Start()
+	gplog.FatalOnError(err)
+
 	rowsCopiedMaps := make([]map[uint32]int64, connectionPool.NumConns)
 	/*
 	 * We break when an interrupt is received and rely on
@@ -184,7 +224,7 @@ func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 			 */
 			for table := range tasks {
 				if wasTerminated || isErroredBackup.Load() {
-					counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
+					progressBars.TablesBar.GetBar().NotPrint = true
 					return
 				}
 				if backupSnapshot != "" && connectionPool.Tx[whichConn] == nil {
@@ -232,11 +272,11 @@ func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 						break
 					}
 				}
-				err = BackupSingleTableData(table, rowsCopiedMaps[whichConn], &counters, whichConn)
+				err = BackupSingleTableData(table, rowsCopiedMaps[whichConn], progressBars, whichConn)
 				if err != nil {
 					// if copy isn't working, skip remaining backups, and let downstream panic
 					// handling deal with it
-					counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
+					progressBars.TablesBar.GetBar().NotPrint = true
 					isErroredBackup.Store(true)
 					gplog.Fatal(err, "")
 				} else {
@@ -272,7 +312,7 @@ func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 				if state.(int) == Unknown {
 					time.Sleep(time.Millisecond * 50)
 				} else if state.(int) == Deferred {
-					err := BackupSingleTableData(table, rowsCopiedMaps[0], &counters, 0)
+					err := BackupSingleTableData(table, rowsCopiedMaps[0], progressBars, 0)
 					if err != nil {
 						isErroredBackup.Store(true)
 						gplog.Fatal(err, "")
@@ -306,7 +346,7 @@ func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 		allWorkersTerminatedLogged := false
 		for _, table := range tables {
 			if wasTerminated || isErroredBackup.Load() {
-				counters.ProgressBar.(*pb.ProgressBar).NotPrint = true
+				progressBars.TablesBar.GetBar().NotPrint = true
 				break
 			}
 			state, _ := oidMap.Load(table.Oid)
@@ -327,7 +367,6 @@ func BackupDataForAllTables(tables []Table) []map[uint32]int64 {
 		gplog.Fatal(agentErr, "")
 	}
 
-	counters.ProgressBar.Finish()
 	return rowsCopiedMaps
 }
 

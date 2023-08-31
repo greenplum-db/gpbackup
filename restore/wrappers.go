@@ -63,12 +63,21 @@ func SetLoggerVerbosity() {
 }
 
 func CreateConnectionPool(unquotedDBName string) {
+	var numConns int
 	connectionPool = dbconn.NewDBConnFromEnvironment(unquotedDBName)
-	if FlagChanged(options.COPY_QUEUE_SIZE) {
-		connectionPool.MustConnect(MustGetFlagInt(options.COPY_QUEUE_SIZE))
-	} else {
-		connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
+	/*
+	 * The additional connection is used for COPY progress reporting, as a free
+	 * connection is needed to query gp_stat_progress_copy_summary.
+	 */
+	switch true {
+	case FlagChanged(options.COPY_QUEUE_SIZE):
+		numConns = MustGetFlagInt(options.COPY_QUEUE_SIZE) + 1
+	case FlagChanged(options.JOBS):
+		numConns = MustGetFlagInt(options.JOBS) + 1
+	default:
+		numConns = 2
 	}
+	connectionPool.MustConnect(numConns)
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 }
 
@@ -129,9 +138,9 @@ SET default_with_oids = off;
 	// during COPY FROM SEGMENT. ANALYZE should be run separately.
 	setupQuery += "SET gp_autostats_mode = 'none';\n"
 
-    // GPDB7 removed support for QuickLZ.  To support creating tables
-    // from backups done with QuickLZ, a GUC was added to allow silent
-    // fallback to zstd 
+	// GPDB7 removed support for QuickLZ.  To support creating tables
+	// from backups done with QuickLZ, a GUC was added to allow silent
+	// fallback to zstd
 	if connectionPool.Version.AtLeast("7") {
 		setupQuery += "SET gp_quicklz_fallback = on;\n"
 	}

@@ -69,7 +69,7 @@ func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.Pro
 		executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum, executeInParallel)
 	} else {
 		panicChan := make(chan error)
-		for i := 0; i < connectionPool.NumConns; i++ {
+		for i := 1; i < connectionPool.NumConns; i++ {
 			workerPool.Add(1)
 			go func(connNum int) {
 				defer func() {

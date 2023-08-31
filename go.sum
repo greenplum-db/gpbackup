@@ -40,6 +40,10 @@ github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38/go.mod h1:kpwsk12EmLe
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/greenplum-db/gp-common-go-libs v1.0.12 h1:Aow8icaKPodFi04wOV5EeWyqjBxTK/d9if9wRb6D9vs=
 github.com/greenplum-db/gp-common-go-libs v1.0.12/go.mod h1:ZElr7gGpsxAUXkjbT3ycGtQuAaEUfcR/4LRrpoaVZjM=
+github.com/greenplum-db/gp-common-go-libs v1.0.13-0.20230830105641-dd9840a49252 h1:wSyCt3uHnGV1Nb8QDczXqCMOC69usn1cVM6fRjkuHB0=
+github.com/greenplum-db/gp-common-go-libs v1.0.13-0.20230830105641-dd9840a49252/go.mod h1:ZElr7gGpsxAUXkjbT3ycGtQuAaEUfcR/4LRrpoaVZjM=
+github.com/greenplum-db/gp-common-go-libs v1.0.13 h1:z4XuWPysdNFQmXu5M26eXqI8f0FkzqR/koI0eI4p05w=
+github.com/greenplum-db/gp-common-go-libs v1.0.13/go.mod h1:ZElr7gGpsxAUXkjbT3ycGtQuAaEUfcR/4LRrpoaVZjM=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/inconshreveable/mousetrap v1.0.1 h1:U3uMjPSQEBMNp1lFxmllqCPM6P5u/Xq7Pgzkat/bFNc=
 github.com/inconshreveable/mousetrap v1.0.1/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
