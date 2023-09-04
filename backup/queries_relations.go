@@ -44,11 +44,18 @@ func relationAndSchemaFilterClause() string {
 
 func getOidsFromRelationList(connectionPool *dbconn.DBConn, quotedIncludeRelations []string) []string {
 	relList := utils.SliceToQuotedString(quotedIncludeRelations)
+	// query broken
 	query := fmt.Sprintf(`
 	SELECT c.oid AS string
 	FROM pg_class c
 		JOIN pg_namespace n ON c.relnamespace = n.oid
-	WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, relList)
+	WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)
+	UNION
+	select r.parchildrelid as string
+	from pg_partition p join pg_partition_rule r on p.oid = r.paroid
+		join (select c1.oid from pg_class c1 JOIN pg_namespace n ON c1.relnamespace = n.oid
+			WHERE quote_ident(n.nspname) || '.' || quote_ident(c1.relname) IN (%s)
+		) c1 on p.parrelid = c1.oid WHERE c1.oid != 0`, relList, relList)
 	return dbconn.MustSelectStringSlice(connectionPool, query)
 }
 
