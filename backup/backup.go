@@ -421,7 +421,7 @@ func DoTeardown() {
 			backupReport.BackupConfig.EndTime = history.CurrentTimestamp()
 			endtime, _ := time.ParseInLocation("20060102150405", backupReport.BackupConfig.EndTime, operating.System.Local)
 			backupReport.WriteBackupReportFile(reportFilename, globalFPInfo.Timestamp, endtime, objectCounts, errMsg)
-			report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup", !backupFailed)
+			report.EmailReport(globalCluster, globalFPInfo.Timestamp, reportFilename, "gpbackup", !backupFailed, backupReport.BackupConfig.DatabaseName)
 			if pluginConfig != nil {
 				err = pluginConfig.BackupFile(configFilename)
 				if err != nil {
