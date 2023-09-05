@@ -252,7 +252,6 @@ bar";
 			Expect(err).To(Not(HaveOccurred()))
 
 			expectedTableNames := []string{
-				"public.partition_table",
 				"public.partition_table_1_prt_boys",
 			}
 
@@ -336,7 +335,6 @@ bar";
 			var expectedTableNames []string
 			expectedTableNames = []string{
 				"public.partition_table1",
-				"public.partition_table2",
 				"public.partition_table2_1_prt_other",
 			}
 
@@ -399,8 +397,6 @@ bar";
 
 			expectedTableNames := []string{
 				"public.base",
-				"public.parent_one",
-				"public.parent_two",
 			}
 
 			tables := subject.GetIncludedTables()
