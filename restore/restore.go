@@ -414,15 +414,14 @@ func editStatementsRedirectSchema(statements []toc.StatementWithType, redirectSc
 	// This expression matches an ATTACH PARTITION statement and captures both the parent and child schema names
 	attachRE := regexp.MustCompile(fmt.Sprintf(`(ALTER TABLE(?: ONLY)?) (%[1]s)(\..+ ATTACH PARTITION) (%[1]s)(\..+)`, schemaMatch))
 	for i := range statements {
-		statementObject := statements[i]
 		oldSchema := fmt.Sprintf("%s.", statements[i].Schema)
 		newSchema := fmt.Sprintf("%s.", redirectSchema)
-		statement := statementObject.Statement
+		statement := statements[i].Statement
 		// Schemas themselves are a special case, since they lack the trailing dot.
 		statement = strings.Replace(statement, fmt.Sprintf("CREATE SCHEMA %s", statements[i].Schema), fmt.Sprintf("CREATE SCHEMA %s", redirectSchema), 1)
 
 		statements[i].Schema = redirectSchema
-		if statements[i].ObjectType == "SCHEMA" {
+		if statements[i].ObjectType == toc.OBJ_SCHEMA {
 			statements[i].Name = redirectSchema
 		}
 		replaced := false
@@ -434,7 +433,7 @@ func editStatementsRedirectSchema(statements []toc.StatementWithType, redirectSc
 		}
 
 		// ALTER TABLE schema.root ATTACH PARTITION schema.leaf needs two schema replacements
-		if connectionPool.Version.AtLeast("7") && statements[i].ObjectType == toc.OBJ_TABLE && statements[i].ReferenceObject != "" {
+		if connectionPool.Version.AtLeast("7") && statements[i].ObjectType == toc.OBJ_TABLE && statements[i].ReferenceObject != "" && strings.Contains(statement, "ATTACH") {
 			statement = attachRE.ReplaceAllString(statement, fmt.Sprintf("$1 %[1]s$3 %[1]s$5", redirectSchema))
 			replaced = true
 		}
