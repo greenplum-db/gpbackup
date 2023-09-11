@@ -115,6 +115,12 @@ if [[ ${OS} == "RHEL8" ]]; then
             mv "$file" "${new_name}-RHEL8-x86_64.gppkg"
         fi
     done
+
+    # other build scripts expect the file to be named gpbackup_tools*, even though the package name
+    # is greenplum_backup_restore*
+    set +e
+    rename greenplum_backup_restore gpbackup_tools *.gppkg
+    set -e
     echo "Successfully built gppkg v2 for GPDB7"
 fi
 ########################################################################################
