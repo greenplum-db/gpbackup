@@ -250,6 +250,191 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 
 func GetRenameExchangedPartitionQuery(connection *dbconn.DBConn) string {
 	// In the case of exchanged partition tables, restoring index constraints with system-generated
+	// names will cause a name collision in GPDB7+. Rename those constraints to match their new
+	// owning tables. In GPDB6 and below this renaming was done automatically by server code.
+	// Similarly, in GPDB6 only, this same issue can happen with indexes in general. This query
+	// serves the purpose of getting indexes that need to be renamed in both scenarios.
+
+	var leafOidClause string
+	if connectionPool.Version.Before("7") {
+		leafOidClause = fmt.Sprintf(`
+            WITH RECURSIVE part_info(root_oid, leaf_oid, nlevel) AS (
+                -- Start with all partitioned tables
+                SELECT
+                    pn.parrelid as root_oid,
+                    pn.parrelid as leaf_oid,
+                    0 as nlevel
+                FROM pg_partition pn
+                WHERE 
+                    NOT pn.paristemplate 
+                    AND pn.parlevel = 0
+
+                UNION ALL
+
+                -- Recursively find child tables
+                SELECT
+                    pt.root_oid as root_oid,
+                    pi.inhrelid as leaf_oid,
+                    pt.nlevel+1 as nlevel
+                FROM 
+                    part_info pt
+                    INNER JOIN pg_inherits pi
+                        ON pt.leaf_oid = pi.inhparent
+            )
+            SELECT
+                pi.root_oid,
+                pi.leaf_oid
+            FROM
+                part_info pi
+                INNER JOIN pg_class c
+                    ON pi.leaf_oid = c.oid
+                INNER JOIN pg_namespace n
+                    ON c.relnamespace = n.oid
+            WHERE 
+                -- rely on nlevel to return only leaves
+                pi.nlevel = (SELECT max(parlevel) + 1 FROM pg_partition WHERE parrelid = root_oid)
+                AND %[1]s
+
+            UNION ALL
+
+            -- now bring in non-partitioned root tables, as they can also be exchanged in/out 
+            SELECT DISTINCT
+                0 as root_oid,
+                c.oid as leaf_oid
+            FROM
+                pg_class c
+                INNER JOIN pg_namespace n
+                    ON c.relnamespace = n.oid
+                LEFT JOIN pg_partition pn
+                    ON c.oid =  pn.parrelid
+            WHERE
+                c.relkind IN ('r', 'f')
+                AND pn.parrelid is null 
+                AND %[1]s`, relationAndSchemaFilterClause())
+	} else {
+		leafOidClause = fmt.Sprintf(`
+            WITH RECURSIVE part_info(root_oid, leaf_oid) AS (
+                -- Start with all partitioned tables
+                SELECT
+                    pt.partrelid AS root_oid,
+                    pt.partrelid AS leaf_oid
+                FROM
+                    pg_partitioned_table pt
+            
+                UNION ALL
+            
+                -- Recursively find child tables
+                SELECT
+                    ih.inhparent AS root_oid,
+                    ih.inhrelid AS leaf_oid
+                FROM
+                    part_info ph
+                    INNER JOIN pg_inherits ih 
+                        ON ph.leaf_oid = ih.inhparent
+            )
+            SELECT DISTINCT
+                ph.root_oid,
+                ph.leaf_oid
+            FROM
+                part_info ph
+                INNER JOIN pg_class c
+                    ON ph.leaf_oid = c.oid
+                INNER JOIN pg_namespace n
+                    ON c.relnamespace = n.oid
+            WHERE
+                c.relkind IN ('r', 'f') -- rely on excluding 'p' to return only leaves
+                AND %[1]s
+
+            UNION ALL
+
+            -- now also bring in non-partitioned root tables, as they can be exchanged in/out also
+            SELECT DISTINCT
+                0 as root_oid,
+                c.oid as leaf_oid
+            FROM
+                pg_class c
+                INNER JOIN pg_namespace n
+                    on c.relnamespace = n.oid
+            WHERE
+                c.relkind IN ('r', 'f')
+                AND %[1]s`, relationAndSchemaFilterClause())
+	}
+
+	query := fmt.Sprintf(`
+        WITH
+        all_leaves(root_oid, leaf_oid) AS
+        (%[1]s),
+        all_leaf_index(root_oid, leaf_oid, index_oid, leaf_name, index_name) AS
+        (
+            SELECT
+                lv.root_oid,
+                lv.leaf_oid,
+                pi.indexrelid as index_oid,
+                c.relname as leaf_name,
+                pci.relname as index_name
+            FROM 
+                all_leaves lv 
+                INNER JOIN pg_index pi
+                    ON lv.leaf_oid = pi.indrelid
+                INNER JOIN pg_class c
+                    ON lv.leaf_oid = c.oid
+                INNER JOIN pg_namespace n
+                    ON c.relnamespace = n.oid
+                INNER JOIN pg_class pci
+                    ON pi.indexrelid = pci.oid
+            WHERE %[2]s
+        ),
+        maybe_exchange(root_oid, leaf_oid, index_oid, leaf_name, index_name) as
+        (
+            SELECT * 
+            FROM all_leaf_index
+            WHERE 
+                SUBSTRING(index_name, 1, LENGTH(leaf_name)) != leaf_name
+        ),
+        potential_conflict(index_oid, index_name, root_oid) AS
+        (
+            SELECT 
+                a.index_oid,
+                a.index_name,
+                ali.root_oid -- if 0 then means this is non-partitioned table
+            FROM
+                (
+                SELECT 
+                    c.oid AS index_oid, 
+                    c.relname AS index_name
+                FROM 
+                    pg_class c
+                    INNER JOIN pg_namespace n
+                        ON c.relnamespace = n.oid 
+                    INNER JOIN pg_index pi
+                        ON c.relkind = 'i' 
+                        AND pi.indrelid > %[3]d -- not catalog
+                        AND c.oid = pi.indexrelid
+                WHERE 
+                    pi.indrelid NOT IN (SELECT inhparent FROM pg_inherits) --not any root nor any middle level
+                    AND %[2]s
+                ) a 
+                LEFT JOIN all_leaf_index ali
+                    ON a.index_oid = ali.index_oid
+        )
+        SELECT DISTINCT
+            mx.index_name AS origname,
+            mx.leaf_name || SUBSTRING(pc.index_name, LENGTH(mx.leaf_name)+1, LENGTH(mx.leaf_name)) AS newname
+        FROM 
+            maybe_exchange mx
+            INNER JOIN potential_conflict pc
+                ON SUBSTRING(pc.index_name, 1, LENGTH(mx.leaf_name)) = mx.leaf_name
+                -- is an index on a root table, exchanged out from leaf
+                AND mx.root_oid = 0 -- index to rename is on a non-partitioned table
+                AND pc.root_oid != 0; -- potential conflict is in a partition tree 
+        `, leafOidClause, relationAndSchemaFilterClause(), FIRST_NORMAL_OBJECT_ID)
+
+	return query
+}
+
+// AJR TODO -- remove this once we're done testing
+func OrigGetRenameExchangedPartitionQuery(connection *dbconn.DBConn) string {
+	// In the case of exchanged partition tables, restoring index constraints with system-generated
 	// will cause a name collision in GPDB7+. Rename those constraints to match their new owning
 	// tables. In GPDB6 and below this renaming was done automatically by server code.
 	cteClause := ""
