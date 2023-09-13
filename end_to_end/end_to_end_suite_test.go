@@ -2156,7 +2156,7 @@ LANGUAGE plpgsql NO SQL;`)
 			expectedValue := false
 			indexSuffix := "idx"
 			if backupConn.Version.Is("6") {
-				// In GPDB6 and below, indexes are automatically cascaded down and so in exchange case they must be renamed to avoid name collision breaking restore
+				// In GPDB6, indexes are automatically cascaded down and so in exchange case they must be renamed to avoid name collision breaking restore
 				expectedValue = true
 			}
 			Expect(strings.Contains(string(metadataFileContents), fmt.Sprintf("CREATE INDEX like_table_a_%s ON schemaone.like_table USING btree (a) WHERE (b > 10);",

@@ -42,21 +42,31 @@ var _ = Describe("backup/queries_shared tests", func() {
 			constraints := []backup.Constraint{
 				{Oid: 1, Schema: "mock_schema", Name: "mock_constraint", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true},
 					ConIsLocal: true, OwningObject: "mock_table", IsDomainConstraint: false, IsPartitionParent: true},
-				{Oid: 2, Schema: "mock_schema", Name: "part_table_for_upgrade2_pkey", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true},
-					ConIsLocal: true, OwningObject: "mock_table", IsDomainConstraint: false, IsPartitionParent: true}}
-			header := []string{"origname", "newname"}
-			rowOne := []driver.Value{"part_table_for_upgrade2_pkey", "like_table2_pkey"}
-			fakeRows := sqlmock.NewRows(header).AddRow(rowOne...)
+				{Oid: 2, Schema: "mock_schema", Name: "like_table2_pkey", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true},
+					ConIsLocal: true, OwningObject: "part_table_for_upgrade2", IsDomainConstraint: false, IsPartitionParent: false},
+				{Oid: 3, Schema: "mock_schema", Name: "part_table_for_upgrade2_pkey", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true},
+					ConIsLocal: true, OwningObject: "like_table2", IsDomainConstraint: false, IsPartitionParent: false}}
+			header := []string{"indexname", "tablename", "relispartition"}
+			rowOne := []driver.Value{"mock_constraint", "mock_table", "false"}
+			rowTwo := []driver.Value{"like_table2_pkey", "part_table_for_upgrade2", "true"}
+			rowThree := []driver.Value{"part_table_for_upgrade2_pkey", "like_table2", "false"}
+			fakeRows := sqlmock.NewRows(header).AddRow(rowOne...).AddRow(rowTwo...).AddRow(rowThree...)
 			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeRows)
 			backup.RenameExchangedPartitionConstraints(connectionPool, &constraints)
 
-			Expect(constraints).To(HaveLen(2))
+			Expect(constraints).To(HaveLen(3))
 			for _, idx := range constraints {
 				switch idx.Oid {
 				case 1:
 					Expect(idx.Name).To(Equal("mock_constraint"))
 					Expect(idx.Def.String).To(Equal("PRIMARY KEY (a, b)"))
 				case 2:
+					// We do not rename the partition constraint, as it will populate down the
+					// hierarchy when applied to the root. Instead rename the one that got
+					// exchanged out.
+					Expect(idx.Name).To(Equal("like_table2_pkey"))
+					Expect(idx.Def.String).To(Equal("PRIMARY KEY (a, b)"))
+				case 3:
 					Expect(idx.Name).To(Equal("like_table2_pkey"))
 					Expect(idx.Def.String).To(Equal("PRIMARY KEY (a, b)"))
 				default:

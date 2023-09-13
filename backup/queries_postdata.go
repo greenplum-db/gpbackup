@@ -248,71 +248,96 @@ func GetIndexes(connectionPool *dbconn.DBConn) []IndexDefinition {
 	return sortedIndexes
 }
 
-func GetRenameExchangedPartitionQuery(connection *dbconn.DBConn) string {
-	// In the case of exchanged partition tables, restoring index constraints with system-generated
-	// will cause a name collision in GPDB7+. Rename those constraints to match their new owning
-	// tables. In GPDB6 and below this renaming was done automatically by server code.
-	cteClause := ""
-	if connectionPool.Version.Before("7") {
-		cteClause = fmt.Sprintf(`
-            SELECT c.relname
-            FROM pg_class c
-                INNER JOIN pg_partition_rule p
-                    ON c.oid = p.parchildrelid
-                INNER JOIN pg_namespace n ON c.relnamespace = n.oid
-            WHERE %s`, relationAndSchemaFilterClause())
-	} else {
-		cteClause = fmt.Sprintf(`
-            SELECT DISTINCT c.relname
-            FROM pg_class c
-                INNER JOIN pg_namespace n ON c.relnamespace = n.oid
-            WHERE %s
-                AND c.relkind IN ('r', 'f')
-                AND c.relispartition = true
-                AND c.relhassubclass = false`, relationAndSchemaFilterClause())
-	}
-	query := fmt.Sprintf(`
-        WITH table_cte AS (%s)
+func GetRenameExchangedPartitionQuery() string {
+	before7Query := fmt.Sprintf(`
         SELECT
-            ic.relname AS origname,
-            c.relname || SUBSTRING(ic.relname, LENGTH(ch.relname)+1, LENGTH(ch.relname)) AS newname
+            ic.relname AS indexname,
+            c.relname AS tablename,
+            CASE WHEN p.parchildrelid IS NULL 
+                THEN false
+                ELSE true 
+                END AS relispartition
+        FROM
+            pg_index i
+            INNER JOIN pg_class ic
+                ON i.indexrelid = ic.oid
+            INNER JOIN pg_class c
+                ON i.indrelid = c.oid
+            INNER JOIN pg_namespace n
+                ON c.relnamespace = n.oid
+            LEFT JOIN pg_partition_rule p
+                ON c.oid = p.parchildrelid
+        WHERE %s;`, relationAndSchemaFilterClause())
+
+	atLeast7Query := fmt.Sprintf(`
+        SELECT
+            ic.relname AS indexname,
+            c.relname AS tablename,
+            c.relispartition 
         FROM
             pg_index i
             INNER JOIN pg_class ic ON i.indexrelid = ic.oid
             INNER JOIN pg_class c
                 ON i.indrelid = c.oid
-                AND c.relname != SUBSTRING(ic.relname, 1, LENGTH(c.relname))
-            INNER JOIN pg_namespace n ON c.relnamespace = n.oid
-            INNER JOIN table_cte ch
-                ON SUBSTRING(ic.relname, 1, LENGTH(ch.relname)) = ch.relname
-                AND c.relname != ch.relname
-        WHERE %s;`, cteClause, relationAndSchemaFilterClause())
-	return query
+                AND c.relkind IN ('r', 'f')
+                AND c.relhassubclass = false
+            INNER JOIN pg_namespace n
+                ON c.relnamespace = n.oid
+        WHERE %s;`, relationAndSchemaFilterClause())
+
+	if connectionPool.Version.Before("7") {
+		return before7Query
+	} else {
+		return atLeast7Query
+	}
+}
+
+func ProcessIndexNames(names []ExchangedPartitionName) map[string]string {
+	nameMap := make(map[string]string)
+	// Search through all indexes, check for instances with an index on a leaf table that was
+	// exchanged out, and now can cause a conflict due to that index's name on the non-partitioned
+	// table matching a system-generated index on the leaf when we apply the indexes in postdata.
+	// Also check the last three letters so we don't accidentally swap "*idx* with "*pkey" indexes.
+	for _, baseIndex := range names {
+		if baseIndex.RelIsPartition || strings.HasPrefix(baseIndex.IndexName, baseIndex.TableName) {
+			continue
+		}
+		for _, conflictIndex := range names {
+			if conflictIndex.RelIsPartition &&
+				len(conflictIndex.TableName) < len(baseIndex.IndexName) &&
+				baseIndex.IndexName[:len(conflictIndex.TableName)] == conflictIndex.TableName &&
+				baseIndex.IndexName[len(baseIndex.IndexName)-3:] == conflictIndex.IndexName[len(conflictIndex.IndexName)-3:] {
+				newName := baseIndex.TableName + conflictIndex.IndexName[len(baseIndex.TableName):]
+				nameMap[baseIndex.IndexName] = newName
+			}
+		}
+
+	}
+	return nameMap
 }
 
 func RenameExchangedPartitionIndexes(connectionPool *dbconn.DBConn, indexes *[]IndexDefinition) {
-	query := GetRenameExchangedPartitionQuery(connectionPool)
+	query := GetRenameExchangedPartitionQuery()
 	names := make([]ExchangedPartitionName, 0)
 	err := connectionPool.Select(&names, query)
 	gplog.FatalOnError(err)
 
-	nameMap := make(map[string]string)
-	for _, name := range names {
-		nameMap[name.OrigName] = name.NewName
-	}
-
-	for idx := range *indexes {
-		newName, hasNewName := nameMap[(*indexes)[idx].Name]
-		if hasNewName {
-			(*indexes)[idx].Def.String = strings.Replace((*indexes)[idx].Def.String, (*indexes)[idx].Name, newName, 1)
-			(*indexes)[idx].Name = newName
+	nameMap := ProcessIndexNames(names)
+	if len(nameMap) > 0 {
+		for idx := range *indexes {
+			newName, hasNewName := nameMap[(*indexes)[idx].Name]
+			if hasNewName {
+				(*indexes)[idx].Def.String = strings.Replace((*indexes)[idx].Def.String, (*indexes)[idx].Name, newName, 1)
+				(*indexes)[idx].Name = newName
+			}
 		}
 	}
 }
 
 type ExchangedPartitionName struct {
-	OrigName string
-	NewName  string
+	IndexName      string
+	TableName      string
+	RelIsPartition bool
 }
 
 type RuleDefinition struct {

@@ -45,16 +45,17 @@ var _ = Describe("backup/queries_postdata tests", func() {
 				{Oid: 1, Name: "mock_index", OwningSchema: "mock_schema", OwningTable: "mock_table",
 					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX mock_index ON mock_schema.mock_table", Valid: true}, IsClustered: false,
 					SupportsConstraint: false, IsReplicaIdentity: false},
-				{Oid: 2, Name: "pt_heap_tab_1_prt_pqr_a_idx", OwningSchema: "mock_schema", OwningTable: "mock_table",
-					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX pt_heap_tab_1_prt_pqr_a_idx ON mock_schema.mock_table", Valid: true}, IsClustered: false,
+				{Oid: 2, Name: "realTableName_c_idx", OwningSchema: "mock_schema", OwningTable: "pt_heap_tab_1_prt_pqr",
+					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX realTableName_c_idx ON mock_schema.pt_heap_tab_1_prt_pqr", Valid: true}, IsClustered: false,
 					SupportsConstraint: false, IsReplicaIdentity: false},
-				{Oid: 3, Name: "___c_idx", OwningSchema: "mock_schema", OwningTable: "mock_table",
-					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX ___c_idx ON mock_schema.mock_table", Valid: true}, IsClustered: false,
+				{Oid: 3, Name: "pt_heap_tab_1_prt_pqr_a_idx", OwningSchema: "mock_schema", OwningTable: "realTableName",
+					Tablespace: "mock_tablespace", Def: sql.NullString{String: "CREATE INDEX pt_heap_tab_1_prt_pqr_a_idx ON mock_schema.realTableName", Valid: true}, IsClustered: false,
 					SupportsConstraint: false, IsReplicaIdentity: false}}
-			header := []string{"origname", "newname"}
-			rowOne := []driver.Value{"pt_heap_tab_1_prt_pqr_a_idx", "heap_can_a_idx"}
-			rowTwo := []driver.Value{"___c_idx", "realTableName_c_idx"}
-			fakeRows := sqlmock.NewRows(header).AddRow(rowOne...).AddRow(rowTwo...)
+			header := []string{"indexname", "tablename", "relispartition"}
+			rowOne := []driver.Value{"mock_index", "mock_table", "false"}
+			rowTwo := []driver.Value{"pt_heap_tab_1_prt_pqr_a_idx", "realTableName", "false"}
+			rowThree := []driver.Value{"realTableName_c_idx", "pt_heap_tab", "true"}
+			fakeRows := sqlmock.NewRows(header).AddRow(rowOne...).AddRow(rowTwo...).AddRow(rowThree...)
 			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeRows)
 			backup.RenameExchangedPartitionIndexes(connectionPool, &indexes)
 
@@ -65,11 +66,13 @@ var _ = Describe("backup/queries_postdata tests", func() {
 					Expect(idx.Name).To(Equal("mock_index"))
 					Expect(idx.Def.String).To(Equal("CREATE INDEX mock_index ON mock_schema.mock_table"))
 				case 2:
-					Expect(idx.Name).To(Equal("heap_can_a_idx"))
-					Expect(idx.Def.String).To(Equal("CREATE INDEX heap_can_a_idx ON mock_schema.mock_table"))
+					// We do not rename the partition leaf index here, as it will be
+					// system-generated correctly when we apply the index to the partition root table.
+					Expect(idx.Name).To(Equal("realTableName_c_idx"))
+					Expect(idx.Def.String).To(Equal("CREATE INDEX realTableName_c_idx ON mock_schema.pt_heap_tab_1_prt_pqr"))
 				case 3:
 					Expect(idx.Name).To(Equal("realTableName_c_idx"))
-					Expect(idx.Def.String).To(Equal("CREATE INDEX realTableName_c_idx ON mock_schema.mock_table"))
+					Expect(idx.Def.String).To(Equal("CREATE INDEX realTableName_c_idx ON mock_schema.realTableName"))
 				default:
 					Fail("Unexpected index OID found")
 				}
