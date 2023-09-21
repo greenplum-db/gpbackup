@@ -197,7 +197,7 @@ anchors:
   params:
     text: |
       [gpbackup/$BUILD_JOB_NAME] failed:
-      https://prod.ci.gpdb.pivotal.io/teams/main/pipelines/gpbackup/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
+      $ATC_EXTERNAL_URL/teams/main/pipelines/$BUILD_PIPELINE_NAME/jobs/$BUILD_JOB_NAME/builds/$BUILD_NAME
 {% endif %}
 
 resource_types:
