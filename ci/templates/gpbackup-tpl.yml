@@ -1240,8 +1240,14 @@ jobs:
 {% else %}
       passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8]
 {% endif %}
+    - get: gpdb_binary
+      resource: bin_gpdb_6x_rhel8
+{% if "gpbackup-release" != pipeline_name %}
+      trigger: true
+{% endif %}
     - get: gpbackup
       passed: [build_gppkgs]
+    - get: ccp_src
     - get: bin_gpdb
       resource: bin_gpdb_6x_rhel8
     - get: gpdb_src
@@ -1249,9 +1255,40 @@ jobs:
     - get: gppkgs
       trigger: true
       passed: [build_gppkgs]
-  - task: run_tests
+    - get: terraform.d
+      params:
+        unpack: true
+  - put: terraform
+    params:
+      <<: *ccp_default_params
+      terraform_source: ccp_src/google/
+      vars:
+        instance_type: n1-standard-1
+        PLATFORM: rocky8
+  - task: gen_cluster
+    params:
+      <<: *ccp_gen_cluster_default_params
+      PLATFORM: rocky8
+    file: ccp_src/ci/tasks/gen_cluster.yml
+  - task: gpinitsystem
+    file: ccp_src/ci/tasks/gpinitsystem.yml
+  - task: setup-cluster-env
+    file: gpbackup/ci/tasks/setup-cluster-env.yml
+    image: rocky8-gpdb6-image
+  - task: run-tests-gpbackup-1.29.0
     image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/test-gpbackup-manager.yml
+    params:
+      GPBACKUP_VERSION: "1.29.0"
+      OS: RHEL8
+  - task: run-tests-gpbackup-latest
+    image: rocky8-gpdb6-image
+    file: gpbackup/ci/tasks/test-gpbackup-manager.yml
+    on_success:
+      <<: *ccp_destroy
+  ensure:
+    <<: *set_failed
+
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: ddboost_plugin_and_boostfs_tests_5x

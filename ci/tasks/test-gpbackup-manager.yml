@@ -5,10 +5,11 @@ image_resource:
 
 inputs:
 - name: gpbackup
+- name: ccp_src
+- name: cluster_env_files
 - name: gpdb_src
 - name: bin_gpdb
 - name: gpbackup_manager_src
-  path: gp-backup-manager
 - name: gppkgs
 
 run:

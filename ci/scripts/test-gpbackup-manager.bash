@@ -2,52 +2,66 @@
 
 set -ex
 
-if [[ ! -f bin_gpdb/bin_gpdb.tar.gz ]] ; then
-  mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
-fi
+# setup cluster and install gpbackup tools using gppkg
+ccp_src/scripts/setup_ssh_to_cluster.sh
+out=$(ssh -t cdw 'source env.sh && psql postgres -c "select version();"')
+TEST_GPDB_VERSION=$(echo ${out} | sed -n 's/.*Greenplum Database \([0-9].[0-9]\+.[0-9]\+\).*/\1/p')
+GPDB_VERSION=$(echo ${TEST_GPDB_VERSION} | head -c 1)
+mkdir -p /tmp/untarred
+tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
+scp /tmp/untarred/gpbackup_tools*gp${GPDB_VERSION}*${OS}*.gppkg cdw:/home/gpadmin
+ssh -t cdw "source env.sh; gppkg -q gpbackup*gp*.gppkg | grep 'is installed' || gppkg -i gpbackup_tools*.gppkg"
 
-source gpdb_src/concourse/scripts/common.bash
-time install_gpdb
-time ./gpdb_src/concourse/scripts/setup_gpadmin_user.bash
-time make_cluster
+ssh cdw "mkdir -p /home/gpadmin/go/src/github.com/pivotal/gp-backup-manager"
+pushd gpbackup_manager_src
+  tar -cvf concourse_sucks.tar .
+  scp concourse_sucks.tar cdw:/tmp
+popd
 
-# copy gpbackup-manager into the GOPATH used by user "gpadmin"
-export GOPATH=/home/gpadmin/go
-mkdir -p ${GOPATH}/src/github.com/pivotal
-cp -R gp-backup-manager ${GOPATH}/src/github.com/pivotal/
-
-chown -R gpadmin ${GOPATH}
 
 cat <<SCRIPT > /tmp/run_tests.bash
-#!/bin/bash
+  #!/bin/bash
 
-set -ex
+  set -ex
+  source env.sh
 
-source /usr/local/greenplum-db-devel/greenplum_path.sh
+  tar -xf /tmp/concourse_sucks.tar -C /home/gpadmin/go/src/github.com/pivotal/gp-backup-manager
+  cd \${GOPATH}/src/github.com/pivotal/gp-backup-manager
 
-# use "temp build dir" of parent shell
-source $(pwd)/gpdb_src/gpAux/gpdemo/gpdemo-env.sh
-export GOPATH=\$HOME/go
-mkdir -p \${GOPATH}/bin \${GOPATH}/src
-export PATH=/usr/local/go/bin:\$PATH:\${GOPATH}/bin
+  export OLD_BACKUP_VERSION="${GPBACKUP_VERSION}"
 
-# Install gppkgs
-mkdir /tmp/untarred
-tar -xzf gppkgs/gpbackup-gppkgs.tar.gz -C /tmp/untarred
-out=\$(psql postgres -c "select version();")
-GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9]\).*/\1/p')
-gppkg -i /tmp/untarred/gpbackup*gp\${GPDB_VERSION}*RHEL*.gppkg
+  # install pgcrypto; works for GPDB 5.22+ and 6+
+  psql -d postgres -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"
 
-# install pgcrypto; works for GPDB 5.22+ and 6+
-psql -d postgres -c "create extension pgcrypto"
+  make unit integration
 
-# Test gpbackup manager
-pushd \${GOPATH}/src/github.com/pivotal/gp-backup-manager
-  make unit integration end_to_end
-popd
+  if [ -z "\${OLD_BACKUP_VERSION}" ] ; then
+    # Print the version to help distinguish between the "old version" and "current version" tests
+    gpbackup --version
+    gpssh -f /home/gpadmin/segment_host_list "source /usr/local/greenplum-db-devel/greenplum_path.sh; gpbackup_helper --version"
+
+    make end_to_end
+  else
+    # Print the version to help distinguish between the "old version" and "current version" tests
+    gpbackup --version
+    gpssh -f /home/gpadmin/segment_host_list "source /usr/local/greenplum-db-devel/greenplum_path.sh; gpbackup_helper --version"
+
+    # TODO: It might be nice to make this a tarfile, like with the backwards compatibility job, but this works fine as-is
+    pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
+      git checkout \${OLD_BACKUP_VERSION}
+      make build
+
+      cp \${GOPATH}/bin/gpbackup \${GPHOME}/bin/.
+      cp \${GOPATH}/bin/gpbackup_helper \${GPHOME}/bin/.
+      gpscp -f /home/gpadmin/segment_host_list \${GOPATH}/bin/gpbackup =:\${GPHOME}/bin/.
+      gpscp -f /home/gpadmin/segment_host_list \${GOPATH}/bin/gpbackup_helper =:\${GPHOME}/bin/.
+    popd
+
+    make end_to_end
+  fi
 
 SCRIPT
 
-cp -r gppkgs /home/gpadmin
 chmod +x /tmp/run_tests.bash
-su - gpadmin "/tmp/run_tests.bash"
+scp /tmp/run_tests.bash cdw:/home/gpadmin/run_tests.bash
+ssh -t cdw "/home/gpadmin/run_tests.bash"
