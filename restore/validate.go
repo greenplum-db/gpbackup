@@ -286,6 +286,9 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	if flags.Changed(options.INCREMENTAL) && !flags.Changed(options.DATA_ONLY) {
 		gplog.Fatal(errors.Errorf("Cannot use --incremental without --data-only"), "")
 	}
+	if !flags.Changed(options.TIMESTAMP) && !flags.Changed(options.BACKUP_DIR) {
+		gplog.Fatal(errors.Errorf("Must provide --backup-dir if --timestamp is not provided"), "")
+	}
 	options.CheckExclusiveFlags(flags, options.RUN_ANALYZE, options.WITH_STATS)
 }
 
