@@ -3,7 +3,7 @@
 ---
 ##############################################
 groups:
-- name: All
+- name: all
   jobs:
   - clean-plugin-storage
 ##############################################
@@ -18,13 +18,6 @@ resource_types:
 
 ##############################################
 resources:
-- name: gpdb6_src
-  type: git
-  icon: github-circle
-  source:
-    uri: https://github.com/greenplum-db/gpdb
-    branch: 6X_STABLE
-
 - name: weekly-trigger
   type: time
   source:
@@ -39,13 +32,6 @@ resources:
     repository: gcr.io/data-gpdb-public-images/gpdb6-rocky8-test
     tag: latest
 
-- name: bin_gpdb_6x_rhel8
-  type: gcs
-  source:
-    bucket: ((dp/prod/gcs-ci-bucket))
-    json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/gpdb6/server-rc-(.*)-rhel8_x86_64.tar.gz
-
 - name: gpbackup
   type: git
   icon: github-circle
@@ -53,13 +39,6 @@ resources:
     uri: https://github.com/greenplum-db/gpbackup
     branch: ((gpbackup-git-branch))
 
-- name: gppkgs
-  type: gcs
-  icon: google
-  source:
-    bucket: ((dp/dev/gcs-ci-bucket))
-    json_key: ((dp/dev/gcp_svc_acct_key))
-    versioned_file: gpbackup/intermediates/gpbackup-gppkgs.tar.gz
 ##############################################
 
 ##############################################
@@ -70,9 +49,7 @@ anchors:
     # If we move to a one-concourse approach, these can easily be interpolated from Vault again
   DD_SOURCE_HOST: ((source_host))
   DD_DEST_HOST: ((dest_host))
-  DD_USER: ((dp/prod/datadomain_user))
-  DD_PW: ((dp/prod/datadomain_711_password_gcp))
-  DD_ENCRYPTED_PW: ((dp/prod/encrypted_datadomain_711_password_gcp))
+  DD_SYSADMIN_PW: ((dp/prod/datadomain_sysadmin_password_gcp))
 ##############################################
 
 ##############################################
@@ -80,22 +57,20 @@ jobs:
 - name: clean-plugin-storage
   plan: 
   - in_parallel:
-    - get: gpdb_src
-      resource: gpdb6_src
-    - get: bin_gpdb
-      resource: bin_gpdb_6x_rhel8
     - get: rocky8-gpdb6-image
     - get: gpbackup
-    - get: gppkgs
     - get: weekly-trigger
       trigger: true
   - task: clean-plugins
     image: rocky8-gpdb6-image
-    file: gpbackup/ci/tasks/clean-plugins.yml
     params:
       <<: *ddboost_params
-      REGION: us-west-2
-      AWS_ACCESS_KEY_ID: ((aws-bucket-access-key-id))
-      AWS_SECRET_ACCESS_KEY: ((aws-bucket-secret-access-key))
-      BUCKET: ((dp/dev/gpbackup-s3-plugin-test-bucket))
+    config:
+      platform: linux
+      inputs:
+        - name: gpbackup
+      run: 
+        path: "bash"
+        args:
+          - gpbackup/ci/scripts/call-clean-ddboost.bash
 ##############################################
