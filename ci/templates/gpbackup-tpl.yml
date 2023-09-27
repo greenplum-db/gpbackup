@@ -6,6 +6,7 @@ groups:
   - build_binaries_rhel6
   - build_binaries_rhel7
   - build_binaries_rhel8
+  - build_binaries_rhel9
   - build_gppkgs
   - gpdb5
 {% if is_prod or "gpbackup-release" == pipeline_name %}
@@ -93,6 +94,7 @@ groups:
   - build_binaries_rhel6
   - build_binaries_rhel7
   - build_binaries_rhel8
+  - build_binaries_rhel9
   - build_binaries_ubuntu
   - push-to-github
   - green_gate
@@ -258,6 +260,18 @@ resources:
     repository: gcr.io/data-gpdb-public-images/gpdb7-rocky8-test
     tag: latest
 
+- name: rocky9-gpdb6-image
+  type: registry-image
+  source:
+    repository: gcr.io/data-gpdb-public-images/gpdb6-rocky9-test
+    tag: latest
+
+- name: rocky9-gpdb7-image
+  type: registry-image
+  source:
+    repository: gcr.io/data-gpdb-public-images/gpdb7-rocky9-test
+    tag: latest
+
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: ubuntu20.04-gpdb6-image
   type: registry-image
@@ -360,14 +374,6 @@ resources:
     regexp: server/published/gpdb6/server-rc-(.*)-ubuntu20.04_x86_64.debug.tar.gz
 {% endif %}
 
-- name: bin_gpdb_7x_rhel8
-  type: gcs
-  icon: google
-  source:
-    bucket: ((dp/prod/gcs-ci-bucket))
-    json_key: ((concourse-gcs-resources-service-account-key))
-    regexp: server/published/main/server-rc-(.*)-el8_x86_64.tar.gz
-
 - name: bin_gpdb_5x_centos6
   type: s3
   icon: amazon
@@ -402,6 +408,29 @@ resources:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((concourse-gcs-resources-service-account-key))
     regexp: server/published/gpdb6/server-rc-(.*)-rhel8_x86_64.tar.gz
+
+- name: bin_gpdb_6x_rhel9
+  type: gcs
+  source:
+    bucket: ((dp/prod/gcs-ci-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/gpdb6/server-rc-(.*)-rhel9_x86_64.debug.tar.gz
+
+- name: bin_gpdb_7x_rhel8
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/prod/gcs-ci-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/main/server-rc-(.*)-el8_x86_64.tar.gz
+
+- name: bin_gpdb_7x_rhel9
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/prod/gcs-ci-bucket))
+    json_key: ((concourse-gcs-resources-service-account-key))
+    regexp: server/published/main/server-rc-(.*)-el9_x86_64.debug.tar.gz
 
 # These binaries are used for backwards-compatibility testing only
 - name: bin_gpbackup_1.0.0_and_1.7.1
@@ -532,6 +561,14 @@ resources:
     json_key: ((dp/dev/gcp_svc_acct_key))
     regexp: gpbackup/intermediates/rhel8/gpbackup-(.*).tar.gz
 
+- name: release_components_rhel9
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/dev/gcs-ci-bucket))
+    json_key: ((dp/dev/gcp_svc_acct_key))
+    regexp: gpbackup/intermediates/rhel9/gpbackup-(.*).tar.gz
+
 - name: release_components_ubuntu
   type: gcs
   icon: google
@@ -548,6 +585,14 @@ resources:
     json_key: ((dp/dev/gcp_svc_acct_key))
     versioned_file: gpbackup/release-candidates/gpbackup-gppkgs.tar.gz
 
+- name: final_published_file_gppkg_gp7_rhel9
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/prod/gcs-ci-bucket))
+    json_key: ((data-gpdb-ci-service-account-key))
+    regexp: gpbackup/published/rhel9/greenplum_backup_restore-(.*)-gp7-rhel9-x86_64.gppkg
+
 - name: final_published_file_gppkg_gp7_rhel8
   type: gcs
   icon: google
@@ -555,6 +600,14 @@ resources:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((data-gpdb-ci-service-account-key))
     regexp: gpbackup/published/rhel8/greenplum_backup_restore-(.*)-gp7-rhel8-x86_64.gppkg
+
+- name: final_published_file_gppkg_gp6_rhel9
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/prod/gcs-ci-bucket))
+    json_key: ((data-gpdb-ci-service-account-key))
+    regexp: gpbackup/published/rhel9/greenplum_backup_restore-(.*)-gp6-rhel9-x86_64.gppkg
 
 - name: final_published_file_gppkg_gp6_rhel8
   type: gcs
@@ -603,6 +656,14 @@ resources:
     bucket: ((dp/prod/gcs-ci-bucket))
     json_key: ((data-gpdb-ci-service-account-key))
     regexp: gpbackup/published/rhel6/greenplum_backup_restore-(.*)-gp5-rhel6-x86_64.gppkg
+
+- name: final_published_file_tar_rhel9
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/prod/gcs-ci-bucket))
+    json_key: ((data-gpdb-ci-service-account-key))
+    regexp: gpbackup/published/rhel9/greenplum_backup_restore-(.*)-rhel9.tar.gz
 
 - name: final_published_file_tar_rhel8
   type: gcs
@@ -660,6 +721,14 @@ resources:
     bucket: ((dp/dev/gcs-ci-bucket))
     json_key: ((dp/dev/gcp_svc_acct_key))
     versioned_file: gpbackup/intermediates/rhel8/go_components.tar.gz
+
+- name: gpbackup-go-components-rhel9
+  type: gcs
+  icon: google
+  source:
+    bucket: ((dp/dev/gcs-ci-bucket))
+    json_key: ((dp/dev/gcp_svc_acct_key))
+    versioned_file: gpbackup/intermediates/rhel9/go_components.tar.gz
 
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: gpbackup-go-components-ubuntu
@@ -801,6 +870,32 @@ jobs:
     params:
       file: go_components/go_components.tar.gz
 
+- name: build_binaries_rhel9
+  plan:
+  - in_parallel:
+{% if "gpbackup-release" != pipeline_name %}
+    - get: gpbackup_s3_plugin
+      trigger: true
+    - get: gpbackup_manager_src
+      trigger: true
+    - get: gpbackup
+      trigger: true
+{% else %}
+    - get: gpbackup_s3_plugin
+    - get: gpbackup_manager_src
+    - get: gpbackup
+{% endif %}
+    - get: pivnet_release_cache
+    - get: rocky9-gpdb7-image
+  - task: build-go-binaries-rhel9
+    file: gpbackup/ci/tasks/build-go-binaries.yml
+    image: rocky9-gpdb7-image
+    params:
+      OS: RHEL9
+  - put: gpbackup-go-components-rhel9
+    params:
+      file: go_components/go_components.tar.gz
+
 {% if is_prod or "gpbackup-release" == pipeline_name %}
 - name: build_binaries_ubuntu
   plan:
@@ -835,6 +930,7 @@ jobs:
     - get: centos6-gpdb5-image
     - get: centos7-gpdb5-image
     - get: rocky8-gpdb6-image
+    - get: rocky9-gpdb6-image
     - get: gpdb_src
       resource: gpdb6_src
     - get: gp-pkg
@@ -851,15 +947,18 @@ jobs:
     - get: gpbackup-go-components-rhel8
       trigger: true
       passed: [build_binaries_rhel8]
+    - get: gpbackup-go-components-rhel9
+      passed: [ build_binaries_rhel9 ]
     - get: bin_gpdb_5x_centos6
     - get: bin_gpdb_6x_centos7
     - get: bin_gpdb_6x_rhel8
+    - get: bin_gpdb_6x_rhel9
     - get: libyaml-0.1.7
     - get: gpbackup
 {% if is_prod or "gpbackup-release" == pipeline_name %}
-      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_ubuntu]
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_rhel9, build_binaries_ubuntu]
 {% else %}
-      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8]
+      passed: [build_binaries_rhel6, build_binaries_rhel7, build_binaries_rhel8, build_binaries_rhel9]
 {% endif %}
     - get: gpbackup_ddboost_plugin
     - get: pivnet_release_cache
@@ -937,6 +1036,29 @@ jobs:
           gppkgs: rhel8-gppkg
         params:
           OS: RHEL8
+    - do: # RHEL9
+        - task: build-ddboost-rhel9
+          image: rocky9-gpdb6-image
+          file: gpbackup/ci/tasks/build-ddboost.yml
+          input_mapping:
+            bin_gpdb: bin_gpdb_6x_rhel9
+        - task: tar-binaries-rhel9
+          image: rocky9-gpdb6-image
+          file: gpbackup/ci/tasks/build-os-tars.yml
+          input_mapping:
+            gpbackup-go-components: gpbackup-go-components-rhel9
+          output_mapping:
+            gpbackup_tar: gpbackup_tar_rhel9
+        - task: build_gppkgs-rhel9
+          image: rocky9-gpdb6-image
+          file: gpbackup/ci/tasks/build-gppkg.yml
+          input_mapping:
+            bin_gpdb: bin_gpdb_6x_rhel9
+            gpbackup_tar: gpbackup_tar_rhel9
+          output_mapping:
+            gppkgs: rhel9-gppkg
+          params:
+            OS: RHEL9
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - do: # ubuntu
         - task: build-ddboost-ubuntu
@@ -979,6 +1101,9 @@ jobs:
     - put: release_components_rhel8
       params:
         file: gpbackup_tar_rhel8/gpbackup-*.tar.gz
+    - put: release_components_rhel9
+      params:
+        file: gpbackup_tar_rhel9/gpbackup-*.tar.gz
     - put: release_components_ubuntu
       params:
         file: gpbackup_tar_ubuntu/gpbackup-*.tar.gz
@@ -1295,9 +1420,11 @@ jobs:
 - name: gpdb7
   plan:
   - in_parallel:
+    - get: rocky9-gpdb7-image
     - get: rocky8-gpdb7-image
     - get: gpbackup
       passed: [build_gppkgs]
+    - get: bin_gpdb_7x_rhel9
     - get: bin_gpdb_7x_rhel8
       trigger: true
     - get: gpdb_src
@@ -1316,6 +1443,14 @@ jobs:
       OS: RHEL8
     input_mapping:
       bin_gpdb: bin_gpdb_7x_rhel8
+  - task: run-tests-locally-rocky9
+    image: rocky9-gpdb7-image
+    file: gpbackup/ci/tasks/test-on-local-cluster.yml
+    params:
+      REQUIRES_DUMMY_SEC: true
+      OS: RHEL9
+    input_mapping:
+      bin_gpdb: bin_gpdb_7x_rhel9
 {% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
   on_failure:
     *slack_alert
@@ -1361,6 +1496,7 @@ jobs:
 - name: gpdb6
   plan:
   - in_parallel:
+    - get: rocky9-gpdb6-image
     - get: rocky8-gpdb6-image
     - get: centos7-gpdb6-image
 {% if is_prod or "gpbackup-release" == pipeline_name %}
@@ -1369,6 +1505,7 @@ jobs:
 {% endif %}
     - get: gpbackup
       passed: [build_gppkgs]
+    - get: bin_gpdb_6x_rhel9
     - get: bin_gpdb_6x_rhel8
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
@@ -1398,6 +1535,14 @@ jobs:
         OS: RHEL8
       input_mapping:
         bin_gpdb: bin_gpdb_6x_rhel8
+    - task: run-tests-locally-rocky9
+      image: rocky9-gpdb6-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+        OS: RHEL9
+      input_mapping:
+        bin_gpdb: bin_gpdb_6x_rhel9
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - task: run-tests-locally-ubuntu20.04
       image: ubuntu20.04-gpdb6-image
@@ -1416,6 +1561,7 @@ jobs:
 - name: gpdb6-7-seg-cluster
   plan:
   - in_parallel:
+    - get: rocky9-gpdb6-image
     - get: rocky8-gpdb6-image
     - get: centos7-gpdb6-image
 {% if is_prod or "gpbackup-release" == pipeline_name %}
@@ -1427,6 +1573,7 @@ jobs:
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
+    - get: bin_gpdb_6x_rhel9
     - get: bin_gpdb_6x_rhel8
     - get: bin_gpdb_6x_centos7
     - get: gpdb_src
@@ -1455,6 +1602,15 @@ jobs:
         OS: RHEL8
       input_mapping:
         bin_gpdb: bin_gpdb_6x_rhel8
+    - task: run-tests-locally-rocky9
+      image: rocky9-gpdb6-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+        LOCAL_CLUSTER_SIZE: 7
+        OS: RHEL9
+      input_mapping:
+        bin_gpdb: bin_gpdb_6x_rhel9
 {% if is_prod or "gpbackup-release" == pipeline_name %}
     - task: run-tests-locally-ubuntu20.04
       image: ubuntu20.04-gpdb6-image
@@ -1716,6 +1872,8 @@ jobs:
     passed: [build_gppkgs]
   - get: release_components_rhel8
     passed: [build_gppkgs]
+  - get: release_components_rhel9
+    passed: [ build_gppkgs ]
   - get: release_components_ubuntu
     passed: [build_gppkgs]
   - get: gpbackup
@@ -1731,6 +1889,7 @@ jobs:
       - components_untarred_rhel6/output/gpbackup_binaries_rhel6.tar.gz
       - components_untarred_rhel7/output/gpbackup_binaries_rhel7.tar.gz
       - components_untarred_rhel8/output/gpbackup_binaries_rhel8.tar.gz
+      - components_untarred_rhel8/output/gpbackup_binaries_rhel9.tar.gz
       - components_untarred_ubuntu/output/gpbackup_binaries_ubuntu.tar.gz
 
 
@@ -1746,6 +1905,8 @@ jobs:
         passed: [build_gppkgs]
       - get: release_components_rhel8
         passed: [build_gppkgs]
+      - get: release_components_rhel9
+        passed: [ build_gppkgs ]
       - get: release_components_ubuntu
         passed: [build_gppkgs]
       - get: gpbackup
@@ -1763,9 +1924,15 @@ jobs:
       params:
         file: workspace/v-*
     - in_parallel:
+      - put: final_published_file_gppkg_gp7_rhel9
+        params:
+          file: workspace/files-to-upload/greenplum_backup_restore-*-gp7-rhel9-x86_64.gppkg
       - put: final_published_file_gppkg_gp7_rhel8
         params:
           file: workspace/files-to-upload/greenplum_backup_restore-*-gp7-rhel8-x86_64.gppkg
+      - put: final_published_file_gppkg_gp6_rhel9
+        params:
+          file: workspace/files-to-upload/greenplum_backup_restore-*-gp6-rhel9-x86_64.gppkg
       - put: final_published_file_gppkg_gp6_rhel8
         params:
           file: workspace/files-to-upload/greenplum_backup_restore-*-gp6-rhel8-x86_64.gppkg

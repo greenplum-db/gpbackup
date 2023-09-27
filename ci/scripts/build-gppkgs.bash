@@ -50,7 +50,7 @@ function build_deb_ubuntu() {
 export GPBACKUP_TOOLS_VERSION=$(cat gpbackup-tools-versions/pkg_version)
 echo "Building gppkg v1 installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} platform: ${OS}"
 
-if [[ ${OS} == "RHEL6" || ${OS} == "RHEL7" ||  ${OS} == "RHEL8" ]]; then
+if [[ ${OS} == "RHEL6" || ${OS} == "RHEL7" ||  ${OS} == "RHEL8" || ${OS} == "RHEL9" ]]; then
     build_rpm_rhel
 elif [[ ${OS} == "ubuntu" ]]; then
     build_deb_ubuntu
@@ -85,7 +85,7 @@ echo "Successfully built gppkg v1 for GPDB5 and GPDB6"
 ########################################################################################
 # gpdb7+ uses gppkg_v2, which does not require an rpm or deb package.  Instead just placed compiled
 # binaries and config metadata into a folder for building
-if [[ ${OS} == "RHEL8" ]]; then
+if [[ ${OS} == "RHEL8" || ${OS} == "RHEL9" ]]; then
     export ARCH=x86_64
     export GPBACKUP_TOOLS_VERSION=$(cat gpbackup-tools-versions/pkg_version)
     echo "Building gppkg v2 installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} platform: ${OS}"
@@ -112,7 +112,7 @@ if [[ ${OS} == "RHEL8" ]]; then
     for file in *gppkg.tar.gz; do
         if [ -f "$file" ]; then
             new_name="${file%.gppkg.tar.gz}"
-            mv "$file" "${new_name}-RHEL8-x86_64.gppkg"
+            mv "$file" "${new_name}-${OS}-x86_64.gppkg"
         fi
     done
 

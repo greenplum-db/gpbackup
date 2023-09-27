@@ -20,9 +20,19 @@ release:
 file_groups:
 - name: GPDB7
   product_files:
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp7-rhel9-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 7 on RHEL9
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp7-rhel8-x86_64.gppkg
       description:
       upload_as: Backup and Restore for GP 7 on RHEL8
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel9.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 7 on RHEL9 compressed tarball
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel8.tar.gz
@@ -33,6 +43,11 @@ file_groups:
 
 - name: GPDB6
   product_files:
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel9-x86_64.gppkg
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL9
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel8-x86_64.gppkg
       description:
       upload_as: Backup and Restore for GP 6 on RHEL8
@@ -51,6 +66,11 @@ file_groups:
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.gppkg
       description:
       upload_as: Backup and Restore for GP 6 on Ubuntu 20.04
+      file_type: Software
+      file_version: <TILE_RELEASE_VERSION>
+    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel9.tar.gz
+      description:
+      upload_as: Backup and Restore for GP 6 on RHEL9 compressed tarball
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel8.tar.gz

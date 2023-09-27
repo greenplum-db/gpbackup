@@ -10,28 +10,33 @@ mkdir workspace/files-to-upload
 mkdir /tmp/rhel6
 mkdir /tmp/rhel7
 mkdir /tmp/rhel8
+mkdir /tmp/rhel9
 mkdir /tmp/ubuntu
 
 cp release_components_rhel6/*.gz /tmp/rhel6
 cp release_components_rhel7/*.gz /tmp/rhel7
 cp release_components_rhel8/*.gz /tmp/rhel8
+cp release_components_rhel9/*.gz /tmp/rhel9
 cp release_components_ubuntu/*.gz /tmp/ubuntu
 
 pushd /tmp
     mkdir untarred_rhel6
     mkdir untarred_rhel7
     mkdir untarred_rhel8
+    mkdir untarred_rhel9
     mkdir untarred_ubuntu
 
     tar xzf rhel6/*.gz -C untarred_rhel6
     tar xzf rhel7/*.gz -C untarred_rhel7
     tar xzf rhel8/*.gz -C untarred_rhel8
+    tar xzf rhel9/*.gz -C untarred_rhel9
     tar xzf ubuntu/*.gz -C untarred_ubuntu
 popd
 
 cp /tmp/untarred_rhel6/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-rhel6.tar.gz
 cp /tmp/untarred_rhel7/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-rhel7.tar.gz
 cp /tmp/untarred_rhel8/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-rhel8.tar.gz
+cp /tmp/untarred_rhel9/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-rhel9.tar.gz
 cp /tmp/untarred_ubuntu/bin_gpbackup.tar.gz workspace/files-to-upload/bin_gpbackup-ubuntu.tar.gz
 ##############################
 
