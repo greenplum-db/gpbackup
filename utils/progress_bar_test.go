@@ -196,7 +196,7 @@ var _ = Describe("utils/log tests", func() {
 			rowNegative = sqlmock.NewRows([]string{"tuples_processed"}).AddRow("-25")
 			rowEmpty = sqlmock.NewRows([]string{"tuples_processed"})
 			mpb = utils.NewMultiProgressBar(0, "test multi progress bar", 1, true)
-			done = make(chan bool)
+			done = make(chan bool, 1)
 		})
 		It("tracks a table's progress from start to finish", func() {
 			mock.ExpectQuery("SELECT .*").WillReturnRows(row10)
@@ -205,9 +205,10 @@ var _ = Describe("utils/log tests", func() {
 			mock.ExpectQuery("SELECT .*").WillReturnRows(row40)
 			mock.ExpectQuery("SELECT .*").WillReturnRows(row50)
 
-			mpb.TrackCopyProgress("public.foo", 0, 50, connectionPool, 0, 0, done)
+			go mpb.TrackCopyProgress("public.foo", 1, 50, connectionPool, 0, 0, done)
 			time.Sleep(time.Second)
 			done <- true
+			time.Sleep(time.Second)
 			close(done)
 
 			tupleBar := mpb.TuplesBars[0].GetBar()
@@ -220,8 +221,9 @@ var _ = Describe("utils/log tests", func() {
 			testhelper.ExpectRegexp(logfile, "public.foo:  100%")
 		})
 		It("handles a table so small it never appears in gp_stat_progress_copy_summary", func() {
-			mpb.TrackCopyProgress("public.foo", 0, 50, connectionPool, 0, 0, done)
+			go mpb.TrackCopyProgress("public.foo", 1, 50, connectionPool, 0, 0, done)
 			done <- true
+			time.Sleep(time.Second)
 			close(done)
 
 			tupleBar := mpb.TuplesBars[0].GetBar()
@@ -237,9 +239,10 @@ var _ = Describe("utils/log tests", func() {
 			mock.ExpectQuery("SELECT .*").WillReturnRows(row40)
 			mock.ExpectQuery("SELECT .*").WillReturnRows(row50)
 
-			mpb.TrackCopyProgress("public.foo", 0, 50, connectionPool, 0, 0, done)
+			go mpb.TrackCopyProgress("public.foo", 1, 50, connectionPool, 0, 0, done)
 			time.Sleep(time.Second)
 			done <- true
+			time.Sleep(time.Second)
 			close(done)
 
 			tupleBar := mpb.TuplesBars[0].GetBar()
@@ -259,9 +262,10 @@ var _ = Describe("utils/log tests", func() {
 			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(row30)
 			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(row40)
 
-			mpb.TrackCopyProgress("public.foo", 0, 50, connectionPool, 0, 0, done)
+			go mpb.TrackCopyProgress("public.foo", 1, 50, connectionPool, 0, 0, done)
 			time.Sleep(time.Second)
 			done <- true
+			time.Sleep(time.Second)
 			close(done)
 
 			tupleBar := mpb.TuplesBars[0].GetBar()
@@ -277,7 +281,7 @@ var _ = Describe("utils/log tests", func() {
 			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(row20)
 			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(row30)
 
-			mpb.TrackCopyProgress("public.foo", 0, 50, connectionPool, 0, 0, done)
+			go mpb.TrackCopyProgress("public.foo", 1, 50, connectionPool, 0, 0, done)
 			time.Sleep(time.Second)
 			close(done)
 

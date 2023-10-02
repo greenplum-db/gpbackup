@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -43,18 +44,18 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, entry toc.Coor
 	query := fmt.Sprintf("COPY %s%s FROM %s WITH CSV DELIMITER '%s' ON SEGMENT;", tableName, entry.AttributeString, copyCommand, tableDelim)
 
 	var done chan bool
+	var trackerTimer *time.Timer
+	var endTime time.Time
 	shouldTrackProgress := connectionPool.Version.AtLeast("7") && dataProgressBar != nil
 
 	if shouldTrackProgress {
-		done = make(chan bool)
+		done = make(chan bool, 1)
 		defer close(done)
-		oid, err := dbconn.SelectInt(connectionPool, fmt.Sprintf("SELECT '%s'::regclass::oid", utils.EscapeSingleQuotes(tableName)), whichConn)
-		if err != nil {
-			// Don't block the COPY for an error here, just note it and skip the progress bar for this table
-			gplog.Verbose("Could not retrieve oid for table %s, not printing COPY progress: %v", tableName, err)
-		} else {
-			dataProgressBar.TrackCopyProgress(tableName, uint32(oid), int(entry.RowsCopied), connectionPool, 0, whichConn-1, done)
-		}
+		trackerDelay := 5 * time.Second
+		trackerTimer = time.AfterFunc(trackerDelay, func() {
+			dataProgressBar.TrackCopyProgress(tableName, 0, int(entry.RowsCopied), connectionPool, 0, whichConn-1, done)
+		})
+		endTime = time.Now().Add(trackerDelay)
 	}
 
 	var numRows int64
@@ -91,6 +92,10 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, entry toc.Coor
 	}
 
 	if shouldTrackProgress {
+		if time.Now().Before(endTime) {
+			trackerTimer.Stop()
+		}
+		// send signal to channel whether tracking or not, just to avoid race condition weirdness
 		done <- true
 	}
 	return numRows, err

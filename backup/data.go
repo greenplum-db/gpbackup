@@ -85,6 +85,8 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 	gplog.Verbose("Worker %d: %s", connNum, query)
 
 	var done chan bool
+	var trackerTimer *time.Timer
+	var endTime time.Time
 	shouldTrackProgress := connectionPool.Version.AtLeast("7") && progressBars != nil
 
 	if shouldTrackProgress {
@@ -93,29 +95,28 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 		// success or failure.  We don't give the channel a size because we want the send to block, so that
 		// we don't stop printing any progress bars before all goroutines are done and possibly make it look
 		// like we failed to back up some number of tuples.
-		done = make(chan bool)
+		done = make(chan bool, 1)
 		defer close(done)
 
-		// For performance reasons, we only get an estimate of tuple count; reltuples will only be populated
-		// if the table has been analyzed or there is an index on the table, but we can safely assume that
-		// will be true in any real backup scenario.
-		numTuples, err := dbconn.SelectInt(connectionPool, fmt.Sprintf("SELECT reltuples::bigint FROM pg_class WHERE oid = %d", table.Oid), connNum)
-		if err != nil {
-			// Don't block the COPY for an error here, just note it and skip the progress bar for this table
-			gplog.Verbose("Could not retrieve tuple count for table %s, not printing COPY progress: %v", table.FQN(), err)
-		} else {
-			// Normally, we pass connNum-1 for tableNum because we index into progressBars.TuplesBars using
-			// that value (progressBars.TablesBar effectively corresponds to connection 0, so it's off by 1)
-			// and use connection 0 to query the copy progress table; however, when dealing with deferred
-			// tables, those *must* use connection 0, so we use connection 1 for the query in that case.
-			whichConn := 0
-			tableNum := connNum - 1
-			if connNum == 0 {
-				whichConn = 1
-				tableNum = 0
-			}
-			progressBars.TrackCopyProgress(table.FQN(), table.Oid, numTuples, connectionPool, whichConn, tableNum, done)
+		// Normally, we pass connNum-1 for tableNum because we index into progressBars.TuplesBars using
+		// that value (progressBars.TablesBar effectively corresponds to connection 0, so it's off by 1)
+		// and use connection 0 to query the copy progress table; however, when dealing with deferred
+		// tables, those *must* use connection 0, so we use connection 1 for the query in that case.
+		whichConn := 0
+		tableNum := connNum - 1
+		if connNum == 0 {
+			whichConn = 1
+			tableNum = 0
 		}
+
+		// To prevent undue overhead when backing up many small tables, we only begin tracking
+		// progress after 5 seconds have elapsed. If the copy finishes before then, we stop the
+		// timer and move on.
+		trackerDelay := 5 * time.Second
+		trackerTimer = time.AfterFunc(trackerDelay, func() {
+			progressBars.TrackCopyProgress(table.FQN(), table.Oid, -1, connectionPool, whichConn, tableNum, done)
+		})
+		endTime = time.Now().Add(trackerDelay)
 	}
 
 	result, err := connectionPool.Exec(query, connNum)
@@ -125,6 +126,10 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 	numRows, _ := result.RowsAffected()
 
 	if shouldTrackProgress {
+		if time.Now().Before(endTime) {
+			trackerTimer.Stop()
+		}
+		// send signal to channel whether tracking or not, just to avoid race condition weirdness
 		done <- true
 	}
 	return numRows, nil

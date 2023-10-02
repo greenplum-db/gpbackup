@@ -215,43 +215,65 @@ func (mpb *MultiProgressBar) Finish() {
 }
 
 func (mpb *MultiProgressBar) TrackCopyProgress(tablename string, oid uint32, numTuples int, conn *dbconn.DBConn, whichConn int, tableNum int, done chan bool) {
+
 	progressBar := mpb.TuplesBars[tableNum]
 	progressBar.Prefix(fmt.Sprintf("%s: ", tablename))
+
+	if oid == 0 {
+		intOid, err := dbconn.SelectInt(conn, fmt.Sprintf("SELECT '%s'::regclass::oid", EscapeSingleQuotes(tablename)), whichConn)
+		if err != nil {
+			// Don't block the COPY for an error here, just note it and skip the progress bar for this table
+			gplog.Verbose("Could not retrieve oid for table %s, not printing COPY progress: %v", tablename, err)
+			return
+		}
+		oid = uint32(intOid)
+	}
+
+	// For performance reasons, we only get an estimate of tuple count; reltuples will only be populated
+	// if the table has been analyzed or there is an index on the table, but we can safely assume that
+	// will be true in any real backup scenario.
+	if numTuples < 0 {
+		var err error
+		numTuples, err = dbconn.SelectInt(conn, fmt.Sprintf("SELECT reltuples::bigint FROM pg_class WHERE oid = %d", oid), whichConn)
+		if err != nil {
+			// Don't block the COPY for an error here, just note it and skip the progress bar for this table
+			gplog.Verbose("Could not retrieve tuple count for table %s, not printing COPY progress: %v", tablename, err)
+			return
+		}
+	}
 
 	// We call Finish and Reset at the beginning instead of the end because we start the whole process
 	// with empty progress bars that need to be set and there's no need to special-case those.
 	progressBar.Finish()
 	progressBar.Reset(numTuples)
 
-	go func(done chan bool) {
-		processed := 0
-		for {
-			select {
-			case succeeded := <-done:
-				if succeeded {
-					// Manually set the progress to maximum if COPY succeeded, as we won't be able to get the last few tuples
-					// from the view (or any tuples, for especially small tables) and we don't want users to worry that any
-					// tuples were missed.
-					progressBar.Set(numTuples)
-				}
-				return
-			default:
-				// Ignore any error on this query: if there's a hiccup we'll get the number on the next pass, and if there's
-				// a real connection problem the COPY itself should error out elsewhere.
-				tuplesProcessed, _ := dbconn.SelectInt(conn, fmt.Sprintf("SELECT tuples_processed FROM gp_stat_progress_copy_summary WHERE relid = %d", oid), whichConn)
-				if tuplesProcessed == 0 { // Don't stop tracking yet, sometimes the table hiccups and has no rows for a bit
-					break
-				}
-				delta := int(tuplesProcessed) - processed
-				// TODO: There's a server bug that underreports tuples so it looks like the number processed went down.
-				// For now, if we see a negative delta, simply don't update the progress bar and wait for the next loop.
-				if delta < 0 {
-					break
-				}
-				progressBar.Add(delta)
-				processed += delta
+	processed := 0
+	for {
+		select {
+		case succeeded := <-done:
+			if succeeded {
+				// Manually set the progress to maximum if COPY succeeded, as we won't be able to get the last few tuples
+				// from the view (or any tuples, for especially small tables) and we don't want users to worry that any
+				// tuples were missed.
+				progressBar.Set(numTuples)
 			}
-			time.Sleep(100 * time.Millisecond)
+			return
+		default:
+			// Ignore any error on this query: if there's a hiccup we'll get the number on the next pass, and if there's
+			// a real connection problem the COPY itself should error out elsewhere.
+			tuplesProcessed, _ := dbconn.SelectInt(conn, fmt.Sprintf("SELECT tuples_processed FROM gp_stat_progress_copy_summary WHERE relid = %d", oid), whichConn)
+			if tuplesProcessed == 0 { // Don't stop tracking yet, sometimes the table hiccups and has no rows for a bit
+				break
+			}
+			delta := int(tuplesProcessed) - processed
+			// TODO: There's a server bug that underreports tuples so it looks like the number processed went down.
+			// For now, if we see a negative delta, simply don't update the progress bar and wait for the next loop.
+			if delta < 0 {
+				break
+			}
+			progressBar.Add(delta)
+			processed += delta
 		}
-	}(done)
+		time.Sleep(100 * time.Millisecond)
+	}
 }
