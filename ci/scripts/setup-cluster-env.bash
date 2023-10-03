@@ -9,10 +9,7 @@ GPHOME=/usr/local/greenplum-db-devel
 ssh -t ${default_ami_user}@cdw " \
     sudo yum -y install git && \
     sudo mkdir -p /home/gpadmin/go/src/github.com/greenplum-db && \
-    sudo chown gpadmin:gpadmin -R /home/gpadmin && \
-    sudo yum -y install zstd"
-
-ssh -t ${default_ami_user}@sdw1 "sudo yum -y install zstd"
+    sudo chown gpadmin:gpadmin -R /home/gpadmin"
 
 scp -r -q gpbackup cdw:/home/gpadmin/go/src/github.com/greenplum-db/gpbackup
 
