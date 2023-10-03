@@ -102,7 +102,7 @@ var _ = Describe("backup integration create statement tests", func() {
 			rowTwo := backup.ColumnDefinition{Oid: 0, Num: 2, Name: "j", NotNull: false, HasDefault: false, Type: "character varying(20)", Encoding: "compresstype=zlib,blocksize=32768,compresslevel=1", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: ""}
 			testTable.StorageOpts = "appendonly=true, orientation=column, fillfactor=42, compresstype=zlib, blocksize=32768, compresslevel=1"
 			if connectionPool.Version.AtLeast("7") {
-				// Apparently, fillfactor is not backwards compatible with GPDB 7
+				// In GPDB7+, fillfactor cannot be set on an appendonly table
 				testTable.StorageOpts = "appendonly=true, orientation=column, compresstype=zlib, blocksize=32768, compresslevel=1"
 			}
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne, rowTwo}
@@ -112,6 +112,11 @@ var _ = Describe("backup integration create statement tests", func() {
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
 			testTable.Oid = testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
 			resultTable := backup.ConstructDefinitionsForTables(connectionPool, []backup.Relation{testTable.Relation})[0]
+
+			// We remove fillfactor from the storage options of appendonly tables, as it has always
+			// been a no-op and is now incompatible with GPDB7+.
+			testTable.StorageOpts = "appendonly=true, orientation=column, compresstype=zlib, blocksize=32768, compresslevel=1"
+
 			if connectionPool.Version.AtLeast("7") {
 				// For GPDB 7+, the storage options no longer store the appendonly and orientation field
 				testTable.TableDefinition.StorageOpts = "compresstype=zlib, blocksize=32768, compresslevel=1, checksum=true"

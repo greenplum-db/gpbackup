@@ -567,7 +567,26 @@ func GetTableStorage(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint
 			tableSpaces[result.Oid] = result.Tablespace.String
 		}
 		if result.RelOptions.Valid {
-			relOptions[result.Oid] = result.RelOptions.String
+			reloptString := result.RelOptions.String
+
+			// Prior to GPDB7, it was possible to indicate fillfactor for an AO table, but it was a
+			// no-op. In GPDB7 this was banned server-side. To prevent migration restores from
+			// failing in this case, and because they're garbage values anyway, drop fillfactor for
+			// AO tables.
+			if connectionPool.Version.Before("7") &&
+				strings.Contains(reloptString, "appendonly") &&
+				strings.Contains(reloptString, "fillfactor") {
+
+				opts := strings.Split(reloptString, ", ")
+				newopts := make([]string, 0)
+				for _, opt := range opts {
+					if !strings.Contains(opt, "fillfactor") {
+						newopts = append(newopts, opt)
+					}
+				}
+				reloptString = strings.Join(newopts, ", ")
+			}
+			relOptions[result.Oid] = reloptString
 		}
 	}
 	return tableSpaces, relOptions
