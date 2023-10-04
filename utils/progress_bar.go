@@ -141,6 +141,7 @@ func (vpb *VerboseProgressBar) checkPercent() {
 type MultiProgressBar struct {
 	TablesBar    ProgressBar
 	TuplesBars   []ProgressBar
+	TuplesCounts []int
 	Verbosity    int
 	ProgressPool *pb.Pool
 }
@@ -159,6 +160,7 @@ func NewMultiProgressBar(tablesBarTotal int, tablesBarLabel string, numTuplesBar
 	}
 	if numTuplesBars > 0 {
 		progressBars.TuplesBars = make([]ProgressBar, numTuplesBars)
+		progressBars.TuplesCounts = make([]int, numTuplesBars)
 		// In order to get all of the progress bars to play nicely with one another we have to
 		// create and start all of them in a single pool upfront, then edit their prefixes and
 		// totals later, instead of starting them one by one when each COPY is ready, so we don't
@@ -241,6 +243,7 @@ func (mpb *MultiProgressBar) TrackCopyProgress(tablename string, oid uint32, num
 			return
 		}
 	}
+	mpb.TuplesCounts[tableNum] = numTuples
 
 	// We call Finish and Reset at the beginning instead of the end because we start the whole process
 	// with empty progress bars that need to be set and there's no need to special-case those.
@@ -250,13 +253,7 @@ func (mpb *MultiProgressBar) TrackCopyProgress(tablename string, oid uint32, num
 	processed := 0
 	for {
 		select {
-		case succeeded := <-done:
-			if succeeded {
-				// Manually set the progress to maximum if COPY succeeded, as we won't be able to get the last few tuples
-				// from the view (or any tuples, for especially small tables) and we don't want users to worry that any
-				// tuples were missed.
-				progressBar.Set(numTuples)
-			}
+		case _ = <-done:
 			return
 		default:
 			// Ignore any error on this query: if there's a hiccup we'll get the number on the next pass, and if there's

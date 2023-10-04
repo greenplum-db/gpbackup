@@ -97,6 +97,12 @@ func CopyTableIn(connectionPool *dbconn.DBConn, tableName string, entry toc.Coor
 		}
 		// send signal to channel whether tracking or not, just to avoid race condition weirdness
 		done <- true
+
+		// Manually set the progress to maximum if COPY succeeded, as we won't be able to get the last few tuples
+		// from the view (or any tuples, for especially small tables) and we don't want users to worry that any
+		// tuples were missed.
+		progressBar := dataProgressBar.TuplesBars[whichConn-1]
+		progressBar.Set(dataProgressBar.TuplesCounts[whichConn-1])
 	}
 	return numRows, err
 }

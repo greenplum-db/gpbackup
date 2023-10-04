@@ -227,6 +227,8 @@ var _ = Describe("utils/log tests", func() {
 			close(done)
 
 			tupleBar := mpb.TuplesBars[0].GetBar()
+			// as in our COPY calls, manually set the bar at the end to ensure it always shows full
+			tupleBar.Set(50)
 			Expect(tupleBar.Total).To(Equal(int64(50)))
 			Expect(tupleBar.Get()).To(Equal(int64(50)))
 			testhelper.NotExpectRegexp(logfile, "public.foo:")
@@ -261,6 +263,7 @@ var _ = Describe("utils/log tests", func() {
 			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(rowEmpty)
 			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(row30)
 			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(row40)
+			mock.ExpectQuery("SELECT tuples_processed .*").WillReturnRows(row50)
 
 			go mpb.TrackCopyProgress("public.foo", 1, 50, connectionPool, 0, 0, done)
 			time.Sleep(time.Second)

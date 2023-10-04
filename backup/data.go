@@ -89,6 +89,7 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 	var endTime time.Time
 	shouldTrackProgress := connectionPool.Version.AtLeast("7") && progressBars != nil
 
+	var tableNum int
 	if shouldTrackProgress {
 		// A true on this channel means the COPY succeeded.  We explicitly signal this on a success, instead
 		// of just closing the channel, to allow the progress goroutine to handle cleanup properly based on
@@ -103,7 +104,7 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 		// and use connection 0 to query the copy progress table; however, when dealing with deferred
 		// tables, those *must* use connection 0, so we use connection 1 for the query in that case.
 		whichConn := 0
-		tableNum := connNum - 1
+		tableNum = connNum - 1
 		if connNum == 0 {
 			whichConn = 1
 			tableNum = 0
@@ -131,6 +132,12 @@ func CopyTableOut(connectionPool *dbconn.DBConn, table Table, destinationToWrite
 		}
 		// send signal to channel whether tracking or not, just to avoid race condition weirdness
 		done <- true
+
+		// Manually set the progress to maximum if COPY succeeded, as we won't be able to get the last few tuples
+		// from the view (or any tuples, for especially small tables) and we don't want users to worry that any
+		// tuples were missed.
+		progressBar := progressBars.TuplesBars[tableNum]
+		progressBar.Set(progressBars.TuplesCounts[tableNum])
 	}
 	return numRows, nil
 }
