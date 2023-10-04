@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	mutex = &sync.Mutex{}
+	mutex   = &sync.Mutex{}
+	txMutex = &sync.Mutex{}
 )
 
 func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *error, numErrors *int32, progressBar utils.ProgressBar, whichConn int, executeInParallel bool) {
@@ -25,9 +26,11 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
 		if wasTerminated || *fatalErr != nil {
 			if executeInParallel {
 				gplog.Error("Error detected on connection %d. Terminating transactions.", whichConn)
+				txMutex.Lock()
 				if connectionPool.Tx[whichConn] != nil {
 					connectionPool.Rollback(whichConn)
 				}
+				txMutex.Unlock()
 			}
 			return
 		}
@@ -57,9 +60,11 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
 	}
 
 	if executeInParallel {
+		txMutex.Lock()
 		if connectionPool.Tx[whichConn] != nil {
 			connectionPool.Commit(whichConn)
 		}
+		txMutex.Unlock()
 	}
 }
 

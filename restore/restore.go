@@ -325,10 +325,12 @@ func restorePredata(metadataFilename string) {
 			gplog.Debug("Restoring predata metadata tier: %d", t)
 
 			// Begin transactions for each connec worker connection.  In parallel restores we reserve conn 0 for administration and monitoring.
+			txMutex.Lock()
 			for connNum := 1; connNum < connectionPool.NumConns; connNum++ {
 				connectionPool.MustExec(fmt.Sprintf("SET application_name TO 'gprestore_%d_%s'", connNum, MustGetFlagString(options.TIMESTAMP)), connNum)
 				connectionPool.MustBegin(connNum)
 			}
+			txMutex.Unlock()
 
 			numErrors += ExecuteRestoreMetadataStatements(tiered[t], "Pre-data objects", progressBar, utils.PB_VERBOSE, true)
 			t++
