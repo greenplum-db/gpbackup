@@ -467,10 +467,8 @@ func DoCleanup(backupFailed bool) {
 				// It is possible for the COPY command to become orphaned if an agent process is stopped
 				utils.TerminateHangingCopySessions(connectionPool, globalFPInfo, fmt.Sprintf("gpbackup_%s", globalFPInfo.Timestamp))
 			}
-			if backupFailed {
-				// Cleanup only if terminated or fataled
-				utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
-			}
+			// We can have helper processes hanging around even without failures, so call this cleanup routine whether successful or not.
+			utils.CleanUpSegmentHelperProcesses(globalCluster, globalFPInfo, "backup")
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, globalFPInfo)
 		}
 

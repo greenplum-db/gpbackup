@@ -760,9 +760,9 @@ func DoCleanup(restoreFailed bool) {
 			if wasTerminated { // These should all end on their own in a successful restore
 				utils.TerminateHangingCopySessions(connectionPool, fpInfo, fmt.Sprintf("gprestore_%s_%s", fpInfo.Timestamp, restoreStartTime))
 			}
-			if restoreFailed {
-				utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore")
-			}
+
+			// We can have helper processes hanging around even without failures, so call this cleanup routine whether successful or not.
+			utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore")
 			utils.CleanUpHelperFilesOnAllHosts(globalCluster, fpInfo)
 		}
 	}

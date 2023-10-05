@@ -804,8 +804,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 			segConn.Commit(0)
 			homeDir := os.Getenv("HOME")
-			helperLogs, _ := path.Glob(path.Join(homeDir, "gpAdminLogs/gpbackup_helper*"))
-			cmdStr := fmt.Sprintf("tail -n 40 %s | grep \"Skip file has been discovered for entry\" || true", helperLogs[len(helperLogs)-1])
+			helperLogs, _ := path.Glob(path.Join(homeDir, "gpAdminLogs/gprestore_*"))
+			cmdStr := fmt.Sprintf("tail -n 40 %s | grep \"Creating skip file\" || true", helperLogs[len(helperLogs)-1])
 
 			attemts := 1000
 			err = errors.New("Timeout to discover skip file")
