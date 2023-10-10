@@ -48,7 +48,12 @@ func DoSetup() {
 
 	utils.CheckGpexpandRunning(utils.BackupPreventedByGpexpandMessage)
 	timestamp := history.CurrentTimestamp()
+
+	// Need to get sections this early to handle lock file location behavior
+	BackupSections = options.GetSections(cmdFlags)
+	ValidateBackupSections(cmdFlags)
 	createBackupLockFile(timestamp)
+
 	initializeConnectionPool(timestamp)
 	gplog.Info("Greenplum Database Version = %s", connectionPool.Version.VersionString)
 
@@ -69,7 +74,7 @@ func DoSetup() {
 	clusterConfigConn.Close()
 
 	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, "")
-	if MustGetFlagBool(options.METADATA_ONLY) {
+	if !BackupSections.Data {
 		_, err = globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(-1)))
 		gplog.FatalOnError(err)
 	} else {
@@ -124,12 +129,12 @@ func DoBackup() {
 	gplog.Info("Gathering table state information")
 	metadataTables, dataTables := RetrieveAndProcessTables()
 	dataTables, numExtOrForeignTables := GetBackupDataSet(dataTables)
-	if len(dataTables) == 0 && !backupReport.MetadataOnly {
+	if len(dataTables) == 0 && backupReport.Data {
 		gplog.Warn("No tables in backup set contain data. Performing metadata-only backup instead.")
-		backupReport.MetadataOnly = true
+		backupReport.Data = false
 	}
 	// This must be a full backup with --leaf-parition-data to query for incremental metadata
-	if !(MustGetFlagBool(options.METADATA_ONLY) || MustGetFlagBool(options.DATA_ONLY)) && MustGetFlagBool(options.LEAF_PARTITION_DATA) {
+	if backupReport.Data && backupReport.Predata && MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		backupIncrementalMetadata()
 	} else {
 		gplog.Verbose("Skipping query for incremental metadata.")
@@ -140,12 +145,12 @@ func DoBackup() {
 	metadataFile := utils.NewFileWithByteCountFromFile(metadataFilename)
 
 	/*
-	 * We check this in the backup report rather than the flag because we
+	 * We check this in the backup report rather than the flags because we
 	 * perform a metadata only backup if the database contains no tables
 	 * or only external tables
 	 */
 	backupSetTables := dataTables
-	if !backupReport.MetadataOnly {
+	if backupReport.Data {
 		targetBackupRestorePlan := make([]history.RestorePlanEntry, 0)
 		if targetBackupTimestamp != "" {
 			gplog.Info("Basing incremental backup off of backup with timestamp = %s", targetBackupTimestamp)
@@ -172,23 +177,23 @@ func DoBackup() {
 	}
 
 	backupSessionGUC(metadataFile)
-	if !MustGetFlagBool(options.DATA_ONLY) {
-		isFullBackup := len(MustGetFlagStringArray(options.INCLUDE_RELATION)) == 0
-		if isFullBackup && !MustGetFlagBool(options.WITHOUT_GLOBALS) {
-			backupGlobals(metadataFile)
-		}
-
-		isFilteredBackup := !isFullBackup
+	isFilteredBackup := len(MustGetFlagStringArray(options.INCLUDE_RELATION)) != 0
+	if backupReport.Globals && !isFilteredBackup {
+		backupGlobals(metadataFile)
+	}
+	if backupReport.Predata {
 		backupPredata(metadataFile, metadataTables, isFilteredBackup)
+	}
+	if backupReport.Postdata {
 		backupPostdata(metadataFile)
 	}
 
-	if !backupReport.MetadataOnly {
+	if backupReport.Data {
 		backupData(backupSetTables)
 	}
 
 	printDataBackupWarnings(numExtOrForeignTables)
-	if MustGetFlagBool(options.WITH_STATS) {
+	if backupReport.Statistics {
 		backupStatistics(metadataTables)
 	}
 
@@ -205,7 +210,7 @@ func DoBackup() {
 	if pluginConfigFlag != "" {
 		pluginConfig.MustBackupFile(metadataFilename)
 		pluginConfig.MustBackupFile(globalFPInfo.GetTOCFilePath())
-		if MustGetFlagBool(options.WITH_STATS) {
+		if backupReport.Statistics {
 			pluginConfig.MustBackupFile(globalFPInfo.GetStatisticsFilePath())
 		}
 		_ = utils.CopyFile(pluginConfigFlag, globalFPInfo.GetPluginConfigPath())

@@ -55,12 +55,12 @@ var _ = Describe("restore/validate tests", func() {
 			restore.ValidateIncludeSchemasInBackupSet(filterList)
 		})
 		It("passes when schema exists in data-only backup", func() {
-			restore.SetBackupConfig(&history.BackupConfig{DataOnly: true})
+			restore.SetBackupConfig(&history.BackupConfig{Sections: options.Sections{Data: true}})
 			filterList = []string{"schema1"}
 			restore.ValidateIncludeSchemasInBackupSet(filterList)
 		})
 		It("panics when schema does not exist in data-only backup", func() {
-			restore.SetBackupConfig(&history.BackupConfig{DataOnly: true})
+			restore.SetBackupConfig(&history.BackupConfig{Sections: options.Sections{Data: true}})
 			filterList = []string{"schema3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
 			restore.ValidateIncludeSchemasInBackupSet(filterList)
@@ -137,12 +137,11 @@ var _ = Describe("restore/validate tests", func() {
 	})
 	Describe("ValidateRelationsInRestoreDatabase", func() {
 		BeforeEach(func() {
-			restore.SetBackupConfig(&history.BackupConfig{DataOnly: false})
-			_ = cmdFlags.Set(options.DATA_ONLY, "false")
+			restore.RestoreSections = options.Sections{}
 		})
 		Context("data-only restore", func() {
 			BeforeEach(func() {
-				_ = cmdFlags.Set(options.DATA_ONLY, "true")
+				restore.RestoreSections = options.Sections{Data: true}
 			})
 			It("panics if all tables missing from database", func() {
 				noTableRows := sqlmock.NewRows([]string{"string"})
@@ -168,6 +167,9 @@ var _ = Describe("restore/validate tests", func() {
 			})
 		})
 		Context("restore includes metadata", func() {
+			BeforeEach(func() {
+				restore.RestoreSections = options.Sections{Globals: true, Predata: true, Postdata: true}
+			})
 			It("passes if table is not present in database", func() {
 				noTableRows := sqlmock.NewRows([]string{"string"})
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(noTableRows)
@@ -238,7 +240,7 @@ var _ = Describe("restore/validate tests", func() {
 			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("passes when table exists in data-only backup", func() {
-			restore.SetBackupConfig(&history.BackupConfig{DataOnly: true})
+			restore.SetBackupConfig(&history.BackupConfig{Sections: options.Sections{Data: true}})
 			filterList = []string{"schema1.table1"}
 			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
@@ -249,7 +251,7 @@ var _ = Describe("restore/validate tests", func() {
 			restore.ValidateIncludeRelationsInBackupSet(filterList)
 		})
 		It("table does not exist in data-only backup", func() {
-			restore.SetBackupConfig(&history.BackupConfig{DataOnly: true})
+			restore.SetBackupConfig(&history.BackupConfig{Sections: options.Sections{Data: true}})
 			filterList = []string{"schema1.table3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following relation(s) in the backup set: schema1.table3")
 			restore.ValidateIncludeRelationsInBackupSet(filterList)

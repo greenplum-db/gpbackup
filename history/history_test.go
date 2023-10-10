@@ -9,6 +9,7 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/structmatcher"
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/history"
+	"github.com/greenplum-db/gpbackup/options"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,22 +35,26 @@ var _ = Describe("backup/history tests", func() {
 
 	BeforeEach(func() {
 		testConfig1 = history.BackupConfig{
-			DatabaseName:     "testdb1",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{},
-			IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []history.RestorePlanEntry{},
-			Timestamp:        "timestamp1",
+			DatabaseName:       "testdb1",
+			ExcludeRelations:   []string{},
+			ExcludeSchemas:     []string{},
+			IncludeRelations:   []string{"testschema.testtable1", "testschema.testtable2"},
+			IncludeSchemas:     []string{},
+			RestorePlan:        []history.RestorePlanEntry{},
+			Timestamp:          "timestamp1",
+			Sections:           options.Sections{},
+			DeprecatedMetadata: options.DeprecatedMetadata{},
 		}
 		testConfig2 = history.BackupConfig{
-			DatabaseName:     "testdb1",
-			ExcludeRelations: []string{},
-			ExcludeSchemas:   []string{},
-			IncludeRelations: []string{"testschema.testtable1", "testschema.testtable2"},
-			IncludeSchemas:   []string{},
-			RestorePlan:      []history.RestorePlanEntry{{"timestamp1", []string{"testschema.testtable1"}}, {"timestamp2", []string{"testschema.testtable2"}}},
-			Timestamp:        "timestamp2",
+			DatabaseName:       "testdb1",
+			ExcludeRelations:   []string{},
+			ExcludeSchemas:     []string{},
+			IncludeRelations:   []string{"testschema.testtable1", "testschema.testtable2"},
+			IncludeSchemas:     []string{},
+			RestorePlan:        []history.RestorePlanEntry{{"timestamp1", []string{"testschema.testtable1"}}, {"timestamp2", []string{"testschema.testtable2"}}},
+			Timestamp:          "timestamp2",
+			Sections:           options.Sections{},
+			DeprecatedMetadata: options.DeprecatedMetadata{},
 		}
 		_ = os.Remove(historyDBPath)
 	})

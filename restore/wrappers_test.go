@@ -151,7 +151,6 @@ options:
 			Compressed:            false,
 			DatabaseName:          "plugin_test_db",
 			DatabaseVersion:       "4.3.99.0+dev.18.gb29642fb22 build dev",
-			DataOnly:              false,
 			DateDeleted:           "",
 			ExcludeRelations:      make([]string, 0),
 			ExcludeSchemaFiltered: false,
@@ -163,12 +162,12 @@ options:
 			IncludeTableFiltered:  false,
 			Incremental:           false,
 			LeafPartitionData:     false,
-			MetadataOnly:          false,
 			Plugin:                "/Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin",
 			RestorePlan:           []history.RestorePlanEntry{{Timestamp: "20170415154408", TableFQNs: []string{"public.test_table"}}},
 			SingleDataFile:        false,
 			Timestamp:             "20170415154408",
-			WithStatistics:        false,
+			Sections:              options.Sections{},
+			DeprecatedMetadata:    options.DeprecatedMetadata{},
 		}
 		sampleBackupHistConfig2 := history.BackupConfig{
 			BackupDir:             "",
@@ -176,7 +175,6 @@ options:
 			Compressed:            false,
 			DatabaseName:          "plugin_test_db",
 			DatabaseVersion:       "4.3.99.0+dev.18.gb29642fb22 build dev",
-			DataOnly:              false,
 			DateDeleted:           "",
 			ExcludeRelations:      make([]string, 0),
 			ExcludeSchemaFiltered: false,
@@ -188,13 +186,13 @@ options:
 			IncludeTableFiltered:  false,
 			Incremental:           false,
 			LeafPartitionData:     false,
-			MetadataOnly:          false,
 			Plugin:                "/Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin",
 			PluginVersion:         "99.99.9999",
 			RestorePlan:           []history.RestorePlanEntry{{Timestamp: "20180415154238", TableFQNs: []string{"public.test_table"}}},
 			SingleDataFile:        true,
 			Timestamp:             "20180415154238",
-			WithStatistics:        false,
+			Sections:              options.Sections{},
+			DeprecatedMetadata:    options.DeprecatedMetadata{},
 		}
 
 		sampleBackupConfig := `
@@ -203,7 +201,6 @@ backupversion: 1.11.0+dev.28.g10571fd
 compressed: false
 databasename: plugin_test_db
 databaseversion: 4.3.99.0+dev.18.gb29642fb22 build dev
-dataonly: false
 deleted: false
 excluderelations: []
 excludeschemafiltered: false
@@ -215,7 +212,6 @@ includeschemas: []
 includetablefiltered: false
 incremental: false
 leafpartitiondata: false
-metadataonly: false
 plugin: /Users/pivotal/workspace/gp-backup-ddboost-plugin/gpbackup_ddboost_plugin
 pluginversion: "99.99.9999"
 restoreplan:
@@ -224,7 +220,12 @@ tablefqns:
 - public.test_table
 singledatafile: true
 timestamp: "20180415154238"
-withstatistics: false
+sections:
+  globals: true
+  predata: true
+  data: true
+  postdata: true
+  statistics: false
 `
 		var executor testhelper.TestExecutor
 		var testConfigPath = "/tmp/unit_test_plugin_config.yml"

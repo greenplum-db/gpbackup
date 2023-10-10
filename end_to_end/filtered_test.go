@@ -124,7 +124,7 @@ PARTITION BY LIST (gender)
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir,
 				"--include-table", `public.parent`,
-				"--metadata-only")
+				sectionBackupMetadataOnly)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir)
@@ -147,7 +147,7 @@ PARTITION BY LIST (gender)
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir,
 				"--include-table", `public.parent_a`,
-				"--metadata-only")
+				sectionBackupMetadataOnly)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir)

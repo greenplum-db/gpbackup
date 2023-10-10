@@ -26,6 +26,44 @@ type Options struct {
 	RedirectSchema            string
 }
 
+type Sections struct {
+	Globals    bool
+	Predata    bool
+	Data       bool
+	Postdata   bool
+	Statistics bool
+}
+
+func (s *Sections) AsString() string {
+	sections := []string{}
+	if s.Globals {
+		sections = append(sections, "Globals")
+	}
+	if s.Predata {
+		sections = append(sections, "Predata")
+	}
+	if s.Data {
+		sections = append(sections, "Data")
+	}
+	if s.Postdata {
+		sections = append(sections, "Postdata")
+	}
+	if s.Statistics {
+		sections = append(sections, "Statistics")
+	}
+	return strings.Join(sections, ", ")
+}
+
+// We need to keep these config values around for backwards compatibility, but
+// don't want to print a bunch of useless variables in the config file going
+// forward, so we split these off into their own struct.
+type DeprecatedMetadata struct {
+	DataOnly       bool
+	MetadataOnly   bool
+	WithoutGlobals bool
+	WithStatistics bool
+}
+
 func NewOptions(initialFlags *pflag.FlagSet) (*Options, error) {
 	includedRelations, err := setFiltersFromFile(initialFlags, INCLUDE_RELATION, INCLUDE_RELATION_FILE)
 	if err != nil {
@@ -441,4 +479,58 @@ func ExtensionFilterClause(namespace string) string {
 	}
 
 	return fmt.Sprintf("%s NOT IN (select objid from pg_depend where deptype = 'e')", oidStr)
+}
+
+func GetSections(flags *pflag.FlagSet) Sections {
+	var sectionSlice []string
+	var sections Sections
+
+	// Always parse this even if --sections wasn't set, as default values differ for backup and restore
+	sectionSlice = MustGetFlagStringSlice(flags, SECTIONS)
+	for _, section := range sectionSlice {
+		switch section {
+		case "globals":
+			sections.Globals = true
+		case "predata":
+			sections.Predata = true
+		case "data":
+			sections.Data = true
+		case "postdata":
+			sections.Postdata = true
+		case "statistics":
+			sections.Statistics = true
+		default:
+			gplog.Fatal(errors.Errorf("Unrecognized section flag input: %s", section), "")
+		}
+	}
+
+	// Allow overrides by legacy flags for backwards compatibility, but log a warning
+	deprecationMsg := "The %s flag is deprecated and may be removed in a future release, please use --sections instead"
+	if MustGetFlagBool(flags, METADATA_ONLY) {
+		gplog.Warn(fmt.Sprintf(deprecationMsg, METADATA_ONLY))
+		sections.Data = false
+	}
+	if MustGetFlagBool(flags, DATA_ONLY) {
+		gplog.Warn(fmt.Sprintf(deprecationMsg, DATA_ONLY))
+		sections.Globals = false
+		sections.Predata = false
+		sections.Postdata = false
+		sections.Statistics = false
+	}
+	if MustGetFlagBool(flags, WITH_STATS) {
+		gplog.Warn(fmt.Sprintf(deprecationMsg, WITH_STATS))
+		sections.Statistics = true
+	}
+	// This function is called in both backup and restore, so we need to check that certain flags exist
+	// before we try to reference them
+	if flags.Lookup(WITHOUT_GLOBALS) != nil && MustGetFlagBool(flags, WITHOUT_GLOBALS) {
+		gplog.Warn(fmt.Sprintf(deprecationMsg, WITHOUT_GLOBALS))
+		sections.Globals = false
+	}
+	if flags.Lookup(WITH_GLOBALS) != nil && MustGetFlagBool(flags, WITH_GLOBALS) {
+		gplog.Warn(fmt.Sprintf(deprecationMsg, WITH_GLOBALS))
+		sections.Globals = true
+	}
+
+	return sections
 }

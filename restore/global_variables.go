@@ -46,6 +46,9 @@ var (
 	 * or the signal handler.
 	 */
 	CleanupGroup *sync.WaitGroup
+
+	// sections to restore
+	RestoreSections options.Sections
 )
 
 func init() {

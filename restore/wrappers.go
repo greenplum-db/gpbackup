@@ -169,18 +169,34 @@ func SetMaxCsvLineLengthQuery(connectionPool *dbconn.DBConn) string {
 
 func InitializeBackupConfig() {
 	backupConfig = history.ReadConfigFile(globalFPInfo.GetConfigFilePath())
+
+	// backupConfig.Sections will only have all false sections if the backup was taken using the deprecated
+	// metadata flags, so this serves as a quick check to determine whether the backup used --sections or
+	// those old flags.  In the latter case, we translate the old flags into the current section format and
+	// blank the DeprecatedMetadata so we can use only Sections going forward.
+	if (backupConfig.Sections == options.Sections{}) {
+		backupConfig.Sections = options.Sections{
+			Globals:    !backupConfig.WithoutGlobals,
+			Predata:    !backupConfig.DataOnly,
+			Data:       !backupConfig.MetadataOnly,
+			Postdata:   !backupConfig.DataOnly,
+			Statistics: backupConfig.WithStatistics,
+		}
+		backupConfig.DeprecatedMetadata = options.DeprecatedMetadata{}
+	}
+
 	utils.InitializePipeThroughParameters(backupConfig.Compressed, backupConfig.CompressionType, 0)
 	report.EnsureBackupVersionCompatibility(backupConfig.BackupVersion, version)
 	report.EnsureDatabaseVersionCompatibility(backupConfig.DatabaseVersion, connectionPool.Version)
 }
 
 func BackupConfigurationValidation() {
-	if !backupConfig.MetadataOnly {
+	if RestoreSections.Data {
 		gplog.Verbose("Gathering information on backup directories")
 		VerifyBackupDirectoriesExistOnAllHosts()
 	}
 
-	VerifyMetadataFilePaths(MustGetFlagBool(options.WITH_STATS))
+	VerifyMetadataFilePaths(RestoreSections.Statistics)
 
 	tocFilename := globalFPInfo.GetTOCFilePath()
 	globalTOC = toc.NewTOC(tocFilename)
@@ -227,8 +243,8 @@ func RecoverMetadataFilesUsingPlugin() {
 	pluginConfig.SetupPluginForRestore(globalCluster, globalFPInfo)
 
 	metadataFiles := []string{globalFPInfo.GetConfigFilePath(), globalFPInfo.GetMetadataFilePath(),
-		globalFPInfo.GetBackupReportFilePath()}
-	if MustGetFlagBool(options.WITH_STATS) {
+		globalFPInfo.GetBackupReportFilePath(), globalFPInfo.GetTOCFilePath()}
+	if RestoreSections.Statistics {
 		metadataFiles = append(metadataFiles, globalFPInfo.GetStatisticsFilePath())
 	}
 	for _, filename := range metadataFiles {
@@ -237,12 +253,7 @@ func RecoverMetadataFilesUsingPlugin() {
 
 	InitializeBackupConfig()
 
-	var fpInfoList []filepath.FilePathInfo
-	if backupConfig.MetadataOnly {
-		fpInfoList = []filepath.FilePathInfo{globalFPInfo}
-	} else {
-		fpInfoList = GetBackupFPInfoListFromRestorePlan()
-	}
+	fpInfoList := GetBackupFPInfoListFromRestorePlan()
 
 	for _, fpInfo := range fpInfoList {
 		pluginConfig.MustRestoreFile(fpInfo.GetTOCFilePath())

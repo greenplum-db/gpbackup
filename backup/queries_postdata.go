@@ -61,7 +61,7 @@ func (i IndexDefinition) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          i.OwningSchema,
 			Name:            i.Name,
-			ObjectType:      "INDEX",
+			ObjectType:      toc.OBJ_INDEX,
 			ReferenceObject: tableFQN,
 			StartByte:       0,
 			EndByte:         0,
@@ -565,7 +565,7 @@ func (p RLSPolicy) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          p.Schema,
 			Name:            p.Table,
-			ObjectType:      "POLICY",
+			ObjectType:      toc.OBJ_POLICY,
 			ReferenceObject: tableFQN,
 			StartByte:       0,
 			EndByte:         0,
