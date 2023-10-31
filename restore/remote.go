@@ -50,8 +50,9 @@ func VerifyBackupFileCountOnSegments() {
 		// Coordinator backup files (and any gprestore report files) will be mixed in with segment backup files on a single-node cluster,
 		// so we explicitly look for filenames in the segment filename format.  In a smaller-to-larger restore, the contents list for a segment
 		// outside the destination array will be "[]", which the find command can handle safely in this context.
-		contentsList := fmt.Sprintf("[%s]", strings.Join(contentMap[contentID], "|"))
-		return fmt.Sprintf(`find %s -type f -name "gpbackup_%s_%s*" | wc -l`, globalFPInfo.GetDirForContent(contentID), contentsList, globalFPInfo.Timestamp)
+		contentsList := fmt.Sprintf("(%s)", strings.Join(contentMap[contentID], "|"))
+		cmdString := fmt.Sprintf(`find %s -type f -regextype posix-extended -regex ".*gpbackup_%s_%s.*" | wc -l`, globalFPInfo.GetDirForContent(contentID), contentsList, globalFPInfo.Timestamp)
+		return cmdString
 	})
 	globalCluster.CheckClusterError(remoteOutput, "Could not verify backup file count", func(contentID int) string {
 		return "Could not verify backup file count"

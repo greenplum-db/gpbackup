@@ -208,12 +208,13 @@ func (backupFPInfo *FilePathInfo) GetHelperLogPath() string {
  * Helper functions
  */
 
-func ParseSegPrefix(backupDir string) (string, error) {
-	if backupDir == "" {
+func ParseSegPrefix(backupDir string, timestamp string) (string, error) {
+	if backupDir == "" || timestamp == "" {
 		return "", nil
 	}
 
-	_, err := operating.System.Stat(fmt.Sprintf("%s/backups", backupDir))
+	dateString := timestamp[:8]
+	_, err := operating.System.Stat(fmt.Sprintf("%s/backups/%s/%s", backupDir, dateString, timestamp))
 	if err == nil {
 		// We're using the current directory format, there's no prefix to parse
 		return "", nil

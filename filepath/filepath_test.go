@@ -181,25 +181,25 @@ var _ = Describe("filepath tests", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{"/tmp/foo/gpseg-1/backups"}, nil
 			}
-			res, err := ParseSegPrefix("/tmp/foo")
+			res, err := ParseSegPrefix("/tmp/foo", "00000000000000")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal("gpseg"))
 		})
 		It("returns empty string if backup directory is empty", func() {
-			res, err := ParseSegPrefix("")
+			res, err := ParseSegPrefix("", "00000000000000")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal(""))
 		})
 		It("returns an error when coordinator backup directory does not exist", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) { return []string{}, nil }
-			_, err := ParseSegPrefix("/tmp/foo")
+			_, err := ParseSegPrefix("/tmp/foo", "00000000000000")
 			Expect(err.Error()).To(Equal("Backup directory in /tmp/foo missing"))
 		})
 		It("returns an error when there is an error accessing coordinator backup directory", func() {
 			operating.System.Glob = func(pattern string) (matches []string, err error) {
 				return []string{""}, os.ErrPermission
 			}
-			_, err := ParseSegPrefix("/tmp/foo")
+			_, err := ParseSegPrefix("/tmp/foo", "00000000000000")
 			Expect(err.Error()).To(Equal("Failure while trying to locate backup directory in /tmp/foo. Error: permission denied"))
 		})
 		It("returns an error when multiple coordinator backup directories", func() {
@@ -210,7 +210,7 @@ var _ = Describe("filepath tests", func() {
 					return []string{}, nil
 				}
 			}
-			_, err := ParseSegPrefix("/tmp/foo")
+			_, err := ParseSegPrefix("/tmp/foo", "00000000000000")
 			Expect(err.Error()).To(Equal("Multiple backup directories in /tmp/foo"))
 		})
 		Describe("IsValidTimestamp", func() {

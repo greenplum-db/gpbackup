@@ -346,7 +346,7 @@ func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, object
 func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 	fpInfoList := make([]filepath.FilePathInfo, 0)
 	for _, entry := range backupConfig.RestorePlan {
-		segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR))
+		segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), entry.Timestamp)
 		gplog.FatalOnError(err)
 
 		fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), entry.Timestamp, segPrefix)
@@ -357,7 +357,7 @@ func GetBackupFPInfoListFromRestorePlan() []filepath.FilePathInfo {
 }
 
 func GetBackupFPInfoForTimestamp(timestamp string) filepath.FilePathInfo {
-	segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR))
+	segPrefix, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), timestamp)
 	gplog.FatalOnError(err)
 	fpInfo := filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, segPrefix)
 	return fpInfo
