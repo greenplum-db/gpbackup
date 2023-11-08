@@ -5,14 +5,12 @@ image_resource:
 
 inputs:
 - name: gpbackup
-- name: release_components_rhel6
 - name: release_components_rhel7
 - name: release_components_rhel8
 - name: release_components_rhel9
 - name: release_components_ubuntu
 
 outputs:
-- name: components_untarred_rhel6
 - name: components_untarred_rhel7
 - name: components_untarred_rhel8
 - name: components_untarred_rhel9

@@ -58,11 +58,6 @@ file_groups:
       upload_as: Backup and Restore for GP 6 on RHEL7
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
-    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-rhel6-x86_64.gppkg
-      description:
-      upload_as: Backup and Restore for GP 6 on RHEL6
-      file_type: Software
-      file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp6-ubuntu-amd64.gppkg
       description:
       upload_as: Backup and Restore for GP 6 on Ubuntu 20.04
@@ -83,11 +78,6 @@ file_groups:
       upload_as: Backup and Restore for GP 6 on RHEL7 compressed tarball
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
-    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel6.tar.gz
-      description:
-      upload_as: Backup and Restore for GP 6 on RHEL6 compressed tarball
-      file_type: Software
-      file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-ubuntu.tar.gz
       description:
       upload_as: Backup and Restore for GP 6 on Ubuntu 20.04 compressed tarball
@@ -101,19 +91,9 @@ file_groups:
       upload_as: Backup and Restore for GP 5 on RHEL7
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
-    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-gp5-rhel6-x86_64.gppkg
-      description:
-      upload_as: Backup and Restore for GP 5 on RHEL6
-      file_type: Software
-      file_version: <TILE_RELEASE_VERSION>
     - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel7.tar.gz
       description:
       upload_as: Backup and Restore for GP 5 on RHEL7 compressed tarball
-      file_type: Software
-      file_version: <TILE_RELEASE_VERSION>
-    - file: file://greenplum_backup_restore-<TILE_RELEASE_VERSION>-rhel6.tar.gz
-      description:
-      upload_as: Backup and Restore for GP 5 on RHEL6 compressed tarball
       file_type: Software
       file_version: <TILE_RELEASE_VERSION>
 

@@ -50,7 +50,7 @@ function build_deb_ubuntu() {
 export GPBACKUP_TOOLS_VERSION=$(cat gpbackup-tools-versions/pkg_version)
 echo "Building gppkg v1 installer for gpbackup version: ${GPBACKUP_TOOLS_VERSION} platform: ${OS}"
 
-if [[ ${OS} == "RHEL6" || ${OS} == "RHEL7" ||  ${OS} == "RHEL8" || ${OS} == "RHEL9" ]]; then
+if [[ ${OS} == "RHEL7" ||  ${OS} == "RHEL8" || ${OS} == "RHEL9" ]]; then
     build_rpm_rhel
 elif [[ ${OS} == "ubuntu" ]]; then
     build_deb_ubuntu

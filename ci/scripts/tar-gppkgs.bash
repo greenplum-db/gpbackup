@@ -3,7 +3,6 @@
 set -ex
 
 cp gpbackup-tools-versions/* gppkgs/
-mv rhel6-gppkg/* gppkgs/
 mv rhel7-gppkg/* gppkgs/
 mv rhel8-gppkg/* gppkgs/
 mv rhel9-gppkg/* gppkgs/

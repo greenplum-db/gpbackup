@@ -7,11 +7,6 @@ mkdir -p /usr/local/greenplum-db-devel
 tar -xzf bin_gpdb/*.tar.gz -C /usr/local/greenplum-db-devel
 source /usr/local/greenplum-db-devel/greenplum_path.sh
 
-if [[ -f libyaml-0.1.7/libyaml-0.1.7.tar.gz ]]; then
-  # unpack libyaml so makefile does not try to curl it
-  tar xzf libyaml-0.1.7/libyaml-0.1.7.tar.gz -C gpbackup_ddboost_plugin
-fi
-
 # build ddboost plugin
 pushd gpbackup_ddboost_plugin
     source /opt/gcc_env.sh || true
