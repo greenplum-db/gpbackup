@@ -1472,22 +1472,23 @@ jobs:
     - get: gppkgs
       trigger: true
       passed: [build_gppkgs]
-  - task: run-tests-locally-rocky8
-    image: rocky8-gpdb7-image
-    file: gpbackup/ci/tasks/test-on-local-cluster.yml
-    params:
-      REQUIRES_DUMMY_SEC: true
-      OS: RHEL8
-    input_mapping:
-      bin_gpdb: bin_gpdb_7x_rhel8
-  - task: run-tests-locally-rocky9
-    image: rocky9-gpdb7-image
-    file: gpbackup/ci/tasks/test-on-local-cluster.yml
-    params:
-      REQUIRES_DUMMY_SEC: true
-      OS: RHEL9
-    input_mapping:
-      bin_gpdb: bin_gpdb_7x_rhel9
+  - in_parallel:
+    - task: run-tests-locally-rocky8
+      image: rocky8-gpdb7-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+        OS: RHEL8
+      input_mapping:
+        bin_gpdb: bin_gpdb_7x_rhel8
+    - task: run-tests-locally-rocky9
+      image: rocky9-gpdb7-image
+      file: gpbackup/ci/tasks/test-on-local-cluster.yml
+      params:
+        REQUIRES_DUMMY_SEC: true
+        OS: RHEL9
+      input_mapping:
+        bin_gpdb: bin_gpdb_7x_rhel9
 {% if should_alert and (is_prod or "gpbackup-release" == pipeline_name) %}
   on_failure:
     *slack_alert
