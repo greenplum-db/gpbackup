@@ -701,17 +701,31 @@ AS ASSIGNMENT;`)
 		It("prints a create extension statement", func() {
 			extensionDef := backup.Extension{Oid: 1, Name: "extension1", Schema: "schema1"}
 			backup.PrintCreateExtensionStatements(backupfile, tocfile, []backup.Extension{extensionDef}, emptyMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
+			if connectionPool.Version.AtLeast("7") {
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SCHEMA IF NOT EXISTS schema1;
+SET search_path=schema1,pg_catalog;
 CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
 SET search_path=pg_catalog;`)
+			} else {
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
+CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
+SET search_path=pg_catalog;`)
+			}
 		})
 		It("prints a create extension statement with a comment", func() {
 			extensionDef := backup.Extension{Oid: 1, Name: "extension1", Schema: "schema1"}
 			extensionMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_EXTENSION, false, false, true, false)
 			backup.PrintCreateExtensionStatements(backupfile, tocfile, []backup.Extension{extensionDef}, extensionMetadataMap)
-			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
+			if connectionPool.Version.AtLeast("7") {
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `CREATE SCHEMA IF NOT EXISTS schema1;
+SET search_path=schema1,pg_catalog;
 CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
 SET search_path=pg_catalog;`, "COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';")
+			} else {
+				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, `SET search_path=schema1,pg_catalog;
+CREATE EXTENSION IF NOT EXISTS extension1 WITH SCHEMA schema1;
+SET search_path=pg_catalog;`, "COMMENT ON EXTENSION extension1 IS 'This is an extension comment.';")
+			}
 		})
 	})
 	Describe("ExtractLanguageFunctions", func() {
