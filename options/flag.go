@@ -47,6 +47,7 @@ const (
 	RESIZE_CLUSTER        = "resize-cluster"
 	RUN_ANALYZE           = "run-analyze"
 	SECTIONS              = "sections"
+	SINGLE_BACKUP_DIR     = "single-backup-dir"
 	SINGLE_DATA_FILE      = "single-data-file"
 	TIMESTAMP             = "timestamp"
 	TRUNCATE_TABLE        = "truncate-table"
@@ -68,6 +69,7 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(NO_HISTORY, false, "Do not write a backup entry to the gpbackup_history database")
 	flagSet.Bool(NO_INHERITS, false, "For a filtered backup, don't back up all tables that inherit included tables")
 	flagSet.Bool(QUIET, false, "Suppress non-warning, non-error log messages")
+	flagSet.Bool(SINGLE_BACKUP_DIR, false, "Back up all data to a single directory instead of split by segment")
 	flagSet.Bool(SINGLE_DATA_FILE, false, "Back up all data to a single file instead of one per table")
 	flagSet.Bool(VERBOSE, false, "Print verbose log messages")
 	flagSet.Bool(WITHOUT_GLOBALS, false, "Skip backup of global metadata.")

@@ -146,7 +146,7 @@ var _ = Describe("backup/incremental tests", func() {
 	Describe("PopulateRestorePlan", func() {
 		testCluster := testutils.SetDefaultSegmentConfiguration()
 		testFPInfo := filepath.NewFilePathInfo(testCluster, "", "ts0",
-			"gpseg")
+			"gpseg", false)
 		backup.SetFPInfo(testFPInfo)
 
 		Context("Full backup", func() {

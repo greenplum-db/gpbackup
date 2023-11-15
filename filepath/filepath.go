@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
+	"github.com/greenplum-db/gp-common-go-libs/dbconn"
+	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
 )
 
@@ -26,9 +28,10 @@ type FilePathInfo struct {
 	UserSpecifiedSegPrefix string
 	BaseDataDir            string
 	UserSpecifiedReportDir string
+	SingleBackupDir        bool
 }
 
-func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestamp string, userSegPrefix string, useMirrors ...bool) FilePathInfo {
+func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestamp string, userSegPrefix string, singleBackupDir bool, useMirrors ...bool) FilePathInfo {
 	backupFPInfo := FilePathInfo{}
 	backupFPInfo.PID = os.Getpid()
 	backupFPInfo.UserSpecifiedBackupDir = userSpecifiedBackupDir
@@ -40,6 +43,7 @@ func NewFilePathInfo(c *cluster.Cluster, userSpecifiedBackupDir string, timestam
 	backupFPInfo.Timestamp = timestamp
 	backupFPInfo.SegDirMap = make(map[int]string)
 	backupFPInfo.BaseDataDir = "<SEG_DATA_DIR>"
+	backupFPInfo.SingleBackupDir = singleBackupDir
 
 	// While gpbackup doesn't care about mirrors, gpbackup_manager uses FilePathInfo and needs
 	// to record mirror information for deleting backups, so we add that functionality here.
@@ -68,13 +72,13 @@ func (backupFPInfo *FilePathInfo) IsUserSpecifiedBackupDir() bool {
 	return backupFPInfo.UserSpecifiedBackupDir != ""
 }
 
-// When using the current directory format, the backup directory is identical for all contents;
-// we keep this function around solely for backwards compatibility.
+// Here we must differentiate between the "single-backup-dir" format and the default format, and
+// return the correct location as appropriate
 func (backupFPInfo *FilePathInfo) GetDirForContent(contentID int) string {
 	baseDir := backupFPInfo.SegDirMap[contentID]
 	if backupFPInfo.IsUserSpecifiedBackupDir() {
 		baseDir = backupFPInfo.UserSpecifiedBackupDir
-		if backupFPInfo.UserSpecifiedSegPrefix != "" {
+		if backupFPInfo.UserSpecifiedSegPrefix != "" || !backupFPInfo.SingleBackupDir {
 			segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, contentID)
 			baseDir = path.Join(baseDir, segDir)
 		}
@@ -84,6 +88,11 @@ func (backupFPInfo *FilePathInfo) GetDirForContent(contentID int) string {
 
 func (backupFPInfo *FilePathInfo) GetReportDirectoryPath() string {
 	if backupFPInfo.UserSpecifiedReportDir != "" {
+		if !backupFPInfo.SingleBackupDir {
+			segDir := fmt.Sprintf("%s%d", backupFPInfo.UserSpecifiedSegPrefix, -1)
+			return path.Join(backupFPInfo.UserSpecifiedReportDir, segDir, "backups", backupFPInfo.Timestamp[0:8], backupFPInfo.Timestamp)
+		}
+
 		return backupFPInfo.UserSpecifiedReportDir
 	}
 	return backupFPInfo.GetDirForContent(-1)
@@ -208,36 +217,36 @@ func (backupFPInfo *FilePathInfo) GetHelperLogPath() string {
  * Helper functions
  */
 
-func ParseSegPrefix(backupDir string, timestamp string) (string, error) {
+func ParseSegPrefix(backupDir string, timestamp string) (string, bool, error) {
 	if backupDir == "" || timestamp == "" {
-		return "", nil
+		return "", false, nil
 	}
 
 	dateString := timestamp[:8]
 	_, err := operating.System.Stat(fmt.Sprintf("%s/backups/%s/%s", backupDir, dateString, timestamp))
 	if err == nil {
-		// We're using the current directory format, there's no prefix to parse
-		return "", nil
+		// We're using the single-backup-dir directory format, there's no prefix to parse
+		return "", true, nil
 	}
 	if err != nil && !os.IsNotExist(err) {
-		return "", fmt.Errorf("Failure while trying to locate backup directory in %s. Error: %s", backupDir, err.Error())
+		return "", false, fmt.Errorf("Failure while trying to locate backup directory in %s. Error: %s", backupDir, err.Error())
 	}
 
 	// We're using the legacy directory format, try to find a prefix
 	backupDirForCoordinator, err := operating.System.Glob(fmt.Sprintf("%s/*-1/backups", backupDir))
 	if err != nil {
-		return "", fmt.Errorf("Failure while trying to locate backup directory in %s. Error: %s", backupDir, err.Error())
+		return "", false, fmt.Errorf("Failure while trying to locate backup directory in %s. Error: %s", backupDir, err.Error())
 	}
 	if len(backupDirForCoordinator) == 0 {
-		return "", fmt.Errorf("Backup directory in %s missing", backupDir)
+		return "", false, fmt.Errorf("Backup directory in %s missing", backupDir)
 	}
 	if len(backupDirForCoordinator) != 1 {
-		return "", fmt.Errorf("Multiple backup directories in %s", backupDir)
+		return "", false, fmt.Errorf("Multiple backup directories in %s", backupDir)
 	}
 	indexOfBackupsSubstr := strings.LastIndex(backupDirForCoordinator[0], "-1/backups")
 	_, segPrefix := path.Split(backupDirForCoordinator[0][:indexOfBackupsSubstr])
 
-	return segPrefix, nil
+	return segPrefix, false, nil
 }
 
 func GetTimestampFromBackupDirectory(backupDir string) (string, error) {
@@ -266,4 +275,19 @@ func GetTimestampFromBackupDirectory(backupDir string) (string, error) {
 
 	timestamp := path.Base(string(timestampDirs[0]))
 	return timestamp, nil
+}
+
+func GetSegPrefix(connectionPool *dbconn.DBConn) string {
+	query := ""
+	if connectionPool.Version.Before("6") {
+		query = "SELECT fselocation FROM pg_filespace_entry WHERE fsedbid = 1;"
+	} else {
+		query = "SELECT datadir FROM gp_segment_configuration WHERE content = -1 AND role = 'p';"
+	}
+	result := ""
+	err := connectionPool.Get(&result, query)
+	gplog.FatalOnError(err)
+	_, segPrefix := path.Split(result)
+	segPrefix = segPrefix[:len(segPrefix)-2] // Remove "-1" segment ID from string
+	return segPrefix
 }

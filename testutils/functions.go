@@ -51,7 +51,7 @@ func SetupTestCluster() *cluster.Cluster {
 	testCluster := SetDefaultSegmentConfiguration()
 	backup.SetCluster(testCluster)
 	restore.SetCluster(testCluster)
-	testFPInfo := filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg")
+	testFPInfo := filepath.NewFilePathInfo(testCluster, "", "20170101010101", "gpseg", false)
 	backup.SetFPInfo(testFPInfo)
 	restore.SetFPInfo(testFPInfo)
 	return testCluster

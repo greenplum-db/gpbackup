@@ -167,6 +167,9 @@ func validateFlagCombinations(flags *pflag.FlagSet) {
 	if MustGetFlagBool(options.NO_INHERITS) && !(FlagChanged(options.INCLUDE_RELATION) || FlagChanged(options.INCLUDE_RELATION_FILE)) {
 		gplog.Fatal(errors.Errorf("--no-inherits must be specified with either --include-table or --include-table-file"), "")
 	}
+	if FlagChanged(options.SINGLE_BACKUP_DIR) && !FlagChanged(options.BACKUP_DIR) {
+		gplog.Fatal(errors.Errorf("--single-backup-dir must be specified with --backup-dir"), "")
+	}
 }
 
 func validateFlagValues() {
@@ -187,7 +190,9 @@ func validateFlagValues() {
 }
 
 func validateFromTimestamp(fromTimestamp string) {
-	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir, fromTimestamp, "")
+	fromTimestampFPInfo := filepath.NewFilePathInfo(globalCluster, globalFPInfo.UserSpecifiedBackupDir,
+		fromTimestamp, globalFPInfo.UserSpecifiedSegPrefix, globalFPInfo.SingleBackupDir)
+
 	if MustGetFlagString(options.PLUGIN_CONFIG) != "" {
 		// The config file needs to be downloaded from the remote system into the local filesystem
 		pluginConfig.MustRestoreFile(fromTimestampFPInfo.GetConfigFilePath())

@@ -1149,15 +1149,17 @@ jobs:
   - task: setup-cluster-env
     file: gpbackup/ci/tasks/setup-cluster-env.yml
     image: rocky8-gpdb6-image
+  - task: run-tests-gpbackup-latest
+    image: rocky8-gpdb6-image
+    file: gpbackup/ci/tasks/test-gpbackup-manager.yml
+    params:
+      GPBACKUP_VERSION: ""
+      OS: RHEL8
   - task: run-tests-gpbackup-1.29.0
     image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/test-gpbackup-manager.yml
     params:
       GPBACKUP_VERSION: "1.29.0"
-      OS: RHEL8
-  - task: run-tests-gpbackup-latest
-    image: rocky8-gpdb6-image
-    file: gpbackup/ci/tasks/test-gpbackup-manager.yml
     on_success:
       <<: *ccp_destroy
   ensure:

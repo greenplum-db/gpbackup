@@ -42,7 +42,7 @@ var _ = Describe("agent remote", func() {
 		testCluster = cluster.NewCluster([]cluster.SegConfig{coordinatorSeg, localSegOne, remoteSegOne})
 		testCluster.Executor = testExecutor
 
-		fpInfo = filepath.NewFilePathInfo(testCluster, "", "11112233445566", "")
+		fpInfo = filepath.NewFilePathInfo(testCluster, "", "11112233445566", "", false)
 	})
 	// note: technically the file system is written to during the call `operating.System.TempFile`
 	//			this file is not used throughout the unit tests below, and it is cleaned up with the method: `operating.System.Remove`

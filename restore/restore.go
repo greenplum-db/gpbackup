@@ -72,7 +72,6 @@ func DoSetup() {
 	}
 	gplog.Info("Restore Key = %s", backupTimestamp)
 
-	var segPrefix string
 	opts, err = options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
@@ -84,12 +83,12 @@ func DoSetup() {
 	err = opts.QuoteExcludeRelations(connectionPool)
 	gplog.FatalOnError(err)
 
-	segPrefix, err = filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), backupTimestamp)
+	segPrefix, singleBackupDir, err := filepath.ParseSegPrefix(MustGetFlagString(options.BACKUP_DIR), backupTimestamp)
 	gplog.FatalOnError(err)
-	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), backupTimestamp, segPrefix)
+	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), backupTimestamp, segPrefix, singleBackupDir)
 	if reportDir := MustGetFlagString(options.REPORT_DIR); reportDir != "" {
 		globalFPInfo.UserSpecifiedReportDir = reportDir
-		err := operating.System.MkdirAll(globalFPInfo.GetReportDirectoryPath(), 0775)
+		err = operating.System.MkdirAll(globalFPInfo.GetReportDirectoryPath(), 0775)
 		gplog.FatalOnError(err)
 	}
 
