@@ -1337,7 +1337,9 @@ jobs:
       passed: [build_gppkgs]
     - get: bin_gpdb_7x_rhel9
     - get: bin_gpdb_7x_rhel8
+{% if "gpbackup-release" != pipeline_name %}
       trigger: true
+{% endif %}
     - get: gpdb_src
       resource: gpdb_main_src
     - get: dummy_seclabel
@@ -1374,10 +1376,10 @@ jobs:
     - get: centos7-gpdb5-image
     - get: gpbackup
       passed: [build_gppkgs]
+    - get: bin_gpdb_5x_centos7
 {% if "gpbackup-release" != pipeline_name %}
       trigger: true
 {% endif %}
-    - get: bin_gpdb_5x_centos7
     - get: gpdb_src
       resource: gpdb5_src
     - get: gppkgs
@@ -1473,9 +1475,6 @@ jobs:
 {% endif %}
     - get: gpbackup
       passed: [build_gppkgs]
-{% if "gpbackup-release" != pipeline_name %}
-      trigger: true
-{% endif %}
     - get: bin_gpdb_6x_rhel9
     - get: bin_gpdb_6x_rhel8
     - get: bin_gpdb_6x_centos7
