@@ -52,10 +52,6 @@ func VerifyBackupFileCountOnSegments() {
 		// outside the destination array will be "[]", which the find command can handle safely in this context.
 		contentsList := fmt.Sprintf("(%s)", strings.Join(contentMap[contentID], "|"))
 		cmdString := fmt.Sprintf(`find %s -type f -regextype posix-extended -regex ".*gpbackup_%s_%s.*" | wc -l`, globalFPInfo.GetDirForContent(contentID), contentsList, globalFPInfo.Timestamp)
-
-		// NOTE: this is the original regex from default-dir structure. It is kept here commented,
-		// for use in possible future perf investigations if needed
-		// return fmt.Sprintf("find %s -type f | wc -l", globalFPInfo.GetDirForContent(contentID))
 		return cmdString
 	})
 	globalCluster.CheckClusterError(remoteOutput, "Could not verify backup file count", func(contentID int) string {
