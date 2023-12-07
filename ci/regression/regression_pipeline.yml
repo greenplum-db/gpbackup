@@ -140,7 +140,9 @@ resources:
   type: time
   source:
     location: America/Los_Angeles
-    interval: 168h # 7 days
+    start: 8:00 AM
+    stop: 9:00 AM
+    days: [Tuesday]
 
 - name: gp-pkg
   type: gcs
