@@ -9,8 +9,8 @@ if [[ -d gp-pkg ]] ; then
     tar -xzf gp-pkg/gppkg* -C /tmp/gppkgv2
 fi
 
-# this will dump a folder /tmp/backups with our saved gpbackup results
-tar -xzf migration-backup/migration-backup.tar.gz
+# this will dump a folder /tmp/icw-migr-backup with our saved gpbackup results
+tar -xzf migration-backup/migration-backup.tar.gz -C /tmp
 
 if [[ ! -f bin_gpdb/bin_gpdb.tar.gz ]] ; then
   mv bin_gpdb/*.tar.gz bin_gpdb/bin_gpdb.tar.gz
@@ -52,8 +52,8 @@ else
 fi
 
 # extract timestamp from saved folder, use it to run a restore
-TS=\$(ls $(pwd)/backups/backups/*)
-gprestore --timestamp=\$TS --backup-dir=$(pwd)/backups --create-db --with-globals --on-error-continue | tee /tmp/gpbackup_test.log
+TS=\$(ls /tmp/icw-migr-backup/backups/*)
+gprestore --timestamp=\$TS --backup-dir=/tmp/icw-migr-backup --create-db --with-globals --on-error-continue | tee /tmp/gpbackup_test.log
 
 # We expect some errors, so we have to use on-error-continue, but we want to parse for unexpected
 # errors so that we will still fail this test when appropriate.  We chain greps here to allow us to

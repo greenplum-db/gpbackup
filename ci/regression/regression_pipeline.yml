@@ -416,22 +416,22 @@ jobs:
       <<: *ccp_default_params
       vars:
         instance_type: n1-standard-8
-        PLATFORM: rhel8
+        PLATFORM: rocky8
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
-      PLATFORM: rhel8
+      PLATFORM: rocky8
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-cluster-env
     image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/setup-cluster-env.yml
-    params:
-      default_ami_user: rhel
   - task: icw-roundtrip
     image: rocky8-gpdb6-image
     file: gpbackup/ci/tasks/icw-roundtrip.yml
+    params:
+      OS: RHEL8
   on_success:
     <<: *ccp_destroy_nvme
   on_failure:
@@ -464,22 +464,22 @@ jobs:
       <<: *ccp_default_params
       vars:
         instance_type: n1-standard-8
-        PLATFORM: rhel8-gpdb7
+        PLATFORM: rocky8-gpdb7
   - task: gen_cluster
     params:
       <<: *ccp_gen_cluster_default_params
-      PLATFORM: rhel8-gpdb7
+      PLATFORM: rocky8-gpdb7
     file: ccp_src/ci/tasks/gen_cluster.yml
   - task: gpinitsystem
     file: ccp_src/ci/tasks/gpinitsystem.yml
   - task: setup-cluster-env
     image: rocky8-gpdb7-image
     file: gpbackup/ci/tasks/setup-cluster-env.yml
-    params:
-      default_ami_user: rhel
   - task: icw-roundtrip
     image: rocky8-gpdb7-image
     file: gpbackup/ci/tasks/icw-roundtrip.yml
+    params:
+      OS: RHEL8
   on_success:
     <<: *ccp_destroy_nvme
   on_failure:

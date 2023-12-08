@@ -19,9 +19,6 @@ time make_cluster
 # unxz the dump to a findable location
 xz -dc icw_dump/dump.sql.xz > /tmp/dump.sql
 
-mkdir backups
-chown -R gpadmin:gpadmin backups
-
 cat <<SCRIPT > /tmp/backup_icw.bash
 #!/bin/bash
 
@@ -97,8 +94,8 @@ psql -d regression -c "DROP TRIGGER IF EXISTS before_upd_a_stmt_trig on public.m
 psql -d regression -c "DROP TRIGGER IF EXISTS foo_as_trigger on test_expand_table.table_with_update_trigger;"
 psql -d regression -c "DROP TRIGGER IF EXISTS foo_bs_trigger on test_expand_table.table_with_update_trigger;"
 
-mkdir backups
-gpbackup --dbname regression --backup-dir $(pwd)/backups
+mkdir /tmp/icw-migr-backup
+gpbackup --dbname regression --backup-dir /tmp/icw-migr-backup --single-backup-dir
 echo "Backup for migration testing completed"
 
 SCRIPT
@@ -107,6 +104,6 @@ chmod +x /tmp/backup_icw.bash
 su - gpadmin "/tmp/backup_icw.bash"
 
 # move artifacts for Concourse put
-tar -czf migration-backup.tar.gz backups
+tar -czf migration-backup.tar.gz -C /tmp icw-migr-backup
 mv migration-backup.tar.gz migration-artifacts
 

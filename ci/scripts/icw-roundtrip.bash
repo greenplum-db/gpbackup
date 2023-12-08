@@ -38,19 +38,19 @@ gpconfig -c gp_vmem_protect_limit -v 16384 --masteronly
 gpstop -air
 
 # only install if not installed already
-is_installed_output=\$(source env.sh; gppkg -q gpbackup*gp*.gppkg)
-set +e
-echo \$is_installed_output | grep 'is installed'
-if [ \$? -ne 0 ] ; then
-  set -e
-  if [[ -f /home/gpadmin/.local/bin/gppkg ]] ; then
-    # gppkg v2 is installed here
+if [[ -f /home/gpadmin/.local/bin/gppkg ]] ; then
+  # gppkg v2 is installed here
+  source env.sh; gppkg query greenplum_backup_restore
+  if [ \$? -ne 0 ] ; then
     gppkg install -a gpbackup*gp*.gppkg
-  else
+  fi
+else
+  is_installed_output=\$(source env.sh; gppkg -q gpbackup*gp*.gppkg)
+  echo \$is_installed_output | grep 'is installed'
+  if [ \$? -ne 0 ] ; then
     gppkg -i gpbackup*gp*.gppkg
   fi
 fi
-set -e
 
 # run dump into database
 echo "## Loading dumpfile ##"
@@ -83,7 +83,6 @@ if [ \$? -ne 0 ] ; then
     exit 1
 fi
 echo "ICW round-trip restore was successful"
-
 SCRIPT
 
 chmod +x /tmp/run_tests.bash
