@@ -2151,7 +2151,7 @@ LANGUAGE plpgsql NO SQL;`)
 				},
 				Entry("Can backup a 1-segment cluster and restore to current cluster with replicated tables", "20221104023842", "1-segment-db-replicated"),
 				Entry("Can backup a 3-segment cluster and restore to current cluster with replicated tables", "20221104023611", "3-segment-db-replicated"),
-				Entry("Can backup a 9-segment cluster and restore to current cluster with replicated tables", "20221104025347", "9-segment-db-replicated"),
+				Entry("Can backup a 9-segment cluster and restore to current cluster with replicated tables", "20231128092650", "9-segment-db-replicated"),
 			)
 		})
 
