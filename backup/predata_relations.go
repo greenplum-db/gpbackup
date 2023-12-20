@@ -452,6 +452,49 @@ func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, objToc *toc
 	PrintObjectMetadata(metadataFile, objToc, viewMetadata, view, "", tier)
 }
 
+// The CREATE statement here should be kept in sync with the one in
+// PrintCreateViewStatement
+func PrintCreatePostdataViewStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, views []View) {
+	for _, view := range views {
+		start := metadataFile.ByteCount
+		metadataFile.MustPrintf("\n\nCREATE OR REPLACE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition.String)
+		section, entry := view.GetMetadataEntry()
+		section = "postdata"
+		tier := globalTierMap[view.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	}
+}
+
+// A dummy view is used to resolve the circular dependency of the following
+// scenario. Views are restored in predata. Views can depend on constraints.
+// Constraints are restored in postdata for performance reasons.
+// This is directly based off pg_dump's createDummyViewAsClause
+func PrintCreateDummyViewStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, view View, viewMetadata ObjectMetadata) {
+	start := metadataFile.ByteCount
+
+	dummyViewClause := "SELECT"
+	for i, column := range view.ColumnDefs {
+		if i > 0 {
+			dummyViewClause += ","
+		}
+		dummyViewClause += fmt.Sprintf("\n\tNULL::%s", column.Type)
+
+		if column.Collation != "" {
+			dummyViewClause += fmt.Sprintf(" COLLATE %s", column.Collation)
+		}
+
+		dummyViewClause += fmt.Sprintf(" AS %s", column.Name)
+	}
+	dummyViewClause += ";"
+
+	metadataFile.MustPrintf("\n\nCREATE VIEW %s AS \n%s\n", view.FQN(), dummyViewClause)
+
+	section, entry := view.GetMetadataEntry()
+	tier := globalTierMap[view.GetUniqueID()]
+	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+	PrintObjectMetadata(metadataFile, objToc, viewMetadata, view, "", tier)
+}
+
 func ExpandIncludesForPartitions(conn *dbconn.DBConn, opts *options.Options, includeOids []string, flags *pflag.FlagSet) error {
 	if len(opts.GetIncludedTables()) == 0 {
 		return nil

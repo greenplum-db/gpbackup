@@ -663,4 +663,67 @@ WITH NO DATA
 DISTRIBUTED BY (tablename);`)
 		})
 	})
+	Describe("PrintCreateDummyViewStatement", func() {
+		var emptyMetadata backup.ObjectMetadata
+		BeforeEach(func() {
+			emptyMetadata = backup.ObjectMetadata{}
+		})
+		It("can print a simple dummy view with 0 columns", func() {
+			view := backup.View{
+				Schema:     "schema1",
+				Name:       "view1",
+				ColumnDefs: []backup.ColumnDefinition{},
+			}
+			backup.PrintCreateDummyViewStatement(backupfile, tocfile, view, emptyMetadata)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "view1", toc.OBJ_VIEW)
+			Expect(string(buffer.Contents())).To(ContainSubstring("CREATE VIEW schema1.view1 AS"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("SELECT;"))
+		})
+		It("can print a simple dummy view with 1 columns", func() {
+			view := backup.View{
+				Schema: "schema1",
+				Name:   "view1",
+				ColumnDefs: []backup.ColumnDefinition{
+					backup.ColumnDefinition{Type: "integer", Name: "i"},
+				},
+			}
+			backup.PrintCreateDummyViewStatement(backupfile, tocfile, view, emptyMetadata)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "view1", toc.OBJ_VIEW)
+			Expect(string(buffer.Contents())).To(ContainSubstring("CREATE VIEW schema1.view1 AS"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("SELECT"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("NULL::integer AS i;"))
+		})
+		It("can print a simple dummy view with 2 columns", func() {
+			view := backup.View{
+				Schema: "schema1",
+				Name:   "view1",
+				ColumnDefs: []backup.ColumnDefinition{
+					backup.ColumnDefinition{Type: "integer", Name: "i"},
+					backup.ColumnDefinition{Type: "integer", Name: "j"},
+				},
+			}
+			backup.PrintCreateDummyViewStatement(backupfile, tocfile, view, emptyMetadata)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "view1", toc.OBJ_VIEW)
+			Expect(string(buffer.Contents())).To(ContainSubstring("CREATE VIEW schema1.view1 AS"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("SELECT"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("NULL::integer AS i,"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("NULL::integer AS j;"))
+		})
+		It("can print a simple dummy view with a collation", func() {
+			view := backup.View{
+				Schema: "schema1",
+				Name:   "view1",
+				ColumnDefs: []backup.ColumnDefinition{
+					backup.ColumnDefinition{Type: "integer", Name: "i"},
+					backup.ColumnDefinition{Type: "integer", Name: "j", Collation: `pg_catalog."C"`},
+				},
+			}
+			backup.PrintCreateDummyViewStatement(backupfile, tocfile, view, emptyMetadata)
+			testutils.ExpectEntry(tocfile.PredataEntries, 0, "schema1", "", "view1", toc.OBJ_VIEW)
+			Expect(string(buffer.Contents())).To(ContainSubstring("CREATE VIEW schema1.view1 AS"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("SELECT"))
+			Expect(string(buffer.Contents())).To(ContainSubstring("NULL::integer AS i,"))
+			Expect(string(buffer.Contents())).To(ContainSubstring(`NULL::integer COLLATE pg_catalog."C" AS j;`))
+		})
+	})
 })

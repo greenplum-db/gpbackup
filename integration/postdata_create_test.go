@@ -392,4 +392,37 @@ AS $$ BEGIN RAISE EXCEPTION 'exception'; END; $$;`)
 			}
 		})
 	})
+	Describe("PrintCreateDummyViewStatement and PrintCreatePostdataViewStatements", func() {
+		It("creates postdata views that replace dummy views", func() {
+			testutils.SkipIfBefore6(connectionPool)
+			testhelper.AssertQueryRuns(connectionPool, `
+				CREATE TABLE public.view_base_table (key int PRIMARY KEY, data varchar(20));
+			`)
+			defer testhelper.AssertQueryRuns(connectionPool, `
+				DROP TABLE public.view_base_table CASCADE;
+			`)
+
+			view1 := backup.View{
+				Schema: "public",
+				Name:   "key_dependent_view",
+				Definition: sql.NullString{
+					String: " SELECT view_base_table.key,\n    (view_base_table.data COLLATE \"C\") AS data\n   FROM public.view_base_table\n  GROUP BY view_base_table.key;",
+					Valid:  true,
+				},
+				ColumnDefs: []backup.ColumnDefinition{
+					backup.ColumnDefinition{Type: "integer", Name: "key", Num: 1, StatTarget: -1},
+					backup.ColumnDefinition{Type: "character varying(20)", Name: "data", Collation: "pg_catalog.\"C\"", Num: 2, StatTarget: -1},
+				},
+			}
+
+			backup.PrintCreateDummyViewStatement(backupfile, tocfile, view1, backup.ObjectMetadata{})
+			backup.PrintCreatePostdataViewStatements(backupfile, tocfile, []backup.View{view1})
+
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+
+			resultViews := backup.GetAllViews(connectionPool)
+			Expect(resultViews).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&view1, &resultViews[0], "Oid", "ColumnDefs.Oid")
+		})
+	})
 })

@@ -221,4 +221,25 @@ EXECUTE %s abort_any_command();`, evTrigExecReplacement), `ALTER EVENT TRIGGER t
 			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, `CREATE STATISTICS public.test_stat (dependencies) ON a, b FROM myschema.mytable;`)
 		})
 	})
+	Describe("PrintCreatePostdataViewStatements", func() {
+		It("prints all postdata views", func() {
+			view1 := backup.View{
+				Schema:     "schema1",
+				Name:       "view1",
+				Definition: sql.NullString{String: "SELECT 1", Valid: true},
+			}
+			view2 := backup.View{
+				Schema:     "schema1",
+				Name:       "view2",
+				Definition: sql.NullString{String: "SELECT 2", Valid: true},
+				Options:    " WITH (check_option = cascaded, security_barrier)",
+			}
+			backup.PrintCreatePostdataViewStatements(backupfile, tocfile, []backup.View{view1, view2})
+			testutils.ExpectEntry(tocfile.PostdataEntries, 0, "schema1", "", "view1", toc.OBJ_VIEW)
+			testutils.ExpectEntry(tocfile.PostdataEntries, 1, "schema1", "", "view2", toc.OBJ_VIEW)
+			expected1 := "CREATE OR REPLACE VIEW schema1.view1 AS SELECT 1"
+			expected2 := "CREATE OR REPLACE VIEW schema1.view2 WITH (check_option = cascaded, security_barrier) AS SELECT 2"
+			testutils.AssertBufferContents(tocfile.PostdataEntries, buffer, expected1, expected2)
+		})
+	})
 })
