@@ -38,6 +38,10 @@ var _ = Describe("backup internal tests", func() {
 	})
 	Describe("GetAllViews", func() {
 		It("GetAllViews properly handles NULL view definitions", func() {
+			columnDefHeader := []string{"attrelid", "attnum", "name", "attnotnull", "atthasdef", "type", "encoding", "attstattarget", "storagetype", "defaultval", "comment", "privileges", "kind", "options", "fdwoptions", "collation", "securitylabelprovider", "securitylabel", "attgenerated", "isinherited"}
+			fakeColumnDef := sqlmock.NewRows(columnDefHeader)
+			mock.ExpectQuery(`SELECT (.*)`).WillReturnRows(fakeColumnDef)
+
 			header := []string{"oid", "schema", "name", "options", "definition", "tablespace", "ismaterialized"}
 			rowOne := []driver.Value{"1", "mock_schema", "mock_table", "mock_options", "mock_def", "mock_tablespace", false}
 			rowTwo := []driver.Value{"2", "mock_schema2", "mock_table2", "mock_options2", nil, "mock_tablespace2", false}

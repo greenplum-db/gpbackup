@@ -417,7 +417,11 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, objTo
 		case ExternalProtocol:
 			PrintCreateExternalProtocolStatement(metadataFile, objToc, obj, funcInfoMap, objMetadata)
 		case View:
-			PrintCreateViewStatement(metadataFile, objToc, obj, objMetadata)
+			if obj.NeedsDummy {
+				PrintCreateDummyViewStatement(metadataFile, objToc, obj, objMetadata)
+			} else {
+				PrintCreateViewStatement(metadataFile, objToc, obj, objMetadata)
+			}
 		case TextSearchParser:
 			PrintCreateTextSearchParserStatement(metadataFile, objToc, obj, objMetadata)
 		case TextSearchConfiguration:
@@ -441,13 +445,40 @@ func PrintDependentObjectStatements(metadataFile *utils.FileWithByteCount, objTo
 		case UserMapping:
 			PrintCreateUserMappingStatement(metadataFile, objToc, obj)
 		case Constraint:
-			PrintConstraintStatement(metadataFile, objToc, obj, objMetadata)
+			// Constraints have been moved to postdata, but we need to include
+			// them for dependency sorting
+			continue
 		case Transform:
 			PrintCreateTransformStatement(metadataFile, objToc, obj, funcInfoMap, objMetadata)
 		}
 		// Remove ACLs from metadataMap for the current object since they have been processed
 		delete(metadataMap, object.GetUniqueID())
 	}
+
 	//  Process ACLs for left over objects in the metadata map
 	printExtensionFunctionACLs(metadataFile, objToc, metadataMap, funcInfoMap)
+}
+
+func MarkViewsDependingOnConstraints(sortableObjs []Sortable, depMap DependencyMap) []View {
+	var viewsDependingOnConstraints []View
+	for i, _ := range sortableObjs {
+		view, ok := sortableObjs[i].(View)
+		if !ok {
+			continue
+		}
+
+		relationsViewDependsOn, ok := depMap[view.GetUniqueID()]
+		if !ok {
+			continue
+		}
+
+		for relation := range relationsViewDependsOn {
+			if relation.ClassID == PG_CONSTRAINT_OID {
+				view.NeedsDummy = true
+				sortableObjs[i] = view
+				viewsDependingOnConstraints = append(viewsDependingOnConstraints, view)
+			}
+		}
+	}
+	return viewsDependingOnConstraints
 }

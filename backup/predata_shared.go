@@ -17,21 +17,39 @@ import (
  * There's no built-in function to generate constraint definitions like there is for other types of
  * metadata, so this function constructs them.
  */
-func PrintConstraintStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, constraint Constraint, conMetadata ObjectMetadata) {
-	alterStr := "\n\nALTER %s %s ADD CONSTRAINT %s %s;\n"
-	start := metadataFile.ByteCount
-	// ConIsLocal should always return true from GetConstraints because we filter out constraints that are inherited using the INHERITS clause, or inherited from a parent partition table. This field only accurately reflects constraints in GPDB6+ because check constraints on parent tables must propogate to children. For GPDB versions 5 or lower, this field will default to false.
-	objStr := "TABLE ONLY"
-	if constraint.IsPartitionParent || (constraint.ConType == "c" && constraint.ConIsLocal) {
-		// this is not strictly an object type but it shares use with them so we use the const here
-		objStr = toc.OBJ_TABLE
+func PrintConstraintStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, constraints []Constraint, conMetadata MetadataMap) {
+	allConstraints := make([]Constraint, 0)
+	allFkConstraints := make([]Constraint, 0)
+	/*
+	 * Because FOREIGN KEY constraints must be backed up after PRIMARY KEY
+	 * constraints, we separate the two types then concatenate the lists,
+	 * so FOREIGN KEY are guaranteed to be printed last.
+	 */
+	for _, constraint := range constraints {
+		if constraint.ConType == "f" {
+			allFkConstraints = append(allFkConstraints, constraint)
+		} else {
+			allConstraints = append(allConstraints, constraint)
+		}
 	}
-	metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.Def.String)
+	constraints = append(allConstraints, allFkConstraints...)
 
-	section, entry := constraint.GetMetadataEntry()
-	tier := globalTierMap[constraint.GetUniqueID()]
-	objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
-	PrintObjectMetadata(metadataFile, objToc, conMetadata, constraint, constraint.OwningObject, tier)
+	alterStr := "\n\nALTER %s %s ADD CONSTRAINT %s %s;\n"
+	for _, constraint := range constraints {
+		start := metadataFile.ByteCount
+
+		// ConIsLocal should always return true from GetConstraints because we filter out constraints that are inherited using the INHERITS clause, or inherited from a parent partition table. This field only accurately reflects constraints in GPDB6+ because check constraints on parent tables must propogate to children. For GPDB versions 5 or lower, this field will default to false.
+		objStr := "TABLE ONLY"
+		if constraint.IsPartitionParent || (constraint.ConType == "c" && constraint.ConIsLocal) {
+			objStr = toc.OBJ_TABLE
+		}
+		metadataFile.MustPrintf(alterStr, objStr, constraint.OwningObject, constraint.Name, constraint.Def.String)
+
+		section, entry := constraint.GetMetadataEntry()
+		tier := globalTierMap[constraint.GetUniqueID()]
+		objToc.AddMetadataEntry(section, entry, start, metadataFile.ByteCount, tier)
+		PrintObjectMetadata(metadataFile, objToc, conMetadata[constraint.GetUniqueID()], constraint, constraint.OwningObject, tier)
+	}
 }
 
 func PrintCreateSchemaStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, schemas []Schema, schemaMetadata MetadataMap) {

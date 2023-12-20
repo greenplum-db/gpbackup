@@ -1902,6 +1902,33 @@ LANGUAGE plpgsql NO SQL;`)
 				stdout := string(output)
 				Expect(stdout).To(ContainSubstring("Backup completed successfully"))
 			})
+			It("Restores views that depend on a constraint by printing a dummy view", func() {
+				testutils.SkipIfBefore6(backupConn)
+				if useOldBackupVersion {
+					Skip("This test is not needed for old backup versions")
+				}
+				testhelper.AssertQueryRuns(backupConn, `CREATE TABLE view_base_table (key int PRIMARY KEY, data varchar(20))`)
+				testhelper.AssertQueryRuns(backupConn, `CREATE VIEW key_dependent_view AS SELECT key, data COLLATE "C" FROM view_base_table GROUP BY key;`)
+				testhelper.AssertQueryRuns(backupConn, `CREATE VIEW key_dependent_view_no_cols AS SELECT FROM view_base_table GROUP BY key HAVING length(data) > 0`)
+				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE view_base_table CASCADE")
+
+				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+				contents := string(getMetdataFileContents(backupDir, timestamp, "metadata.sql"))
+				Expect(contents).To(ContainSubstring("CREATE VIEW public.key_dependent_view AS \nSELECT\n\tNULL::integer AS key,\n\tNULL::character varying(20) COLLATE pg_catalog.\"C\" AS data;"))
+				Expect(contents).To(ContainSubstring("CREATE VIEW public.key_dependent_view_no_cols AS \nSELECT;"))
+				Expect(contents).To(ContainSubstring("ALTER TABLE ONLY public.view_base_table ADD CONSTRAINT view_base_table_pkey PRIMARY KEY (key);"))
+				Expect(contents).To(ContainSubstring("CREATE OR REPLACE VIEW public.key_dependent_view AS  SELECT view_base_table.key,\n    (view_base_table.data COLLATE \"C\") AS data\n   FROM public.view_base_table\n  GROUP BY view_base_table.key;"))
+				Expect(contents).To(ContainSubstring("CREATE OR REPLACE VIEW public.key_dependent_view_no_cols AS  SELECT\n   FROM public.view_base_table\n  GROUP BY view_base_table.key\n HAVING (length((view_base_table.data)::text) > 0);"))
+
+				gprestoreArgs := []string{
+					"--timestamp", timestamp,
+					"--redirect-db", "restoredb",
+					"--backup-dir", backupDir}
+				gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+				_, err := gprestoreCmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
 	})
 	Describe("Restore to a different-sized cluster", FlakeAttempts(5), func() {

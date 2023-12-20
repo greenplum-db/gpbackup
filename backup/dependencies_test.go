@@ -241,4 +241,41 @@ COMMENT ON PROTOCOL ext_protocol IS 'protocol';
 `, default_parallel))
 		})
 	})
+	Describe("MarkViewsDependingOnConstraints", func() {
+		It("marks views that depend on constraints", func() {
+			view1 := backup.View{Schema: "public", Name: "view1", Oid: 1}
+			view2 := backup.View{Schema: "public", Name: "view2", Oid: 2}
+			view3 := backup.View{Schema: "public", Name: "view3", Oid: 3}
+			sortableObjs := []backup.Sortable{view1, view2, view3}
+
+			depMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = map[backup.UniqueID]bool{{ClassID: backup.PG_CONSTRAINT_OID, Oid: 4}: true}
+
+			resultViews := backup.MarkViewsDependingOnConstraints(sortableObjs, depMap)
+			Expect(resultViews).To(HaveLen(1))
+			Expect(resultViews[0].FQN()).To(Equal("public.view1"))
+		})
+		It("marks no views if none depend on constraints", func() {
+			view1 := backup.View{Schema: "public", Name: "view1", Oid: 1}
+			view2 := backup.View{Schema: "public", Name: "view2", Oid: 2}
+			view3 := backup.View{Schema: "public", Name: "view3", Oid: 3}
+			sortableObjs := []backup.Sortable{view1, view2, view3}
+
+			resultViews := backup.MarkViewsDependingOnConstraints(sortableObjs, depMap)
+			Expect(resultViews).To(HaveLen(0))
+
+		})
+		It("does not marks any object that is not a view", func() {
+			view1 := backup.View{Schema: "public", Name: "view1", Oid: 1}
+			view2 := backup.View{Schema: "public", Name: "view2", Oid: 2}
+			view3 := backup.View{Schema: "public", Name: "view3", Oid: 3}
+			relation1 := backup.Relation{Schema: "public", Name: "relation1", Oid: 4}
+			sortableObjs := []backup.Sortable{view1, view2, view3, relation1}
+
+			depMap[backup.UniqueID{ClassID: backup.PG_CLASS_OID, Oid: 1}] = map[backup.UniqueID]bool{{ClassID: backup.PG_CONSTRAINT_OID, Oid: 4}: true}
+
+			resultViews := backup.MarkViewsDependingOnConstraints(sortableObjs, depMap)
+			Expect(resultViews).To(HaveLen(1))
+			Expect(resultViews[0].FQN()).To(Equal("public.view1"))
+		})
+	})
 })
