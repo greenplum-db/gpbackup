@@ -60,10 +60,17 @@ To run only unit tests, use
 ```bash
 make unit
 ```
-To run only integration tests (requires a running GPDB instance), use
+To run only integration tests
 ```bash
 make integration
 ```
+Integration test requirements
+ - Running GPDB instance
+ - GPDB's gpcloud extension
+```bash
+make -C gpcontrib/gpcloud/ install
+```
+ - GPDB configured with `--with-perl`
 
 To run end to end tests (requires a running GPDB instance), use
 ```bash
