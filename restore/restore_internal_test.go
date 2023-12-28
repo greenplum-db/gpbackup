@@ -38,6 +38,10 @@ var _ = Describe("restore internal tests", func() {
 			Schema: "foo", Name: "foo", ObjectType: toc.OBJ_SCHEMA,
 			Statement: "\n\nREVOKE ALL ON SCHEMA foo FROM PUBLIC;\nGRANT ALL ON SCHEMA foo TO testuser;\n",
 		},
+		{ // multi-line permissions block for a view
+			Schema: "foo", Name: "myview", ObjectType: toc.OBJ_VIEW,
+			Statement: "\n\nREVOKE ALL ON TABLE foo.myview FROM PUBLIC;\nGRANT ALL ON TABLE foo.myview TO testuser;\n",
+		},
 		{ // multi-line permissions block for a non-schema object
 			Schema: "foo", Name: "myfunc", ObjectType: toc.OBJ_FUNCTION,
 			Statement: "\n\nREVOKE ALL ON FUNCTION foo.myfunc(integer) FROM PUBLIC;\nGRANT ALL ON FUNCTION foo.myfunc(integer) TO testuser;\n",
@@ -104,6 +108,10 @@ var _ = Describe("restore internal tests", func() {
 				{
 					Schema: "foo2", Name: "foo2", ObjectType: toc.OBJ_SCHEMA,
 					Statement: "\n\nREVOKE ALL ON SCHEMA foo2 FROM PUBLIC;\nGRANT ALL ON SCHEMA foo2 TO testuser;\n",
+				},
+				{
+					Schema: "foo2", Name: "myview", ObjectType: toc.OBJ_VIEW,
+					Statement: "\n\nREVOKE ALL ON TABLE foo2.myview FROM PUBLIC;\nGRANT ALL ON TABLE foo2.myview TO testuser;\n",
 				},
 				{
 					Schema: "foo2", Name: "myfunc", ObjectType: toc.OBJ_FUNCTION,

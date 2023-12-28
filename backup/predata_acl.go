@@ -295,7 +295,7 @@ func (obj ObjectMetadata) GetPrivilegesStatements(objectName string, objectType 
 	statements := make([]string, 0)
 	typeStr := fmt.Sprintf("%s ", objectType)
 	if objectType == toc.OBJ_VIEW || objectType == toc.OBJ_FOREIGN_TABLE || objectType == toc.OBJ_MATERIALIZED_VIEW {
-		typeStr = ""
+		typeStr = "TABLE "
 	} else if objectType == toc.OBJ_COLUMN {
 		typeStr = "TABLE "
 	} else if objectType == toc.OBJ_AGGREGATE {

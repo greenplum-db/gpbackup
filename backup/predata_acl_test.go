@@ -162,6 +162,41 @@ ALTER AGGREGATE public.testagg(*) OWNER TO testrole;
 REVOKE ALL ON FUNCTION public.testagg(*) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.testagg(*) FROM testrole;`)
 		})
+		It("prints TABLE for a block of REVOKE and GRANT statements for a foreign table", func() {
+			table := backup.Table{Relation: backup.Relation{Schema: "public", Name: "foreigntablename"}}
+			foreignDef := backup.ForeignTableDefinition{Oid: 23, Options: "", Server: "fs"}
+			table.ForeignDef = foreignDef
+			tableMetadata := backup.ObjectMetadata{Privileges: privileges}
+			backup.PrintObjectMetadata(backupfile, tocfile, tableMetadata, table, "", []uint32{0, 0})
+			testhelper.ExpectRegexp(buffer, `
+
+REVOKE ALL ON TABLE public.foreigntablename FROM PUBLIC;
+GRANT ALL ON TABLE public.foreigntablename TO anothertestrole;
+GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES ON TABLE public.foreigntablename TO testrole;
+GRANT TRIGGER ON TABLE public.foreigntablename TO PUBLIC;`)
+		})
+		It("prints TABLE for a block of REVOKE and GRANT statements for a view", func() {
+			view := backup.View{Schema: "public", Name: "viewname"}
+			viewMetadata := backup.ObjectMetadata{Privileges: privileges}
+			backup.PrintObjectMetadata(backupfile, tocfile, viewMetadata, view, "", []uint32{0, 0})
+			testhelper.ExpectRegexp(buffer, `
+
+REVOKE ALL ON TABLE public.viewname FROM PUBLIC;
+GRANT ALL ON TABLE public.viewname TO anothertestrole;
+GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES ON TABLE public.viewname TO testrole;
+GRANT TRIGGER ON TABLE public.viewname TO PUBLIC;`)
+		})
+		It("prints TABLE for a block of REVOKE and GRANT statements for a materialized view", func() {
+			view := backup.View{Schema: "public", Name: "matviewname", IsMaterialized: true}
+			viewMetadata := backup.ObjectMetadata{Privileges: privileges}
+			backup.PrintObjectMetadata(backupfile, tocfile, viewMetadata, view, "", []uint32{0, 0})
+			testhelper.ExpectRegexp(buffer, `
+
+REVOKE ALL ON TABLE public.matviewname FROM PUBLIC;
+GRANT ALL ON TABLE public.matviewname TO anothertestrole;
+GRANT SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES ON TABLE public.matviewname TO testrole;
+GRANT TRIGGER ON TABLE public.matviewname TO PUBLIC;`)
+		})
 		Context("Views and sequences have owners", func() {
 			view := backup.View{Schema: "public", Name: "viewname"}
 			sequence := backup.Sequence{Relation: backup.Relation{Schema: "public", Name: "sequencename"}}

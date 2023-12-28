@@ -312,9 +312,9 @@ SELECT pg_catalog.setval('public.seq_name', 10, true);`, getSeqDefReplace()),
 			expectedEntries := []string{"CREATE VIEW shamwow.shazam AS SELECT count(*) FROM pg_tables;",
 				"COMMENT ON VIEW shamwow.shazam IS 'This is a view comment.';",
 				fmt.Sprintf("ALTER %s shamwow.shazam OWNER TO testrole;", keywordReplace),
-				`REVOKE ALL ON shamwow.shazam FROM PUBLIC;
-REVOKE ALL ON shamwow.shazam FROM testrole;
-GRANT ALL ON shamwow.shazam TO testrole;`}
+				`REVOKE ALL ON TABLE shamwow.shazam FROM PUBLIC;
+REVOKE ALL ON TABLE shamwow.shazam FROM testrole;
+GRANT ALL ON TABLE shamwow.shazam TO testrole;`}
 
 			if connectionPool.Version.AtLeast("6") {
 				expectedEntries = append(expectedEntries, "SECURITY LABEL FOR dummy ON VIEW shamwow.shazam IS 'unclassified';")
@@ -639,7 +639,7 @@ GRANT ALL ON shamwow.shazam TO testrole;`}
 WITH NO DATA
 DISTRIBUTED BY (tablename);`)
 		})
-		It("can print a view with privileges, an owner, and a comment", func() {
+		It("can print a materialized view with privileges, an owner, and a comment", func() {
 			mviewMetadata := testutils.DefaultMetadata(toc.OBJ_MATERIALIZED_VIEW, true, true, true, false)
 			backup.PrintCreateViewStatement(backupfile, tocfile, mview, mviewMetadata)
 			expectedEntries := []string{`CREATE MATERIALIZED VIEW schema1.mview1 AS SELECT count(*) FROM pg_tables
@@ -647,9 +647,9 @@ WITH NO DATA
 DISTRIBUTED BY (tablename);`,
 				"COMMENT ON MATERIALIZED VIEW schema1.mview1 IS 'This is a materialized view comment.';",
 				"ALTER MATERIALIZED VIEW schema1.mview1 OWNER TO testrole;",
-				`REVOKE ALL ON schema1.mview1 FROM PUBLIC;
-REVOKE ALL ON schema1.mview1 FROM testrole;
-GRANT ALL ON schema1.mview1 TO testrole;`}
+				`REVOKE ALL ON TABLE schema1.mview1 FROM PUBLIC;
+REVOKE ALL ON TABLE schema1.mview1 FROM testrole;
+GRANT ALL ON TABLE schema1.mview1 TO testrole;`}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedEntries...)
 		})
 		It("can print a materialized view with options and a tablespace", func() {

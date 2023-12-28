@@ -627,9 +627,9 @@ COMMENT ON FOREIGN TABLE public.tablename IS 'This is a foreign table comment.';
 ALTER FOREIGN TABLE public.tablename OWNER TO testrole;
 
 
-REVOKE ALL ON public.tablename FROM PUBLIC;
-REVOKE ALL ON public.tablename FROM testrole;
-GRANT ALL ON public.tablename TO testrole;
+REVOKE ALL ON TABLE public.tablename FROM PUBLIC;
+REVOKE ALL ON TABLE public.tablename FROM testrole;
+GRANT ALL ON TABLE public.tablename TO testrole;
 
 
 SECURITY LABEL FOR dummy ON FOREIGN TABLE public.tablename IS 'unclassified';`)
