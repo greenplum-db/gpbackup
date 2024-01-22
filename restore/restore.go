@@ -391,7 +391,7 @@ func restoreSequenceValues(metadataFilename string) {
 	} else {
 		progressBar := utils.NewProgressBar(len(sequenceValueStatements), "Sequence values restored: ", utils.PB_VERBOSE)
 		progressBar.Start()
-		numErrors = ExecuteRestoreMetadataStatements(sequenceValueStatements, "Sequence values", progressBar, utils.PB_VERBOSE, true)
+		numErrors = ExecuteRestoreMetadataStatements(sequenceValueStatements, "Sequence values", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
 		progressBar.Finish()
 	}
 
@@ -478,14 +478,8 @@ func restoreData() (int, map[string][]toc.CoordinatorDataEntry) {
 		filteredDataEntries[entry.Timestamp] = filteredDataEntriesForTimestamp
 		totalTables += len(filteredDataEntriesForTimestamp)
 	}
-	numTuplesBars := 0
-	if connectionPool.Version.AtLeast("7") {
-		numTuplesBars = connectionPool.NumConns - 1
-	}
-	dataProgressBar := utils.NewMultiProgressBar(totalTables, "Tables restored: ", numTuplesBars, MustGetFlagBool(options.VERBOSE))
-	defer dataProgressBar.Finish()
-	err := dataProgressBar.Start()
-	gplog.FatalOnError(err)
+	dataProgressBar := utils.NewProgressBar(totalTables, "Tables restored: ", utils.PB_INFO)
+	dataProgressBar.Start()
 
 	gucStatements := setGUCsForConnection(nil, 0)
 	numErrors := int32(0)
@@ -520,9 +514,9 @@ func restorePostdata(metadataFilename string) {
 	progressBar := utils.NewProgressBar(len(statements), "Post-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
 
-	numErrors := ExecuteRestoreMetadataStatements(firstBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 2)
-	numErrors += ExecuteRestoreMetadataStatements(secondBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 2)
-	numErrors += ExecuteRestoreMetadataStatements(thirdBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 2)
+	numErrors := ExecuteRestoreMetadataStatements(firstBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+	numErrors += ExecuteRestoreMetadataStatements(secondBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+	numErrors += ExecuteRestoreMetadataStatements(thirdBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
 	progressBar.Finish()
 
 	if wasTerminated {
@@ -620,7 +614,7 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 
 	progressBar := utils.NewProgressBar(len(analyzeStatements), "Tables analyzed: ", utils.PB_VERBOSE)
 	progressBar.Start()
-	numErrors := ExecuteStatements(analyzeStatements, progressBar, connectionPool.NumConns > 2)
+	numErrors := ExecuteStatements(analyzeStatements, progressBar, connectionPool.NumConns > 1)
 	progressBar.Finish()
 
 	if wasTerminated {
