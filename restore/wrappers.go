@@ -63,21 +63,12 @@ func SetLoggerVerbosity() {
 }
 
 func CreateConnectionPool(unquotedDBName string) {
-	var numConns int
 	connectionPool = dbconn.NewDBConnFromEnvironment(unquotedDBName)
-	/*
-	 * The additional connection is used for COPY progress reporting, as a free
-	 * connection is needed to query gp_stat_progress_copy_summary.
-	 */
-	switch true {
-	case FlagChanged(options.COPY_QUEUE_SIZE):
-		numConns = MustGetFlagInt(options.COPY_QUEUE_SIZE) + 1
-	case FlagChanged(options.JOBS):
-		numConns = MustGetFlagInt(options.JOBS) + 1
-	default:
-		numConns = 2
+	if FlagChanged(options.COPY_QUEUE_SIZE) {
+		connectionPool.MustConnect(MustGetFlagInt(options.COPY_QUEUE_SIZE))
+	} else {
+		connectionPool.MustConnect(MustGetFlagInt(options.JOBS))
 	}
-	connectionPool.MustConnect(numConns)
 	utils.ValidateGPDBVersionCompatibility(connectionPool)
 }
 

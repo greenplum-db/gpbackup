@@ -12,7 +12,6 @@ import (
 	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/restore"
-	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
 	"github.com/jackc/pgconn"
 
@@ -22,7 +21,6 @@ import (
 
 var _ = Describe("restore/data tests", func() {
 	Describe("CopyTableIn", func() {
-		cdEntry := toc.CoordinatorDataEntry{AttributeString: "(i,j)"}
 		BeforeEach(func() {
 			utils.SetPipeThroughProgram(utils.PipeThroughProgram{Name: "cat", OutputCommand: "cat -", InputCommand: "cat -", Extension: ""})
 			backup.SetPluginConfig(nil)
@@ -35,7 +33,7 @@ var _ = Describe("restore/data tests", func() {
 			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz | gzip -d -c' WITH CSV DELIMITER ',' ON SEGMENT")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.gz"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, false, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -44,7 +42,7 @@ var _ = Describe("restore/data tests", func() {
 			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.zst | zstd --decompress -c' WITH CSV DELIMITER ',' ON SEGMENT")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456.zst"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, false, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -52,7 +50,7 @@ var _ = Describe("restore/data tests", func() {
 			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456 | cat -' WITH CSV DELIMITER ',' ON SEGMENT")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, false, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -60,7 +58,7 @@ var _ = Describe("restore/data tests", func() {
 			execStr := regexp.QuoteMeta("COPY public.foo(i,j) FROM PROGRAM 'cat <SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456 | cat -' WITH CSV DELIMITER ',' ON SEGMENT")
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, true, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, true, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -73,7 +71,7 @@ var _ = Describe("restore/data tests", func() {
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, false, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -86,7 +84,7 @@ var _ = Describe("restore/data tests", func() {
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.zst"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, false, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -98,7 +96,7 @@ var _ = Describe("restore/data tests", func() {
 			mock.ExpectExec(execStr).WillReturnResult(sqlmock.NewResult(10, 0))
 
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_pipe_3456.gz"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, false, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -112,7 +110,7 @@ var _ = Describe("restore/data tests", func() {
 			}
 			mock.ExpectExec(execStr).WillReturnError(pgErr)
 			filename := "<SEG_DATA_DIR>/backups/20170101/20170101010101/gpbackup_<SEGID>_20170101010101_3456"
-			_, err := restore.CopyTableIn(connectionPool, "public.foo", cdEntry, filename, false, 0, nil)
+			_, err := restore.CopyTableIn(connectionPool, "public.foo", "(i,j)", filename, false, 0)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("Error loading data into table public.foo: " +
