@@ -147,5 +147,5 @@ var _ = AfterSuite(func() {
 	testhelper.AssertQueryRuns(connection1, "DROP ROLE anothertestrole")
 	connection1.Close()
 	_ = os.RemoveAll("/tmp/helper_test")
-	_ = os.RemoveAll("/tmp/plugin_dest")
+	_ = os.RemoveAll(examplePluginTestDir)
 })

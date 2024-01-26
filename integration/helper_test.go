@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -21,15 +22,17 @@ import (
 )
 
 var (
-	testDir          = "/tmp/helper_test/20180101/20180101010101"
-	pluginDir        = "/tmp/plugin_dest/20180101/20180101010101"
-	tocFile          = fmt.Sprintf("%s/test_toc.yaml", testDir)
-	oidFile          = fmt.Sprintf("%s/test_oids", testDir)
-	pipeFile         = fmt.Sprintf("%s/test_pipe", testDir)
-	dataFileFullPath = filepath.Join(testDir, "test_data")
-	pluginBackupPath = filepath.Join(pluginDir, "test_data")
-	errorFile        = fmt.Sprintf("%s_error", pipeFile)
-	pluginConfigPath = fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml", os.Getenv("GOPATH"))
+	examplePluginExec          string
+	examplePluginTestConfig    = "/tmp/test_example_plugin_config.yaml"
+	examplePluginTestBackupDir = "/tmp/plugin_dest/20180101/20180101010101"
+	examplePluginTestDataFile  = filepath.Join(examplePluginTestBackupDir, "test_data")
+	examplePluginTestDir       = "/tmp/plugin_dest" // hardcoded in example plugin
+	testDir                    = "/tmp/helper_test/20180101/20180101010101"
+	tocFile                    = fmt.Sprintf("%s/test_toc.yaml", testDir)
+	oidFile                    = fmt.Sprintf("%s/test_oids", testDir)
+	pipeFile                   = fmt.Sprintf("%s/test_pipe", testDir)
+	dataFileFullPath           = filepath.Join(testDir, "test_data")
+	errorFile                  = fmt.Sprintf("%s_error", pipeFile)
 )
 
 const (
@@ -73,14 +76,33 @@ func buildAndInstallBinaries() string {
 }
 
 var _ = Describe("gpbackup_helper end to end integration tests", func() {
+	// Setup example plugin based on current working directory
+	err := os.RemoveAll(examplePluginTestDir)
+	Expect(err).ToNot(HaveOccurred())
+	err = os.MkdirAll(examplePluginTestDir, 0777)
+	Expect(err).ToNot(HaveOccurred())
+	currentDir, err := os.Getwd()
+	Expect(err).ToNot(HaveOccurred())
+	rootDir := path.Dir(currentDir)
+	examplePluginExec = path.Join(rootDir, "plugins", "example_plugin.bash")
+	examplePluginTestConfigContents := fmt.Sprintf(`executablepath: %s
+options:
+  password: unknown`, examplePluginExec)
+	f, err := os.Create(examplePluginTestConfig)
+	Expect(err).ToNot(HaveOccurred())
+	_, err = f.WriteString(examplePluginTestConfigContents)
+	Expect(err).ToNot(HaveOccurred())
+	err = f.Close()
+	Expect(err).ToNot(HaveOccurred())
+
 	BeforeEach(func() {
 		err := os.RemoveAll(testDir)
 		Expect(err).ToNot(HaveOccurred())
 		err = os.MkdirAll(testDir, 0777)
 		Expect(err).ToNot(HaveOccurred())
-		err = os.RemoveAll(pluginDir)
+		err = os.RemoveAll(examplePluginTestBackupDir)
 		Expect(err).ToNot(HaveOccurred())
-		err = os.MkdirAll(pluginDir, 0777)
+		err = os.MkdirAll(examplePluginTestBackupDir, 0777)
 		Expect(err).ToNot(HaveOccurred())
 
 		err = unix.Mkfifo(fmt.Sprintf("%s_%d", pipeFile, 1), 0777)
@@ -125,7 +147,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			assertBackupArtifactsWithCompression("zstd", false)
 		})
 		It("runs backup gpbackup_helper without compression with plugin", func() {
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "0", "--data-file", dataFileFullPath, "--plugin-config", pluginConfigPath)
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-level", "0", "--data-file", dataFileFullPath, "--plugin-config", examplePluginTestConfig)
 			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
@@ -133,7 +155,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			assertBackupArtifacts(true)
 		})
 		It("runs backup gpbackup_helper with gzip compression with plugin", func() {
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-type", "gzip", "--compression-level", "1", "--data-file", dataFileFullPath+".gz", "--plugin-config", pluginConfigPath)
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-type", "gzip", "--compression-level", "1", "--data-file", dataFileFullPath+".gz", "--plugin-config", examplePluginTestConfig)
 			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
@@ -141,7 +163,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 			assertBackupArtifactsWithCompression("gzip", true)
 		})
 		It("runs backup gpbackup_helper with zstd compression with plugin", func() {
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-type", "zstd", "--compression-level", "1", "--data-file", dataFileFullPath+".zst", "--plugin-config", pluginConfigPath)
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--backup-agent", "--compression-type", "zstd", "--compression-level", "1", "--data-file", dataFileFullPath+".zst", "--plugin-config", examplePluginTestConfig)
 			writeToPipes(defaultData)
 			err := helperCmd.Wait()
 			printHelperLogOnError(err)
@@ -197,7 +219,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		})
 		It("runs restore gpbackup_helper without compression with plugin", func() {
 			setupRestoreFiles("", true)
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath, "--plugin-config", pluginConfigPath)
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath, "--plugin-config", examplePluginTestConfig)
 			for _, i := range []int{1, 3} {
 				contents, _ := ioutil.ReadFile(fmt.Sprintf("%s_%d", pipeFile, i))
 				Expect(string(contents)).To(Equal("here is some data\n"))
@@ -209,7 +231,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		})
 		It("runs restore gpbackup_helper with gzip compression with plugin", func() {
 			setupRestoreFiles("gzip", true)
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".gz", "--plugin-config", pluginConfigPath)
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".gz", "--plugin-config", examplePluginTestConfig)
 			for _, i := range []int{1, 3} {
 				contents, _ := ioutil.ReadFile(fmt.Sprintf("%s_%d", pipeFile, i))
 				Expect(string(contents)).To(Equal("here is some data\n"))
@@ -221,7 +243,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 		})
 		It("runs restore gpbackup_helper with zstd compression with plugin", func() {
 			setupRestoreFiles("zstd", true)
-			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".zst", "--plugin-config", pluginConfigPath)
+			helperCmd := gpbackupHelper(gpbackupHelperPath, "--restore-agent", "--data-file", dataFileFullPath+".zst", "--plugin-config", examplePluginTestConfig)
 			for _, i := range []int{1, 3} {
 				contents, _ := ioutil.ReadFile(fmt.Sprintf("%s_%d", pipeFile, i))
 				Expect(string(contents)).To(Equal("here is some data\n"))
@@ -314,7 +336,7 @@ var _ = Describe("gpbackup_helper end to end integration tests", func() {
 func setupRestoreFiles(compressionType string, withPlugin bool) {
 	dataFile := dataFileFullPath
 	if withPlugin {
-		dataFile = pluginBackupPath
+		dataFile = examplePluginTestDataFile
 	}
 
 	f, _ := os.Create(oidFile)
@@ -360,7 +382,7 @@ func assertBackupArtifacts(withPlugin bool) {
 	var err error
 	dataFile := dataFileFullPath
 	if withPlugin {
-		dataFile = pluginBackupPath
+		dataFile = examplePluginTestDataFile
 	}
 	contents, err = ioutil.ReadFile(dataFile)
 	Expect(err).ToNot(HaveOccurred())
@@ -378,7 +400,7 @@ func assertBackupArtifactsWithCompression(compressionType string, withPlugin boo
 
 	dataFile := dataFileFullPath
 	if withPlugin {
-		dataFile = pluginBackupPath
+		dataFile = examplePluginTestDataFile
 	}
 
 	if compressionType == "gzip" {
