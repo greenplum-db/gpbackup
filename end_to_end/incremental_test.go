@@ -333,14 +333,13 @@ var _ = Describe("End to End incremental tests", func() {
 				if useOldBackupVersion {
 					Skip("This test is only needed for the most recent backup versions")
 				}
-				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+				copyPluginToAllHosts(backupConn, examplePluginExec)
 			})
 			It("Restores from an incremental backup based on a from-timestamp incremental", func() {
 				fullBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data",
 					"--single-data-file",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, fullBackupTimestamp)
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1001)")
@@ -351,7 +350,7 @@ var _ = Describe("End to End incremental tests", func() {
 					"--leaf-partition-data",
 					"--single-data-file",
 					"--from-timestamp", fullBackupTimestamp,
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, incremental1Timestamp)
 
 				testhelper.AssertQueryRuns(backupConn,
@@ -362,12 +361,12 @@ var _ = Describe("End to End incremental tests", func() {
 					"--incremental",
 					"--leaf-partition-data",
 					"--single-data-file",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, incremental2Timestamp)
 
 				gprestore(gprestorePath, restoreHelperPath, incremental2Timestamp,
 					"--redirect-db", "restoredb",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -382,7 +381,7 @@ var _ = Describe("End to End incremental tests", func() {
 					"--leaf-partition-data",
 					"--single-data-file",
 					"--copy-queue-size", "4",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, fullBackupTimestamp)
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1001)")
@@ -394,7 +393,7 @@ var _ = Describe("End to End incremental tests", func() {
 					"--single-data-file",
 					"--copy-queue-size", "4",
 					"--from-timestamp", fullBackupTimestamp,
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, incremental1Timestamp)
 
 				testhelper.AssertQueryRuns(backupConn,
@@ -406,13 +405,13 @@ var _ = Describe("End to End incremental tests", func() {
 					"--leaf-partition-data",
 					"--single-data-file",
 					"--copy-queue-size", "4",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, incremental2Timestamp)
 
 				gprestore(gprestorePath, restoreHelperPath, incremental2Timestamp,
 					"--redirect-db", "restoredb",
 					"--copy-queue-size", "4",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -423,13 +422,12 @@ var _ = Describe("End to End incremental tests", func() {
 				assertArtifactsCleaned(restoreConn, incremental2Timestamp)
 			})
 			It("Runs backup and restore if plugin location changed", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
 				fullBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 
 				otherPluginExecutablePath := fmt.Sprintf("%s/other_plugin_location/example_plugin.bash", backupDir)
-				command := exec.Command("bash", "-c", fmt.Sprintf("mkdir %s/other_plugin_location && cp %s %s/other_plugin_location", backupDir, pluginExecutablePath, backupDir))
+				command := exec.Command("bash", "-c", fmt.Sprintf("mkdir %s/other_plugin_location && cp %s %s/other_plugin_location", backupDir, examplePluginExec, backupDir))
 				mustRunCommand(command)
 				newCongig := fmt.Sprintf(`EOF1
 executablepath: %s/other_plugin_location/example_plugin.bash
