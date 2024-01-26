@@ -2021,8 +2021,7 @@ LANGUAGE plpgsql NO SQL;`)
 					gprestoreArgs = append(gprestoreArgs, "--include-schema", "schematwo")
 				}
 				gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
-				output, err := gprestoreCmd.CombinedOutput()
-				fmt.Println(string(output))
+				_, err := gprestoreCmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred())
 
 				// check row counts
@@ -2057,8 +2056,7 @@ LANGUAGE plpgsql NO SQL;`)
 						"--backup-dir", extractDirectory,
 						"--resize-cluster",
 						"--on-error-continue")
-					incroutput, err := gprestoreincrCmd.CombinedOutput()
-					fmt.Println(string(incroutput))
+					_, err := gprestoreincrCmd.CombinedOutput()
 					Expect(err).ToNot(HaveOccurred())
 
 					// check row counts
@@ -2143,8 +2141,7 @@ LANGUAGE plpgsql NO SQL;`)
 						"--on-error-continue"}
 
 					gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
-					output, err := gprestoreCmd.CombinedOutput()
-					fmt.Println(string(output))
+					_, err := gprestoreCmd.CombinedOutput()
 					Expect(err).ToNot(HaveOccurred())
 
 					// check row counts on each segment and on coordinator, expecting 1 table with 100 rows, replicated across all
