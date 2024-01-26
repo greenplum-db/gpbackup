@@ -20,8 +20,8 @@ func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {
 	hostnameQuery := `SELECT DISTINCT hostname AS string FROM gp_segment_configuration WHERE content != -1`
 	hostnames := dbconn.MustSelectStringSlice(conn, hostnameQuery)
 	for _, hostname := range hostnames {
-		pluginDir, _ := path.Split(pluginPath)
-		command := exec.Command("ssh", hostname, fmt.Sprintf("mkdir -p %s", pluginDir))
+		examplePluginTestDir, _ := path.Split(pluginPath)
+		command := exec.Command("ssh", hostname, fmt.Sprintf("mkdir -p %s", examplePluginTestDir))
 		mustRunCommand(command)
 		command = exec.Command("scp", pluginPath, fmt.Sprintf("%s:%s", hostname, pluginPath))
 		mustRunCommand(command)
@@ -307,18 +307,17 @@ var _ = Describe("End to End plugin tests", func() {
 				}
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, and no-compression", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+				copyPluginToAllHosts(backupConn, examplePluginExec)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--single-data-file",
 					"--no-compression",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -326,19 +325,18 @@ var _ = Describe("End to End plugin tests", func() {
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, no-compression, and copy-queue-size", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+				copyPluginToAllHosts(backupConn, examplePluginExec)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--single-data-file",
 					"--copy-queue-size", "4",
 					"--no-compression",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
-					"--plugin-config", pluginConfigPath,
+					"--plugin-config", examplePluginTestConfig,
 					"--copy-queue-size", "4")
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
@@ -347,17 +345,16 @@ var _ = Describe("End to End plugin tests", func() {
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and single-data-file", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+				copyPluginToAllHosts(backupConn, examplePluginExec)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--single-data-file",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -365,18 +362,17 @@ var _ = Describe("End to End plugin tests", func() {
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, and copy-queue-size", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+				copyPluginToAllHosts(backupConn, examplePluginExec)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--single-data-file",
 					"--copy-queue-size", "4",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
-					"--plugin-config", pluginConfigPath,
+					"--plugin-config", examplePluginTestConfig,
 					"--copy-queue-size", "4")
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
@@ -385,17 +381,16 @@ var _ = Describe("End to End plugin tests", func() {
 				assertArtifactsCleaned(restoreConn, timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and metadata-only", func() {
-				pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-				copyPluginToAllHosts(backupConn, pluginExecutablePath)
+				copyPluginToAllHosts(backupConn, examplePluginExec)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--metadata-only",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
 					"--redirect-db", "restoredb",
-					"--plugin-config", pluginConfigPath)
+					"--plugin-config", examplePluginTestConfig)
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertArtifactsCleaned(restoreConn, timestamp)
@@ -410,17 +405,16 @@ var _ = Describe("End to End plugin tests", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the most recent backup versions")
 			}
-			pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-			copyPluginToAllHosts(backupConn, pluginExecutablePath)
+			copyPluginToAllHosts(backupConn, examplePluginExec)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--no-compression",
-				"--plugin-config", pluginConfigPath)
+				"--plugin-config", examplePluginTestConfig)
 			forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
-				"--plugin-config", pluginConfigPath)
+				"--plugin-config", examplePluginTestConfig)
 
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -432,16 +426,15 @@ var _ = Describe("End to End plugin tests", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the most recent backup versions")
 			}
-			pluginExecutablePath := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin.bash", os.Getenv("GOPATH"))
-			copyPluginToAllHosts(backupConn, pluginExecutablePath)
+			copyPluginToAllHosts(backupConn, examplePluginExec)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
-				"--plugin-config", pluginConfigPath)
+				"--plugin-config", examplePluginTestConfig)
 			forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
-				"--plugin-config", pluginConfigPath)
+				"--plugin-config", examplePluginTestConfig)
 
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
@@ -454,12 +447,9 @@ var _ = Describe("End to End plugin tests", func() {
 			if useOldBackupVersion {
 				Skip("This test is only needed for the latest backup version")
 			}
-			pluginsDir := fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins", os.Getenv("GOPATH"))
-			copyPluginToAllHosts(backupConn, fmt.Sprintf("%s/example_plugin.bash", pluginsDir))
-			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test.sh %s/example_plugin.bash %s/example_plugin_config.yaml /tmp/plugin_dest", pluginsDir, pluginsDir, pluginsDir))
+			copyPluginToAllHosts(backupConn, examplePluginExec)
+			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test.sh %s %s %s", examplePluginDir, examplePluginExec, examplePluginTestConfig, examplePluginTestDir))
 			mustRunCommand(command)
-
-			_ = os.RemoveAll("/tmp/plugin_dest")
 		})
 	})
 })

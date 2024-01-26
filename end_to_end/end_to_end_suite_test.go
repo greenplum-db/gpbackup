@@ -61,7 +61,10 @@ var (
 	backupHelperPath        string
 	restoreHelperPath       string
 	gprestorePath           string
-	pluginConfigPath        string
+	examplePluginDir        string
+	examplePluginExec       string
+	examplePluginTestConfig = "/tmp/test_example_plugin_config.yaml"
+	examplePluginTestDir    = "/tmp/plugin_dest" // hardcoded in example plugin
 	publicSchemaTupleCounts map[string]int
 	schema2TupleCounts      map[string]int
 	backupDir               string
@@ -477,10 +480,27 @@ func TestEndToEnd(t *testing.T) {
 var _ = BeforeSuite(func() {
 	// This is used to run tests from an older gpbackup version to gprestore latest
 	useOldBackupVersion = os.Getenv("OLD_BACKUP_VERSION") != ""
-	pluginConfigPath =
-		fmt.Sprintf("%s/src/github.com/greenplum-db/gpbackup/plugins/example_plugin_config.yaml",
-			os.Getenv("GOPATH"))
-	var err error
+
+	// Setup example plugin based on current working directory
+	err := os.RemoveAll(examplePluginTestDir)
+	Expect(err).ToNot(HaveOccurred())
+	err = os.MkdirAll(examplePluginTestDir, 0777)
+	Expect(err).ToNot(HaveOccurred())
+	currentDir, err := os.Getwd()
+	Expect(err).ToNot(HaveOccurred())
+	rootDir := path.Dir(currentDir)
+	examplePluginDir = path.Join(rootDir, "plugins")
+	examplePluginExec = path.Join(rootDir, "plugins", "example_plugin.bash")
+	examplePluginTestConfigContents := fmt.Sprintf(`executablepath: %s
+options:
+  password: unknown`, examplePluginExec)
+	f, err := os.Create(examplePluginTestConfig)
+	Expect(err).ToNot(HaveOccurred())
+	_, err = f.WriteString(examplePluginTestConfigContents)
+	Expect(err).ToNot(HaveOccurred())
+	err = f.Close()
+	Expect(err).ToNot(HaveOccurred())
+
 	testhelper.SetupTestLogger()
 	_ = exec.Command("dropdb", "testdb").Run()
 	_ = exec.Command("dropdb", "restoredb").Run()
