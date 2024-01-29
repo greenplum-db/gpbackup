@@ -23,7 +23,7 @@ var _ = Describe("backup/predata_relations tests", func() {
 		extTableEmpty := backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: sql.NullString{String: "", Valid: false}, ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
 		testTable = backup.Table{
 			Relation:        backup.Relation{Schema: "public", Name: "tablename"},
-			TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", PartDef: "", PartTemplateDef: "", StorageOpts: "", ExtTableDef: extTableEmpty},
+			TableDefinition: backup.TableDefinition{DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED RANDOMLY"}, PartDef: "", PartTemplateDef: "", StorageOpts: "", ExtTableDef: extTableEmpty},
 		}
 	})
 	Describe("PrintCreateTableStatement", func() {
@@ -241,8 +241,8 @@ ALTER TABLE ONLY public.tablename ALTER COLUMN i SET (n_distinct=1);`)
 			})
 		})
 		Context("Table qualities (distribution keys and storage options)", func() {
-			distSingle := "DISTRIBUTED BY (i)"
-			distComposite := "DISTRIBUTED BY (i, j)"
+			distSingle := backup.DistPolicy{Policy: "DISTRIBUTED BY (i)"}
+			distComposite := backup.DistPolicy{Policy: "DISTRIBUTED BY (i, j)"}
 
 			aoOpts := "appendonly=true"
 			coOpts := "appendonly=true, orientation=column"
@@ -483,7 +483,7 @@ SET SUBPARTITION TEMPLATE
 		})
 		Context("Foreign Table", func() {
 			BeforeEach(func() {
-				testTable.DistPolicy = ""
+				testTable.DistPolicy = backup.DistPolicy{}
 			})
 			It("prints a CREATE TABLE block without options", func() {
 				col := []backup.ColumnDefinition{rowOne, rowTwo}

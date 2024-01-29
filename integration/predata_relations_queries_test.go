@@ -459,7 +459,7 @@ PARTITION BY LIST (gender)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simpleview", backup.TYPE_RELATION)
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "ColumnDefs", "DistPolicy.Oid")
 		})
 		It("returns a slice for view in a specific schema", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.simpleview AS SELECT 1")
@@ -475,7 +475,7 @@ PARTITION BY LIST (gender)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "testschema", "simpleview", backup.TYPE_RELATION)
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "ColumnDefs", "DistPolicy.Oid")
 		})
 		It("PANIC on views with anyarray typecasts in its view definition", func() {
 			// The view definition gets incorrectly converted and stored as
@@ -501,7 +501,7 @@ PARTITION BY LIST (gender)
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simpleview", backup.TYPE_RELATION)
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&view, &results[0], "ColumnDefs", "DistPolicy.Oid")
 		})
 		It("returns a slice for materialized views", func() {
 			if connectionPool.Version.Before("6.2") {
@@ -511,11 +511,11 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED BY (a)"}}
 
 			materialView.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplematerialview", backup.TYPE_RELATION)
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "ColumnDefs", "DistPolicy.Oid")
 		})
 		It("returns a slice for materialized views with storage parameters", func() {
 			if connectionPool.Version.Before("6.2") {
@@ -525,11 +525,11 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Options: " WITH (fillfactor=50, autovacuum_enabled=false)", IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Options: " WITH (fillfactor=50, autovacuum_enabled=false)", IsMaterialized: true, DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED BY (a)"}}
 
 			materialView.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplematerialview", backup.TYPE_RELATION)
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "ColumnDefs", "DistPolicy.Oid")
 		})
 		It("returns a slice for materialized views with tablespaces", func() {
 			if connectionPool.Version.Before("6.2") {
@@ -541,10 +541,10 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP MATERIALIZED VIEW public.simplematerialview")
 
 			results := backup.GetAllViews(connectionPool)
-			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Tablespace: "test_tablespace", IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
+			materialView := backup.View{Oid: 1, Schema: "public", Name: "simplematerialview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, Tablespace: "test_tablespace", IsMaterialized: true, DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED BY (a)"}}
 
 			Expect(results).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid", "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&materialView, &results[0], "Oid", "ColumnDefs", "DistPolicy.Oid")
 		})
 	})
 })

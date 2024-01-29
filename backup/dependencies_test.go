@@ -130,7 +130,7 @@ var _ = Describe("backup/dependencies tests", func() {
 				backup.Domain{Oid: 4, Schema: "public", Name: "domain", BaseType: "numeric"},
 				backup.Table{
 					Relation:        backup.Relation{Oid: 5, Schema: "public", Name: "relation"},
-					TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ColumnDefs: []backup.ColumnDefinition{}},
+					TableDefinition: backup.TableDefinition{DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED RANDOMLY"}, ColumnDefs: []backup.ColumnDefinition{}},
 				},
 				backup.ExternalProtocol{Oid: 6, Name: "ext_protocol", Trusted: true, ReadFunction: 2, WriteFunction: 1, Validator: 0},
 				backup.RangeType{Oid: 7, Schema: "public", Name: "rangetype1"},

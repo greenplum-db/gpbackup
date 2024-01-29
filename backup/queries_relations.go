@@ -351,7 +351,7 @@ type View struct {
 	Definition     sql.NullString
 	Tablespace     string
 	IsMaterialized bool
-	DistPolicy     string
+	DistPolicy     DistPolicy
 	NeedsDummy     bool
 	ColumnDefs     []ColumnDefinition
 }
@@ -439,7 +439,7 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 
-	distPolicies := GetDistributionPolicies(connectionPool)
+	distPolicies := GetDistributionPolicies(connectionPool, results)
 
 	// Remove all views that have NULL definitions. This can happen
 	// if the query above is run and a concurrent view drop happens

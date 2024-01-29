@@ -23,13 +23,16 @@ var _ = Describe("backup integration create statement tests", func() {
 		var (
 			extTableEmpty                 backup.ExternalTableDefinition
 			testTable                     backup.Table
+			distPolicy                    backup.DistPolicy
 			partitionPartFalseExpectation = "false"
 		)
 		BeforeEach(func() {
-			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: sql.NullString{String: "", Valid: true}, ExecLocation: "ALL_SEGMENTS", FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
+			extTableEmpty = backup.ExternalTableDefinition{Oid: 0, Type: -2, Protocol: -2, Location: sql.NullString{String: "", Valid: true}, ExecLocation: "ALL_SEGMENTS", 
+			FormatType: "t", FormatOpts: "", Command: "", RejectLimit: 0, RejectLimitType: "", ErrTableName: "", ErrTableSchema: "", Encoding: "UTF-8", Writable: false, URIs: nil}
+			distPolicy = backup.DistPolicy{Policy: "DISTRIBUTED RANDOMLY"}
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
-				TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", ExtTableDef: extTableEmpty, Inherits: []string{}},
+				TableDefinition: backup.TableDefinition{DistPolicy: distPolicy, ExtTableDef: extTableEmpty, Inherits: []string{}},
 			}
 			if connectionPool.Version.AtLeast("6") {
 				partitionPartFalseExpectation = "'false'"
@@ -87,7 +90,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP COLLATION public.some_coll CASCADE")
 				rowNonDefaultStorageAndStats.Collation = "public.some_coll"
 			}
-			testTable.DistPolicy = "DISTRIBUTED BY (i, j)"
+			testTable.DistPolicy = backup.DistPolicy{Policy: "DISTRIBUTED BY (i, j)"}
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOneDefault, rowNotNullDefault, rowNonDefaultStorageAndStats}
 
 			backup.PrintRegularTableCreateStatement(backupfile, tocfile, testTable)
@@ -122,7 +125,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testTable.TableDefinition.StorageOpts = "compresstype=zlib, blocksize=32768, compresslevel=1, checksum=true"
 				testTable.TableDefinition.AccessMethodName = "ao_column"
 			}
-			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef")
+			structmatcher.ExpectStructsToMatchExcluding(testTable.TableDefinition, resultTable.TableDefinition, "ColumnDefs.Oid", "ExtTableDef", "DistBy")
 		})
 		It("creates a basic GPDB 7+ append-optimized table", func() {
 			testutils.SkipIfBefore7(connectionPool)
@@ -347,7 +350,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testhelper.AssertQueryRuns(connectionPool, "CREATE SERVER sc FOREIGN DATA WRAPPER dummy;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP SERVER sc")
 
-			testTable.TableDefinition = backup.TableDefinition{DistPolicy: "", ExtTableDef: extTableEmpty, Inherits: []string{}}
+			testTable.TableDefinition = backup.TableDefinition{DistPolicy: backup.DistPolicy{Policy: ""}, ExtTableDef: extTableEmpty, Inherits: []string{}}
 			rowOne := backup.ColumnDefinition{Oid: 0, Num: 1, Name: "i", NotNull: false, HasDefault: false, Type: "integer", Encoding: "", StatTarget: -1, StorageType: "", DefaultVal: "", Comment: "", FdwOptions: "option1 'value1', option2 'value2'"}
 			testTable.ColumnDefs = []backup.ColumnDefinition{rowOne}
 			testTable.ForeignDef = backup.ForeignTableDefinition{Oid: 0, Options: "", Server: "sc"}
@@ -377,7 +380,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			tableMetadata = backup.ObjectMetadata{Privileges: []backup.ACL{}, ObjectType: toc.OBJ_RELATION}
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
-				TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED BY (i)", ColumnDefs: []backup.ColumnDefinition{tableRow}, ExtTableDef: extTableEmpty, Inherits: []string{}},
+				TableDefinition: backup.TableDefinition{DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED BY (i)"}, ColumnDefs: []backup.ColumnDefinition{tableRow}, ExtTableDef: extTableEmpty, Inherits: []string{}},
 			}
 			if connectionPool.Version.AtLeast("6") {
 				testTable.ReplicaIdentity = "d"
@@ -464,7 +467,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			testChildTable := backup.Table{
 				Relation: backup.Relation{Schema: "public", Name: "testChildTable"},
 				TableDefinition: backup.TableDefinition{
-					DistPolicy:  "DISTRIBUTED BY (i)",
+					DistPolicy:  backup.DistPolicy{Policy: "DISTRIBUTED BY (i)"},
 					ColumnDefs:  []backup.ColumnDefinition{tableRow},
 					ExtTableDef: extTableEmpty,
 					Inherits:    []string{"public.testroottable"},
@@ -547,7 +550,7 @@ SET SUBPARTITION TEMPLATE ` + `
 			}
 		})
 		It("creates a view with privileges, owner, security label, and comment", func() {
-			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED BY (a)"}}
 			viewMetadata := testutils.DefaultMetadata(toc.OBJ_MATERIALIZED_VIEW, true, true, true, includeSecurityLabels)
 
 			backup.PrintCreateViewStatement(backupfile, tocfile, view, viewMetadata)
@@ -561,11 +564,11 @@ SET SUBPARTITION TEMPLATE ` + `
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplemview", backup.TYPE_RELATION)
 			Expect(resultViews).To(HaveLen(1))
 			resultMetadata := resultMetadataMap[view.GetUniqueID()]
-			structmatcher.ExpectStructsToMatchExcluding(&view, &resultViews[0], "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&view, &resultViews[0], "ColumnDefs", "DistPolicy.Oid")
 			structmatcher.ExpectStructsToMatch(&viewMetadata, &resultMetadata)
 		})
 		It("creates a materialized view with options", func() {
-			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (a)"}
+			view := backup.View{Oid: 1, Schema: "public", Name: "simplemview", Options: " WITH (fillfactor=10)", Definition: sql.NullString{String: " SELECT 1 AS a;", Valid: true}, IsMaterialized: true, DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED BY (a)"}}
 
 			backup.PrintCreateViewStatement(backupfile, tocfile, view, backup.ObjectMetadata{})
 
@@ -576,7 +579,7 @@ SET SUBPARTITION TEMPLATE ` + `
 
 			view.Oid = testutils.OidFromObjectName(connectionPool, "public", "simplemview", backup.TYPE_RELATION)
 			Expect(resultViews).To(HaveLen(1))
-			structmatcher.ExpectStructsToMatchExcluding(&view, &resultViews[0], "ColumnDefs")
+			structmatcher.ExpectStructsToMatchExcluding(&view, &resultViews[0], "ColumnDefs", "DistPolicy.Oid")
 		})
 	})
 	Describe("PrintCreateSequenceStatements", func() {

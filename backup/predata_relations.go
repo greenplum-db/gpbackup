@@ -186,7 +186,7 @@ func PrintRegularTableCreateStatement(metadataFile *utils.FileWithByteCount, obj
 	if table.TablespaceName != "" {
 		metadataFile.MustPrintf("TABLESPACE %s ", table.TablespaceName)
 	}
-	metadataFile.MustPrintf("%s", table.DistPolicy)
+	metadataFile.MustPrintf("%s", table.DistPolicy.Policy)
 	if table.PartDef != "" {
 		metadataFile.MustPrintf(" %s", strings.TrimSpace(table.PartDef))
 	}
@@ -444,7 +444,7 @@ func PrintCreateViewStatement(metadataFile *utils.FileWithByteCount, objToc *toc
 		metadataFile.MustPrintf("\n\nCREATE VIEW %s%s AS %s\n", view.FQN(), view.Options, view.Definition.String)
 	} else {
 		metadataFile.MustPrintf("\n\nCREATE MATERIALIZED VIEW %s%s%s AS %s\nWITH NO DATA\n%s;\n",
-			view.FQN(), view.Options, tablespaceClause, view.Definition.String[:len(view.Definition.String)-1], view.DistPolicy)
+			view.FQN(), view.Options, tablespaceClause, view.Definition.String[:len(view.Definition.String)-1], view.DistPolicy.Policy)
 	}
 	section, entry := view.GetMetadataEntry()
 	tier := globalTierMap[view.GetUniqueID()]

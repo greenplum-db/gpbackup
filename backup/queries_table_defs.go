@@ -8,6 +8,7 @@ package backup
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
@@ -62,7 +63,7 @@ func createAlteredPartitionSchemaSet(tables []Table) map[string]bool {
 }
 
 type TableDefinition struct {
-	DistPolicy              string
+	DistPolicy              DistPolicy
 	PartDef                 string
 	PartTemplateDef         string
 	StorageOpts             string
@@ -93,7 +94,7 @@ func ConstructDefinitionsForTables(connectionPool *dbconn.DBConn, tableRelations
 
 	gplog.Info("Gathering additional table metadata")
 	columnDefs := GetColumnDefinitions(connectionPool)
-	distributionPolicies := GetDistributionPolicies(connectionPool)
+	distributionPolicies := GetDistributionPolicies(connectionPool, tableRelations)
 	partitionDefs, partTemplateDefs := GetPartitionDetails(connectionPool)
 	tablespaceNames, storageOptions := GetTableStorage(connectionPool)
 	extTableDefs := GetExternalTableDefinitions(connectionPool)
@@ -390,11 +391,21 @@ func GetColumnDefinitions(connectionPool *dbconn.DBConn) map[uint32][]ColumnDefi
 	return resultMap
 }
 
-func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
+type DistPolicy struct {
+	Oid        uint32
+	Policy     string `db:"value"`
+	DistByEnum bool   `db:"distbyenum"`
+}
+
+func GetDistributionPolicies(connectionPool *dbconn.DBConn, relations interface{}) map[uint32]DistPolicy {
 	gplog.Verbose("Getting distribution policies")
 
-	// This query is adapted from the addDistributedBy() function in pg_dump.c.
-	before6Query := `
+	tbloids := "{"
+	query := ""
+
+	if connectionPool.Version.Before("6") {
+		// This query is adapted from the addDistributedBy() function in pg_dump.c.
+		query = `
 		SELECT p.localoid AS oid,
 			'DISTRIBUTED BY (' || string_agg(quote_ident(a.attname) , ', ' ORDER BY index) || ')' AS value	
 		FROM (SELECT localoid, unnest(attrnums) AS attnum,
@@ -405,19 +416,61 @@ func GetDistributionPolicies(connectionPool *dbconn.DBConn) map[uint32]string {
 		UNION ALL
 		SELECT p.localoid AS oid, 'DISTRIBUTED RANDOMLY' AS value
 		FROM gp_distribution_policy p WHERE attrnums IS NULL`
-
-	atLeast6Query := `
-		SELECT localoid AS oid, pg_catalog.pg_get_table_distributedby(localoid) AS value
-		FROM gp_distribution_policy`
-
-	query := ""
-	if connectionPool.Version.Before("6") {
-		query = before6Query
 	} else {
-		query = atLeast6Query
+		// Identify relations of interest
+		// Tables and Materialized Views can have a distribution policy
+		if rels, ok := relations.([]Relation); ok {
+			for _, rel := range rels {
+				oid := rel.GetUniqueID().Oid
+				if len(tbloids) > 1 {
+					tbloids += ","
+				}
+				tbloids += strconv.Itoa(int(oid))
+			}
+			tbloids += "}"
+		}	else if rels, ok := relations.([]View); ok {
+			for _, rel := range rels {
+				oid := rel.GetUniqueID().Oid
+				if len(tbloids) > 1 {
+					tbloids += ","
+				}
+				tbloids += strconv.Itoa(int(oid))
+			}
+			tbloids += "}"
+		} else {
+			gplog.Fatal(fmt.Errorf("Unable to parse distribution policies"), "")
+		}
+
+		query = fmt.Sprintf(`WITH distpol AS (
+			SELECT
+				localoid AS oid,
+				d.distclass,
+				pg_catalog.pg_get_table_distributedby(localoid) AS value 
+			FROM unnest('%s'::pg_catalog.oid[]) AS src(tbloid) 
+			JOIN gp_distribution_policy d ON d.localoid=src.tbloid
+			)
+			SELECT 
+			distpol.oid,
+			distpol.value,
+				CASE WHEN opcintype=%d THEN true ELSE false END AS distbyenum
+			FROM distpol 
+			LEFT JOIN (
+				SELECT localoid, unnest(distclass) AS distclass 
+				FROM gp_distribution_policy
+				) t 
+			ON t.localoid=distpol.oid
+			LEFT JOIN pg_opclass opc ON opc.oid=t.distclass;`, tbloids, ENUM_TYPE_OID);
 	}
 
-	return selectAsOidToStringMap(connectionPool, query)
+	results := make([]DistPolicy, 0)
+	err := connectionPool.Select(&results, query)
+	gplog.FatalOnError(err)
+	resultMap := make(map[uint32]DistPolicy)
+	for _, result := range results {
+		resultMap[result.Oid] = result
+	}
+	return resultMap
+
 }
 
 func GetTableType(connectionPool *dbconn.DBConn) map[uint32]string {

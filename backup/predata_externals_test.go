@@ -86,7 +86,7 @@ var _ = Describe("backup/predata_externals tests", func() {
 		BeforeEach(func() {
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "tablename"},
-				TableDefinition: backup.TableDefinition{DistPolicy: "DISTRIBUTED RANDOMLY", PartDef: "", PartTemplateDef: "", StorageOpts: "", TablespaceName: "", ColumnDefs: []backup.ColumnDefinition{}, IsExternal: true, ExtTableDef: extTableEmpty}}
+				TableDefinition: backup.TableDefinition{DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED RANDOMLY"}, PartDef: "", PartTemplateDef: "", StorageOpts: "", TablespaceName: "", ColumnDefs: []backup.ColumnDefinition{}, IsExternal: true, ExtTableDef: extTableEmpty}}
 			extTableDef = extTableEmpty
 		})
 

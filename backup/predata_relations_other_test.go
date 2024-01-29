@@ -628,7 +628,7 @@ GRANT ALL ON TABLE shamwow.shazam TO testrole;`}
 			if connectionPool.Version.Before("6.2.0") {
 				Skip("Test only applicable to GPDB 6.2.0 and above")
 			}
-			mview = backup.View{Oid: 1, Schema: "schema1", Name: "mview1", Definition: sql.NullString{String: "SELECT count(*) FROM pg_tables;", Valid: true}, IsMaterialized: true, DistPolicy: "DISTRIBUTED BY (tablename)"}
+			mview = backup.View{Oid: 1, Schema: "schema1", Name: "mview1", Definition: sql.NullString{String: "SELECT count(*) FROM pg_tables;", Valid: true}, IsMaterialized: true, DistPolicy: backup.DistPolicy{Policy: "DISTRIBUTED BY (tablename)"}}
 			emptyMetadata = backup.ObjectMetadata{}
 		})
 		It("can print a basic materialized view", func() {

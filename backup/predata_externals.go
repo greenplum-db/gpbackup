@@ -64,7 +64,7 @@ func PrintExternalTableCreateStatement(metadataFile *utils.FileWithByteCount, ob
 	metadataFile.MustPrintf(") ")
 	PrintExternalTableStatements(metadataFile, table.FQN(), extTableDef)
 	if extTableDef.Writable {
-		metadataFile.MustPrintf("\n%s", table.DistPolicy)
+		metadataFile.MustPrintf("\n%s", table.DistPolicy.Policy)
 	}
 	metadataFile.MustPrintf(";")
 	if objToc != nil {

@@ -57,7 +57,6 @@ PGOPTIONS='--client-min-messages=warning' psql -d regression -q -f /tmp/dump.sql
 # run cleanups needed for migration backup, and tar cleaned backup into a tempdir
 # TODO: move these into a standalone script to abstract version-specific cleanups so we can re-use
 # this for migration testing other to/from GPDB versions
-psql -d regression -c "DROP TABLE IF EXISTS gpdist_legacy_opclasses.legacy_enum CASCADE;"
 psql -d regression -c "DROP EXTENSION IF EXISTS plpythonu CASCADE;"
 psql -d regression -c "DROP TABLE IF EXISTS bfv_partition.t26002_t1 CASCADE;"
 psql -d regression -c "DROP TABLE IF EXISTS dpe_malp.malp CASCADE;"

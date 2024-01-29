@@ -51,7 +51,7 @@ func AddTableDataEntriesToTOC(tables []Table, rowsCopiedMaps []map[uint32]int64)
 				}
 			}
 			attributes := ConstructTableAttributesList(table.ColumnDefs)
-			globalTOC.AddCoordinatorDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, table.PartitionLevelInfo.RootName, table.DistPolicy)
+			globalTOC.AddCoordinatorDataEntry(table.Schema, table.Name, table.Oid, attributes, rowsCopied, table.PartitionLevelInfo.RootName, table.DistPolicy.Policy, table.DistPolicy.DistByEnum)
 		}
 	}
 }

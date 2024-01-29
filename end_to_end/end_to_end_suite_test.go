@@ -1951,6 +1951,149 @@ LANGUAGE plpgsql NO SQL;`)
 			})
 		})
 	})
+	Describe("Properly handles enum type as distribution or partition key", func() {
+		BeforeEach(func() {
+			testutils.SkipIfBefore6(backupConn)
+			// FIXME: Enable GP7 tests once enum PR is merged to gpdb main
+			if backupConn.Version.Is("7") {
+				Skip("Distributed/partition by enum is not supported in GPDB7")
+			}
+			if useOldBackupVersion {
+				Skip("This test is not needed for old backup versions")
+			}
+
+			testhelper.AssertQueryRuns(backupConn, `
+			CREATE TYPE colors AS ENUM ('red', 'blue', 'green', 'yellow');
+			CREATE TYPE fruits AS ENUM ('apple', 'banana', 'cherry', 'orange');`)
+		})
+		AfterEach(func() {
+			testhelper.AssertQueryRuns(backupConn, "DROP TYPE colors CASCADE;")
+			testhelper.AssertQueryRuns(backupConn, "DROP TYPE fruits CASCADE;")
+		})
+		It("Restores table data distributed by an enum", func() {
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_enum_distkey (key colors) DISTRIBUTED BY (key)`)
+			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_enum_distkey VALUES ('red'), ('blue'), ('green'), ('yellow'),
+			('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow');`)
+
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_enum_distkey CASCADE")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			assertDataRestored(restoreConn, map[string]int{
+				"table_with_enum_distkey": 16})
+		})
+		It("Restores table data distributed by multi-key enum", func() {
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_multi_enum_distkey (key1 colors, key2 fruits) DISTRIBUTED BY (key1, key2);`)
+			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_multi_enum_distkey (key1, key2) VALUES ('red', 'apple'), ('blue', 'orange'), ('green', 'cherry'), ('yellow', 'banana'), ('red', 'cherry'), ('blue', 'orange'), ('green', 'apple'), ('yellow', 'cherry'), ('red', 'banana'), ('blue', 'apple'), ('green', 'cherry'), ('yellow', 'orange'), ('red', 'apple'), ('blue', 'cherry'), ('green', 'banana'), ('yellow', 'apple');`)
+
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_multi_enum_distkey CASCADE")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			assertDataRestored(restoreConn, map[string]int{
+				"table_with_multi_enum_distkey": 16})
+		})
+		It("Restores table data distributed by altered enum type", func() {
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_altered_enum_distkey (key colors) DISTRIBUTED BY (key)`)
+			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_altered_enum_distkey VALUES ('red'), ('blue'), ('green'), ('yellow'),
+			('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow');`)
+			testhelper.AssertQueryRuns(backupConn, `ALTER TYPE colors ADD VALUE 'purple';`)
+			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_altered_enum_distkey VALUES ('purple'), ('purple'), ('purple'), ('purple');`)
+
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_altered_enum_distkey CASCADE")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			assertDataRestored(restoreConn, map[string]int{
+				"table_with_altered_enum_distkey": 20})
+		})
+		It("Restores table data partitioned by enum", func() {
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_enum_partkey (a int, b colors) DISTRIBUTED BY (a) PARTITION BY LIST (b) 
+																							(PARTITION red VALUES ('red'),
+																							PARTITION blue VALUES ('blue'),
+																							PARTITION green VALUES ('green'),
+																							PARTITION yellow VALUES ('yellow'));`)
+			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_enum_partkey VALUES (1, 'red'), (2, 'blue'), (3, 'green'), (4, 'yellow'),
+			(5, 'red'), (6, 'blue'), (7, 'green'), (8, 'yellow'), (9, 'red'), (10, 'blue'), (11, 'green'), (12, 'yellow'), (13, 'red'), (14, 'blue'), (15, 'green'), (16, 'yellow');`)
+			testhelper.AssertQueryRuns(backupConn, `ALTER TYPE colors ADD VALUE 'purple';`)
+			testhelper.AssertQueryRuns(backupConn, `ALTER TABLE table_with_enum_partkey ADD PARTITION purple VALUES ('purple');`)
+			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_enum_partkey VALUES (17, 'purple'), (18, 'purple'), (19, 'purple'), (20, 'purple');`)
+
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_enum_partkey CASCADE")
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			assertDataRestored(restoreConn, map[string]int{
+				"table_with_enum_partkey": 20})
+		})
+		It("Restores table data partitioned using GPDB7 partition syntax", func() {
+			// This test is borrowed from pg_dump
+			testutils.SkipIfBefore7(backupConn)
+			if useOldBackupVersion {
+				Skip("This test is only needed for GPDB7")
+			}
+			testhelper.AssertQueryRuns(backupConn, `create type digit as enum ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');`);
+																						 // non-troublesome hashed partitioning
+			testhelper.AssertQueryRuns(backupConn, `create table tplain (en digit, data int unique);
+																							insert into tplain select (x%10)::text::digit, x from generate_series(1,1000) x;
+																							create table ths (mod int, data int, unique(mod, data)) partition by hash(mod);
+																							create table ths_p1 partition of ths for values with (modulus 3, remainder 0);
+																							create table ths_p2 partition of ths for values with (modulus 3, remainder 1);
+																							create table ths_p3 partition of ths for values with (modulus 3, remainder 2);
+																							insert into ths select (x%10), x from generate_series(1,1000) x;`);
+																							// dangerous hashed partitioning
+			testhelper.AssertQueryRuns(backupConn, `create table tht (en digit, data int, unique(en, data)) partition by hash(en);
+																							create table tht_p1 partition of tht for values with (modulus 3, remainder 0);
+																							create table tht_p2 partition of tht for values with (modulus 3, remainder 1);
+																							create table tht_p3 partition of tht for values with (modulus 3, remainder 2);
+																							insert into tht select (x%10)::text::digit, x from generate_series(1,1000) x;`);
+
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE tplain");
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE ths");
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE tht");
+			defer testhelper.AssertQueryRuns(backupConn, "DROP TYPE digit");
+
+			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
+
+			gprestoreArgs := []string{
+				"--timestamp", timestamp,
+				"--redirect-db", "restoredb",
+				"--backup-dir", backupDir}
+			gprestoreCmd := exec.Command(gprestorePath, gprestoreArgs...)
+			_, err := gprestoreCmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			assertDataRestored(restoreConn, map[string]int{
+				"tplain": 1000, "ths": 1000, "tht": 1000})
+		})
+	})
 	Describe("Restore to a different-sized cluster", FlakeAttempts(5), func() {
 		if useOldBackupVersion {
 			Skip("This test is not needed for old backup versions")

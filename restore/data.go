@@ -88,6 +88,13 @@ func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.Coordinator
 		destinationToRead = fpInfo.GetTableBackupFilePathForCopyCommand(entry.Oid, utils.GetPipeThroughProgram().Extension, backupConfig.SingleDataFile)
 	}
 	gplog.Debug("Reading from %s", destinationToRead)
+
+	if entry.DistByEnum {
+		gplog.Verbose("Setting gp_enable_segment_copy_checking TO off for table %s", tableName)
+		connectionPool.MustExec("SET gp_enable_segment_copy_checking TO off;", whichConn)
+		defer connectionPool.MustExec("RESET gp_enable_segment_copy_checking;", whichConn)
+	}
+
 	numRowsRestored, err := CopyTableIn(connectionPool, tableName, entry.AttributeString, destinationToRead, backupConfig.SingleDataFile, whichConn)
 	if err != nil {
 		return err
@@ -107,7 +114,7 @@ func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.Coordinator
 		return err
 	}
 
-	if resizeCluster {
+	if resizeCluster || entry.DistByEnum {
 		// replicated tables cannot be redistributed, so instead expand them if needed
 		if entry.IsReplicated && (origSize < destSize) {
 			err = ExpandReplicatedTable(origSize, tableName, whichConn)
@@ -118,6 +125,7 @@ func restoreSingleTableData(fpInfo *filepath.FilePathInfo, entry toc.Coordinator
 			return err
 		}
 	}
+
 	return err
 }
 

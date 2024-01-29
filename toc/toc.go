@@ -44,6 +44,7 @@ type CoordinatorDataEntry struct {
 	RowsCopied      int64
 	PartitionRoot   string
 	IsReplicated    bool
+	DistByEnum      bool
 }
 
 type SegmentDataEntry struct {
@@ -340,9 +341,9 @@ func (toc *TOC) AddMetadataEntry(section string, entry MetadataEntry, start, end
 	*toc.metadataEntryMap[section] = append(*toc.metadataEntryMap[section], entry)
 }
 
-func (toc *TOC) AddCoordinatorDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string, distPolicy string) {
+func (toc *TOC) AddCoordinatorDataEntry(schema string, name string, oid uint32, attributeString string, rowsCopied int64, PartitionRoot string, distPolicy string, distByEnum bool) {
 	isReplicated := strings.Contains(distPolicy, "REPLICATED")
-	toc.DataEntries = append(toc.DataEntries, CoordinatorDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot, isReplicated})
+	toc.DataEntries = append(toc.DataEntries, CoordinatorDataEntry{schema, name, oid, attributeString, rowsCopied, PartitionRoot, isReplicated, distByEnum})
 }
 
 func (toc *SegmentTOC) AddSegmentDataEntry(oid uint, startByte uint64, endByte uint64) {

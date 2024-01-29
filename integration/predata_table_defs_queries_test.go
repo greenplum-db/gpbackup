@@ -221,27 +221,27 @@ CREATE TABLE public.test_tsvector (
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.dist_random")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "dist_random", backup.TYPE_RELATION)
 
-			distPolicies := backup.GetDistributionPolicies(connectionPool)[oid]
+			distPolicies := backup.GetDistributionPolicies(connectionPool, []backup.Relation{{Oid: oid}})
 
-			Expect(distPolicies).To(Equal("DISTRIBUTED RANDOMLY"))
+			Expect(distPolicies[oid].Policy).To(Equal("DISTRIBUTED RANDOMLY"))
 		})
 		It("returns distribution policy info for a table DISTRIBUTED BY one column", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.dist_one(a int, b text) DISTRIBUTED BY (a)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.dist_one")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "dist_one", backup.TYPE_RELATION)
 
-			distPolicies := backup.GetDistributionPolicies(connectionPool)[oid]
+			distPolicies := backup.GetDistributionPolicies(connectionPool, []backup.Relation{{Oid: oid}})
 
-			Expect(distPolicies).To(Equal("DISTRIBUTED BY (a)"))
+			Expect(distPolicies[oid].Policy).To(Equal("DISTRIBUTED BY (a)"))
 		})
 		It("returns distribution policy info for a table DISTRIBUTED BY two columns", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.dist_two(a int, b text) DISTRIBUTED BY (a, b)")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.dist_two")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "dist_two", backup.TYPE_RELATION)
 
-			distPolicies := backup.GetDistributionPolicies(connectionPool)[oid]
+			distPolicies := backup.GetDistributionPolicies(connectionPool, []backup.Relation{{Oid: oid}})
 
-			Expect(distPolicies).To(Equal("DISTRIBUTED BY (a, b)"))
+			Expect(distPolicies[oid].Policy).To(Equal("DISTRIBUTED BY (a, b)"))
 		})
 		It("returns distribution policy info for a table DISTRIBUTED BY a custom operator", func() {
 			testutils.SkipIfBefore6(connectionPool)
@@ -295,27 +295,27 @@ CREATE TABLE public.test_tsvector (
 
 			oid := testutils.OidFromObjectName(connectionPool, "public", "abs_opclass_test", backup.TYPE_RELATION)
 
-			distPolicies := backup.GetDistributionPolicies(connectionPool)[oid]
+			distPolicies := backup.GetDistributionPolicies(connectionPool, []backup.Relation{{Oid: oid}})
 
-			Expect(distPolicies).To(Equal("DISTRIBUTED BY (i public.abs_int_hash_ops, t, j public.abs_int_hash_ops)"))
+			Expect(distPolicies[oid].Policy).To(Equal("DISTRIBUTED BY (i public.abs_int_hash_ops, t, j public.abs_int_hash_ops)"))
 		})
 		It("returns distribution policy info for a table DISTRIBUTED BY column name as keyword", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.dist_one(a int, "group" text) DISTRIBUTED BY ("group")`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.dist_one")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "dist_one", backup.TYPE_RELATION)
 
-			distPolicies := backup.GetDistributionPolicies(connectionPool)[oid]
+			distPolicies := backup.GetDistributionPolicies(connectionPool, []backup.Relation{{Oid: oid}})
 
-			Expect(distPolicies).To(Equal(`DISTRIBUTED BY ("group")`))
+			Expect(distPolicies[oid].Policy).To(Equal(`DISTRIBUTED BY ("group")`))
 		})
 		It("returns distribution policy info for a table DISTRIBUTED BY multiple columns in correct order", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TABLE public.dist_one (id int, memo varchar(20), dt date, col1 varchar(20)) DISTRIBUTED BY (memo, dt, id, col1); `)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.dist_one")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "dist_one", backup.TYPE_RELATION)
 
-			distPolicies := backup.GetDistributionPolicies(connectionPool)[oid]
+			distPolicies := backup.GetDistributionPolicies(connectionPool, []backup.Relation{{Oid: oid}})
 
-			Expect(distPolicies).To(Equal(`DISTRIBUTED BY (memo, dt, id, col1)`))
+			Expect(distPolicies[oid].Policy).To(Equal(`DISTRIBUTED BY (memo, dt, id, col1)`))
 		})
 		It("returns distribution policy info for a table DISTRIBUTED REPLICATED", func() {
 			testutils.SkipIfBefore6(connectionPool)
@@ -323,9 +323,9 @@ CREATE TABLE public.test_tsvector (
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.dist_one")
 			oid := testutils.OidFromObjectName(connectionPool, "public", "dist_one", backup.TYPE_RELATION)
 
-			distPolicies := backup.GetDistributionPolicies(connectionPool)[oid]
+			distPolicies := backup.GetDistributionPolicies(connectionPool, []backup.Relation{{Oid: oid}})
 
-			Expect(distPolicies).To(Equal(`DISTRIBUTED REPLICATED`))
+			Expect(distPolicies[oid].Policy).To(Equal(`DISTRIBUTED REPLICATED`))
 		})
 	})
 	Describe("GetPartitionDefinitions", func() {
