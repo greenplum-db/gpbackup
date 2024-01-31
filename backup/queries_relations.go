@@ -472,7 +472,7 @@ func GetAllViews(connectionPool *dbconn.DBConn) []View {
 // locks for the target relations. This is mainly to protect the metadata
 // dumping part but it also makes the main worker thread (worker 0) the
 // most resilient for the later data dumping logic. Locks will still be
-// taken when only backing up the data section.
+// taken for --data-only calls.
 func LockTables(connectionPool *dbconn.DBConn, tables []Relation) {
 	gplog.Info("Acquiring ACCESS SHARE locks on tables")
 

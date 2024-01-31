@@ -118,6 +118,7 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		CompressionType:       MustGetFlagString(options.COMPRESSION_TYPE),
 		DatabaseName:          dbName,
 		DatabaseVersion:       dbVersion,
+		DataOnly:              MustGetFlagBool(options.DATA_ONLY),
 		ExcludeRelations:      MustGetFlagStringArray(options.EXCLUDE_RELATION),
 		ExcludeSchemaFiltered: len(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)) > 0,
 		ExcludeSchemas:        MustGetFlagStringArray(options.EXCLUDE_SCHEMA),
@@ -128,14 +129,13 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		IncludeTableFiltered:  len(opts.GetOriginalIncludedTables()) > 0,
 		Incremental:           MustGetFlagBool(options.INCREMENTAL),
 		LeafPartitionData:     MustGetFlagBool(options.LEAF_PARTITION_DATA),
+		MetadataOnly:          MustGetFlagBool(options.METADATA_ONLY),
 		Plugin:                plugin,
 		SingleDataFile:        MustGetFlagBool(options.SINGLE_DATA_FILE),
 		Timestamp:             timestamp,
+		WithoutGlobals:        MustGetFlagBool(options.WITHOUT_GLOBALS),
+		WithStatistics:        MustGetFlagBool(options.WITH_STATS),
 		Status:                history.BackupStatusInProgress,
-		// initializeBackupReport is called after options.GetSection is called in Setup, so
-		// it's safe to assume that BackupSection has been initialized here.
-		Sections:           BackupSections,
-		DeprecatedMetadata: options.DeprecatedMetadata{},
 	}
 
 	return &backupConfig
@@ -153,7 +153,7 @@ func initializeBackupReport(opts options.Options) {
 	isFilteredBackup := config.IncludeTableFiltered || config.IncludeSchemaFiltered ||
 		config.ExcludeTableFiltered || config.ExcludeSchemaFiltered
 	dbSize := ""
-	if BackupSections.Data && !isFilteredBackup {
+	if !MustGetFlagBool(options.METADATA_ONLY) && !isFilteredBackup {
 		gplog.Verbose("Getting database size")
 		//Potentially expensive query
 		dbSize = GetDBSize(connectionPool)
@@ -171,9 +171,10 @@ func initializeBackupReport(opts options.Options) {
 func createBackupLockFile(timestamp string) {
 	var err error
 	var timestampLockFile string
+	metadataOnly := MustGetFlagBool(options.METADATA_ONLY)
 	backupDir := MustGetFlagString(options.BACKUP_DIR)
 	noHistory := MustGetFlagBool(options.NO_HISTORY)
-	if !BackupSections.Data && noHistory && backupDir != "" {
+	if metadataOnly && noHistory && backupDir != "" {
 		err = os.MkdirAll(backupDir, 0777)
 		gplog.FatalOnError(err)
 		timestampLockFile = fmt.Sprintf("%s/%s.lck", backupDir, timestamp)
@@ -741,7 +742,7 @@ func backupRowLevelSecurityPolicies(metadataFile *utils.FileWithByteCount) {
 func backupDefaultPrivileges(metadataFile *utils.FileWithByteCount) {
 	gplog.Verbose("Writing ALTER DEFAULT PRIVILEGES statements to metadata file")
 	defaultPrivileges := GetDefaultPrivileges(connectionPool)
-	objectCounts[toc.OBJ_DEFAULT_PRIVILEGES] = len(defaultPrivileges)
+	objectCounts["DEFAULT PRIVILEGES"] = len(defaultPrivileges)
 	PrintDefaultPrivilegesStatements(metadataFile, globalTOC, defaultPrivileges)
 }
 

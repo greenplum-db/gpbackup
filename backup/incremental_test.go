@@ -9,7 +9,6 @@ import (
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/filepath"
 	"github.com/greenplum-db/gpbackup/history"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/report"
 	"github.com/greenplum-db/gpbackup/testutils"
 	"github.com/greenplum-db/gpbackup/toc"
@@ -18,21 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gbytes"
 )
-
-func basicBackupConfig(databaseName string, timestamp string, status string) history.BackupConfig {
-	return history.BackupConfig{
-		DatabaseName:       databaseName,
-		Timestamp:          timestamp,
-		Status:             status,
-		ExcludeRelations:   []string{},
-		ExcludeSchemas:     []string{},
-		IncludeRelations:   []string{},
-		IncludeSchemas:     []string{},
-		RestorePlan:        []history.RestorePlanEntry{},
-		Sections:           options.Sections{},
-		DeprecatedMetadata: options.DeprecatedMetadata{},
-	}
-}
 
 var _ = Describe("backup/incremental tests", func() {
 	Describe("FilterTablesForIncremental", func() {
@@ -99,10 +83,45 @@ var _ = Describe("backup/incremental tests", func() {
 	Describe("GetLatestMatchingBackupConfig", func() {
 		historyDBPath := "/tmp/hist.db"
 		contents := []history.BackupConfig{
-			basicBackupConfig("test2", "timestamp4", history.BackupStatusFailed),
-			basicBackupConfig("test1", "timestamp3", history.BackupStatusSucceed),
-			basicBackupConfig("test2", "timestamp2", history.BackupStatusSucceed),
-			basicBackupConfig("test1", "timestamp1", history.BackupStatusSucceed),
+			{
+				DatabaseName:     "test2",
+				Timestamp:        "timestamp4",
+				Status:           history.BackupStatusFailed,
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{},
+			},
+			{
+				DatabaseName:     "test1",
+				Timestamp:        "timestamp3",
+				Status:           history.BackupStatusSucceed,
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{}},
+			{
+				DatabaseName:     "test2",
+				Timestamp:        "timestamp2",
+				Status:           history.BackupStatusSucceed,
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{},
+			},
+			{
+				DatabaseName:     "test1",
+				Timestamp:        "timestamp1",
+				Status:           history.BackupStatusSucceed,
+				ExcludeRelations: []string{},
+				ExcludeSchemas:   []string{},
+				IncludeRelations: []string{},
+				IncludeSchemas:   []string{},
+				RestorePlan:      []history.RestorePlanEntry{},
+			},
 		}
 		BeforeEach(func() {
 			os.Remove(historyDBPath)

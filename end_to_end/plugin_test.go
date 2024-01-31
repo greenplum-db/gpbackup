@@ -172,7 +172,7 @@ var _ = Describe("End to End plugin tests", func() {
 				"--leaf-partition-data",
 				"--single-data-file")
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
-				sectionRestoreMetadataOnly,
+				"--metadata-only",
 				"--redirect-db", "restoredb")
 			assertArtifactsCleaned(restoreConn, timestamp)
 		})
@@ -223,7 +223,7 @@ var _ = Describe("End to End plugin tests", func() {
 				"--single-data-file",
 				"--copy-queue-size", "4")
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
-				sectionRestoreMetadataOnly,
+				"--metadata-only",
 				"--redirect-db", "restoredb",
 				"--copy-queue-size", "4")
 			assertArtifactsCleaned(restoreConn, timestamp)
@@ -389,7 +389,7 @@ var _ = Describe("End to End plugin tests", func() {
 				copyPluginToAllHosts(backupConn, pluginExecutablePath)
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
-					sectionBackupMetadataOnly,
+					"--metadata-only",
 					"--plugin-config", pluginConfigPath)
 				forceMetadataFileDownloadFromPlugin(backupConn, timestamp)
 

@@ -57,9 +57,6 @@ var (
 	// Allow global access to pre-processed include and exclude table lists
 	IncludedRelationFqns []options.Relation
 	ExcludedRelationFqns []options.Relation
-
-	// sections to backup
-	BackupSections options.Sections
 )
 
 /*

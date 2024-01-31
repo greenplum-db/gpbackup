@@ -394,7 +394,7 @@ func GetBackupDataSet(tables []Table) ([]Table, int64) {
 	var backupDataSet []Table
 	var numExtOrForeignTables int64
 
-	if backupReport.Data {
+	if !backupReport.MetadataOnly {
 		for _, table := range tables {
 			if !table.SkipDataBackup() {
 				backupDataSet = append(backupDataSet, table)

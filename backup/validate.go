@@ -137,21 +137,13 @@ func ValidateTablesExist(conn *dbconn.DBConn, tableList []string, excludeSet boo
 }
 
 func validateFlagCombinations(flags *pflag.FlagSet) {
-	// TODO: remove these three checks once the deprecated flags are removed
-	options.CheckExclusiveFlags(flags, options.JOBS, options.METADATA_ONLY, options.SINGLE_DATA_FILE)
-	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.METADATA_ONLY, options.INCREMENTAL)
-	options.CheckExclusiveFlags(flags, options.METADATA_ONLY, options.LEAF_PARTITION_DATA)
-
-	// Do not allow mixing --sections with the legacy flags
-	options.CheckExclusiveFlags(flags, options.SECTIONS, options.METADATA_ONLY)
-	options.CheckExclusiveFlags(flags, options.SECTIONS, options.DATA_ONLY)
-	options.CheckExclusiveFlags(flags, options.SECTIONS, options.WITHOUT_GLOBALS)
-	options.CheckExclusiveFlags(flags, options.SECTIONS, options.WITH_STATS)
-
 	options.CheckExclusiveFlags(flags, options.DEBUG, options.QUIET, options.VERBOSE)
+	options.CheckExclusiveFlags(flags, options.DATA_ONLY, options.METADATA_ONLY, options.INCREMENTAL)
 	options.CheckExclusiveFlags(flags, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE, options.INCLUDE_RELATION, options.INCLUDE_RELATION_FILE)
 	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE, options.INCLUDE_SCHEMA, options.INCLUDE_SCHEMA_FILE)
 	options.CheckExclusiveFlags(flags, options.EXCLUDE_SCHEMA, options.EXCLUDE_SCHEMA_FILE, options.EXCLUDE_RELATION, options.INCLUDE_RELATION, options.EXCLUDE_RELATION_FILE, options.INCLUDE_RELATION_FILE)
+	options.CheckExclusiveFlags(flags, options.JOBS, options.METADATA_ONLY, options.SINGLE_DATA_FILE)
+	options.CheckExclusiveFlags(flags, options.METADATA_ONLY, options.LEAF_PARTITION_DATA)
 	options.CheckExclusiveFlags(flags, options.NO_COMPRESSION, options.COMPRESSION_TYPE)
 	options.CheckExclusiveFlags(flags, options.NO_COMPRESSION, options.COMPRESSION_LEVEL)
 	options.CheckExclusiveFlags(flags, options.PLUGIN_CONFIG, options.BACKUP_DIR)
@@ -204,19 +196,4 @@ func validateFromTimestamp(fromTimestamp string) {
 			"that of the current one. Please refer to the report to view the flags supplied for the "+
 			"previous backup.", fromTimestampFPInfo.Timestamp), "")
 	}
-}
-
-// Validate some flag combinations here, since they're harder to check in DoValidation
-// before the sections are parsed
-func ValidateBackupSections(flags *pflag.FlagSet) {
-	if options.MustGetFlagBool(flags, options.SINGLE_DATA_FILE) && !BackupSections.Data {
-		gplog.Fatal(errors.Errorf("Cannot use --single-data-file without data section"), "")
-	}
-	if options.MustGetFlagBool(flags, options.LEAF_PARTITION_DATA) && !BackupSections.Data {
-		gplog.Fatal(errors.Errorf("Cannot use --leaf-partition-data without data section"), "")
-	}
-	if options.MustGetFlagBool(flags, options.INCREMENTAL) && (!BackupSections.Data || !BackupSections.Predata || !BackupSections.Postdata) {
-		gplog.Fatal(errors.Errorf("Cannot use --incremental without predata, data, and postdata sections in a backup"), "")
-	}
-
 }

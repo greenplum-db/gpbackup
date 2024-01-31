@@ -492,7 +492,7 @@ EOF1`, backupDir)
 
 				// Restore the incremental backup. We should see gprestore
 				// not error out due to already existing tables.
-				gprestore(gprestorePath, restoreHelperPath, incrementalBackupTimestamp, "--redirect-db", "restoredb", "--incremental", sectionDataOnly)
+				gprestore(gprestorePath, restoreHelperPath, incrementalBackupTimestamp, "--redirect-db", "restoredb", "--incremental", "--data-only")
 
 				// Cleanup
 				testhelper.AssertQueryRuns(backupConn,
@@ -510,7 +510,7 @@ EOF1`, backupDir)
 					"INSERT INTO zoo VALUES (1);")
 				incrementalBackupTimestamp := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental")
 				gprestore(gprestorePath, restoreHelperPath, backupTimestamp, "--redirect-db", "restoredb")
-				gprestore(gprestorePath, restoreHelperPath, incrementalBackupTimestamp, "--redirect-db", "restoredb", "--incremental", sectionDataOnly)
+				gprestore(gprestorePath, restoreHelperPath, incrementalBackupTimestamp, "--redirect-db", "restoredb", "--incremental", "--data-only")
 
 				// Cleanup
 				testhelper.AssertQueryRuns(backupConn,
@@ -526,7 +526,7 @@ EOF1`, backupDir)
 				cmd := exec.Command(gprestorePath, args...)
 				output, err := cmd.CombinedOutput()
 				Expect(err).To(HaveOccurred())
-				Expect(string(output)).To(ContainSubstring("Cannot use --incremental with globals, predata, or postdata sections"))
+				Expect(string(output)).To(ContainSubstring("Cannot use --incremental without --data-only"))
 			})
 			It("Does not incremental restore with --metadata-only", func() {
 				args := []string{
@@ -608,7 +608,7 @@ EOF1`, backupDir)
 				})
 				It("Restores only tables included by use if user input is provided", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--include-table", "old_schema.old_table1",
 						"--redirect-db", "restoredb")
 					oldSchemaTupleCounts["old_schema.old_table1"] = 20
@@ -620,7 +620,7 @@ EOF1`, backupDir)
 				})
 				It("Does not restore tables excluded by user if user input is provided", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--exclude-table", "new_schema.new_table1",
 						"--exclude-table", "new_schema.new_table2",
 						"--redirect-db", "restoredb")
@@ -633,7 +633,7 @@ EOF1`, backupDir)
 				})
 				It("Restores only schemas included by user if user input is provided", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--include-schema", "old_schema",
 						"--redirect-db", "restoredb")
 					oldSchemaTupleCounts["old_schema.old_table1"] = 20
@@ -644,7 +644,7 @@ EOF1`, backupDir)
 				})
 				It("Does not restore schemas excluded by user if user input is provided", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--exclude-schema", "new_schema",
 						"--redirect-db", "restoredb")
 					oldSchemaTupleCounts["old_schema.old_table1"] = 20
@@ -696,7 +696,7 @@ EOF1`, backupDir)
 				It("Does not restore old/new tables and exits gracefully", func() {
 					args := []string{
 						"--timestamp", timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--redirect-db", "restoredb"}
 					cmd := exec.Command(gprestorePath, args...)
 					output, err := cmd.CombinedOutput()
@@ -711,7 +711,7 @@ EOF1`, backupDir)
 				It("Only restores existing tables if --on-error-continue is specified", func() {
 					args := []string{
 						"--timestamp", timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--on-error-continue",
 						"--redirect-db", "restoredb"}
 					cmd := exec.Command(gprestorePath, args...)
@@ -748,7 +748,7 @@ EOF1`, backupDir)
 				})
 				It("Updates data in existing tables", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--redirect-db", "restoredb")
 					oldSchemaTupleCounts["old_schema.old_table1"] = 20
 					oldSchemaTupleCounts["old_schema.old_table2"] = 30
@@ -759,7 +759,7 @@ EOF1`, backupDir)
 				})
 				It("Updates only tables included by user if user input is provided", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--include-table", "old_schema.old_table1",
 						"--redirect-db", "restoredb")
 					oldSchemaTupleCounts["old_schema.old_table1"] = 20
@@ -770,7 +770,7 @@ EOF1`, backupDir)
 				})
 				It("Does not update tables excluded by user if user input is provided", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--exclude-table", "old_schema.old_table1",
 						"--redirect-db", "restoredb")
 					oldSchemaTupleCounts["old_schema.old_table2"] = 30
@@ -781,7 +781,7 @@ EOF1`, backupDir)
 				})
 				It("Does not update anything if user excluded all tables", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--exclude-table", "old_schema.old_table1",
 						"--exclude-table", "old_schema.old_table2",
 						"--redirect-db", "restoredb")
@@ -792,7 +792,7 @@ EOF1`, backupDir)
 				})
 				It("Does not update tables if user input is provided and schema is not included", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--include-schema", "public",
 						"--redirect-db", "restoredb")
 					assertSchemasExist(restoreConn, 4)
@@ -802,7 +802,7 @@ EOF1`, backupDir)
 				})
 				It("Does not restore tables if user input is provide and schema is excluded by user", func() {
 					gprestore(gprestorePath, restoreHelperPath, timestamp,
-						"--incremental", sectionDataOnly,
+						"--incremental", "--data-only",
 						"--exclude-schema", "old_schema",
 						"--redirect-db", "restoredb")
 					assertSchemasExist(restoreConn, 4)

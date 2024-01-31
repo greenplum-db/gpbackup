@@ -313,7 +313,7 @@ func (dp DefaultPrivileges) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          dp.Schema,
 			Name:            "",
-			ObjectType:      toc.OBJ_DEFAULT_PRIVILEGES,
+			ObjectType:      "DEFAULT PRIVILEGES",
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,

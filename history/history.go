@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
 	"github.com/greenplum-db/gp-common-go-libs/operating"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/utils"
 	_ "github.com/mattn/go-sqlite3"
 	"gopkg.in/yaml.v2"
@@ -22,9 +20,9 @@ type RestorePlanEntry struct {
 }
 
 const (
-	BackupStatusInProgress = "In Progress"
-	BackupStatusSucceed    = "Success"
-	BackupStatusFailed     = "Failure"
+    BackupStatusInProgress = "In Progress"
+	BackupStatusSucceed = "Success"
+	BackupStatusFailed  = "Failure"
 )
 
 type BackupConfig struct {
@@ -35,6 +33,7 @@ type BackupConfig struct {
 	DatabaseName          string
 	DatabaseVersion       string
 	SegmentCount          int
+	DataOnly              bool
 	DateDeleted           string
 	ExcludeRelations      []string
 	ExcludeSchemaFiltered bool
@@ -46,18 +45,16 @@ type BackupConfig struct {
 	IncludeTableFiltered  bool
 	Incremental           bool
 	LeafPartitionData     bool
+	MetadataOnly          bool
 	Plugin                string
 	PluginVersion         string
 	RestorePlan           []RestorePlanEntry
 	SingleDataFile        bool
 	Timestamp             string
 	EndTime               string
+	WithoutGlobals        bool
+	WithStatistics        bool
 	Status                string
-	options.Sections
-	// The "inline" YAML annotation allows reading section-related fields from old backups as if they were still
-	// part of BackupConfig, instead of being offset into a separate DeprecatedMetadata entry.
-	// This struct should remain at the end of BackupConfig if new fields are added; see comment in WriteConfigFile.
-	options.DeprecatedMetadata `yaml:",inline"`
 }
 
 func (backup *BackupConfig) Failed() bool {
@@ -76,16 +73,6 @@ func ReadConfigFile(filename string) *BackupConfig {
 func WriteConfigFile(config *BackupConfig, configFilename string) {
 	configContents, err := yaml.Marshal(config)
 	gplog.FatalOnError(err)
-
-	// We don't want to output DeprecatedMetadata.  The YAML "-" annotation doesn't cover this use case,
-	// because we still have to be able to *read* it when restoring older backups; using a pointer so we
-	// can set it to nil and have the marshalar ignore it causes Marshal to silently fail; and the standard
-	// methods of overriding MarshalYAML or implementing an IsZero function for DeprecatedMetadata doesn't
-	// work, for whatever reason; so we just marshal config as-is and chop off the output of those fields
-	// in the DeprecatedMetadata struct, as they'll always be at the end of the BackupConfig.
-	// TODO: Figure out a less hacky way to do this
-	configContents = []byte(strings.Split(string(configContents), "dataonly")[0])
-
 	_ = utils.WriteToFileAndMakeReadOnly(configFilename, configContents)
 }
 
@@ -97,15 +84,8 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
 	// no-op. This approach allows us to avoid risky race conditions around creating the database
 	// only if not present, at the overhead cost of a few no-op DDL queries when we connect.
 
-	// This function also handles schema migrations, as it is the gateway for all accesses and thus
-	// prevents anyone from accidentally interacting with out-of-date schemas. We handle schema
-	// migrations in-place with the general pattern of checking for the existence of a thing that
-	// was added later, and if it is not found altering the existing objects to add it. This makes
-	// additive migrations very easy, but it can make removal more complicated. So, when adding
-	// things to the schema be sure we really want them.
-
 	// Create db file if one does not exist
-	fd, err := os.OpenFile(historyDBPath, os.O_CREATE|os.O_EXCL, 0666)
+	fd, err := os.OpenFile(historyDBPath, os.O_CREATE|os.O_EXCL, 0666) // TODO -- change to 0644?
 	if err != nil && !errors.Is(err, os.ErrExist) {
 		return nil, err
 	} else if err == nil {
@@ -151,12 +131,7 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
             end_time TEXT,
             without_globals INT CHECK (without_globals in (0,1)),
             with_statistics INT CHECK (with_statistics in (0,1)),
-            status TEXT,
-            globals INT CHECK (data_only in (0,1)),
-            predata INT CHECK (data_only in (0,1)),
-            data INT CHECK (data_only in (0,1)),
-            postdata INT CHECK (data_only in (0,1)),
-            statistics INT CHECK (data_only in (0,1))
+            status TEXT
 		);`
 	_, err = tx.Exec(createBackupsTable)
 	if err != nil {
@@ -212,37 +187,6 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// SCHEMA MIGRATION: add sections columns if not already present
-	checkForSectionsColumns := "SELECT COUNT(*) AS PRESENCE FROM pragma_table_info('backups') WHERE name='globals';"
-	sectionRow := tx.QueryRow(checkForSectionsColumns)
-	var sectionCols int
-	err = sectionRow.Scan(&sectionCols)
-	if err != nil {
-		tx.Rollback()
-		db.Close()
-		return nil, err
-	}
-	if sectionCols == 0 {
-		addSectionColumns := `
-            ALTER TABLE backups ADD COLUMN globals INT CHECK (data_only in (0,1));
-            ALTER TABLE backups ADD COLUMN predata INT CHECK (data_only in (0,1));
-            ALTER TABLE backups ADD COLUMN data INT CHECK (data_only in (0,1));
-            ALTER TABLE backups ADD COLUMN postdata INT CHECK (data_only in (0,1));
-            ALTER TABLE backups ADD COLUMN statistics INT CHECK (data_only in (0,1));
-            UPDATE backups SET globals=0 WHERE globals IS NULL;
-            UPDATE backups SET predata=0 WHERE predata IS NULL;
-            UPDATE backups SET data=0 WHERE data IS NULL;
-            UPDATE backups SET postdata=0 WHERE postdata IS NULL;
-            UPDATE backups SET statistics=0 WHERE statistics IS NULL;
-        `
-		_, err = tx.Exec(addSectionColumns)
-		if err != nil {
-			tx.Rollback()
-			db.Close()
-			return nil, err
-		}
-	}
-
 	err = tx.Commit()
 	if err != nil {
 		db.Close()
@@ -278,9 +222,9 @@ func StoreBackupHistory(db *sql.DB, currentBackupConfig *BackupConfig) error {
 			database_version, segment_count, data_only, date_deleted, exclude_schema_filtered,
 			exclude_table_filtered, include_schema_filtered, include_table_filtered, incremental,
 			leaf_partition_data, metadata_only, plugin, plugin_version, single_data_file, end_time,
-			without_globals, with_statistics, status, globals, predata, data, postdata, statistics
+			without_globals, with_statistics, status
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
 		currentBackupConfig.Timestamp, currentBackupConfig.BackupDir,
 		currentBackupConfig.BackupVersion, currentBackupConfig.Compressed,
 		currentBackupConfig.CompressionType, currentBackupConfig.DatabaseName,
@@ -292,9 +236,7 @@ func StoreBackupHistory(db *sql.DB, currentBackupConfig *BackupConfig) error {
 		currentBackupConfig.MetadataOnly, currentBackupConfig.Plugin,
 		currentBackupConfig.PluginVersion, currentBackupConfig.SingleDataFile,
 		currentBackupConfig.EndTime, currentBackupConfig.WithoutGlobals,
-		currentBackupConfig.WithStatistics, currentBackupConfig.Status,
-		currentBackupConfig.Globals, currentBackupConfig.Predata, currentBackupConfig.Data,
-		currentBackupConfig.Postdata, currentBackupConfig.Statistics)
+		currentBackupConfig.WithStatistics, currentBackupConfig.Status)
 	if err != nil {
 		goto CleanupError
 	}
@@ -354,7 +296,7 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 			database_version, segment_count, data_only, date_deleted, exclude_schema_filtered,
 			exclude_table_filtered, include_schema_filtered, include_table_filtered, incremental,
 			leaf_partition_data, metadata_only, plugin, plugin_version, single_data_file, end_time,
-			without_globals, with_statistics, status, globals, predata, data, postdata, statistics
+			without_globals, with_statistics, status
 		FROM backups WHERE timestamp = '%s'`,
 		timestamp)
 	backupRow := historyDB.QueryRow(backupQuery)
@@ -372,13 +314,6 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 	var isSingleDataFile int
 	var isWithoutGlobals int
 	var isWithStatistics int
-	var globals int
-	var predata int
-	var data int
-	var postdata int
-	var statistics int
-	backupConfig.Sections = options.Sections{}
-	backupConfig.DeprecatedMetadata = options.DeprecatedMetadata{}
 	err := backupRow.Scan(
 		&backupConfig.Timestamp, &backupConfig.BackupDir, &backupConfig.BackupVersion,
 		&isCompressed, &backupConfig.CompressionType, &backupConfig.DatabaseName,
@@ -386,8 +321,7 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 		&backupConfig.DateDeleted, &isExclSchemaFiltered, &isExclTableFiltered,
 		&isInclSchemaFiltered, &isInclTableFiltered, &isIncremental, &isLeafPartition,
 		&isMetadataOnly, &backupConfig.Plugin, &backupConfig.PluginVersion, &isSingleDataFile,
-		&backupConfig.EndTime, &isWithoutGlobals, &isWithStatistics, &backupConfig.Status,
-		&globals, &predata, &data, &postdata, &statistics)
+		&backupConfig.EndTime, &isWithoutGlobals, &isWithStatistics, &backupConfig.Status)
 	if err == sql.ErrNoRows {
 		return backupConfig, errors.New("timestamp doesn't match any existing backups")
 	} else if err != nil {
@@ -406,11 +340,6 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 	backupConfig.SingleDataFile = isSingleDataFile == 1
 	backupConfig.WithoutGlobals = isWithoutGlobals == 1
 	backupConfig.WithStatistics = isWithStatistics == 1
-	backupConfig.Globals = globals == 1
-	backupConfig.Predata = predata == 1
-	backupConfig.Data = data == 1
-	backupConfig.Postdata = postdata == 1
-	backupConfig.Statistics = statistics == 1
 
 	return backupConfig, err
 }

@@ -327,7 +327,6 @@ restore status:          Success but non-fatal errors occurred. See log file .+ 
 			Expect(err).ToNot(HaveOccurred())
 			opts, err := options.NewOptions(backupCmdFlags)
 			Expect(err).ToNot(HaveOccurred())
-			backup.BackupSections = options.GetSections(backupCmdFlags)
 			opts.AddIncludedRelation("public.baz")
 			err = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.baz")
 			Expect(err).ToNot(HaveOccurred())
@@ -349,8 +348,6 @@ restore status:          Success but non-fatal errors occurred. See log file .+ 
 				Timestamp:            "timestamp1",
 				IncludeTableFiltered: true,
 				Status:               history.BackupStatusInProgress,
-				Sections:             options.Sections{Globals: true, Predata: true, Data: true, Postdata: true},
-				DeprecatedMetadata:   options.DeprecatedMetadata{},
 			}, backupConfig)
 		})
 	})

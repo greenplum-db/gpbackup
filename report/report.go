@@ -73,7 +73,13 @@ func (report *Report) ConstructBackupParamsString() {
 	if report.Plugin != "" {
 		pluginStr = report.Plugin
 	}
-	sectionStr := report.Sections.AsString()
+	sectionStr := "All Sections"
+	if report.DataOnly {
+		sectionStr = "Data Only"
+	}
+	if report.MetadataOnly {
+		sectionStr = "Metadata Only"
+	}
 	filesStr := "Multiple Data Files Per Segment"
 	if report.MetadataOnly {
 		filesStr = "No Data Files"

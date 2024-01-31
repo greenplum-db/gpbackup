@@ -100,11 +100,11 @@ func VerifyMetadataFilePaths(withStats bool) {
 		if !iohelper.FileExistsAndIsReadable(filepath) {
 			missing = true
 			gplog.Error("Cannot access statistics file %s", filepath)
-			gplog.Error(`Note that the statistics section must be included with the --sections flag to generate a statistics file.`)
+			gplog.Error(`Note that the "-with-stats" flag must be passed to gpbackup to generate a statistics file.`)
 		}
 	}
 	if missing {
-		gplog.Fatal(errors.Errorf("Cannot proceed with restore"), "One or more metadata files do not exist or are not readable")
+		gplog.Fatal(errors.Errorf("One or more metadata files do not exist or are not readable."), "Cannot proceed with restore")
 	}
 }
 

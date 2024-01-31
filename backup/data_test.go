@@ -197,7 +197,7 @@ var _ = Describe("backup/data tests", func() {
 		config := history.BackupConfig{}
 		var testTable backup.Table
 		BeforeEach(func() {
-			config.Sections = options.Sections{Globals: true, Predata: true, Data: true, Postdata: true}
+			config.MetadataOnly = false
 			backup.SetReport(&report.Report{BackupConfig: config})
 			testTable = backup.Table{
 				Relation:        backup.Relation{Schema: "public", Name: "testtable"},
@@ -229,7 +229,7 @@ var _ = Describe("backup/data tests", func() {
 			Expect(numExtOrForeignTables).To(Equal(int64(0)))
 		})
 		It("returns an empty set, if --metadata-only flag is set and a regular table is given", func() {
-			config.Data = false
+			config.MetadataOnly = true
 			backup.SetReport(&report.Report{BackupConfig: config})
 			tables := []backup.Table{testTable}
 

@@ -75,8 +75,6 @@ func DoSetup() {
 	opts, err = options.NewOptions(cmdFlags)
 	gplog.FatalOnError(err)
 
-	RestoreSections = options.GetSections(cmdFlags)
-
 	err = opts.QuoteIncludeRelations(connectionPool)
 	gplog.FatalOnError(err)
 
@@ -99,8 +97,6 @@ func DoSetup() {
 		InitializeBackupConfig()
 	}
 
-	ValidateRestoreSections(cmdFlags, backupConfig)
-
 	ValidateSafeToResizeCluster()
 
 	gplog.Info("gpbackup version = %s", backupConfig.BackupVersion)
@@ -109,15 +105,15 @@ func DoSetup() {
 
 	BackupConfigurationValidation()
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
-	if RestoreSections.Globals || RestoreSections.Predata || RestoreSections.Postdata {
+	if !backupConfig.DataOnly {
 		gplog.Verbose("Metadata will be restored from %s", metadataFilename)
 	}
 	unquotedRestoreDatabase := utils.UnquoteIdent(backupConfig.DatabaseName)
 	if MustGetFlagString(options.REDIRECT_DB) != "" {
 		unquotedRestoreDatabase = MustGetFlagString(options.REDIRECT_DB)
 	}
-	ValidateDatabaseExistence(unquotedRestoreDatabase, MustGetFlagBool(options.CREATE_DB), backupConfig.IncludeTableFiltered || !backupConfig.Globals)
-	if RestoreSections.Globals {
+	ValidateDatabaseExistence(unquotedRestoreDatabase, MustGetFlagBool(options.CREATE_DB), backupConfig.IncludeTableFiltered || backupConfig.DataOnly)
+	if MustGetFlagBool(options.WITH_GLOBALS) {
 		restoreGlobal(metadataFilename)
 	} else if MustGetFlagBool(options.CREATE_DB) {
 		createDatabase(metadataFilename)
@@ -155,15 +151,17 @@ func DoSetup() {
 func DoRestore() {
 	var filteredDataEntries map[string][]toc.CoordinatorDataEntry
 	metadataFilename := globalFPInfo.GetMetadataFilePath()
+	isDataOnly := backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY)
+	isMetadataOnly := backupConfig.MetadataOnly || MustGetFlagBool(options.METADATA_ONLY)
 	isIncremental := MustGetFlagBool(options.INCREMENTAL)
 
 	if isIncremental {
 		verifyIncrementalState()
 	}
 
-	if RestoreSections.Predata && !isIncremental {
+	if !isDataOnly && !isIncremental {
 		restorePredata(metadataFilename)
-	} else if RestoreSections.Data {
+	} else if isDataOnly {
 		// The sequence setval commands need to be run during data only restores since
 		// they are arguably the data of the sequence relations and can affect user tables
 		// containing columns that reference those sequence relations.
@@ -171,18 +169,18 @@ func DoRestore() {
 	}
 
 	totalTablesRestored := 0
-	if RestoreSections.Data {
+	if !isMetadataOnly {
 		if MustGetFlagString(options.PLUGIN_CONFIG) == "" {
 			VerifyBackupFileCountOnSegments()
 		}
 		totalTablesRestored, filteredDataEntries = restoreData()
 	}
 
-	if RestoreSections.Postdata && !isIncremental {
+	if !isDataOnly && !isIncremental {
 		restorePostdata(metadataFilename)
 	}
 
-	if RestoreSections.Statistics {
+	if MustGetFlagBool(options.WITH_STATS) && backupConfig.WithStatistics {
 		restoreStatistics()
 	} else if MustGetFlagBool(options.RUN_ANALYZE) && totalTablesRestored > 0 {
 		runAnalyze(filteredDataEntries)

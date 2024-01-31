@@ -186,7 +186,7 @@ func (pi PartitionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
 		toc.MetadataEntry{
 			Schema:          pi.ParentSchema,
 			Name:            pi.ParentRelationName,
-			ObjectType:      toc.OBJ_EXCHANGE_PARTITION,
+			ObjectType:      "EXCHANGE PARTITION",
 			ReferenceObject: "",
 			StartByte:       0,
 			EndByte:         0,
