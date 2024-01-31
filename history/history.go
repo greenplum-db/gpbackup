@@ -152,11 +152,11 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
             without_globals INT CHECK (without_globals in (0,1)),
             with_statistics INT CHECK (with_statistics in (0,1)),
             status TEXT,
-            globals INT CHECK (globals in (0,1)),
-            predata INT CHECK (predata in (0,1)),
-            data INT CHECK (data in (0,1)),
-            postdata INT CHECK (postdata in (0,1)),
-            statistics INT CHECK (statistics in (0,1))
+            globals INT CHECK (data_only in (0,1)),
+            predata INT CHECK (data_only in (0,1)),
+            data INT CHECK (data_only in (0,1)),
+            postdata INT CHECK (data_only in (0,1)),
+            statistics INT CHECK (data_only in (0,1))
 		);`
 	_, err = tx.Exec(createBackupsTable)
 	if err != nil {
@@ -212,8 +212,7 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// SCHEMA MIGRATION: add sections columns if not already present. Arbitrarily, we check for
-	// the 'globals' column as a standin for all the sections columns.
+	// SCHEMA MIGRATION: add sections columns if not already present
 	checkForSectionsColumns := "SELECT COUNT(*) AS PRESENCE FROM pragma_table_info('backups') WHERE name='globals';"
 	sectionRow := tx.QueryRow(checkForSectionsColumns)
 	var sectionCols int
@@ -225,30 +224,16 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
 	}
 	if sectionCols == 0 {
 		addSectionColumns := `
-            ALTER TABLE backups ADD COLUMN globals INT CHECK (globals in (0,1));
-            ALTER TABLE backups ADD COLUMN predata INT CHECK (predata in (0,1));
-            ALTER TABLE backups ADD COLUMN data INT CHECK (data in (0,1));
-            ALTER TABLE backups ADD COLUMN postdata INT CHECK (postdata in (0,1));
-            ALTER TABLE backups ADD COLUMN statistics INT CHECK (statistics in (0,1));
-
-            UPDATE backups SET globals=1 WHERE globals IS NULL AND without_globals=0 
-                AND exclude_schema_filtered=0 AND exclude_table_filtered=0
-                AND include_schema_filtered=0 AND include_table_filtered=0
-                AND data_only=0;
-
-            UPDATE backups SET globals=0 WHERE globals IS NULL AND (
-                without_globals=1 OR exclude_schema_filtered=1 OR
-                exclude_table_filtered=1 OR include_schema_filtered=1 
-                OR include_table_filtered=1 OR data_only=1);
-
-            UPDATE backups SET predata=0 WHERE predata IS NULL AND data_only=1;
-            UPDATE backups SET predata=1 WHERE predata IS NULL AND data_only=0;
-            UPDATE backups SET data=0 WHERE data IS NULL AND metadata_only=1;
-            UPDATE backups SET data=1 WHERE data IS NULL AND metadata_only=0;
-            UPDATE backups SET postdata=0 WHERE postdata IS NULL AND data_only=1;
-            UPDATE backups SET postdata=1 WHERE postdata IS NULL AND data_only=0;
-            UPDATE backups SET statistics=0 WHERE statistics IS NULL AND with_statistics=0;
-            UPDATE backups SET statistics=1 WHERE statistics IS NULL AND with_statistics=1;
+            ALTER TABLE backups ADD COLUMN globals INT CHECK (data_only in (0,1));
+            ALTER TABLE backups ADD COLUMN predata INT CHECK (data_only in (0,1));
+            ALTER TABLE backups ADD COLUMN data INT CHECK (data_only in (0,1));
+            ALTER TABLE backups ADD COLUMN postdata INT CHECK (data_only in (0,1));
+            ALTER TABLE backups ADD COLUMN statistics INT CHECK (data_only in (0,1));
+            UPDATE backups SET globals=0 WHERE globals IS NULL;
+            UPDATE backups SET predata=0 WHERE predata IS NULL;
+            UPDATE backups SET data=0 WHERE data IS NULL;
+            UPDATE backups SET postdata=0 WHERE postdata IS NULL;
+            UPDATE backups SET statistics=0 WHERE statistics IS NULL;
         `
 		_, err = tx.Exec(addSectionColumns)
 		if err != nil {
