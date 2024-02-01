@@ -306,7 +306,7 @@ func restorePredata(metadataFilename string) {
 	progressBar.Start()
 
 	RestoreSchemas(schemaStatements, progressBar)
-	executeInParallel := connectionPool.NumConns > 2 && !MustGetFlagBool(options.ON_ERROR_CONTINUE)
+	executeInParallel := connectionPool.NumConns > 1 && !MustGetFlagBool(options.ON_ERROR_CONTINUE)
 	if executeInParallel {
 		// Batch statements by tier to allow more aggressive parallelization by cohort downstream.
 		first, tiered, last := BatchPredataStatements(statements)
@@ -568,7 +568,6 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 				Schema:    tableSchema,
 				Name:      entry.Name,
 				Statement: analyzeCommand,
-				Tier:      []uint32{0, 0},
 			}
 			analyzeStatements = append(analyzeStatements, newAnalyzeStatement)
 		}
@@ -595,7 +594,6 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 						Schema:    tableSchema,
 						Name:      entry.PartitionRoot,
 						Statement: analyzeCommand,
-						Tier:      []uint32{0, 0},
 					}
 
 					// use analyze command as map key, since struct isn't a valid key but statement

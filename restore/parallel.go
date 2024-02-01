@@ -69,8 +69,8 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
 }
 
 func findLeastBusyConn(connStatementCounts map[int]int) int {
-	minStatements := connStatementCounts[1]
-	leastBusyConn := 1
+	minStatements := connStatementCounts[0]
+	leastBusyConn := 0
 	for conn, count := range connStatementCounts {
 		if count < minStatements {
 			leastBusyConn = conn
@@ -83,34 +83,35 @@ func findLeastBusyConn(connStatementCounts map[int]int) int {
 func scheduleStatementsOnWorkers(statements []toc.StatementWithType, numConns int) map[int][]toc.StatementWithType {
 	splitStatements := make(map[int][]toc.StatementWithType, numConns)
 	cohortConnAssignments := make(map[uint32]int)
-
-	// We do not schedule statements onto connection 0, as our code expects that to be reserved for
-	// progress reporting and administrative tasks.
-	connStatementCounts := make(map[int]int, numConns-1)
-	for i := 1; i < numConns; i++ {
+	// Initialize the map with 0 counts for each connection
+	connStatementCounts := make(map[int]int, numConns)
+	for i := 0; i < numConns; i++ {
 		connStatementCounts[i] = 0
 	}
 	// During backup, we track objects into "cohorts" that must be backed up in the same
 	// transaction to avoid lock contention and/or deadlocks. Split up statements to
 	// connections by cohort.
+	// If the statement has no Tier it by definition has no cohort and we can assign it
+	// to the least busy connection. If the statement has a Tier, use its cohort to assign
+	// it to a connection. If the cohort has already been assigned, use that connection.
 	for i := 0; i < len(statements); i++ {
 		var cohort uint32
-		if len(statements[i].Tier) == 0 {
-			// older backups will not have a Tier value
-			cohort = 0
-		} else {
+		assignedConn := findLeastBusyConn(connStatementCounts)
+
+		if statements[i].Tier != nil && len(statements[i].Tier) > 0{
 			cohort = statements[i].Tier[1]
+			keyConn, alreadyPinned := cohortConnAssignments[cohort]
+			// If the cohort has already been assigned, use that connection
+			// Otherwise, the cohort is new and we assign it to the least busy connection
+			if alreadyPinned {
+				assignedConn = keyConn
+			} else {
+				cohortConnAssignments[cohort] = assignedConn
+			}
 		}
-		keyConn, alreadyPinned := cohortConnAssignments[cohort]
-		if alreadyPinned {
-			splitStatements[keyConn] = append(splitStatements[keyConn], statements[i])
-			connStatementCounts[keyConn] = connStatementCounts[keyConn] + 1
-		} else {
-			leastBusyConn := findLeastBusyConn(connStatementCounts)
-			cohortConnAssignments[cohort] = leastBusyConn
-			splitStatements[leastBusyConn] = append(splitStatements[leastBusyConn], statements[i])
-			connStatementCounts[leastBusyConn] = connStatementCounts[leastBusyConn] + 1
-		}
+		// Assign statement to the connection and increment the count
+		splitStatements[assignedConn] = append(splitStatements[assignedConn], statements[i])
+		connStatementCounts[assignedConn] = connStatementCounts[assignedConn] + 1
 	}
 	return splitStatements
 }
@@ -118,6 +119,9 @@ func scheduleStatementsOnWorkers(statements []toc.StatementWithType, numConns in
 /*
  * This function creates a worker pool of N goroutines to be able to execute up
  * to N statements in parallel.
+ * FIXME: The execute statements logic is difficult to follow and should be refactored
+ * to a more clear producer-consumer pattern using a WorkerPool and a proper
+ * statement queue. This will also clarify the synchronization mechanisms.
  */
 func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) int32 {
 	var workerPool sync.WaitGroup
