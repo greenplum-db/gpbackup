@@ -139,12 +139,15 @@ func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.Pro
 		panicChan := make(chan error)
 		splitStatements := scheduleStatementsOnWorkers(statements, connectionPool.NumConns)
 		chanMap := make(map[int]chan toc.StatementWithType, connectionPool.NumConns)
+		// preinitialize channels to prevent concurrent read and write
 		for i := 0; i < connectionPool.NumConns; i++ {
 			chanMap[i] = make(chan toc.StatementWithType, len(splitStatements[i]))
 			for _, statement := range splitStatements[i] {
 				chanMap[i] <- statement
 			}
 			close(chanMap[i])
+		}
+		for i := 0; i < connectionPool.NumConns; i++ {
 			workerPool.Add(1)
 			go func(connNum int) {
 				defer func() {
