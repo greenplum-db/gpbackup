@@ -5,6 +5,7 @@ package utils
  */
 
 import (
+	"sync"
 	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -61,6 +62,7 @@ type VerboseProgressBar struct {
 	prefix             string
 	nextPercentToPrint int
 	*pb.ProgressBar
+	mu sync.Mutex
 }
 
 func NewVerboseProgressBar(count int, prefix string) *VerboseProgressBar {
@@ -69,6 +71,8 @@ func NewVerboseProgressBar(count int, prefix string) *VerboseProgressBar {
 }
 
 func (vpb *VerboseProgressBar) Increment() int {
+	vpb.mu.Lock()
+	defer vpb.mu.Unlock()
 	vpb.ProgressBar.Increment()
 	if vpb.current < vpb.total {
 		vpb.current++
