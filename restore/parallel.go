@@ -35,6 +35,7 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
 			return
 		}
 
+		gplog.Debug("Executing statement: %s on connection: %d", strings.TrimSpace(statement.Statement), whichConn)
 		_, err := connectionPool.Exec(statement.Statement, whichConn)
 		if err != nil {
 			gplog.Verbose("Error encountered when executing statement: %s Error was: %s", strings.TrimSpace(statement.Statement), err.Error())
@@ -56,7 +57,9 @@ func executeStatementsForConn(statements chan toc.StatementWithType, fatalErr *e
 				*fatalErr = err
 			}
 		}
-		progressBar.Increment()
+		if progressBar != nil {
+			progressBar.Increment()
+		}
 	}
 
 	if executeInParallel {
@@ -84,10 +87,8 @@ func scheduleStatementsOnWorkers(statements []toc.StatementWithType, numConns in
 	splitStatements := make(map[int][]toc.StatementWithType, numConns)
 	cohortConnAssignments := make(map[uint32]int)
 
-	// We do not schedule statements onto connection 0, as our code expects that to be reserved for
-	// progress reporting and administrative tasks.
-	connStatementCounts := make(map[int]int, numConns-1)
-	for i := 1; i < numConns; i++ {
+	connStatementCounts := make(map[int]int, numConns)
+	for i := 0; i < numConns; i++ {
 		connStatementCounts[i] = 0
 	}
 	// During backup, we track objects into "cohorts" that must be backed up in the same
@@ -119,7 +120,7 @@ func scheduleStatementsOnWorkers(statements []toc.StatementWithType, numConns in
  * This function creates a worker pool of N goroutines to be able to execute up
  * to N statements in parallel.
  */
-func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) int32 {
+func ExecutePredataStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) int32 {
 	var workerPool sync.WaitGroup
 	var fatalErr error
 	var numErrors int32
@@ -180,11 +181,50 @@ func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.Pro
 	return numErrors
 }
 
-func ExecuteStatementsAndCreateProgressBar(statements []toc.StatementWithType, objectsTitle string, showProgressBar int, executeInParallel bool, whichConn ...int) int32 {
-	progressBar := utils.NewProgressBar(len(statements), fmt.Sprintf("%s restored: ", objectsTitle), showProgressBar)
-	progressBar.Start()
-	numErrors := ExecuteStatements(statements, progressBar, executeInParallel, whichConn...)
-	progressBar.Finish()
+func ExecuteStatements(statements []toc.StatementWithType, progressBar utils.ProgressBar, executeInParallel bool, whichConn ...int) int32 {
+	var workerPool sync.WaitGroup
+	var fatalErr error
+	var numErrors int32
+	tasks := make(chan toc.StatementWithType, len(statements))
+	for _, statement := range statements {
+		tasks <- statement
+	}
+	close(tasks)
+
+	if !executeInParallel {
+		connNum := connectionPool.ValidateConnNum(whichConn...)
+		executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum, executeInParallel)
+	} else {
+		panicChan := make(chan error)
+		for i := 0; i < connectionPool.NumConns; i++ {
+			workerPool.Add(1)
+			go func(connNum int) {
+				defer func() {
+					if panicErr := recover(); panicErr != nil {
+						panicChan <- fmt.Errorf("%v", panicErr)
+					}
+				}()
+				defer workerPool.Done()
+				connNum = connectionPool.ValidateConnNum(connNum)
+				executeStatementsForConn(tasks, &fatalErr, &numErrors, progressBar, connNum, executeInParallel)
+			}(i)
+		}
+		workerPool.Wait()
+		// Allow panics to crash from the main process, invoking DoCleanup
+		select {
+		case err := <-panicChan:
+			gplog.Fatal(err, "")
+		default:
+			// no panic, nothing to do
+		}
+	}
+	if fatalErr != nil {
+		fmt.Println("")
+		gplog.Fatal(fatalErr, "")
+	} else if numErrors > 0 {
+		fmt.Println("")
+		gplog.Error("Encountered %d errors during metadata restore; see log file %s for a list of failed statements.", numErrors, gplog.GetLogFilePath())
+	}
 
 	return numErrors
 }

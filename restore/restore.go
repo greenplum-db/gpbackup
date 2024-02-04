@@ -197,7 +197,7 @@ func createDatabase(metadataFilename string) {
 		dbName = quotedDBName
 		statements = toc.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
-	numErrors := ExecuteRestoreMetadataStatements(statements, "", nil, utils.PB_NONE, false)
+	numErrors := ExecuteRestoreMetadataStatements("global", statements, "", nil, utils.PB_NONE, false)
 
 	if numErrors > 0 {
 		gplog.Info("Database creation completed with failures for: %s", dbName)
@@ -219,7 +219,7 @@ func restoreGlobal(metadataFilename string) {
 		statements = toc.SubstituteRedirectDatabaseInStatements(statements, backupConfig.DatabaseName, quotedDBName)
 	}
 	statements = toc.RemoveActiveRole(connectionPool.User, statements)
-	numErrors := ExecuteRestoreMetadataStatements(statements, "Global objects", nil, utils.PB_VERBOSE, false)
+	numErrors := ExecuteRestoreMetadataStatements("global", statements, "Global objects", nil, utils.PB_VERBOSE, false)
 
 	if numErrors > 0 {
 		gplog.Info("Global database metadata restore completed with failures")
@@ -306,7 +306,7 @@ func restorePredata(metadataFilename string) {
 	progressBar.Start()
 
 	RestoreSchemas(schemaStatements, progressBar)
-	executeInParallel := connectionPool.NumConns > 2 && !MustGetFlagBool(options.ON_ERROR_CONTINUE)
+	executeInParallel := connectionPool.NumConns > 1 && !MustGetFlagBool(options.ON_ERROR_CONTINUE)
 	if executeInParallel {
 		// Batch statements by tier to allow more aggressive parallelization by cohort downstream.
 		first, tiered, last := BatchPredataStatements(statements)
@@ -315,7 +315,7 @@ func restorePredata(metadataFilename string) {
 		// Wrap each of the statement batches in a commit to avoid the overhead of 2-phase commits.
 		// This dramatically reduces runtime of large metadata restores.
 		connectionPool.MustBegin(0)
-		numErrors = ExecuteRestoreMetadataStatements(first, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
+		numErrors = ExecuteRestoreMetadataStatements("predata", first, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
 		connectionPool.MustCommit(0)
 
 		var t uint32 = 1
@@ -331,7 +331,7 @@ func restorePredata(metadataFilename string) {
 			}
 			txMutex.Unlock()
 
-			numErrors += ExecuteRestoreMetadataStatements(tiered[t], "Pre-data objects", progressBar, utils.PB_VERBOSE, true)
+			numErrors += ExecuteRestoreMetadataStatements("predata", tiered[t], "Pre-data objects", progressBar, utils.PB_VERBOSE, true)
 			t++
 			// Connections are individually committed/rolled back as they finish to avoid lock
 			// contention causing hangs. Ideally there will be no such contention, but this is done
@@ -339,7 +339,7 @@ func restorePredata(metadataFilename string) {
 		}
 		gplog.Debug("Restoring predata metadata tier: %d", len(tiered)+1)
 		connectionPool.MustBegin(0)
-		numErrors += ExecuteRestoreMetadataStatements(last, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
+		numErrors += ExecuteRestoreMetadataStatements("predata", last, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
 		connectionPool.MustCommit(0)
 	} else {
 		if !MustGetFlagBool(options.ON_ERROR_CONTINUE) {
@@ -348,7 +348,7 @@ func restorePredata(metadataFilename string) {
 			// the perf hit.
 			connectionPool.MustBegin(0)
 		}
-		numErrors = ExecuteRestoreMetadataStatements(statements, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
+		numErrors = ExecuteRestoreMetadataStatements("predata", statements, "Pre-data objects", progressBar, utils.PB_VERBOSE, false)
 		if !MustGetFlagBool(options.ON_ERROR_CONTINUE) {
 			connectionPool.Commit(0)
 		}
@@ -391,7 +391,7 @@ func restoreSequenceValues(metadataFilename string) {
 	} else {
 		progressBar := utils.NewProgressBar(len(sequenceValueStatements), "Sequence values restored: ", utils.PB_VERBOSE)
 		progressBar.Start()
-		numErrors = ExecuteRestoreMetadataStatements(sequenceValueStatements, "Sequence values", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+		numErrors = ExecuteRestoreMetadataStatements("data", sequenceValueStatements, "Sequence values", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
 		progressBar.Finish()
 	}
 
@@ -514,9 +514,9 @@ func restorePostdata(metadataFilename string) {
 	progressBar := utils.NewProgressBar(len(statements), "Post-data objects restored: ", utils.PB_VERBOSE)
 	progressBar.Start()
 
-	numErrors := ExecuteRestoreMetadataStatements(firstBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
-	numErrors += ExecuteRestoreMetadataStatements(secondBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
-	numErrors += ExecuteRestoreMetadataStatements(thirdBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+	numErrors := ExecuteRestoreMetadataStatements("postdata", firstBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+	numErrors += ExecuteRestoreMetadataStatements("postdata", secondBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
+	numErrors += ExecuteRestoreMetadataStatements("postdata", thirdBatch, "", progressBar, utils.PB_VERBOSE, connectionPool.NumConns > 1)
 	progressBar.Finish()
 
 	if wasTerminated {
@@ -539,7 +539,7 @@ func restoreStatistics() {
 
 	statements := GetRestoreMetadataStatementsFiltered("statistics", statisticsFilename, []string{}, []string{}, filters)
 	editStatementsRedirectSchema(statements, opts.RedirectSchema)
-	numErrors := ExecuteRestoreMetadataStatements(statements, "Table statistics", nil, utils.PB_VERBOSE, false)
+	numErrors := ExecuteRestoreMetadataStatements("statistics", statements, "Table statistics", nil, utils.PB_VERBOSE, false)
 
 	if numErrors > 0 {
 		gplog.Info("Query planner statistics restore completed with failures")
@@ -568,7 +568,6 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 				Schema:    tableSchema,
 				Name:      entry.Name,
 				Statement: analyzeCommand,
-				Tier:      []uint32{0, 0},
 			}
 			analyzeStatements = append(analyzeStatements, newAnalyzeStatement)
 		}
@@ -595,7 +594,6 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 						Schema:    tableSchema,
 						Name:      entry.PartitionRoot,
 						Statement: analyzeCommand,
-						Tier:      []uint32{0, 0},
 					}
 
 					// use analyze command as map key, since struct isn't a valid key but statement

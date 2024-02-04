@@ -10,7 +10,6 @@ import (
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/restore"
 	"github.com/greenplum-db/gpbackup/toc"
-	"github.com/greenplum-db/gpbackup/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -93,14 +92,14 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 			})
 			It("can execute all statements in the list serially", func() {
 				expectedOrderArray := []string{"1", "2", "3", "4"}
-				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, false)
+				restore.ExecuteStatements(statements, nil, false)
 				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})
 
 			It("can execute all statements in the list in parallel", func() {
-				expectedOrderArray := []string{"1", "2", "3", "4"}
-				restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, true)
+				expectedOrderArray := []string{"3", "1", "4", "2"}
+				restore.ExecuteStatements(statements, nil, true)
 				resultOrderArray := dbconn.MustSelectStringSlice(tempConn, orderQuery)
 				Expect(resultOrderArray).To(Equal(expectedOrderArray))
 			})
@@ -124,7 +123,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 							Expect(errorMessage).To(Not(ContainSubstring("goroutine")))
 						}
 					}()
-					restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, false)
+					restore.ExecuteStatements(statements, nil, false)
 				})
 				It("panics after exiting goroutines when running in parallel", func() {
 					errorMessage := ""
@@ -136,7 +135,7 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 							Expect(errorMessage).To(Not(ContainSubstring("goroutine")))
 						}
 					}()
-					restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, true)
+					restore.ExecuteStatements(statements, nil, true)
 				})
 			})
 			Context("on-error-continue is set", func() {
@@ -144,13 +143,13 @@ var _ = Describe("backup, utils, and restore integration tests related to parall
 					_ = restoreCmdFlags.Set(options.ON_ERROR_CONTINUE, "true")
 				})
 				It("does not panic, but logs errors when running serially", func() {
-					restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, false)
+					restore.ExecuteStatements(statements, nil, false)
 					Expect(logFile).To(Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
 					Expect(stderr).To(Say(regexp.QuoteMeta("[ERROR]:-Encountered 1 errors during metadata restore; see log file gbytes.Buffer for a list of failed statements.")))
 					Expect(stderr).To(Not(Say(regexp.QuoteMeta("goroutine"))))
 				})
 				It("does not panic, but logs errors when running in parallel", func() {
-					restore.ExecuteStatementsAndCreateProgressBar(statements, "", utils.PB_NONE, true)
+					restore.ExecuteStatements(statements, nil, true)
 					Expect(logFile).To(Say(regexp.QuoteMeta(`[DEBUG]:-Error encountered when executing statement: BAD SYNTAX; Error was: ERROR: syntax error at or near "BAD"`)))
 					Expect(stderr).To(Say(regexp.QuoteMeta("[ERROR]:-Encountered 1 errors during metadata restore; see log file gbytes.Buffer for a list of failed statements.")))
 					Expect(stderr).To(Not(Say(regexp.QuoteMeta("goroutine"))))

@@ -313,10 +313,10 @@ func GetRestoreMetadataStatementsFiltered(section string, filename string, inclu
 	return statements
 }
 
-func ExecuteRestoreMetadataStatements(statements []toc.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) int32 {
+func ExecuteRestoreMetadataStatements(section string, statements []toc.StatementWithType, objectsTitle string, progressBar utils.ProgressBar, showProgressBar int, executeInParallel bool) int32 {
 	var numErrors int32
-	if progressBar == nil {
-		numErrors = ExecuteStatementsAndCreateProgressBar(statements, objectsTitle, showProgressBar, executeInParallel)
+	if section == "predata" {
+		numErrors = ExecutePredataStatements(statements, progressBar, executeInParallel)
 	} else {
 		numErrors = ExecuteStatements(statements, progressBar, executeInParallel)
 	}
@@ -353,7 +353,7 @@ func setGUCsForConnection(gucStatements []toc.StatementWithType, whichConn int) 
 		objectTypes := []string{toc.OBJ_SESSION_GUC}
 		gucStatements = GetRestoreMetadataStatements("global", globalFPInfo.GetMetadataFilePath(), objectTypes, []string{})
 	}
-	ExecuteStatementsAndCreateProgressBar(gucStatements, "", utils.PB_NONE, false, whichConn)
+	ExecuteStatements(gucStatements, nil, false, whichConn)
 	return gucStatements
 }
 
