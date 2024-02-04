@@ -84,10 +84,8 @@ func scheduleStatementsOnWorkers(statements []toc.StatementWithType, numConns in
 	splitStatements := make(map[int][]toc.StatementWithType, numConns)
 	cohortConnAssignments := make(map[uint32]int)
 
-	// We do not schedule statements onto connection 0, as our code expects that to be reserved for
-	// progress reporting and administrative tasks.
-	connStatementCounts := make(map[int]int, numConns-1)
-	for i := 1; i < numConns; i++ {
+	connStatementCounts := make(map[int]int, numConns)
+	for i := 0; i < numConns; i++ {
 		connStatementCounts[i] = 0
 	}
 	// During backup, we track objects into "cohorts" that must be backed up in the same

@@ -306,7 +306,7 @@ func restorePredata(metadataFilename string) {
 	progressBar.Start()
 
 	RestoreSchemas(schemaStatements, progressBar)
-	executeInParallel := connectionPool.NumConns > 2 && !MustGetFlagBool(options.ON_ERROR_CONTINUE)
+	executeInParallel := connectionPool.NumConns > 1 && !MustGetFlagBool(options.ON_ERROR_CONTINUE)
 	if executeInParallel {
 		// Batch statements by tier to allow more aggressive parallelization by cohort downstream.
 		first, tiered, last := BatchPredataStatements(statements)
@@ -555,6 +555,7 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 	gplog.Info("Running ANALYZE on restored tables")
 
 	var analyzeStatements []toc.StatementWithType
+	var cohort uint32 = 0
 	for _, dataEntries := range filteredDataEntries {
 		for _, entry := range dataEntries {
 			tableSchema := entry.Schema
@@ -568,8 +569,9 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 				Schema:    tableSchema,
 				Name:      entry.Name,
 				Statement: analyzeCommand,
-				Tier:      []uint32{0, 0},
+				Tier:      []uint32{1, cohort},
 			}
+			cohort = cohort + 1
 			analyzeStatements = append(analyzeStatements, newAnalyzeStatement)
 		}
 	}
@@ -581,6 +583,7 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 	// last so add them to the end of the analyzeStatements list.
 	if connectionPool.Version.Is("4") {
 		// Create root partition set
+		cohort = 0
 		partitionRootSet := map[string]toc.StatementWithType{}
 		for _, dataEntries := range filteredDataEntries {
 			for _, entry := range dataEntries {
@@ -595,8 +598,9 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 						Schema:    tableSchema,
 						Name:      entry.PartitionRoot,
 						Statement: analyzeCommand,
-						Tier:      []uint32{0, 0},
+						Tier:      []uint32{1, cohort},
 					}
+					cohort = cohort + 1
 
 					// use analyze command as map key, since struct isn't a valid key but statement
 					// encodes everything in it anyway
