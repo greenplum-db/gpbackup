@@ -338,9 +338,8 @@ func createGlobalObjects(conn *dbconn.DBConn) {
 	} else if conn.Version.AtLeast("7") {
 		testhelper.AssertQueryRuns(conn, "CREATE RESOURCE GROUP test_group WITH (CPU_MAX_PERCENT=1, MEMORY_LIMIT=1);")
 	}
-	if conn.Version.AtLeast("5") {
-		testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role RESOURCE GROUP test_group;")
-	}
+
+	testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role RESOURCE GROUP test_group;")
 }
 
 func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
@@ -351,9 +350,7 @@ func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
 	testhelper.AssertQueryRuns(conn, "DROP ROLE global_role;")
 	testhelper.AssertQueryRuns(conn, "DROP ROLE testrole;")
 	testhelper.AssertQueryRuns(conn, "DROP RESOURCE QUEUE test_queue;")
-	if conn.Version.AtLeast("5") {
-		testhelper.AssertQueryRuns(conn, "DROP RESOURCE GROUP test_group;")
-	}
+	testhelper.AssertQueryRuns(conn, "DROP RESOURCE GROUP test_group;")
 }
 
 // fileSuffix should be one of: config.yaml, metadata.sql, toc.yaml, or report
@@ -1117,7 +1114,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 	})
 	Describe("ACLs for extensions", func() {
 		It("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
-			testutils.SkipIfBefore5(backupConn)
 			skipIfOldBackupVersionBefore("1.17.0")
 			currentUser := os.Getenv("USER")
 			testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole")
@@ -1907,10 +1903,8 @@ LANGUAGE plpgsql NO SQL;`)
 				if useOldBackupVersion {
 					Skip("This test is not needed for old backup versions")
 				}
-				// casts already exist on 4X
-				if backupConn.Version.AtLeast("5") {
-					testutils.ExecuteSQLFile(backupConn, "resources/implicit_casts.sql")
-				}
+
+				testutils.ExecuteSQLFile(backupConn, "resources/implicit_casts.sql")
 
 				args := []string{
 					"--dbname", "testdb",

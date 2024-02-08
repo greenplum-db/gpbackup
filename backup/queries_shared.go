@@ -239,8 +239,7 @@ func GetConstraints(connectionPool *dbconn.DBConn, includeTables ...Relation) []
 		// if the query above is run and a concurrent constraint drop happens
 		// just before the pg_get_constraintdef function executes. Note that
 		// GPDB 6+ pg_get_constraintdef uses an MVCC snapshot instead of
-		// syscache so we only need to verify for GPDB 4.3 and 5 (technically
-		// only GPDB 5 since 4.3 will get a cache error on the query).
+		// syscache so we only need to verify for GPDB 5.
 		verifiedResults := make([]Constraint, 0)
 		for _, result := range results {
 			if result.Def.Valid {

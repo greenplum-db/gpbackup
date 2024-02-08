@@ -33,7 +33,7 @@ var (
 	gpbackupHelperPath string
 	stderr, logFile    *Buffer
 
-	// GUC defaults. Initially set to GPDB4 values
+	// GUC defaults.
 	concurrencyDefault    = "20"
 	memSharedDefault      = "20"
 	memSpillDefault       = "20"

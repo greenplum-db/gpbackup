@@ -14,33 +14,10 @@ import (
 func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]ExternalTableDefinition {
 	gplog.Verbose("Retrieving external table information")
 
-	// In GPDB 4.3, we need to get the error table's fully-qualified name
-	// if `LOG ERRORS INTO <err_table_name>` was used. If `LOG ERRORS` was
-	// used, we can just check if reloid = fmterrtbl and avoid trying
-	// to get the FQN of a nonexistant error table.
-	version4Query := `
-	SELECT reloid AS oid,
-		CASE WHEN split_part(e.location[1], ':', 1) NOT IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS') THEN unnest(e.location) ELSE '' END AS location,
-		CASE WHEN split_part(e.location[1], ':', 1) IN ('ALL_SEGMENTS', 'HOST', 'MASTER_ONLY', 'PER_HOST', 'SEGMENT_ID', 'TOTAL_SEGS') THEN unnest(e.location) ELSE 'ALL_SEGMENTS' END AS execlocation,
-		e.fmttype AS formattype,
-		e.fmtopts AS formatopts,
-		coalesce(e.command, '') AS command,
-		coalesce(e.rejectlimit, 0) AS rejectlimit,
-		coalesce(e.rejectlimittype, '') AS rejectlimittype,
-		coalesce(quote_ident(c.relname), '') AS errtablename,
-				coalesce(quote_ident(n.nspname), '') AS errtableschema,
-		e.fmterrtbl IS NOT NULL AND e.reloid = e.fmterrtbl AS logerrors,
-		pg_encoding_to_char(e.encoding) AS encoding,
-		e.writable
-	FROM pg_exttable e
-		LEFT JOIN pg_class c ON e.fmterrtbl = c.oid AND e.fmterrtbl != e.reloid
-				LEFT JOIN pg_namespace n ON n.oid = c.relnamespace`
-
-	// In GPDB 4.3, users can define an error table with `LOG ERRORS
-	// INTO <err_table_name>`. In GPDB 5+, error tables were removed
-	// but internal error logging is still available using `LOG ERRORS`
-	// with an optional `PERSISTENTLY` syntax to persist the error logs.
-	// The `PERSISTENTLY` part is stored in the pg_exttable.options array.
+	// In GPDB 5+, error tables were removed but internal error logging
+	// is still available using `LOG ERRORS`with an optional `PERSISTENTLY`
+	// syntax to persist the error logs. The `PERSISTENTLY` part is stored
+	// in the pg_exttable.options array.
 	version5Query := `
 	SELECT e.reloid AS oid,
 		CASE WHEN e.urilocation IS NOT NULL THEN unnest(e.urilocation) ELSE '' END AS location,
@@ -94,9 +71,7 @@ func GetExternalTableDefinitions(connectionPool *dbconn.DBConn) map[uint32]Exter
 		LEFT JOIN LATERAL unnest(urilocation) ljl_unnest ON urilocation IS NOT NULL`
 
 	var query string
-	if connectionPool.Version.Is("4") {
-		query = version4Query
-	} else if connectionPool.Version.Is("5") {
+	if connectionPool.Version.Is("5") {
 		query = version5Query
 	} else if connectionPool.Version.Is("6") {
 		query = version6Query

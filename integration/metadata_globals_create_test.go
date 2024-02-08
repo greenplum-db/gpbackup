@@ -137,9 +137,6 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateResourceGroupStatements", func() {
-		BeforeEach(func() {
-			testutils.SkipIfBefore5(connectionPool)
-		})
 		It("creates a basic resource group", func() {
 			emptyMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{}
 
@@ -314,9 +311,6 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 		emptyMetadataMap := backup.MetadataMap{}
 		It("creates a basic role", func() {
-			if connectionPool.Version.Before("5") {
-				role1.ResGroup = ""
-			}
 
 			backup.PrintCreateRoleStatements(backupfile, tocfile, []backup.Role{role1}, emptyMetadataMap)
 
@@ -368,9 +362,9 @@ var _ = Describe("backup integration create statement tests", func() {
 					},
 				},
 			}
-			if connectionPool.Version.AtLeast("5") {
-				role1.ResGroup = "default_group"
-			}
+
+			role1.ResGroup = "default_group"
+
 			if connectionPool.Version.AtLeast("6") {
 				role1.Createrexthdfs = false
 				role1.Createwexthdfs = false

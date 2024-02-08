@@ -122,7 +122,6 @@ SEGMENT REJECT LIMIT 10 PERCENT
 		// GPDB7, so there is no way to have tests pass for it across both local and CI. Pend the
 		// test until new binary is released so we don't keep getting failures.
 		PIt("returns a slice for a complex external table definition TEXT format delimiter", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `CREATE EXTERNAL TABLE public.ext_table (
     i int
 ) LOCATION (
@@ -237,7 +236,6 @@ FORMAT 'csv';`)
 			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("returns a slice of info for a two level partition", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `
 CREATE TABLE public.part_tbl (a int,b date,c text,d int)
 DISTRIBUTED BY (a)
@@ -274,7 +272,6 @@ SUBPARTITION eur values ('eur'))
 			structmatcher.ExpectStructsToMatchExcluding(&expectedExternalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 		It("returns a slice of info for a three level partition", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, `
 CREATE TABLE public.part_tbl (id int, year int, month int, day int, region text)
 DISTRIBUTED BY (id)

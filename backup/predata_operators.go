@@ -65,10 +65,6 @@ CREATE OPERATOR %s.%s (
 	PrintObjectMetadata(metadataFile, objToc, operatorMetadata, operator, "", tier)
 }
 
-/*
- * Operator families are not supported in GPDB 4.3, so this function
- * is not used in a 4.3 backup.
- */
 func PrintCreateOperatorFamilyStatements(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, operatorFamilies []OperatorFamily, operatorFamilyMetadata MetadataMap) {
 	for _, operatorFamily := range operatorFamilies {
 		start := metadataFile.ByteCount

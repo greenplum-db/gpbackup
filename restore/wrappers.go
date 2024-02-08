@@ -86,12 +86,7 @@ SET standard_conforming_strings = on;
 SET default_with_oids = off;
 `
 
-	if connectionPool.Version.Is("4") {
-		setupQuery += "SET gp_strict_xml_parse = off;\n"
-	}
-	if connectionPool.Version.AtLeast("5") {
-		setupQuery += "SET gp_ignore_error_table = on;\n"
-	}
+	setupQuery += "SET gp_ignore_error_table = on;\n"
 	if connectionPool.Version.Before("6") {
 		setupQuery += "SET allow_system_table_mods = 'DML';\n"
 	}
@@ -147,9 +142,7 @@ func SetMaxCsvLineLengthQuery(connectionPool *dbconn.DBConn) string {
 	}
 
 	var maxLineLength int
-	if connectionPool.Version.Is("4") && connectionPool.Version.AtLeast("4.3.30") {
-		maxLineLength = 1024 * 1024 * 1024 // 1GB
-	} else if connectionPool.Version.Is("5") && connectionPool.Version.AtLeast("5.11.0") {
+	if connectionPool.Version.Is("5") && connectionPool.Version.AtLeast("5.11.0") {
 		maxLineLength = 1024 * 1024 * 1024
 	} else {
 		maxLineLength = 4 * 1024 * 1024 // 4MB

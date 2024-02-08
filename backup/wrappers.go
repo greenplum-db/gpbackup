@@ -85,20 +85,14 @@ func SetSessionGUCs(connNum int) {
 	connectionPool.MustExec("SET search_path TO pg_catalog", connNum)
 	connectionPool.MustExec("SET statement_timeout = 0", connNum)
 	connectionPool.MustExec("SET DATESTYLE = ISO", connNum)
-	connectionPool.MustExec("SET standard_conforming_strings = 1", connNum) // Needed for 4.3, default on in 5+
 	connectionPool.MustExec("SET enable_mergejoin TO off", connNum)
 
-	// The fix to raise the max of extra_float_digits GUC is going out with
-	// GPDB 4.3.33.1. This means if we set the GUC using 'SET
-	// extra_float_digits=3', gpbackup would be broken with GPDB 4.3.33.0 since
-	// our Semver package only allows up to 3 digits. To avoid any complicated
-	// version diffs of setting this GUC, we use set_config() with a subquery
-	// getting the max value of the GUC.
+	// To avoid any complicated version diffs of setting this GUC,
+	// we use set_config() with a subquery getting the max value.
 	connectionPool.MustExec("SELECT set_config('extra_float_digits', (SELECT max_val FROM pg_settings WHERE name = 'extra_float_digits'), false)", connNum)
 
-	if connectionPool.Version.AtLeast("5") {
-		connectionPool.MustExec("SET synchronize_seqscans TO off", connNum)
-	}
+	connectionPool.MustExec("SET synchronize_seqscans TO off", connNum)
+
 	if connectionPool.Version.AtLeast("6") {
 		connectionPool.MustExec("SET INTERVALSTYLE = POSTGRES", connNum)
 		connectionPool.MustExec("SET lock_timeout = 0", connNum)
@@ -227,7 +221,7 @@ func retrieveFunctions(sortables *[]Sortable, metadataMap MetadataMap) ([]Functi
 	gplog.Verbose("Retrieving function information")
 	functionMetadata := GetMetadataForObjectType(connectionPool, TYPE_FUNCTION)
 	addToMetadataMap(functionMetadata, metadataMap)
-	functions := GetFunctionsAllVersions(connectionPool)
+	functions := GetFunctions(connectionPool)
 	funcInfoMap := GetFunctionOidToInfoMap(connectionPool)
 	objectCounts["Functions"] = len(functions)
 	*sortables = append(*sortables, convertToSortableSlice(functions)...)
@@ -258,9 +252,7 @@ func retrieveAndBackupTypes(metadataFile *utils.FileWithByteCount, sortables *[]
 	typeMetadata := GetMetadataForObjectType(connectionPool, TYPE_TYPE)
 
 	backupShellTypes(metadataFile, shells, bases, rangeTypes)
-	if connectionPool.Version.AtLeast("5") {
-		backupEnumTypes(metadataFile, typeMetadata)
-	}
+	backupEnumTypes(metadataFile, typeMetadata)
 
 	objectCounts["Types"] += len(shells)
 	objectCounts["Types"] += len(bases)
@@ -328,9 +320,6 @@ func retrieveViews(sortables *[]Sortable) {
 }
 
 func retrieveTSObjects(sortables *[]Sortable, metadataMap MetadataMap) {
-	if !connectionPool.Version.AtLeast("5") {
-		return
-	}
 	gplog.Verbose("Retrieving Text Search Parsers")
 	retrieveTSParsers(sortables, metadataMap)
 	retrieveTSConfigurations(sortables, metadataMap)
@@ -503,9 +492,6 @@ func backupResourceQueues(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupResourceGroups(metadataFile *utils.FileWithByteCount) {
-	if !connectionPool.Version.AtLeast("5") {
-		return
-	}
 	gplog.Verbose("Writing CREATE RESOURCE GROUP statements to metadata file")
 	if connectionPool.Version.Before("7") {
 		resGroups := GetResourceGroups[ResourceGroupBefore7](connectionPool)
@@ -632,9 +618,6 @@ func backupDependentObjects(metadataFile *utils.FileWithByteCount, tables []Tabl
 
 	backupSet := createBackupSet(sortables)
 	relevantDeps := GetDependencies(connectionPool, backupSet, tables)
-	if connectionPool.Version.Is("4") && !tableOnly {
-		AddProtocolDependenciesForGPDB4(relevantDeps, tables, protocols)
-	}
 	viewsDependingOnConstraints := MarkViewsDependingOnConstraints(sortables, relevantDeps)
 	sortedSlice, globalTierMap = TopologicalSort(sortables, relevantDeps)
 
@@ -658,9 +641,6 @@ func backupConversions(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupOperatorFamilies(metadataFile *utils.FileWithByteCount) {
-	if !connectionPool.Version.AtLeast("5") {
-		return
-	}
 	gplog.Verbose("Writing CREATE OPERATOR FAMILY statements to metadata file")
 	operatorFamilies := GetOperatorFamilies(connectionPool)
 	objectCounts["Operator Families"] = len(operatorFamilies)
@@ -680,10 +660,6 @@ func backupCollations(metadataFile *utils.FileWithByteCount) {
 }
 
 func backupExtensions(metadataFile *utils.FileWithByteCount) {
-	if !(len(MustGetFlagStringArray(options.INCLUDE_SCHEMA)) == 0 &&
-		connectionPool.Version.AtLeast("5")) {
-		return
-	}
 	gplog.Verbose("Writing CREATE EXTENSION statements to metadata file")
 	extensions := GetExtensions(connectionPool)
 	objectCounts["Extensions"] = len(extensions)

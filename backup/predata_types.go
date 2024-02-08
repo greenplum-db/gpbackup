@@ -77,13 +77,11 @@ func PrintCreateBaseTypeStatement(metadataFile *utils.FileWithByteCount, objToc 
 	if base.Send != "" {
 		metadataFile.MustPrintf(",\n\tSEND = %s", base.Send)
 	}
-	if connectionPool.Version.AtLeast("5") {
-		if base.ModIn != "" {
-			metadataFile.MustPrintf(",\n\tTYPMOD_IN = %s", base.ModIn)
-		}
-		if base.ModOut != "" {
-			metadataFile.MustPrintf(",\n\tTYPMOD_OUT = %s", base.ModOut)
-		}
+	if base.ModIn != "" {
+		metadataFile.MustPrintf(",\n\tTYPMOD_IN = %s", base.ModIn)
+	}
+	if base.ModOut != "" {
+		metadataFile.MustPrintf(",\n\tTYPMOD_OUT = %s", base.ModOut)
 	}
 	if base.InternalLength > 0 {
 		metadataFile.MustPrintf(",\n\tINTERNALLENGTH = %d", base.InternalLength)

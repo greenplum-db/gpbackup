@@ -68,39 +68,6 @@ func (f Function) FQN() string {
 	return fmt.Sprintf("%s.%s(%s)", f.Schema, f.Name, f.IdentArgs.String)
 }
 
-/*
- * The functions pg_get_function_arguments, pg_getfunction_identity_arguments,
- * and pg_get_function_result were introduced in GPDB 5, so we can use those
- * functions to retrieve arguments, identity arguments, and return values in
- * 5 or later but in GPDB 4.3 we must query pg_proc directly and construct
- * those values here.
- */
-func GetFunctionsAllVersions(connectionPool *dbconn.DBConn) []Function {
-	var functions []Function
-	if connectionPool.Version.Before("5") {
-		functions = GetFunctions4(connectionPool)
-		arguments, tableArguments := GetFunctionArgsAndIdentArgs(connectionPool)
-		returns := GetFunctionReturnTypes(connectionPool)
-		for i := range functions {
-			oid := functions[i].Oid
-			functions[i].Arguments.String = arguments[oid]
-			functions[i].Arguments.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
-			functions[i].IdentArgs.String = arguments[oid]
-			functions[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
-			functions[i].ReturnsSet = returns[oid].ReturnsSet
-			if tableArguments[oid] != "" {
-				functions[i].ResultType.String = fmt.Sprintf("TABLE(%s)", tableArguments[oid])
-				functions[i].ResultType.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
-			} else {
-				functions[i].ResultType = returns[oid].ResultType
-			}
-		}
-	} else {
-		functions = GetFunctions(connectionPool)
-	}
-	return functions
-}
-
 func GetFunctions(connectionPool *dbconn.DBConn) []Function {
 	excludeImplicitFunctionsClause := ""
 	if connectionPool.Version.AtLeast("6") {
@@ -289,99 +256,6 @@ func UnescapeDoubleQuote(value string) string {
 	return result
 }
 
-/*
- * In addition to lacking the pg_get_function_* functions, GPDB 4.3 lacks
- * several columns in pg_proc compared to GPDB 5, so we don't retrieve those.
- */
-func GetFunctions4(connectionPool *dbconn.DBConn) []Function {
-	query := fmt.Sprintf(`
-	SELECT p.oid,
-		quote_ident(nspname) AS schema,
-		quote_ident(proname) AS name,
-		proretset,
-		coalesce(prosrc, '') AS functionbody,
-		CASE WHEN probin = '-' THEN '' ELSE probin END AS binarypath,
-		provolatile,
-		proisstrict,
-		prosecdef,
-		'a' AS proexeclocation,
-		(SELECT lanname FROM pg_catalog.pg_language WHERE oid = prolang) AS language
-	FROM pg_proc p
-		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-	WHERE %s
-		AND proisagg = 'f'
-	ORDER BY nspname, proname`, SchemaFilterClause("n"))
-
-	results := make([]Function, 0)
-	err := connectionPool.Select(&results, query)
-	gplog.FatalOnError(err)
-	return results
-}
-
-/*
- * Functions do not have default argument values in GPDB 4.3, so there is no
- * difference between a function's "arguments" and "identity arguments" and
- * we can use the same map for both fields.
- */
-func GetFunctionArgsAndIdentArgs(connectionPool *dbconn.DBConn) (map[uint32]string, map[uint32]string) {
-	query := `
-	SELECT p.oid,
-		CASE WHEN proallargtypes IS NOT NULL THEN format_type(unnest(proallargtypes), NULL)
-			ELSE format_type(unnest(proargtypes), NULL) END AS type,
-		CASE WHEN proargnames IS NOT NULL THEN quote_ident(unnest(proargnames)) ELSE '' END AS name,
-		CASE WHEN proargmodes IS NOT NULL THEN unnest(proargmodes) ELSE '' END AS mode
-	FROM pg_proc p
-		JOIN pg_namespace n ON p.pronamespace = n.oid`
-
-	results := make([]struct {
-		Oid  uint32
-		Type string
-		Name string
-		Mode string
-	}, 0)
-	err := connectionPool.Select(&results, query)
-	gplog.FatalOnError(err)
-
-	argMap := make(map[uint32]string)
-	tableArgMap := make(map[uint32]string)
-	lastOid := uint32(0)
-	arguments := make([]string, 0)
-	tableArguments := make([]string, 0)
-	for _, funcArgs := range results {
-		if funcArgs.Name == `""` {
-			funcArgs.Name = ""
-		}
-		modeStr := ""
-		switch funcArgs.Mode {
-		case "b":
-			modeStr = "INOUT "
-		case "o":
-			modeStr = "OUT "
-		case "v":
-			modeStr = "VARIADIC "
-		}
-		if funcArgs.Name != "" {
-			funcArgs.Name += " "
-		}
-		argStr := fmt.Sprintf("%s%s%s", modeStr, funcArgs.Name, funcArgs.Type)
-		if funcArgs.Oid != lastOid && lastOid != 0 {
-			argMap[lastOid] = strings.Join(arguments, ", ")
-			tableArgMap[lastOid] = strings.Join(tableArguments, ", ")
-			arguments = []string{}
-			tableArguments = []string{}
-		}
-		if funcArgs.Mode == "t" {
-			tableArguments = append(tableArguments, argStr)
-		} else {
-			arguments = append(arguments, argStr)
-		}
-		lastOid = funcArgs.Oid
-	}
-	argMap[lastOid] = strings.Join(arguments, ", ")
-	tableArgMap[lastOid] = strings.Join(tableArguments, ", ")
-	return argMap, tableArgMap
-}
-
 func GetFunctionReturnTypes(connectionPool *dbconn.DBConn) map[uint32]Function {
 	query := fmt.Sprintf(`
 	SELECT p.oid,
@@ -468,29 +342,6 @@ func (a Aggregate) FQN() string {
 }
 
 func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
-	version4query := fmt.Sprintf(`
-	SELECT p.oid,
-		quote_ident(n.nspname) AS schema,
-		p.proname AS name,
-		'' AS arguments,
-		'' AS identargs,
-		a.aggtransfn::regproc::oid,
-		a.aggprelimfn::regproc::oid,
-		a.aggfinalfn::regproc::oid,
-		coalesce(o.oprname, '') AS sortoperator,
-		coalesce(quote_ident(opn.nspname), '') AS sortoperatorschema,
-		format_type(a.aggtranstype, NULL) as transitiondatatype,
-		coalesce(a.agginitval, '') AS initialvalue,
-		(a.agginitval IS NULL) AS initvalisnull,
-		true AS minitvalisnull,
-		a.aggordered
-	FROM pg_aggregate a
-		LEFT JOIN pg_proc p ON a.aggfnoid = p.oid
-		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
-		LEFT JOIN pg_operator o ON a.aggsortop = o.oid
-		LEFT JOIN pg_namespace opn ON o.oprnamespace = opn.oid
-	WHERE %s`, SchemaFilterClause("n"))
-
 	version5query := fmt.Sprintf(`
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
@@ -593,9 +444,7 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 
 	aggregates := make([]Aggregate, 0)
 	query := ""
-	if connectionPool.Version.Is("4") {
-		query = version4query
-	} else if connectionPool.Version.Is("5") {
+	if connectionPool.Version.Is("5") {
 		query = version5query
 	} else if connectionPool.Version.Is("6") {
 		query = version6query
@@ -609,33 +458,20 @@ func GetAggregates(connectionPool *dbconn.DBConn) []Aggregate {
 			aggregates[i].MTransitionDataType = ""
 		}
 	}
-	if connectionPool.Version.Before("5") {
-		arguments, _ := GetFunctionArgsAndIdentArgs(connectionPool)
-		for i := range aggregates {
-			oid := aggregates[i].Oid
-			aggregates[i].Arguments.String = arguments[oid]
-			aggregates[i].Arguments.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
-			aggregates[i].IdentArgs.String = arguments[oid]
-			aggregates[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
-		}
 
-		return aggregates
-	} else {
-		// Remove all aggregates that have NULL arguments or NULL
-		// identity arguments. This can happen if the query above
-		// is run and a concurrent aggregate drop happens before
-		// the pg_get_function_* functions execute.
-		verifiedAggregates := make([]Aggregate, 0)
-		for _, aggregate := range aggregates {
-			if aggregate.Arguments.Valid && aggregate.IdentArgs.Valid {
-				verifiedAggregates = append(verifiedAggregates, aggregate)
-			} else {
-				gplog.Warn("Aggregate '%s.%s' not backed up, most likely dropped after gpbackup had begun.", aggregate.Schema, aggregate.Name)
-			}
+	// Remove all aggregates that have NULL arguments or NULL
+	// identity arguments. This can happen if the query above
+	// is run and a concurrent aggregate drop happens before
+	// the pg_get_function_* functions execute.
+	verifiedAggregates := make([]Aggregate, 0)
+	for _, aggregate := range aggregates {
+		if aggregate.Arguments.Valid && aggregate.IdentArgs.Valid {
+			verifiedAggregates = append(verifiedAggregates, aggregate)
+		} else {
+			gplog.Warn("Aggregate '%s.%s' not backed up, most likely dropped after gpbackup had begun.", aggregate.Schema, aggregate.Name)
 		}
-
-		return verifiedAggregates
 	}
+	return verifiedAggregates
 }
 
 type FunctionInfo struct {
@@ -666,13 +502,7 @@ func (info FunctionInfo) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionInfo {
-	before5Query := `
-	SELECT p.oid,
-		quote_ident(n.nspname) AS schema,
-		quote_ident(p.proname) AS name
-	FROM pg_proc p
-		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid`
-	atLeast5Query := `
+	query := `
 	SELECT p.oid,
 		quote_ident(n.nspname) AS schema,
 		quote_ident(p.proname) AS name,
@@ -683,19 +513,7 @@ func GetFunctionOidToInfoMap(connectionPool *dbconn.DBConn) map[uint32]FunctionI
 
 	results := make([]FunctionInfo, 0)
 	funcMap := make(map[uint32]FunctionInfo)
-	var err error
-	if connectionPool.Version.Before("5") {
-		err = connectionPool.Select(&results, before5Query)
-		arguments, _ := GetFunctionArgsAndIdentArgs(connectionPool)
-		for i := range results {
-			results[i].Arguments.String = arguments[results[i].Oid]
-			results[i].Arguments.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
-			results[i].IdentArgs.String = arguments[results[i].Oid]
-			results[i].IdentArgs.Valid = true // Hardcode for GPDB 4.3 to fit sql.NullString
-		}
-	} else {
-		err = connectionPool.Select(&results, atLeast5Query)
-	}
+	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)
 	for _, funcInfo := range results {
 		if !funcInfo.Arguments.Valid || !funcInfo.IdentArgs.Valid {
@@ -716,7 +534,6 @@ type Cast struct {
 	Oid            uint32
 	SourceTypeFQN  string
 	TargetTypeFQN  string
-	FunctionOid    uint32 // Used with GPDB 4.3 to map function arguments
 	FunctionSchema string
 	FunctionName   string
 	FunctionArgs   string
@@ -753,12 +570,6 @@ func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 	/* This query retrieves all casts where either the source type, the target
 	 * type, or the cast function is user-defined.
 	 */
-	argStr := ""
-	if connectionPool.Version.Before("5") {
-		argStr = `'' AS functionargs, coalesce(p.oid, 0::oid) AS functionoid,`
-	} else {
-		argStr = `coalesce(pg_get_function_arguments(p.oid), '') AS functionargs,`
-	}
 	methodStr := ""
 	if connectionPool.Version.AtLeast("6") {
 		methodStr = "castmethod,"
@@ -772,7 +583,7 @@ func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 		quote_ident(tn.nspname) || '.' || quote_ident(tt.typname) AS targettypefqn,
 		coalesce(quote_ident(n.nspname), '') AS functionschema,
 		coalesce(quote_ident(p.proname), '') AS functionname,
-		%s
+		coalesce(pg_get_function_arguments(p.oid), '') AS functionargs,
 		%s
 		c.castcontext
 	FROM pg_cast c
@@ -785,20 +596,13 @@ func GetCasts(connectionPool *dbconn.DBConn) []Cast {
 		LEFT JOIN pg_namespace n ON p.pronamespace = n.oid
 	WHERE ((%s) OR (%s) OR (%s))
 		AND %s
-	ORDER BY 1, 2`, argStr, methodStr,
+	ORDER BY 1, 2`, methodStr,
 		SchemaFilterClause("sn"), SchemaFilterClause("tn"),
 		SchemaFilterClause("n"), ExtensionFilterClause("c"))
 
 	casts := make([]Cast, 0)
 	err := connectionPool.Select(&casts, query)
 	gplog.FatalOnError(err)
-	if connectionPool.Version.Before("5") {
-		arguments, _ := GetFunctionArgsAndIdentArgs(connectionPool)
-		for i := range casts {
-			oid := casts[i].FunctionOid
-			casts[i].FunctionArgs = arguments[oid]
-		}
-	}
 	return casts
 }
 
@@ -876,20 +680,7 @@ func (pl ProceduralLanguage) FQN() string {
 
 func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage {
 	results := make([]ProceduralLanguage, 0)
-	// Languages are owned by the bootstrap superuser, OID 10
-	before5Query := `
-	SELECT oid,
-		quote_ident(l.lanname) AS name,
-		pg_get_userbyid(10) AS owner, 
-		l.lanispl,
-		l.lanpltrusted,
-		l.lanplcallfoid::regprocedure::oid,
-		0 AS laninline,
-		l.lanvalidator::regprocedure::oid
-	FROM pg_language l
-	WHERE l.lanispl='t'
-		AND l.lanname != 'plpgsql'`
-	atLeast5Query := fmt.Sprintf(`
+	query := fmt.Sprintf(`
 	SELECT oid,
 		quote_ident(l.lanname) AS name,
 		pg_get_userbyid(l.lanowner) AS owner,
@@ -902,13 +693,6 @@ func GetProceduralLanguages(connectionPool *dbconn.DBConn) []ProceduralLanguage 
 	WHERE l.lanispl='t'
 		AND l.lanname != 'plpgsql'
 		AND %s`, ExtensionFilterClause("l"))
-
-	query := ""
-	if connectionPool.Version.Before("5") {
-		query = before5Query
-	} else {
-		query = atLeast5Query
-	}
 
 	err := connectionPool.Select(&results, query)
 	gplog.FatalOnError(err)

@@ -356,10 +356,6 @@ func (r Role) FQN() string {
  * in the timestamp.
  */
 func GetRoles(connectionPool *dbconn.DBConn) []Role {
-	resgroupQuery := ""
-	if connectionPool.Version.AtLeast("5") {
-		resgroupQuery = "(SELECT quote_ident(rsgname) FROM pg_resgroup WHERE pg_resgroup.oid = rolresgroup) AS resgroup,"
-	}
 	replicationQuery := ""
 	readExtHdfs := "rolcreaterexthdfs,"
 	writeExtHdfs := "rolcreatewexthdfs,"
@@ -392,13 +388,13 @@ func GetRoles(connectionPool *dbconn.DBConn) []Role {
 			ELSE coalesce(timezone('UTC', rolvaliduntil)::text || '-00', '')
 		END AS validuntil,
 		(SELECT quote_ident(rsqname) FROM pg_resqueue WHERE pg_resqueue.oid = rolresqueue) AS resqueue,
-		%s
+		(SELECT quote_ident(rsgname) FROM pg_resgroup WHERE pg_resgroup.oid = rolresgroup) AS resgroup,
 		rolcreaterexthttp,
 		%s
 		%s
 		rolcreaterextgpfd,
 		rolcreatewextgpfd
-	FROM pg_authid`, replicationQuery, resgroupQuery, readExtHdfs, writeExtHdfs)
+	FROM pg_authid`, replicationQuery, readExtHdfs, writeExtHdfs)
 
 	query += whereClause
 
@@ -524,17 +520,7 @@ func (rm RoleMember) GetMetadataEntry() (string, toc.MetadataEntry) {
 }
 
 func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
-	var caseClause string
 	var whereClause string
-	if connectionPool.Version.AtLeast("5") {
-		caseClause = `
-		WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor::regclass||')'
-		THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))`
-	} else {
-		caseClause = `
-		WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor||')'
-		THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))`
-	}
 
 	if connectionPool.Version.AtLeast("7") {
 		whereClause = fmt.Sprintf(`WHERE roleid >= %d`, FIRST_NORMAL_OBJECT_ID)
@@ -545,12 +531,13 @@ func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 	query := fmt.Sprintf(`
 	SELECT quote_ident(pg_get_userbyid(pga.roleid)) AS role,
 		quote_ident(pg_get_userbyid(pga.member)) AS member,
-		CASE %s
+		CASE WHEN pg_get_userbyid(pga.grantor) like 'unknown (OID='||pga.grantor::regclass||')'
+		THEN '' ELSE quote_ident(pg_get_userbyid(pga.grantor))
 		END AS grantor,
 		admin_option AS isadmin
 	FROM pg_auth_members pga
 	% s
-	ORDER BY roleid, member`, caseClause, whereClause)
+	ORDER BY roleid, member`, whereClause)
 
 	results := make([]RoleMember, 0)
 	err := connectionPool.Select(&results, query)
@@ -561,7 +548,7 @@ func GetRoleMembers(connectionPool *dbconn.DBConn) []RoleMember {
 type Tablespace struct {
 	Oid              uint32
 	Tablespace       string
-	FileLocation     string // FILESPACE in 4.3 and 5, LOCATION in 6 and later
+	FileLocation     string // FILESPACE in 5, LOCATION in 6 and later
 	SegmentLocations []string
 	Options          string
 }

@@ -21,25 +21,6 @@ import (
  *   - Tables
  *   - Protocols
  */
-func AddProtocolDependenciesForGPDB4(depMap DependencyMap, tables []Table, protocols []ExternalProtocol) {
-	protocolMap := make(map[string]UniqueID, len(protocols))
-	for _, p := range protocols {
-		protocolMap[p.Name] = p.GetUniqueID()
-	}
-	for _, table := range tables {
-		extTableDef := table.ExtTableDef
-		if extTableDef.Location.Valid && extTableDef.Location.String != "" {
-			protocolName := extTableDef.Location.String[0:strings.Index(extTableDef.Location.String, "://")]
-			if protocolEntry, ok := protocolMap[protocolName]; ok {
-				tableEntry := table.GetUniqueID()
-				if _, ok := depMap[tableEntry]; !ok {
-					depMap[tableEntry] = make(map[UniqueID]bool)
-				}
-				depMap[tableEntry][protocolEntry] = true
-			}
-		}
-	}
-}
 
 var (
 	PG_AGGREGATE_OID            uint32 = 1255
@@ -285,19 +266,7 @@ FROM pg_depend d
 LEFT JOIN pg_depend id1 ON (d.objid = id1.objid and d.classid = id1.classid and id1.deptype='i')
 LEFT JOIN pg_depend id2 ON (d.refobjid = id2.objid and d.refclassid = id2.classid and id2.deptype='i')
 WHERE d.classid != 0
-AND d.deptype != 'i'
-UNION
--- this converts function dependencies on array types to the underlying type
--- this is needed because pg_depend in 4.3.x doesn't have the info we need
-SELECT
-	d.classid,
-	d.objid,
-	d.refclassid,
-	t.typelem AS refobjid
-FROM pg_depend d
-JOIN pg_type t ON d.refobjid = t.oid
-WHERE d.classid = 'pg_proc'::regclass::oid
-AND typelem != 0`
+AND d.deptype != 'i'`
 
 	pgDependDeps := make([]SortableDependency, 0)
 	err := connectionPool.Select(&pgDependDeps, query)

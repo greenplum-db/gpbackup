@@ -104,10 +104,7 @@ func PrintObjectMetadata(metadataFile *utils.FileWithByteCount, objToc *toc.TOC,
 	}
 
 	if owner := metadata.GetOwnerStatement(obj.FQN(), objectType); owner != "" {
-		if !(connectionPool.Version.Before("5") && entry.ObjectType == toc.OBJ_LANGUAGE) {
-			// Languages have implicit owners in 4.3, but do not support ALTER OWNER
-			statements = append(statements, strings.TrimSpace(owner))
-		}
+		statements = append(statements, strings.TrimSpace(owner))
 	}
 	if privileges := metadata.GetPrivilegesStatements(obj.FQN(), entry.ObjectType); privileges != "" {
 		statements = append(statements, strings.TrimSpace(privileges))

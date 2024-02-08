@@ -3,9 +3,6 @@ package backup
 /*
  * This file contains structs and functions related to executing specific
  * queries to gather metadata for the objects handled in predata_textsearch.go.
- *
- * Text search is not supported in GPDB 4.3, so none of these structs or functions
- * are used in a 4.3 backup.
  */
 
 import (

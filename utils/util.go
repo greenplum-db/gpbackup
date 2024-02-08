@@ -24,7 +24,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const MINIMUM_GPDB4_VERSION = "4.3.17"
 const MINIMUM_GPDB5_VERSION = "5.1.0"
 
 /*
@@ -199,9 +198,7 @@ func TerminateHangingCopySessions(connectionPool *dbconn.DBConn, fpInfo filepath
 }
 
 func ValidateGPDBVersionCompatibility(connectionPool *dbconn.DBConn) {
-	if connectionPool.Version.Before(MINIMUM_GPDB4_VERSION) {
-		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s.0 or later.`, connectionPool.Version.VersionString, MINIMUM_GPDB4_VERSION), "")
-	} else if connectionPool.Version.Is("5") && connectionPool.Version.Before(MINIMUM_GPDB5_VERSION) {
+	if connectionPool.Version.Before(MINIMUM_GPDB5_VERSION) {
 		gplog.Fatal(errors.Errorf(`GPDB version %s is not supported. Please upgrade to GPDB %s or later.`, connectionPool.Version.VersionString, MINIMUM_GPDB5_VERSION), "")
 	}
 }

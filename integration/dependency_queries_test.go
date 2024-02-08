@@ -3,7 +3,6 @@ package integration
 import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
-	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,13 +57,6 @@ var _ = Describe("backup integration tests", func() {
 			tables := make([]backup.Table, 0)
 
 			deps := backup.GetDependencies(connectionPool, backupSet, tables)
-			if connectionPool.Version.Is("4") {
-				optRelations := backup.GetIncludedUserTableRelations(connectionPool, []options.Relation{})
-				tableRelations := backup.ConvertRelationsOptionsToBackup(optRelations)
-				tables := backup.ConstructDefinitionsForTables(connectionPool, tableRelations)
-				protocols := backup.GetExternalProtocols(connectionPool)
-				backup.AddProtocolDependenciesForGPDB4(deps, tables, protocols)
-			}
 
 			Expect(deps).To(HaveLen(2))
 			Expect(deps[tableEntry]).To(HaveLen(1))
@@ -126,7 +118,6 @@ var _ = Describe("backup integration tests", func() {
 			Expect(deps[childEntry]).To(HaveKey(parent2Entry))
 		})
 		It("constructs dependencies correctly for a view dependent on text search objects", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER public.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH PARSER public.testparser;")
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH CONFIGURATION public.testconfig(PARSER = public.testparser);")

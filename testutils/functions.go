@@ -531,18 +531,6 @@ func CreateSecurityLabelIfGPDB6(connectionPool *dbconn.DBConn, objectType string
 	}
 }
 
-func SkipIfNot4(connectionPool *dbconn.DBConn) {
-	if connectionPool.Version.AtLeast("5") {
-		Skip("Test only applicable to GPDB4")
-	}
-}
-
-func SkipIfBefore5(connectionPool *dbconn.DBConn) {
-	if connectionPool.Version.Before("5") {
-		Skip("Test only applicable to GPDB5 and above")
-	}
-}
-
 func SkipIfBefore6(connectionPool *dbconn.DBConn) {
 	if connectionPool.Version.Before("6") {
 		Skip("Test only applicable to GPDB6 and above")

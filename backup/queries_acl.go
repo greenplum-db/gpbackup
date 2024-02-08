@@ -95,11 +95,7 @@ func InitializeMetadataParams(connectionPool *dbconn.DBConn) {
 	}
 	TYPE_INDEX = MetadataQueryParams{ObjectType: toc.OBJ_INDEX, NameField: "relname", OidField: "indexrelid", OidTable: "pg_class", CommentTable: "pg_class", CatalogTable: "pg_index"}
 	TYPE_PROC_LANGUAGE = MetadataQueryParams{ObjectType: toc.OBJ_LANGUAGE, NameField: "lanname", ACLField: "lanacl", CatalogTable: "pg_language"}
-	if connectionPool.Version.Before("5") {
-		TYPE_PROC_LANGUAGE.OwnerField = "10" // In GPDB 4.3, there is no lanowner field in pg_language, but languages have an implicit owner
-	} else {
-		TYPE_PROC_LANGUAGE.OwnerField = "lanowner"
-	}
+	TYPE_PROC_LANGUAGE.OwnerField = "lanowner"
 	TYPE_OPERATOR = MetadataQueryParams{ObjectType: toc.OBJ_OPERATOR, NameField: "oprname", SchemaField: "oprnamespace", OidField: "oid", OwnerField: "oprowner", CatalogTable: "pg_operator"}
 	TYPE_OPERATOR_CLASS = MetadataQueryParams{ObjectType: toc.OBJ_OPERATOR_CLASS, NameField: "opcname", SchemaField: "opcnamespace", OidField: "oid", OwnerField: "opcowner", CatalogTable: "pg_opclass"}
 	TYPE_OPERATOR_FAMILY = MetadataQueryParams{ObjectType: toc.OBJ_OPERATOR_FAMILY, NameField: "opfname", SchemaField: "opfnamespace", OidField: "oid", OwnerField: "opfowner", CatalogTable: "pg_opfamily"}

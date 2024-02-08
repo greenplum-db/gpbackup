@@ -78,10 +78,6 @@ SET baz to abc`))
 	})
 	Describe("GetFunctions", func() {
 		It("GetFunctions properly handles NULL function arguments, NULL function identity arguments, or NULL function result types", func() {
-			if connectionPool.Version.Before("5") {
-				Skip("Test does not apply for GPDB versions before 5")
-			}
-
 			var (
 				header                                                  []string
 				rowGood, rowNullArg, rowNullIdentArg, rowNullResultType []driver.Value
@@ -141,10 +137,6 @@ SET baz to abc`))
 	})
 	Describe("GetAggregates", func() {
 		It("GetAggregates properly handles NULL aggregate arguments or NULL aggregate identity arguments", func() {
-			if connectionPool.Version.Before("5") {
-				Skip("Test does not apply for GPDB versions before 5")
-			}
-
 			header := []string{"oid", "schema", "name", "arguments", "identargs", "aggtransfn", "aggprelimfn", "aggfinalfn", "sortoperator",
 				"sortoperatorschema", "transitiondatatype", "initialvalue", "initvalisnull", "minitvalisnull", "aggordered"}
 			rowGood := []driver.Value{"1", "mock_schema", "mock_table", sql.NullString{String: "mock_args", Valid: true},

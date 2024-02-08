@@ -57,9 +57,6 @@ var _ = Describe("backup integration create statement tests", func() {
 		})
 	})
 	Describe("PrintCreateOperatorFamilyStatements", func() {
-		BeforeEach(func() {
-			testutils.SkipIfBefore5(connectionPool)
-		})
 		It("creates operator family", func() {
 			operatorFamily := backup.OperatorFamily{Oid: 1, Schema: "public", Name: "testfam", IndexMethod: "hash"}
 			operatorFamilies := []backup.OperatorFamily{operatorFamily}
@@ -96,34 +93,20 @@ var _ = Describe("backup integration create statement tests", func() {
 		emptyMetadata := backup.ObjectMetadata{}
 		It("creates basic operator class", func() {
 			operatorClass := backup.OperatorClass{Oid: 0, Schema: "public", Name: "testclass", FamilySchema: "public", FamilyName: "testclass", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
-			if connectionPool.Version.Before("5") { // Operator families do not exist prior to GPDB5
-				operatorClass.FamilySchema = ""
-				operatorClass.FamilyName = ""
-			}
 
 			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, emptyMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			if connectionPool.Version.Before("5") {
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR CLASS public.testclass USING hash")
-			} else {
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash CASCADE")
-			}
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash CASCADE")
 
 			resultOperatorClasses := backup.GetOperatorClasses(connectionPool)
 			Expect(resultOperatorClasses).To(HaveLen(1))
 			structmatcher.ExpectStructsToMatchExcluding(&operatorClass, &resultOperatorClasses[0], "Oid")
 		})
 		It("creates complex operator class", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			operatorClass := backup.OperatorClass{Oid: 0, Schema: "public", Name: "testclass", FamilySchema: "public", FamilyName: "testfam", IndexMethod: "gist", Type: "integer", Default: true, StorageType: "-", Operators: nil, Functions: nil}
 
 			operatorClass.Functions = []backup.OperatorClassFunction{{ClassOid: 0, SupportNumber: 1, RightType: "integer", LeftType: "integer", FunctionName: "abs(integer)"}}
-			if connectionPool.Version.Before("5") { // Operator families do not exist prior to GPDB5
-				operatorClass.FamilySchema = ""
-				operatorClass.FamilyName = ""
-				operatorClass.Functions = []backup.OperatorClassFunction{{ClassOid: 0, SupportNumber: 1, FunctionName: "abs(integer)"}}
-			}
 
 			expectedRecheck := false
 			if connectionPool.Version.Before("6") {
@@ -161,19 +144,11 @@ var _ = Describe("backup integration create statement tests", func() {
 		It("creates basic operator class with a comment and owner", func() {
 			operatorClass := backup.OperatorClass{Oid: 1, Schema: "public", Name: "testclass", FamilySchema: "public", FamilyName: "testclass", IndexMethod: "hash", Type: "integer", Default: false, StorageType: "-", Operators: nil, Functions: nil}
 			operatorClassMetadata := testutils.DefaultMetadata(toc.OBJ_OPERATOR_CLASS, false, true, true, false)
-			if connectionPool.Version.Before("5") { // Operator families do not exist prior to GPDB5
-				operatorClass.FamilySchema = ""
-				operatorClass.FamilyName = ""
-			}
 
 			backup.PrintCreateOperatorClassStatement(backupfile, tocfile, operatorClass, operatorClassMetadata)
 
 			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-			if connectionPool.Version.Before("5") {
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR CLASS public.testclass USING hash")
-			} else {
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash CASCADE")
-			}
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash CASCADE")
 
 			resultOperatorClasses := backup.GetOperatorClasses(connectionPool)
 			Expect(resultOperatorClasses).To(HaveLen(1))

@@ -256,21 +256,6 @@ ENCODING 'UTF-8'`)
 FORMAT 'TEXT'
 ENCODING 'UTF-8'`)
 			})
-			It("prints a CREATE block for a table using error logging with an error table", func() {
-				// Error tables were removed in GPDB 5
-				if connectionPool.Version.AtLeast("5") {
-					Skip("Test does not apply for GPDB versions after 5")
-				}
-				extTableDef.ErrTableName = "error_table"
-				extTableDef.ErrTableSchema = "error_table_schema"
-				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOCATION (
-	'file://host:port/path/file'
-)
-FORMAT 'TEXT'
-ENCODING 'UTF-8'
-LOG ERRORS INTO error_table_schema.error_table`)
-			})
 			It("prints a CREATE block for a table using error logging without an error table", func() {
 				extTableDef.LogErrors = true
 				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
@@ -280,16 +265,6 @@ LOG ERRORS INTO error_table_schema.error_table`)
 FORMAT 'TEXT'
 ENCODING 'UTF-8'
 LOG ERRORS`)
-			})
-			It("prints a LOG ERRORS PERSISTENTLY block for an external table using persistent error logging", func() {
-				// PERSISTENTLY option is specifically for GPDB 5+
-				if connectionPool.Version.AtLeast("5") {
-					Skip("Test does not apply for GPDB versions after 5")
-				}
-				extTableDef.LogErrors = true
-				extTableDef.LogErrPersist = true
-				backup.PrintExternalTableStatements(backupfile, tableName, extTableDef)
-				testhelper.ExpectRegexp(buffer, `LOG ERRORS PERSISTENTLY`)
 			})
 			It("prints a CREATE block for a table with a row-based reject limit", func() {
 				extTableDef.RejectLimit = 2

@@ -152,9 +152,6 @@ var _ = Describe("backup integration tests", func() {
 
 	})
 	Describe("GetResourceGroups", func() {
-		BeforeEach(func() {
-			testutils.SkipIfBefore5(connectionPool)
-		})
 		It("returns a slice for a resource group with everything", func() {
 			if connectionPool.Version.Before("7") {
 				testhelper.AssertQueryRuns(connectionPool, `CREATE RESOURCE GROUP "someGroup" WITH (CPU_RATE_LIMIT=10, MEMORY_LIMIT=20, MEMORY_SHARED_QUOTA=25, MEMORY_SPILL_RATIO=30, CONCURRENCY=15);`)
@@ -273,9 +270,6 @@ var _ = Describe("backup integration tests", func() {
 				Createwexthdfs:  false,
 				TimeConstraints: nil,
 			}
-			if connectionPool.Version.Before("5") {
-				expectedRole.ResGroup = ""
-			}
 			for _, role := range results {
 				if role.Name == "role1" {
 					structmatcher.ExpectStructsToMatch(&expectedRole, role)
@@ -341,9 +335,8 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 				},
 			}
 
-			if connectionPool.Version.AtLeast("5") {
-				expectedRole.ResGroup = "default_group"
-			}
+			expectedRole.ResGroup = "default_group"
+
 			if connectionPool.Version.AtLeast("6") {
 				expectedRole.Createrexthdfs = false
 				expectedRole.Createwexthdfs = false
@@ -463,14 +456,9 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 		})
 		It("handles implicit cast of timestamp to text", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE ROLE role1 SUPERUSER NOINHERIT")
-
-			// Function and cast already exist on 4x
-			if connectionPool.Version.AtLeast("5") {
-				testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(timestamp without time zone) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(timestamp_out($1));';")
-				testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (timestamp without time zone AS text) WITH FUNCTION pg_catalog.text(timestamp without time zone) AS IMPLICIT;")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(timestamp without time zone) CASCADE;")
-			}
-
+			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(timestamp without time zone) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(timestamp_out($1));';")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (timestamp without time zone AS text) WITH FUNCTION pg_catalog.text(timestamp without time zone) AS IMPLICIT;")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(timestamp without time zone) CASCADE;")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP ROLE role1")
 
 			results := backup.GetRoles(connectionPool)
@@ -496,9 +484,6 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 				Createrexthdfs:  false,
 				Createwexthdfs:  false,
 				TimeConstraints: nil,
-			}
-			if connectionPool.Version.Before("5") {
-				expectedRole.ResGroup = ""
 			}
 			for _, role := range results {
 				if role.Name == "role1" {
@@ -584,12 +569,9 @@ CREATEEXTTABLE (protocol='gphdfs', type='writable')`
 			structmatcher.ExpectStructsToMatch(&expectedRoleMember, &roleMember[0])
 		})
 		It("handles implicit cast of oid to text", func() {
-			// Function and cast already exist on 4x
-			if connectionPool.Version.AtLeast("5") {
-				testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(oid) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(oidout($1));';")
-				testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (oid AS text) WITH FUNCTION pg_catalog.text(oid) AS IMPLICIT;")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(oid) CASCADE;")
-			}
+			testhelper.AssertQueryRuns(connectionPool, "CREATE OR REPLACE FUNCTION pg_catalog.text(oid) RETURNS text STRICT IMMUTABLE LANGUAGE SQL AS 'SELECT textin(oidout($1));';")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (oid AS text) WITH FUNCTION pg_catalog.text(oid) AS IMPLICIT;")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION pg_catalog.text(oid) CASCADE;")
 			testhelper.AssertQueryRuns(connectionPool, "GRANT usergroup TO testuser")
 			expectedRoleMember := backup.RoleMember{Role: "usergroup", Member: "testuser", Grantor: "testrole", IsAdmin: false}
 

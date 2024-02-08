@@ -64,41 +64,6 @@ func (t BaseType) FQN() string {
 
 func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
 	gplog.Verbose("Getting base types")
-	version4query := fmt.Sprintf(`
-	SELECT t.oid,
-		quote_ident(n.nspname) AS schema,
-		quote_ident(t.typname) AS name,
-		t.typinput AS input,
-		t.typoutput AS output,
-		t.typreceive AS receive,
-		t.typsend AS send,
-		t.typlen AS internallength,
-		t.typbyval AS ispassedbyvalue,
-		CASE WHEN t.typalign = '-' THEN '' ELSE t.typalign END AS alignment,
-		t.typstorage AS storage,
-		coalesce(t.typdefault, '') AS defaultval,
-		CASE WHEN t.typelem != 0::regproc THEN pg_catalog.format_type(t.typelem, NULL) ELSE '' END AS element,
-		'U' AS category,
-		t.typdelim AS delimiter,
-		coalesce(array_to_string(e.typoptions, ', '), '') AS storageoptions
-	FROM pg_type t
-		JOIN pg_namespace n ON t.typnamespace = n.oid
-		LEFT JOIN pg_type_encoding e ON t.oid = e.typid
-		/*
-		 * Identify if this is an automatically generated array type and exclude it if so.
-		 * In GPDB 4, all automatically-generated array types are guaranteed to be
-		 * the name of the corresponding base type prepended with an underscore.
-		 */
-		LEFT JOIN pg_type ut ON ( --ut for underlying type
-			t.typelem = ut.oid
-			AND length(t.typname) > 1
-			AND t.typname[0] = '_'
-			AND substring(t.typname FROM 2) = ut.typname)
-	WHERE %s
-		AND t.typtype = 'b'
-		AND ut.oid IS NULL
-		AND %s`, SchemaFilterClause("n"), ExtensionFilterClause("t"))
-
 	version5query := fmt.Sprintf(`
 	SELECT t.oid,
 		quote_ident(n.nspname) AS schema,
@@ -167,29 +132,12 @@ func GetBaseTypes(connectionPool *dbconn.DBConn) []BaseType {
 
 	results := make([]BaseType, 0)
 	var err error
-	if connectionPool.Version.Is("4") {
-		err = connectionPool.Select(&results, version4query)
-	} else if connectionPool.Version.Is("5") {
+	if connectionPool.Version.Is("5") {
 		err = connectionPool.Select(&results, version5query)
 	} else {
 		err = connectionPool.Select(&results, atLeast6Query)
 	}
 	gplog.FatalOnError(err)
-	/*
-	 * GPDB 4.3 has no built-in regproc-to-text cast and uses "-" in place of
-	 * NULL for several fields, so to avoid dealing with hyphens later on we
-	 * replace those with empty strings here.
-	 */
-	if connectionPool.Version.Before("5") {
-		for i := range results {
-			if results[i].Send == "-" {
-				results[i].Send = ""
-			}
-			if results[i].Receive == "-" {
-				results[i].Receive = ""
-			}
-		}
-	}
 	return results
 }
 

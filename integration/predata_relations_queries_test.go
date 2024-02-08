@@ -483,7 +483,7 @@ PARTITION BY LIST (gender)
 			// in later versions of GPDB.
 			if (connectionPool.Version.AtLeast("5.28.6") && connectionPool.Version.Before("6")) ||
 				connectionPool.Version.AtLeast("6.14.1") {
-				Skip("test only applicable to GPDB 4.3.X, GPDB 5.0.0 - 5.28.5, and GPDB 6.0.0 - 6.14.0")
+				Skip("test only applicable to GPDB 5.0.0 - 5.28.5, and GPDB 6.0.0 - 6.14.0")
 			}
 			testhelper.AssertQueryRuns(connectionPool, "CREATE VIEW public.opexpr_array_typecasting AS SELECT '{1}'::int[] = NULL::int[]")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.opexpr_array_typecasting")

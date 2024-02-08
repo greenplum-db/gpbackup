@@ -336,9 +336,7 @@ func PrintCreateRoleStatements(metadataFile *utils.FileWithByteCount, objToc *to
 
 		attrs = append(attrs, fmt.Sprintf("RESOURCE QUEUE %s", role.ResQueue))
 
-		if connectionPool.Version.AtLeast("5") {
-			attrs = append(attrs, fmt.Sprintf("RESOURCE GROUP %s", role.ResGroup))
-		}
+		attrs = append(attrs, fmt.Sprintf("RESOURCE GROUP %s", role.ResGroup))
 
 		if role.Createrexthttp {
 			attrs = append(attrs, "CREATEEXTTABLE (protocol='http')")

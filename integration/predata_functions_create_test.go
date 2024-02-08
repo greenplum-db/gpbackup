@@ -19,156 +19,87 @@ var _ = Describe("backup integration create statement tests", func() {
 		tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 	})
 	Describe("PrintCreateFunctionStatement", func() {
-		Context("Tests for GPDB 4.3", func() {
-			BeforeEach(func() {
-				testutils.SkipIfNot4(connectionPool)
-			})
-			funcMetadata := backup.ObjectMetadata{}
-			It("creates a function with a simple return type", func() {
-				addFunction := backup.Function{
-					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "integer", Valid: true},
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", NumRows: 0, Language: "sql", ExecLocation: "a",
-				}
+		funcMetadata := backup.ObjectMetadata{}
+		It("creates a function with a simple return type", func() {
+			addFunction := backup.Function{
+				Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "integer", Valid: true},
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
+				Language: "sql", ExecLocation: "a",
+			}
+			if connectionPool.Version.AtLeast("7") {
+				addFunction.PlannerSupport = "-"
+				addFunction.Kind = "f"
+				addFunction.Parallel = "u"
+				addFunction.DataAccess = ""
+			}
 
-				metadata := testutils.DefaultMetadata(toc.OBJ_FUNCTION, true, true, true, false)
-				backup.PrintCreateFunctionStatement(backupfile, tocfile, addFunction, metadata)
+			metadata := testutils.DefaultMetadata(toc.OBJ_FUNCTION, true, true, true, includeSecurityLabels)
+			backup.PrintCreateFunctionStatement(backupfile, tocfile, addFunction, metadata)
 
-				testhelper.AssertQueryRuns(connectionPool, buffer.String())
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+			resultFunctions := backup.GetFunctions(connectionPool)
 
-				Expect(resultFunctions).To(HaveLen(1))
-				structmatcher.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
-			})
-			It("creates a function that returns a set", func() {
-				appendFunction := backup.Function{
-					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
-					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "SETOF record", Valid: true},
-					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Language: "sql", ExecLocation: "a",
-				}
+			Expect(resultFunctions).To(HaveLen(1))
 
-				backup.PrintCreateFunctionStatement(backupfile, tocfile, appendFunction, funcMetadata)
-
-				testhelper.AssertQueryRuns(connectionPool, buffer.String())
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.append(integer, integer)")
-
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
-
-				Expect(resultFunctions).To(HaveLen(1))
-				structmatcher.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
-			})
-			It("creates a function that returns a table", func() {
-				dupFunction := backup.Function{
-					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
-					BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
-					IdentArgs:  sql.NullString{String: "integer", Valid: true},
-					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Language: "sql", ExecLocation: "a",
-				}
-
-				backup.PrintCreateFunctionStatement(backupfile, tocfile, dupFunction, funcMetadata)
-
-				testhelper.AssertQueryRuns(connectionPool, buffer.String())
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.dup(integer)")
-
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
-
-				Expect(resultFunctions).To(HaveLen(1))
-				structmatcher.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
-			})
+			structmatcher.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
 		})
-		Context("Tests for GPDB 5 and above", func() {
-			BeforeEach(func() {
-				testutils.SkipIfBefore5(connectionPool)
-			})
-			funcMetadata := backup.ObjectMetadata{}
-			It("creates a function with a simple return type", func() {
-				addFunction := backup.Function{
-					Schema: "public", Name: "add", ReturnsSet: false, FunctionBody: "SELECT $1 + $2",
-					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "integer", Valid: true},
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 0, DataAccess: "c",
-					Language: "sql", ExecLocation: "a",
-				}
-				if connectionPool.Version.AtLeast("7") {
-					addFunction.PlannerSupport = "-"
-					addFunction.Kind = "f"
-					addFunction.Parallel = "u"
-					addFunction.DataAccess = ""
-				}
+		It("creates a function that returns a set", func() {
+			appendFunction := backup.Function{
+				Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
+				ResultType: sql.NullString{String: "SETOF record", Valid: true},
+				Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO 'pg_temp'", Cost: 200,
+				NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
+			}
+			if connectionPool.Version.AtLeast("7") {
+				appendFunction.PlannerSupport = "-"
+				appendFunction.Kind = "f"
+				appendFunction.Parallel = "u"
+				appendFunction.DataAccess = ""
+			}
 
-				metadata := testutils.DefaultMetadata(toc.OBJ_FUNCTION, true, true, true, includeSecurityLabels)
-				backup.PrintCreateFunctionStatement(backupfile, tocfile, addFunction, metadata)
+			backup.PrintCreateFunctionStatement(backupfile, tocfile, appendFunction, funcMetadata)
 
-				testhelper.AssertQueryRuns(connectionPool, buffer.String())
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.append(integer, integer)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+			resultFunctions := backup.GetFunctions(connectionPool)
 
-				Expect(resultFunctions).To(HaveLen(1))
+			Expect(resultFunctions).To(HaveLen(1))
 
-				structmatcher.ExpectStructsToMatchExcluding(&addFunction, &resultFunctions[0], "Oid")
-			})
-			It("creates a function that returns a set", func() {
-				appendFunction := backup.Function{
-					Schema: "public", Name: "append", ReturnsSet: true, FunctionBody: "SELECT ($1, $2)",
-					BinaryPath: "", Arguments: sql.NullString{String: "integer, integer", Valid: true},
-					IdentArgs:  sql.NullString{String: "integer, integer", Valid: true},
-					ResultType: sql.NullString{String: "SETOF record", Valid: true},
-					Volatility: "s", IsStrict: true, IsSecurityDefiner: true, Config: "SET search_path TO 'pg_temp'", Cost: 200,
-					NumRows: 200, DataAccess: "m", Language: "sql", ExecLocation: "a",
-				}
-				if connectionPool.Version.AtLeast("7") {
-					appendFunction.PlannerSupport = "-"
-					appendFunction.Kind = "f"
-					appendFunction.Parallel = "u"
-					appendFunction.DataAccess = ""
-				}
+			structmatcher.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
+		})
+		It("creates a function that returns a table", func() {
+			dupFunction := backup.Function{
+				Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
+				BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
+				IdentArgs:  sql.NullString{String: "integer", Valid: true},
+				ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
+				Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
+				Language: "sql", ExecLocation: "a",
+			}
+			if connectionPool.Version.AtLeast("7") {
+				dupFunction.PlannerSupport = "-"
+				dupFunction.Kind = "f"
+				dupFunction.Parallel = "u"
+				dupFunction.DataAccess = ""
+			}
 
-				backup.PrintCreateFunctionStatement(backupfile, tocfile, appendFunction, funcMetadata)
+			backup.PrintCreateFunctionStatement(backupfile, tocfile, dupFunction, funcMetadata)
 
-				testhelper.AssertQueryRuns(connectionPool, buffer.String())
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.append(integer, integer)")
+			testhelper.AssertQueryRuns(connectionPool, buffer.String())
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.dup(integer)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+			resultFunctions := backup.GetFunctions(connectionPool)
 
-				Expect(resultFunctions).To(HaveLen(1))
-
-				structmatcher.ExpectStructsToMatchExcluding(&appendFunction, &resultFunctions[0], "Oid")
-			})
-			It("creates a function that returns a table", func() {
-				dupFunction := backup.Function{
-					Schema: "public", Name: "dup", ReturnsSet: true, FunctionBody: "SELECT $1, CAST($1 AS text) || ' is text'",
-					BinaryPath: "", Arguments: sql.NullString{String: "integer", Valid: true},
-					IdentArgs:  sql.NullString{String: "integer", Valid: true},
-					ResultType: sql.NullString{String: "TABLE(f1 integer, f2 text)", Valid: true},
-					Volatility: "v", IsStrict: false, IsSecurityDefiner: false, Config: "", Cost: 100, NumRows: 1000, DataAccess: "c",
-					Language: "sql", ExecLocation: "a",
-				}
-				if connectionPool.Version.AtLeast("7") {
-					dupFunction.PlannerSupport = "-"
-					dupFunction.Kind = "f"
-					dupFunction.Parallel = "u"
-					dupFunction.DataAccess = ""
-				}
-
-				backup.PrintCreateFunctionStatement(backupfile, tocfile, dupFunction, funcMetadata)
-
-				testhelper.AssertQueryRuns(connectionPool, buffer.String())
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.dup(integer)")
-
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
-
-				Expect(resultFunctions).To(HaveLen(1))
-				structmatcher.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
-			})
+			Expect(resultFunctions).To(HaveLen(1))
+			structmatcher.ExpectStructsToMatchExcluding(&dupFunction, &resultFunctions[0], "Oid")
 		})
 		Context("Tests for GPDB 6", func() {
 			BeforeEach(func() {
@@ -201,7 +132,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+				resultFunctions := backup.GetFunctions(connectionPool)
 
 				Expect(resultFunctions).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&windowFunction, &resultFunctions[0], "Oid")
@@ -232,7 +163,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+				resultFunctions := backup.GetFunctions(connectionPool)
 
 				Expect(resultFunctions).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&segmentFunction, &resultFunctions[0], "Oid")
@@ -258,7 +189,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+				resultFunctions := backup.GetFunctions(connectionPool)
 
 				Expect(resultFunctions).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&leakProofFunction, &resultFunctions[0], "Oid")
@@ -284,7 +215,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(integer, integer)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+				resultFunctions := backup.GetFunctions(connectionPool)
 
 				Expect(resultFunctions).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&ParallelFunction, &resultFunctions[0], "Oid")
@@ -310,7 +241,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE EXTENSION plperl;")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP EXTENSION plperl CASCADE;")
 
-				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION hstore_to_plperl(val internal) RETURNS internal 
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION hstore_to_plperl(val internal) RETURNS internal
 						AS '$libdir/hstore_plperl.so'  LANGUAGE C STRICT IMMUTABLE;`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION hstore_to_plperl CASCADE;")
 
@@ -320,7 +251,7 @@ var _ = Describe("backup integration create statement tests", func() {
 				testhelper.AssertQueryRuns(connectionPool, buffer.String())
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.add(hstore)")
 
-				resultFunctions := backup.GetFunctionsAllVersions(connectionPool)
+				resultFunctions := backup.GetFunctions(connectionPool)
 
 				Expect(resultFunctions).To(HaveLen(1))
 				structmatcher.ExpectStructsToMatchExcluding(&TransformFunction, &resultFunctions[0], "Oid")
@@ -606,21 +537,11 @@ var _ = Describe("backup integration create statement tests", func() {
 				1: {QualifiedName: fmt.Sprintf("pg_catalog.%s_call_handler", plpythonString), Arguments: sql.NullString{String: "", Valid: true}, IsInternal: true},
 				2: {QualifiedName: fmt.Sprintf("pg_catalog.%s_inline_handler", plpythonString), Arguments: sql.NullString{String: "internal", Valid: true}, IsInternal: true},
 			}
-			langOwner := ""
-			var langMetadata backup.ObjectMetadata
-			if connectionPool.Version.Before("5") {
-				langOwner = testutils.GetUserByID(connectionPool, 10)
-				langMetadata = backup.ObjectMetadata{ObjectType: toc.OBJ_LANGUAGE, Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment"}
-			} else {
-				langOwner = "testrole"
-				langMetadata = testutils.DefaultMetadata(toc.OBJ_LANGUAGE, false, true, true, includeSecurityLabels)
-			}
+			langOwner := "testrole"
+			langMetadata := testutils.DefaultMetadata(toc.OBJ_LANGUAGE, false, true, true, includeSecurityLabels)
 			plpythonInfo := backup.ProceduralLanguage{Oid: 1, Name: fmt.Sprintf("%su", plpythonString), Owner: langOwner, IsPl: true, PlTrusted: false, Handler: 1, Inline: 2}
 
 			langMetadataMap := map[backup.UniqueID]backup.ObjectMetadata{plpythonInfo.GetUniqueID(): langMetadata}
-			if connectionPool.Version.Before("5") {
-				plpythonInfo.Inline = 0
-			}
 			procLangs := []backup.ProceduralLanguage{plpythonInfo}
 
 			backup.PrintCreateLanguageStatements(backupfile, tocfile, procLangs, funcInfoMap, langMetadataMap)
@@ -640,7 +561,6 @@ var _ = Describe("backup integration create statement tests", func() {
 	})
 	Describe("PrintCreateExtensions", func() {
 		It("creates extensions", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			plperlExtension := backup.Extension{Oid: 1, Name: "plperl", Schema: "pg_catalog"}
 			extensions := []backup.Extension{plperlExtension}
 			extensionMetadataMap := testutils.DefaultMetadataMap(toc.OBJ_EXTENSION, false, false, true, false)

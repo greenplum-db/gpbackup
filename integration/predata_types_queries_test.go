@@ -104,11 +104,8 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetBaseTypes(connectionPool)
 
 			Expect(results).To(HaveLen(1))
-			if connectionPool.Version.Before("5") {
-				structmatcher.ExpectStructsToMatchExcluding(&baseTypeDefault, &results[0], "Oid", "ModIn", "ModOut")
-			} else {
-				structmatcher.ExpectStructsToMatchExcluding(&baseTypeDefault, &results[0], "Oid")
-			}
+			structmatcher.ExpectStructsToMatchExcluding(&baseTypeDefault, &results[0], "Oid")
+
 		})
 		It("returns a slice for a base type with custom configuration", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.base_type")
@@ -125,9 +122,7 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetBaseTypes(connectionPool)
 
 			Expect(results).To(HaveLen(1))
-			if connectionPool.Version.Before("5") {
-				structmatcher.ExpectStructsToMatchExcluding(&baseTypeCustom, &results[0], "Oid", "ModIn", "ModOut")
-			} else if connectionPool.Version.Before("6") {
+			if connectionPool.Version.Before("6") {
 				structmatcher.ExpectStructsToMatchExcluding(&baseTypeCustom, &results[0], "Oid")
 			} else {
 				baseTypeCustom.Category = "N"
@@ -152,14 +147,9 @@ var _ = Describe("backup integration tests", func() {
 			results := backup.GetBaseTypes(connectionPool)
 
 			Expect(results).To(HaveLen(1))
-			if connectionPool.Version.Before("5") {
-				structmatcher.ExpectStructsToMatchExcluding(&arrayType, &results[0], "Oid", "ModIn", "ModOut")
-			} else {
-				structmatcher.ExpectStructsToMatchExcluding(&arrayType, &results[0], "Oid")
-			}
+			structmatcher.ExpectStructsToMatchExcluding(&arrayType, &results[0], "Oid")
 		})
 		It("returns a slice for an enum type", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.enum_type AS ENUM ('label1','label2','label3')")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.enum_type")
 
@@ -169,7 +159,6 @@ var _ = Describe("backup integration tests", func() {
 			structmatcher.ExpectStructsToMatchExcluding(&enumType, &results[0], "Oid")
 		})
 		It("returns a slice for enum types with labels in the correct order", func() {
-			testutils.SkipIfBefore5(connectionPool)
 
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TYPE public.enum_type AS ENUM ('label1','label2','label3')")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TYPE public.enum_type")

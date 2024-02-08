@@ -285,61 +285,35 @@ PARTITION BY RANGE (date)
 				Expect(constraints).To(BeEmpty())
 			})
 		})
-		Context("Multiple constraints 4", func() {
-			It("returns a constraint array for a table with multiple constraints", func() {
-				testutils.SkipIfNot4(connectionPool)
-				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_table(a int, b text, c float) DISTRIBUTED BY (b)")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_table CASCADE")
-				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_other_table(b text)")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_other_table CASCADE")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT uniq2 UNIQUE (a, b)")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CONSTRAINT uniq2 ON public.constraints_table IS 'this is a constraint comment'")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT pk1 PRIMARY KEY (b)")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CONSTRAINT pk1 ON public.constraints_table IS 'this is a constraint comment'")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_other_table ADD CONSTRAINT fk1 FOREIGN KEY (b) REFERENCES public.constraints_table(b)")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT check1 CHECK (a <> 42)")
+		It("returns a constraint array for a table with multiple constraints", func() {
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_table(a int, b text, c float) DISTRIBUTED BY (b)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_table CASCADE")
+			testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_other_table(a int, b text)")
+			defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_other_table CASCADE")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT uniq2 UNIQUE (a, b)")
+			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CONSTRAINT uniq2 ON public.constraints_table IS 'this is a constraint comment'")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT pk1 PRIMARY KEY (a,b)")
+			testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CONSTRAINT pk1 ON public.constraints_table IS 'this is a constraint comment'")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_other_table ADD CONSTRAINT fk1 FOREIGN KEY (a,b) REFERENCES public.constraints_table(a,b)")
+			testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT check1 CHECK (a <> 42)")
 
-				constraints := backup.GetConstraints(connectionPool)
+			constraints := backup.GetConstraints(connectionPool)
 
-				Expect(constraints).To(HaveLen(4))
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[1], &fkConstraint, "Oid")
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[2], &pkConstraint, "Oid")
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[3], &uniqueConstraint, "Oid")
-			})
-		})
-		Context("Multiple constraints 5+", func() {
-			It("returns a constraint array for a table with multiple constraints", func() {
-				testutils.SkipIfBefore5(connectionPool)
-				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_table(a int, b text, c float) DISTRIBUTED BY (b)")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_table CASCADE")
-				testhelper.AssertQueryRuns(connectionPool, "CREATE TABLE public.constraints_other_table(a int, b text)")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP TABLE public.constraints_other_table CASCADE")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT uniq2 UNIQUE (a, b)")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CONSTRAINT uniq2 ON public.constraints_table IS 'this is a constraint comment'")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT pk1 PRIMARY KEY (a,b)")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CONSTRAINT pk1 ON public.constraints_table IS 'this is a constraint comment'")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_other_table ADD CONSTRAINT fk1 FOREIGN KEY (a,b) REFERENCES public.constraints_table(a,b)")
-				testhelper.AssertQueryRuns(connectionPool, "ALTER TABLE ONLY public.constraints_table ADD CONSTRAINT check1 CHECK (a <> 42)")
+			Expect(constraints).To(HaveLen(4))
+			structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
 
-				constraints := backup.GetConstraints(connectionPool)
+			fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (a, b) REFERENCES public.constraints_table(a, b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
+			if connectionPool.Version.AtLeast("6") {
+				fkConstraint.ConIsLocal = true
+			}
+			structmatcher.ExpectStructsToMatchExcluding(&constraints[1], &fkConstraint, "Oid")
 
-				Expect(constraints).To(HaveLen(4))
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[0], &checkConstraint, "Oid")
-
-				fkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "fk1", ConType: "f", Def: sql.NullString{String: "FOREIGN KEY (a, b) REFERENCES public.constraints_table(a, b)", Valid: true}, OwningObject: "public.constraints_other_table", IsDomainConstraint: false, IsPartitionParent: false}
-				if connectionPool.Version.AtLeast("6") {
-					fkConstraint.ConIsLocal = true
-				}
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[1], &fkConstraint, "Oid")
-
-				pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
-				if connectionPool.Version.AtLeast("6") {
-					pkConstraint.ConIsLocal = true
-				}
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[2], &pkConstraint, "Oid")
-				structmatcher.ExpectStructsToMatchExcluding(&constraints[3], &uniqueConstraint, "Oid")
-			})
+			pkConstraint = backup.Constraint{Oid: 0, Schema: "public", Name: "pk1", ConType: "p", Def: sql.NullString{String: "PRIMARY KEY (a, b)", Valid: true}, OwningObject: "public.constraints_table", IsDomainConstraint: false, IsPartitionParent: false}
+			if connectionPool.Version.AtLeast("6") {
+				pkConstraint.ConIsLocal = true
+			}
+			structmatcher.ExpectStructsToMatchExcluding(&constraints[2], &pkConstraint, "Oid")
+			structmatcher.ExpectStructsToMatchExcluding(&constraints[3], &uniqueConstraint, "Oid")
 		})
 		It("returns a constraint array for a table with PRIMARY KEY constraint that includes non-key columns", func() {
 			testutils.SkipIfBefore7(connectionPool)

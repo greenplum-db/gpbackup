@@ -5,7 +5,6 @@ import (
 	"github.com/greenplum-db/gp-common-go-libs/testhelper"
 	"github.com/greenplum-db/gpbackup/backup"
 	"github.com/greenplum-db/gpbackup/options"
-	"github.com/greenplum-db/gpbackup/testutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,9 +12,6 @@ import (
 
 var _ = Describe("backup integration tests", func() {
 	Describe("GetTextSearchParsers", func() {
-		BeforeEach(func() {
-			testutils.SkipIfBefore5(connectionPool)
-		})
 		It("returns a text search parser without a headline", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER public.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH PARSER public.testparser")
@@ -54,9 +50,6 @@ var _ = Describe("backup integration tests", func() {
 		})
 	})
 	Describe("GetTextSearchTemplates", func() {
-		BeforeEach(func() {
-			testutils.SkipIfBefore5(connectionPool)
-		})
 		It("returns a text search template without an init function", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH TEMPLATE public.testtemplate(LEXIZE = dsimple_lexize);")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH TEMPLATE public.testtemplate")
@@ -95,9 +88,6 @@ var _ = Describe("backup integration tests", func() {
 		})
 	})
 	Describe("GetTextSearchDictionaries", func() {
-		BeforeEach(func() {
-			testutils.SkipIfBefore5(connectionPool)
-		})
 		It("returns a text search dictionary with init options", func() {
 			testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH DICTIONARY public.testdictionary(TEMPLATE = snowball, LANGUAGE = 'russian', STOPWORDS = 'russian');")
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
@@ -133,9 +123,6 @@ var _ = Describe("backup integration tests", func() {
 		})
 	})
 	Describe("GetTextSearchConfigurations", func() {
-		BeforeEach(func() {
-			testutils.SkipIfBefore5(connectionPool)
-		})
 		It("returns a text search configuration without an init function", func() {
 			testhelper.AssertQueryRuns(connectionPool, `CREATE TEXT SEARCH CONFIGURATION public.testconfiguration (PARSER = pg_catalog."default");`)
 			defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH CONFIGURATION public.testconfiguration")

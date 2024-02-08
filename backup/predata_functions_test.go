@@ -836,10 +836,8 @@ ALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO testrole;`,
 				"ALTER FUNCTION pg_catalog.plpython_call_handler() OWNER TO testrole;",
 				"COMMENT ON LANGUAGE plpythonu IS 'This is a language comment.';",
 			}
-			if connectionPool.Version.AtLeast("5") {
-				// Languages have implicit owners in 4.3, but do not support ALTER OWNER
-				expectedStatements = append(expectedStatements, "ALTER LANGUAGE plpythonu OWNER TO testrole;")
-			}
+
+			expectedStatements = append(expectedStatements, "ALTER LANGUAGE plpythonu OWNER TO testrole;")
 			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plpythonu FROM PUBLIC;
 REVOKE ALL ON LANGUAGE plpythonu FROM testrole;
 GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
@@ -864,10 +862,8 @@ GRANT ALL ON LANGUAGE plpythonu TO testrole;`,
 				"ALTER FUNCTION pg_catalog.plperl_call_handler() OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_inline_handler(internal) OWNER TO owner%percentage;\nALTER FUNCTION pg_catalog.plperl_validator(oid) OWNER TO owner%percentage;",
 				`COMMENT ON LANGUAGE plperl IS 'This is a language comment.';`,
 			}
-			if connectionPool.Version.AtLeast("5") {
-				// Languages have implicit owners in 4.3, but do not support ALTER OWNER
-				expectedStatements = append(expectedStatements, `ALTER LANGUAGE plperl OWNER TO testrole;`)
-			}
+
+			expectedStatements = append(expectedStatements, `ALTER LANGUAGE plperl OWNER TO testrole;`)
 			expectedStatements = append(expectedStatements, `REVOKE ALL ON LANGUAGE plperl FROM PUBLIC;
 REVOKE ALL ON LANGUAGE plperl FROM testrole;
 GRANT ALL ON LANGUAGE plperl TO testrole;`,

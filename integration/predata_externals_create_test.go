@@ -121,27 +121,6 @@ var _ = Describe("backup integration create statement tests", func() {
 
 			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
 		})
-		It("creates a READABLE EXTERNAL table with LOG ERRORS INTO", func() {
-			testutils.SkipIfNot4(connectionPool)
-			extTable.Type = backup.READABLE
-			extTable.Writable = false
-			extTable.ErrTableName = `"err_table%percent"`
-			extTable.ErrTableSchema = "public"
-			extTable.RejectLimit = 2
-			extTable.RejectLimitType = "r"
-			testTable.ExtTableDef = extTable
-
-			backup.PrintExternalTableCreateStatement(backupfile, tocfile, testTable)
-
-			testhelper.AssertQueryRuns(connectionPool, buffer.String())
-
-			oid := testutils.OidFromObjectName(connectionPool, "public", "testtable", backup.TYPE_RELATION)
-			resultTableDefs := backup.GetExternalTableDefinitions(connectionPool)
-			resultTableDef := resultTableDefs[oid]
-			resultTableDef.Type, resultTableDef.Protocol = backup.DetermineExternalTableCharacteristics(resultTableDef)
-
-			structmatcher.ExpectStructsToMatchExcluding(&extTable, &resultTableDef, "Oid")
-		})
 		It("creates a READABLE EXTERNAL table with FORMAT delimiter", func() {
 			extTable.Type = backup.READABLE
 			extTable.Writable = false
@@ -318,7 +297,6 @@ FORMAT 'csv';`)
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "RelationOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a two level partition", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			externalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       10,
 				PartitionParentRuleOid: 11,
@@ -370,7 +348,6 @@ SUBPARTITION eur values ('eur'))
 			structmatcher.ExpectStructsToMatchExcluding(&externalPartition, &resultExtPartitions[0], "PartitionRuleOid", "PartitionParentRuleOid", "ParentRelationOid")
 		})
 		It("writes an alter statement for a three level partition", func() {
-			testutils.SkipIfBefore5(connectionPool)
 			externalPartition := backup.PartitionInfo{
 				PartitionRuleOid:       10,
 				PartitionParentRuleOid: 11,

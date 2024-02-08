@@ -139,14 +139,7 @@ var _ = Describe("backup integration tests", func() {
 				testutils.CreateSecurityLabelIfGPDB6(connectionPool, toc.OBJ_LANGUAGE, plpythonString)
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_PROC_LANGUAGE)
-
-				var expectedMetadata backup.ObjectMetadata
-				if connectionPool.Version.Before("5") {
-					langOwner := testutils.GetUserByID(connectionPool, 10)
-					expectedMetadata = backup.ObjectMetadata{ObjectType: toc.OBJ_LANGUAGE, Privileges: []backup.ACL{}, Owner: langOwner, Comment: "This is a language comment."}
-				} else {
-					expectedMetadata = testutils.DefaultMetadata(toc.OBJ_LANGUAGE, false, true, true, includeSecurityLabels)
-				}
+				expectedMetadata := testutils.DefaultMetadata(toc.OBJ_LANGUAGE, false, true, true, includeSecurityLabels)
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "", plpythonString, backup.TYPE_PROC_LANGUAGE)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
@@ -363,7 +356,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator family", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR FAMILY public.testfam USING hash")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testfam USING hash")
 
@@ -378,11 +370,7 @@ LANGUAGE SQL`)
 			})
 			It("returns a slice of default metadata for an operator class", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR CLASS public.testclass FOR TYPE int USING hash AS STORAGE int")
-				if connectionPool.Version.Before("5") {
-					defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR CLASS public.testclass USING hash")
-				} else {
-					defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash")
-				}
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON OPERATOR CLASS public.testclass USING hash IS 'This is an operator class comment.'")
 
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_OPERATOR_CLASS)
@@ -393,7 +381,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search dictionary", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH DICTIONARY public.testdictionary(TEMPLATE = snowball, LANGUAGE = 'russian', STOPWORDS = 'russian');")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON TEXT SEARCH DICTIONARY public.testdictionary IS 'This is a text search dictionary comment.'")
@@ -407,7 +394,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TS_CONFIGURATION)
 				configurationMetadata := testutils.DefaultMetadata(toc.OBJ_TEXT_SEARCH_CONFIGURATION, false, true, true, false)
 
@@ -672,13 +658,7 @@ LANGUAGE SQL`)
 				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "testschema", "testtype", backup.TYPE_TYPE)
 				expectedMetadata := testutils.DefaultMetadata(toc.OBJ_TYPE, false, true, true, false)
 				resultMetadata := resultMetadataMap[uniqueID]
-				if connectionPool.Version.Before("5") {
-					// In 4.3, creating testtype does not generate a "_testtype" entry in pg_type
-					Expect(resultMetadataMap).To(HaveLen(1))
-				} else {
-					// In 5, creating testtype generates 2 entries in pg_type, "testtype" and "_testtype"
-					Expect(resultMetadataMap).To(HaveLen(2))
-				}
+				Expect(resultMetadataMap).To(HaveLen(2))
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator in a specific schema", func() {
@@ -700,7 +680,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for an operator family in a specific schema", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR FAMILY public.testfam USING hash")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testfam USING hash")
 				testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
@@ -720,19 +699,11 @@ LANGUAGE SQL`)
 			})
 			It("returns a slice of default metadata for an operator class in a specific schema", func() {
 				testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR CLASS public.testclass FOR TYPE int4 USING hash AS STORAGE int4")
-				if connectionPool.Version.Before("5") {
-					defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR CLASS public.testclass USING hash CASCADE")
-				} else {
-					defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash CASCADE")
-				}
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY public.testclass USING hash CASCADE")
 				testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP SCHEMA testschema")
 				testhelper.AssertQueryRuns(connectionPool, "CREATE OPERATOR CLASS testschema.testclass FOR TYPE int4 USING hash AS STORAGE int4")
-				if connectionPool.Version.Before("5") {
-					defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR CLASS testschema.testclass USING hash CASCADE")
-				} else {
-					defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY testschema.testclass USING hash CASCADE")
-				}
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP OPERATOR FAMILY testschema.testclass USING hash CASCADE")
 				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON OPERATOR CLASS testschema.testclass USING hash IS 'This is an operator class comment.'")
 
 				_ = backupCmdFlags.Set(options.INCLUDE_SCHEMA, "testschema")
@@ -745,7 +716,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search dictionary in a specific schema", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH DICTIONARY public.testdictionary(TEMPLATE = snowball, LANGUAGE = 'russian', STOPWORDS = 'russian');")
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP TEXT SEARCH DICTIONARY public.testdictionary")
 				testhelper.AssertQueryRuns(connectionPool, "CREATE SCHEMA testschema")
@@ -764,7 +734,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&dictionaryMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search configuration in a specific schema", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_TS_CONFIGURATION)
 				configurationMetadata := testutils.DefaultMetadata(toc.OBJ_TEXT_SEARCH_CONFIGURATION, false, true, true, false)
 
@@ -915,29 +884,7 @@ LANGUAGE SQL`)
 				resultMetadata := resultMetadataMap[uniqueID]
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
-			It("returns a slice of default metadata for a cast in 4.3", func() {
-				testutils.SkipIfNot4(connectionPool)
-				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_CAST)
-				numCasts := len(resultMetadataMap)
-
-				testhelper.AssertQueryRuns(connectionPool, "CREATE FUNCTION public.casttotext(bool) RETURNS text STRICT IMMUTABLE LANGUAGE PLPGSQL AS $$ BEGIN IF $1 IS TRUE THEN RETURN 'true'; ELSE RETURN 'false'; END IF; END; $$;")
-				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.casttotext(bool) CASCADE")
-				testhelper.AssertQueryRuns(connectionPool, "CREATE CAST (bool AS text) WITH FUNCTION public.casttotext(bool) AS ASSIGNMENT")
-				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON CAST (bool AS text) IS 'This is a cast comment.'")
-
-				resultMetadataMap = backup.GetCommentsForObjectType(connectionPool, backup.TYPE_CAST)
-
-				boolOid := testutils.OidFromObjectName(connectionPool, "", "bool", backup.TYPE_TYPE)
-				textOid := testutils.OidFromObjectName(connectionPool, "", "text", backup.TYPE_TYPE)
-				oid := testutils.OidFromCast(connectionPool, boolOid, textOid)
-				expectedMetadata := testutils.DefaultMetadata(toc.OBJ_CAST, false, false, true, false)
-
-				Expect(resultMetadataMap).To(HaveLen(numCasts + 1))
-				resultMetadata := resultMetadataMap[backup.UniqueID{ClassID: backup.PG_CAST_OID, Oid: oid}]
-				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
-			})
 			It("returns a slice of default metadata for a cast in 5", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				resultMetadataMap := backup.GetCommentsForObjectType(connectionPool, backup.TYPE_CAST)
 				numCasts := len(resultMetadataMap)
 
@@ -975,7 +922,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search parser", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				parserMetadata := testutils.DefaultMetadata(toc.OBJ_TEXT_SEARCH_PARSER, false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER public.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
@@ -990,7 +936,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search template", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				templateMetadata := testutils.DefaultMetadata(toc.OBJ_TEXT_SEARCH_TEMPLATE, false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH TEMPLATE public.testtemplate(LEXIZE = dsimple_lexize);")
@@ -1005,7 +950,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&templateMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for an extension", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				extensionMetadata := testutils.DefaultMetadata(toc.OBJ_EXTENSION, false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE EXTENSION plperl;")
@@ -1069,7 +1013,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
 			It("returns a slice of default metadata for a text search parser in a specific schema", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				parserMetadata := testutils.DefaultMetadata(toc.OBJ_TEXT_SEARCH_PARSER, false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH PARSER public.testparser(START = prsd_start, GETTOKEN = prsd_nexttoken, END = prsd_end, LEXTYPES = prsd_lextype);")
@@ -1089,7 +1032,6 @@ LANGUAGE SQL`)
 				structmatcher.ExpectStructsToMatch(&parserMetadata, &resultMetadata)
 			})
 			It("returns a slice of default metadata for a text search template in a specific schema", func() {
-				testutils.SkipIfBefore5(connectionPool)
 				templateMetadata := testutils.DefaultMetadata(toc.OBJ_TEXT_SEARCH_TEMPLATE, false, false, true, false)
 
 				testhelper.AssertQueryRuns(connectionPool, "CREATE TEXT SEARCH TEMPLATE public.testtemplate(LEXIZE = dsimple_lexize);")
