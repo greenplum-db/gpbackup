@@ -20,6 +20,11 @@ func copyPluginToAllHosts(conn *dbconn.DBConn, pluginPath string) {
 	hostnameQuery := `SELECT DISTINCT hostname AS string FROM gp_segment_configuration WHERE content != -1`
 	hostnames := dbconn.MustSelectStringSlice(conn, hostnameQuery)
 	for _, hostname := range hostnames {
+		// Skip the local host
+		h, _ := os.Hostname()
+		if hostname == h {
+			continue
+		}
 		examplePluginTestDir, _ := path.Split(pluginPath)
 		command := exec.Command("ssh", hostname, fmt.Sprintf("mkdir -p %s", examplePluginTestDir))
 		mustRunCommand(command)
