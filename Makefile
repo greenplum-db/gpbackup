@@ -141,7 +141,7 @@ info-report:
 test-s3-local: build install
 	${PWD}/plugins/generate_minio_config.sh
 	mkdir -p /tmp/minio/gpbackup-s3-test
-	docker run -d --name s3-minio -p 9000:9000 -p 9001:9001 -v /tmp/minio:/data/minio quay.io/minio/minio server /data/minio --console-address ":9001"
+	docker run -d --name s3-minio --memory="2g" -p 9000:9000 -p 9001:9001 -v /tmp/minio:/data/minio quay.io/minio/minio server /data/minio --console-address ":9001"
 	sleep 2 # Wait for minio server to start up
 	${PWD}/plugins/plugin_test.sh $(BIN_DIR)/gpbackup_s3_plugin /tmp/minio_config.yaml
 	docker stop s3-minio
