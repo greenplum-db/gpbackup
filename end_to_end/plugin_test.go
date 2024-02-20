@@ -453,7 +453,7 @@ var _ = Describe("End to End plugin tests", func() {
 				Skip("This test is only needed for the latest backup version")
 			}
 			copyPluginToAllHosts(backupConn, examplePluginExec)
-			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test.sh %s %s %s", examplePluginDir, examplePluginExec, examplePluginTestConfig, examplePluginTestDir))
+			command := exec.Command("bash", "-c", fmt.Sprintf("%s/plugin_test.sh %s %s", examplePluginDir, examplePluginExec, examplePluginTestConfig))
 			mustRunCommand(command)
 		})
 	})

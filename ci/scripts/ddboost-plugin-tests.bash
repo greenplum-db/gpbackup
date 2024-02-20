@@ -84,9 +84,9 @@ CONFIG
 
 pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup/plugins
 
-./plugin_test.sh \${GPHOME}/bin/gpbackup_ddboost_plugin \${HOME}/ddboost_config_replication.yaml gpbackup_tests${GPDB_VERSION} \${HOME}/ddboost_config_replication_restore.yaml
+./plugin_test.sh \${GPHOME}/bin/gpbackup_ddboost_plugin \${HOME}/ddboost_config_replication.yaml \${HOME}/ddboost_config_replication_restore.yaml
 
-./plugin_test.sh \${GPHOME}/bin/gpbackup_ddboost_plugin \${HOME}/ddboost_config.yaml gpbackup_tests${GPDB_VERSION} \${HOME}/ddboost_config_replication_restore.yaml
+./plugin_test.sh \${GPHOME}/bin/gpbackup_ddboost_plugin \${HOME}/ddboost_config.yaml \${HOME}/ddboost_config_replication_restore.yaml
 
 # exercise boostfs, which is mounted at /data/gpdata/dd_dir
 pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup

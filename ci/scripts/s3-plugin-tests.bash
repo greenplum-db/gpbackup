@@ -30,7 +30,7 @@ options:
 CONFIG
 
   pushd ~/go/src/github.com/greenplum-db/gpbackup/plugins
-    ./plugin_test.sh \${GPHOME}/bin/gpbackup_s3_plugin \${HOME}/s3_config.yaml test/backup 
+    ./plugin_test.sh \${GPHOME}/bin/gpbackup_s3_plugin \${HOME}/s3_config.yaml
   popd
 SCRIPT
 

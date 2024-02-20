@@ -90,11 +90,13 @@ delete_backup() {
 
 }
 
+# utility/debugging function to maintain parity with ddboost and s3 plugin
 list_directory() {
   echo "list_directory $1 /tmp/plugin_dest" >> /tmp/plugin_out.txt
   ls /tmp/plugin_dest
 }
 
+# utility/debugging function to maintain parity with ddboost and s3 plugin
 delete_directory() {
   echo "delete_directory $1 /tmp/plugin_dest" >> /tmp/plugin_out.txt
   rm -rf /tmp/plugin_dest
