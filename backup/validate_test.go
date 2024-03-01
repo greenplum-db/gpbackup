@@ -282,6 +282,13 @@ var _ = Describe("backup/validate tests", func() {
 			Entry("jobs combos", "--jobs 2 --single-data-file", false),
 			Entry("jobs combos", "--jobs 2 --plugin-config /tmp/file", true),
 			Entry("jobs combos", "--jobs 2 --data-only", true),
+
+			/*
+			 * --section cannot be used with --metadata-only or --data-only
+			 * Additional validation performed by ValidateSections
+			 */
+			 Entry(("--section"), "--section=predata --metadata-only", false),
+			 Entry(("--section"), "--section=data --data-only", false),
 		)
 	})
 })

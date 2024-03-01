@@ -7,6 +7,7 @@ import (
 
 	"github.com/greenplum-db/gp-common-go-libs/dbconn"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
+	"github.com/greenplum-db/gpbackup/history"
 	"github.com/greenplum-db/gpbackup/options"
 	"github.com/greenplum-db/gpbackup/toc"
 	"github.com/greenplum-db/gpbackup/utils"
@@ -18,21 +19,23 @@ import (
  * This file contains functions related to validating user input.
  */
 
-func validateFilterListsInBackupSet() {
-	ValidateIncludeSchemasInBackupSet(opts.IncludedSchemas)
-	ValidateExcludeSchemasInBackupSet(opts.ExcludedSchemas)
+// FIXME: Refactor these filter functions so they don't rely
+// on global variables globalTOC and backupConfig
+func validateFilterListsInBackupSet(sections history.Sections) {
+	ValidateIncludeSchemasInBackupSet(opts.IncludedSchemas, sections)
+	ValidateExcludeSchemasInBackupSet(opts.ExcludedSchemas, sections)
 	ValidateIncludeRelationsInBackupSet(opts.IncludedRelations)
 	ValidateExcludeRelationsInBackupSet(opts.ExcludedRelations)
 }
 
-func ValidateIncludeSchemasInBackupSet(schemaList []string) {
-	if keys := getFilterSchemasInBackupSet(schemaList); len(keys) != 0 {
+func ValidateIncludeSchemasInBackupSet(schemaList []string, sections history.Sections) {
+	if keys := getFilterSchemasInBackupSet(schemaList, sections); len(keys) != 0 {
 		gplog.Fatal(errors.Errorf("Could not find the following schema(s) in the backup set: %s", strings.Join(keys, ", ")), "")
 	}
 }
 
-func ValidateExcludeSchemasInBackupSet(schemaList []string) {
-	if keys := getFilterSchemasInBackupSet(schemaList); len(keys) != 0 {
+func ValidateExcludeSchemasInBackupSet(schemaList []string, sections history.Sections) {
+	if keys := getFilterSchemasInBackupSet(schemaList, sections); len(keys) != 0 {
 		gplog.Warn("Could not find the following excluded schema(s) in the backup set: %s", strings.Join(keys, ", "))
 	}
 }
@@ -41,7 +44,7 @@ func ValidateExcludeSchemasInBackupSet(schemaList []string) {
  * in incremental backups since incremental backups will always take backups of
  * the metadata (--incremental and --data-only backup flags are not compatible)
  */
-func getFilterSchemasInBackupSet(schemaList []string) []string {
+func getFilterSchemasInBackupSet(schemaList []string, sections history.Sections) []string {
 	if len(schemaList) == 0 {
 		return []string{}
 	}
@@ -49,7 +52,7 @@ func getFilterSchemasInBackupSet(schemaList []string) []string {
 	for _, schema := range schemaList {
 		schemaMap[schema] = true
 	}
-	if !backupConfig.DataOnly {
+	if sections.Contains(history.Predata) {
 		for _, entry := range globalTOC.PredataEntries {
 			if _, ok := schemaMap[entry.Schema]; ok {
 				delete(schemaMap, entry.Schema)
@@ -103,7 +106,7 @@ func GenerateRestoreRelationList(opts options.Options) []string {
 	}
 	return relationList
 }
-func ValidateRelationsInRestoreDatabase(connectionPool *dbconn.DBConn, relationList []string) {
+func ValidateRelationsInRestoreDatabase(connectionPool *dbconn.DBConn, relationList []string, sections history.Sections) {
 	if len(relationList) == 0 {
 		return
 	}
@@ -124,7 +127,7 @@ WHERE quote_ident(n.nspname) || '.' || quote_ident(c.relname) IN (%s)`, quotedTa
 	 * are not already in the database so we don't get duplicate data.
 	 */
 	var errMsg string
-	if backupConfig.DataOnly || MustGetFlagBool(options.DATA_ONLY) {
+	if sections.Is(history.Data) {
 		if len(relationsInDB) < len(relationList) {
 			dbRelationsSet := utils.NewSet(relationsInDB)
 			for _, restoreRelation := range relationList {
@@ -265,6 +268,8 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 	options.CheckExclusiveFlags(flags, options.PLUGIN_CONFIG, options.BACKUP_DIR)
 	options.CheckExclusiveFlags(flags, options.TRUNCATE_TABLE, options.METADATA_ONLY, options.INCREMENTAL)
 	options.CheckExclusiveFlags(flags, options.TRUNCATE_TABLE, options.REDIRECT_SCHEMA)
+	options.CheckExclusiveFlags(flags, options.SECTION, options.METADATA_ONLY)
+	options.CheckExclusiveFlags(flags, options.SECTION, options.DATA_ONLY)
 
 	if flags.Changed(options.REDIRECT_SCHEMA) {
 		// Redirect schema not compatible with any exclude flags
@@ -282,9 +287,6 @@ func ValidateFlagCombinations(flags *pflag.FlagSet) {
 		!(flags.Changed(options.INCLUDE_RELATION) || flags.Changed(options.INCLUDE_RELATION_FILE)) &&
 		!flags.Changed(options.DATA_ONLY) {
 		gplog.Fatal(errors.Errorf("Cannot use --truncate-table without --include-table or --include-table-file and without --data-only"), "")
-	}
-	if flags.Changed(options.INCREMENTAL) && !flags.Changed(options.DATA_ONLY) {
-		gplog.Fatal(errors.Errorf("Cannot use --incremental without --data-only"), "")
 	}
 	if !flags.Changed(options.TIMESTAMP) && !flags.Changed(options.BACKUP_DIR) {
 		gplog.Fatal(errors.Errorf("Must provide --backup-dir if --timestamp is not provided"), "")

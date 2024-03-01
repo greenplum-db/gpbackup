@@ -73,15 +73,8 @@ func (report *Report) ConstructBackupParamsString() {
 	if report.Plugin != "" {
 		pluginStr = report.Plugin
 	}
-	sectionStr := "All Sections"
-	if report.DataOnly {
-		sectionStr = "Data Only"
-	}
-	if report.MetadataOnly {
-		sectionStr = "Metadata Only"
-	}
 	filesStr := "Multiple Data Files Per Segment"
-	if report.MetadataOnly {
+	if !report.Sections.Contains(history.Data) {
 		filesStr = "No Data Files"
 	} else if report.SingleDataFile {
 		filesStr = "Single Data File Per Segment"
@@ -97,7 +90,7 @@ object filtering: %s
 includes statistics: %s
 data file format: %s
 %s`
-	report.BackupParamsString = fmt.Sprintf(backupParamsTemplate, compressStr, pluginStr, sectionStr, filterStr,
+	report.BackupParamsString = fmt.Sprintf(backupParamsTemplate, compressStr, pluginStr, report.Sections.ToString(), filterStr,
 		statsStr, filesStr, report.constructIncrementalSection())
 }
 

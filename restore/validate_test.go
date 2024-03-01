@@ -21,6 +21,7 @@ var _ = Describe("restore/validate tests", func() {
 	var filterList []string
 	var tocfile *toc.TOC
 	var backupfile *utils.FileWithByteCount
+	var config *history.BackupConfig
 	AfterEach(func() {
 		filterList = []string{}
 	})
@@ -32,6 +33,7 @@ var _ = Describe("restore/validate tests", func() {
 		table2 := toc.StatementWithType{ObjectType: toc.OBJ_TABLE, Statement: "CREATE TABLE schema2.table2"}
 		table2Len := uint64(len(table2.Statement))
 		BeforeEach(func() {
+			config = &history.BackupConfig{Sections: history.Predata|history.Data|history.Postdata}
 			tocfile, backupfile = testutils.InitializeTestTOC(buffer, "predata")
 			backupfile.ByteCount = table1Len
 			tocfile.AddMetadataEntry("predata", toc.MetadataEntry{Schema: "schema1", Name: "table1", ObjectType: toc.OBJ_TABLE}, 0, backupfile.ByteCount, []uint32{0, 0})
@@ -44,32 +46,31 @@ var _ = Describe("restore/validate tests", func() {
 			restore.SetTOC(tocfile)
 		})
 		It("passes when schema exists in normal backup", func() {
-			restore.SetBackupConfig(&history.BackupConfig{})
 			filterList = []string{"schema1"}
-			restore.ValidateIncludeSchemasInBackupSet(filterList)
+			restore.ValidateIncludeSchemasInBackupSet(filterList, config.Sections)
 		})
 		It("panics when schema does not exist in normal backup", func() {
 			restore.SetBackupConfig(&history.BackupConfig{})
 			filterList = []string{"schema3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
-			restore.ValidateIncludeSchemasInBackupSet(filterList)
+			restore.ValidateIncludeSchemasInBackupSet(filterList, config.Sections)
 		})
 		It("passes when schema exists in data-only backup", func() {
 			restore.SetBackupConfig(&history.BackupConfig{DataOnly: true})
 			filterList = []string{"schema1"}
-			restore.ValidateIncludeSchemasInBackupSet(filterList)
+			restore.ValidateIncludeSchemasInBackupSet(filterList, config.Sections)
 		})
 		It("panics when schema does not exist in data-only backup", func() {
 			restore.SetBackupConfig(&history.BackupConfig{DataOnly: true})
 			filterList = []string{"schema3"}
 			defer testhelper.ShouldPanicWithMessage("Could not find the following schema(s) in the backup set: schema3")
-			restore.ValidateIncludeSchemasInBackupSet(filterList)
+			restore.ValidateIncludeSchemasInBackupSet(filterList, config.Sections)
 		})
 		It("generates warning when exclude-schema does not exist in backup and noFatal is true", func() {
 			_, _, logfile = testhelper.SetupTestLogger()
 			restore.SetBackupConfig(&history.BackupConfig{})
 			filterList = []string{"schema3"}
-			restore.ValidateExcludeSchemasInBackupSet(filterList)
+			restore.ValidateExcludeSchemasInBackupSet(filterList, config.Sections)
 			testhelper.ExpectRegexp(logfile, "[WARNING]:-Could not find the following excluded schema(s) in the backup set: schema3")
 		})
 	})
@@ -136,20 +137,19 @@ var _ = Describe("restore/validate tests", func() {
 		})
 	})
 	Describe("ValidateRelationsInRestoreDatabase", func() {
-		BeforeEach(func() {
-			restore.SetBackupConfig(&history.BackupConfig{DataOnly: false})
-			_ = cmdFlags.Set(options.DATA_ONLY, "false")
-		})
+		var (
+			sections history.Sections
+		)
 		Context("data-only restore", func() {
 			BeforeEach(func() {
-				_ = cmdFlags.Set(options.DATA_ONLY, "true")
+				sections = history.Data
 			})
 			It("panics if all tables missing from database", func() {
 				noTableRows := sqlmock.NewRows([]string{"string"})
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(noTableRows)
 				filterList = []string{"public.table2"}
 				defer testhelper.ShouldPanicWithMessage("Relation public.table2 must exist for data-only restore")
-				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList)
+				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList, sections)
 			})
 			It("panics if some tables missing from database", func() {
 				singleTableRow := sqlmock.NewRows([]string{"string"}).
@@ -157,22 +157,25 @@ var _ = Describe("restore/validate tests", func() {
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(singleTableRow)
 				filterList = []string{"public.table1", "public.table2"}
 				defer testhelper.ShouldPanicWithMessage("Relation public.table2 must exist for data-only restore")
-				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList)
+				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList, sections)
 			})
 			It("passes if all tables are present in database", func() {
 				twoTableRows := sqlmock.NewRows([]string{"string"}).
 					AddRow("public.table1").AddRow("public.table2")
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(twoTableRows)
 				filterList = []string{"public.table1", "public.table2"}
-				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList)
+				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList, sections)
 			})
 		})
 		Context("restore includes metadata", func() {
+			BeforeEach(func() {
+				sections = history.Predata|history.Data|history.Postdata
+			})
 			It("passes if table is not present in database", func() {
 				noTableRows := sqlmock.NewRows([]string{"string"})
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(noTableRows)
 				filterList = []string{"public.table2"}
-				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList)
+				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList, sections)
 			})
 			It("panics if single table is present in database", func() {
 				singleTableRow := sqlmock.NewRows([]string{"string"}).
@@ -180,7 +183,7 @@ var _ = Describe("restore/validate tests", func() {
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(singleTableRow)
 				filterList = []string{"public.table1", "public.table2"}
 				defer testhelper.ShouldPanicWithMessage("Relation public.table1 already exists")
-				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList)
+				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList, sections)
 			})
 			It("panics if multiple tables are present in database", func() {
 				twoTableRows := sqlmock.NewRows([]string{"string"}).
@@ -188,7 +191,7 @@ var _ = Describe("restore/validate tests", func() {
 				mock.ExpectQuery("SELECT (.*)").WillReturnRows(twoTableRows)
 				filterList = []string{"public.table1", "public.view1"}
 				defer testhelper.ShouldPanicWithMessage("Relation public.table1 already exists")
-				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList)
+				restore.ValidateRelationsInRestoreDatabase(connectionPool, filterList, sections)
 			})
 		})
 	})
@@ -366,11 +369,6 @@ var _ = Describe("restore/validate tests", func() {
 			Entry("--include-table combos", "--timestamp=0 --include-table schema.table --include-table schema.table2", true),
 			Entry("--include-table combos", "--timestamp=0 --include-table schema.table --include-table-file /tmp/file2", false),
 
-			/*
-			 * Below are various different incremental combinations
-			 */
-			Entry("incremental combos", "--timestamp=0 --incremental", false),
-			Entry("incremental combos", "--timestamp=0 --incremental --data-only", true),
 
 			/*
 			 * Below are various different truncate combinations
@@ -395,6 +393,13 @@ var _ = Describe("restore/validate tests", func() {
 			Entry("--redirect-schema combos", "--timestamp=0 --redirect-schema schema1 --exclude-schema-file /tmp/file2", false),
 			Entry("--redirect-schema combos", "--timestamp=0 --redirect-schema schema1 --include-table schema.table2 --metadata-only", true),
 			Entry("--redirect-schema combos", "--timestamp=0 --redirect-schema schema1 --include-table schema.table2 --data-only", true),
+
+			/*
+			 * --section cannot be used with --metadata-only or --data-only
+			 * Additional validation performed by ValidateSections
+			 */
+			Entry(("--section"), "--timestamp=0 --section=predata --metadata-only", false),
+			Entry(("--section"), "--timestamp=0 --section=data --data-only", false),
 		)
 	})
 	Describe("ValidateBackupFlagCombinations", func() {

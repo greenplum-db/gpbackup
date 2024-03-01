@@ -33,8 +33,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT into schema2.ao1 values(1001)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DELETE from schema2.ao1 where i=1001")
 			incremental1Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--incremental",
 				"--leaf-partition-data",
@@ -42,8 +40,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT into schema2.ao1 values(1002)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DELETE from schema2.ao1 where i=1002")
 			incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--incremental",
 				"--leaf-partition-data",
@@ -63,8 +59,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE TABLE foobar WITH (appendonly=true) AS SELECT i FROM generate_series(1,5) i")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP TABLE foobar")
 			testhelper.AssertQueryRuns(backupConn, "VACUUM foobar")
 			entriesInTable := dbconn.MustSelectString(backupConn,
 				"SELECT count(*) FROM foobar")
@@ -117,8 +111,7 @@ var _ = Describe("End to End incremental tests", func() {
 				"--include-table=public.sales")
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT into sales values(1, '2017-01-01', 99.99)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DELETE from sales where amt=99.99")
+
 			_ = gpbackup(gpbackupPath, backupHelperPath,
 				"--incremental",
 				"--leaf-partition-data",
@@ -131,8 +124,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT into sales values(2, '2017-02-01', 88.88)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DELETE from sales where amt=88.88")
 			incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--incremental",
 				"--leaf-partition-data",
@@ -156,8 +147,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1001)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao1 where i=1001")
 				_ = gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -165,8 +154,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1002)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao1 where i=1002")
 				incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -190,8 +177,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into sales VALUES(19, '2017-02-15'::date, 100)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from sales where id=19")
 				_ = gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -199,8 +184,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into sales VALUES(20, '2017-03-15'::date, 100)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from sales where id=20")
 				incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -235,16 +218,10 @@ var _ = Describe("End to End incremental tests", func() {
 
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into sales VALUES(20, '2017-03-15'::date, 100)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from sales where id=20")
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1001)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao1 where i=1001")
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao2 values(1002)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao2 where i=1002")
 
 				incremental1Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
@@ -272,8 +249,6 @@ var _ = Describe("End to End incremental tests", func() {
 				skipIfOldBackupVersionBefore("1.7.2")
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into sales VALUES(19, '2017-02-15'::date, 100)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from sales where id=19")
 				_ = gpbackup(gpbackupPath, backupHelperPath,
 					"--leaf-partition-data")
 
@@ -298,8 +273,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 					testhelper.AssertQueryRuns(backupConn,
 						"INSERT into schema2.ao1 values(1001)")
-					defer testhelper.AssertQueryRuns(backupConn,
-						"DELETE from schema2.ao1 where i=1001")
 					_ = gpbackup(gpbackupPath, backupHelperPath,
 						"--incremental",
 						"--leaf-partition-data")
@@ -311,8 +284,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 					testhelper.AssertQueryRuns(backupConn,
 						"INSERT into schema2.ao1 values(1002)")
-					defer testhelper.AssertQueryRuns(backupConn,
-						"DELETE from schema2.ao1 where i=1002")
 					incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 						"--incremental",
 						"--leaf-partition-data")
@@ -343,8 +314,6 @@ var _ = Describe("End to End incremental tests", func() {
 				forceMetadataFileDownloadFromPlugin(backupConn, fullBackupTimestamp)
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1001)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao1 where i=1001")
 				incremental1Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -355,8 +324,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1002)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao1 where i=1002")
 				incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -385,8 +352,6 @@ var _ = Describe("End to End incremental tests", func() {
 				forceMetadataFileDownloadFromPlugin(backupConn, fullBackupTimestamp)
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1001)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao1 where i=1001")
 				incremental1Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -398,8 +363,6 @@ var _ = Describe("End to End incremental tests", func() {
 
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT into schema2.ao1 values(1002)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DELETE from schema2.ao1 where i=1002")
 				incremental2Timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--incremental",
 					"--leaf-partition-data",
@@ -516,19 +479,9 @@ EOF1`, backupDir)
 				testhelper.AssertQueryRuns(restoreConn,
 					"DROP TABLE IF EXISTS zoo;")
 			})
-			It("Does not incremental restore without --data-only", func() {
-				args := []string{
-					"--timestamp", "23432432",
-					"--incremental",
-					"--redirect-db", "restoredb"}
-				cmd := exec.Command(gprestorePath, args...)
-				output, err := cmd.CombinedOutput()
-				Expect(err).To(HaveOccurred())
-				Expect(string(output)).To(ContainSubstring("Cannot use --incremental without --data-only"))
-			})
 			It("Does not incremental restore with --metadata-only", func() {
 				args := []string{
-					"--timestamp", "23432432",
+					"--timestamp", "0",
 					"--incremental", "--metadata-only",
 					"--redirect-db", "restoredb"}
 				cmd := exec.Command(gprestorePath, args...)
@@ -835,17 +788,14 @@ EOF1`, backupDir)
 
 			// take a full backup to start out
 			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp1)
 
 			// add some data and take an incremental backup dependent on the full backup
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
 			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp2)
 
 			// finally, take a second incremental backup with no new data
 			timestamp3 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp3)
 
 			// run a migration on history file to support mixed-version test suites
 			if useOldBackupVersion && oldBackupSemVer.LT(semver.MustParse("1.7.2")) {
@@ -915,13 +865,11 @@ EOF1`, backupDir)
 
 			// take a full backup to start out
 			timestamp1 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp1)
 
 			// add some data and take an incremental backup dependent on the full backup
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO test_schema.new_table2 SELECT generate_series(1, 30);")
 			timestamp2 := gpbackup(gpbackupPath, backupHelperPath, "--leaf-partition-data", "--incremental", "--include-schema", "test_schema")
-			defer assertArtifactsCleaned(restoreConn, timestamp2)
 
 			// run a migration on history file to support mixed-version test suites
 			if useOldBackupVersion && oldBackupSemVer.LT(semver.MustParse("1.7.2")) {

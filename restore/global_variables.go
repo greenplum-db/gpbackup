@@ -29,6 +29,7 @@ type Empty struct{}
 
 var (
 	backupConfig        *history.BackupConfig
+	restoreSections     *history.Sections
 	connectionPool      *dbconn.DBConn
 	globalCluster       *cluster.Cluster
 	globalFPInfo        filepath.FilePathInfo

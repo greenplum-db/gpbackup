@@ -80,8 +80,6 @@ PARTITION BY LIST (gender)
   PARTITION boys VALUES ('M'),
   DEFAULT PARTITION other );
 			`)
-			defer testhelper.AssertQueryRuns(backupConn,
-				`DROP TABLE public.testparent`)
 
 			testhelper.AssertQueryRuns(backupConn,
 				`insert into public.testparent values (1,1,1,'M',1)`)
@@ -115,11 +113,8 @@ PARTITION BY LIST (gender)
 		It("backs up a child table inheriting from a parent when only the parent is included", func() {
 			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent(a int);`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.parent`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child() INHERITS (public.parent);`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.child`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(c int);`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.unrelated`)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir,
@@ -136,13 +131,9 @@ PARTITION BY LIST (gender)
 		It("backs up a table inheriting from multiple parents when only one parent is included", func() {
 			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_a(a int);`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.parent_a`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.parent_b(b int);`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.parent_b`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child() INHERITS (public.parent_a, public.parent_b);`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.child`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(c int);`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.unrelated`)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir,
@@ -159,16 +150,10 @@ PARTITION BY LIST (gender)
 		It("gpbackup with --include-table does not backup protocols and functions", func() {
 			testhelper.AssertQueryRuns(backupConn,
 				`CREATE TABLE t1(i int)`)
-			defer testhelper.AssertQueryRuns(backupConn,
-				`DROP TABLE public.t1`)
 			testhelper.AssertQueryRuns(backupConn,
 				`CREATE FUNCTION f1() RETURNS int AS 'SELECT 1' LANGUAGE SQL;`)
-			defer testhelper.AssertQueryRuns(backupConn,
-				`DROP FUNCTION public.f1()`)
 			testhelper.AssertQueryRuns(backupConn,
 				`CREATE PROTOCOL p1 (readfunc = f1);`)
-			defer testhelper.AssertQueryRuns(backupConn,
-				`DROP PROTOCOL p1`)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir, "--include-table", "public.t1")
@@ -261,8 +246,6 @@ PARTITION BY LIST (gender)
 		It("runs gprestore with --include-table flag to only restore tables specified ", func() {
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE TABLE public.table_to_include_with_stats(i int)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP TABLE public.table_to_include_with_stats")
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO public.table_to_include_with_stats VALUES (1)")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -345,14 +328,10 @@ PARTITION BY LIST (gender)
 			skipIfOldBackupVersionBefore("1.19.0")
 
 			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE to_use_for_function (n int);")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE to_use_for_function;")
-
 			testhelper.AssertQueryRuns(backupConn, "INSERT INTO  to_use_for_function values (1);")
 			testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + (SELECT n FROM to_use_for_function); END; $$ LANGUAGE PLPGSQL;;")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
 
 			testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
 			testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -397,7 +376,6 @@ PARTITION BY LIST (gender)
 		It("runs gpbackup and gprestore with exclude-table restore flag", func() {
 			// Create keyword table to make sure we properly escape it during the exclusion check.
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public."user"(i int)`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public."user"`)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
@@ -415,7 +393,6 @@ PARTITION BY LIST (gender)
 		It("runs gpbackup and gprestore with exclude-table-file restore flag", func() {
 			// Create keyword table to make sure we properly escape it during the exclusion check.
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public."user"(i int)`)
-			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public."user"`)
 
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 			utils.MustPrintln(includeFile,

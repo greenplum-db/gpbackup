@@ -159,6 +159,7 @@ options:
 			SingleDataFile:        false,
 			Timestamp:             "20170415154408",
 			WithStatistics:        false,
+			Sections:              history.Predata | history.Data | history.Postdata,
 		}
 		sampleBackupHistConfig2 := history.BackupConfig{
 			BackupDir:             "",
@@ -185,6 +186,7 @@ options:
 			SingleDataFile:        true,
 			Timestamp:             "20180415154238",
 			WithStatistics:        false,
+			Sections:              history.Predata | history.Data | history.Postdata,
 		}
 
 		sampleBackupConfig := `
@@ -215,6 +217,7 @@ tablefqns:
 singledatafile: true
 timestamp: "20180415154238"
 withstatistics: false
+sections: 7
 `
 		var executor testhelper.TestExecutor
 		var testConfigPath = "/tmp/unit_test_plugin_config.yml"

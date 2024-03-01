@@ -330,10 +330,9 @@ restore status:          Success but non-fatal errors occurred. See log file .+ 
 			opts.AddIncludedRelation("public.baz")
 			err = backupCmdFlags.Set(options.INCLUDE_RELATION, "public.baz")
 			Expect(err).ToNot(HaveOccurred())
-
 			backupConfig := backup.NewBackupConfig("testdb",
 				"5.0.0 build test", "0.1.0",
-				"/tmp/plugin.sh", "timestamp1", *opts)
+				"/tmp/plugin.sh", "timestamp1", *opts, history.Predata|history.Data|history.Postdata)
 			structmatcher.ExpectStructsToMatch(history.BackupConfig{
 				BackupVersion:        "0.1.0",
 				Compressed:           true,
@@ -348,6 +347,7 @@ restore status:          Success but non-fatal errors occurred. See log file .+ 
 				Timestamp:            "timestamp1",
 				IncludeTableFiltered: true,
 				Status:               history.BackupStatusInProgress,
+				Sections:             history.Predata|history.Data|history.Postdata,
 			}, backupConfig)
 		})
 	})

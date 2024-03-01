@@ -147,6 +147,9 @@ func validateFlagCombinations(flags *pflag.FlagSet) {
 	options.CheckExclusiveFlags(flags, options.NO_COMPRESSION, options.COMPRESSION_TYPE)
 	options.CheckExclusiveFlags(flags, options.NO_COMPRESSION, options.COMPRESSION_LEVEL)
 	options.CheckExclusiveFlags(flags, options.PLUGIN_CONFIG, options.BACKUP_DIR)
+	options.CheckExclusiveFlags(flags, options.SECTION, options.METADATA_ONLY)
+	options.CheckExclusiveFlags(flags, options.SECTION, options.DATA_ONLY)
+
 	if FlagChanged(options.COPY_QUEUE_SIZE) && !MustGetFlagBool(options.SINGLE_DATA_FILE) {
 		gplog.Fatal(errors.Errorf("--copy-queue-size must be specified with --single-data-file"), "")
 	}

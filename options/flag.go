@@ -54,13 +54,14 @@ const (
 	RESIZE_CLUSTER        = "resize-cluster"
 	NO_INHERITS           = "no-inherits"
 	REPORT_DIR            = "report-dir"
+	SECTION               = "section"
 )
 
 func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.String(BACKUP_DIR, "", "The absolute path of the directory to which all backup files will be written")
 	flagSet.String(COMPRESSION_TYPE, "gzip", "Type of compression to use during data backup. Valid values are 'gzip', 'zstd'")
 	flagSet.Int(COMPRESSION_LEVEL, 1, "Level of compression to use during data backup. Range of valid values depends on compression type")
-	flagSet.Bool(DATA_ONLY, false, "Only back up data, do not back up metadata")
+	flagSet.Bool(DATA_ONLY, false, "DEPRECATED: Only back up data, do not back up metadata")
 	flagSet.String(DBNAME, "", "The database to be backed up")
 	flagSet.Bool(DEBUG, false, "Print verbose and debug log messages")
 	flagSet.StringArray(EXCLUDE_SCHEMA, []string{}, "Back up all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
@@ -76,7 +77,7 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(INCREMENTAL, false, "Only back up data for AO tables that have been modified since the last backup")
 	flagSet.Int(JOBS, 1, "The number of parallel connections to use when backing up data")
 	flagSet.Bool(LEAF_PARTITION_DATA, false, "For partition tables, create one data file per leaf partition instead of one data file for the whole table")
-	flagSet.Bool(METADATA_ONLY, false, "Only back up metadata, do not back up data")
+	flagSet.Bool(METADATA_ONLY, false, "DEPRECATED: Only back up metadata, do not back up data")
 	flagSet.Bool(NO_COMPRESSION, false, "Skip compression of data files")
 	flagSet.Bool(NO_HISTORY, false, "Do not write a backup entry to the gpbackup_history database")
 	flagSet.String(PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
@@ -89,12 +90,13 @@ func SetBackupFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(WITH_STATS, false, "Back up query plan statistics")
 	flagSet.Bool(WITHOUT_GLOBALS, false, "Skip backup of global metadata")
 	flagSet.Bool(NO_INHERITS, false, "For a filtered backup, don't back up all tables that inherit included tables")
+	flagSet.StringSlice(SECTION, []string{}, "Back up named section (predata, data, or postdata). --section can be specified multiple times.")
 }
 
 func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.String(BACKUP_DIR, "", "The absolute path of the directory in which the backup files to be restored are located")
 	flagSet.Bool(CREATE_DB, false, "Create the database before metadata restore")
-	flagSet.Bool(DATA_ONLY, false, "Only restore data, do not restore metadata")
+	flagSet.Bool(DATA_ONLY, false, "DEPRECATED: Only restore data, do not restore metadata")
 	flagSet.Bool(DEBUG, false, "Print verbose and debug log messages")
 	flagSet.StringArray(EXCLUDE_SCHEMA, []string{}, "Restore all metadata except objects in the specified schema(s). --exclude-schema can be specified multiple times.")
 	flagSet.String(EXCLUDE_SCHEMA_FILE, "", "A file containing a list of schemas that will not be restored")
@@ -106,7 +108,7 @@ func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.StringArray(INCLUDE_RELATION, []string{}, "Restore only the specified relation(s). --include-table can be specified multiple times.")
 	flagSet.String(INCLUDE_RELATION_FILE, "", "A file containing a list of fully-qualified relation(s) that will be restored")
 	flagSet.Bool(INCREMENTAL, false, "BETA FEATURE: Only restore data for all heap tables and only AO tables that have been modified since the last backup")
-	flagSet.Bool(METADATA_ONLY, false, "Only restore metadata, do not restore data")
+	flagSet.Bool(METADATA_ONLY, false, "DEPRECATED: Only restore metadata, do not restore data")
 	flagSet.Int(JOBS, 1, "Number of parallel connections to use when restoring table data and post-data")
 	flagSet.Bool(ON_ERROR_CONTINUE, false, "Log errors and continue restore, instead of exiting on first error")
 	flagSet.String(PLUGIN_CONFIG, "", "The configuration file to use for a plugin")
@@ -124,6 +126,7 @@ func SetRestoreFlagDefaults(flagSet *pflag.FlagSet) {
 	flagSet.Bool(RUN_ANALYZE, false, "Run ANALYZE on restored tables")
 	flagSet.Bool(RESIZE_CLUSTER, false, "Restore a backup taken on a cluster with more or fewer segments than the cluster to which it will be restored")
 	flagSet.String(REPORT_DIR, "", "The absolute path of the directory to which restore report and error tables will be written")
+	flagSet.StringSlice(SECTION, []string{}, "Restore named section (predata, data, or postdata). --section can be specified multiple times.")
 	_ = flagSet.MarkHidden(LEAF_PARTITION_DATA)
 }
 

@@ -46,9 +46,15 @@ func DoSetup() {
 	gplog.Verbose("Backup Command: %s", os.Args)
 	gplog.Info("gpbackup version = %s", GetVersion())
 
+	backupSections := history.NewSections()
+	
+	err := backupSections.SetBackup(cmdFlags)
+	gplog.FatalOnError(err)
+	gplog.Info("Sections: [%s]", backupSections.ToString())
+
 	utils.CheckGpexpandRunning(utils.BackupPreventedByGpexpandMessage)
 	timestamp := history.CurrentTimestamp()
-	createBackupLockFile(timestamp)
+	createBackupLockFile(timestamp, *backupSections)
 	initializeConnectionPool(timestamp)
 	gplog.Info("Greenplum Database Version = %s", connectionPool.Version.VersionString)
 
@@ -73,7 +79,7 @@ func DoSetup() {
 	clusterConfigConn.Close()
 
 	globalFPInfo = filepath.NewFilePathInfo(globalCluster, MustGetFlagString(options.BACKUP_DIR), timestamp, segPrefix, MustGetFlagBool(options.SINGLE_BACKUP_DIR))
-	if MustGetFlagBool(options.METADATA_ONLY) {
+	if !backupSections.Contains(history.Data) {
 		_, err = globalCluster.ExecuteLocalCommand(fmt.Sprintf("mkdir -p %s", globalFPInfo.GetDirForContent(-1)))
 		gplog.FatalOnError(err)
 	} else {
@@ -96,7 +102,7 @@ func DoSetup() {
 		gplog.Debug("Plugin config path: %s", pluginConfig.ConfigPath)
 	}
 
-	initializeBackupReport(*opts)
+	initializeBackupReport(*opts, *backupSections)
 
 	if pluginConfigFlag != "" {
 		backupReport.PluginVersion = pluginConfig.CheckPluginExistsOnAllHosts(globalCluster)
@@ -106,6 +112,11 @@ func DoSetup() {
 }
 
 func DoBackup() {
+	var dataTables []Table
+	var numExtOrForeignTables int64
+	backupConfig := backupReport.BackupConfig
+	backupSections := backupConfig.Sections
+
 	gplog.Info("Backup Timestamp = %s", globalFPInfo.Timestamp)
 	gplog.Info("Backup Database = %s", connectionPool.DBName)
 	gplog.Verbose("Backup Parameters: {%s}", strings.ReplaceAll(backupReport.BackupParamsString, "\n", ", "))
@@ -129,13 +140,17 @@ func DoBackup() {
 
 	gplog.Info("Gathering table state information")
 	metadataTables, dataTables := RetrieveAndProcessTables()
-	dataTables, numExtOrForeignTables := GetBackupDataSet(dataTables)
-	if len(dataTables) == 0 && !backupReport.MetadataOnly {
-		gplog.Warn("No tables in backup set contain data. Performing metadata-only backup instead.")
-		backupReport.MetadataOnly = true
+	if backupSections.Contains(history.Data) {
+		dataTables, numExtOrForeignTables = GetBackupDataSet(dataTables)
 	}
-	// This must be a full backup with --leaf-parition-data to query for incremental metadata
-	if !(MustGetFlagBool(options.METADATA_ONLY) || MustGetFlagBool(options.DATA_ONLY)) && MustGetFlagBool(options.LEAF_PARTITION_DATA) {
+	if len(dataTables) == 0 && backupSections.Contains(history.Data) {
+		backupSections.Clear(history.Data)
+		if !backupSections.Is(history.Empty) {
+			gplog.Warn("No tables in backup set contain data. Performing [%s] backup instead.", backupSections.ToString())
+		}
+	}
+	// This must be a full backup with --leaf-partition-data to query for incremental metadata
+	if backupSections.Contains(history.Predata|history.Data|history.Postdata) && MustGetFlagBool(options.LEAF_PARTITION_DATA) {
 		backupIncrementalMetadata()
 	} else {
 		gplog.Verbose("Skipping query for incremental metadata.")
@@ -151,7 +166,7 @@ func DoBackup() {
 	 * or only external tables
 	 */
 	backupSetTables := dataTables
-	if !backupReport.MetadataOnly {
+	if backupSections.Contains(history.Data) {
 		targetBackupRestorePlan := make([]history.RestorePlanEntry, 0)
 		if targetBackupTimestamp != "" {
 			gplog.Info("Basing incremental backup off of backup with timestamp = %s", targetBackupTimestamp)
@@ -178,18 +193,25 @@ func DoBackup() {
 	}
 
 	backupSessionGUC(metadataFile)
-	if !MustGetFlagBool(options.DATA_ONLY) {
-		isFullBackup := len(MustGetFlagStringArray(options.INCLUDE_RELATION)) == 0
-		if isFullBackup && !MustGetFlagBool(options.WITHOUT_GLOBALS) {
+
+	// XXX: Why do we only check for INCLUDE_RELATION here?
+	isFilteredBackup := len(MustGetFlagStringArray(options.INCLUDE_RELATION)) != 0
+
+	if !backupSections.Is(history.Data) {
+		if !isFilteredBackup && !MustGetFlagBool(options.WITHOUT_GLOBALS) {
 			backupGlobals(metadataFile)
 		}
+	}
 
-		isFilteredBackup := !isFullBackup
+	if backupSections.Contains(history.Predata) {
 		backupPredata(metadataFile, metadataTables, isFilteredBackup)
+	}
+
+	if backupSections.Contains(history.Postdata) {
 		backupPostdata(metadataFile)
 	}
 
-	if !backupReport.MetadataOnly {
+	if backupSections.Contains(history.Data) {
 		backupData(backupSetTables)
 	}
 

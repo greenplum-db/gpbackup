@@ -344,14 +344,12 @@ func GetBackupDataSet(tables []Table) ([]Table, int64) {
 	var backupDataSet []Table
 	var numExtOrForeignTables int64
 
-	if !backupReport.MetadataOnly {
-		for _, table := range tables {
-			if !table.SkipDataBackup() {
-				backupDataSet = append(backupDataSet, table)
-			} else {
-				gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
-				numExtOrForeignTables++
-			}
+	for _, table := range tables {
+		if !table.SkipDataBackup() {
+			backupDataSet = append(backupDataSet, table)
+		} else {
+			gplog.Verbose("Skipping data backup of table %s because it is either an external or foreign table.", table.FQN())
+			numExtOrForeignTables++
 		}
 	}
 	return backupDataSet, numExtOrForeignTables

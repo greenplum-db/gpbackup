@@ -20,9 +20,9 @@ type RestorePlanEntry struct {
 }
 
 const (
-    BackupStatusInProgress = "In Progress"
-	BackupStatusSucceed = "Success"
-	BackupStatusFailed  = "Failure"
+	BackupStatusInProgress = "In Progress"
+	BackupStatusSucceed    = "Success"
+	BackupStatusFailed     = "Failure"
 )
 
 type BackupConfig struct {
@@ -33,7 +33,7 @@ type BackupConfig struct {
 	DatabaseName          string
 	DatabaseVersion       string
 	SegmentCount          int
-	DataOnly              bool
+	DataOnly              bool //deprecated
 	DateDeleted           string
 	ExcludeRelations      []string
 	ExcludeSchemaFiltered bool
@@ -45,7 +45,7 @@ type BackupConfig struct {
 	IncludeTableFiltered  bool
 	Incremental           bool
 	LeafPartitionData     bool
-	MetadataOnly          bool
+	MetadataOnly          bool //deprecated
 	Plugin                string
 	PluginVersion         string
 	RestorePlan           []RestorePlanEntry
@@ -55,6 +55,7 @@ type BackupConfig struct {
 	WithoutGlobals        bool
 	WithStatistics        bool
 	Status                string
+	Sections              Sections `yaml:"sectionmask"`
 }
 
 func (backup *BackupConfig) Failed() bool {
@@ -131,7 +132,8 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
             end_time TEXT,
             without_globals INT CHECK (without_globals in (0,1)),
             with_statistics INT CHECK (with_statistics in (0,1)),
-            status TEXT
+            status TEXT,
+            sectionmask INT
 		);`
 	_, err = tx.Exec(createBackupsTable)
 	if err != nil {
@@ -187,6 +189,33 @@ func InitializeHistoryDatabase(historyDBPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	// Add sectionmask column if it doesn't exist.
+	// This is a migration step for backups taken before sectionmask was added.
+	// By default, all sections are included in the mask, but we then update the mask
+	// based on whether the metadata_only or data_only values were set for the backup.
+	query := tx.QueryRow("SELECT COUNT(*) AS PRESENCE FROM pragma_table_info('backups') WHERE name = 'sectionmask';")
+	var res int
+	err = query.Scan(&res)
+	if err != nil {
+		tx.Rollback()
+		db.Close()
+		return nil, err
+	}
+
+	if res == 0 {
+		addSections := fmt.Sprintf(`
+		ALTER TABLE backups ADD COLUMN sectionmask INT DEFAULT %d;
+		UPDATE backups SET sectionmask = %d WHERE metadata_only=1;
+		UPDATE backups SET sectionmask = %d WHERE data_only=1;`,
+		Predata|Data|Postdata, Predata|Postdata, Data,)
+
+		_, err = tx.Exec(addSections)
+		if err != nil {
+			tx.Rollback()
+			db.Close()
+			return nil, err
+		}
+	}
 	err = tx.Commit()
 	if err != nil {
 		db.Close()
@@ -222,9 +251,9 @@ func StoreBackupHistory(db *sql.DB, currentBackupConfig *BackupConfig) error {
 			database_version, segment_count, data_only, date_deleted, exclude_schema_filtered,
 			exclude_table_filtered, include_schema_filtered, include_table_filtered, incremental,
 			leaf_partition_data, metadata_only, plugin, plugin_version, single_data_file, end_time,
-			without_globals, with_statistics, status
+			without_globals, with_statistics, status, sectionmask
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
 		currentBackupConfig.Timestamp, currentBackupConfig.BackupDir,
 		currentBackupConfig.BackupVersion, currentBackupConfig.Compressed,
 		currentBackupConfig.CompressionType, currentBackupConfig.DatabaseName,
@@ -236,7 +265,8 @@ func StoreBackupHistory(db *sql.DB, currentBackupConfig *BackupConfig) error {
 		currentBackupConfig.MetadataOnly, currentBackupConfig.Plugin,
 		currentBackupConfig.PluginVersion, currentBackupConfig.SingleDataFile,
 		currentBackupConfig.EndTime, currentBackupConfig.WithoutGlobals,
-		currentBackupConfig.WithStatistics, currentBackupConfig.Status)
+		currentBackupConfig.WithStatistics, currentBackupConfig.Status,
+		currentBackupConfig.Sections)
 	if err != nil {
 		goto CleanupError
 	}
@@ -296,7 +326,7 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 			database_version, segment_count, data_only, date_deleted, exclude_schema_filtered,
 			exclude_table_filtered, include_schema_filtered, include_table_filtered, incremental,
 			leaf_partition_data, metadata_only, plugin, plugin_version, single_data_file, end_time,
-			without_globals, with_statistics, status
+			without_globals, with_statistics, status, sectionmask
 		FROM backups WHERE timestamp = '%s'`,
 		timestamp)
 	backupRow := historyDB.QueryRow(backupQuery)
@@ -321,7 +351,8 @@ func GetMainBackupInfo(timestamp string, historyDB *sql.DB) (BackupConfig, error
 		&backupConfig.DateDeleted, &isExclSchemaFiltered, &isExclTableFiltered,
 		&isInclSchemaFiltered, &isInclTableFiltered, &isIncremental, &isLeafPartition,
 		&isMetadataOnly, &backupConfig.Plugin, &backupConfig.PluginVersion, &isSingleDataFile,
-		&backupConfig.EndTime, &isWithoutGlobals, &isWithStatistics, &backupConfig.Status)
+		&backupConfig.EndTime, &isWithoutGlobals, &isWithStatistics, &backupConfig.Status,
+		&backupConfig.Sections)
 	if err == sql.ErrNoRows {
 		return backupConfig, errors.New("timestamp doesn't match any existing backups")
 	} else if err != nil {

@@ -104,7 +104,7 @@ func SetSessionGUCs(connNum int) {
 	}
 }
 
-func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts options.Options) *history.BackupConfig {
+func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plugin string, timestamp string, opts options.Options, sections history.Sections) *history.BackupConfig {
 	backupConfig := history.BackupConfig{
 		BackupDir:             MustGetFlagString(options.BACKUP_DIR),
 		BackupVersion:         backupVersion,
@@ -112,7 +112,6 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		CompressionType:       MustGetFlagString(options.COMPRESSION_TYPE),
 		DatabaseName:          dbName,
 		DatabaseVersion:       dbVersion,
-		DataOnly:              MustGetFlagBool(options.DATA_ONLY),
 		ExcludeRelations:      MustGetFlagStringArray(options.EXCLUDE_RELATION),
 		ExcludeSchemaFiltered: len(MustGetFlagStringArray(options.EXCLUDE_SCHEMA)) > 0,
 		ExcludeSchemas:        MustGetFlagStringArray(options.EXCLUDE_SCHEMA),
@@ -123,52 +122,54 @@ func NewBackupConfig(dbName string, dbVersion string, backupVersion string, plug
 		IncludeTableFiltered:  len(opts.GetOriginalIncludedTables()) > 0,
 		Incremental:           MustGetFlagBool(options.INCREMENTAL),
 		LeafPartitionData:     MustGetFlagBool(options.LEAF_PARTITION_DATA),
-		MetadataOnly:          MustGetFlagBool(options.METADATA_ONLY),
 		Plugin:                plugin,
 		SingleDataFile:        MustGetFlagBool(options.SINGLE_DATA_FILE),
 		Timestamp:             timestamp,
 		WithoutGlobals:        MustGetFlagBool(options.WITHOUT_GLOBALS),
 		WithStatistics:        MustGetFlagBool(options.WITH_STATS),
 		Status:                history.BackupStatusInProgress,
+		Sections:              sections,
 	}
 
 	return &backupConfig
 }
 
-func initializeBackupReport(opts options.Options) {
+// FIXME: This function relies on several global variables. Ideally it
+// should be refactored to take a struct that handles global program state,
+// which would then make it possible to unit test.
+func initializeBackupReport(opts options.Options, sections history.Sections) {
 	escapedDBName := dbconn.MustSelectString(connectionPool, fmt.Sprintf("select quote_ident(datname) AS string FROM pg_database where datname='%s'", utils.EscapeSingleQuotes(connectionPool.DBName)))
 	plugin := ""
 	if pluginConfig != nil {
 		_, plugin = path.Split(pluginConfig.ExecutablePath)
 	}
-	config := NewBackupConfig(escapedDBName, connectionPool.Version.VersionString, version,
-		plugin, globalFPInfo.Timestamp, opts)
+	backupConfig := NewBackupConfig(escapedDBName, connectionPool.Version.VersionString, version,
+		plugin, globalFPInfo.Timestamp, opts, sections)
 
-	isFilteredBackup := config.IncludeTableFiltered || config.IncludeSchemaFiltered ||
-		config.ExcludeTableFiltered || config.ExcludeSchemaFiltered
+	isFilteredBackup := backupConfig.IncludeTableFiltered || backupConfig.IncludeSchemaFiltered ||
+		backupConfig.ExcludeTableFiltered || backupConfig.ExcludeSchemaFiltered
 	dbSize := ""
-	if !MustGetFlagBool(options.METADATA_ONLY) && !isFilteredBackup {
+	if !sections.Contains(history.Data) && !isFilteredBackup {
 		gplog.Verbose("Getting database size")
 		//Potentially expensive query
 		dbSize = GetDBSize(connectionPool)
 	}
 
-	config.SegmentCount = len(globalCluster.ContentIDs) - 1
+	backupConfig.SegmentCount = len(globalCluster.ContentIDs) - 1
 
 	backupReport = &report.Report{
 		DatabaseSize: dbSize,
-		BackupConfig: *config,
+		BackupConfig: *backupConfig,
 	}
 	backupReport.ConstructBackupParamsString()
 }
 
-func createBackupLockFile(timestamp string) {
+func createBackupLockFile(timestamp string, backupSections history.Sections) {
 	var err error
 	var timestampLockFile string
-	metadataOnly := MustGetFlagBool(options.METADATA_ONLY)
 	backupDir := MustGetFlagString(options.BACKUP_DIR)
 	noHistory := MustGetFlagBool(options.NO_HISTORY)
-	if metadataOnly && noHistory && backupDir != "" {
+	if !backupSections.Contains(history.Data) && noHistory && backupDir != "" {
 		err = os.MkdirAll(backupDir, 0777)
 		gplog.FatalOnError(err)
 		timestampLockFile = fmt.Sprintf("%s/%s.lck", backupDir, timestamp)

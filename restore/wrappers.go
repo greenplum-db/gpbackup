@@ -159,7 +159,7 @@ func InitializeBackupConfig() {
 }
 
 func BackupConfigurationValidation() {
-	if !backupConfig.MetadataOnly {
+	if backupConfig.Sections.Contains(history.Data) {
 		gplog.Verbose("Gathering information on backup directories")
 		VerifyBackupDirectoriesExistOnAllHosts()
 	}
@@ -177,7 +177,7 @@ func BackupConfigurationValidation() {
 
 	ValidateBackupFlagCombinations()
 
-	validateFilterListsInBackupSet()
+	validateFilterListsInBackupSet(backupConfig.Sections)
 }
 
 func SetRestorePlanForLegacyBackup(toc *toc.TOC, backupTimestamp string, backupConfig *history.BackupConfig) {
@@ -222,7 +222,7 @@ func RecoverMetadataFilesUsingPlugin() {
 	InitializeBackupConfig()
 
 	var fpInfoList []filepath.FilePathInfo
-	if backupConfig.MetadataOnly {
+	if !backupConfig.Sections.Contains(history.Data) {
 		fpInfoList = []filepath.FilePathInfo{globalFPInfo}
 	} else {
 		fpInfoList = GetBackupFPInfoListFromRestorePlan()
