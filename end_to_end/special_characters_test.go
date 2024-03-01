@@ -55,7 +55,6 @@ PARTITION BY LIST (gender)
   PARTITION boys VALUES ('M'),
   DEFAULT PARTITION other );
 			`)
-		defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public."CAPparent"`)
 
 		testhelper.AssertQueryRuns(backupConn,
 			`insert into public."CAPparent" values (1,1,1,'M',1)`)
@@ -95,13 +94,10 @@ PARTITION BY LIST (gender)
 			if char == "\"" {
 				testhelper.AssertQueryRuns(backupConn,
 					`CREATE TABLE public."foo""bar" ();`)
-				defer testhelper.AssertQueryRuns(backupConn,
-					`DROP TABLE public."foo""bar";`)
 				continue
 			}
 			tableName := fmt.Sprintf("foo%sbar", char)
 			testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE public."%s" ();`, tableName))
-			defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE public."%s";`, tableName))
 			includeTableArgs = append(includeTableArgs, "--include-table")
 			includeTableArgs = append(includeTableArgs, fmt.Sprintf(`public.%s`, tableName))
 		}

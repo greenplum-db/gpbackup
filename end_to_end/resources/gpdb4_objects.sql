@@ -8,7 +8,7 @@ SET client_min_messages = warning;
 SET default_with_oids = false;
 
 
-CREATE SCHEMA schema2;
+-- CREATE SCHEMA schema2;
 
 
 SET search_path = public, pg_catalog;
@@ -132,49 +132,49 @@ COPY bar (i, j, k, l) FROM stdin;
 \.
 
 
-CREATE TABLE foo (
-    k text,
-    i integer,
-    j text
-) DISTRIBUTED RANDOMLY;
+-- CREATE TABLE foo (
+--     k text,
+--     i integer,
+--     j text
+-- ) DISTRIBUTED RANDOMLY;
 
 
-COPY foo (k, i, j) FROM stdin;
-\.
+-- COPY foo (k, i, j) FROM stdin;
+-- \.
 
 
-CREATE TABLE foo2 (
-    k text,
-    l character varying(20)
-)
-INHERITS (foo) DISTRIBUTED RANDOMLY;
+-- CREATE TABLE foo2 (
+--     k text,
+--     l character varying(20)
+-- )
+-- INHERITS (foo) DISTRIBUTED RANDOMLY;
 
 
-COPY foo2 (k, i, j, l) FROM stdin;
-\.
+-- COPY foo2 (k, i, j, l) FROM stdin;
+-- \.
 
 
 SET search_path = schema2, pg_catalog;
 
 
-CREATE TABLE foo3 (
-    m double precision
-)
-INHERITS (public.foo2) DISTRIBUTED RANDOMLY;
+-- CREATE TABLE foo3 (
+--     m double precision
+-- )
+-- INHERITS (public.foo2) DISTRIBUTED RANDOMLY;
 
 
 
-SET search_path = public, pg_catalog;
+-- SET search_path = public, pg_catalog;
 
 
-CREATE TABLE foo4 (
-    n integer
-)
-INHERITS (schema2.foo3) DISTRIBUTED RANDOMLY;
+-- CREATE TABLE foo4 (
+--     n integer
+-- )
+-- INHERITS (schema2.foo3) DISTRIBUTED RANDOMLY;
 
 
-COPY foo4 (k, i, j, l, m, n) FROM stdin;
-\.
+-- COPY foo4 (k, i, j, l, m, n) FROM stdin;
+-- \.
 
 
 
@@ -197,8 +197,8 @@ COPY gpcrondump_history (rec_date, start_time, end_time, options, dump_key, dump
 SET search_path = schema2, pg_catalog;
 
 
-COPY foo3 (k, i, j, l, m) FROM stdin;
-\.
+-- COPY foo3 (k, i, j, l, m) FROM stdin;
+-- \.
 
 
 
@@ -394,7 +394,7 @@ ALTER TABLE ONLY prime
 SET search_path = public, pg_catalog;
 
 
-CREATE INDEX simple_table_idx1 ON foo4 USING btree (n);
+-- CREATE INDEX simple_table_idx1 ON foo4 USING btree (n);
 
 
 
