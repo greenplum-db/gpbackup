@@ -322,8 +322,6 @@ func skipIfOldBackupVersionBefore(version string) {
 	}
 }
 
-// We dont want to fail here if an object already exists,
-// so use conn.Exec instead of testhelper.AssertQueryRuns
 func createGlobalObjects(conn *dbconn.DBConn) {
 	if conn.Version.Before("6") {
 		testhelper.AssertQueryRuns(conn, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
@@ -612,7 +610,6 @@ var _ = AfterSuite(func() {
 	if configConn.Version.Before("6") {
 		testutils.DestroyTestFilespace(configConn)
 	} else {
-		dropGlobalObjects(configConn)
 		remoteOutput := backupCluster.GenerateAndExecuteCommand(
 			"Removing /tmp/test_dir* directories on all hosts",
 			cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
@@ -623,6 +620,7 @@ var _ = AfterSuite(func() {
 			Fail("Could not remove /tmp/testdir* directories on 1 or more hosts")
 		}
 	}
+	dropGlobalObjects(configConn)
 	if backupConn != nil {
 		backupConn.Close()
 	}

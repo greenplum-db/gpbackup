@@ -82,6 +82,8 @@ export TEST_GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9].
 pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
   make unit integration end_to_end
 popd
+
+ps -ef | grep -e gpbackup -e gprestore -e COPY | grep -v grep
 SCRIPT
 
 chmod +x /tmp/run_tests.bash

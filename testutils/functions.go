@@ -166,11 +166,11 @@ func DestroyTestFilespace(connectionPool *dbconn.DBConn) {
 	if filespaceName != "test_dir" {
 		return
 	}
-	testhelper.AssertQueryRuns(connectionPool, "DROP FILESPACE test_dir")
 	out, err := exec.Command("bash", "-c", "rm -rf /tmp/test_dir /tmp/filespace_config /tmp/temp_filespace_config").CombinedOutput()
 	if err != nil {
 		Fail(fmt.Sprintf("Could not remove test filespace directory and configuration files: %s: %s", out, err.Error()))
 	}
+	testhelper.AssertQueryRuns(connectionPool, "DROP FILESPACE test_dir")
 }
 
 func DefaultMetadata(objType string, hasPrivileges bool, hasOwner bool, hasComment bool, hasSecurityLabel bool) backup.ObjectMetadata {
