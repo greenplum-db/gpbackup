@@ -285,7 +285,7 @@ func assertRelationsExistForIncremental(conn *dbconn.DBConn, expectedNumTables i
 	}
 }
 
-func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
+func assertArtifactsCleaned(timestamp string) {
 	cmdStr := fmt.Sprintf("ps -ef | grep -v grep | grep -E gpbackup_helper.*%s || true", timestamp)
 	output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
 	Eventually(func() string { return strings.TrimSpace(string(output)) }, 10*time.Second, 100*time.Millisecond).Should(Equal(""))
@@ -298,12 +298,32 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 		scriptFile := fpInfo.GetSegmentHelperFilePath(contentID, "script")
 		pipeFile := fpInfo.GetSegmentPipeFilePath(contentID)
 
-		return fmt.Sprintf("! ls %s && ! ls %s && ! ls %s && ! ls %s*", errorFile, oidFile, scriptFile, pipeFile)
+		return fmt.Sprintf("ls %s && ls %s && ls %s && ls %s*", errorFile, oidFile, scriptFile, pipeFile)
 	}
-	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS|cluster.INCLUDE_COORDINATOR, cleanupFunc)
-	if remoteOutput.NumErrors != 0 {
-		Fail(fmt.Sprintf("Helper files found for timestamp %s", timestamp))
+	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS, cleanupFunc)
+	for cmd := 0; cmd < len(remoteOutput.Commands); cmd++ {
+		Expect(remoteOutput.Commands[cmd].Stdout).To(Equal(""))
 	}
+}
+
+func assertHelperProcessesCleaned(timestamp string) {
+	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, "", false)
+	description := "Checking if helper processes are cleaned up properly"
+	checkFunc := func(contentID int) string {
+		scriptFile := fpInfo.GetSegmentHelperFilePath(contentID, "script")
+		bashScript := fmt.Sprintf("/bin/bash %s", scriptFile)
+
+		return fmt.Sprintf("ps ux | grep \"%s\" | grep -v grep", bashScript)
+	}
+	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS, checkFunc)
+	for cmd := 0; cmd < len(remoteOutput.Commands); cmd++ {
+		Expect(remoteOutput.Commands[cmd].Stdout).To(Equal(""))
+	}
+}
+
+func assertCleanedUp(timestamp string) {
+	assertArtifactsCleaned(timestamp)
+	assertHelperProcessesCleaned(timestamp)
 }
 
 func mustRunCommand(cmd *exec.Cmd) []byte {
@@ -1109,7 +1129,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(match).To(BeTrue())
 			// Following statement is needed in order to drop testrole
 			testhelper.AssertQueryRuns(restoreConn, "DROP EXTENSION pgcrypto")
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 	})
 	Describe("Restore with truncate-table", func() {
@@ -1733,7 +1753,7 @@ LANGUAGE plpgsql NO SQL;`)
 
 				_, err := restoreConn.Exec("INSERT INTO legacy_table_violate_constraints VALUES (1)")
 				Expect(err).To(HaveOccurred())
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore to backup tables depending on functions", func() {
 				skipIfOldBackupVersionBefore("1.19.0")
@@ -1753,7 +1773,7 @@ LANGUAGE plpgsql NO SQL;`)
 					"public.holds":                    50000,
 					"public.sales":                    13,
 					"public.test_depends_on_function": 2})
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore to backup functions depending on tables", func() {
 				skipIfOldBackupVersionBefore("1.19.0")
@@ -1777,7 +1797,7 @@ LANGUAGE plpgsql NO SQL;`)
 					"public.to_use_for_function":      1,
 					"public.test_depends_on_function": 1})
 
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("Can restore xml with xmloption set to document", func() {
 				testutils.SkipIfBefore6(backupConn)
@@ -1933,7 +1953,7 @@ LANGUAGE plpgsql NO SQL;`)
 				"table_with_altered_enum_distkey": 20})
 		})
 		It("Restores table data partitioned by enum", func() {
-			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_enum_partkey (a int, b colors) DISTRIBUTED BY (a) PARTITION BY LIST (b) 
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_enum_partkey (a int, b colors) DISTRIBUTED BY (a) PARTITION BY LIST (b)
 																							(PARTITION red VALUES ('red'),
 																							PARTITION blue VALUES ('blue'),
 																							PARTITION green VALUES ('green'),

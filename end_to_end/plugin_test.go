@@ -67,7 +67,7 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 
 		})
 		It("runs gpbackup and gprestore with single-data-file flag with copy-queue-size", func() {
@@ -84,7 +84,7 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 
 		})
 		It("runs gpbackup and gprestore with single-data-file flag without compression", func() {
@@ -99,7 +99,7 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("runs gpbackup and gprestore with single-data-file flag without compression with copy-queue-size", func() {
 			skipIfOldBackupVersionBefore("1.23.0")
@@ -116,7 +116,7 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("runs gpbackup and gprestore on database with all objects", func() {
 			// In GPDB 7+, we use plpython3u because of default python 3 support.
@@ -153,7 +153,7 @@ var _ = Describe("End to End plugin tests", func() {
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--metadata-only",
 				"--redirect-db", "restoredb")
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("runs gpbackup and gprestore on database with all objects with copy-queue-size", func() {
 			skipIfOldBackupVersionBefore("1.23.0")
@@ -182,7 +182,7 @@ var _ = Describe("End to End plugin tests", func() {
 				"--metadata-only",
 				"--redirect-db", "restoredb",
 				"--copy-queue-size", "4")
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 
 		Context("with include filtering on restore", func() {
@@ -199,7 +199,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 13, "public.foo": 40000})
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 
 				_ = os.Remove("/tmp/include-tables.txt")
 			})
@@ -219,7 +219,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 13, "public.foo": 40000})
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 
 				_ = os.Remove("/tmp/include-tables.txt")
 			})
@@ -234,7 +234,7 @@ var _ = Describe("End to End plugin tests", func() {
 
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with include-schema restore flag with a single data file with copy-queue-size", func() {
 				skipIfOldBackupVersionBefore("1.23.0")
@@ -250,7 +250,7 @@ var _ = Describe("End to End plugin tests", func() {
 
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 		})
 
@@ -278,7 +278,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, no-compression, and copy-queue-size", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -298,7 +298,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and single-data-file", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -315,7 +315,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, and copy-queue-size", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -334,7 +334,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and metadata-only", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -349,7 +349,7 @@ var _ = Describe("End to End plugin tests", func() {
 					"--plugin-config", examplePluginTestConfig)
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 		})
 	})

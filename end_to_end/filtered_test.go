@@ -28,7 +28,7 @@ var _ = Describe("End to End Filtered tests", func() {
 
 			assertRelationsCreated(restoreConn, 20)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("runs gpbackup and gprestore with include-table backup flag", func() {
 			skipIfOldBackupVersionBefore("1.4.0")
@@ -108,7 +108,7 @@ PARTITION BY LIST (gender)
 				`public.testparent`:             1,
 			}
 			assertDataRestored(restoreConn, localSchemaTupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("backs up a child table inheriting from a parent when only the parent is included", func() {
 			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
@@ -126,7 +126,7 @@ PARTITION BY LIST (gender)
 
 			assertTablesRestored(restoreConn, []string{"public.parent", "public.child"})
 			assertTablesNotRestored(restoreConn, []string{"public.unrelated"})
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("backs up a table inheriting from multiple parents when only one parent is included", func() {
 			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
@@ -145,7 +145,7 @@ PARTITION BY LIST (gender)
 
 			assertTablesRestored(restoreConn, []string{"public.parent_a", "public.parent_b", "public.child"})
 			assertTablesNotRestored(restoreConn, []string{"public.unrelated"})
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("gpbackup with --include-table does not backup protocols and functions", func() {
 			testhelper.AssertQueryRuns(backupConn,
@@ -261,7 +261,7 @@ PARTITION BY LIST (gender)
 				`public."table_to_include_with_stats"`: 1,
 			}
 			assertDataRestored(restoreConn, localSchemaTupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 
 	})
@@ -345,7 +345,7 @@ PARTITION BY LIST (gender)
 				"public.sales":                    13,
 				"public.to_use_for_function":      1,
 				"public.test_depends_on_function": 1})
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 	})
 	Describe("Restore exclude filtering", func() {

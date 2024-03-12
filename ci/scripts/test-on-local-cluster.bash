@@ -83,7 +83,13 @@ pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
   make unit integration end_to_end
 popd
 
-ps -ef | grep -e gpbackup -e gprestore -e COPY | grep -v grep
+# For debugging in CI, check for any processes that are still running
+PROCS=\$(ps -ef | grep -e gpbackup -e gprestore -e COPY | grep -v grep)
+if [ -n "\$PROCS" ]; then
+    echo "Processes still running:"
+    echo "\$PROCS"
+    exit 1
+fi
 SCRIPT
 
 chmod +x /tmp/run_tests.bash

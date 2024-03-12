@@ -42,7 +42,7 @@ var _ = Describe("End to End Special Character tests", func() {
 			`public."FOObar"`: 1,
 		}
 		assertDataRestored(restoreConn, localSchemaTupleCounts)
-		assertArtifactsCleaned(restoreConn, timestamp)
+		assertCleanedUp(timestamp)
 	})
 	It("runs gpbackup with --include-table flag with partitions with special chars", func() {
 		skipIfOldBackupVersionBefore("1.9.1")
@@ -82,7 +82,7 @@ PARTITION BY LIST (gender)
 			`public."CAPparent"`:             1,
 		}
 		assertDataRestored(restoreConn, localSchemaTupleCounts)
-		assertArtifactsCleaned(restoreConn, timestamp)
+		assertCleanedUp(timestamp)
 	})
 	It(`gpbackup runs with table name including special chars ~#$%^&*()_-+[]{}><|;:/?!\tC`, func() {
 		allChars := []string{" ", "`", "~", "#", "$", "%", "^", "&", "*", "(", ")", "-", "+", "[", "]", "{", "}", ">", "<", "\\", "|", ";", ":", "/", "?", ",", "!", "C", "\t", "'", "1", "\\n", "\\t", "\""}
