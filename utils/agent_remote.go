@@ -185,14 +185,15 @@ HEREDOC
 }
 
 func CleanUpHelperFilesOnAllHosts(c *cluster.Cluster, fpInfo filepath.FilePathInfo) {
-	remoteOutput := c.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", cluster.ON_SEGMENTS, func(contentID int) string {
+	errMsg := fmt.Sprintf("Unable to remove segment helper file(s). See %s for a complete list of segments with errors and remove manually.",
+		gplog.GetLogFilePath())
+
+	remoteOutput := c.GenerateAndExecuteCommand("Removing oid list and helper script files from segment data directories", cluster.ON_SEGMENTS|cluster.INCLUDE_COORDINATOR, func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
 		oidFile := fpInfo.GetSegmentHelperFilePath(contentID, "oid")
 		scriptFile := fpInfo.GetSegmentHelperFilePath(contentID, "script")
 		return fmt.Sprintf("rm -f %s && rm -f %s && rm -f %s", errorFile, oidFile, scriptFile)
 	})
-	errMsg := fmt.Sprintf("Unable to remove segment helper file(s). See %s for a complete list of segments with errors and remove manually.",
-		gplog.GetLogFilePath())
 	c.CheckClusterError(remoteOutput, errMsg, func(contentID int) string {
 		errorFile := fmt.Sprintf("%s_error", fpInfo.GetSegmentPipeFilePath(contentID))
 		return fmt.Sprintf("Unable to remove helper file %s on segment %d on host %s", errorFile, contentID, c.GetHostForContent(contentID))
@@ -204,17 +205,18 @@ func CleanUpSegmentHelperProcesses(c *cluster.Cluster, fpInfo filepath.FilePathI
 	defer helperMutex.Unlock()
 
 	remoteOutput := c.GenerateAndExecuteCommand("Cleaning up segment agent processes", cluster.ON_SEGMENTS, func(contentID int) string {
-		tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
-		procPattern := fmt.Sprintf("gpbackup_helper --%s-agent --toc-file %s", operation, tocFile)
+		//tocFile := fpInfo.GetSegmentTOCFilePath(contentID)
+		scriptFile := fpInfo.GetSegmentHelperFilePath(contentID, "script")
+		//procPattern := fmt.Sprintf("gpbackup_helper --%s-agent --toc-file %s", operation, tocFile)
 		/*
 		 * We try to avoid erroring out if no gpbackup_helper processes are found,
 		 * as it's possible that all gpbackup_helper processes have finished by
 		 * the time DoCleanup is called.
 		 */
-		return fmt.Sprintf("PIDS=`ps ux | grep \"%s\" | grep -v grep | awk '{print $2}'`; if [[ ! -z \"$PIDS\" ]]; then kill -USR1 $PIDS; fi", procPattern)
+		return fmt.Sprintf("PIDS=`ps ux | grep \"%s\" | grep -v grep | awk '{print $2}'`; if [[ ! -z \"$PIDS\" ]]; then kill -TERM $PIDS; fi", scriptFile)
 	})
 	c.CheckClusterError(remoteOutput, "Unable to clean up agent processes", func(contentID int) string {
-		return "Unable to clean up agent process"
+		return fmt.Sprintf("Unable to clean up agent process for segment %s", c.GetHostForContent(contentID))
 	})
 }
 
