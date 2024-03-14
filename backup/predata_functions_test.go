@@ -356,7 +356,7 @@ $_$`)
 		BeforeEach(func() {
 			aggDefinition = backup.Aggregate{Oid: 1, Schema: "public", Name: "agg_name", Arguments: sql.NullString{String: "integer, integer", Valid: true}, IdentArgs: sql.NullString{String: "integer, integer", Valid: true}, TransitionFunction: 1, TransitionDataType: "integer", InitValIsNull: true, MInitValIsNull: true}
 			emptyMetadata = backup.ObjectMetadata{}
-			aggMetadata = testutils.DefaultMetadata(toc.OBJ_AGGREGATE, false, true, true, true)
+			aggMetadata = testutils.DefaultMetadata(toc.OBJ_AGGREGATE, true, true, true, true)
 		})
 
 		It("prints an aggregate definition for an unordered aggregate with no optional specifications", func() {
@@ -579,6 +579,9 @@ $_$`)
 	STYPE = integer
 );`, "COMMENT ON AGGREGATE public.agg_name(integer, integer) IS 'This is an aggregate comment.';",
 				"ALTER AGGREGATE public.agg_name(integer, integer) OWNER TO testrole;",
+				`REVOKE ALL ON FUNCTION public.agg_name(integer, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.agg_name(integer, integer) FROM testrole;
+GRANT ALL ON FUNCTION public.agg_name(integer, integer) TO testrole;`,
 				"SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(integer, integer) IS 'unclassified';"}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})
@@ -593,6 +596,9 @@ $_$`)
 );`,
 				"COMMENT ON AGGREGATE public.agg_name(*) IS 'This is an aggregate comment.';",
 				"ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;",
+				`REVOKE ALL ON FUNCTION public.agg_name(*) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.agg_name(*) FROM testrole;
+GRANT ALL ON FUNCTION public.agg_name(*) TO testrole;`,
 				"SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(*) IS 'unclassified';"}
 			testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 		})

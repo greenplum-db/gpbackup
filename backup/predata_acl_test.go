@@ -149,7 +149,7 @@ REVOKE ALL ON FOREIGN SERVER foreignserver FROM PUBLIC;
 REVOKE ALL ON FOREIGN SERVER foreignserver FROM testrole;
 GRANT ALL ON FOREIGN SERVER foreignserver TO testrole;`)
 		})
-		It("prints FUNCTION for REVOKE and AGGREGATE for ALTER for an aggregate function", func() {
+		It("prints FUNCTION for GRANT/REVOKE and AGGREGATE for ALTER for an aggregate function", func() {
 			aggregate := backup.Aggregate{Schema: "public", Name: "testagg"}
 			aggregatePrivileges := testutils.DefaultACLForType("testrole", toc.OBJ_AGGREGATE)
 			aggregateMetadata := backup.ObjectMetadata{Privileges: []backup.ACL{aggregatePrivileges}, Owner: "testrole"}
@@ -160,7 +160,8 @@ ALTER AGGREGATE public.testagg(*) OWNER TO testrole;
 
 
 REVOKE ALL ON FUNCTION public.testagg(*) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.testagg(*) FROM testrole;`)
+REVOKE ALL ON FUNCTION public.testagg(*) FROM testrole;
+GRANT ALL ON FUNCTION public.testagg(*) TO testrole;`)
 		})
 		It("prints TABLE for a block of REVOKE and GRANT statements for a foreign table", func() {
 			table := backup.Table{Relation: backup.Relation{Schema: "public", Name: "foreigntablename"}}

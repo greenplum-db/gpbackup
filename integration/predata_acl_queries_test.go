@@ -195,6 +195,33 @@ LANGUAGE SQL`)
 				expectedMetadata := testutils.DefaultMetadata(toc.OBJ_FUNCTION, true, true, true, includeSecurityLabels)
 				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
 			})
+			It("returns metadata for an aggregate with a grant and revoke", func() {
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.mysfunc_accum(numeric, numeric, numeric) RETURNS numeric AS 'SELECT $1 + $2 + $3' LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT`)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE FUNCTION public.mycombine_accum(numeric, numeric) RETURNS numeric AS 'select $1 + $2' LANGUAGE SQL IMMUTABLE RETURNS NULL ON NULL INPUT`)
+				testhelper.AssertQueryRuns(connectionPool, `CREATE AGGREGATE public.agg_prefunc(numeric, numeric) (SFUNC = public.mysfunc_accum, STYPE = numeric, COMBINEFUNC = public.mycombine_accum, INITCOND = '0')`)
+
+
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.mysfunc_accum(numeric, numeric, numeric)")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP FUNCTION public.mycombine_accum(numeric, numeric)")
+				defer testhelper.AssertQueryRuns(connectionPool, "DROP AGGREGATE public.agg_prefunc(numeric, numeric)")
+
+				testhelper.AssertQueryRuns(connectionPool, "GRANT ALL ON FUNCTION public.agg_prefunc(numeric, numeric) TO testrole")
+				testhelper.AssertQueryRuns(connectionPool, "REVOKE ALL ON FUNCTION public.agg_prefunc(numeric, numeric) FROM PUBLIC")
+				testhelper.AssertQueryRuns(connectionPool, "COMMENT ON AGGREGATE public.agg_prefunc(numeric, numeric) IS 'This is an aggregate comment.'")
+				testutils.CreateSecurityLabelIfGPDB6(connectionPool, toc.OBJ_FUNCTION, "public.agg_prefunc(numeric, numeric)")
+
+				// for Aggregate objects:
+				// `public` and the user that created the aggregate (`testrole`) exist in the ACL by default. However, the ACL is not explicitly represented unless these defaults are modified.
+				resultMetadataMap := backup.GetMetadataForObjectType(connectionPool, backup.TYPE_AGGREGATE)
+				Expect(resultMetadataMap).To(HaveLen(1))
+
+				uniqueID := testutils.UniqueIDFromObjectName(connectionPool, "public", "agg_prefunc", backup.TYPE_AGGREGATE)
+				resultMetadata := resultMetadataMap[uniqueID]
+				Expect(resultMetadata.Privileges).To(HaveLen(1))
+
+				expectedMetadata := testutils.DefaultMetadata(toc.OBJ_AGGREGATE, true, true, true, includeSecurityLabels)
+				structmatcher.ExpectStructsToMatchExcluding(&expectedMetadata, &resultMetadata, "Oid")
+			})
 			It("returns a slice of default metadata for a view", func() {
 				testhelper.AssertQueryRuns(connectionPool, `CREATE VIEW public.testview AS SELECT * FROM pg_class`)
 				defer testhelper.AssertQueryRuns(connectionPool, "DROP VIEW public.testview")

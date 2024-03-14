@@ -381,6 +381,9 @@ func createPrivilegeStrings(acl ACL, objectType string) (string, string) {
 	case toc.OBJ_TYPE:
 		hasAllPrivileges = acl.Usage
 		hasAllPrivilegesWithGrant = acl.UsageWithGrant
+	case toc.OBJ_AGGREGATE:
+		hasAllPrivileges = acl.Execute
+		hasAllPrivilegesWithGrant = acl.ExecuteWithGrant
 	}
 	if hasAllPrivileges {
 		privStr = "ALL"
