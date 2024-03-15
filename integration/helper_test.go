@@ -105,7 +105,7 @@ options:
 		err = os.MkdirAll(examplePluginTestBackupDir, 0777)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = unix.Mkfifo(fmt.Sprintf("%s_%d", pipeFile, 1), 0777)
+		err = unix.Mkfifo(fmt.Sprintf("%s_%d", pipeFile, 1), 0700)
 		if err != nil {
 			Fail(fmt.Sprintf("%v", err))
 		}

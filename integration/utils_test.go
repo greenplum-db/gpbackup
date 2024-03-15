@@ -38,7 +38,7 @@ var _ = Describe("utils integration", func() {
 		// TODO: this works without error in 6, but throws an error in 7.  Still functions, though.  Unclear why the change.
 		// defer testhelper.AssertQueryRuns(conn, "DROP TABLE public.foo")
 		defer connectionPool.MustExec("DROP TABLE public.foo")
-		err = unix.Mkfifo(testPipe, 0777)
+		err = unix.Mkfifo(testPipe, 0700)
 		Expect(err).To(Not(HaveOccurred()))
 		defer os.Remove(testPipe)
 		go func() {

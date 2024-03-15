@@ -171,7 +171,7 @@ func InitializeSignalHandler() {
  */
 
 func createPipe(pipe string) error {
-	err := unix.Mkfifo(pipe, 0777)
+	err := unix.Mkfifo(pipe, 0700)
 	if err != nil {
 		return err
 	}
