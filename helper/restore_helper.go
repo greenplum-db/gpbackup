@@ -202,16 +202,9 @@ func doRestoreAgent() error {
 		contentToRestore := *content
 
 		for b := 0; b < batches; b++ {
-			if replicatedTables != nil {
-				tableIsNotYetRestored, tableIsPresent := replicatedTables[oid]
-				if tableIsPresent && tableIsNotYetRestored {
-					// this is the first batch encountering this replicated table.
-					// restore it and mark it for no further restoration
-					replicatedTables[oid] = false
-				} else if !tableIsNotYetRestored {
-					// table was already restored to this segment in a previous batch
-					continue
-				}
+			if replicatedTables != nil && replicatedTables[oid] && b > 0 {
+				// table was already restored to this segment in a previous batch
+				continue
 			}
 			if *singleDataFile {
 				start[contentToRestore] = tocEntries[contentToRestore][uint(oid)].StartByte
