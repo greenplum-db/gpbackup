@@ -484,7 +484,7 @@ func PrintCreateServerStatement(metadataFile *utils.FileWithByteCount, objToc *t
 
 func PrintCreateUserMappingStatement(metadataFile *utils.FileWithByteCount, objToc *toc.TOC, mapping UserMapping) {
 	start := metadataFile.ByteCount
-	metadataFile.MustPrintf("\n\nCREATE USER MAPPING FOR %s\n\tSERVER %s", mapping.User, mapping.Server)
+	metadataFile.MustPrintf("\n\nCREATE USER MAPPING IF NOT EXISTS FOR %s\n\tSERVER %s", mapping.User, mapping.Server)
 	if mapping.Options != "" {
 		metadataFile.MustPrintf("\n\tOPTIONS (%s)", mapping.Options)
 	}
