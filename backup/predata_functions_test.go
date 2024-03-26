@@ -627,6 +627,7 @@ GRANT ALL ON FUNCTION public.agg_name(*) TO testrole;`,
 );`, expected),
 					"COMMENT ON AGGREGATE public.agg_name(*) IS 'This is an aggregate comment.';",
 					"ALTER AGGREGATE public.agg_name(*) OWNER TO testrole;",
+					"REVOKE ALL ON FUNCTION public.agg_name(*) FROM PUBLIC;\nREVOKE ALL ON FUNCTION public.agg_name(*) FROM testrole;\nGRANT ALL ON FUNCTION public.agg_name(*) TO testrole;",
 					"SECURITY LABEL FOR dummy ON AGGREGATE public.agg_name(*) IS 'unclassified';"}
 				testutils.AssertBufferContents(tocfile.PredataEntries, buffer, expectedStatements...)
 			},
