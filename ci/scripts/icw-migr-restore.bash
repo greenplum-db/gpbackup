@@ -65,6 +65,8 @@ gprestore --timestamp=\$TS --backup-dir=/tmp/icw-migr-backup --create-db --with-
 
 cat /home/gpadmin/gpAdminLogs/gprestore_* | grep -E "ERROR" | grep -Ev "Encountered [0-9]" \
     | grep -Ev "ALTER RESOURCE GROUP" \
+    | grep -Ev "LOG ERRORS" \
+    | grep -Ev "RAISE EXCEPTION" \
     | tee /tmp/error_list.log
 
 if [[ -s /tmp/error_list.log ]] ; then
