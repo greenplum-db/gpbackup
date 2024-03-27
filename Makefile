@@ -38,7 +38,7 @@ depend :
 	go mod download
 
 $(GINKGO) :
-	go install github.com/onsi/ginkgo/v2/ginkgo@v2.8.4
+	go install github.com/onsi/ginkgo/v2/ginkgo
 
 $(GOIMPORTS) :
 	go install golang.org/x/tools/cmd/goimports@latest
