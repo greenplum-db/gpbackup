@@ -45,8 +45,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			assertHelperCleanupLogged(stdout)
 		})
 		It("runs gpbackup with copy-queue-size and sends a SIGINT to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
@@ -74,9 +73,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
-			Expect(stdout).To(ContainSubstring("Cleaning up segment agent processes"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			assertHelperCleanupLogged(stdout)
 		})
 		It("runs gpbackup and sends a SIGINT to ensure blocked LOCK TABLE query is canceled", func() {
 			if useOldBackupVersion {
@@ -124,8 +121,8 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
+			Expect(stdout).To(ContainSubstring("Interrupt received while acquiring ACCESS SHARE locks on tables"))
 			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
 		})
 		It("runs gpbackup with single-data-file and sends a SIGINT to ensure blocked LOCK TABLE query is canceled", func() {
 			if useOldBackupVersion {
@@ -174,8 +171,8 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting backup process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			Expect(stdout).To(ContainSubstring("Interrupt received while acquiring ACCESS SHARE locks on tables"))
+			assertHelperCleanupLogged(stdout)
 		})
 		It("runs gprestore and sends a SIGINT to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
@@ -205,9 +202,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			output, _ = cmd.CombinedOutput()
 			stdout := string(output)
 			Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting restore process"))
-			Expect(stdout).To(ContainSubstring("Cleaning up segment agent processes"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			assertHelperCleanupLogged(stdout)
 			assertArtifactsCleaned(timestamp)
 		})
 		It("runs gprestore with copy-queue-size and sends a SIGINT to ensure cleanup functions successfully", func() {
@@ -237,11 +232,11 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 				_ = cmd.Process.Signal(unix.SIGINT)
 			}()
 			outputRes, _ := cmd.CombinedOutput()
-			stdout := string(outputRes)
-			Expect(stdout).To(ContainSubstring("Received an interrupt signal, aborting restore process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			assertArtifactsCleaned(getTimestamp(stdout))
+			stdoutRes := string(outputRes)
+			Expect(stdoutRes).To(ContainSubstring("Received an interrupt signal, aborting restore process"))
+			assertHelperCleanupLogged(string(outputBkp))
+			assertHelperCleanupLogged(stdoutRes)
+			assertArtifactsCleaned(timestampBkp)
 		})
 	})
 	Context("SIGTERM", func() {
@@ -270,8 +265,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			assertHelperCleanupLogged(stdout)
 		})
 		It("runs gpbackup and sends a SIGTERM to ensure blocked LOCK TABLE query is canceled", func() {
 			if useOldBackupVersion {
@@ -319,8 +313,8 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
+			Expect(stdout).To(ContainSubstring("Interrupt received while acquiring ACCESS SHARE locks on tables"))
 			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
 		})
 		It("runs gpbackup with single-data-file and sends a SIGTERM to ensure blocked LOCK TABLE query is canceled", func() {
 			if useOldBackupVersion {
@@ -369,8 +363,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			assertHelperCleanupLogged(stdout)
 		})
 		It("runs gpbackup with copy-queue-size and sends a SIGTERM to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
@@ -398,8 +391,7 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 			timestamp := getBackupTimestamp(stdout)
 			assertArtifactsCleaned(timestamp)
 			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting backup process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
+			assertHelperCleanupLogged(stdout)
 		})
 		It("runs gprestore and sends a SIGTERM to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
@@ -427,11 +419,10 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 				_ = cmd.Process.Signal(unix.SIGTERM)
 			}()
 			outputRes, _ := cmd.CombinedOutput()
-			stdout := string(outputRes)
-			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting restore process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			assertArtifactsCleaned(stdout)
+			stdoutRes := string(outputRes)
+			Expect(stdoutRes).To(ContainSubstring("Received a termination signal, aborting restore process"))
+			assertHelperCleanupLogged(stdoutRes)
+			assertArtifactsCleaned(timestampBkp)
 		})
 		It("runs gprestore with copy-queue-size and sends a SIGTERM to ensure cleanup functions successfully", func() {
 			if useOldBackupVersion {
@@ -460,11 +451,10 @@ var _ = Describe("Signal handler tests", FlakeAttempts(5), func() {
 				_ = cmd.Process.Signal(unix.SIGTERM)
 			}()
 			outputRes, _ := cmd.CombinedOutput()
-			stdout := string(outputRes)
-			Expect(stdout).To(ContainSubstring("Received a termination signal, aborting restore process"))
-			Expect(stdout).To(ContainSubstring("Cleanup complete"))
-			Expect(stdout).To(Not(ContainSubstring("CRITICAL")))
-			assertArtifactsCleaned(getTimestamp(stdout))
+			stdoutRes := string(outputRes)
+			Expect(stdoutRes).To(ContainSubstring("Received a termination signal, aborting restore process"))
+			assertHelperCleanupLogged(stdoutRes)
+			assertArtifactsCleaned(timestampBkp)
 		})
 	})
 })
