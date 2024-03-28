@@ -42,7 +42,7 @@ var _ = Describe("End to End Special Character tests", func() {
 			`public."FOObar"`: 1,
 		}
 		assertDataRestored(restoreConn, localSchemaTupleCounts)
-		assertArtifactsCleaned(restoreConn, timestamp)
+		assertCleanedUp(timestamp)
 	})
 	It("runs gpbackup with --include-table flag with partitions with special chars", func() {
 		skipIfOldBackupVersionBefore("1.9.1")
@@ -55,7 +55,6 @@ PARTITION BY LIST (gender)
   PARTITION boys VALUES ('M'),
   DEFAULT PARTITION other );
 			`)
-		defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public."CAPparent"`)
 
 		testhelper.AssertQueryRuns(backupConn,
 			`insert into public."CAPparent" values (1,1,1,'M',1)`)
@@ -83,7 +82,7 @@ PARTITION BY LIST (gender)
 			`public."CAPparent"`:             1,
 		}
 		assertDataRestored(restoreConn, localSchemaTupleCounts)
-		assertArtifactsCleaned(restoreConn, timestamp)
+		assertCleanedUp(timestamp)
 	})
 	It(`gpbackup runs with table name including special chars ~#$%^&*()_-+[]{}><|;:/?!\tC`, func() {
 		allChars := []string{" ", "`", "~", "#", "$", "%", "^", "&", "*", "(", ")", "-", "+", "[", "]", "{", "}", ">", "<", "\\", "|", ";", ":", "/", "?", ",", "!", "C", "\t", "'", "1", "\\n", "\\t", "\""}
@@ -95,13 +94,10 @@ PARTITION BY LIST (gender)
 			if char == "\"" {
 				testhelper.AssertQueryRuns(backupConn,
 					`CREATE TABLE public."foo""bar" ();`)
-				defer testhelper.AssertQueryRuns(backupConn,
-					`DROP TABLE public."foo""bar";`)
 				continue
 			}
 			tableName := fmt.Sprintf("foo%sbar", char)
 			testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE public."%s" ();`, tableName))
-			defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE public."%s";`, tableName))
 			includeTableArgs = append(includeTableArgs, "--include-table")
 			includeTableArgs = append(includeTableArgs, fmt.Sprintf(`public.%s`, tableName))
 		}

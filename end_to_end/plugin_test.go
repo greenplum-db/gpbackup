@@ -67,7 +67,7 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 
 		})
 		It("runs gpbackup and gprestore with single-data-file flag with copy-queue-size", func() {
@@ -84,7 +84,7 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 
 		})
 		It("runs gpbackup and gprestore with single-data-file flag without compression", func() {
@@ -99,7 +99,7 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("runs gpbackup and gprestore with single-data-file flag without compression with copy-queue-size", func() {
 			skipIfOldBackupVersionBefore("1.23.0")
@@ -116,31 +116,15 @@ var _ = Describe("End to End plugin tests", func() {
 			assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
 			assertDataRestored(restoreConn, schema2TupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("runs gpbackup and gprestore on database with all objects", func() {
-			schemaResetStatements := "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-			testhelper.AssertQueryRuns(backupConn, schemaResetStatements)
-			defer testutils.ExecuteSQLFile(backupConn,
-				"resources/test_tables_data.sql")
-			defer testutils.ExecuteSQLFile(backupConn,
-				"resources/test_tables_ddl.sql")
-			defer testhelper.AssertQueryRuns(backupConn, schemaResetStatements)
-			defer testhelper.AssertQueryRuns(restoreConn, schemaResetStatements)
-			testhelper.AssertQueryRuns(backupConn,
-				"CREATE ROLE testrole SUPERUSER")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP ROLE testrole")
-
 			// In GPDB 7+, we use plpython3u because of default python 3 support.
 			plpythonDropStatement := "DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;"
 			if backupConn.Version.AtLeast("7") {
 				plpythonDropStatement = "DROP PROCEDURAL LANGUAGE IF EXISTS plpython3u;"
 			}
 			testhelper.AssertQueryRuns(backupConn, plpythonDropStatement)
-			defer testhelper.AssertQueryRuns(backupConn, plpythonDropStatement)
-			defer testhelper.AssertQueryRuns(restoreConn, plpythonDropStatement)
-
 			testutils.ExecuteSQLFile(backupConn, "resources/gpdb4_objects.sql")
 			if backupConn.Version.Before("7") {
 				testutils.ExecuteSQLFile(backupConn, "resources/gpdb4_compatible_objects_before_gpdb7.sql")
@@ -153,24 +137,14 @@ var _ = Describe("End to End plugin tests", func() {
 			}
 			if backupConn.Version.AtLeast("6") {
 				testutils.ExecuteSQLFile(backupConn, "resources/gpdb6_objects.sql")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DROP FOREIGN DATA WRAPPER fdw CASCADE;")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP FOREIGN DATA WRAPPER fdw CASCADE;")
 			}
 			if backupConn.Version.AtLeast("6.2") {
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE TABLE mview_table1(i int, j text);")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP TABLE mview_table1;")
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE MATERIALIZED VIEW mview1 (i2) as select i from mview_table1;")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP MATERIALIZED VIEW mview1;")
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE MATERIALIZED VIEW mview2 as select * from mview1;")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP MATERIALIZED VIEW mview2;")
 			}
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -179,48 +153,25 @@ var _ = Describe("End to End plugin tests", func() {
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--metadata-only",
 				"--redirect-db", "restoredb")
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 		It("runs gpbackup and gprestore on database with all objects with copy-queue-size", func() {
 			skipIfOldBackupVersionBefore("1.23.0")
-			testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
-			defer testutils.ExecuteSQLFile(backupConn,
-				"resources/test_tables_data.sql")
-			defer testutils.ExecuteSQLFile(backupConn,
-				"resources/test_tables_ddl.sql")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public; DROP PROCEDURAL LANGUAGE IF EXISTS plpythonu;")
-			testhelper.AssertQueryRuns(backupConn,
-				"CREATE ROLE testrole SUPERUSER")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP ROLE testrole")
+			// XXX: Why is this the only test that uses these files?
 			testutils.ExecuteSQLFile(backupConn, "resources/gpdb4_objects.sql")
 			if backupConn.Version.AtLeast("5") {
 				testutils.ExecuteSQLFile(backupConn, "resources/gpdb5_objects.sql")
 			}
 			if backupConn.Version.AtLeast("6") {
 				testutils.ExecuteSQLFile(backupConn, "resources/gpdb6_objects.sql")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DROP FOREIGN DATA WRAPPER fdw CASCADE;")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP FOREIGN DATA WRAPPER fdw CASCADE;")
 			}
 			if backupConn.Version.AtLeast("6.2") {
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE TABLE mview_table1(i int, j text);")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP TABLE mview_table1;")
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE MATERIALIZED VIEW mview1 (i2) as select i from mview_table1;")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP MATERIALIZED VIEW mview1;")
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE MATERIALIZED VIEW mview2 as select * from mview1;")
-				defer testhelper.AssertQueryRuns(restoreConn,
-					"DROP MATERIALIZED VIEW mview2;")
 			}
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -231,7 +182,7 @@ var _ = Describe("End to End plugin tests", func() {
 				"--metadata-only",
 				"--redirect-db", "restoredb",
 				"--copy-queue-size", "4")
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 
 		Context("with include filtering on restore", func() {
@@ -248,7 +199,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 13, "public.foo": 40000})
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 
 				_ = os.Remove("/tmp/include-tables.txt")
 			})
@@ -268,7 +219,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, 16)
 				assertDataRestored(restoreConn, map[string]int{
 					"public.sales": 13, "public.foo": 40000})
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 
 				_ = os.Remove("/tmp/include-tables.txt")
 			})
@@ -283,7 +234,7 @@ var _ = Describe("End to End plugin tests", func() {
 
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with include-schema restore flag with a single data file with copy-queue-size", func() {
 				skipIfOldBackupVersionBefore("1.23.0")
@@ -299,7 +250,7 @@ var _ = Describe("End to End plugin tests", func() {
 
 				assertRelationsCreated(restoreConn, 17)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 		})
 
@@ -327,7 +278,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, no-compression, and copy-queue-size", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -347,7 +298,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and single-data-file", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -364,7 +315,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin, single-data-file, and copy-queue-size", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -383,7 +334,7 @@ var _ = Describe("End to End plugin tests", func() {
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
 				assertDataRestored(restoreConn, publicSchemaTupleCounts)
 				assertDataRestored(restoreConn, schema2TupleCounts)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore with plugin and metadata-only", func() {
 				copyPluginToAllHosts(backupConn, examplePluginExec)
@@ -398,7 +349,7 @@ var _ = Describe("End to End plugin tests", func() {
 					"--plugin-config", examplePluginTestConfig)
 
 				assertRelationsCreated(restoreConn, TOTAL_RELATIONS)
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 		})
 	})

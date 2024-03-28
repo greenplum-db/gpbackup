@@ -82,6 +82,14 @@ export TEST_GPDB_VERSION=\$(echo \$out | sed -n 's/.*Greenplum Database \([0-9].
 pushd \${GOPATH}/src/github.com/greenplum-db/gpbackup
   make unit integration end_to_end
 popd
+
+# For debugging in CI, check for any processes that are still running
+PROCS=\$(ps -ef | grep -e gpbackup -e gprestore -e COPY | grep -v grep)
+if [ -n "\$PROCS" ]; then
+    echo "Processes still running:"
+    echo "\$PROCS"
+    exit 1
+fi
 SCRIPT
 
 chmod +x /tmp/run_tests.bash

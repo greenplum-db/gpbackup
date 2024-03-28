@@ -9,7 +9,7 @@ BACKUP=gpbackup
 RESTORE=gprestore
 HELPER=gpbackup_helper
 BIN_DIR=$(shell echo $${GOPATH:-~/go} | awk -F':' '{ print $$1 "/bin"}')
-GINKGO_FLAGS := -r --keep-going --randomize-suites --randomize-all --no-color
+GINKGO_FLAGS := -r --keep-going --randomize-suites --randomize-all --no-color -v
 GIT_VERSION := $(shell git describe --tags | perl -pe 's/(.*)-([0-9]*)-(g[0-9a-f]*)/\1+dev.\2.\3/')
 BACKUP_VERSION_STR=github.com/greenplum-db/gpbackup/backup.version=$(GIT_VERSION)
 RESTORE_VERSION_STR=github.com/greenplum-db/gpbackup/restore.version=$(GIT_VERSION)

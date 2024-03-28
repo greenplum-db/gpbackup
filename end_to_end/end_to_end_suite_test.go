@@ -55,6 +55,7 @@ var (
 	historyFilePath         string
 	saveHistoryFilePath     = "/tmp/end_to_end_save_history_file.yaml"
 	testFailure             bool
+	configConn              *dbconn.DBConn
 	backupConn              *dbconn.DBConn
 	restoreConn             *dbconn.DBConn
 	gpbackupPath            string
@@ -218,13 +219,14 @@ func unMarshalRowCounts(filepath string) map[string]int {
 	return allRecords
 }
 
-func assertSegmentDataRestored(contentID int, tableName string, rows int) {
-	segment := backupCluster.ByContent[contentID]
-	port := segment[0].Port
-	host := segment[0].Hostname
-	segConn := testutils.SetupTestDBConnSegment("restoredb", port, host, backupConn.Version)
-	defer segConn.Close()
-	assertDataRestored(segConn, map[string]int{tableName: rows})
+func assertReplicatedTableRestored(conn *dbconn.DBConn, tableToTupleCount map[string]int) {
+	for tableName, expectedNumTuples := range tableToTupleCount {
+		qry := fmt.Sprintf("SELECT count(*) FROM gp_dist_random('%s')", tableName)
+		actualTupleCount := dbconn.MustSelectInt(conn, qry)
+		if expectedNumTuples != actualTupleCount {
+			Fail(fmt.Sprintf("Expected:\n\t%d rows to have been restored into table %s\nActual:\n\t%d rows were restored", expectedNumTuples, tableName, actualTupleCount))
+		}
+	}
 }
 
 type PGClassStats struct {
@@ -283,7 +285,7 @@ func assertRelationsExistForIncremental(conn *dbconn.DBConn, expectedNumTables i
 	}
 }
 
-func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
+func assertArtifactsCleaned(timestamp string) {
 	cmdStr := fmt.Sprintf("ps -ef | grep -v grep | grep -E gpbackup_helper.*%s || true", timestamp)
 	output := mustRunCommand(exec.Command("bash", "-c", cmdStr))
 	Eventually(func() string { return strings.TrimSpace(string(output)) }, 10*time.Second, 100*time.Millisecond).Should(Equal(""))
@@ -296,12 +298,32 @@ func assertArtifactsCleaned(conn *dbconn.DBConn, timestamp string) {
 		scriptFile := fpInfo.GetSegmentHelperFilePath(contentID, "script")
 		pipeFile := fpInfo.GetSegmentPipeFilePath(contentID)
 
-		return fmt.Sprintf("! ls %s && ! ls %s && ! ls %s && ! ls %s*", errorFile, oidFile, scriptFile, pipeFile)
+		return fmt.Sprintf("ls %s && ls %s && ls %s && ls %s*", errorFile, oidFile, scriptFile, pipeFile)
 	}
-	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS|cluster.INCLUDE_COORDINATOR, cleanupFunc)
-	if remoteOutput.NumErrors != 0 {
-		Fail(fmt.Sprintf("Helper files found for timestamp %s", timestamp))
+	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS, cleanupFunc)
+	for cmd := 0; cmd < len(remoteOutput.Commands); cmd++ {
+		Expect(remoteOutput.Commands[cmd].Stdout).To(Equal(""))
 	}
+}
+
+func assertHelperProcessesCleaned(timestamp string) {
+	fpInfo := filepath.NewFilePathInfo(backupCluster, "", timestamp, "", false)
+	description := "Checking if helper processes are cleaned up properly"
+	checkFunc := func(contentID int) string {
+		scriptFile := fpInfo.GetSegmentHelperFilePath(contentID, "script")
+		bashScript := fmt.Sprintf("/bin/bash %s", scriptFile)
+
+		return fmt.Sprintf("ps ux | grep \"%s\" | grep -v grep", bashScript)
+	}
+	remoteOutput := backupCluster.GenerateAndExecuteCommand(description, cluster.ON_SEGMENTS, checkFunc)
+	for cmd := 0; cmd < len(remoteOutput.Commands); cmd++ {
+		Expect(remoteOutput.Commands[cmd].Stdout).To(Equal(""))
+	}
+}
+
+func assertCleanedUp(timestamp string) {
+	assertArtifactsCleaned(timestamp)
+	assertHelperProcessesCleaned(timestamp)
 }
 
 func mustRunCommand(cmd *exec.Cmd) []byte {
@@ -342,15 +364,44 @@ func createGlobalObjects(conn *dbconn.DBConn) {
 	testhelper.AssertQueryRuns(conn, "ALTER ROLE global_role RESOURCE GROUP test_group;")
 }
 
-func dropGlobalObjects(conn *dbconn.DBConn, dbExists bool) {
-	if dbExists {
-		testhelper.AssertQueryRuns(conn, "DROP DATABASE global_db;")
+// We dont want to fail here if an object doesn't exist,
+// so use conn.Exec instead of testhelper.AssertQueryRuns
+func dropGlobalObjects(conn *dbconn.DBConn) {
+	_, _ = conn.Exec("DROP DATABASE IF EXISTS global_db;")
+	_, _ = conn.Exec("DROP TABLESPACE IF EXISTS test_tablespace;")
+	_, _ = conn.Exec("DROP ROLE global_role;")
+	_, _ = conn.Exec("DROP ROLE testrole;")
+	_, _ = conn.Exec("DROP RESOURCE QUEUE test_queue;")
+	_, _ = conn.Exec("DROP RESOURCE GROUP test_group;")
+}
+
+// Resets the cluster state between tests. If a test
+// creates a database or global object outside the
+// scope of this function, it must clean up after itself.
+func resetCluster() {
+	if backupConn != nil {
+		backupConn.Close()
 	}
-	testhelper.AssertQueryRuns(conn, "DROP TABLESPACE test_tablespace;")
-	testhelper.AssertQueryRuns(conn, "DROP ROLE global_role;")
-	testhelper.AssertQueryRuns(conn, "DROP ROLE testrole;")
-	testhelper.AssertQueryRuns(conn, "DROP RESOURCE QUEUE test_queue;")
-	testhelper.AssertQueryRuns(conn, "DROP RESOURCE GROUP test_group;")
+	if restoreConn != nil {
+		restoreConn.Close()
+	}
+
+	testhelper.AssertQueryRuns(configConn, "DROP DATABASE IF EXISTS testdb;")
+	testhelper.AssertQueryRuns(configConn, "DROP DATABASE IF EXISTS restoredb;")
+	testhelper.AssertQueryRuns(configConn, "CREATE DATABASE testdb;")
+	testhelper.AssertQueryRuns(configConn, "CREATE DATABASE restoredb;")
+
+	dropGlobalObjects(configConn)
+	createGlobalObjects(configConn)
+
+	backupConn = testutils.SetupTestDbConn("testdb")
+	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_ddl.sql")
+	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_data.sql")
+	restoreConn = testutils.SetupTestDbConn("restoredb")
+
+	// default GUC setting varies between versions so set it explicitly
+	testhelper.AssertQueryRuns(backupConn, "SET gp_autostats_mode='on_no_stats'")
+	testhelper.AssertQueryRuns(restoreConn, "SET gp_autostats_mode='on_no_stats'")
 }
 
 // fileSuffix should be one of: config.yaml, metadata.sql, toc.yaml, or report
@@ -499,30 +550,15 @@ options:
 	Expect(err).ToNot(HaveOccurred())
 
 	testhelper.SetupTestLogger()
-	_ = exec.Command("dropdb", "testdb").Run()
-	_ = exec.Command("dropdb", "restoredb").Run()
-	_ = exec.Command("psql", "postgres",
-		"-c", "DROP RESOURCE QUEUE test_queue").Run()
 
-	err = exec.Command("createdb", "testdb").Run()
-	if err != nil {
-		Fail(fmt.Sprintf("Could not create testdb: %v", err))
+	if configConn == nil {
+		configConn = testutils.SetupTestDbConn("postgres")
 	}
-	err = exec.Command("createdb", "restoredb").Run()
-	if err != nil {
-		Fail(fmt.Sprintf("Could not create restoredb: %v", err))
-	}
-	backupConn = testutils.SetupTestDbConn("testdb")
-	restoreConn = testutils.SetupTestDbConn("restoredb")
+
 	backupCmdFlags := pflag.NewFlagSet("gpbackup", pflag.ExitOnError)
 	backup.SetCmdFlags(backupCmdFlags)
-	backup.InitializeMetadataParams(backupConn)
+	backup.InitializeMetadataParams(configConn)
 	backup.SetFilterRelationClause("")
-	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_ddl.sql")
-	testutils.ExecuteSQLFile(backupConn, "resources/test_tables_data.sql")
-
-	// default GUC setting varies between versions so set it explicitly
-	testhelper.AssertQueryRuns(backupConn, "SET gp_autostats_mode='on_no_stats'")
 
 	if useOldBackupVersion {
 		oldBackupSemVer = semver.MustParse(os.Getenv("OLD_BACKUP_VERSION"))
@@ -550,11 +586,11 @@ options:
 		backupHelperPath = fmt.Sprintf("%s/gpbackup_helper", binDir)
 		restoreHelperPath = backupHelperPath
 	}
-	segConfig := cluster.MustGetSegmentConfiguration(backupConn)
+	segConfig := cluster.MustGetSegmentConfiguration(configConn)
 	backupCluster = cluster.NewCluster(segConfig)
 
-	if backupConn.Version.Before("6") {
-		testutils.SetupTestFilespace(backupConn, backupCluster)
+	if configConn.Version.Before("6") {
+		testutils.SetupTestFilespace(configConn, backupCluster)
 	} else {
 		remoteOutput := backupCluster.GenerateAndExecuteCommand(
 			"Creating filespace test directories on all hosts",
@@ -566,6 +602,8 @@ options:
 			Fail("Could not create filespace test directory on 1 or more hosts")
 		}
 	}
+
+	resetCluster()
 
 	saveHistory(backupCluster)
 
@@ -589,13 +627,9 @@ var _ = AfterSuite(func() {
 	}
 	_ = utils.CopyFile(saveHistoryFilePath, historyFilePath)
 
-	if backupConn.Version.Before("6") {
-		testutils.DestroyTestFilespace(backupConn)
+	if configConn.Version.Before("6") {
+		testutils.DestroyTestFilespace(configConn)
 	} else {
-		_ = exec.Command("psql", "postgres",
-			"-c", "DROP RESOURCE QUEUE test_queue").Run()
-		_ = exec.Command("psql", "postgres",
-			"-c", "DROP TABLESPACE test_tablespace").Run()
 		remoteOutput := backupCluster.GenerateAndExecuteCommand(
 			"Removing /tmp/test_dir* directories on all hosts",
 			cluster.ON_HOSTS|cluster.INCLUDE_COORDINATOR,
@@ -606,41 +640,22 @@ var _ = AfterSuite(func() {
 			Fail("Could not remove /tmp/testdir* directories on 1 or more hosts")
 		}
 	}
+	dropGlobalObjects(configConn)
 	if backupConn != nil {
 		backupConn.Close()
 	}
 	if restoreConn != nil {
 		restoreConn.Close()
 	}
+	if configConn != nil {
+		configConn.Close()
+	}
 	CleanupBuildArtifacts()
-	err := exec.Command("dropdb", "testdb").Run()
-	if err != nil {
-		fmt.Printf("Could not drop testdb: %v\n", err)
-	}
-	err = exec.Command("dropdb", "restoredb").Run()
-	if err != nil {
-		fmt.Printf("Could not drop restoredb: %v\n", err)
-	}
 })
 
 func end_to_end_setup() {
-	testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS schema2 CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
-
-	// Try to drop some objects that test failures might leave lying around
-	// We can't use AssertQueryRuns since if an object doesn't exist it will error out, and these objects don't have IF EXISTS as an option
-	backupConn.Exec("DROP ROLE testrole; DROP ROLE global_role; DROP RESOURCE QUEUE test_queue; DROP RESOURCE GROUP rg_test_group; DROP TABLESPACE test_tablespace;")
-	restoreConn.Exec("DROP ROLE testrole; DROP ROLE global_role; DROP RESOURCE QUEUE test_queue; DROP RESOURCE GROUP rg_test_group; DROP TABLESPACE test_tablespace;")
-	if backupConn.Version.AtLeast("6") {
-		backupConn.Exec("DROP FOREIGN DATA WRAPPER fdw CASCADE;")
-		restoreConn.Exec("DROP FOREIGN DATA WRAPPER fdw CASCADE;")
-	}
-	// The gp_toolkit extension should be created automatically, but in some cases it either isn't
-	// being created or is being dropped, so for now we explicitly create it to avoid spurious failures.
-	// TODO: Track down the cause of the issue so we don't need to manually create it.
-	if backupConn.Version.AtLeast("7") {
-		backupConn.Exec("CREATE EXTENSION gp_toolkit;")
-		restoreConn.Exec("CREATE EXTENSION gp_toolkit;")
-	}
+	// reset cluster to ensure clean environment
+	resetCluster()
 
 	publicSchemaTupleCounts = map[string]int{
 		"public.foo":   40000,
@@ -681,28 +696,23 @@ var _ = Describe("backup and restore end to end tests", func() {
 	Describe("globals tests", func() {
 		It("runs gpbackup and gprestore with --with-globals", func() {
 			skipIfOldBackupVersionBefore("1.8.2")
-			createGlobalObjects(backupConn)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
 
-			dropGlobalObjects(backupConn, true)
-			defer dropGlobalObjects(backupConn, false)
-
+			dropGlobalObjects(configConn)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--with-globals")
 		})
 		It("runs gpbackup and gprestore with --with-globals and --create-db", func() {
 			skipIfOldBackupVersionBefore("1.8.2")
-			createGlobalObjects(backupConn)
 			if backupConn.Version.AtLeast("6") {
 				testhelper.AssertQueryRuns(backupConn,
 					"ALTER ROLE global_role IN DATABASE global_db SET search_path TO public,pg_catalog;")
 			}
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
-			dropGlobalObjects(backupConn, true)
-			defer dropGlobalObjects(backupConn, true)
+			dropGlobalObjects(configConn)
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "global_db",
 				"--with-globals",
@@ -710,8 +720,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 		})
 		It("runs gpbackup with --without-globals", func() {
 			skipIfOldBackupVersionBefore("1.18.0")
-			createGlobalObjects(backupConn)
-			defer dropGlobalObjects(backupConn, true)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--without-globals")
 
@@ -730,8 +738,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 		})
 		It("runs gpbackup with --without-globals and --metadata-only", func() {
 			skipIfOldBackupVersionBefore("1.18.0")
-			createGlobalObjects(backupConn)
-			defer dropGlobalObjects(backupConn, true)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--without-globals", "--metadata-only")
 
@@ -792,8 +798,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 
 			testhelper.AssertQueryRuns(restoreConn,
 				"CREATE TABLE public.corrupt_table (i integer);")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP TABLE public.corrupt_table")
 
 			// we know that broken value goes to seg2, so seg1 should be
 			// ok. Connect in utility mode to seg1.
@@ -954,12 +958,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(restoreConn,
 				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA schema3 CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP INDEX schema2.foo3_idx1")
 			testhelper.AssertQueryRuns(backupConn,
 				"ANALYZE schema2.foo3")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -988,12 +988,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(backupConn,
 				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA schema3 CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE INDEX foo3_idx1 ON schema2.foo3(i)")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP INDEX schema2.foo3_idx1")
 			testhelper.AssertQueryRuns(backupConn,
 				"ANALYZE schema2.foo3")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1021,12 +1017,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(restoreConn,
 				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA schema3 CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE SCHEMA \"FOO\"")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA \"FOO\" CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE TABLE \"FOO\".bar(i int)")
 
@@ -1056,12 +1048,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(restoreConn,
 				"DROP SCHEMA IF EXISTS schema_to_redirect CASCADE; CREATE SCHEMA \"schema_to_redirect\";")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA schema_to_redirect CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE SCHEMA schema_to_test")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA schema_to_test CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE TABLE schema_to_test.table_metadata_only AS SELECT generate_series(1,10)")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--metadata-only", "--include-schema", "schema_to_test")
@@ -1077,12 +1065,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(restoreConn,
 				"DROP SCHEMA IF EXISTS schema3 CASCADE; CREATE SCHEMA schema3;")
-			defer testhelper.AssertQueryRuns(restoreConn,
-				"DROP SCHEMA schema3 CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE SCHEMA fooschema")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP SCHEMA fooschema CASCADE")
 			testhelper.AssertQueryRuns(backupConn,
 				"CREATE TABLE fooschema.redirected_table(i int)")
 
@@ -1116,12 +1100,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 		It("runs gpbackup and gprestores any user defined ACLs on extensions", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			currentUser := os.Getenv("USER")
-			testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP ROLE testrole")
 			testhelper.AssertQueryRuns(backupConn, "CREATE EXTENSION pgcrypto")
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP EXTENSION pgcrypto")
 			// Create a grant on a function that belongs to the extension
 			testhelper.AssertQueryRuns(backupConn,
 				"GRANT EXECUTE ON FUNCTION gen_random_bytes(integer) to testrole WITH GRANT OPTION")
@@ -1150,7 +1129,7 @@ var _ = Describe("backup and restore end to end tests", func() {
 			Expect(match).To(BeTrue())
 			// Following statement is needed in order to drop testrole
 			testhelper.AssertQueryRuns(restoreConn, "DROP EXTENSION pgcrypto")
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertCleanedUp(timestamp)
 		})
 	})
 	Describe("Restore with truncate-table", func() {
@@ -1247,7 +1226,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 		It("runs gprestore with --run-analyze and --redirect-schema", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			testhelper.AssertQueryRuns(restoreConn, "CREATE SCHEMA fooschema")
-			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA fooschema CASCADE")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--include-table", "public.sales")
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
@@ -1444,7 +1422,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 		It("runs gpbackup and gprestore with the data-only restore flag", func() {
 			testutils.ExecuteSQLFile(restoreConn, "resources/test_tables_ddl.sql")
 			testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 8888, false)")
-			defer testhelper.AssertQueryRuns(backupConn, "SELECT pg_catalog.setval('public.myseq2', 100, false)")
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath)
 			output := gprestore(gprestorePath, restoreHelperPath, timestamp,
@@ -1551,8 +1528,6 @@ var _ = Describe("backup and restore end to end tests", func() {
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO public.table_to_include_with_stats SELECT generate_series(0,9);")
 
-			defer testhelper.AssertQueryRuns(backupConn,
-				"DROP TABLE public.table_to_include_with_stats")
 			timestamp := gpbackup(gpbackupPath, backupHelperPath,
 				"--with-stats",
 				"--backup-dir", backupDir,
@@ -1626,18 +1601,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 			if useOldBackupVersion {
 				Skip("This test is not needed for old backup versions")
 			}
-
-			if backupConn.Version.Before("6") {
-				testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace FILESPACE test_dir")
-			} else {
-				testhelper.AssertQueryRuns(backupConn, "CREATE TABLESPACE test_tablespace LOCATION '/tmp/test_dir';")
-			}
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLESPACE test_tablespace;")
-
 			// Store everything in this test schema for easy test cleanup.
 			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA postdata_metadata;")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA postdata_metadata CASCADE;")
-			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA postdata_metadata CASCADE;")
 
 			// Create a table and indexes. Currently for indexes, there are 4 possible pieces
 			// of metadata: TABLESPACE, CLUSTER, REPLICA IDENTITY, and COMMENT.
@@ -1693,10 +1658,8 @@ var _ = Describe("backup and restore end to end tests", func() {
 				tableName := "public.test_real_precision"
 				tableNameCopy := "public.test_real_precision_copy"
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s (val real)`, tableName))
-				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableName))
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO %s VALUES (0.100001216)`, tableName))
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE %s AS SELECT * FROM %s`, tableNameCopy, tableName))
-				defer testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`DROP TABLE %s`, tableNameCopy))
 
 				// We use --jobs flag to make sure all parallel connections have the GUC set properly
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
@@ -1720,14 +1683,11 @@ var _ = Describe("backup and restore end to end tests", func() {
 				testutils.SkipIfBefore6(backupConn)
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE TABLE table_multiple_constraints (a int)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DROP TABLE IF EXISTS table_multiple_constraints CASCADE;")
 
 				// Add a trigger constraint
 				testhelper.AssertQueryRuns(backupConn, `CREATE FUNCTION public.no_op_trig_fn() RETURNS trigger AS
 $$begin RETURN NULL; end$$
 LANGUAGE plpgsql NO SQL;`)
-				defer testhelper.AssertQueryRuns(backupConn, `DROP FUNCTION IF EXISTS public.no_op_trig_fn() CASCADE`)
 				testhelper.AssertQueryRuns(backupConn, "CREATE TRIGGER  test_trigger AFTER INSERT  ON public.table_multiple_constraints EXECUTE PROCEDURE public.no_op_trig_fn();")
 
 				// Add a non-trigger constraint
@@ -1746,12 +1706,9 @@ LANGUAGE plpgsql NO SQL;`)
 				testutils.SkipIfBefore6(backupConn)
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE TABLE table_multiple_constraints (a int)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DROP TABLE IF EXISTS table_multiple_constraints CASCADE;")
 
 				// Add a domain with a constraint
 				testhelper.AssertQueryRuns(backupConn, "CREATE DOMAIN public.const_domain1 AS text CONSTRAINT cons_check1 CHECK (char_length(VALUE) = 5);")
-				defer testhelper.AssertQueryRuns(backupConn, `DROP DOMAIN IF EXISTS public.const_domain1;`)
 
 				// Add a non-trigger constraint
 				testhelper.AssertQueryRuns(backupConn,
@@ -1774,14 +1731,10 @@ LANGUAGE plpgsql NO SQL;`)
 				testutils.SkipIfBefore6(backupConn)
 				testhelper.AssertQueryRuns(backupConn,
 					"CREATE TABLE legacy_table_violate_constraints (a int)")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"DROP TABLE legacy_table_violate_constraints")
 				testhelper.AssertQueryRuns(backupConn,
 					"INSERT INTO legacy_table_violate_constraints values (0), (1), (2), (3), (4), (5), (6), (7)")
 				testhelper.AssertQueryRuns(backupConn,
 					"ALTER TABLE legacy_table_violate_constraints ADD CONSTRAINT new_constraint_not_valid CHECK (a > 4) NOT VALID")
-				defer testhelper.AssertQueryRuns(backupConn,
-					"ALTER TABLE legacy_table_violate_constraints DROP CONSTRAINT new_constraint_not_valid")
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath,
 					"--backup-dir", backupDir)
@@ -1800,15 +1753,12 @@ LANGUAGE plpgsql NO SQL;`)
 
 				_, err := restoreConn.Exec("INSERT INTO legacy_table_violate_constraints VALUES (1)")
 				Expect(err).To(HaveOccurred())
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore to backup tables depending on functions", func() {
 				skipIfOldBackupVersionBefore("1.19.0")
 				testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + 1; END; $$ LANGUAGE PLPGSQL;;")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
-
 				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
 				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
 				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (2);")
 
@@ -1823,21 +1773,15 @@ LANGUAGE plpgsql NO SQL;`)
 					"public.holds":                    50000,
 					"public.sales":                    13,
 					"public.test_depends_on_function": 2})
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("runs gpbackup and gprestore to backup functions depending on tables", func() {
 				skipIfOldBackupVersionBefore("1.19.0")
 
 				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE to_use_for_function (n int);")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE to_use_for_function;")
-
 				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  to_use_for_function values (1);")
 				testhelper.AssertQueryRuns(backupConn, "CREATE FUNCTION func1(val integer) RETURNS integer AS $$ BEGIN RETURN val + (SELECT n FROM to_use_for_function); END; $$ LANGUAGE PLPGSQL;;")
-
-				defer testhelper.AssertQueryRuns(backupConn, "DROP FUNCTION func1(val integer);")
-
 				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE test_depends_on_function (id integer, claim_id character varying(20) DEFAULT ('WC-'::text || func1(10)::text)) DISTRIBUTED BY (id);")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
 				testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath)
@@ -1853,19 +1797,17 @@ LANGUAGE plpgsql NO SQL;`)
 					"public.to_use_for_function":      1,
 					"public.test_depends_on_function": 1})
 
-				assertArtifactsCleaned(restoreConn, timestamp)
+				assertCleanedUp(timestamp)
 			})
 			It("Can restore xml with xmloption set to document", func() {
 				testutils.SkipIfBefore6(backupConn)
 				// Set up the XML table that contains XML content
 				testhelper.AssertQueryRuns(backupConn, "CREATE TABLE xml_test AS SELECT xml 'fooxml'")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE xml_test")
 
 				// Set up database that has xmloption default to document instead of content
 				testhelper.AssertQueryRuns(backupConn, "CREATE DATABASE document_db")
-				defer testhelper.AssertQueryRuns(backupConn, "DROP DATABASE document_db")
 				testhelper.AssertQueryRuns(backupConn, "ALTER DATABASE document_db SET xmloption TO document")
-
+				defer testhelper.AssertQueryRuns(backupConn, "DROP DATABASE document_db")
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--include-table", "public.xml_test")
 
 				gprestore(gprestorePath, restoreHelperPath, timestamp,
@@ -1924,7 +1866,6 @@ LANGUAGE plpgsql NO SQL;`)
 				testhelper.AssertQueryRuns(backupConn, `CREATE TABLE view_base_table (key int PRIMARY KEY, data varchar(20))`)
 				testhelper.AssertQueryRuns(backupConn, `CREATE VIEW key_dependent_view AS SELECT key, data COLLATE "C" FROM view_base_table GROUP BY key;`)
 				testhelper.AssertQueryRuns(backupConn, `CREATE VIEW key_dependent_view_no_cols AS SELECT FROM view_base_table GROUP BY key HAVING length(data) > 0`)
-				defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE view_base_table CASCADE")
 
 				timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
 
@@ -1960,16 +1901,10 @@ LANGUAGE plpgsql NO SQL;`)
 			CREATE TYPE colors AS ENUM ('red', 'blue', 'green', 'yellow');
 			CREATE TYPE fruits AS ENUM ('apple', 'banana', 'cherry', 'orange');`)
 		})
-		AfterEach(func() {
-			testhelper.AssertQueryRuns(backupConn, "DROP TYPE colors CASCADE;")
-			testhelper.AssertQueryRuns(backupConn, "DROP TYPE fruits CASCADE;")
-		})
 		It("Restores table data distributed by an enum", func() {
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_enum_distkey (key colors) DISTRIBUTED BY (key)`)
 			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_enum_distkey VALUES ('red'), ('blue'), ('green'), ('yellow'),
 			('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow');`)
-
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_enum_distkey CASCADE")
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
 
@@ -1986,8 +1921,6 @@ LANGUAGE plpgsql NO SQL;`)
 		It("Restores table data distributed by multi-key enum", func() {
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_multi_enum_distkey (key1 colors, key2 fruits) DISTRIBUTED BY (key1, key2);`)
 			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_multi_enum_distkey (key1, key2) VALUES ('red', 'apple'), ('blue', 'orange'), ('green', 'cherry'), ('yellow', 'banana'), ('red', 'cherry'), ('blue', 'orange'), ('green', 'apple'), ('yellow', 'cherry'), ('red', 'banana'), ('blue', 'apple'), ('green', 'cherry'), ('yellow', 'orange'), ('red', 'apple'), ('blue', 'cherry'), ('green', 'banana'), ('yellow', 'apple');`)
-
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_multi_enum_distkey CASCADE")
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
 
@@ -2007,9 +1940,6 @@ LANGUAGE plpgsql NO SQL;`)
 			('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow'), ('red'), ('blue'), ('green'), ('yellow');`)
 			testhelper.AssertQueryRuns(backupConn, `ALTER TYPE colors ADD VALUE 'purple';`)
 			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_altered_enum_distkey VALUES ('purple'), ('purple'), ('purple'), ('purple');`)
-
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_altered_enum_distkey CASCADE")
-
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
 
 			gprestoreArgs := []string{
@@ -2023,7 +1953,7 @@ LANGUAGE plpgsql NO SQL;`)
 				"table_with_altered_enum_distkey": 20})
 		})
 		It("Restores table data partitioned by enum", func() {
-			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_enum_partkey (a int, b colors) DISTRIBUTED BY (a) PARTITION BY LIST (b) 
+			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE table_with_enum_partkey (a int, b colors) DISTRIBUTED BY (a) PARTITION BY LIST (b)
 																							(PARTITION red VALUES ('red'),
 																							PARTITION blue VALUES ('blue'),
 																							PARTITION green VALUES ('green'),
@@ -2033,8 +1963,6 @@ LANGUAGE plpgsql NO SQL;`)
 			testhelper.AssertQueryRuns(backupConn, `ALTER TYPE colors ADD VALUE 'purple';`)
 			testhelper.AssertQueryRuns(backupConn, `ALTER TABLE table_with_enum_partkey ADD PARTITION purple VALUES ('purple');`)
 			testhelper.AssertQueryRuns(backupConn, `INSERT INTO table_with_enum_partkey VALUES (17, 'purple'), (18, 'purple'), (19, 'purple'), (20, 'purple');`)
-
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE table_with_enum_partkey CASCADE")
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
 
@@ -2054,26 +1982,21 @@ LANGUAGE plpgsql NO SQL;`)
 			if useOldBackupVersion {
 				Skip("This test is only needed for GPDB7")
 			}
-			testhelper.AssertQueryRuns(backupConn, `create type digit as enum ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');`);
-																						 // non-troublesome hashed partitioning
+			testhelper.AssertQueryRuns(backupConn, `create type digit as enum ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');`)
+			// non-troublesome hashed partitioning
 			testhelper.AssertQueryRuns(backupConn, `create table tplain (en digit, data int unique);
 																							insert into tplain select (x%10)::text::digit, x from generate_series(1,1000) x;
 																							create table ths (mod int, data int, unique(mod, data)) partition by hash(mod);
 																							create table ths_p1 partition of ths for values with (modulus 3, remainder 0);
 																							create table ths_p2 partition of ths for values with (modulus 3, remainder 1);
 																							create table ths_p3 partition of ths for values with (modulus 3, remainder 2);
-																							insert into ths select (x%10), x from generate_series(1,1000) x;`);
-																							// dangerous hashed partitioning
+																							insert into ths select (x%10), x from generate_series(1,1000) x;`)
+			// dangerous hashed partitioning
 			testhelper.AssertQueryRuns(backupConn, `create table tht (en digit, data int, unique(en, data)) partition by hash(en);
 																							create table tht_p1 partition of tht for values with (modulus 3, remainder 0);
 																							create table tht_p2 partition of tht for values with (modulus 3, remainder 1);
 																							create table tht_p3 partition of tht for values with (modulus 3, remainder 2);
-																							insert into tht select (x%10)::text::digit, x from generate_series(1,1000) x;`);
-
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE tplain");
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE ths");
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE tht");
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TYPE digit");
+																							insert into tht select (x%10)::text::digit, x from generate_series(1,1000) x;`)
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir)
 
@@ -2088,18 +2011,13 @@ LANGUAGE plpgsql NO SQL;`)
 				"tplain": 1000, "ths": 1000, "tht": 1000})
 		})
 	})
-	Describe("Restore to a different-sized cluster", FlakeAttempts(5), func() {
+	Describe("Restore to a different-sized cluster", func() {
 		if useOldBackupVersion {
 			Skip("This test is not needed for old backup versions")
 		}
 		// The backups for these tests were taken on GPDB version 6.20.3+dev.4.g9a08259bd1 build dev.
 		BeforeEach(func() {
 			testutils.SkipIfBefore6(backupConn)
-			testhelper.AssertQueryRuns(backupConn, "CREATE ROLE testrole;")
-		})
-		AfterEach(func() {
-			testhelper.AssertQueryRuns(restoreConn, fmt.Sprintf("REASSIGN OWNED BY testrole TO %s;", backupConn.User))
-			testhelper.AssertQueryRuns(restoreConn, "DROP ROLE testrole;")
 		})
 		DescribeTable("",
 			func(fullTimestamp string, incrementalTimestamp string, tarBaseName string, isIncrementalRestore bool, isFilteredRestore bool, isSingleDataFileRestore bool, testUsesPlugin bool) {
@@ -2117,37 +2035,11 @@ LANGUAGE plpgsql NO SQL;`)
 				}
 
 				extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
-				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
-				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schematwo CASCADE;`)
-				defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemathree CASCADE;`)
 
 				if !testUsesPlugin { // No need to manually move files when using a plugin
 					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
 					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp, incrementalTimestamp)
 				}
-
-				// This block stops the test if it hangs.  It was introduced to prevent hangs causing timeout failures in Concourse CI.
-				// These hangs are still being observed only in CI, and a definitive RCA has not yet been accomplished
-				completed := make(chan bool)
-				defer func() { completed <- true }() // Whether the test succeeds or fails, mark it as complete
-				go func() {
-					defer GinkgoRecover()
-					// No test run has been observed to take more than a few minutes without a hang,
-					// so loop 5 times and check for success after 1 minute each
-					for i := 0; i < 5; i++ {
-						select {
-						case <-completed:
-							return
-						default:
-							time.Sleep(time.Minute)
-						}
-					}
-					// If we get here, this test is hanging, stop the processes.
-					// If the test succeeded or failed, we'll return before here.
-					_ = exec.Command("pkill", "-9", "gpbackup_helper").Run()
-					_ = exec.Command("pkill", "-9", "gprestore").Run()
-					Fail("Resize-restore end-to-end test is hanging. Failing test.")
-				}()
 
 				gprestoreArgs := []string{
 					"--timestamp", fullTimestamp,
@@ -2213,9 +2105,9 @@ LANGUAGE plpgsql NO SQL;`)
 			},
 			// Currently, the 9-segment tests are hanging due to the same pipe-related CI issues mentioned above.
 			// These tests can be un-pended when that is solved; in the meantime, the 7-segment tests give us larger-to-smaller restore coverage.
-			PEntry("Can backup a 9-segment cluster and restore to current cluster", "20220909090738", "", "9-segment-db", false, false, false, false),
-			PEntry("Can backup a 9-segment cluster and restore to current cluster with single data file", "20220909090827", "", "9-segment-db-single-data-file", false, false, true, false),
-			PEntry("Can backup a 9-segment cluster and restore to current cluster with incremental backups", "20220909150254", "20220909150353", "9-segment-db-incremental", true, false, false, false),
+			Entry("Can backup a 9-segment cluster and restore to current cluster", "20220909090738", "", "9-segment-db", false, false, false, false),
+			Entry("Can backup a 9-segment cluster and restore to current cluster with single data file", "20220909090827", "", "9-segment-db-single-data-file", false, false, true, false),
+			Entry("Can backup a 9-segment cluster and restore to current cluster with incremental backups", "20220909150254", "20220909150353", "9-segment-db-incremental", true, false, false, false),
 
 			Entry("Can backup a 7-segment cluster and restore to current cluster", "20220908145504", "", "7-segment-db", false, false, false, false),
 			Entry("Can backup a 7-segment cluster and restore to current cluster single data file", "20220912101931", "", "7-segment-db-single-data-file", false, false, true, false),
@@ -2266,7 +2158,6 @@ LANGUAGE plpgsql NO SQL;`)
 						Skip("Resize-cluster was only added in version 1.26")
 					}
 					extractDirectory := extractSavedTarFile(backupDir, tarBaseName)
-					defer testhelper.AssertQueryRuns(restoreConn, `DROP SCHEMA IF EXISTS schemaone CASCADE;`)
 
 					isMultiNode := (backupCluster.GetHostForContent(0) != backupCluster.GetHostForContent(-1))
 					moveSegmentBackupFiles(tarBaseName, extractDirectory, isMultiNode, fullTimestamp)
@@ -2282,12 +2173,13 @@ LANGUAGE plpgsql NO SQL;`)
 					_, err := gprestoreCmd.CombinedOutput()
 					Expect(err).ToNot(HaveOccurred())
 
-					// check row counts on each segment and on coordinator, expecting 1 table with 100 rows, replicated across all
-					for _, seg := range backupCluster.Segments {
-						if seg.ContentID != -1 {
-							assertSegmentDataRestored(seg.ContentID, "schemaone.test_table", 100)
-						}
-					}
+					// check row counts for replicated table, expect 100 rows in each segment
+					expectedRows := 100 * segmentCount
+
+					assertReplicatedTableRestored(restoreConn, map[string]int{
+						"schemaone.test_table": expectedRows,
+					})
+					// check that coordinator reports 100 rows
 					assertDataRestored(restoreConn, map[string]int{
 						"schemaone.test_table": 100,
 					})
@@ -2400,8 +2292,6 @@ LANGUAGE plpgsql NO SQL;`)
 		It("Will correctly handle external partitions on multiple versions of GPDB", func() {
 			testutils.SkipIfBefore6(backupConn)
 			testhelper.AssertQueryRuns(backupConn, "CREATE SCHEMA testchema;")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
-			defer testhelper.AssertQueryRuns(restoreConn, "DROP SCHEMA IF EXISTS testchema CASCADE;")
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE testchema.multipartition (a int,b date,c text,d int)
                    DISTRIBUTED BY (a)
                    PARTITION BY RANGE (b)
@@ -2505,7 +2395,7 @@ LANGUAGE plpgsql NO SQL;`)
                       INSERT INTO schemaone.measurement VALUES (42, '2006-02-22', 75, 60);
                       INSERT INTO schemaone.measurement VALUES (42, '2007-11-15', 75, 80);
                    `)
-			defer testhelper.AssertQueryRuns(backupConn, "")
+			defer testhelper.AssertQueryRuns(backupConn, "") // XXX: What is this doing?
 		})
 
 		AfterEach(func() {
@@ -2627,9 +2517,6 @@ LANGUAGE plpgsql NO SQL;`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child_one() INHERITS (public.base);`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.child_two() INHERITS (public.base);`)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(three int);`)
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.parent_one CASCADE")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.parent_two CASCADE")
-			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE public.unrelated")
 
 			timestamp := gpbackup(gpbackupPath, backupHelperPath, "--backup-dir", backupDir, "--include-table", "public.base", "--no-inherits")
 
@@ -2651,7 +2538,6 @@ LANGUAGE plpgsql NO SQL;`)
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`CREATE TABLE testschema.foo%d(i int)`, i))
 				testhelper.AssertQueryRuns(backupConn, fmt.Sprintf(`INSERT INTO testschema.foo%d SELECT generate_series(1,10000)`, i))
 			}
-			defer testhelper.AssertQueryRuns(backupConn, "DROP SCHEMA testschema CASCADE")
 
 			gpbackupCmd := exec.Command(gpbackupPath, "--dbname", "testdb", "--backup-dir", backupDir)
 			out, err := gpbackupCmd.CombinedOutput()
