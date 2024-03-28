@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/greenplum-db/gp-common-go-libs/cluster"
 	"github.com/greenplum-db/gp-common-go-libs/gplog"
@@ -590,7 +591,10 @@ func runAnalyze(filteredDataEntries map[string][]toc.CoordinatorDataEntry) {
 func DoTeardown() {
 	restoreFailed := false
 	defer func() {
-		DoCleanup(restoreFailed)
+		// If the restore was terminated, the signal handler will handle cleanup
+		if !wasTerminated {
+			DoCleanup(restoreFailed)
+		}
 
 		errorCode := gplog.GetErrorCode()
 		if errorCode == 0 {
@@ -696,6 +700,8 @@ func writeErrorTables(isMetadata bool) {
 }
 
 func DoCleanup(restoreFailed bool) {
+	cleanupTimeout := 60 * time.Second
+
 	defer func() {
 		if err := recover(); err != nil {
 			gplog.Warn("Encountered error during cleanup: %+v", err)
@@ -705,19 +711,28 @@ func DoCleanup(restoreFailed bool) {
 	}()
 
 	gplog.Verbose("Beginning cleanup")
-	if backupConfig != nil && backupConfig.SingleDataFile {
+	if backupConfig != nil && (backupConfig.SingleDataFile || MustGetFlagBool(options.RESIZE_CLUSTER)) {
 		fpInfoList := GetBackupFPInfoListFromRestorePlan()
 		for _, fpInfo := range fpInfoList {
 			// Copy sessions must be terminated before cleaning up gpbackup_helper processes to avoid a potential deadlock
 			// If the terminate query is sent via a connection with an active COPY command, and the COPY's pipe is cleaned up, the COPY query will hang.
 			// This results in the DoCleanup function passed to the signal handler to never return, blocking the os.Exit call
-			if wasTerminated { // These should all end on their own in a successful restore
-				utils.TerminateHangingCopySessions(connectionPool, fpInfo, fmt.Sprintf("gprestore_%s_%s", fpInfo.Timestamp, restoreStartTime))
-			}
+			
+			// All COPY commands should end on their own for a successful restore, however we cleanup any hanging COPY sessions here as a precaution
+			utils.TerminateHangingCopySessions(fpInfo, fmt.Sprintf("gprestore_%s_%s", fpInfo.Timestamp, restoreStartTime), cleanupTimeout, 5 * time.Second)
 
-			// We can have helper processes hanging around even without failures, so call this cleanup routine whether successful or not.
-			utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore")
-			utils.CleanUpHelperFilesOnAllHosts(globalCluster, fpInfo)
+			// Ensure we don't leave anything behind on the segments
+			utils.CleanUpSegmentHelperProcesses(globalCluster, fpInfo, "restore", cleanupTimeout)
+			utils.CleanUpHelperFilesOnAllHosts(globalCluster, fpInfo, cleanupTimeout)
+			utils.CleanUpPipesOnAllHosts(globalCluster, fpInfo, cleanupTimeout)
+
+			// Check gpbackup_helper errors here if restore was terminated
+			if wasTerminated {
+				err := utils.CheckAgentErrorsOnSegments(globalCluster, globalFPInfo)
+				if err != nil {
+					gplog.Error(err.Error())
+				}
+			}
 		}
 	}
 
