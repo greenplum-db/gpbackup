@@ -38,7 +38,7 @@ var _ = Describe("utils integration", func() {
 		// TODO: this works without error in 6, but throws an error in 7.  Still functions, though.  Unclear why the change.
 		// defer testhelper.AssertQueryRuns(conn, "DROP TABLE public.foo")
 		defer connectionPool.MustExec("DROP TABLE public.foo")
-		err = unix.Mkfifo(testPipe, 0777)
+		err = unix.Mkfifo(testPipe, 0700)
 		Expect(err).To(Not(HaveOccurred()))
 		defer os.Remove(testPipe)
 		go func() {
@@ -50,7 +50,7 @@ var _ = Describe("utils integration", func() {
 		query := `SELECT count(*) FROM pg_stat_activity WHERE application_name = 'hangingApplication'`
 		Eventually(func() string { return dbconn.MustSelectString(connectionPool, query) }, 5*time.Second, 100*time.Millisecond).Should(Equal("1"))
 
-		utils.TerminateHangingCopySessions(connectionPool, fpInfo, "hangingApplication")
+		utils.TerminateHangingCopySessions(fpInfo, "hangingApplication", 30 * time.Second, 1 * time.Second)
 
 		Eventually(func() string { return dbconn.MustSelectString(connectionPool, query) }, 5*time.Second, 100*time.Millisecond).Should(Equal("0"))
 

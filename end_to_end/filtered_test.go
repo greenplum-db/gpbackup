@@ -20,23 +20,28 @@ var _ = Describe("End to End Filtered tests", func() {
 
 	Describe("Backup include filtering", func() {
 		It("runs gpbackup and gprestore with include-schema backup flag and compression level", func() {
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--include-schema", "public",
 				"--compression-level", "2")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
 			assertRelationsCreated(restoreConn, 20)
 			assertDataRestored(restoreConn, publicSchemaTupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertArtifactsCleaned(timestamp)
 		})
 		It("runs gpbackup and gprestore with include-table backup flag", func() {
 			skipIfOldBackupVersionBefore("1.4.0")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--include-table", "public.foo",
 				"--include-table", "public.sales",
 				"--include-table", "public.myseq1",
 				"--include-table", "public.myview1")
+
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -47,8 +52,10 @@ var _ = Describe("End to End Filtered tests", func() {
 			skipIfOldBackupVersionBefore("1.4.0")
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 			utils.MustPrintln(includeFile, "public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--include-table-file", "/tmp/include-tables.txt")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -61,8 +68,10 @@ var _ = Describe("End to End Filtered tests", func() {
 			skipIfOldBackupVersionBefore("1.17.0")
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/include-schema.txt")
 			utils.MustPrintln(includeFile, "public")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--include-schema-file", "/tmp/include-schema.txt")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -88,10 +97,12 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(backupConn,
 				`insert into public.testparent values (0,0,0,'F',1)`)
 
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir,
 				"--include-table", `public.testparent_1_prt_girls`,
 				"--leaf-partition-data")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir)
@@ -110,7 +121,7 @@ PARTITION BY LIST (gender)
 				`public.testparent`:             1,
 			}
 			assertDataRestored(restoreConn, localSchemaTupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertArtifactsCleaned(timestamp)
 		})
 		It("backs up a child table inheriting from a parent when only the parent is included", func() {
 			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
@@ -121,17 +132,19 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(c int);`)
 			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.unrelated`)
 
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir,
 				"--include-table", `public.parent`,
 				"--metadata-only")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir)
 
 			assertTablesRestored(restoreConn, []string{"public.parent", "public.child"})
 			assertTablesNotRestored(restoreConn, []string{"public.unrelated"})
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertArtifactsCleaned(timestamp)
 		})
 		It("backs up a table inheriting from multiple parents when only one parent is included", func() {
 			skipIfOldBackupVersionBefore("1.29.0") // Inheritance behavior changed in this version
@@ -144,17 +157,19 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public.unrelated(c int);`)
 			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public.unrelated`)
 
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir,
 				"--include-table", `public.parent_a`,
 				"--metadata-only")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir)
 
 			assertTablesRestored(restoreConn, []string{"public.parent_a", "public.parent_b", "public.child"})
 			assertTablesNotRestored(restoreConn, []string{"public.unrelated"})
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertArtifactsCleaned(timestamp)
 		})
 		It("gpbackup with --include-table does not backup protocols and functions", func() {
 			testhelper.AssertQueryRuns(backupConn,
@@ -170,8 +185,9 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(backupConn,
 				`DROP PROTOCOL p1`)
 
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir, "--include-table", "public.t1")
+			timestamp := getBackupTimestamp(string(output))
 
 			metadataFileContents := getMetdataFileContents(backupDir, timestamp, "metadata.sql")
 			Expect(string(metadataFileContents)).To(ContainSubstring("t1"))
@@ -182,8 +198,10 @@ PARTITION BY LIST (gender)
 	})
 	Describe("Restore include filtering", func() {
 		It("runs gpbackup and gprestore with include-schema restore flag", func() {
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
@@ -196,8 +214,10 @@ PARTITION BY LIST (gender)
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/include-schema.txt")
 			utils.MustPrintln(includeFile, "schema2")
 			utils.MustPrintln(includeFile, "public")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
@@ -207,7 +227,9 @@ PARTITION BY LIST (gender)
 			assertDataRestored(restoreConn, schema2TupleCounts)
 		})
 		It("runs gpbackup and gprestore with include-table restore flag", func() {
-			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			output := gpbackup(gpbackupPath, backupHelperPath)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--include-table", "public.foo",
@@ -223,8 +245,10 @@ PARTITION BY LIST (gender)
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/include-tables.txt")
 			utils.MustPrintln(includeFile,
 				"public.sales\npublic.foo\npublic.myseq1\npublic.myview1")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
@@ -238,8 +262,10 @@ PARTITION BY LIST (gender)
 		})
 		It("runs gpbackup and gprestore with include-table restore flag against a leaf partition", func() {
 			skipIfOldBackupVersionBefore("1.7.2")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--leaf-partition-data")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--include-table", "public.sales_1_prt_jan17")
@@ -249,8 +275,10 @@ PARTITION BY LIST (gender)
 				"public.sales": 1, "public.sales_1_prt_jan17": 1})
 		})
 		It("runs gpbackup and gprestore with include-table restore flag which implicitly filters schema restore list", func() {
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
@@ -265,8 +293,10 @@ PARTITION BY LIST (gender)
 				"DROP TABLE public.table_to_include_with_stats")
 			testhelper.AssertQueryRuns(backupConn,
 				"INSERT INTO public.table_to_include_with_stats VALUES (1)")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,
@@ -278,14 +308,16 @@ PARTITION BY LIST (gender)
 				`public."table_to_include_with_stats"`: 1,
 			}
 			assertDataRestored(restoreConn, localSchemaTupleCounts)
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertArtifactsCleaned(timestamp)
 		})
 
 	})
 	Describe("Backup exclude filtering", func() {
 		It("runs gpbackup and gprestore with exclude-schema backup flag", func() {
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--exclude-schema", "public")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -296,8 +328,10 @@ PARTITION BY LIST (gender)
 			skipIfOldBackupVersionBefore("1.17.0")
 			excludeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-schema.txt")
 			utils.MustPrintln(excludeFile, "public")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--exclude-schema-file", "/tmp/exclude-schema.txt")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -308,11 +342,13 @@ PARTITION BY LIST (gender)
 		})
 		It("runs gpbackup and gprestore with exclude-table backup flag", func() {
 			skipIfOldBackupVersionBefore("1.4.0")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--exclude-table", "schema2.foo2",
 				"--exclude-table", "schema2.returns",
 				"--exclude-table", "public.myseq2",
 				"--exclude-table", "public.myview2")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -328,8 +364,10 @@ PARTITION BY LIST (gender)
 			excludeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 			utils.MustPrintln(excludeFile,
 				"schema2.foo2\nschema2.returns\npublic.sales\npublic.myseq2\npublic.myview2")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--exclude-table-file", "/tmp/exclude-tables.txt")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -355,8 +393,10 @@ PARTITION BY LIST (gender)
 			defer testhelper.AssertQueryRuns(backupConn, "DROP TABLE test_depends_on_function;")
 			testhelper.AssertQueryRuns(backupConn, "INSERT INTO  test_depends_on_function values (1);")
 
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--exclude-table", "public.holds")
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb")
 
@@ -366,12 +406,14 @@ PARTITION BY LIST (gender)
 				"public.sales":                    13,
 				"public.to_use_for_function":      1,
 				"public.test_depends_on_function": 1})
-			assertArtifactsCleaned(restoreConn, timestamp)
+			assertArtifactsCleaned(timestamp)
 		})
 	})
 	Describe("Restore exclude filtering", func() {
 		It("runs gpbackup and gprestore with exclude-schema restore flag", func() {
-			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			output := gpbackup(gpbackupPath, backupHelperPath)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--exclude-schema", "public")
@@ -382,8 +424,10 @@ PARTITION BY LIST (gender)
 		It("runs gpbackup and gprestore with exclude-schema-file restore flag", func() {
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-schema.txt")
 			utils.MustPrintln(includeFile, "public")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--backup-dir", backupDir,
 				"--redirect-db", "restoredb",
@@ -399,7 +443,9 @@ PARTITION BY LIST (gender)
 			testhelper.AssertQueryRuns(backupConn, `CREATE TABLE public."user"(i int)`)
 			defer testhelper.AssertQueryRuns(backupConn, `DROP TABLE public."user"`)
 
-			timestamp := gpbackup(gpbackupPath, backupHelperPath)
+			output := gpbackup(gpbackupPath, backupHelperPath)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--exclude-table", "schema2.foo2",
@@ -420,8 +466,10 @@ PARTITION BY LIST (gender)
 			includeFile := iohelper.MustOpenFileForWriting("/tmp/exclude-tables.txt")
 			utils.MustPrintln(includeFile,
 				"schema2.foo2\nschema2.returns\npublic.myseq2\npublic.myview2\npublic.user")
-			timestamp := gpbackup(gpbackupPath, backupHelperPath,
+			output := gpbackup(gpbackupPath, backupHelperPath,
 				"--backup-dir", backupDir)
+			timestamp := getBackupTimestamp(string(output))
+
 			gprestore(gprestorePath, restoreHelperPath, timestamp,
 				"--redirect-db", "restoredb",
 				"--backup-dir", backupDir,

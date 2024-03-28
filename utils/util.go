@@ -175,26 +175,55 @@ func InitializeSignalHandler(cleanupFunc func(bool), procDesc string, termFlag *
 }
 
 // TODO: Uniquely identify COPY commands in the multiple data file case to allow terminating sessions
-func TerminateHangingCopySessions(connectionPool *dbconn.DBConn, fpInfo filepath.FilePathInfo, appName string) {
-	var query string
-	copyFileName := fpInfo.GetSegmentPipePathForCopyCommand()
-	if connectionPool.Version.Before("6") {
-		query = fmt.Sprintf(`SELECT
-		pg_terminate_backend(procpid)
-	FROM pg_stat_activity
-	WHERE application_name = '%s'
-	AND current_query LIKE '%%%s%%'
-	AND procpid <> pg_backend_pid()`, appName, copyFileName)
+func TerminateHangingCopySessions(fpInfo filepath.FilePathInfo, appName string, timeout time.Duration, interval time.Duration) {
+
+
+	var pidCol , queryCol string
+
+	termConn := dbconn.NewDBConnFromEnvironment("postgres")
+	termConn.MustConnect(1)
+	defer termConn.Close()
+
+	if termConn.Version.Before("6") {
+		pidCol = "procpid"
+		queryCol = "current_query"
 	} else {
-		query = fmt.Sprintf(`SELECT
-		pg_terminate_backend(pid)
-	FROM pg_stat_activity
-	WHERE application_name = '%s'
-	AND query LIKE '%%%s%%'
-	AND pid <> pg_backend_pid()`, appName, copyFileName)
+		pidCol = "pid"
+		queryCol = "query"
 	}
-	// We don't check the error as the connection may have finished or been previously terminated
-	_, _ = connectionPool.Exec(query)
+
+	copyFileName := fpInfo.GetSegmentPipePathForCopyCommand()
+	fromClause := fmt.Sprintf(`FROM pg_stat_activity
+	WHERE application_name = '%s'
+	AND %s LIKE '%%%s%%'
+	AND %s <> pg_backend_pid()`, appName, queryCol, copyFileName, pidCol)
+
+	tickerTerminate := time.NewTicker(interval)
+	tickerCount := time.NewTicker(interval / 5)
+
+	termQuery := fmt.Sprintf(`SELECT
+		pg_terminate_backend(%s) %s`, pidCol, fromClause)
+
+	countQuery := fmt.Sprintf(`SELECT
+		count(*) %s`, fromClause)
+	
+	// Terminate any COPY commands that are still running.
+	// Send a termination query every interval until no COPY commands are running, or timeout is reached.
+	// Check for remaining COPY commands every 20% of the interval duration.
+	for {
+		count := dbconn.MustSelectString(termConn, countQuery)
+		select {
+			case <-tickerCount.C:
+				if count == "0" {
+					return
+				}
+			case <-tickerTerminate.C:
+				termConn.MustExec(termQuery)
+			case <-time.After(timeout):
+				gplog.Warn("Timeout of %ds reached while waiting for %s COPY command(s) to complete.", timeout, count)
+				return
+		}
+	}
 }
 
 func ValidateGPDBVersionCompatibility(connectionPool *dbconn.DBConn) {

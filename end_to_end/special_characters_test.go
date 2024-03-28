@@ -18,7 +18,9 @@ var _ = Describe("End to End Special Character tests", func() {
 	})
 
 	It("runs gpbackup and gprestore with redirecting restore to another db containing special capital letters", func() {
-		timestamp := gpbackup(gpbackupPath, backupHelperPath)
+		output := gpbackup(gpbackupPath, backupHelperPath)
+		timestamp := getBackupTimestamp(string(output))
+
 		gprestore(gprestorePath, restoreHelperPath, timestamp,
 			"--create-db",
 			"--redirect-db", "CAPS")
@@ -30,9 +32,11 @@ var _ = Describe("End to End Special Character tests", func() {
 
 	It("runs gpbackup with --include-table flag with CAPS special characters", func() {
 		skipIfOldBackupVersionBefore("1.9.1")
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
+		output := gpbackup(gpbackupPath, backupHelperPath,
 			"--backup-dir", backupDir,
 			"--include-table", "public.FOObar")
+		timestamp := getBackupTimestamp(string(output))
+
 		gprestore(gprestorePath, restoreHelperPath, timestamp,
 			"--redirect-db", "restoredb",
 			"--backup-dir", backupDir)
@@ -42,7 +46,7 @@ var _ = Describe("End to End Special Character tests", func() {
 			`public."FOObar"`: 1,
 		}
 		assertDataRestored(restoreConn, localSchemaTupleCounts)
-		assertArtifactsCleaned(restoreConn, timestamp)
+		assertArtifactsCleaned(timestamp)
 	})
 	It("runs gpbackup with --include-table flag with partitions with special chars", func() {
 		skipIfOldBackupVersionBefore("1.9.1")
@@ -61,10 +65,12 @@ PARTITION BY LIST (gender)
 			`insert into public."CAPparent" values (1,1,1,'M',1)`)
 		testhelper.AssertQueryRuns(backupConn,
 			`insert into public."CAPparent" values (0,0,0,'F',1)`)
-		timestamp := gpbackup(gpbackupPath, backupHelperPath,
+		output := gpbackup(gpbackupPath, backupHelperPath,
 			"--backup-dir", backupDir,
 			"--include-table", `public.CAPparent_1_prt_girls`,
 			"--leaf-partition-data")
+		timestamp := getBackupTimestamp(string(output))
+
 		gprestore(gprestorePath, restoreHelperPath, timestamp,
 			"--redirect-db", "restoredb",
 			"--backup-dir", backupDir)
@@ -83,7 +89,7 @@ PARTITION BY LIST (gender)
 			`public."CAPparent"`:             1,
 		}
 		assertDataRestored(restoreConn, localSchemaTupleCounts)
-		assertArtifactsCleaned(restoreConn, timestamp)
+		assertArtifactsCleaned(timestamp)
 	})
 	It(`gpbackup runs with table name including special chars ~#$%^&*()_-+[]{}><|;:/?!\tC`, func() {
 		allChars := []string{" ", "`", "~", "#", "$", "%", "^", "&", "*", "(", ")", "-", "+", "[", "]", "{", "}", ">", "<", "\\", "|", ";", ":", "/", "?", ",", "!", "C", "\t", "'", "1", "\\n", "\\t", "\""}
